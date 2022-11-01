@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "target": "ESNext",
+    "module": "ESNext",
+    "declarationDir": "./dist",
+    "incremental": true,
+    "tsBuildInfoFile": "./tsconfig.build.tsbuildinfo" // for tsup rollup dts tsBuildInfoFile is required when using incremental
+  },
+  "exclude": ["dist", "**/__tests__/*"]
+}

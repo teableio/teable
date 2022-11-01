@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "target": "esnext",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "noEmit": false,
+    "incremental": true,
+    "paths": {}
+  },
+  "exclude": ["**/node_modules", "dist", "build"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
+    "**.*.cjs",
+    "**/*.mjs",
+    "**/*.json"
+  ]
+}

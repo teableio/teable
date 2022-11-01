@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@emotion/react",
+    "noEmit": true,
+    "sourceMap": false,
+    "incremental": true,
+    "noImplicitAny": false,
+    "declaration": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "isolatedModules": true
+  }
+}

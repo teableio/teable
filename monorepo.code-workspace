@@ -1,0 +1,75 @@
+{
+  "folders": [
+    {
+      "name": "nextjs-app",
+      "path": "apps/nextjs-app"
+    },
+    {
+      "name": "remix-app",
+      "path": "apps/remix-app"
+    },
+    {
+      "name": "vite-app",
+      "path": "apps/vite-app"
+    },
+    {
+      "name": "api-gateway",
+      "path": "packages/api-gateway"
+    },
+    {
+      "name": "common-i18n",
+      "path": "packages/common-i18n"
+    },
+    {
+      "name": "core-lib",
+      "path": "packages/core-lib"
+    },
+    {
+      "name": "db-main-prisma",
+      "path": "packages/db-main-prisma"
+    },
+    {
+      "name": "eslint-config-bases",
+      "path": "packages/eslint-config-bases"
+    },
+    {
+      "name": "ui-lib",
+      "path": "packages/ui-lib"
+    },
+    {
+      "name": "root",
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+    ]
+  },
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    },
+    // Disable vscode formatting for js,jsx,ts,tsx files
+    // to allow dbaeumer.vscode-eslint to format them
+    "[javascript]": {
+      "editor.formatOnSave": false,
+    },
+    "eslint.alwaysShowStatus": true,
+    // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
+    "eslint.workingDirectories": [
+      "./apps/nextjs-app",
+      "./apps/remix-app",
+      "./apps/vite-app",
+      "./packages/api-gateway",
+      "./packages/common-i18n",
+      "./packages/core-lib",
+      "./packages/db-main-prisma",
+      "./packages/eslint-config-bases",
+      "./packages/ui-lib"
+    ]
+  }
+}

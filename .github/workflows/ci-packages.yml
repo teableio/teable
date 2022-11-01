@@ -1,0 +1,89 @@
+name: CI-packages
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'packages/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'packages/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16.x]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Fetch all git history so that yarn workspaces --since can compare with the correct commits
+          # @link https://github.com/actions/checkout#fetch-all-history-for-all-tags-and-branches
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/yarn-nm-install
+
+      - name: Restore packages cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/.cache
+            ${{ github.workspace }}/**/tsconfig.tsbuildinfo
+
+          key: ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('packages/**.[jt]sx?', 'packages/**.json') }}
+          restore-keys: |
+            ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
+
+      # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
+      # That allows to see if we're introducing "surface" regressions (just the types)
+      - name: Typecheck
+        run: |
+          yarn workspaces foreach -tv --from '@teable-group/*' --since=origin/main --recursive run typecheck
+
+      # Lint packages that have changed (--include & --since)
+      - name: Linter
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run lint
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run lint-styles
+
+      # Test packages that have changed (--include & --since)
+      - name: Unit tests changed packages
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run test-unit
+      # to debug cache issues: ls ${{ github.workspace }}/.cache
+      # Build packages that have changed (--include & --since), assuming that
+      # apps build are done already. Otherwise --from & --since
+      - name: Run build for changed packages
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main run build
+
+      # Test storybook build on packages that have changed (--include & --since)
+      - name: Run storybook build for changed packages
+        run: |
+          yarn workspaces foreach -tv --exclude '*-app' --since=origin/main run build-storybook

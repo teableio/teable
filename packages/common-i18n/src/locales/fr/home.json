@@ -1,0 +1,9 @@
+{
+  "page": {
+    "title": "Acceuil | Nextjs-app | nextjs-monorepo-example"
+  },
+  "btn": {
+    "getStarted": "Démarrer",
+    "liveDemo": "Démo"
+  }
+}

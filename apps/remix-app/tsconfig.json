@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "target": "ES2019",
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@emotion/react",
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@/test-utils": ["./config/tests/test-utils"],
+      "@/components/*": ["./src/components/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/routes/*": ["./src/routes/*"],
+      "@teable-group/common-i18n": ["../../../packages/common-i18n/src/index"],
+      "@teable-group/common-i18n/locales/*": [
+        "../../../packages/common-i18n/src/locales/*"
+      ],
+      "@teable-group/ui-lib/*": ["../../packages/ui-lib/src/*"],
+      "@teable-group/ui-lib": ["../../packages/ui-lib/src/index"],
+      "@teable-group/core-lib/*": ["../../packages/core-lib/src/*"],
+      "@teable-group/core-lib": ["../../packages/core-lib/src/index"]
+    }
+    //"types": ["node", "jest", "@testing-library/jest-dom"]
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "public/build",
+    "src/server/api/build"
+  ],
+  "include": [
+    "remix.env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.js",
+    "**/*.cjs",
+    "**/*.mjs",
+    "**/*.jsx",
+    "**/*.json"
+  ]
+}

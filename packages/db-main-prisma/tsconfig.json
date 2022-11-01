@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "target": "ES2020",
+    "lib": ["esnext"],
+    "module": "ES2020",
+    "noEmit": false,
+    "incremental": true,
+    "paths": {
+      "@teable-group/core-lib/*": ["../../../packages/core-lib/src/*"],
+      "@teable-group/core-lib": ["../../../packages/core-lib/src/index"]
+    }
+  },
+  "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
+}

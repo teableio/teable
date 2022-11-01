@@ -1,0 +1,3 @@
+tasks:
+  - init: yarn install
+    command: yarn workspace nextjs-app run dev -p 3000

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  e2e-postgres:
+    container_name: db-main-prisma-e2e-postgresql
+    image: postgres:15-alpine
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+    environment:
+      - POSTGRES_DB=e2edb
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    volumes:
+      - e2e_db_data:/var/lib/postgresql/data:rw
+
+volumes:
+  e2e_db_data:

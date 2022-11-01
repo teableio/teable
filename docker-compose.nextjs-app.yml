@@ -1,0 +1,73 @@
+version: '3.9'
+services:
+  # Start web-app in development
+  # docker-compose -f docker-compose.yml -f docker-compose.web-app.yml up main-db develop
+  develop:
+    container_name: nextjs-app-develop
+    profiles:
+      - donotstart
+    stdin_open: true
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: develop
+    volumes:
+      # Share the source code to allow development
+      - .:/app/
+      # Prevent sharing of node_modules between host and container
+      # to avoid ownership and/or platform issues
+      - build_nextjs-app:/app/apps/nextjs-app/.next
+      - nm_nextjs-app:/app/node_modules
+      - nm_prisma:/app/packages/db-main-prisma/node_modules
+
+  # Convenience production "deps" stage service for debugging
+  # Build > docker buildx bake -f docker-compose.web-app.yml --progress=tty deps
+  deps:
+    container_name: nextjs-app-multistage-deps
+    profiles:
+      - donotstart
+    stdin_open: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+
+  # Convenience production "builder" stage service for debugging
+  # Build > docker buildx bake -f docker-compose.nextjs-app.yml --progress=tty runner
+  builder:
+    container_name: nextjs-app-multistage-builder
+    profiles:
+      - donotstart
+    stdin_open: true
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+
+  # Convenience production "runner" stage service for debugging
+  # Build > docker buildx bake -f docker-compose.nextjs-app.yml --progress=tty runner
+  # Run   > docker-compose -f docker-compose.nextjs-app.yml --env-file ./apps/nextjs-app/.env.local up runner
+  runner:
+    container_name: nextjs-app-multistage-runner
+    profiles:
+      - donotstart
+    stdin_open: true
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    environment:
+      - PRISMA_DATABASE_URL
+
+volumes:
+  build_nextjs-app:
+  nm_nextjs-app:
+  nm_prisma:

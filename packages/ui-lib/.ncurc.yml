@@ -1,0 +1,15 @@
+# Will override root ncurc.yml
+# @link https://github.com/raineorshine/npm-check-updates
+
+reject: []
+# Exclude package dependencies (not peer) if you want to keep a lower
+# range when publishing. For example:
+# '@emotion/react',
+# '@emotion/styled',
+# 'react',
+# react-dom',
+
+# If using storybook vite builder, keep mdx v1 till v2 is supported with react 18
+# - https://github.com/mdx-js/mdx/issues/1945
+# - https://github.com/storybookjs/storybook/issues/18094
+# '@mdx-js/react',

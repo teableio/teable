@@ -1,0 +1,67 @@
+# @link https://docs.codeclimate.com/docs/default-analysis-configuration#sample-codeclimateyml
+
+version: '2'
+
+checks:
+  argument-count:
+    enabled: true
+    config:
+      threshold: 4
+  complex-logic:
+    enabled: true
+    config:
+      threshold: 4
+  file-lines:
+    enabled: true
+    config:
+      threshold: 300
+  method-complexity:
+    enabled: true
+    config:
+      threshold: 5
+  method-count:
+    enabled: true
+    config:
+      threshold: 20
+  method-lines:
+    enabled: true
+    config:
+      threshold: 300
+  nested-control-flow:
+    enabled: true
+    config:
+      threshold: 4
+  return-statements:
+    enabled: true
+    config:
+      threshold: 4
+  similar-code:
+    enabled: false
+    config:
+      threshold: 5
+  identical-code:
+    enabled: false
+    config:
+      threshold: 5
+
+# plugins:
+#   eslint:
+#     enabled: true
+#     channel: "eslint-7"
+
+exclude_patterns:
+  - 'docs/'
+  - '**/node_modules/'
+  - '**/config/'
+  - '**/*.config.js'
+  - '**/dist/'
+  - '**/scripts/'
+  - '**/__tests__/'
+  - '**/*.test.js'
+  - '**/*.test.jsx'
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/*.d.ts'
+  - '**/*.seed.ts'
+  - '**/seed.ts'
+  - '**/.mesh/'

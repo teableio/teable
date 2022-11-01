@@ -1,0 +1,58 @@
+name: 'Playwright install'
+description: 'Installs the playwright with deps'
+inputs:
+  playwright-cache-folder:
+    description: 'Set playwright cache folder'
+    required: false
+    default: '~/.cache/ms-playwright'
+  cache-prefix:
+    description: 'Used to invalidate cache in case of issue'
+    required: false
+    default: 'key1'
+  browsers:
+    description: 'Set browsers to install (ie: "chromium webkit")'
+    required: false
+    default: 'chromium webkit'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Expose playwright config
+      id: playwright-config
+      shell: bash
+      run: |
+        echo "CURRENT_VERSION=$(npm info @playwright/test version)" >> $GITHUB_OUTPUT
+        echo "CACHE_KEY=$(npm info @playwright/test version)" >> $GITHUB_OUTPUT
+
+    - name: Compute cache config
+      id: playwright-cache-config
+      shell: bash
+      run: |
+        echo "CACHE_KEY=${{ runner.os }}-playwright-cache-${{ inputs.cache-prefix }}-${{ steps.playwright-config.outputs.CURRENT_VERSION }}" >> $GITHUB_OUTPUT
+
+    - name: Restore playwright install
+      uses: actions/cache@v3
+      id: playwright-cache
+      with:
+        path: |
+          ${{ inputs.playwright-cache-folder }}
+        key: ${{ steps.playwright-cache-config.outputs.CACHE_KEY }}
+
+    - name: Playwright debug
+      shell: bash
+      run: |
+        echo "OS: ${{ matrix.os }}"
+        echo "Playwright version: ${{ steps.playwright-version.outputs.version }}"
+        echo "Playwright cache folder: ${{ inputs.playwright-cache-folder }}"
+        echo "Browsers: ${{ inputs.browsers }}"
+        echo "Cache key: ${{ steps.playwright-cache-config.outputs.CACHE_KEY }}"
+        echo "Cache hit: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}"
+
+    #- name: Install Playwright OS Deps
+    #  shell: bash
+    #  run: npx playwright install-deps
+
+    - name: Install Playwright Browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install chromium webkit

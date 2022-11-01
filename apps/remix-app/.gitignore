@@ -1,0 +1,14 @@
+node_modules
+
+.cache
+.vercel
+.output
+
+# Specific defaults for remix
+/api/index.js
+/api/index.js.map
+public/build
+/build
+
+# As per https://remix.run/docs/en/v1/guides/styling#tailwind
+src/tailwind.css

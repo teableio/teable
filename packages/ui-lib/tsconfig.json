@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "target": "esnext",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@emotion/react",
+    "noEmit": false,
+    "incremental": true,
+    "paths": {
+      "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"]
+    }
+  },
+  "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
+}

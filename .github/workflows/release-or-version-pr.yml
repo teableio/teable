@@ -1,0 +1,47 @@
+name: ReleaseOrVersionPR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    # Basic security: the release job can only be executed from this repo and from the main branch (not a remote thing)
+    if: ${{ github.repository == 'belgattitude/nextjs-monorepo-example' && contains('refs/heads/main',github.ref)}}
+    name: Release and changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+        with:
+          # To run comparison we need more than the latest commit.
+          # @link https://github.com/actions/checkout#fetch-all-history-for-all-tags-and-branches
+          fetch-depth: 0
+
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/yarn-nm-install
+
+      # @link https://github.com/changesets/action
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # publish: yarn g:release
+          cwd: ${{ github.workspace }}
+          title: '[Release] Version packages'
+          # Optional, might be used in conjunction with GITHUB_TOKEN to
+          # allow running the workflows on a Version package action.
+          # Be aware of security implications.
+          # setupGitUser: true
+        env:
+          # See https://github.com/changesets/action/issues/147
+          HOME: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Uncomment and add secrets to allow publishing
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

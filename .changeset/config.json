@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "belgattitude/nextjs-monorepo-example" }
+  ],
+  "privatePackages": { "version": true, "tag": true },
+  "commit": true,
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}
