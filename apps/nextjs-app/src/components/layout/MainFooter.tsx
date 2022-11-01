@@ -33,7 +33,7 @@ export const MainFooter: FC = () => {
       </div>
       <div className={'content'}>
         <a
-          href={'https://github.com/belgattitude/nextjs-monorepo-example'}
+          href={'https://github.com/teable-group/teable'}
           target={'_blank'}
           rel={'noopener noreferrer'}
         >

@@ -1,17 +1,17 @@
 {
   "name": "@teable-group/common-i18n",
   "version": "1.2.1",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/belgattitude/nextjs-monorepo-example",
+  "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/belgattitude/nextjs-monorepo-example",
+    "url": "https://github.com/teable-group/teable",
     "directory": "packages/common-i18n"
   },
   "author": {
-    "name": "Vanvelthem Sébastien",
-    "url": "https://github.com/belgattitude"
+    "name": "tea artist",
+    "url": "https://github.com/tea-db"
   },
   "sideEffects": false,
   "type": "module",

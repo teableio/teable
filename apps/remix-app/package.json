@@ -1,18 +1,18 @@
 {
   "name": "remix-app",
   "version": "1.10.10",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": true,
   "sideEffects": false,
-  "homepage": "https://github.com/belgattitude/nextjs-monorepo-example",
+  "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/belgattitude/nextjs-monorepo-example",
+    "url": "https://github.com/teable-group/teable",
     "directory": "apps/remix-app"
   },
   "author": {
-    "name": "Vanvelthem Sébastien",
-    "url": "https://github.com/belgattitude"
+    "name": "tea artist",
+    "url": "https://github.com/tea-db"
   },
   "scripts": {
     "build": "npm run build-css && remix build",

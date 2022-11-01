@@ -1,17 +1,17 @@
 {
   "name": "@teable-group/db-main-prisma",
   "version": "2.12.2",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/belgattitude/nextjs-monorepo-example",
+  "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/belgattitude/nextjs-monorepo-example",
+    "url": "https://github.com/teable-group/teable",
     "directory": "packages/db-main-prisma"
   },
   "author": {
-    "name": "Vanvelthem Sébastien",
-    "url": "https://github.com/belgattitude"
+    "name": "tea artist",
+    "url": "https://github.com/tea-db"
   },
   "sideEffects": false,
   "main": "./src/index.ts",

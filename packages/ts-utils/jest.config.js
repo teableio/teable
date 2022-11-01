@@ -25,7 +25,7 @@ const getTsConfigBasePaths = (tsConfigFile) => {
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 const config = {
   displayName: `ts-utils:unit`,
-  cacheDirectory: getJestCachePath('@belgattitude/ts-utils'),
+  cacheDirectory: getJestCachePath('@teable-group/ts-utils'),
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   verbose: true,

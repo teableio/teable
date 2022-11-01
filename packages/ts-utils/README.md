@@ -1,7 +1,7 @@
 # @teable-group/ts-utils
 
 > **Note**
-> This package is part of [belgattitude/nextjs-monorepo-example](https://github.com/belgattitude/nextjs-monorepo-example).
+> This package is part of [teable-group/teable](https://github.com/teable-group/teable).
 
 A package holding some basic typescript utilities: typeguards, assertions...
 

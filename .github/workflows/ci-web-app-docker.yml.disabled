@@ -70,7 +70,7 @@ jobs:
           push: false
           file: ./Dockerfile
           target: runner
-          tags: belgattitude/monorepo-nextjs-app:latest
+          tags: teable-group/monorepo-nextjs-app:latest
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 

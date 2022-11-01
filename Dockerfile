@@ -1,7 +1,7 @@
 #
 # EXAMPLE OF MULTISTAGE BUILD FOR MONOREPOS
 #
-# @link https://github.com/belgattitude/nextjs-monorepo-example
+# @link https://github.com/teable-group/teable
 #
 
 ###################################################################

@@ -1,17 +1,17 @@
 {
   "name": "@teable-group/api-gateway",
   "version": "1.2.2",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/belgattitude/nextjs-monorepo-example",
+  "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/belgattitude/nextjs-monorepo-example",
+    "url": "https://github.com/teable-group/teable",
     "directory": "packages/api-gateway"
   },
   "author": {
-    "name": "Vanvelthem Sébastien",
-    "url": "https://github.com/belgattitude"
+    "name": "teable artist",
+    "url": "https://github.com/tae-db"
   },
   "sideEffects": false,
   "source": "src/index.ts",

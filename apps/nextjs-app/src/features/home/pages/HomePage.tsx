@@ -13,7 +13,7 @@ export const HomePage: FC = () => {
     <>
       <NextSeo
         title={t('home:page.title')}
-        description="See https://github.com/belgattitude/nextjs-monorepo-example"
+        description="See https://github.com/teable-group/teable"
       />
       <MainLayout>
         <Banner />

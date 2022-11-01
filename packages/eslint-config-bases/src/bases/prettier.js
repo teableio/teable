@@ -1,6 +1,6 @@
 /**
  * Custom config base for projects using prettier.
- * @see https://github.com/belgattitude/nextjs-monorepo-example/tree/main/packages/eslint-config-bases
+ * @see https://github.com/teable-group/teable/tree/main/packages/eslint-config-bases
  */
 
 const { getPrettierConfig } = require('../helpers');

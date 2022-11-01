@@ -6,7 +6,7 @@
  * where we are able to add customization depending on the nature of the project (eslint...).
  *
  * {@link https://github.com/okonet/lint-staged#how-to-use-lint-staged-in-a-multi-package-monorepo}
- * {@link https://github.com/belgattitude/nextjs-monorepo-example/blob/main/docs/about-lint-staged.md}
+ * {@link https://github.com/teable-group/teable/blob/main/docs/about-lint-staged.md}
  */
 
 const { concatFilesForPrettier } = require('./lint-staged.common.js');
