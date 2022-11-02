@@ -1,7 +1,7 @@
 <div align="center">
   <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable">Teable</a></h1>
   <p align="center"><strong>The Best Airtable Opensource Alternative</strong></p>
-  <p>You are in charge of your data whatever local or cloud</p>
+  <p>You are in charge of your data both local & cloud</p>
 </div>
 <p align="center">
   <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
