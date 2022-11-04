@@ -16,7 +16,7 @@ export const HeroBlock: FC<Props> = () => {
           <h1 className="title-font mb-4 text-3xl font-medium text-gray-900 sm:text-4xl">
             Before they sold out&nbsp;
             <br className="hidden lg:inline-block" />
-            readymade gluten
+            readymade gluten {t('home:page.title')}
           </h1>
           <p className="mb-8 leading-relaxed">
             Copper mug try-hard pitchfork pour-over freegan heirloom neutra air
