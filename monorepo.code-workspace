@@ -5,6 +5,10 @@
       "path": "apps/nextjs-app"
     },
     {
+      "name": "nest-app",
+      "path": "apps/nest-app"
+    },
+    {
       "name": "remix-app",
       "path": "apps/remix-app"
     },
@@ -62,6 +66,7 @@
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
+      "./apps/nest-app",
       "./apps/remix-app",
       "./apps/vite-app",
       "./packages/api-gateway",
