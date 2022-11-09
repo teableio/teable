@@ -5,10 +5,13 @@
 const isProd = process.env.NODE_ENV === 'production';
 const supportsIE11 = false;
 const enableCssGrid = false;
+const path = require('path');
 
 module.exports = {
   plugins: {
-    tailwindcss: {},
+    tailwindcss: {
+      config: path.join(__dirname, 'tailwind.config.js'),
+    },
     ...(isProd
       ? {
           'postcss-flexbugs-fixes': {},

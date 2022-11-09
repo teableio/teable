@@ -5,6 +5,8 @@ const debugI18n = ['true', 1].includes(
 const path = require('path');
 const localePublicFolder = undefined;
 
+const dir = path.resolve('../../packages/common-i18n/src/locales');
+console.log(dir);
 /**
  * @type {import('next-i18next').UserConfig}
  */
@@ -26,8 +28,5 @@ module.exports = {
     escapeValue: false,
   },
   */
-  localePath:
-    typeof window === 'undefined'
-      ? path.resolve('../../packages/common-i18n/src/locales')
-      : localePublicFolder,
+  localePath: typeof window === 'undefined' ? dir : localePublicFolder,
 };
