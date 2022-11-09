@@ -2522,7 +2522,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron/get@npm:^1.14.1":
+"@electron/get@npm:^1.0.1":
   version: 1.14.1
   resolution: "@electron/get@npm:1.14.1"
   dependencies:
@@ -8005,17 +8005,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^14.14.6":
+"@types/node@npm:^14.14.6, @types/node@npm:^14.6.2":
   version: 14.18.33
   resolution: "@types/node@npm:14.18.33"
   checksum: a8baef540b619dc4b367a9be1a0ea4892617a8f8c25436703364e8e42dae064f46679f0c225cb49826e4cd7172f72257d36a4a154f203a19e8f338ab33934141
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:^16.11.26":
-  version: 16.18.3
-  resolution: "@types/node@npm:16.18.3"
-  checksum: af50539b260f956c2f4bb0207ddc46f6bf929bbf70230ec25252a38d43f9935c82c0a9d1c4e2c2056b6115e2fa283f6996aab699c1fa035937c07584c368ca8c
   languageName: node
   linkType: hard
 
@@ -8328,15 +8321,6 @@ __metadata:
   dependencies:
     "@types/yargs-parser": "npm:*"
   checksum: 790de59e36d1fae23807ad6d08a9b5a4cb4aa036f076b8ab7125bb01dfefee1f0fe9d07208bda77119602a75522d6e2e417281bdc837cefc213374a8dd53fea6
-  languageName: node
-  linkType: hard
-
-"@types/yauzl@npm:^2.9.1":
-  version: 2.10.0
-  resolution: "@types/yauzl@npm:2.10.0"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 1ffd30f5095d901c8f9145398b9a26483b71fac13b49c887a5366063a91acf644bc92c83a5b832c3ec7393020df9af076b621c02cb7526e47ffe07ed50a45bf6
   languageName: node
   linkType: hard
 
@@ -13660,6 +13644,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-log@npm:4.4.8":
+  version: 4.4.8
+  resolution: "electron-log@npm:4.4.8"
+  checksum: 521980be770e6c9b48d4b18e2534f31cade26fdc2bb2f3a0d491014cc5d04c975c402754d373217479bed8a86a5a36fe917bd4736e4115be808b2caea2489c6a
+  languageName: node
+  linkType: hard
+
 "electron-osx-sign@npm:^0.5.0":
   version: 0.5.0
   resolution: "electron-osx-sign@npm:0.5.0"
@@ -13699,15 +13690,15 @@ __metadata:
     "@types/node": "npm:^14.14.6"
     "@types/react": "npm:^16.9.9"
     "@types/react-dom": "npm:^16.9.9"
-    electron: "npm:21.2.2"
+    electron: "npm:^13"
     electron-builder: "npm:^22.9.1"
     electron-is-dev: "npm:^1.1.0"
+    react: "npm:18.2.0"
+    react-dom: "npm:18.2.0"
     rimraf: "npm:^3.0.0"
     typescript: "npm:^4.0.5"
   peerDependencies:
     next: 13.0.0
-    react: 18.2.0
-    react-dom: 18.2.0
   languageName: unknown
   linkType: soft
 
@@ -13718,16 +13709,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:21.2.2":
-  version: 21.2.2
-  resolution: "electron@npm:21.2.2"
+"electron@npm:^13":
+  version: 13.6.9
+  resolution: "electron@npm:13.6.9"
   dependencies:
-    "@electron/get": "npm:^1.14.1"
-    "@types/node": "npm:^16.11.26"
-    extract-zip: "npm:^2.0.1"
+    "@electron/get": "npm:^1.0.1"
+    "@types/node": "npm:^14.6.2"
+    extract-zip: "npm:^1.0.3"
   bin:
     electron: cli.js
-  checksum: 655d4ef19639a85694aad81c8bff52decf8a373c2c518066d5ff8aa134c89203f2bf04be5b28b2b6c556676dc7adaa4f13a31ad6c5387e67becacd79467e130c
+  checksum: c24b359a86a7ca37401cd4af13f254a47f9a5c8e872be09f252dba6d0dcb3cd14577522c616681150d77ba9c4b0f8012fd6bcf3d0d50f1759d08567258e34235
   languageName: node
   linkType: hard
 
@@ -15618,20 +15609,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"extract-zip@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "extract-zip@npm:2.0.1"
+"extract-zip@npm:^1.0.3":
+  version: 1.7.0
+  resolution: "extract-zip@npm:1.7.0"
   dependencies:
-    "@types/yauzl": "npm:^2.9.1"
-    debug: "npm:^4.1.1"
-    get-stream: "npm:^5.1.0"
+    concat-stream: "npm:^1.6.2"
+    debug: "npm:^2.6.9"
+    mkdirp: "npm:^0.5.4"
     yauzl: "npm:^2.10.0"
-  dependenciesMeta:
-    "@types/yauzl":
-      optional: true
   bin:
     extract-zip: cli.js
-  checksum: f8ceb6a7ceb8479e53fb5bad515f03cabe946d753f0f9dbfdd1fd9688d43dcb554082e168003e8ba1ccd2417d2c00209ec48ae05a926e7e69ac0974c929e3e87
+  checksum: 0145b7eb42c0776c5ba962a1a011395e7a44a56b80562234e12e60a8253f7061be1160ceec26d20990d77c40ee5c9b876858841fb88c38c913a815133d2099a1
   languageName: node
   linkType: hard
 
@@ -21970,6 +21958,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mkdirp@npm:^0.5.4":
+  version: 0.5.6
+  resolution: "mkdirp@npm:0.5.6"
+  dependencies:
+    minimist: "npm:^1.2.6"
+  bin:
+    mkdirp: bin/cmd.js
+  checksum: 8d9642f5caa481eaf1ec556a101c6a5b1528fa20067afd92115d053dc17043efc52c9b77ade0c0115bca4ebb74169e84cacc7f6004db3d1bd4171e131d512cc5
+  languageName: node
+  linkType: hard
+
 "morgan@npm:^1.10.0":
   version: 1.10.0
   resolution: "morgan@npm:1.10.0"
@@ -22364,6 +22363,10 @@ __metadata:
     cross-env: "npm:7.0.3"
     dotenv-flow: "npm:3.2.0"
     dotenv-flow-cli: "npm:1.0.0"
+    electron: "npm:^13"
+    electron-builder: "npm:^22.9.1"
+    electron-is-dev: "npm:^1.1.0"
+    electron-log: "npm:4.4.8"
     es-check: "npm:7.0.1"
     eslint: "npm:8.26.0"
     eslint-config-next: "npm:13.0.0"
