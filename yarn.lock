@@ -7884,16 +7884,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/keyv@npm:*":
-  version: 3.1.3
-  resolution: "@types/keyv@npm:3.1.3"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: a21e3e820d62969051fbd679a45bd347ff2e35f74d46a3b6910f8dc5239d3786a6d81bb2a142a4c0a0d2612fee4a15f4eb60eee8a8330e475807e4f4e3f18526
-  languageName: node
-  linkType: hard
-
-"@types/keyv@npm:^3.1.1":
+"@types/keyv@npm:*, @types/keyv@npm:^3.1.1":
   version: 3.1.4
   resolution: "@types/keyv@npm:3.1.4"
   dependencies:
@@ -7991,10 +7982,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^14.0.0":
-  version: 14.18.26
-  resolution: "@types/node@npm:14.18.26"
-  checksum: 7ed44aa4a0a0f6574b5c260b00657c3480ee079953faf76659b8300441a68b1d8b503b6212521491a28121463be772d65c713e1de74fbef6fbf8e560425d587b
+"@types/node@npm:^14.0.0, @types/node@npm:^14.6.2":
+  version: 14.18.33
+  resolution: "@types/node@npm:14.18.33"
+  checksum: a8baef540b619dc4b367a9be1a0ea4892617a8f8c25436703364e8e42dae064f46679f0c225cb49826e4cd7172f72257d36a4a154f203a19e8f338ab33934141
   languageName: node
   linkType: hard
 
@@ -8002,13 +7993,6 @@ __metadata:
   version: 16.11.36
   resolution: "@types/node@npm:16.11.36"
   checksum: aad06d669db1f0ac0c03e21128e20617e9388c4972202e5d2feb960a3dcfafb9eae66599448300cdacc60c075f5e25a393ae66414faa55433e152cf9d42043ae
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:^14.14.6, @types/node@npm:^14.6.2":
-  version: 14.18.33
-  resolution: "@types/node@npm:14.18.33"
-  checksum: a8baef540b619dc4b367a9be1a0ea4892617a8f8c25436703364e8e42dae064f46679f0c225cb49826e4cd7172f72257d36a4a154f203a19e8f338ab33934141
   languageName: node
   linkType: hard
 
@@ -8094,15 +8078,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:^16.9.9":
-  version: 16.9.17
-  resolution: "@types/react-dom@npm:16.9.17"
-  dependencies:
-    "@types/react": "npm:^16"
-  checksum: 20bc0bb06445e913f194a5065ac5aef53a464aba6a3869023f662a063f7b28ef07afcddf82c6fda94836cb508a66193d7ae5fdc438550afa277d4d26e487ac30
-  languageName: node
-  linkType: hard
-
 "@types/react-is@npm:^16.7.1 || ^17.0.0":
   version: 17.0.3
   resolution: "@types/react-is@npm:17.0.3"
@@ -8129,17 +8104,6 @@ __metadata:
     "@types/scheduler": "npm:*"
     csstype: "npm:^3.0.2"
   checksum: 4ef5bc8353a28fe7343bc429b91cf7d72e26fea49868ac5f874b963c928fa29806b853bb1bf25d857043fe46edd88846a76138faa47111727caee4428e8529f0
-  languageName: node
-  linkType: hard
-
-"@types/react@npm:^16, @types/react@npm:^16.9.9":
-  version: 16.14.34
-  resolution: "@types/react@npm:16.14.34"
-  dependencies:
-    "@types/prop-types": "npm:*"
-    "@types/scheduler": "npm:*"
-    csstype: "npm:^3.0.2"
-  checksum: 29a8a7e826274e3076d3d9ffe3f7bfe8282a6fb80e53d3a6c163506c9f405de5cc9274149eb0c52eb0881751b32f9750b73eeae836e5045fbfd941f70ebdd90b
   languageName: node
   linkType: hard
 
@@ -8306,21 +8270,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/yargs@npm:^17.0.1":
+"@types/yargs@npm:^17.0.1, @types/yargs@npm:^17.0.8":
   version: 17.0.13
   resolution: "@types/yargs@npm:17.0.13"
   dependencies:
     "@types/yargs-parser": "npm:*"
   checksum: f3373b614ceda53c8639c635cf4456db29c144e1ae78794d5ccfbfe929811b69eced0bdffe8a3c973544bc2b685f222560ba5e8666e987c7008545d23f2d226a
-  languageName: node
-  linkType: hard
-
-"@types/yargs@npm:^17.0.8":
-  version: 17.0.10
-  resolution: "@types/yargs@npm:17.0.10"
-  dependencies:
-    "@types/yargs-parser": "npm:*"
-  checksum: 790de59e36d1fae23807ad6d08a9b5a4cb4aa036f076b8ab7125bb01dfefee1f0fe9d07208bda77119602a75522d6e2e417281bdc837cefc213374a8dd53fea6
   languageName: node
   linkType: hard
 
@@ -13683,25 +13638,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-quick-start-typescript@workspace:apps/electron-app":
-  version: 0.0.0-use.local
-  resolution: "electron-quick-start-typescript@workspace:apps/electron-app"
-  dependencies:
-    "@types/node": "npm:^14.14.6"
-    "@types/react": "npm:^16.9.9"
-    "@types/react-dom": "npm:^16.9.9"
-    electron: "npm:^13"
-    electron-builder: "npm:^22.9.1"
-    electron-is-dev: "npm:^1.1.0"
-    react: "npm:18.2.0"
-    react-dom: "npm:18.2.0"
-    rimraf: "npm:^3.0.0"
-    typescript: "npm:^4.0.5"
-  peerDependencies:
-    next: 13.0.0
-  languageName: unknown
-  linkType: soft
-
 "electron-to-chromium@npm:^1.4.251":
   version: 1.4.256
   resolution: "electron-to-chromium@npm:1.4.256"
@@ -16791,16 +16727,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globalthis@npm:^1.0.0":
-  version: 1.0.2
-  resolution: "globalthis@npm:1.0.2"
-  dependencies:
-    define-properties: "npm:^1.1.3"
-  checksum: bd5a55eef93e495907d95c55f0eba19c77bb49cd2610e35e0c34c2228dd8b759b31e7af1b124f33765ec95cbcb52ebd0ef0b421d68c6ccb51b229f13282ccf72
-  languageName: node
-  linkType: hard
-
-"globalthis@npm:^1.0.1":
+"globalthis@npm:^1.0.0, globalthis@npm:^1.0.1":
   version: 1.0.3
   resolution: "globalthis@npm:1.0.3"
   dependencies:
@@ -21947,18 +21874,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mkdirp@npm:^0.5.1, mkdirp@npm:^0.5.3, mkdirp@npm:^0.5.5":
-  version: 0.5.5
-  resolution: "mkdirp@npm:0.5.5"
-  dependencies:
-    minimist: "npm:^1.2.5"
-  bin:
-    mkdirp: bin/cmd.js
-  checksum: ba231a2cf67dc273fef81ea2e9e36cc0c9df5d659f432cada144a2ae057a10e1a4d3f67219dc5b16c9100d2521cc0368f2833460003c629e5461c2c487a70db3
-  languageName: node
-  linkType: hard
-
-"mkdirp@npm:^0.5.4":
+"mkdirp@npm:^0.5.1, mkdirp@npm:^0.5.3, mkdirp@npm:^0.5.4, mkdirp@npm:^0.5.5":
   version: 0.5.6
   resolution: "mkdirp@npm:0.5.6"
   dependencies:
@@ -29604,7 +29520,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:4.8.4, typescript@npm:^4.0.5, typescript@npm:^4.1.3, typescript@npm:^4.6.4":
+"typescript@npm:4.8.4, typescript@npm:^4.1.3, typescript@npm:^4.6.4":
   version: 4.8.4
   resolution: "typescript@npm:4.8.4"
   bin:
@@ -29624,7 +29540,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A4.8.4#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^4.0.5#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^4.1.3#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^4.6.4#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A4.8.4#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^4.1.3#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^4.6.4#optional!builtin<compat/typescript>":
   version: 4.8.4
   resolution: "typescript@patch:typescript@npm%3A4.8.4#optional!builtin<compat/typescript>::version=4.8.4&hash=701156"
   bin:
@@ -31349,21 +31265,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yargs-parser@npm:^21.0.0, yargs-parser@npm:^21.0.1":
-  version: 21.0.1
-  resolution: "yargs-parser@npm:21.0.1"
-  checksum: acaedd6c21306da55dfabb5ea5967012a322bb103eab6034cee3ace61cefda1faaac89ea10bdee3bdfed2904f43cf71f346ccecf72e85b5005e6b2b2d17201d5
-  languageName: node
-  linkType: hard
-
-"yargs-parser@npm:^21.1.1":
+"yargs-parser@npm:^21.0.0, yargs-parser@npm:^21.0.1, yargs-parser@npm:^21.1.1":
   version: 21.1.1
   resolution: "yargs-parser@npm:21.1.1"
   checksum: fc4457cf1e4d7d41e5b3a1d62e86b3934af704dd8777979a3c4c573e08eea437801444622cd68607c0266d53b90d84e8e79fd4f5ff170d1be8860064111bbad6
   languageName: node
   linkType: hard
 
-"yargs@npm:17.6.0, yargs@npm:^17.0.0, yargs@npm:^17.1.1, yargs@npm:^17.3.1, yargs@npm:^17.5.1":
+"yargs@npm:17.6.0":
   version: 17.6.0
   resolution: "yargs@npm:17.6.0"
   dependencies:
@@ -31412,7 +31321,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yargs@npm:^17.0.1":
+"yargs@npm:^17.0.0, yargs@npm:^17.0.1, yargs@npm:^17.1.1, yargs@npm:^17.3.1, yargs@npm:^17.5.1":
   version: 17.6.2
   resolution: "yargs@npm:17.6.2"
   dependencies:
