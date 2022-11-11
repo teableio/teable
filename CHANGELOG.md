@@ -7,8 +7,6 @@ done through [atlassian/changesets](https://github.com/atlassian/changesets).
 Apps:
 
 - [nextjs-app/CHANGELOG.md](./apps/nextjs-app/CHANGELOG.md)
-- [remix-app/CHANGELOG.md](./apps/remix-app/CHANGELOG.md)
-- [vite-app/CHANGELOG.md](./apps/vite-app/CHANGELOG.md)
 
 Packages:
 

@@ -11,9 +11,6 @@ and the [linter docs](./about-linters.md).
 ```
 .
 ├── apps
-│   ├── remix-app
-│   │   ├── .eslintrc.js
-│   │   └── lint-staged.config.js   (overwrite global lint-staged.config.js, custom eslint)
 │   └── nextjs-app
 │       ├── .eslintrc.js
 │       └── lint-staged.config.js   (overwrite global lint-staged.config.js, custom eslint)

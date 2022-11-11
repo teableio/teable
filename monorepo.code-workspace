@@ -5,18 +5,6 @@
       "path": "apps/nextjs-app"
     },
     {
-      "name": "electron-app",
-      "path": "apps/electron-app"
-    },
-    {
-      "name": "remix-app",
-      "path": "apps/remix-app"
-    },
-    {
-      "name": "vite-app",
-      "path": "apps/vite-app"
-    },
-    {
       "name": "api-gateway",
       "path": "packages/api-gateway"
     },
@@ -66,9 +54,6 @@
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
-      "./apps/electron-app",
-      "./apps/remix-app",
-      "./apps/vite-app",
       "./packages/api-gateway",
       "./packages/common-i18n",
       "./packages/core-lib",
