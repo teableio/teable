@@ -58,9 +58,7 @@ That gives me some more time to improve it to the next level.
 ```
 .
 ├── apps
-│   ├── nextjs-app  (i18n, ssr, api, vitest)
-│   ├── remix-app   (csr, ssr, api, jest)
-│   └── vite-app
+│   └── nextjs-app  (i18n, ssr, api, vitest)
 └── packages
     ├── api-gateway         (graphql mesh)
     ├── common-i18n         (locales...)
@@ -73,8 +71,6 @@ That gives me some more time to improve it to the next level.
 #### Example apps
 
 - [apps/nextjs-app](./apps/nextjs-app): SSR, i18n, tailwind v3, emotion, graphQL, rest... [README](./apps/nextjs-app/README.md) | [DEMO/Vercel](https://monorepo-nextjs-app.vercel.app) | [CHANGELOG](./apps/nextjs-app/CHANGELOG.md)
-- [apps/remix-app](./apps/remix-app): Remix. [README](./apps/remix-app/README.md) | [~~DEMO/Vercel~~] | [CHANGELOG](./apps/remix-app/CHANGELOG.md)
-- [apps/vite-app](./apps/vite-app): Basic vite-app. [README](./apps/vite-app/README.md) | [DEMO/Vercel](https://monorepo-vite-app.vercel.app) | [CHANGELOG](./apps/vite-app/CHANGELOG.md)
 
 > Apps should not depend on apps, they can depend on packages
 
@@ -103,16 +99,6 @@ If needed static resources like **images**,... can be shared by using symlinks i
 ```
 .
 ├── apps
-│   ├── remix-app                (Remix.run app as an example)
-│   │   ├── app/
-│   │   ├── package.json         (define package workspace:package deps)
-│   │   └── tsconfig.json        (define path to packages)
-│   │
-│   ├── vite-app                 (Vite app as an example)
-│   │   ├── src/
-│   │   ├── package.json         (define package workspace:package deps)
-│   │   └── tsconfig.json        (define path to packages)
-│   │
 │   └── nextjs-app                  (NextJS app with api-routes)
 │       ├── e2e/                 (E2E tests with playwright)
 │       ├── public/
@@ -435,7 +421,6 @@ Configuration lives in the root folder of each apps/packages. As an
 example see
 
 - [./apps/nextjs-app/vitest.config.ts](./apps/nextjs-app/vitest.config.ts).
-- [./apps/remix-app/jest.config.js](./apps/remix-app/jest.config.js).
 
 ### 5.4 CI
 

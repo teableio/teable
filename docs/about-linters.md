@@ -49,8 +49,6 @@ module.exports = {
 ```
 .
 ├── apps
-│   ├── remix-app
-│   │   └── .eslintrc.js  (extends from [@teable-group/eslint-config-bases/react])
 │   └── nextjs-app
 │       └── .eslintrc.js
 └── packages
