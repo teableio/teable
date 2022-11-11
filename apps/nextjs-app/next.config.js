@@ -1,28 +1,22 @@
 // @ts-check
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import url from 'node:url';
-import withBundleAnalyzer from '@next/bundle-analyzer';
-import { withSentryConfig } from '@sentry/nextjs'; // https://docs.sentry.io/platforms/javascript/guides/nextjs/
+const { readFileSync } = require('fs');
+const path = require('path');
+// const url = require('node:url');
 
-import { createSecureHeaders } from 'next-secure-headers';
-import withNextTranspileModules from 'next-transpile-modules';
-import pc from 'picocolors';
-import nextI18nConfig from './next-i18next.config.js';
+const { createSecureHeaders } = require('next-secure-headers');
+const withNextTranspileModules = require('next-transpile-modules');
+const pc = require('picocolors');
+const nextI18nConfig = require('./next-i18next.config.js');
 
-const workspaceRoot = path.resolve(
-  path.dirname(url.fileURLToPath(import.meta.url)),
-  '..',
-  '..'
-);
+const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**
  * Once supported replace by node / eslint / ts and out of experimental, replace by
  * `import packageJson from './package.json' assert { type: 'json' };`
  * @type {import('type-fest').PackageJson}
  */
 const packageJson = JSON.parse(
-  readFileSync(new URL('./package.json', import.meta.url)).toString('utf-8')
+  readFileSync(path.join(__dirname, './package.json')).toString('utf-8')
 );
 
 const trueEnv = ['true', '1', 'yes'];
@@ -292,6 +286,7 @@ const nextConfig = {
 let config = nextConfig;
 
 if (!NEXTJS_DISABLE_SENTRY) {
+  const { withSentryConfig } = require('@sentry/nextjs'); // https://docs.sentry.io/platforms/javascript/guides/nextjs)/
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore because sentry does not match nextjs current definitions
   config = withSentryConfig(config, {
@@ -319,9 +314,10 @@ if (tmModules.length > 0) {
 }
 
 if (process.env.ANALYZE === 'true') {
+  const withBundleAnalyzer = require('@next/bundle-analyzer');
   config = withBundleAnalyzer({
     enabled: true,
   })(config);
 }
 
-export default config;
+module.exports = config;
