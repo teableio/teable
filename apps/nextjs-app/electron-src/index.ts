@@ -8,12 +8,24 @@ import type { IpcMainEvent } from 'electron';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import log from 'electron-log';
+import isPortReachable from 'is-port-reachable';
 import next from 'next';
 
 const nextAppDir = app.getAppPath();
 const nextApp = next({ dev: isDev, dir: nextAppDir });
 const handle = nextApp.getRequestHandler();
 log.info('log ok');
+
+const defaultPort = 3000;
+
+async function getReachablePort(dPort: number): Promise<number> {
+  let port = dPort;
+  while (await isPortReachable(port, { host: 'localhost' })) {
+    console.log(`> Fail on http://localhost:${port} Trying on ${port + 1}`);
+    port++;
+  }
+  return port;
+}
 
 // Prepare the renderer once the app is ready
 app.on('ready', async () => {
@@ -25,12 +37,14 @@ app.on('ready', async () => {
   }
 
   log.info('nextjs start');
+  const port = await getReachablePort(defaultPort);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createServer((req: any, res: any) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
-  }).listen(3000, () => {
-    console.log('> Ready on http://localhost:3000');
+  }).listen(port, () => {
+    console.log(`> Ready on http://localhost:${port}`);
   });
 
   const mainWindow = new BrowserWindow({
@@ -43,7 +57,7 @@ app.on('ready', async () => {
     },
   });
 
-  mainWindow.loadURL('http://localhost:3000/');
+  mainWindow.loadURL(`http://localhost:${port}/`);
 });
 
 // Quit the app once all windows are closed
