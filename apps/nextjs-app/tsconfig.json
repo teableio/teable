@@ -4,6 +4,7 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "target": "esnext",
+    "experimentalDecorators": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "preserve",
