@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./electron-src",
+    "target": "esnext",
+    "experimentalDecorators": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "CommonJS",
+    "jsx": "preserve",
+    "jsxImportSource": "@emotion/react",
+    "incremental": true,
+    "paths": {
+      "@/test-utils": ["../config/tests/test-utils"],
+      "@/config/*": ["./config/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/components/*": ["./components/*"],
+      "@/backend/*": ["./backend/*"],
+      "@/features/*": ["./features/*"],
+      "@/pages/*": ["./pages/*"],
+      "@/public/*": ["../public/*"],
+      "@/themes/*": ["./themes/*"],
+      "@teable-group/common-i18n": ["../../../packages/common-i18n/src/index"],
+      "@teable-group/common-i18n/locales/*": [
+        "../../../packages/common-i18n/src/locales/*"
+      ],
+      "@teable-group/ui-lib/*": ["../../../packages/ui-lib/src/*"],
+      "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
+      "@teable-group/core-lib/*": ["../../../packages/core-lib/src/*"],
+      "@teable-group/core-lib": ["../../../packages/core-lib/src/index"],
+      "@teable-group/api-gateway": ["../../../packages/api-gateway/src/index"],
+      "@teable-group/db-main-prisma": [
+        "../../../packages/db-main-prisma/src/index"
+      ],
+      "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"]
+    },
+    "allowJs": true,
+    "alwaysStrict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "noEmit": false,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "./main"
+  },
+  "exclude": ["**/node_modules", "**/.*/"],
+  "include": ["electron-src/**/*.ts"]
+}
