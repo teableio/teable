@@ -12,17 +12,17 @@ try {
 const pages = manifest.pages;
 
 const limitCfg = {
-  defaultSize: '85kb',
+  defaultSize: '120kb',
   pages: {
     '/': '120kb',
-    '/404': '80kb',
+    '/404': '120kb',
     '/_app': '200kb',
-    '/_error': '90kb',
-    '/_monitor/sentry/csr-page': '85kb',
-    '/_monitor/sentry/ssr-page': '85kb',
-    '/admin': '100kb',
-    '/auth/login': '120kb',
-    '/home': '105kb',
+    '/_error': '120kb',
+    '/_monitor/sentry/csr-page': '120kb',
+    '/_monitor/sentry/ssr-page': '120kb',
+    '/admin': '120kb',
+    '/auth/login': '200kb',
+    '/home': '120kb',
   },
 };
 const getPageLimits = () => {
@@ -39,9 +39,9 @@ const getPageLimits = () => {
 
 module.exports = [
   ...getPageLimits(),
-  {
-    name: 'CSS',
-    path: ['.next/static/css/**/*.css'],
-    limit: '10 kB',
-  },
+  // {
+  //   name: 'CSS',
+  //   path: ['.next/static/css/**/*.css'],
+  //   limit: '10 kB',
+  // },
 ];
