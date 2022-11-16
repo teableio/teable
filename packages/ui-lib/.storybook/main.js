@@ -23,7 +23,7 @@ module.exports = {
     previewMdx2: false,
   },
   babel: (config) => {
-    config.presets.push(require.resolve('@emotion/babel-preset-css-prop'));
+    // config.presets.push(require.resolve('@emotion/babel-preset-css-prop'));
     return config;
   },
   webpackFinal: async (config) => {

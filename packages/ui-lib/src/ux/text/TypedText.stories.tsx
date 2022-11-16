@@ -1,4 +1,3 @@
-import { css } from '@emotion/react';
 import type { ComponentStory, ComponentMeta } from '@storybook/react';
 import React from 'react';
 import { TypedText } from './TypedText';
@@ -35,18 +34,7 @@ export const BasicExample: ComponentStory<typeof TypedText> = (args) => {
               'container overflow-hidden w-full rounded shadow-lg m-8 p-16'
             }
           >
-            <TypedText
-              css={css`
-                border: 1px solid grey;
-                padding: 15px 10px;
-                border-radius: 91% 9% 90% 10% / 29% 82% 18% 71%;
-                background-color: blueviolet;
-                color: white;
-              `}
-              {...args}
-            >
-              Hello world
-            </TypedText>
+            Hello world
           </div>
         </div>
       </span>

@@ -60,7 +60,6 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@emotion/babel-plugin": "11.10.5",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
@@ -118,16 +117,10 @@
   "dependencies": {
     "@babel/core": "7.19.6",
     "@belgattitude/http-exception": "1.4.0",
-    "@emotion/cache": "11.10.5",
-    "@emotion/react": "11.10.5",
-    "@emotion/server": "11.10.0",
-    "@emotion/styled": "11.10.5",
     "@fontsource/inter": "4.5.14",
     "@graphql-yoga/node": "2.13.13",
     "@headlessui/react": "1.7.3",
     "@hookform/resolvers": "2.9.10",
-    "@mui/icons-material": "5.10.9",
-    "@mui/material": "5.10.11",
     "@sentry/nextjs": "7.17.2",
     "@sentry/react": "7.17.2",
     "@soluble/cache-interop": "0.11.1",
