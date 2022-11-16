@@ -19396,13 +19396,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next-transpile-modules@npm:9.1.0":
-  version: 9.1.0
-  resolution: "next-transpile-modules@npm:9.1.0"
+"next-transpile-modules@npm:10.0.0":
+  version: 10.0.0
+  resolution: "next-transpile-modules@npm:10.0.0"
   dependencies:
     enhanced-resolve: "npm:^5.10.0"
-    escalade: "npm:^3.1.1"
-  checksum: c4ab032a2e2ac58b36d35f35a35418e9c9e565906d76012933d61300cc46c5f04d91f744a4b80bf3977926749051b60ff1863df4c7c53084c86a8e378e60c7fb
+  checksum: 14a7c8cc588514ac1b4d10da70f62c1605439dc84d87170aaa42072155a07c133a82759d55f0238724c3ee1fd38e745a60f45a52fa2e32e72d09e2ef4fdc24a2
   languageName: node
   linkType: hard
 
@@ -19551,7 +19550,7 @@ __metadata:
     next-i18next: "npm:12.1.0"
     next-secure-headers: "npm:2.2.0"
     next-seo: "npm:5.11.1"
-    next-transpile-modules: "npm:9.1.0"
+    next-transpile-modules: "npm:10.0.0"
     npm-run-all: "npm:4.1.5"
     picocolors: "npm:1.0.0"
     postcss: "npm:8.4.18"

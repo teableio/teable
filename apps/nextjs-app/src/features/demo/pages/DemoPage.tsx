@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { FC } from 'react';
 import { Banner } from '@/components/Banner';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { DemoMuiBlock, Jumbotron, PoetryBlock } from '../blocks';
+import { Jumbotron, PoetryBlock } from '../blocks';
 import { demoConfig } from '../demo.config';
 
 export const DemoPage: FC = () => {
@@ -41,8 +41,6 @@ export const DemoPage: FC = () => {
           width={400}
           height={240}
         />
-        <div className={'pt-8'} />
-        <DemoMuiBlock />
         <div className={'pt-8'} />
         <PoetryBlock />
       </MainLayout>
