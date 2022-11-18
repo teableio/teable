@@ -1,0 +1,61 @@
+{
+  "id": "teabag1",
+  "title": "music",
+  "meta": {
+    "teableList": ["songs", "artists", "albums"],
+    "schema": {
+      "songs": {
+        "title": "歌曲",
+        "description": "存储歌曲的表格",
+        "field": {
+          "id": {
+            "type": "string",
+            "title": "ID",
+            "ttype": "text"
+          },
+          "title": {
+            "title": "歌名",
+            "type": "string",
+            "ttype": "text"
+          },
+          "style": {
+            "title": "风格",
+            "type": "array",
+            "ttype": "multi-select",
+            "items": {
+              "type": "string",
+              "enum": ["pop", "rock", "jazz"],
+              "enumNames": ["流行", "摇滚", "爵士"]
+            }
+          }
+        },
+        "view": {
+          "list": ["grid", "gallery"],
+          "viewMap": {
+            "grid": {
+              "title": "网格",
+              "field": ["id", "title", "style"]
+            },
+            "gallery": {
+              "title": "画廊",
+              "field": ["id", "title", "style"]
+            }
+          }
+        }
+      },
+      "artist": {
+        "title": "歌手",
+        "type": "objects"
+      }
+    }
+  },
+  "store": {
+    "songs": {
+      "record1": {
+        "id": "record1",
+        "title": "不知名的歌曲",
+        "style": ["pop", "rock"]
+      }
+    }
+  }
+}
