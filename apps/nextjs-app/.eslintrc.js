@@ -45,6 +45,12 @@ module.exports = {
       },
     },
     {
+      files: ['server-src/*.{ts}'],
+      rules: {
+        '@typescript-eslint/consistent-type-imports': 'off',
+      },
+    },
+    {
       files: ['src/backend/**/*graphql*schema*.ts'],
       rules: {
         '@typescript-eslint/naming-convention': [
