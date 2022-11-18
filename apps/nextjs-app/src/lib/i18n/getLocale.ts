@@ -27,7 +27,7 @@ function getAcceptPreferredLocale(
 }
 
 function getLocaleFromCookie(req: NextRequest, locales: string[]) {
-  const nextLocale = req.cookies.get('NEXT_LOCALE');
+  const nextLocale = req.cookies.get('NEXT_LOCALE')?.value;
   return nextLocale
     ? locales.find(
         (locale: string) => nextLocale.toLowerCase() === locale.toLowerCase()
