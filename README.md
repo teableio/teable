@@ -65,12 +65,12 @@ That gives me some more time to improve it to the next level.
     ├── core-lib
     ├── db-main-prisma
     ├── eslint-config-bases (to shared eslint configs)
-    └── ui-lib              (emotion, storybook)
+    └── ui-lib              (storybook)
 ```
 
 #### Example apps
 
-- [apps/nextjs-app](./apps/nextjs-app): SSR, i18n, tailwind v3, emotion, graphQL, rest... [README](./apps/nextjs-app/README.md) | [DEMO/Vercel](https://monorepo-nextjs-app.vercel.app) | [CHANGELOG](./apps/nextjs-app/CHANGELOG.md)
+- [apps/nextjs-app](./apps/nextjs-app): SSR, i18n, tailwind v3, graphQL, rest... [README](./apps/nextjs-app/README.md) | [DEMO/Vercel](https://monorepo-nextjs-app.vercel.app) | [CHANGELOG](./apps/nextjs-app/CHANGELOG.md)
 
 > Apps should not depend on apps, they can depend on packages
 

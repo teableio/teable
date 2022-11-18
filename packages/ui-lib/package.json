@@ -36,8 +36,6 @@
     "@teable-group/ts-utils": "workspace:^"
   },
   "peerDependencies": {
-    "@emotion/react": "^11.9.0",
-    "@emotion/styled": "^11.8.1",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "react": "^18.0.0",
@@ -53,9 +51,6 @@
   },
   "devDependencies": {
     "@babel/core": "7.19.6",
-    "@emotion/babel-preset-css-prop": "11.10.0",
-    "@emotion/react": "11.10.5",
-    "@emotion/styled": "11.10.5",
     "@mdx-js/react": "2.1.5",
     "@storybook/addon-actions": "6.5.13",
     "@storybook/addon-docs": "6.5.13",
