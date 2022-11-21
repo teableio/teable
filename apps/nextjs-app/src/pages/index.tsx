@@ -1,5 +1,5 @@
 import { HttpBadRequest } from '@belgattitude/http-exception';
-import type { GetStaticProps, InferGetStaticPropsType } from 'next';
+import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { demoConfig } from '@/features/demo/demo.config';
 import { DemoPage } from '@/features/demo/pages';
@@ -9,13 +9,15 @@ type Props = {
 };
 
 export default function DemoRoute(
-  _props: InferGetStaticPropsType<typeof getStaticProps>
+  _props: InferGetServerSidePropsType<typeof getServerSideProps>
 ) {
   return <DemoPage />;
 }
 
-export const getStaticProps: GetStaticProps<Props> = async (context) => {
-  const { locale } = context;
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context
+) => {
+  const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');
   }

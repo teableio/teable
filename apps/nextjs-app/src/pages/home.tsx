@@ -17,7 +17,7 @@ export default function HomeRoute(
 export const getServerSideProps: GetServerSideProps<Props> = async (
   context
 ) => {
-  const { locale } = context;
+  const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');
   }

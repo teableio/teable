@@ -8,7 +8,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "preserve",
-    "jsxImportSource": "@emotion/react",
+    // "jsxImportSource": "@emotion/react",
     "incremental": true,
     "paths": {
       "@/test-utils": ["../config/tests/test-utils"],
@@ -33,7 +33,12 @@
         "../../../packages/db-main-prisma/src/index"
       ],
       "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"]
-    }
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "exclude": ["**/node_modules", "**/.*/"],
   "include": [
@@ -45,6 +50,7 @@
     "**/*.cjs",
     "**/*.mjs",
     "**/*.jsx",
-    "**/*.json"
+    "**/*.json",
+    ".next/types/**/*.ts"
   ]
 }

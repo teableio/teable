@@ -7,7 +7,7 @@ import { bootstrap } from '../server-src';
 
 const defaultServerPort = 3000;
 
-async function getReachablePort(dPort: number): Promise<number> {
+async function getAvailablePort(dPort: number): Promise<number> {
   let port = dPort;
   while (await isPortReachable(port, { host: 'localhost' })) {
     console.log(`> Fail on http://localhost:${port} Trying on ${port + 1}`);
@@ -31,11 +31,16 @@ export async function startServer({
   isDev: boolean;
 }) {
   try {
-    const nextApp = next({ dev: isDev, dir: nextAppDir });
-    const handle = nextApp.getRequestHandler();
     log?.info('app ready');
     const serverApp = express();
-    const serverPort = await getReachablePort(defaultServerPort);
+    const serverPort = await getAvailablePort(defaultServerPort);
+    const nextApp = next({
+      dev: isDev,
+      dir: nextAppDir,
+      hostname: 'localhost',
+      port: serverPort,
+    });
+    const handle = nextApp.getRequestHandler();
     await nextApp.prepare();
     await bootstrap(serverApp);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
