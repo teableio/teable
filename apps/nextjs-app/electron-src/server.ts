@@ -3,7 +3,7 @@ import { parse } from 'url';
 import express from 'express';
 import isPortReachable from 'is-port-reachable';
 import next from 'next';
-import { bootstrap } from '../server-src';
+import { bootstrap } from '../src/backend';
 
 const defaultServerPort = 3000;
 
