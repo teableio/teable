@@ -48,7 +48,7 @@ export async function startServer({
       const parsedUrl = parse(req.url, true);
       const { pathname } = parsedUrl;
       console.log({ pathname });
-      if (pathname?.startsWith('/api')) {
+      if (pathname?.startsWith('/api') && !pathname?.startsWith('/api/auth')) {
         serverApp(req, res);
       } else {
         handle(req, res, parsedUrl);

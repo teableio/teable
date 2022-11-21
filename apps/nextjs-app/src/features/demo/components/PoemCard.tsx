@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import type { SearchPoems } from '@/backend/features/poem/SearchPoems';
+import type { SearchPoems } from '@/_backend/features/poem/SearchPoems';
 
 type Poem = SearchPoems[0];
 
