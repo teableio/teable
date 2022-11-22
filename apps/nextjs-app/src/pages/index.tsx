@@ -2,8 +2,7 @@ import { HttpBadRequest } from '@belgattitude/http-exception';
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { demoConfig } from '@/features/demo/demo.config';
-import { DemoPage } from '@/features/demo/pages';
-
+import { SideMenu } from '@/features/main/components/SideMenu';
 type Props = {
   /** Add HomeRoute props here */
 };
@@ -11,7 +10,7 @@ type Props = {
 export default function DemoRoute(
   _props: InferGetServerSidePropsType<typeof getServerSideProps>
 ) {
-  return <DemoPage />;
+  return <SideMenu />;
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (

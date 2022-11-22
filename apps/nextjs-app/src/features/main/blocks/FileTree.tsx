@@ -1,6 +1,6 @@
 'use client';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavItem } from './NavItem';
 
 interface IFileTreeProps {
@@ -10,22 +10,47 @@ interface IFileTreeProps {
   children: IFileTreeProps[];
 }
 
-export const FileTree = (props: { tree: IFileTreeProps }) => {
+const getFileTree = async (path: string) => {
+  const fileTreeResp = await fetch(
+    `http://localhost:3000/api/fileTree/${path}`
+  );
+  return await fileTreeResp.json();
+};
+
+export const FileTree = (props: {
+  rootPath?: string;
+  tree?: IFileTreeProps;
+}) => {
   const [open, setOpen] = React.useState(false);
-  const { name, type, children } = props.tree;
-  console.log(props.tree);
+  const [fileTree, setFileTree] = React.useState<IFileTreeProps | undefined>(
+    props.tree
+  );
+  const { rootPath } = props;
+  useEffect(() => {
+    rootPath && getFileTree(rootPath).then((fileTree) => setFileTree(fileTree));
+  }, [rootPath]);
+  console.log(fileTree);
   return (
-    <Collapsible.Root className="CollapsibleRoo" open={open}>
-      <NavItem label={name} icon={type} open={open} setOpen={setOpen} />
-      <Collapsible.Content className="pl-3">
-        <Collapsible.Trigger asChild>
-          <div>
-            {children?.map((item) => (
-              <FileTree key={item.name} tree={item} />
-            ))}
-          </div>
-        </Collapsible.Trigger>
-      </Collapsible.Content>
-    </Collapsible.Root>
+    <>
+      {fileTree && (
+        <Collapsible.Root className="CollapsibleRoo" open={open}>
+          <NavItem
+            label={fileTree.name}
+            icon={fileTree.type}
+            open={open}
+            setOpen={setOpen}
+          />
+          <Collapsible.Content className="pl-3">
+            <Collapsible.Trigger asChild>
+              <div>
+                {fileTree.children?.map((item) => (
+                  <FileTree key={item.name} tree={item} />
+                ))}
+              </div>
+            </Collapsible.Trigger>
+          </Collapsible.Content>
+        </Collapsible.Root>
+      )}
+    </>
   );
 };
