@@ -53,7 +53,7 @@ export const NavItem = (props: INavItemProps) => {
       onClick={handleActive}
       ref={ref}
       className={clx(
-        'flex items-center w-full pl-10 pr-12 py-2 hover:bg-gray-50 cursor-pointer select-none',
+        'flex items-center w-full px-2 py-2 hover:bg-gray-50 cursor-pointer select-none',
         { 'bg-gray-100': isActived }
       )}
     >
@@ -70,7 +70,7 @@ export const NavItem = (props: INavItemProps) => {
       }
       <div className="pl-2">{fileIconMap[props.icon]}</div>
       <div
-        className={clx('pl-2', {
+        className={clx('pl-2', 'truncate', {
           'font-bold': isActived,
         })}
       >

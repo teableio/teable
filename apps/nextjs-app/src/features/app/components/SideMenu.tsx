@@ -7,7 +7,7 @@ export const SideMenu = () => {
   const [currentPath, setCurrentPath] = useState('');
 
   return (
-    <div>
+    <>
       <input
         type="text"
         className="w-full"
@@ -17,8 +17,7 @@ export const SideMenu = () => {
           setCurrentPath(e.target.value);
         }}
       />
-      <div className="prose-h6:">fav</div>
       <FileTree rootPath={currentPath} />
-    </div>
+    </>
   );
 };

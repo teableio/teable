@@ -29,7 +29,6 @@ export const FileTree = (props: {
   useEffect(() => {
     rootPath && getFileTree(rootPath).then((fileTree) => setFileTree(fileTree));
   }, [rootPath]);
-  console.log(fileTree);
   return (
     <>
       {fileTree && (
