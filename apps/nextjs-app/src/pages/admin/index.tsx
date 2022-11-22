@@ -1,5 +1,5 @@
 import { HttpBadRequest } from '@belgattitude/http-exception';
-import type { GetStaticProps, InferGetStaticPropsType } from 'next';
+import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { ReactElement } from 'react';
 import { adminConfig } from '@/features/admin/admin.config';
@@ -14,8 +14,10 @@ AdminRoute.getLayout = function getLayout(page: ReactElement) {
   return <AdminLayout>{page}</AdminLayout>;
 };
 
-export const getStaticProps: GetStaticProps<Props> = async (context) => {
-  const { locale } = context;
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context
+) => {
+  const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');
   }
@@ -24,12 +26,11 @@ export const getStaticProps: GetStaticProps<Props> = async (context) => {
     props: {
       ...(await serverSideTranslations(locale, i18nNamespaces)),
     },
-    // revalidate: 60,
   };
 };
 
 export default function AdminRoute(
-  _props: InferGetStaticPropsType<typeof getStaticProps>
+  _props: InferGetServerSidePropsType<typeof getServerSideProps>
 ) {
   return <AdminMainPage />;
 }

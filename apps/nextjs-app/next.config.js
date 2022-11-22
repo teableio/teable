@@ -7,7 +7,6 @@ const path = require('path');
 const { createSecureHeaders } = require('next-secure-headers');
 const withNextTranspileModules = require('next-transpile-modules');
 const pc = require('picocolors');
-const nextI18nConfig = require('./next-i18next.config.js');
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**
@@ -139,7 +138,6 @@ const secureHeaders = createSecureHeaders({
 const nextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: !disableSourceMaps,
-  i18n: nextI18nConfig.i18n,
   optimizeFonts: true,
 
   httpAgentOptions: {
@@ -201,7 +199,7 @@ const nextConfig = {
     externalDir: true,
 
     // Experimental /app dir
-    appDir: true,
+    // appDir: true,
   },
 
   typescript: {

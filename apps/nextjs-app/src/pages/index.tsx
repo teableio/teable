@@ -1,17 +1,17 @@
 import { HttpBadRequest } from '@belgattitude/http-exception';
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { homeConfig } from '@/features/home/home.config';
-import { HomePage } from '@/features/home/pages';
+import { demoConfig } from '@/features/demo/demo.config';
+import { DemoPage } from '@/features/demo/pages';
 
 type Props = {
   /** Add HomeRoute props here */
 };
 
-export default function HomeRoute(
+export default function DemoRoute(
   _props: InferGetServerSidePropsType<typeof getServerSideProps>
 ) {
-  return <HomePage />;
+  return <DemoPage />;
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (
@@ -21,7 +21,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');
   }
-  const { i18nNamespaces } = homeConfig;
+  const { i18nNamespaces } = demoConfig;
   return {
     props: {
       ...(await serverSideTranslations(locale, i18nNamespaces)),

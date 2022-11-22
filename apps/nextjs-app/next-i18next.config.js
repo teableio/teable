@@ -11,7 +11,7 @@ const localePublicFolder = undefined;
 module.exports = {
   i18n: {
     defaultLocale,
-    locales: ['en', 'fr'],
+    locales: ['en', 'zh', 'fr'],
   },
   saveMissing: false,
   strictMode: true,

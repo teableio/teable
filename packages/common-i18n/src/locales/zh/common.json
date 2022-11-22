@@ -1,0 +1,10 @@
+{
+  "actions": {
+    "save": "保存",
+    "update": "更新",
+    "delete": "删除",
+    "cancel": "取消",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
+  }
+}
