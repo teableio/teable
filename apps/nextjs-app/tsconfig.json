@@ -20,6 +20,7 @@
       "@/pages/*": ["./pages/*"],
       "@/public/*": ["../public/*"],
       "@/themes/*": ["./themes/*"],
+      "@/styles/*": ["./styles/*"],
       "@teable-group/common-i18n": ["../../../packages/common-i18n/src/index"],
       "@teable-group/common-i18n/locales/*": [
         "../../../packages/common-i18n/src/locales/*"

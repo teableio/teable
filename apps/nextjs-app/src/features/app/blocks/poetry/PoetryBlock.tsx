@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { FC } from 'react';
 import { fetchPoemsWithKy } from '../../api/fetch-poems-ky.api';
-import { PoemGrid } from '../../components/PoemGrid';
+import { PoemGrid } from '../../components';
 
 const PoemGridWithReactQueryAndKy: FC = () => {
   const { data, isLoading, error } = useQuery(
