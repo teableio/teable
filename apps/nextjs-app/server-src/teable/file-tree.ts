@@ -6,6 +6,19 @@ export class FileTree {
   constructor(public rootPath: string) {
     this.rootPath = rootPath;
   }
+
+  public getFileContext(path: string) {
+    if (!path.endsWith('.md')) {
+      // for now we only support read markdown file content
+      throw new Error('file format error');
+    }
+    const fileContext = fs.readFileSync(path).toString();
+    return {
+      content: fileContext,
+      path,
+    };
+  }
+
   getFiles(): FileNode {
     return this.getFilesRecursive(this.rootPath);
   }

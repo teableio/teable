@@ -6,6 +6,7 @@ import { NavItem } from './NavItem';
 interface IFileTreeProps {
   name: string;
   type: 'directory' | 'teable' | 'table' | 'file';
+  path: string;
   isDirectory: boolean;
   children: IFileTreeProps[];
 }
@@ -25,6 +26,7 @@ export const FileTree = (props: {
   const [fileTree, setFileTree] = React.useState<IFileTreeProps | undefined>(
     props.tree
   );
+
   const { rootPath } = props;
   useEffect(() => {
     rootPath && getFileTree(rootPath).then((fileTree) => setFileTree(fileTree));
@@ -36,6 +38,7 @@ export const FileTree = (props: {
           <NavItem
             label={fileTree.name}
             icon={fileTree.type}
+            path={fileTree.path}
             open={open}
             setOpen={setOpen}
           />

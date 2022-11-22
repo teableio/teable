@@ -58,6 +58,7 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
+    "@faker-js/faker": "7.6.0",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
@@ -118,6 +119,7 @@
     "@babel/core": "7.19.6",
     "@belgattitude/http-exception": "1.4.0",
     "@fontsource/inter": "4.5.14",
+    "@glideapps/glide-data-grid": "5.2.0",
     "@graphql-yoga/node": "2.13.13",
     "@headlessui/react": "1.7.3",
     "@hookform/resolvers": "2.9.10",
@@ -153,6 +155,8 @@
     "is-port-reachable": "3.1.0",
     "jose": "4.10.3",
     "ky": "0.31.4",
+    "lodash": "4.17.21",
+    "marked": "4.2.3",
     "micro": "9.4.1",
     "next": "13.0.2",
     "next-auth": "4.16.4",
@@ -166,14 +170,22 @@
     "react-dom": "18.2.0",
     "react-hook-form": "7.38.0",
     "react-i18next": "11.18.6",
+    "react-responsive-carousel": "3.2.23",
     "reflect-metadata": "0.1.13",
+    "remark-gfm": "3.0.1",
+    "remark-slate-transformer": "0.7.3",
     "rooks": "7.4.1",
     "rxjs": "7.5.7",
     "sharp": "0.31.1",
+    "slate": "0.86.0",
+    "slate-history": "0.86.0",
+    "slate-react": "0.86.0",
     "sqlite3": "5.1.2",
     "superjson": "1.11.0",
     "type-fest": "3.1.0",
-    "zod": "3.19.1"
+    "unified": "10.1.2",
+    "zod": "3.19.1",
+    "zustand": "4.1.4"
   },
   "build": {
     "electronVersion": "13.6.9",

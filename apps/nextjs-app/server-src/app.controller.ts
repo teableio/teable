@@ -16,8 +16,25 @@ export class AppController {
     const parsedUrl = parse(req.url, true);
     const { pathname } = parsedUrl;
     const filePath = pathname?.split('/api/fileTree/')[1];
-    console.log(filePath, pathname);
     const fileTree = new FileTree(filePath!);
     return JSON.stringify(fileTree.getFiles());
+  }
+
+  @Get('/fileContent/*')
+  getFileContent(@Req() req: Request) {
+    const parsedUrl = parse(req.url, true);
+    const { pathname } = parsedUrl;
+    const filePath = pathname?.split('/api/fileContent/')[1];
+    if (!filePath) {
+      return {
+        success: false,
+        errors: ['no path'],
+      };
+    }
+    const fileTree = new FileTree(filePath);
+    return {
+      success: true,
+      data: fileTree.getFileContext(filePath),
+    };
   }
 }
