@@ -1,9 +1,4 @@
-import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import type { Express } from 'express';
-import { AppModule } from './app.module';
+import { bootstrap } from './bootstrap';
+import { DEFAULT_PORT } from './const';
 
-export async function bootstrap(server: Express) {
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
-  await app.init();
-}
+bootstrap(DEFAULT_PORT);

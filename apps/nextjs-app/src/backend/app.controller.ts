@@ -1,23 +1,24 @@
 // fixme: disable eslint for nest src
-import { parse } from 'url';
-import { Controller, Get, Req } from '@nestjs/common';
-import type { Request } from 'express';
-import { FileTree } from './teable/file-tree';
+import { Controller, Get, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { AppService } from './app.service';
 
-@Controller('/api')
+@Controller('/')
 export class AppController {
+  constructor(private appService: AppService) {}
+
+  @Get('*')
+  public async home(@Req() req: Request, @Res() res: Response) {
+    await this.appService.handler(req, res);
+  }
+
+  @Get('_next*')
+  public async assets(@Req() req: Request, @Res() res: Response) {
+    await this.appService.handler(req, res);
+  }
+
   @Get('spaces')
   getSpaces() {
     return JSON.stringify({ hello: 'world' });
-  }
-
-  @Get('/fileTree/*')
-  getFileTree(@Req() req: Request) {
-    const parsedUrl = parse(req.url, true);
-    const { pathname } = parsedUrl;
-    const filePath = pathname?.split('/api/fileTree/')[1];
-    console.log(filePath, pathname);
-    const fileTree = new FileTree(filePath!);
-    return JSON.stringify(fileTree.getFiles());
   }
 }
