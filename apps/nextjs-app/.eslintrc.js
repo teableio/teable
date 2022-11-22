@@ -1,6 +1,6 @@
 /**
  * Specific eslint rules for this app/package, extends the base rules
- * @see https://github.com/teable-group/nextjs-monorepo-example/blob/main/docs/about-linters.md
+ * @see https://github.com/teable-group/teable/blob/main/docs/about-linters.md
  */
 
 // Workaround for https://github.com/eslint/eslint/issues/3458 (re-export of @rushstack/eslint-patch)
@@ -42,12 +42,6 @@ module.exports = {
       files: ['src/pages/\\_*.{ts,tsx}'],
       rules: {
         'react/display-name': 'off',
-      },
-    },
-    {
-      files: ['server-src/*.{ts}'],
-      rules: {
-        '@typescript-eslint/consistent-type-imports': 'off',
       },
     },
     {

@@ -16,6 +16,7 @@
       "@/lib/*": ["./lib/*"],
       "@/components/*": ["./components/*"],
       "@/backend/*": ["./backend/*"],
+      "@/_backend/*": ["./_backend/*"],
       "@/features/*": ["./features/*"],
       "@/pages/*": ["./pages/*"],
       "@/public/*": ["../public/*"],
@@ -49,6 +50,6 @@
     "strict": true,
     "outDir": "./main"
   },
-  "exclude": ["**/node_modules", "**/.*/"],
+  "exclude": ["**/node_modules", "**/.*/", "**/src/backend"],
   "include": ["electron-src/**/*.ts"]
 }

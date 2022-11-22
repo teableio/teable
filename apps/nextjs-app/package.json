@@ -32,7 +32,7 @@
     "build": "next build",
     "build-fast": "cross-env NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_DISABLE_SENTRY=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 next build",
     "vercel-build": "yarn share-static-hardlink && next build",
-    "start": "tsc -p ./tsconfig.electron.json && node ./main/electron-src/dev.js",
+    "start": "ts-node ./src/backend",
     "prebuild:electron": "tsc -p ./tsconfig.electron.json",
     "start:electron": "yarn prebuild:electron & electron .",
     "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
@@ -58,6 +58,7 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
+    "@nestjs/testing": "9.2.0",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
@@ -122,6 +123,7 @@
     "@headlessui/react": "1.7.3",
     "@hookform/resolvers": "2.9.10",
     "@nestjs/common": "9.2.0",
+    "@nestjs/config": "2.2.0",
     "@nestjs/core": "9.2.0",
     "@nestjs/platform-express": "9.2.0",
     "@sentry/nextjs": "7.17.2",
@@ -150,7 +152,6 @@
     "ky": "0.31.4",
     "micro": "9.4.1",
     "next": "13.0.2",
-    "next-auth": "4.16.4",
     "next-connect": "0.13.0",
     "next-i18next": "12.1.0",
     "next-secure-headers": "2.2.0",

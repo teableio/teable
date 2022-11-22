@@ -1738,7 +1738,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.4, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.5, @babel/runtime@npm:^7.16.3, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.17.8, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.3.1, @babel/runtime@npm:^7.5.0, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.9.2":
+"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.4, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.5, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.17.8, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.3.1, @babel/runtime@npm:^7.5.0, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.9.2":
   version: 7.19.0
   resolution: "@babel/runtime@npm:7.19.0"
   dependencies:
@@ -4186,6 +4186,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nestjs/config@npm:2.2.0":
+  version: 2.2.0
+  resolution: "@nestjs/config@npm:2.2.0"
+  dependencies:
+    dotenv: "npm:16.0.1"
+    dotenv-expand: "npm:8.0.3"
+    lodash: "npm:4.17.21"
+    uuid: "npm:8.3.2"
+  peerDependencies:
+    "@nestjs/common": ^7.0.0 || ^8.0.0 || ^9.0.0
+    reflect-metadata: ^0.1.13
+    rxjs: ^6.0.0 || ^7.2.0
+  checksum: 52a9a3fbef011c51dfc362043198660373dfc61bdaa2650c93fa082ba7e443073c22683e83a8053975f2b9f683d5db22f962f032dffe09f5f4ac78069312cf1d
+  languageName: node
+  linkType: hard
+
 "@nestjs/core@npm:9.2.0":
   version: 9.2.0
   resolution: "@nestjs/core@npm:9.2.0"
@@ -4228,6 +4244,25 @@ __metadata:
     "@nestjs/common": ^9.0.0
     "@nestjs/core": ^9.0.0
   checksum: e7d5b7be3c285f2df3796e6cee62b65e1e3d74e968a23f245dd8aa7f1b9ac2f54c3e6fb5fff6fcf92715bcb9212f7da9bc5380ed85c01ad1fcd39b2d2f3e05be
+  languageName: node
+  linkType: hard
+
+"@nestjs/testing@npm:9.2.0":
+  version: 9.2.0
+  resolution: "@nestjs/testing@npm:9.2.0"
+  dependencies:
+    tslib: "npm:2.4.1"
+  peerDependencies:
+    "@nestjs/common": ^9.0.0
+    "@nestjs/core": ^9.0.0
+    "@nestjs/microservices": ^9.0.0
+    "@nestjs/platform-express": ^9.0.0
+  peerDependenciesMeta:
+    "@nestjs/microservices":
+      optional: true
+    "@nestjs/platform-express":
+      optional: true
+  checksum: 67251e57ebd034109c09446c31484357d158cb357cdb5282fd497078d2a00a12bc3e8ec512e000fdf7736def738500aed121a56159d31f569e0f061b5238bab9
   languageName: node
   linkType: hard
 
@@ -4465,13 +4500,6 @@ __metadata:
   peerDependencies:
     graphql: "*"
   checksum: 083815904fb6b7a66c6549ffa72af2d3c378da3394dbbf76e770eb321fb6667e4c9eb23edc6672fd01f625085015d0f15c2d58430334390cd3e3c40bf7235b8f
-  languageName: node
-  linkType: hard
-
-"@panva/hkdf@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "@panva/hkdf@npm:1.0.1"
-  checksum: b1a3e2e7398f89cfa55edb98b152009240e6c9ce6609c34b3fa8bd524159ed5aee9e2859037797ae20ab2ac4f296526a999044f579ec43fe95d9db4bf277b5d7
   languageName: node
   linkType: hard
 
@@ -11323,7 +11351,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cookie@npm:0.5.0, cookie@npm:^0.5.0":
+"cookie@npm:0.5.0":
   version: 0.5.0
   resolution: "cookie@npm:0.5.0"
   checksum: 23bd6dd64f025869373c6f3c72a870b9bd0e0e6a0ffe734229c032d7aca51972ba584b39100c09141b18043e790862425aae4a60d7449fca565b21cdae0cb3c3
@@ -12536,6 +12564,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dotenv-expand@npm:8.0.3":
+  version: 8.0.3
+  resolution: "dotenv-expand@npm:8.0.3"
+  checksum: 8861e588d50a81f155ae67dde4b22caba01eb7b87c20d6eecb5d9d7de0682fddfbc4357de5345e2e1efd94909d978d6af33125f39dec6de609a5dc472f8dbb68
+  languageName: node
+  linkType: hard
+
 "dotenv-expand@npm:^5.1.0":
   version: 5.1.0
   resolution: "dotenv-expand@npm:5.1.0"
@@ -12562,6 +12597,13 @@ __metadata:
   dependencies:
     dotenv: "npm:^8.0.0"
   checksum: 9c48611a583d9a8699fa29ae12c592a686624e8dc9ff2a80a84ee74390795eb3e4edf4d391012ced71d5f58915760bc10c42a7ac1b73074c5e909c07e762ae72
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:16.0.1":
+  version: 16.0.1
+  resolution: "dotenv@npm:16.0.1"
+  checksum: beb53488e342583049efbd1afb4488e97fbcecf2052607e512a3871239a3976fc437a01a8ed9e6fcef6adc316796895c89f95fe0a7faa08c77ba8c22794ea1fc
   languageName: node
   linkType: hard
 
@@ -17660,7 +17702,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jose@npm:4.10.3, jose@npm:^4.1.4, jose@npm:^4.9.3":
+"jose@npm:4.10.3":
   version: 4.10.3
   resolution: "jose@npm:4.10.3"
   checksum: b5beba3c740f8bc1aba43863bd64bf21a3214c1f81f31ecddf16be4be18b947e39dd6f9563d73a2f5dca16e05d1af04801d76dc31fc08a33aee4cfd52338d619
@@ -18471,7 +18513,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.10, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:~4.17.0":
+"lodash@npm:4.17.21, lodash@npm:^4.17.10, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:~4.17.0":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: 3ac18e92108d68f88429fcddee609e42cf2b653583d9bac22308815a4cd6b185b89a0ad0d9b0c670c371d9d6b61571a98fee6b36e1db14e52766ca253ed9cba0
@@ -19569,31 +19611,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next-auth@npm:4.16.4":
-  version: 4.16.4
-  resolution: "next-auth@npm:4.16.4"
-  dependencies:
-    "@babel/runtime": "npm:^7.16.3"
-    "@panva/hkdf": "npm:^1.0.1"
-    cookie: "npm:^0.5.0"
-    jose: "npm:^4.9.3"
-    oauth: "npm:^0.9.15"
-    openid-client: "npm:^5.1.0"
-    preact: "npm:^10.6.3"
-    preact-render-to-string: "npm:^5.1.19"
-    uuid: "npm:^8.3.2"
-  peerDependencies:
-    next: ^12.2.5 || ^13
-    nodemailer: ^6.6.5
-    react: ^17.0.2 || ^18
-    react-dom: ^17.0.2 || ^18
-  peerDependenciesMeta:
-    nodemailer:
-      optional: true
-  checksum: a94da4ca0ab07fbc5c690fe751250f2a884bffabf91e25feb2a36194c6ee74d3b1c9dc530036a4d5866a15ab8ab76b93cb35d365c501fb481255ae52b01d88d0
-  languageName: node
-  linkType: hard
-
 "next-connect@npm:0.13.0":
   version: 0.13.0
   resolution: "next-connect@npm:0.13.0"
@@ -19728,8 +19745,10 @@ __metadata:
     "@headlessui/react": "npm:1.7.3"
     "@hookform/resolvers": "npm:2.9.10"
     "@nestjs/common": "npm:9.2.0"
+    "@nestjs/config": "npm:2.2.0"
     "@nestjs/core": "npm:9.2.0"
     "@nestjs/platform-express": "npm:9.2.0"
+    "@nestjs/testing": "npm:9.2.0"
     "@next/bundle-analyzer": "npm:13.0.0"
     "@next/env": "npm:13.0.0"
     "@playwright/test": "npm:1.27.1"
@@ -19793,7 +19812,6 @@ __metadata:
     ky: "npm:0.31.4"
     micro: "npm:9.4.1"
     next: "npm:13.0.2"
-    next-auth: "npm:4.16.4"
     next-connect: "npm:0.13.0"
     next-i18next: "npm:12.1.0"
     next-secure-headers: "npm:2.2.0"
@@ -20204,13 +20222,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oauth@npm:^0.9.15":
-  version: 0.9.15
-  resolution: "oauth@npm:0.9.15"
-  checksum: f87faa40ee5e3b1e48c847c7ed4c445c8fd3bd19af7846a086fa213d83f40c808ae9576e15862567a3168b33855c4eca019b836f0bb89786ad72134c6719f467
-  languageName: node
-  linkType: hard
-
 "object-assign@npm:^4, object-assign@npm:^4.0.1, object-assign@npm:^4.1.0, object-assign@npm:^4.1.1":
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
@@ -20233,13 +20244,6 @@ __metadata:
   version: 3.0.0
   resolution: "object-hash@npm:3.0.0"
   checksum: d3b3d22a926fcab2215a5edf343bc1f9544582048327e8ccc945edf15a0bdb7db76932fd7e60231db395a17abd3a54d102a09dc6d5d45f77733e0c4f7db04830
-  languageName: node
-  linkType: hard
-
-"object-hash@npm:^2.0.1":
-  version: 2.2.0
-  resolution: "object-hash@npm:2.2.0"
-  checksum: 40373e057e54ed3385e3097f36dd40922940932dc0c06a3f5540b82dff473333db28135162065863d075962cbc88068c4221b3b8459702fcddcecaaadb22b6ba
   languageName: node
   linkType: hard
 
@@ -20355,13 +20359,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"oidc-token-hash@npm:^5.0.1":
-  version: 5.0.1
-  resolution: "oidc-token-hash@npm:5.0.1"
-  checksum: 2e88b814ac039af315fa502dfc1fd590dc23a4f4b144fabfa5de66e5577c57a171fa8f69a93d2da8fb58f6fd8028a3930ba0218b612a2bc6a15d8467c0dd2fe8
-  languageName: node
-  linkType: hard
-
 "on-finished@npm:2.4.1":
   version: 2.4.1
   resolution: "on-finished@npm:2.4.1"
@@ -20448,18 +20445,6 @@ __metadata:
   bin:
     opener: bin/opener-bin.js
   checksum: 53100d0bede0845b1bc6001a069d8e87610e334a80fce23d4aa3d6f5a5dafe50f3d34ef155ba99ffec4b2ffd7a94396cca90c837d4dc262090567a034e317cd6
-  languageName: node
-  linkType: hard
-
-"openid-client@npm:^5.1.0":
-  version: 5.1.1
-  resolution: "openid-client@npm:5.1.1"
-  dependencies:
-    jose: "npm:^4.1.4"
-    lru-cache: "npm:^6.0.0"
-    object-hash: "npm:^2.0.1"
-    oidc-token-hash: "npm:^5.0.1"
-  checksum: dea42a411fcbb42ef657478bb245d5639ad3a075e626c04dc67639416e6cb7dc325360ba371a7e20b12462e5dcf73be60b21d8e65344fa09c419efc5706f083e
   languageName: node
   linkType: hard
 
@@ -22112,24 +22097,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"preact-render-to-string@npm:^5.1.19":
-  version: 5.1.19
-  resolution: "preact-render-to-string@npm:5.1.19"
-  dependencies:
-    pretty-format: "npm:^3.8.0"
-  peerDependencies:
-    preact: ">=10"
-  checksum: d7ff21450989d05512dc90dfab08cd38abd52dde0b3adcdd34d43b8da4ab9bf45f1b23af8c8cfd9d0b27636d13476436aafaa0b8bf821c58722fe123484e29d7
-  languageName: node
-  linkType: hard
-
-"preact@npm:^10.6.3":
-  version: 10.6.4
-  resolution: "preact@npm:10.6.4"
-  checksum: f38553726c673f950bafb906493d6ccd1ce147213196ff963b84e27e5e477fd8a0aa48aa947358aaee6e3e9f1008e8bd21534a0eb432c4632308fcf46b10ed93
-  languageName: node
-  linkType: hard
-
 "prebuild-install@npm:^7.1.1":
   version: 7.1.1
   resolution: "prebuild-install@npm:7.1.1"
@@ -22267,13 +22234,6 @@ __metadata:
     ansi-styles: "npm:^5.0.0"
     react-is: "npm:^18.0.0"
   checksum: 10ed9c96bab2c4b8ac1e1329e504550e6410d7b0a9edfd78541587ee792ee69d8b6b65b397753607b302a13b5c522fcde187cba906b04d75275e8366b82b8104
-  languageName: node
-  linkType: hard
-
-"pretty-format@npm:^3.8.0":
-  version: 3.8.0
-  resolution: "pretty-format@npm:3.8.0"
-  checksum: 9b296c22bf6a0c345118d694a35073cb4a4a236a6096adecbbffefc237f703fc80357bd2603f7b51245656966cc44ce403873ce2f41632c24bd143e27f12f6f4
   languageName: node
   linkType: hard
 
@@ -26891,6 +26851,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"uuid@npm:8.3.2":
+  version: 8.3.2
+  resolution: "uuid@npm:8.3.2"
+  bin:
+    uuid: dist/bin/uuid
+  checksum: 236a12282c6fa32f326aa1b6d5699a843572e9ab7de84a1507a6b7c315fdcf55bf6ed333fd37d35c5c656f4cb96af998844e1c8cae281c442a1ec3b66df62962
+  languageName: node
+  linkType: hard
+
 "uuid@npm:9.0.0, uuid@npm:^9.0.0":
   version: 9.0.0
   resolution: "uuid@npm:9.0.0"
@@ -26906,15 +26875,6 @@ __metadata:
   bin:
     uuid: ./bin/uuid
   checksum: c84dbfcb94389fea5a09020802df2a1227d183ceabaa5256658194dfad045c83fe72366b64b165b6445a480fac8a75d0e982033f3cb393713674b3cd938063fa
-  languageName: node
-  linkType: hard
-
-"uuid@npm:^8.3.2":
-  version: 8.3.2
-  resolution: "uuid@npm:8.3.2"
-  bin:
-    uuid: dist/bin/uuid
-  checksum: 236a12282c6fa32f326aa1b6d5699a843572e9ab7de84a1507a6b7c315fdcf55bf6ed333fd37d35c5c656f4cb96af998844e1c8cae281c442a1ec3b66df62962
   languageName: node
   linkType: hard
 
