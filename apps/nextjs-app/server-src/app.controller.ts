@@ -20,6 +20,14 @@ export class AppController {
     return JSON.stringify(fileTree.getFiles());
   }
 
+  @Get('/teable/schema/:tableId')
+  getTableMeta() {
+    return {
+      success: true,
+      data: {},
+    };
+  }
+
   @Get('/fileContent/*')
   getFileContent(@Req() req: Request) {
     const parsedUrl = parse(req.url, true);
@@ -34,7 +42,7 @@ export class AppController {
     const fileTree = new FileTree(filePath);
     return {
       success: true,
-      data: fileTree.getFileContext(filePath),
+      data: fileTree.getFileContent(filePath),
     };
   }
 }

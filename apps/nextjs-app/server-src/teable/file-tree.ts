@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs from 'fs';
 import type { FileNode } from './interface';
 import { TeableFile } from './teable-file';
 
@@ -7,10 +7,9 @@ export class FileTree {
     this.rootPath = rootPath;
   }
 
-  public getFileContext(path: string) {
-    if (!path.endsWith('.md')) {
-      // for now we only support read markdown file content
-      throw new Error('file format error');
+  public getFileContent(path: string) {
+    if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
+      throw Error('not a file');
     }
     const fileContext = fs.readFileSync(path).toString();
     return {

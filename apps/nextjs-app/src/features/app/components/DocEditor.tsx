@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import clsx from 'classnames';
-import { divide } from 'lodash';
 import {
   createElement,
   useCallback,
@@ -147,7 +146,6 @@ const MarkdownShortcutsExample = ({ path }: IEditorProps) => {
   const value: any = rawContent
     ? processor.processSync(rawContent).result
     : initialValue;
-  console.log(value);
   editor.children = value; // <--- This line does the trick
   return (
     <article className="w-[48rem] m-auto prose">

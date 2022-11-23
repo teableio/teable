@@ -18,6 +18,15 @@ export const DataGrid = dynamic<any>(
   { ssr: false }
 );
 
+const AppSwitch: FC<{ path?: string }> = ({ path }) => {
+  if (path?.includes('.teable#')) {
+    return <DataGrid path={path} />;
+  }
+  if (path?.endsWith('.md')) {
+    return <Doc path={path} />;
+  }
+  return <div>open .md or .teable file</div>;
+};
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);
   const currentFile = useAppStore((state) => state.currentFile);
@@ -29,15 +38,11 @@ export const AppPage: FC = () => {
       />
       <AppLayout>
         <div className="h-full flex items-start fixed w-full">
-          <div className="max-w-xs w-full h-full bg-gray-50">
+          <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
             <SideMenu />
           </div>
           <div className="grow-1 h-screen w-full m-4 overflow-y-auto">
-            {currentFile?.name.endsWith('.md') ? (
-              <Doc path={currentFile.path} />
-            ) : (
-              <DataGrid />
-            )}
+            <AppSwitch path={currentFile?.path} />
           </div>
         </div>
       </AppLayout>

@@ -1,12 +1,10 @@
-import fs from 'node:fs';
+import fs from 'fs';
 import type { FileNode } from './interface';
 
 //  TODO: need complete teable file structure
 interface ITeableFile {
   title: string;
-  meta: {
-    teableList: string[];
-  };
+  teableList: string[];
 }
 
 export class TeableFile {
@@ -14,7 +12,7 @@ export class TeableFile {
 
   public getTeableFileTree(path: string) {
     const content = this.getFileContent2JSON(path);
-    return this.getFileTree(content);
+    return this.getFileTree(content, path);
   }
   private getFileContent2JSON(path: string) {
     if (!path.endsWith(TeableFile.format)) {
@@ -28,11 +26,14 @@ export class TeableFile {
     }
   }
 
-  private getFileTree(teableFileContext: ITeableFile): FileNode[] {
-    return teableFileContext.meta.teableList.map((teableName) => {
+  private getFileTree(
+    teableFileContent: ITeableFile,
+    parentPath: string
+  ): FileNode[] {
+    return teableFileContent.teableList.map((teableName) => {
       return {
         name: teableName,
-        path: teableName,
+        path: parentPath + '#' + teableName,
         children: [],
         type: 'table',
         isDirectory: false,
