@@ -3,7 +3,7 @@
   "version": "3.55.0",
   "license": "AGPL-3.0",
   "private": true,
-  "main": "main/electron-src",
+  "main": "main/electron-src/index.js",
   "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",
@@ -28,18 +28,18 @@
     ]
   },
   "scripts": {
-    "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main",
+    "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main ./dist",
     "build": "next build && tsc --project ./src/backend/tsconfig.json",
     "build-fast": "cross-env NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_DISABLE_SENTRY=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 next build",
     "vercel-build": "yarn share-static-hardlink && next build",
     "dev": "ts-node ./src/backend",
     "start": "NODE_ENV=production node ./main/backend",
     "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
-    "start:electron": "electron .",
+    "dev:electron": "electron .",
     "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
     "pack-app": "yarn build:electron && electron-builder --dir",
     "dist": "yarn build:electron && electron-builder",
-    "dist:debug": "lldb ./dist/mac/electron-quick-start-typescript.app",
+    "dist:debug": "lldb ./dist/mac-arm64/nextjs-app.app",
     "dist:unpack": "npx asar extract ./dist/mac-arm64/nextjs-app.app/Contents/Resources/app.asar ./dist/unpack",
     "bundle-analyze": "cross-env ANALYZE=true NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 yarn build",
     "?share-static-symlink": "echo 'Use this command to link assets... from shared static folder'",
@@ -152,7 +152,7 @@
     "jose": "4.10.3",
     "ky": "0.31.4",
     "micro": "9.4.1",
-    "next": "13.0.4",
+    "next": "13.0.2",
     "next-connect": "0.13.0",
     "next-i18next": "12.1.0",
     "next-secure-headers": "2.2.0",
@@ -174,9 +174,10 @@
   },
   "build": {
     "electronVersion": "20.3.6",
-    "asar": true,
+    "asar": false,
     "files": [
-      "**/*"
+      "**/*",
+      "!.env.development"
     ]
   }
 }

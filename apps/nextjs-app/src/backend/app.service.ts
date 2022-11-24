@@ -1,22 +1,25 @@
-import type { OnModuleInit } from '@nestjs/common';
+import { Inject, OnModuleInit } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import createServer from 'next';
 import type { NextServer } from 'next/dist/server/next';
-import { DEFAULT_PORT } from './const';
+import { IAppConfig } from './app.interface';
 
 @Injectable()
 export class AppService implements OnModuleInit {
   private server!: NextServer;
-  constructor(private configService: ConfigService) {}
+  constructor(@Inject('APP_CONFIG') private config: IAppConfig, private configService: ConfigService) {}
 
   async onModuleInit() {
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
     try {
       this.server = createServer({
-        dev: this.configService.get<string>('NODE_ENV') !== 'production',
-        port: DEFAULT_PORT,
+        dev: nodeEnv !== 'production',
+        port: this.config.port,
+        dir: this.config.dir,
         hostname: 'localhost',
+        customServer: true,
       });
       await this.server.prepare();
     } catch (error) {

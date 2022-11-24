@@ -4,9 +4,12 @@ import { AppModule } from './app.module';
 
 const host = 'localhost';
 
-export async function bootstrap(port: number) {
+export async function bootstrap(port: number, dir?: string) {
   try {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule.forRoot({
+      port,
+      dir: dir,
+    }));
     console.log(`> Ready on http://${host}:${port}`);
     await app.listen(port);
   } catch (err) {

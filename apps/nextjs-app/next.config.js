@@ -64,8 +64,8 @@ if (disableSourceMaps) {
 // Tell webpack to compile those packages
 // @link https://www.npmjs.com/package/next-transpile-modules
 const tmModules = [
-  // for legacy browsers support (only in prod)
-  ...(isProd
+  // for legacy browsers support (only in prod and none electron)
+  ...(isProd && !process.versions['electron']
     ? [
         'ky', // dist folder contains '??', not es2017 compliant
       ]
@@ -160,7 +160,7 @@ const nextConfig = {
 
   // Standalone build
   // @link https://nextjs.org/docs/advanced-features/output-file-tracing#automatically-copying-traced-files-experimental
-  output: 'standalone',
+  // output: 'standalone',
 
   sentry: {
     hideSourceMaps: true,

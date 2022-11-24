@@ -8,14 +8,15 @@ import { bootstrap, getAvailablePort } from '../src/backend/bootstrap';
 
 const defaultServerPort = 3000;
 
-log.info('log is fine');
-// const nextAppDir = app.getAppPath();
+log.info('app starting...');
+const nextAppDir = app.getAppPath();
+log.info('app path: ', nextAppDir);
 
 // Prepare the renderer once the app is ready
 app.on('ready', async () => {
   try {
     const port = await getAvailablePort(defaultServerPort);
-    await bootstrap(port);
+    await bootstrap(port, nextAppDir);
 
     const mainWindow = new BrowserWindow({
       width: 800,
