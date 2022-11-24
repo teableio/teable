@@ -6,8 +6,6 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import log from 'electron-log';
 import { bootstrap, getAvailablePort } from '../src/backend/bootstrap';
 
-const defaultServerPort = 3000;
-
 log.info('app starting...');
 const nextAppDir = app.getAppPath();
 log.info('app path: ', nextAppDir);
@@ -15,7 +13,7 @@ log.info('app path: ', nextAppDir);
 // Prepare the renderer once the app is ready
 app.on('ready', async () => {
   try {
-    const port = await getAvailablePort(defaultServerPort);
+    const port = await getAvailablePort(process.env.PORT || 3000);
     await bootstrap(port, nextAppDir);
 
     const mainWindow = new BrowserWindow({

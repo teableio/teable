@@ -32,7 +32,7 @@
     "build": "next build && tsc --project ./src/backend/tsconfig.json",
     "build-fast": "cross-env NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_DISABLE_SENTRY=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 next build",
     "vercel-build": "yarn share-static-hardlink && next build",
-    "dev": "ts-node ./src/backend",
+    "dev": "nest start --watch",
     "start": "NODE_ENV=production node ./main/backend",
     "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
     "dev:electron": "electron .",

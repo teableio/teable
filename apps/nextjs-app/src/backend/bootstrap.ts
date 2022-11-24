@@ -11,6 +11,7 @@ export async function bootstrap(port: number, dir?: string) {
       dir: dir,
     }));
     console.log(`> Ready on http://${host}:${port}`);
+    console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);
   } catch (err) {
     console.error(`Failed to initialize, due to ${err}`);
@@ -18,8 +19,8 @@ export async function bootstrap(port: number, dir?: string) {
   }
 }
 
-export async function getAvailablePort(dPort: number): Promise<number> {
-  let port = dPort;
+export async function getAvailablePort(dPort: number | string): Promise<number> {
+  let port = Number(dPort);
   while (await isPortReachable(port, { host })) {
     console.log(`> Fail on http://${host}:${port} Trying on ${port + 1}`);
     port++;

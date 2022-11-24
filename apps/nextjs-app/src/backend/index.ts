@@ -1,4 +1,6 @@
-import { bootstrap } from './bootstrap';
-import { DEFAULT_PORT } from './const';
+import { bootstrap, getAvailablePort } from './bootstrap';
 
-bootstrap(DEFAULT_PORT);
+(async () => {
+  const port = await getAvailablePort(process.env.PORT || 3000);
+  await bootstrap(port);
+})()
