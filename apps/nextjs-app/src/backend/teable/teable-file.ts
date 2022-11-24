@@ -34,7 +34,7 @@ export class TeableFile {
         name: teableName,
         path: teableName,
         children: [],
-        type: 'file',
+        type: 'table',
         isDirectory: false,
       };
     });
