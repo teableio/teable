@@ -6,31 +6,28 @@ export class FileTree {
   constructor(public rootPath: string) {
     this.rootPath = rootPath;
   }
-  getFiles(): FileNode[] {
+  getFiles(): FileNode {
     return this.getFilesRecursive(this.rootPath);
   }
-  getFilesRecursive(path: string): FileNode[] {
+  getFilesRecursive(path: string): FileNode {
     const files: FileNode[] = [];
+    const name = path.split('/').reverse()[0];
     const dir = fs.readdirSync(path, { withFileTypes: true });
     for (const dirent of dir) {
       const fullPath = path + '/' + dirent.name;
+      if (dirent.name.startsWith('.')) {
+        continue;
+      }
       if (dirent.isDirectory()) {
         const children = this.getFilesRecursive(path + '/' + dirent.name);
-        files.push({
-          name: dirent.name,
-          path: fullPath,
-          children,
-          type: 'directory',
-          isDirectory: true,
-        });
+        files.push(children);
       } else if (dirent.name.endsWith('.teable')) {
         const teableFileHandler = new TeableFile();
-
         files.push({
           name: dirent.name,
           path: fullPath,
           children: teableFileHandler.getTeableFileTree(fullPath),
-          type: 'file',
+          type: 'teable',
           isDirectory: false,
         });
       } else {
@@ -42,6 +39,12 @@ export class FileTree {
         });
       }
     }
-    return files;
+    return {
+      name,
+      path,
+      children: files,
+      isDirectory: true,
+      type: 'directory',
+    };
   }
 }

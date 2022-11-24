@@ -3,9 +3,11 @@ const sharedTheme = require('./src/themes/tailwind/tailwind.theme');
 const { tailwindV3Colors } = require('./src/themes/shared/colors');
 const { join } = require('path');
 
+const filePath = join(__dirname, './src/**/*.{js,ts,jsx,tsx}');
+console.log(filePath, '=----');
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [join(__dirname, './src/**/*.{js,ts,jsx,tsx}')],
+  content: [filePath],
   theme: {
     screens: {
       ...defaultTheme.screens,

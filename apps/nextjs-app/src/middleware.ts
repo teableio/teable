@@ -1,8 +1,8 @@
-import type * as server from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getLocaleDetection } from './lib/i18n/getLocale';
 
-export function middleware(request: server.NextRequest) {
+export function middleware(request: NextRequest) {
   const locale = getLocaleDetection({
     req: request,
     i18n: {
