@@ -63,5 +63,5 @@ export function getLocaleDetection({ req, i18n }: Options) {
 
     return detectedLocale.toLowerCase();
   }
-  return i18n?.defaultLocale;
+  return i18n.defaultLocale;
 }

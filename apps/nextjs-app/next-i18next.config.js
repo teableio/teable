@@ -5,6 +5,28 @@ const debugI18n = ['true', 1].includes(
 const path = require('path');
 const localePublicFolder = undefined;
 
+const localPaths = [
+  path.resolve('../../packages/common-i18n/src/locales'),
+  path.join(
+    __dirname,
+    '../../../node_modules/@teable-group/common-i18n/src/locales'
+  ),
+];
+
+function getLocalPath() {
+  if (typeof window === 'undefined') {
+    const fs = require('node:fs');
+    return localPaths.find((str) => {
+      return fs.existsSync(str);
+    });
+  }
+
+  return localePublicFolder;
+}
+
+const localePath = getLocalPath();
+// console.log({ localePath: localePath });
+
 /**
  * @type {import('next-i18next').UserConfig}
  */
@@ -26,8 +48,5 @@ module.exports = {
     escapeValue: false,
   },
   */
-  localePath:
-    typeof window === 'undefined'
-      ? path.resolve('../../packages/common-i18n/src/locales')
-      : localePublicFolder,
+  localePath: localePath,
 };

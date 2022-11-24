@@ -8,7 +8,6 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "preserve",
-    // "jsxImportSource": "@emotion/react",
     "incremental": true,
     "paths": {
       "@/test-utils": ["../config/tests/test-utils"],
@@ -16,6 +15,7 @@
       "@/lib/*": ["./lib/*"],
       "@/components/*": ["./components/*"],
       "@/backend/*": ["./backend/*"],
+      "@/_backend/*": ["./_backend/*"],
       "@/features/*": ["./features/*"],
       "@/pages/*": ["./pages/*"],
       "@/public/*": ["../public/*"],
@@ -41,7 +41,7 @@
       }
     ]
   },
-  "exclude": ["**/node_modules", "**/.*/"],
+  "exclude": ["**/node_modules", "**/.*/", "./src/backend"],
   "include": [
     "next-env.d.ts",
     "**/*.ts",

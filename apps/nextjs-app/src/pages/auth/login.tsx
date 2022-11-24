@@ -3,6 +3,7 @@ import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { authConfig } from '@/features/auth/auth.config';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
+import i18nConfig from '../../../next-i18next.config';
 
 type Props = {
   /** Add props here */
@@ -24,7 +25,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
   const { i18nNamespaces } = authConfig;
   return {
     props: {
-      ...(await serverSideTranslations(locale, i18nNamespaces)),
+      ...(await serverSideTranslations(locale, i18nNamespaces, i18nConfig)),
     },
   };
 };
