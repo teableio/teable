@@ -175,6 +175,7 @@
     "react-responsive-carousel": "3.2.23",
     "reflect-metadata": "0.1.13",
     "remark-gfm": "3.0.1",
+    "remark-parse": "10.0.1",
     "remark-slate-transformer": "0.7.3",
     "rooks": "7.4.1",
     "rxjs": "7.5.7",

@@ -20599,6 +20599,7 @@ __metadata:
     react-responsive-carousel: "npm:3.2.23"
     reflect-metadata: "npm:0.1.13"
     remark-gfm: "npm:3.0.1"
+    remark-parse: "npm:10.0.1"
     remark-slate-transformer: "npm:0.7.3"
     rimraf: "npm:3.0.2"
     rooks: "npm:7.4.1"
@@ -24063,6 +24064,17 @@ __metadata:
     remark-parse: "npm:8.0.3"
     unified: "npm:9.2.0"
   checksum: 0b3fe833dfbe2be6dd3977b8d40144514e3938cf4fcee99a09e3ae4a458116743b629fb64439cce3c4d19e34d58f234661db8fb821e2329668c2c2c58102a27d
+  languageName: node
+  linkType: hard
+
+"remark-parse@npm:10.0.1":
+  version: 10.0.1
+  resolution: "remark-parse@npm:10.0.1"
+  dependencies:
+    "@types/mdast": "npm:^3.0.0"
+    mdast-util-from-markdown: "npm:^1.0.0"
+    unified: "npm:^10.0.0"
+  checksum: f95df2708241dc9bc268f8315da5ca7c32a3949c051d57242b7fba6972a8847d34b02afcbeba99e260415a1d36ae32ebfb66a101cd5bb89f479cf5fe11194d47
   languageName: node
   linkType: hard
 
