@@ -102,7 +102,7 @@ jobs:
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- yarn test-e2e
         env:
-          E2E_WEBSERVER_MODE: BUILD_AND_START
+          E2E_WEBSERVER_MODE: START
           CI: 1
           PRISMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/webapp-e2e?schema=public
 
