@@ -4,11 +4,9 @@
   "compilerOptions": {
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "baseUrl": "../backend",
     "target": "es5",
     "noEmit": false,
     "allowJs": false,
     "outDir": "../../main/backend"
-  },
-  "include": ["**/*.ts", "**/*.spec.ts"]
+  }
 }

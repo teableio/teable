@@ -8,10 +8,8 @@ import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
 import { useAppStore } from '../store';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const DataGrid = dynamic<any>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async (): Promise<any> => {
+export const DataGrid = dynamic(
+  async () => {
     const grid = await import('../components/DataGrid');
     return grid.DataGrid;
   },
@@ -20,7 +18,7 @@ export const DataGrid = dynamic<any>(
 
 const AppSwitch: FC<{ path?: string }> = ({ path }) => {
   if (path?.includes('.teable#')) {
-    return <DataGrid path={path} />;
+    // return <DataGrid path={path} />;
   }
   if (path?.endsWith('.md')) {
     return <Doc path={path} />;
