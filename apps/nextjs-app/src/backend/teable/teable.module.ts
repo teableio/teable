@@ -2,6 +2,6 @@ import { Module } from '@nestjs/common';
 import { TeableController } from './teable.controller';
 
 @Module({
-  controllers: [TeableController]
+  controllers: [TeableController],
 })
-export class TeableModule { }
+export class TeableModule {}

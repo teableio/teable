@@ -1,20 +1,20 @@
-import { Controller, Get, Req } from '@nestjs/common';
 import { parse } from 'url';
+import { Controller, Get, Req } from '@nestjs/common';
 import { FileTree } from './file-tree';
 
 @Controller('api')
 export class TeableController {
   @Get()
   getAll(@Req() req: Request) {
-    console.log(req.url, 'x')
+    console.log(req.url, 'x');
     return JSON.stringify({
-      'hi': '1'
-    })
+      hi: '1',
+    });
   }
 
   @Get('fileTree/*')
   getFileTree(@Req() req: Request) {
-    console.log('??????')
+    console.log('??????');
     const parsedUrl = parse(req.url, true);
     const { pathname } = parsedUrl;
     const filePath = pathname?.split('/api/fileTree')[1];

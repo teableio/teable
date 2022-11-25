@@ -110,7 +110,7 @@ const MarkdownShortcutsExample = ({ path }: IEditorProps) => {
         setRawContent(res.content);
       });
   }, [path]);
-  const handleDOMBeforeInput = useCallback((e: InputEvent) => {
+  const handleDOMBeforeInput = useCallback(() => {
     queueMicrotask(() => {
       const pendingDiffs = ReactEditor.androidPendingDiffs(editor);
 
@@ -141,7 +141,7 @@ const MarkdownShortcutsExample = ({ path }: IEditorProps) => {
         ReactEditor.androidScheduleFlush(editor);
       }
     });
-  }, []);
+  }, [editor]);
 
   const value: any = rawContent
     ? processor.processSync(rawContent).result
