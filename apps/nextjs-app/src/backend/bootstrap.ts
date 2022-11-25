@@ -7,10 +7,12 @@ const host = 'localhost';
 
 export async function bootstrap(port: number, dir?: string) {
   try {
-    const app = await NestFactory.create(AppModule.forRoot({
-      port,
-      dir: dir,
-    }));
+    const app = await NestFactory.create(
+      AppModule.forRoot({
+        port,
+        dir: dir,
+      })
+    );
     app.useGlobalFilters(new NotFoundExceptionFilter());
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
@@ -21,7 +23,9 @@ export async function bootstrap(port: number, dir?: string) {
   }
 }
 
-export async function getAvailablePort(dPort: number | string): Promise<number> {
+export async function getAvailablePort(
+  dPort: number | string
+): Promise<number> {
   let port = Number(dPort);
   while (await isPortReachable(port, { host })) {
     console.log(`> Fail on http://${host}:${port} Trying on ${port + 1}`);
