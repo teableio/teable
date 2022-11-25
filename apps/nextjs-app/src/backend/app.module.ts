@@ -4,6 +4,7 @@ import path from 'path';
 import { AppController } from './app.controller';
 import { IAppConfig } from './app.interface';
 import { AppService } from './app.service';
+import { TeableModule } from './teable/teable.module';
 
 @Module({})
 export class AppModule {
@@ -14,7 +15,7 @@ export class AppModule {
         envFilePath: ['.env.development.local', '.env.development', '.env'].map(str => {
           return config.dir ? path.join(config.dir, str) : str;
         }),
-      })],
+      }), TeableModule],
       controllers: [AppController],
       providers: [{ provide: 'APP_CONFIG', useValue: config }, AppService],
     };
