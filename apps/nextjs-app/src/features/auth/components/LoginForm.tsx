@@ -1,6 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import type { FC } from 'react';
 import { useState } from 'react';
@@ -30,27 +29,9 @@ export const LoginForm: FC<Props> = (_props) => {
   });
 
   const onSubmit = async (formValues: LoginFormValues): Promise<void> => {
+    console.log({ formValues });
     setError(null);
-    const { username, password } = formValues;
-    const result = await signIn('credentials', {
-      username,
-      password,
-      // callbackUrl: '/',
-      redirect: false,
-    });
-    const {
-      ok = false,
-      url,
-      status = 500,
-      error = 'Server or network Error',
-    } = result ?? {};
-
-    if (ok) {
-      console.log('Will redirect to ' + url);
-      router.push('/');
-    } else {
-      setError(`${status} - ${error}`);
-    }
+    router.push('/');
   };
 
   return (

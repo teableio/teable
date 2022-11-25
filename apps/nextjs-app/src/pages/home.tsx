@@ -3,6 +3,7 @@ import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { homeConfig } from '@/features/home/home.config';
 import { HomePage } from '@/features/home/pages';
+import i18nConfig from '../../next-i18next.config';
 
 type Props = {
   /** Add HomeRoute props here */
@@ -24,7 +25,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
   const { i18nNamespaces } = homeConfig;
   return {
     props: {
-      ...(await serverSideTranslations(locale, i18nNamespaces)),
+      ...(await serverSideTranslations(locale, i18nNamespaces, i18nConfig)),
     },
   };
 };

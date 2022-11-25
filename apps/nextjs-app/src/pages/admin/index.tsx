@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { adminConfig } from '@/features/admin/admin.config';
 import { AdminLayout } from '@/features/admin/layouts';
 import { AdminMainPage } from '@/features/admin/pages';
+import i18nConfig from '../../../next-i18next.config';
 
 type Props = {
   /** Add props here */
@@ -24,7 +25,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
   const { i18nNamespaces } = adminConfig;
   return {
     props: {
-      ...(await serverSideTranslations(locale, i18nNamespaces)),
+      ...(await serverSideTranslations(locale, i18nNamespaces, i18nConfig)),
     },
   };
 };

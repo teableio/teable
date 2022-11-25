@@ -28,17 +28,18 @@
     ]
   },
   "scripts": {
-    "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main",
-    "build": "next build",
+    "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main ./dist",
+    "build": "next build && tsc --project ./src/backend/tsconfig.json",
     "build-fast": "cross-env NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_DISABLE_SENTRY=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 next build",
     "vercel-build": "yarn share-static-hardlink && next build",
-    "start": "tsc -p ./tsconfig.electron.json && node ./main/electron-src/dev.js",
-    "prebuild:electron": "tsc -p ./tsconfig.electron.json",
-    "start:electron": "yarn prebuild:electron & electron .",
+    "dev": "nest start --watch",
+    "start": "NODE_ENV=production node ./main/backend",
+    "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
+    "dev:electron": "electron .",
     "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
     "pack-app": "yarn build:electron && electron-builder --dir",
     "dist": "yarn build:electron && electron-builder",
-    "dist:debug": "lldb ./dist/mac/electron-quick-start-typescript.app",
+    "dist:debug": "lldb ./dist/mac-arm64/nextjs-app.app",
     "dist:unpack": "npx asar extract ./dist/mac-arm64/nextjs-app.app/Contents/Resources/app.asar ./dist/unpack",
     "bundle-analyze": "cross-env ANALYZE=true NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 yarn build",
     "?share-static-symlink": "echo 'Use this command to link assets... from shared static folder'",
@@ -51,7 +52,7 @@
     "test-unit": "vitest run",
     "test-unit-jest": "jest --config ./jest.config.js",
     "test-unit-watch": "vitest watch --ui",
-    "test-e2e": "cross-env E2E_WEBSERVER_MODE=BUILD_AND_START playwright test",
+    "test-e2e": "cross-env E2E_WEBSERVER_MODE=START playwright test",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx,.graphql --cache --cache-location ../../.cache/eslint/nextjs-app.eslintcache",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx,.graphql --fix",
@@ -59,6 +60,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "7.6.0",
+    "@nestjs/testing": "9.2.0",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
@@ -87,8 +89,8 @@
     "cross-env": "7.0.3",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
-    "electron": "^13",
-    "electron-builder": "^22.9.1",
+    "electron": "20.3.6",
+    "electron-builder": "23.6.0",
     "es-check": "7.0.1",
     "eslint": "8.26.0",
     "eslint-config-next": "13.0.0",
@@ -124,6 +126,7 @@
     "@headlessui/react": "1.7.3",
     "@hookform/resolvers": "2.9.10",
     "@nestjs/common": "9.2.0",
+    "@nestjs/config": "2.2.0",
     "@nestjs/core": "9.2.0",
     "@nestjs/platform-express": "9.2.0",
     "@radix-ui/colors": "0.1.8",
@@ -159,7 +162,6 @@
     "marked": "4.2.3",
     "micro": "9.4.1",
     "next": "13.0.2",
-    "next-auth": "4.16.4",
     "next-connect": "0.13.0",
     "next-i18next": "12.1.0",
     "next-secure-headers": "2.2.0",
@@ -187,10 +189,11 @@
     "zustand": "4.1.4"
   },
   "build": {
-    "electronVersion": "13.6.9",
-    "asar": true,
+    "electronVersion": "20.3.6",
+    "asar": false,
     "files": [
-      "**/*"
+      "**/*",
+      "!.env.development"
     ]
   }
 }
