@@ -16,12 +16,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [
-    ...getDefaultIgnorePatterns(),
-    '.next',
-    '.out',
-    '**/src/backend',
-  ],
+  ignorePatterns: [...getDefaultIgnorePatterns(), '.next', '.out'],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/sonar',
@@ -50,7 +45,13 @@ module.exports = {
       },
     },
     {
-      files: ['src/backend/**/*graphql*schema*.ts'],
+      files: ['src/backend/*'],
+      parserOptions: {
+        project: 'src/backend/tsconfig.json',
+      },
+    },
+    {
+      files: ['src/_backend/**/*graphql*schema*.ts'],
       rules: {
         '@typescript-eslint/naming-convention': [
           'error',

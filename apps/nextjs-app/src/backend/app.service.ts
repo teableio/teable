@@ -1,5 +1,5 @@
-import { Inject, OnModuleInit } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import type { OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import createServer from 'next';
@@ -9,7 +9,10 @@ import { IAppConfig } from './app.interface';
 @Injectable()
 export class AppService implements OnModuleInit {
   private server!: NextServer;
-  constructor(@Inject('APP_CONFIG') private config: IAppConfig, private configService: ConfigService) {}
+  constructor(
+    @Inject('APP_CONFIG') private config: IAppConfig,
+    private configService: ConfigService
+  ) {}
 
   async onModuleInit() {
     const nodeEnv = this.configService.get<string>('NODE_ENV');
