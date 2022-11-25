@@ -84,7 +84,7 @@ jobs:
       - name: Build nextjs-app
         working-directory: apps/nextjs-app
         run: |
-          ls main/backend && rm -rf main && yarn build && ls main/backend
+          yarn clean:backend && yarn build && ls main/backend
         env:
           PRISMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/webapp-e2e?schema=public
           # Don't need to lint / typecheck for e2e, they're done in another workflow

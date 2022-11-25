@@ -1,10 +1,21 @@
 import '@glideapps/glide-data-grid/dist/index.css';
 
-import type { GridCell, GridColumn, Item } from '@glideapps/glide-data-grid';
+import type {
+  DataEditorProps,
+  GridCell,
+  GridColumn,
+  Item,
+} from '@glideapps/glide-data-grid';
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
 import React, { useEffect, useState } from 'react';
 import { fetchFileContent } from '../api/fetch-file-content-ky.api';
-import { defaultProps } from './utils';
+
+export const defaultProps: Partial<DataEditorProps> = {
+  smoothScrollX: true,
+  smoothScrollY: true,
+  getCellsForSelection: true,
+  width: '100%',
+};
 
 const transformTeableSchemaIntoGridColumn = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

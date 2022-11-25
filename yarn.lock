@@ -2700,13 +2700,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@faker-js/faker@npm:7.6.0":
-  version: 7.6.0
-  resolution: "@faker-js/faker@npm:7.6.0"
-  checksum: 8dfdb631c3c420d8352d5ff5bc97d97d8d6890c8c74d7385ae9838cb47bef5e56ce611f4052ce414a55320426ffff4135fe927f46417c44b1b3301b7fd93851a
-  languageName: node
-  linkType: hard
-
 "@fontsource/inter@npm:4.5.14":
   version: 4.5.14
   resolution: "@fontsource/inter@npm:4.5.14"
@@ -20500,7 +20493,6 @@ __metadata:
   dependencies:
     "@babel/core": "npm:7.19.6"
     "@belgattitude/http-exception": "npm:1.4.0"
-    "@faker-js/faker": "npm:7.6.0"
     "@fontsource/inter": "npm:4.5.14"
     "@glideapps/glide-data-grid": "npm:5.2.0"
     "@graphql-yoga/node": "npm:2.13.13"
