@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useLocalstorageState } from 'rooks';
 import { FileTree } from '../blocks/FileTree';
 
 export const SideMenu = () => {
-  const [currentPath, setCurrentPath] = useState('');
+  const [currentPath, setCurrentPath] = useLocalstorageState(
+    'TEABLE_SIDE_MENU_INPUT',
+    ''
+  );
 
   return (
     <>
