@@ -84,7 +84,7 @@ jobs:
       - name: Build nextjs-app
         working-directory: apps/nextjs-app
         run: |
-          yarn build
+          yarn clean:backend && yarn build && ls main/backend
         env:
           PRISMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/webapp-e2e?schema=public
           # Don't need to lint / typecheck for e2e, they're done in another workflow
@@ -102,7 +102,7 @@ jobs:
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- yarn test-e2e
         env:
-          E2E_WEBSERVER_MODE: BUILD_AND_START
+          E2E_WEBSERVER_MODE: START
           CI: 1
           PRISMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/webapp-e2e?schema=public
 

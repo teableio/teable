@@ -14,7 +14,7 @@ const pages = manifest.pages;
 const limitCfg = {
   defaultSize: '120kb',
   pages: {
-    '/': '120kb',
+    '/': '200kb',
     '/404': '120kb',
     '/_app': '200kb',
     '/_error': '120kb',

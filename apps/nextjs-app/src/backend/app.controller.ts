@@ -7,13 +7,8 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private appService: AppService) {}
 
-  @Get('*')
+  @Get(['/', '_next/*', 'home', '404'])
   public async home(@Req() req: Request, @Res() res: Response) {
-    await this.appService.handler(req, res);
-  }
-
-  @Get('_next*')
-  public async assets(@Req() req: Request, @Res() res: Response) {
     await this.appService.handler(req, res);
   }
 

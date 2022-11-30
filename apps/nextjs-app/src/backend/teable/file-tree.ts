@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs from 'fs';
 import type { FileNode } from './interface';
 import { TeableFile } from './teable-file';
 
@@ -6,6 +6,18 @@ export class FileTree {
   constructor(public rootPath: string) {
     this.rootPath = rootPath;
   }
+
+  public getFileContent(path: string) {
+    if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
+      throw Error('not a file');
+    }
+    const fileContext = fs.readFileSync(path).toString();
+    return {
+      content: fileContext,
+      path,
+    };
+  }
+
   getFiles(): FileNode {
     return this.getFilesRecursive(this.rootPath);
   }

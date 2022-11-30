@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import type { IAppConfig } from './app.interface';
 import { AppService } from './app.service';
+import { TeableModule } from './teable/teable.module';
 
 @Module({})
 export class AppModule {
@@ -21,6 +22,7 @@ export class AppModule {
             return config.dir ? path.join(config.dir, str) : str;
           }),
         }),
+        TeableModule,
       ],
       controllers: [AppController],
       providers: [{ provide: 'APP_CONFIG', useValue: config }, AppService],

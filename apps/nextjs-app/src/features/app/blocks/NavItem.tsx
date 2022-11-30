@@ -12,17 +12,20 @@ import {
 import clx from 'classnames';
 import React from 'react';
 import { useOutsideClick } from 'rooks';
+import { useAppStore } from '../store';
 
 interface INavItemProps {
   icon: 'directory' | 'teable' | 'table' | 'file';
   open?: boolean;
   label: string;
+  path: string;
   isActive?: boolean;
   setOpen?: (open: boolean) => void;
 }
 
 export const NavItem = (props: INavItemProps) => {
   const [isActived, setIsActived] = React.useState(props.isActive);
+  const setCurrentFile = useAppStore((state) => state.setCurrentFile);
   const ref = React.useRef<HTMLDivElement>(null);
   useOutsideClick(ref, () => {
     setIsActived(false);
@@ -41,6 +44,10 @@ export const NavItem = (props: INavItemProps) => {
   };
 
   const handleActive = () => {
+    setCurrentFile({
+      name: props.label,
+      path: props.path,
+    });
     setIsActived(true);
   };
 

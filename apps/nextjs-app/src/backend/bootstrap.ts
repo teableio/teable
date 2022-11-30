@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import isPortReachable from 'is-port-reachable';
 import { AppModule } from './app.module';
+import { NotFoundExceptionFilter } from './not-found.filter';
 
 const host = 'localhost';
 
@@ -12,6 +13,7 @@ export async function bootstrap(port: number, dir?: string) {
         dir: dir,
       })
     );
+    app.useGlobalFilters(new NotFoundExceptionFilter());
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);
