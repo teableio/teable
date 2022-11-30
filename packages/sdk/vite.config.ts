@@ -12,7 +12,7 @@ export default defineConfig({
     setupFiles: './config/test/setupVitest.ts',
     passWithNoTests: true,
     cache: {
-      dir: '../../.cache/vitest/core-lib',
+      dir: '../../.cache/vitest/sdk',
     },
     coverage: {
       provider: 'istanbul',

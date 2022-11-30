@@ -6002,44 +6002,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@teable-group/core-lib@workspace:^, @teable-group/core-lib@workspace:packages/core-lib":
-  version: 0.0.0-use.local
-  resolution: "@teable-group/core-lib@workspace:packages/core-lib"
-  dependencies:
-    "@belgattitude/http-exception": "npm:^1.4.0"
-    "@teable-group/eslint-config-bases": "workspace:^"
-    "@teable-group/ts-utils": "workspace:^"
-    "@testing-library/react": "npm:13.4.0"
-    "@testing-library/react-hooks": "npm:8.0.1"
-    "@types/jest": "npm:29.2.0"
-    "@types/node": "npm:18.11.7"
-    "@types/react": "npm:18.0.24"
-    "@types/react-dom": "npm:18.0.8"
-    "@vitejs/plugin-react": "npm:2.2.0"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
-    cross-env: "npm:7.0.3"
-    dequal: "npm:^2.0.3"
-    eslint: "npm:8.26.0"
-    jest: "npm:29.2.2"
-    jest-environment-jsdom: "npm:29.2.2"
-    microbundle: "npm:0.15.1"
-    npm-run-all: "npm:4.1.5"
-    prettier: "npm:2.7.1"
-    react: "npm:18.2.0"
-    react-dom: "npm:18.2.0"
-    rimraf: "npm:3.0.2"
-    ts-jest: "npm:29.0.3"
-    typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
-  peerDependencies:
-    react: ^18.0.0
-    react-dom: ^18.0.0
-  languageName: unknown
-  linkType: soft
-
 "@teable-group/db-main-prisma@workspace:^, @teable-group/db-main-prisma@workspace:packages/db-main-prisma":
   version: 0.0.0-use.local
   resolution: "@teable-group/db-main-prisma@workspace:packages/db-main-prisma"
@@ -6118,6 +6080,44 @@ __metadata:
       optional: true
     typescript:
       optional: true
+  languageName: unknown
+  linkType: soft
+
+"@teable-group/sdk@workspace:^, @teable-group/sdk@workspace:packages/sdk":
+  version: 0.0.0-use.local
+  resolution: "@teable-group/sdk@workspace:packages/sdk"
+  dependencies:
+    "@belgattitude/http-exception": "npm:^1.4.0"
+    "@teable-group/eslint-config-bases": "workspace:^"
+    "@teable-group/ts-utils": "workspace:^"
+    "@testing-library/react": "npm:13.4.0"
+    "@testing-library/react-hooks": "npm:8.0.1"
+    "@types/jest": "npm:29.2.0"
+    "@types/node": "npm:18.11.7"
+    "@types/react": "npm:18.0.24"
+    "@types/react-dom": "npm:18.0.8"
+    "@vitejs/plugin-react": "npm:2.2.0"
+    "@vitest/coverage-istanbul": "npm:0.24.3"
+    "@vitest/ui": "npm:0.24.3"
+    cross-env: "npm:7.0.3"
+    dequal: "npm:^2.0.3"
+    eslint: "npm:8.26.0"
+    jest: "npm:29.2.2"
+    jest-environment-jsdom: "npm:29.2.2"
+    microbundle: "npm:0.15.1"
+    npm-run-all: "npm:4.1.5"
+    prettier: "npm:2.7.1"
+    react: "npm:18.2.0"
+    react-dom: "npm:18.2.0"
+    rimraf: "npm:3.0.2"
+    ts-jest: "npm:29.0.3"
+    typescript: "npm:4.8.4"
+    vite: "npm:3.2.1"
+    vite-tsconfig-paths: "npm:3.5.2"
+    vitest: "npm:0.24.3"
+  peerDependencies:
+    react: ^18.0.0
+    react-dom: ^18.0.0
   languageName: unknown
   linkType: soft
 
@@ -19144,8 +19144,8 @@ __metadata:
     "@tailwindcss/typography": "npm:0.5.7"
     "@tanstack/react-query": "npm:4.13.0"
     "@teable-group/common-i18n": "workspace:^"
-    "@teable-group/core-lib": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
+    "@teable-group/sdk": "workspace:^"
     "@teable-group/ts-utils": "workspace:^"
     "@teable-group/ui-lib": "workspace:^"
     "@testing-library/dom": "npm:8.19.0"

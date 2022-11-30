@@ -9,8 +9,8 @@
       "path": "packages/common-i18n"
     },
     {
-      "name": "core-lib",
-      "path": "packages/core-lib"
+      "name": "sdk",
+      "path": "packages/sdk"
     },
     {
       "name": "db-main-prisma",
@@ -51,7 +51,7 @@
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
       "./packages/common-i18n",
-      "./packages/core-lib",
+      "./packages/sdk",
       "./packages/db-main-prisma",
       "./packages/eslint-config-bases",
       "./packages/ui-lib"

@@ -27,8 +27,8 @@
       ],
       "@teable-group/ui-lib/*": ["../../../packages/ui-lib/src/*"],
       "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
-      "@teable-group/core-lib/*": ["../../../packages/core-lib/src/*"],
-      "@teable-group/core-lib": ["../../../packages/core-lib/src/index"],
+      "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
+      "@teable-group/sdk": ["../../../packages/sdk/src/index"],
       "@teable-group/db-main-prisma": [
         "../../../packages/db-main-prisma/src/index"
       ],

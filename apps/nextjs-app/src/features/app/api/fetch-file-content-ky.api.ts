@@ -1,5 +1,5 @@
-import type { JsonApiResponse } from '@teable-group/core-lib/api/json-api';
-import { isJsonApiSuccessResponse } from '@teable-group/core-lib/api/json-api';
+import type { JsonApiResponse } from '@teable-group/sdk/api/json-api';
+import { isJsonApiSuccessResponse } from '@teable-group/sdk/api/json-api';
 import { ky } from '@/config/ky';
 
 interface ITextFileContent {

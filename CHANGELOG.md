@@ -11,7 +11,7 @@ Apps:
 Packages:
 
 - [common-i18n/CHANGELOG.md](./packages/common-i18n/CHANGELOG.md)
-- [core-lib/CHANGELOG.md](./packages/core-lib/CHANGELOG.md)
+- [sdk/CHANGELOG.md](./packages/sdk/CHANGELOG.md)
 - [db-main-prisma/CHANGELOG.md](./packages/db-main-prisma/CHANGELOG.md)
 - [ui-lib/CHANGELOG.md](./packages/ui-lib/CHANGELOG.md)
 - [graphql-mesh/CHANGELOG.md](./packages/graphql-mesh/CHANGELOG.md)

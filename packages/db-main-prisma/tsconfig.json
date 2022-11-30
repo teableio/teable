@@ -9,8 +9,8 @@
     "noEmit": false,
     "incremental": true,
     "paths": {
-      "@teable-group/core-lib/*": ["../../../packages/core-lib/src/*"],
-      "@teable-group/core-lib": ["../../../packages/core-lib/src/index"]
+      "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
+      "@teable-group/sdk": ["../../../packages/sdk/src/index"]
     }
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"]

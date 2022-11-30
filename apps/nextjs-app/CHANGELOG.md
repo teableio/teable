@@ -46,7 +46,7 @@
 - Updated dependencies [[`e0b03b05`](https://github.com/teable-group/teable/commit/e0b03b059ea2b75272c2a86139f7ff8b0af874a9)]:
   - @teable-group/api-gateway@1.2.2
   - @teable-group/common-i18n@1.2.1
-  - @teable-group/core-lib@3.15.1
+  - @teable-group/sdk@3.15.1
   - @teable-group/db-main-prisma@2.12.2
   - @teable-group/ts-utils@1.1.1
   - @teable-group/ui-lib@3.15.1
@@ -60,7 +60,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0), [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0)]:
-  - @teable-group/core-lib@3.15.0
+  - @teable-group/sdk@3.15.0
   - @teable-group/ts-utils@1.1.0
   - @teable-group/ui-lib@3.15.0
 
@@ -84,7 +84,7 @@
 - Updated dependencies []:
   - @teable-group/api-gateway@1.2.1
   - @teable-group/common-i18n@1.1.1
-  - @teable-group/core-lib@3.14.2
+  - @teable-group/sdk@3.14.2
   - @teable-group/db-main-prisma@2.12.1
   - @teable-group/ui-lib@3.14.5
 
@@ -97,7 +97,7 @@
   See https://github.com/belgattitude/http-exception
 
 - Updated dependencies [[`2fc498cc`](https://github.com/teable-group/teable/commit/2fc498cc928c9a577fa4c4a0112f910e0c24f176)]:
-  - @teable-group/core-lib@3.14.2
+  - @teable-group/sdk@3.14.2
   - @teable-group/ui-lib@3.14.4
 
 ## 3.52.1
@@ -107,7 +107,7 @@
 - Updated dependencies []:
   - @teable-group/api-gateway@1.2.1
   - @teable-group/common-i18n@1.1.1
-  - @teable-group/core-lib@3.14.1
+  - @teable-group/sdk@3.14.1
   - @teable-group/db-main-prisma@2.12.1
   - @teable-group/ui-lib@3.14.3
 
@@ -127,7 +127,7 @@
   - @teable-group/db-main-prisma@2.12.1
   - @teable-group/api-gateway@1.2.1
   - @teable-group/common-i18n@1.1.1
-  - @teable-group/core-lib@3.14.1
+  - @teable-group/sdk@3.14.1
   - @teable-group/ui-lib@3.14.2
 
 ## 3.51.0
@@ -150,7 +150,7 @@
   - @teable-group/db-main-prisma@2.12.0
   - @teable-group/api-gateway@1.2.0
   - @teable-group/common-i18n@1.1.0
-  - @teable-group/core-lib@3.14.0
+  - @teable-group/sdk@3.14.0
   - @teable-group/ui-lib@3.14.1
 
 ## 3.49.2
@@ -167,7 +167,7 @@
 - Updated dependencies []:
   - @teable-group/api-gateway@1.2.0
   - @teable-group/common-i18n@1.1.0
-  - @teable-group/core-lib@3.14.0
+  - @teable-group/sdk@3.14.0
   - @teable-group/db-main-prisma@2.11.0
   - @teable-group/ui-lib@3.13.1
 
@@ -182,7 +182,7 @@
 - Updated dependencies [[`5ad462a`](https://github.com/teable-group/teable/commit/5ad462a9a621564366c7a0ef0a77899fc855de85)]:
   - @teable-group/api-gateway@1.2.0
   - @teable-group/common-i18n@1.1.0
-  - @teable-group/core-lib@3.14.0
+  - @teable-group/sdk@3.14.0
   - @teable-group/db-main-prisma@2.11.0
   - @teable-group/ui-lib@3.13.0
 
@@ -241,7 +241,7 @@
 ### Patch Changes
 
 - Updated dependencies []:
-  - @teable-group/core-lib@3.13.0
+  - @teable-group/sdk@3.13.0
   - @teable-group/db-main-prisma@2.10.0
   - @teable-group/ui-lib@3.12.2
 
@@ -250,7 +250,7 @@
 ### Patch Changes
 
 - Updated dependencies []:
-  - @teable-group/core-lib@3.13.0
+  - @teable-group/sdk@3.13.0
   - @teable-group/db-main-prisma@2.10.0
   - @teable-group/ui-lib@3.12.1
 
@@ -263,7 +263,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`9f2c2d0`](https://github.com/teable-group/teable/commit/9f2c2d049cfb87a3023a38b096f07f998862e3f6)]:
-  - @teable-group/core-lib@3.13.0
+  - @teable-group/sdk@3.13.0
   - @teable-group/db-main-prisma@2.10.0
   - @teable-group/ui-lib@3.12.0
 
@@ -278,7 +278,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`ee0a3db`](https://github.com/teable-group/teable/commit/ee0a3dbd664c33d7149302ae3f776951dbd50492)]:
-  - @teable-group/core-lib@3.12.0
+  - @teable-group/sdk@3.12.0
   - @teable-group/db-main-prisma@2.9.0
   - @teable-group/ui-lib@3.11.0
 
@@ -330,7 +330,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`05291de7`](https://github.com/teable-group/teable/commit/05291de7deeed720e8b7271d339050116b448177)]:
-  - @teable-group/core-lib@3.11.0
+  - @teable-group/sdk@3.11.0
   - @teable-group/db-main-prisma@2.8.0
   - @teable-group/ui-lib@3.9.0
 
@@ -339,7 +339,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`50e79d76`](https://github.com/teable-group/teable/commit/50e79d7659a13a0715e864c5b4aff3bf999afcfe)]:
-  - @teable-group/core-lib@3.10.0
+  - @teable-group/sdk@3.10.0
 
 ## 3.38.1
 
@@ -371,7 +371,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`5e25fab2`](https://github.com/teable-group/teable/commit/5e25fab2f0d620e999f536a1fb8e0ef45d56fd64)]:
-  - @teable-group/core-lib@3.9.0
+  - @teable-group/sdk@3.9.0
   - @teable-group/ui-lib@3.8.0
 
 ## 3.35.1
@@ -392,7 +392,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`fcd68ed`](https://github.com/teable-group/teable/commit/fcd68ed476734fefda85f5ffa2cf82cbd1502aa6)]:
-  - @teable-group/core-lib@3.8.1
+  - @teable-group/sdk@3.8.1
   - @teable-group/ui-lib@3.6.1
 
 ## 3.34.0
@@ -435,7 +435,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`77e758b`](https://github.com/teable-group/teable/commit/77e758bbed1bc4f13b99cdd0ed90fa11fde9518f)]:
-  - @teable-group/core-lib@3.8.0
+  - @teable-group/sdk@3.8.0
   - @teable-group/db-main-prisma@2.6.0
   - @teable-group/ui-lib@3.6.0
 
@@ -466,7 +466,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`6b78e59`](https://github.com/teable-group/teable/commit/6b78e59e4933814e69c26c86743a5b003c92dc2a)]:
-  - @teable-group/core-lib@3.7.0
+  - @teable-group/sdk@3.7.0
   - @teable-group/ui-lib@3.5.0
   - @teable-group/db-main-prisma@2.5.0
 
@@ -486,7 +486,7 @@
 * [#354](https://github.com/teable-group/teable/pull/354) [`16e4e2d`](https://github.com/teable-group/teable/commit/16e4e2d7b6023a0cc9bf62120d7b5b8e223740b5) Thanks [@belgattitude](https://github.com/belgattitude)! - Improve eslint config and add eslint-plugin-import
 
 * Updated dependencies [[`db7870f`](https://github.com/teable-group/teable/commit/db7870fbef1ac0422e8d142ab6bcd7d593abd685), [`16e4e2d`](https://github.com/teable-group/teable/commit/16e4e2d7b6023a0cc9bf62120d7b5b8e223740b5)]:
-  - @teable-group/core-lib@3.6.1
+  - @teable-group/sdk@3.6.1
   - @teable-group/db-main-prisma@2.3.1
   - @teable-group/ui-lib@3.4.1
 
@@ -513,7 +513,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`a416f35`](https://github.com/teable-group/teable/commit/a416f3550dd0bb8412297295206f586630e586c0)]:
-  - @teable-group/core-lib@3.6.0
+  - @teable-group/sdk@3.6.0
   - @teable-group/db-main-prisma@2.3.0
   - @teable-group/ui-lib@3.4.0
 
@@ -526,7 +526,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`2ccb056`](https://github.com/teable-group/teable/commit/2ccb056660dfd84a75e1a8733e56cc8d9b3fd353)]:
-  - @teable-group/core-lib@3.5.0
+  - @teable-group/sdk@3.5.0
   - @teable-group/db-main-prisma@2.2.0
   - @teable-group/ui-lib@3.3.0
 
@@ -652,7 +652,7 @@
 - [#181](https://github.com/teable-group/teable/pull/181) [`c5173ea`](https://github.com/teable-group/teable/commit/c5173ea4d9ae5f476c0434ad25a6ff7735350e06) Thanks [@belgattitude](https://github.com/belgattitude)! - Fix possible issues with peerDeps
 
 - Updated dependencies [[`c5173ea`](https://github.com/teable-group/teable/commit/c5173ea4d9ae5f476c0434ad25a6ff7735350e06)]:
-  - @teable-group/core-lib@3.4.0
+  - @teable-group/sdk@3.4.0
   - @teable-group/db-main-prisma@1.2.1
 
 ## 3.12.0
@@ -666,7 +666,7 @@
 - [#172](https://github.com/teable-group/teable/pull/172) [`01e5e89`](https://github.com/teable-group/teable/commit/01e5e89e028029c5ef415f2f825d022f96a97fd4) Thanks [@belgattitude](https://github.com/belgattitude)! - Relaxed codeclimate config for react components
 
 - Updated dependencies [[`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f), [`01e5e89`](https://github.com/teable-group/teable/commit/01e5e89e028029c5ef415f2f825d022f96a97fd4), [`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f), [`3c8ef69`](https://github.com/teable-group/teable/commit/3c8ef6900120557fae33ff565595f8fe2b9628a9), [`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f), [`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f)]:
-  - @teable-group/core-lib@3.3.0
+  - @teable-group/sdk@3.3.0
   - @teable-group/db-main-prisma@1.2.0
   - @teable-group/ui-lib@3.1.3
 
@@ -677,7 +677,7 @@
 - [#135](https://github.com/teable-group/teable/pull/135) [`d548b70`](https://github.com/teable-group/teable/commit/d548b70b53baaa67d6de4e8a7c6254b59db3ced3) Thanks [@belgattitude](https://github.com/belgattitude)! - CI: use built-in yarn cache from setup/node@v2.2
 
 - Updated dependencies [[`d548b70`](https://github.com/teable-group/teable/commit/d548b70b53baaa67d6de4e8a7c6254b59db3ced3)]:
-  - @teable-group/core-lib@3.2.2
+  - @teable-group/sdk@3.2.2
   - @teable-group/db-main-prisma@1.1.3
   - @teable-group/ui-lib@3.1.2
 
@@ -741,7 +741,7 @@
 - [#84](https://github.com/teable-group/teable/pull/84) [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293) Thanks [@belgattitude](https://github.com/belgattitude)! - ESlint: added plugin:testing-library/react
 
 - Updated dependencies [[`a9c0d5e`](https://github.com/teable-group/teable/commit/a9c0d5e2651732ab23f1a335acddd23aef5a6b88), [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293), [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293)]:
-  - @teable-group/core-lib@3.2.1
+  - @teable-group/sdk@3.2.1
   - @teable-group/db-main-prisma@1.1.1
   - @teable-group/ui-lib@3.1.1
 
@@ -773,7 +773,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`152e4ad`](https://github.com/teable-group/teable/commit/152e4adc8be95f192b066f75ef4bb2dd42c46d12)]:
-  - @teable-group/core-lib@3.2.0
+  - @teable-group/sdk@3.2.0
   - @teable-group/ui-lib@3.1.0
 
 ## 3.3.0
@@ -785,7 +785,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`800ccdc`](https://github.com/teable-group/teable/commit/800ccdcc93884157d4b9535272625a5a5719e83d), [`800ccdc`](https://github.com/teable-group/teable/commit/800ccdcc93884157d4b9535272625a5a5719e83d)]:
-  - @teable-group/core-lib@3.1.0
+  - @teable-group/sdk@3.1.0
 
 ## 3.2.0
 
@@ -813,7 +813,7 @@
 
 ### Major Changes
 
-- [#39](https://github.com/teable-group/teable/pull/39) [`9f04b88`](https://github.com/teable-group/teable/commit/9f04b88d966e804ddc12e79372b3ac14f7330b86) Thanks [@belgattitude](https://github.com/belgattitude)! - Rename packages foo and bar into ui-lib and core-lib
+- [#39](https://github.com/teable-group/teable/pull/39) [`9f04b88`](https://github.com/teable-group/teable/commit/9f04b88d966e804ddc12e79372b3ac14f7330b86) Thanks [@belgattitude](https://github.com/belgattitude)! - Rename packages foo and bar into ui-lib and sdk
 
 ## 2.0.0
 

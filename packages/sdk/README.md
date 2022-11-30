@@ -1,4 +1,4 @@
-# @teable-group/core-lib
+# @teable-group/sdk
 
 <p align="left">
   <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
@@ -8,4 +8,4 @@
 
 ## Intro
 
-WIP
+SDK for teable extensions
