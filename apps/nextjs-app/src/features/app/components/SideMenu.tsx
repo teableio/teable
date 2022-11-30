@@ -1,23 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { FileTree } from '../blocks/FileTree';
+import { useAppStore } from '../store';
 
 export const SideMenu = () => {
-  const [currentPath, setCurrentPath] = useState('');
+  const selectPath = useAppStore((state) => state.selectPath);
 
   return (
     <>
-      <input
-        type="text"
-        className="w-full"
-        placeholder="enter absolute dir path"
-        value={currentPath}
-        onChange={(e) => {
-          setCurrentPath(e.target.value);
-        }}
-      />
-      <FileTree rootPath={currentPath} />
+      <FileTree rootPath={selectPath} />
     </>
   );
 };

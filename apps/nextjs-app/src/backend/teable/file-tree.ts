@@ -18,10 +18,35 @@ export class FileTree {
     };
   }
 
+  transformTeableFileIntoTree(path: string, name: string) {
+    const teableFileHandler = new TeableFile();
+    return {
+      name,
+      path,
+      children: teableFileHandler.getTeableFileTree(path),
+      type: 'teable',
+      isDirectory: false,
+    };
+  }
+
   getFiles(): FileNode {
     return this.getFilesRecursive(this.rootPath);
   }
-  getFilesRecursive(path: string): FileNode {
+
+  getTreeByFilePath(path: string, name: string) {
+    if (path.endsWith('.teable')) {
+      return this.transformTeableFileIntoTree(path, name);
+    }
+    return {
+      name,
+      path,
+      children: [],
+      type: 'file',
+      isDirectory: false,
+    };
+  }
+
+  getTreeByDirPath(path: string) {
     const files: FileNode[] = [];
     const name = path.split('/').reverse()[0];
     const dir = fs.readdirSync(path, { withFileTypes: true });
@@ -34,14 +59,11 @@ export class FileTree {
         const children = this.getFilesRecursive(path + '/' + dirent.name);
         files.push(children);
       } else if (dirent.name.endsWith('.teable')) {
-        const teableFileHandler = new TeableFile();
-        files.push({
-          name: dirent.name,
-          path: fullPath,
-          children: teableFileHandler.getTeableFileTree(fullPath),
-          type: 'teable',
-          isDirectory: false,
-        });
+        const children = this.transformTeableFileIntoTree(
+          fullPath,
+          dirent.name
+        );
+        files.push(children);
       } else {
         files.push({
           name: dirent.name,
@@ -58,5 +80,14 @@ export class FileTree {
       isDirectory: true,
       type: 'directory',
     };
+  }
+
+  getFilesRecursive(path: string): FileNode {
+    const name = path.split('/').reverse()[0];
+    if (fs.lstatSync(path).isDirectory()) {
+      return this.getTreeByDirPath(path);
+    } else {
+      return this.getTreeByFilePath(path, name);
+    }
   }
 }
