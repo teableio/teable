@@ -10,7 +10,6 @@ Apps:
 
 Packages:
 
-- [api-gateway/CHANGELOG.md](./packages/api-gateway/CHANGELOG.md)
 - [common-i18n/CHANGELOG.md](./packages/common-i18n/CHANGELOG.md)
 - [core-lib/CHANGELOG.md](./packages/core-lib/CHANGELOG.md)
 - [db-main-prisma/CHANGELOG.md](./packages/db-main-prisma/CHANGELOG.md)

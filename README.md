@@ -60,7 +60,6 @@ That gives me some more time to improve it to the next level.
 ├── apps
 │   └── nextjs-app  (i18n, ssr, api, vitest)
 └── packages
-    ├── api-gateway         (graphql mesh)
     ├── common-i18n         (locales...)
     ├── core-lib
     ├── db-main-prisma
@@ -81,7 +80,6 @@ That gives me some more time to improve it to the next level.
 - [packages/eslint-config-bases](./packages/eslint-config-bases): [README](./packages/eslint-config-bases/README.md) | [CHANGELOG](./packages/eslint-config-bases/CHANGELOG.md)
 - [packages/ui-lib](./packages/ui-lib): publishable. [README](./packages/ui-lib/README.md) | [CHANGELOG](./packages/ui-lib/CHANGELOG.md)
 - [packages/common-i18n](./packages/common-i18n): [README](./packages/common-i18n/README.md) | [CHANGELOG](./packages/common-i18n/CHANGELOG.md)
-- [packages/api-gateway](./packages/api-gateway): [README](./packages/api-gateway/README.md) | [CHANGELOG](./packages/api-gateway/CHANGELOG.md)
 
 > Apps can depend on packages, packages can depend on each others...
 
