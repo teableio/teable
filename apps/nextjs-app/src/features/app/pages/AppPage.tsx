@@ -17,13 +17,21 @@ export const DataGrid = dynamic(
 );
 
 const AppSwitch: FC<{ path?: string }> = ({ path }) => {
+  const setSelectPath = useAppStore((state) => state.setSelectPath);
+
+  const openDirSelector = async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const path = await (window as any).electronAPI.openFile();
+    setSelectPath(path);
+  };
   if (path?.includes('.teable#')) {
-    // return <DataGrid path={path} />;
+    return <DataGrid path={path} />;
   }
   if (path?.endsWith('.md')) {
     return <Doc path={path} />;
   }
-  return <div>open .md or .teable file</div>;
+  // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+  return <div onClick={openDirSelector}>open .md or .teable file</div>;
 };
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);

@@ -1,11 +1,12 @@
 // Packages
 import { join } from 'path';
 import type { IpcMainEvent } from 'electron';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 // import isDev from 'electron-is-dev';
 import log from 'electron-log';
 import { bootstrap, getAvailablePort } from '../src/backend/bootstrap';
 
+let mainWindow: Electron.BrowserWindow;
 log.info('app starting...');
 const nextAppDir = app.getAppPath();
 log.info('app path: ', nextAppDir);
@@ -16,12 +17,12 @@ app.on('ready', async () => {
     const port = await getAvailablePort(process.env.PORT || 3000);
     await bootstrap(port, nextAppDir);
 
-    const mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
       width: 800,
       height: 600,
       webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: false,
+        nodeIntegration: true,
+        contextIsolation: true,
         preload: join(__dirname, 'preload.js'),
       },
     });
@@ -40,4 +41,17 @@ app.on('window-all-closed', app.quit);
 ipcMain.on('message', (event: IpcMainEvent, message: any) => {
   console.log(message);
   setTimeout(() => event.sender.send('message', 'hi from electron'), 500);
+});
+
+ipcMain.handle('dialog:openFile', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory', 'openFile'],
+    filters: [
+      {
+        name: 'Teable/Markdown',
+        extensions: ['teable', 'md', 'markdown', 'mdx'],
+      },
+    ],
+  });
+  return result.filePaths[0];
 });

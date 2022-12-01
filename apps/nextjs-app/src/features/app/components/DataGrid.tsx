@@ -8,6 +8,7 @@ import type {
 } from '@glideapps/glide-data-grid';
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
 import React, { useEffect, useState } from 'react';
+import type { ITeable } from '@/backend/teable/interface';
 import { fetchFileContent } from '../api/fetch-file-content-ky.api';
 
 export const defaultProps: Partial<DataEditorProps> = {
@@ -18,11 +19,13 @@ export const defaultProps: Partial<DataEditorProps> = {
 };
 
 const transformTeableSchemaIntoGridColumn = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any,
+  data: ITeable | undefined,
   tableId: string,
   viewId?: string
 ) => {
+  if (!data) {
+    return [];
+  }
   if (!('schema' in data)) {
     return [];
   }
@@ -31,21 +34,21 @@ const transformTeableSchemaIntoGridColumn = (
     return [];
   }
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  const _viewId = viewId || data?.schema[tableId].view.list[0];
-  const view = data?.schema[tableId].view.viewMap[_viewId];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const columns: GridColumn[] = view?.fields.map((fieldItem: any) => {
+  const _viewId = viewId || data?.schema[tableId].viewList[0];
+  const view = data?.schema[tableId].viewMap[_viewId];
+  console.log(view);
+  const columns: GridColumn[] = view?.columns.map((fieldItem) => {
     const field = fieldMap[fieldItem.fieldId];
     return {
       id: fieldItem.fieldId,
-      title: field.title,
+      title: field.name,
     };
   });
   return columns;
 };
 
 export const DataGrid: React.FC<{ path: string }> = ({ path }) => {
-  const [data, setData] = useState({});
+  const [data, setData] = useState<ITeable>();
   const [tableId, setTableId] = useState('');
   useEffect(() => {
     console.log(path);

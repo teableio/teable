@@ -1,26 +1,19 @@
 'use client';
 
-import { useLocalstorageState } from 'rooks';
+// import { useLocalstorageState } from 'rooks';
 import { FileTree } from '../blocks/FileTree';
+import { useAppStore } from '../store';
 
 export const SideMenu = () => {
-  const [currentPath, setCurrentPath] = useLocalstorageState(
-    'TEABLE_SIDE_MENU_INPUT',
-    ''
-  );
+  const selectPath = useAppStore((state) => state.selectPath);
+  // const [currentPath, setCurrentPath] = useLocalstorageState(
+  //   'TEABLE_SIDE_MENU_INPUT',
+  //   ''
+  // );
 
   return (
     <>
-      <input
-        type="text"
-        className="w-full"
-        placeholder="enter absolute dir path"
-        value={currentPath}
-        onChange={(e) => {
-          setCurrentPath(e.target.value);
-        }}
-      />
-      <FileTree rootPath={currentPath} />
+      <FileTree rootPath={selectPath} />
     </>
   );
 };
