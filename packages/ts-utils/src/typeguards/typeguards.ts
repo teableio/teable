@@ -1,5 +1,7 @@
-export type IsoDateString = string;
-export const isIsoDateString = (dateStr: unknown): dateStr is IsoDateString => {
+export type IIsoDateString = string;
+export const isIsoDateString = (
+  dateStr: unknown
+): dateStr is IIsoDateString => {
   if (
     typeof dateStr !== 'string' ||
     !/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(dateStr)

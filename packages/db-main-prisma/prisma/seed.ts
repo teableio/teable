@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
-import { poemsSeed } from './seeds/poem/poems.seed';
+import { POEMS_SEED } from './seeds/poem/poems.seed';
 
 const prisma = new PrismaClient();
 
@@ -38,7 +38,7 @@ async function main() {
     console.log(`Created or updated user with id: ${user.id}`);
   }
   // poems
-  for (const poem of poemsSeed) {
+  for (const poem of POEMS_SEED) {
     const { keywords, ...poemWithoutKeywords } = poem;
     await prisma.poem.upsert({
       where: {

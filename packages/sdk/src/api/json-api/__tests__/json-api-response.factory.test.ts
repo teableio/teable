@@ -1,5 +1,5 @@
 import { JsonApiResponseFactory } from '../json-api-response.factory';
-import type { JsonApiError } from '../json-api-response.types';
+import type { IJsonApiError } from '../json-api-response.types';
 
 describe('jsonApiResponseFactory tests', () => {
   describe('when creating a success from a string', () => {
@@ -38,7 +38,7 @@ describe('jsonApiResponseFactory tests', () => {
   });
   describe('when creating an error from a JsonApiError', () => {
     it('should set create the same payload', () => {
-      const err: JsonApiError = {
+      const err: IJsonApiError = {
         code: 'whatever',
         title: 'Hello',
         id: 'wxncn',
@@ -51,7 +51,7 @@ describe('jsonApiResponseFactory tests', () => {
 
   describe('when creating an error from a Array<JsonApiError>', () => {
     it('should set create the same payload', () => {
-      const errs: JsonApiError[] = [
+      const errs: IJsonApiError[] = [
         {
           title: 'Hello',
         },

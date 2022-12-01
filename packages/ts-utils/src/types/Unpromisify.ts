@@ -1,1 +1,1 @@
-export type UnPromisify<T> = T extends Promise<infer U> ? U : T;
+export type IUnPromisify<T> = T extends Promise<infer U> ? U : T;

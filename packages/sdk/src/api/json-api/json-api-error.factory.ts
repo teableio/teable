@@ -1,12 +1,12 @@
 import type { HttpException } from '@belgattitude/http-exception';
 import { isHttpException } from '@belgattitude/http-exception';
-import type { JsonApiError } from './json-api-response.types';
+import type { IJsonApiError } from './json-api-response.types';
 
 export class JsonApiErrorFactory {
   static fromCatchVariable = (
     error: unknown,
     defaultHttpStatus = 500
-  ): JsonApiError => {
+  ): IJsonApiError => {
     const e =
       typeof error === 'string' || error instanceof Error
         ? error
@@ -18,7 +18,7 @@ export class JsonApiErrorFactory {
     exception: HttpException | Error | string,
     /** fallback http status if it can't be inferred from exception */
     defaultHttpStatus = 500
-  ): JsonApiError => {
+  ): IJsonApiError => {
     if (typeof exception === 'string') {
       return {
         title: exception,

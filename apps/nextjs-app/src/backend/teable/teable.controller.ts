@@ -18,6 +18,7 @@ export class TeableController {
     const parsedUrl = parse(req.url, true);
     const { pathname } = parsedUrl;
     const filePath = pathname?.split('/api/fileTree')[1];
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const fileTree = new FileTree(filePath!);
     return JSON.stringify(fileTree.getFiles());
   }

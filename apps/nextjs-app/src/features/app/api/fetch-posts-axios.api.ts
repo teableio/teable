@@ -1,11 +1,11 @@
 import type { JsonApiResponse } from '@teable-group/sdk/api/json-api';
 import { isJsonApiSuccessResponse } from '@teable-group/sdk/api/json-api';
 import axios from 'axios';
-import type { GetPosts } from '@/_backend/api/rest/post-repository.ssr';
+import type { IGetPosts } from '@/_backend/api/rest/post-repository.ssr';
 
-export const fetchPostsWithAxios = async (): Promise<GetPosts> => {
+export const fetchPostsWithAxios = async (): Promise<IGetPosts> => {
   return axios
-    .get<JsonApiResponse<GetPosts>>('/api/rest/post', {
+    .get<JsonApiResponse<IGetPosts>>('/api/rest/post', {
       responseType: 'json',
     })
     .then((resp) => {

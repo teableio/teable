@@ -3,7 +3,7 @@
  * and connection limits in development mode.
  */
 import type { Prisma, PrismaClient } from '@prisma/client';
-export type PrismaClientOptions = Prisma.PrismaClientOptions;
+export type IPrismaClientOptions = Prisma.PrismaClientOptions;
 
 declare let global: {
   // eslint-disable-next-line @typescript-eslint/naming-convention

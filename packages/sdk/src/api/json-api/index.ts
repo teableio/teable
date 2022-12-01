@@ -1,10 +1,10 @@
 export { JsonApiResponseFactory } from './json-api-response.factory';
 export type {
-  JsonApiResponse,
-  JsonApiErrorResponse,
-  JsonApiSuccessResponse,
-  JsonApiResponseMeta,
-  JsonApiError,
+  IJsonApiResponse as JsonApiResponse,
+  IJsonApiErrorResponse as JsonApiErrorResponse,
+  IJsonApiSuccessResponse as JsonApiSuccessResponse,
+  IJsonApiResponseMeta as JsonApiResponseMeta,
+  IJsonApiError as JsonApiError,
 } from './json-api-response.types';
 export {
   isJsonApiErrorResponse,

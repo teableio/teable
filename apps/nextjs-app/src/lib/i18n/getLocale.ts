@@ -7,7 +7,7 @@ export interface I18NConfig {
   locales: string[];
 }
 
-interface Options {
+interface IOptions {
   req: NextRequest;
   i18n: I18NConfig;
 }
@@ -51,7 +51,7 @@ function detectLocale({
   );
 }
 
-export function getLocaleDetection({ req, i18n }: Options) {
+export function getLocaleDetection({ req, i18n }: IOptions) {
   if (i18n && i18n.localeDetection !== false) {
     const headers = Object.fromEntries(req.headers);
     const preferredLocale = getAcceptPreferredLocale(i18n, headers);

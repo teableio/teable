@@ -1,17 +1,17 @@
 import { isPlainObject } from '@teable-group/ts-utils';
 import type {
-  JsonApiError,
-  JsonApiErrorResponse,
-  JsonApiSuccessResponse,
+  IJsonApiError,
+  IJsonApiErrorResponse,
+  IJsonApiSuccessResponse,
 } from './json-api-response.types';
 
 export class JsonApiResponseFactory {
   static fromError = (
-    errors: string | JsonApiError | JsonApiError[],
+    errors: string | IJsonApiError | IJsonApiError[],
     /** fallback http status if not present in JsonApiError */
     httpStatus?: number
-  ): JsonApiErrorResponse => {
-    let errs: JsonApiError[];
+  ): IJsonApiErrorResponse => {
+    let errs: IJsonApiError[];
     if (typeof errors === 'string') {
       errs = [{ title: errors, ...(httpStatus ? { status: httpStatus } : {}) }];
     } else if (isPlainObject(errors)) {
@@ -26,8 +26,8 @@ export class JsonApiResponseFactory {
   };
   static fromSuccess = <T>(
     data: T,
-    metadata?: JsonApiSuccessResponse<T>['meta']
-  ): JsonApiSuccessResponse<T> => {
+    metadata?: IJsonApiSuccessResponse<T>['meta']
+  ): IJsonApiSuccessResponse<T> => {
     return {
       success: true,
       data: data,

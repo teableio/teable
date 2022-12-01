@@ -1,6 +1,6 @@
 import { gql } from 'apollo-server-micro';
 import { SearchPoemsQuery } from '@/_backend/features/poem/SearchPoems';
-import type { GraphqlSdlContext } from './graphql-sdl-context';
+import type { IGraphqlSdlContext } from './graphql-sdl-context';
 
 const typeDefs = gql`
   type Poem {
@@ -23,7 +23,7 @@ const resolvers = {
         limit?: number;
         offset?: number;
       },
-      context: GraphqlSdlContext
+      context: IGraphqlSdlContext
     ) => {
       const poemQuery = new SearchPoemsQuery(context.prisma);
       return poemQuery.execute({
