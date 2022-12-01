@@ -1,5 +1,4 @@
 import type { ComponentStory, ComponentMeta } from '@storybook/react';
-import React from 'react';
 import { TypedText } from './TypedText';
 
 // More on default export: https://storybook.js.org/docs/react/writing-stories/introduction#default-export
@@ -14,7 +13,7 @@ export default {
   // },
 } as ComponentMeta<typeof TypedText>;
 
-export const BasicExample: ComponentStory<typeof TypedText> = (args) => {
+export const BasicExample: ComponentStory<typeof TypedText> = () => {
   return (
     <div>
       <span

@@ -7,17 +7,17 @@ import { devices } from '@playwright/test';
 import pc from 'picocolors';
 
 const webServerModes = ['DEV', 'START', 'BUILD_AND_START'] as const;
-type WebServerMode = typeof webServerModes[number];
+type IWebServerMode = typeof webServerModes[number];
 
 const isCI = ['true', '1'].includes(process.env?.CI ?? '');
 const webServerMode =
-  (process.env?.E2E_WEBSERVER_MODE as WebServerMode) ?? 'NOT_SET';
+  (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'NOT_SET';
 
 const webServerPort = 3000;
 const outputDir = path.join(__dirname, 'e2e/.out');
 
-type WebServerConfig = { cmd: string; timeout: number; retries: number };
-const webServerConfigs: Record<WebServerMode, WebServerConfig> = {
+type IWebServerConfig = { cmd: string; timeout: number; retries: number };
+const webServerConfigs: Record<IWebServerMode, IWebServerConfig> = {
   START: {
     cmd: `yarn start -p ${webServerPort}`,
     timeout: isCI ? 90_000 : 30_000,

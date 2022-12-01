@@ -1,0 +1,11 @@
+{
+  "cSpell.words": ["Localstorage", "teable"],
+  "eslint.workingDirectories": [
+    {
+      "pattern": "./apps/*/"
+    },
+    {
+      "pattern": "./packages/*/"
+    }
+  ]
+}

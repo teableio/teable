@@ -60,9 +60,8 @@ That gives me some more time to improve it to the next level.
 ├── apps
 │   └── nextjs-app  (i18n, ssr, api, vitest)
 └── packages
-    ├── api-gateway         (graphql mesh)
     ├── common-i18n         (locales...)
-    ├── core-lib
+    ├── sdk                 (sdk for extensions)
     ├── db-main-prisma
     ├── eslint-config-bases (to shared eslint configs)
     └── ui-lib              (storybook)
@@ -76,12 +75,11 @@ That gives me some more time to improve it to the next level.
 
 #### Example shared packages
 
-- [packages/core-lib](./packages/core-lib): publishable. [README](./packages/core-lib/README.md) | [CHANGELOG](./packages/core-lib/CHANGELOG.md)
+- [packages/sdk](./packages/sdk): publishable. [README](./packages/sdk/README.md) | [CHANGELOG](./packages/sdk/CHANGELOG.md)
 - [packages/db-main-prisma](./packages/db-main-prisma): used by web-app. [README](./packages/db-main-prisma/README.md) | [CHANGELOG](./packages/db-main-prisma/CHANGELOG.md)
 - [packages/eslint-config-bases](./packages/eslint-config-bases): [README](./packages/eslint-config-bases/README.md) | [CHANGELOG](./packages/eslint-config-bases/CHANGELOG.md)
 - [packages/ui-lib](./packages/ui-lib): publishable. [README](./packages/ui-lib/README.md) | [CHANGELOG](./packages/ui-lib/CHANGELOG.md)
 - [packages/common-i18n](./packages/common-i18n): [README](./packages/common-i18n/README.md) | [CHANGELOG](./packages/common-i18n/CHANGELOG.md)
-- [packages/api-gateway](./packages/api-gateway): [README](./packages/api-gateway/README.md) | [CHANGELOG](./packages/api-gateway/CHANGELOG.md)
 
 > Apps can depend on packages, packages can depend on each others...
 
@@ -99,21 +97,22 @@ If needed static resources like **images**,... can be shared by using symlinks i
 ```
 .
 ├── apps
-│   └── nextjs-app                  (NextJS app with api-routes)
-│       ├── e2e/                 (E2E tests with playwright)
+│   └── nextjs-app                (NextJS app with nestjs backend)
+│       ├── e2e/                  (E2E tests with playwright)
 │       ├── public/
-│       │   ├── shared-assets/   (possible symlink to global assets)
-│       │   └── shared-locales/  (possible symlink to global locales)
+│       │   ├── shared-assets/    (possible symlink to global assets)
+│       │   └── shared-locales/   (possible symlink to global locales)
 │       ├── src/
-│       │   └── pages/api        (api routes)
+│       │   └── backend           (nestjs backend)
+│       │       └── tsconfig.json (nestjs tsconfig)
 │       ├── CHANGELOG.md
 │       ├── next.config.mjs
-│       ├── package.json         (define package workspace:package deps)
-│       ├── tsconfig.json        (define path to packages)
+│       ├── package.json          (define package workspace:package deps)
+│       ├── tsconfig.json         (define path to packages)
 │       └── vitest.config.ts
 │
 ├── packages
-│   ├── core-lib                 (basic ts libs)
+│   ├── sdk                     (basic ts libs)
 │   │   ├── src/
 │   │   ├── CHANGELOG.md
 │   │   ├── package.json

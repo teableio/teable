@@ -5,16 +5,12 @@
       "path": "apps/nextjs-app"
     },
     {
-      "name": "api-gateway",
-      "path": "packages/api-gateway"
-    },
-    {
       "name": "common-i18n",
       "path": "packages/common-i18n"
     },
     {
-      "name": "core-lib",
-      "path": "packages/core-lib"
+      "name": "sdk",
+      "path": "packages/sdk"
     },
     {
       "name": "db-main-prisma",
@@ -54,9 +50,8 @@
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
-      "./packages/api-gateway",
       "./packages/common-i18n",
-      "./packages/core-lib",
+      "./packages/sdk",
       "./packages/db-main-prisma",
       "./packages/eslint-config-bases",
       "./packages/ui-lib"

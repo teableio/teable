@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { FileNode } from './interface';
+import type { IFileNode } from './interface';
 import { TeableFile } from './teable-file';
 
 export class FileTree {
@@ -18,11 +18,11 @@ export class FileTree {
     };
   }
 
-  getFiles(): FileNode {
+  getFiles(): IFileNode {
     return this.getFilesRecursive(this.rootPath);
   }
-  getFilesRecursive(path: string): FileNode {
-    const files: FileNode[] = [];
+  getFilesRecursive(path: string): IFileNode {
+    const files: IFileNode[] = [];
     const name = path.split('/').reverse()[0];
     const dir = fs.readdirSync(path, { withFileTypes: true });
     for (const dirent of dir) {

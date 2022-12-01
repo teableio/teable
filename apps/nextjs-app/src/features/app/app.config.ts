@@ -1,10 +1,10 @@
 import type { I18nActiveNamespaces } from '@/lib/i18n';
 
-export type DemoConfig = {
+export interface IDemoConfig {
   // Define namespaces in use in both the type and the config.
   i18nNamespaces: I18nActiveNamespaces<'common' | 'app'>;
-};
+}
 
-export const appConfig: DemoConfig = {
+export const appConfig: IDemoConfig = {
   i18nNamespaces: ['common', 'app'],
 };

@@ -1,7 +1,7 @@
 /**
  * @link https://jsonapi.org/format/#errors
  */
-export type JsonApiError = {
+export type IJsonApiError = {
   /** a short, human-readable summary of the problem that SHOULD NOT change from occurrence to occurrence of the problem, except for purposes of localization. */
   title: string;
   /** a unique identifier for this particular occurrence of the problem. */
@@ -18,22 +18,22 @@ export type JsonApiError = {
   meta?: Record<string, unknown>;
 };
 
-export type JsonApiErrorResponse = {
+export type IJsonApiErrorResponse = {
   success: false;
-  errors: JsonApiError[];
+  errors: IJsonApiError[];
 };
 
-export type JsonApiResponseMeta = {
+export type IJsonApiResponseMeta = {
   meta?: {
     cacheHit?: boolean;
   } & Record<string, string | number | boolean | Record<string, unknown>>;
 };
 
-export type JsonApiSuccessResponse<T> = {
+export type IJsonApiSuccessResponse<T> = {
   success: true;
   data: T;
-} & JsonApiResponseMeta;
+} & IJsonApiResponseMeta;
 
-export type JsonApiResponse<T> =
-  | JsonApiErrorResponse
-  | JsonApiSuccessResponse<T>;
+export type IJsonApiResponse<T> =
+  | IJsonApiErrorResponse
+  | IJsonApiSuccessResponse<T>;

@@ -1,7 +1,7 @@
 import Ky from 'ky';
 import type { Options, NormalizedOptions } from 'ky';
 
-type Props = {
+type IProps = {
   baseUrl?: string;
   onAuthFailure?: (
     request: Request,
@@ -11,7 +11,7 @@ type Props = {
 };
 
 export class KyFactory {
-  constructor(private props: Props) {}
+  constructor(private props: IProps) {}
   create = (options?: Omit<Options, 'hooks'>): typeof Ky => {
     const hooks: Options['hooks'] =
       this.props.onAuthFailure !== undefined

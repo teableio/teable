@@ -1,9 +1,9 @@
 import type { UnPromisify } from '@teable-group/ts-utils';
 import type { SearchPoemsQuery } from './SearchPoemsQuery';
 
-export interface SearchPoemsParams {
+export interface ISearchPoemsParams {
   limit?: number;
   offset?: number;
 }
 
-export type SearchPoems = UnPromisify<ReturnType<SearchPoemsQuery['execute']>>;
+export type ISearchPoems = UnPromisify<ReturnType<SearchPoemsQuery['execute']>>;

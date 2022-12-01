@@ -1,4 +1,4 @@
-# @teable-group/core-lib
+# @teable-group/sdk
 
 ## 3.15.1
 
@@ -163,7 +163,7 @@
 
 ### Major Changes
 
-- [#39](https://github.com/teable-group/teable/pull/39) [`9f04b88`](https://github.com/teable-group/teable/commit/9f04b88d966e804ddc12e79372b3ac14f7330b86) Thanks [@belgattitude](https://github.com/belgattitude)! - Rename packages foo and bar into ui-lib and core-lib
+- [#39](https://github.com/teable-group/teable/pull/39) [`9f04b88`](https://github.com/teable-group/teable/commit/9f04b88d966e804ddc12e79372b3ac14f7330b86) Thanks [@belgattitude](https://github.com/belgattitude)! - Rename packages foo and bar into ui-lib and sdk
 
 ## 2.0.0
 
