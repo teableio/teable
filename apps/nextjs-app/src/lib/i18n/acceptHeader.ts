@@ -3,14 +3,14 @@
  * https://github.com/vercel/next.js/blob/ef81fc3f8d/packages/next/server/accept-header.ts
  */
 
-interface Selection {
+interface ISelection {
   pos: number;
   pref?: number;
   q: number;
   token: string;
 }
 
-interface Options {
+interface IOptions {
   prefixMatch?: boolean;
   type: 'accept-language';
 }
@@ -19,7 +19,7 @@ interface Options {
 function parse(
   raw: string,
   preferences: string[] | undefined,
-  options: Options
+  options: IOptions
 ) {
   const lowers = new Map<string, { orig: string; pos: number }>();
   const header = raw.replace(/[ \t]/g, '');
@@ -42,7 +42,7 @@ function parse(
   }
 
   const parts = header.split(',');
-  const selections: Selection[] = [];
+  const selections: ISelection[] = [];
   const map = new Set<string>();
 
   for (let i = 0; i < parts.length; ++i) {
@@ -61,7 +61,7 @@ function parse(
       throw new Error(`Invalid ${options.type} header`);
     }
 
-    const selection: Selection = { token, pos: i, q: 1 };
+    const selection: ISelection = { token, pos: i, q: 1 };
     if (preferences && lowers.has(token)) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       selection.pref = lowers.get(token)!.pos;

@@ -277,7 +277,7 @@ const poems = [
   };
 });
 
-export const poemsSeed: Prisma.PoemCreateInput[] = poems.map((poem) => {
+export const POEMS_SEED: Prisma.PoemCreateInput[] = poems.map((poem) => {
   const keywords = keywordExtractor.extract(poem.title, {
     language: 'english',
     remove_digits: true,

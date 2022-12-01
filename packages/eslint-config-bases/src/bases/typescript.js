@@ -104,6 +104,14 @@ module.exports = {
         format: ['camelCase'],
         leadingUnderscore: 'allow',
       },
+      // require all global constants to be camelCase or UPPER_CASE
+      // all other variables and functions still need to be camelCase
+      {
+        selector: 'variable',
+        modifiers: ['exported', 'global', 'const'],
+        types: ['boolean', 'string', 'number', 'array'],
+        format: ['UPPER_CASE'],
+      },
       {
         selector: ['function'],
         format: ['camelCase'],
@@ -112,6 +120,11 @@ module.exports = {
         selector: 'parameter',
         format: ['camelCase'],
         leadingUnderscore: 'allow',
+      },
+      // enum members must be in PascalCase. Without this config, enumMember would inherit UPPER_CASE from public static const property
+      {
+        selector: ['enum', 'enumMember'],
+        format: ['PascalCase'],
       },
       {
         selector: 'class',
@@ -139,6 +152,7 @@ module.exports = {
       {
         selector: ['typeAlias', 'interface'],
         format: ['PascalCase'],
+        prefix: ['I'],
       },
       {
         selector: ['typeProperty'],
@@ -149,6 +163,20 @@ module.exports = {
       {
         selector: ['typeParameter'],
         format: ['PascalCase'],
+      },
+      // enforce UPPER_CASE for all public static readonly(!) properties
+      {
+        selector: 'classProperty',
+        modifiers: ['public', 'static'],
+        format: ['UPPER_CASE'],
+      },
+      // allow leading underscores for unused parameters, because `tsc --noUnusedParameters` will not flag underscore prefixed parameters
+      // all other rules (trailingUnderscore: forbid, format: camelCase) still apply
+      {
+        selector: 'parameter',
+        modifiers: ['unused'],
+        format: ['camelCase'],
+        leadingUnderscore: 'allow',
       },
     ],
   },

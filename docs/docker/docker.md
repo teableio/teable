@@ -10,7 +10,7 @@ and build time (taking advantage of buildx cache).
 ├── apps
 │   └── nextjs-app
 ├── packages
-│   ├── core-lib
+│   ├── sdk
 │   ├── db-main-prisma
 │   └── ui-lib
 ├── static

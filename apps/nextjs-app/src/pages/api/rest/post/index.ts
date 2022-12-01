@@ -1,6 +1,6 @@
 import { HttpMethodNotAllowed } from '@belgattitude/http-exception';
-import { JsonApiResponseFactory } from '@teable-group/core-lib/api/json-api';
-import { JsonApiErrorFactory } from '@teable-group/core-lib/api/json-api/json-api-error.factory';
+import { JsonApiResponseFactory } from '@teable-group/sdk/api/json-api';
+import { JsonApiErrorFactory } from '@teable-group/sdk/api/json-api/json-api-error.factory';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { PostRepositorySsr } from '@/_backend/api/rest/post-repository.ssr';
 import { prismaClient } from '@/_backend/config/container.config';

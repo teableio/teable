@@ -46,7 +46,7 @@ This app relies on packages in the monorepo, see detailed instructions in [READM
 ```json5
 {
   dependencies: {
-    "@teable-group/core-lib": "workspace:*",
+    "@teable-group/sdk": "workspace:*",
     "@teable-group/db-main-prisma": "workspace:*",
     "@teable-group/ui-lib": "workspace:*",
   },
@@ -62,8 +62,8 @@ And their counterparts in [tsconfig.json](./tsconfig.json)
     "paths": {
       "@teable-group/ui-lib/*": ["../../../packages/ui-lib/src/*"],
       "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
-      "@teable-group/core-lib/*": ["../../../packages/core-lib/src/*"],
-      "@teable-group/core-lib": ["../../../packages/core-lib/src/index"],
+      "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
+      "@teable-group/sdk": ["../../../packages/sdk/src/index"],
       "@teable-group/db-main-prisma/*": [
         "../../../packages/db-main-prisma/src/*",
       ],
@@ -125,7 +125,7 @@ The keys autocompletion and typechecks are enabled in [./src/typings/react-i18ne
 │       ├── tsconfig.json    (local paths enabled)
 │       └── tailwind.config.js
 └── packages  (monorepo's packages that this app is using)
-    ├── core-lib
+    ├── sdk
     ├── main-db-prisma
     └── ui-lib
 ```

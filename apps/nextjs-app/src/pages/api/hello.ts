@@ -1,4 +1,4 @@
-import { sayHello } from '@teable-group/core-lib';
+import { sayHello } from '@teable-group/sdk';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handleApiHelloRoute(

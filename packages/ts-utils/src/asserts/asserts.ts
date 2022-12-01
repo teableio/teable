@@ -1,10 +1,10 @@
 import { isNonEmptyString } from '../typeguards';
 
-type MsgOrErrorFactory = string | (() => Error);
+type IMsgOrErrorFactory = string | (() => Error);
 
 export function assertNonEmptyString(
   v: unknown,
-  msgOrErrorFactory?: MsgOrErrorFactory,
+  msgOrErrorFactory?: IMsgOrErrorFactory,
   /** auto-trim, default true */
   trim?: boolean
 ): asserts v is string {
@@ -16,7 +16,7 @@ export function assertNonEmptyString(
 export function assertIncludes<T extends string[]>(
   v: string | undefined,
   stringArray: T,
-  msgOrErrorFactory?: MsgOrErrorFactory,
+  msgOrErrorFactory?: IMsgOrErrorFactory,
   caseInsensitive?: boolean
 ): asserts v is T[number] {
   const insensitive = caseInsensitive ?? false;
@@ -36,7 +36,7 @@ export function assertIncludes<T extends string[]>(
 
 export function assertIsPresent<T>(
   v: T,
-  msgOrErrorFactory?: MsgOrErrorFactory
+  msgOrErrorFactory?: IMsgOrErrorFactory
 ): asserts v is NonNullable<T> {
   if (v === null || v === undefined) {
     throw createAssertException(
@@ -48,7 +48,7 @@ export function assertIsPresent<T>(
 
 export function assertSafeInteger(
   v: unknown,
-  msgOrErrorFactory?: MsgOrErrorFactory
+  msgOrErrorFactory?: IMsgOrErrorFactory
 ): asserts v is number {
   if (typeof v !== 'number' || !Number.isSafeInteger(v)) {
     throw createAssertException(

@@ -1,9 +1,9 @@
-export type FileNode = {
+export type IFileNode = {
   name: string;
   path: string;
   isDirectory?: boolean;
   type: string;
-  children?: FileNode[];
+  children?: IFileNode[];
 };
 
 // table schema start here

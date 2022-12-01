@@ -106,7 +106,7 @@
 ### Patch Changes
 
 - Updated dependencies [[`c5173ea`](https://github.com/teable-group/teable/commit/c5173ea4d9ae5f476c0434ad25a6ff7735350e06)]:
-  - @teable-group/core-lib@3.4.0
+  - @teable-group/sdk@3.4.0
 
 ## 1.2.0
 
@@ -123,7 +123,7 @@
 * [#140](https://github.com/teable-group/teable/pull/140) [`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f) Thanks [@belgattitude](https://github.com/belgattitude)! - Improved documentation
 
 * Updated dependencies [[`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f), [`01e5e89`](https://github.com/teable-group/teable/commit/01e5e89e028029c5ef415f2f825d022f96a97fd4), [`4929105`](https://github.com/teable-group/teable/commit/4929105635b9bfd460a5653ceb8cb05353bb9a8f)]:
-  - @teable-group/core-lib@3.3.0
+  - @teable-group/sdk@3.3.0
 
 ## 1.1.3
 
@@ -132,7 +132,7 @@
 - [#135](https://github.com/teable-group/teable/pull/135) [`d548b70`](https://github.com/teable-group/teable/commit/d548b70b53baaa67d6de4e8a7c6254b59db3ced3) Thanks [@belgattitude](https://github.com/belgattitude)! - CI: use built-in yarn cache from setup/node@v2.2
 
 - Updated dependencies [[`d548b70`](https://github.com/teable-group/teable/commit/d548b70b53baaa67d6de4e8a7c6254b59db3ced3)]:
-  - @teable-group/core-lib@3.2.2
+  - @teable-group/sdk@3.2.2
 
 ## 1.1.2
 
@@ -147,7 +147,7 @@
 - [#84](https://github.com/teable-group/teable/pull/84) [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293) Thanks [@belgattitude](https://github.com/belgattitude)! - Jest: added mock configs
 
 - Updated dependencies [[`a9c0d5e`](https://github.com/teable-group/teable/commit/a9c0d5e2651732ab23f1a335acddd23aef5a6b88), [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293), [`697842e`](https://github.com/teable-group/teable/commit/697842e913bd7164b21b51c9c9adb943b0904293)]:
-  - @teable-group/core-lib@3.2.1
+  - @teable-group/sdk@3.2.1
 
 ## 1.1.0
 

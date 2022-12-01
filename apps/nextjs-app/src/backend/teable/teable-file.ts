@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { FileNode } from './interface';
+import type { IFileNode } from './interface';
 
 //  TODO: need complete teable file structure
 interface ITeableFile {
@@ -8,14 +8,14 @@ interface ITeableFile {
 }
 
 export class TeableFile {
-  static format = '.teable';
+  static FORMAT = '.teable';
 
   public getTeableFileTree(path: string) {
     const content = this.getFileContent2JSON(path);
     return this.getFileTree(content, path);
   }
   private getFileContent2JSON(path: string) {
-    if (!path.endsWith(TeableFile.format)) {
+    if (!path.endsWith(TeableFile.FORMAT)) {
       throw new Error('file format error');
     }
     const fileContent = fs.readFileSync(path).toString();
@@ -29,7 +29,7 @@ export class TeableFile {
   private getFileTree(
     teableFileContent: ITeableFile,
     parentPath: string
-  ): FileNode[] {
+  ): IFileNode[] {
     return teableFileContent.teableList.map((teableName) => {
       return {
         name: teableName,

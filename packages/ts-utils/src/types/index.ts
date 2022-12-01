@@ -1,1 +1,1 @@
-export type { UnPromisify } from './Unpromisify';
+export type { IUnPromisify as UnPromisify } from './Unpromisify';

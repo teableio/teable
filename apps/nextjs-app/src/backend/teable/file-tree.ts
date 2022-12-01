@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { FileNode } from './interface';
+import type { IFileNode } from './interface';
 import { TeableFile } from './teable-file';
 
 export class FileTree {
@@ -18,7 +18,7 @@ export class FileTree {
     };
   }
 
-  transformTeableFileIntoTree(path: string, name: string) {
+  private transformTeableFileIntoTree(path: string, name: string) {
     const teableFileHandler = new TeableFile();
     return {
       name,
@@ -29,11 +29,11 @@ export class FileTree {
     };
   }
 
-  getFiles(): FileNode {
+  public getFiles(): IFileNode {
     return this.getFilesRecursive(this.rootPath);
   }
 
-  getTreeByFilePath(path: string, name: string) {
+  private getTreeByFilePath(path: string, name: string) {
     if (path.endsWith('.teable')) {
       return this.transformTeableFileIntoTree(path, name);
     }
@@ -46,8 +46,8 @@ export class FileTree {
     };
   }
 
-  getTreeByDirPath(path: string) {
-    const files: FileNode[] = [];
+  private getTreeByDirPath(path: string) {
+    const files: IFileNode[] = [];
     const name = path.split('/').reverse()[0];
     const dir = fs.readdirSync(path, { withFileTypes: true });
     for (const dirent of dir) {
@@ -82,7 +82,7 @@ export class FileTree {
     };
   }
 
-  getFilesRecursive(path: string): FileNode {
+  private getFilesRecursive(path: string): IFileNode {
     const name = path.split('/').reverse()[0];
     if (fs.lstatSync(path).isDirectory()) {
       return this.getTreeByDirPath(path);
