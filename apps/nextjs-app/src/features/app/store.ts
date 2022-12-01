@@ -1,4 +1,5 @@
 import create from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface ISelectFileNode {
   name: string;
@@ -12,9 +13,17 @@ interface IAppState {
   setCurrentFile: (currentFile: ISelectFileNode) => void;
   setSelectPath: (selectPath: string) => void;
 }
-export const useAppStore = create<IAppState>((set) => ({
-  currentFile: undefined,
-  selectPath: undefined,
-  setCurrentFile: (file: ISelectFileNode) => set(() => ({ currentFile: file })),
-  setSelectPath: (path: string) => set(() => ({ selectPath: path })),
-}));
+export const useAppStore = create(
+  persist<IAppState>(
+    (set) => ({
+      currentFile: undefined,
+      selectPath: undefined,
+      setCurrentFile: (file: ISelectFileNode) =>
+        set(() => ({ currentFile: file })),
+      setSelectPath: (path: string) => set(() => ({ selectPath: path })),
+    }),
+    {
+      name: 'teable-app',
+    }
+  )
+);
