@@ -45,9 +45,12 @@ module.exports = {
       },
     },
     {
-      files: ['src/backend/*'],
+      files: ['src/backend/**'],
       parserOptions: {
         project: 'src/backend/tsconfig.json',
+      },
+      rules: {
+        '@next/next/no-assign-module-variable': 'off',
       },
     },
     {
