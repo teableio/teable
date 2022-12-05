@@ -1,6 +1,6 @@
 import fs from 'fs';
 import type { IFileNode } from './interface';
-import { TeableFile } from './teable-file';
+import { TeableFile } from './teable-file.class';
 
 export class FileTree {
   constructor(public rootPath: string) {

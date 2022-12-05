@@ -1,9 +1,9 @@
 import { parse } from 'url';
 import { Controller, Get, Req } from '@nestjs/common';
-import { FileTree } from './file-tree';
+import { FileTree } from './file-tree.class';
 
 @Controller('api')
-export class TeableController {
+export class FileTreeController {
   @Get('fileTree/*')
   getFileTree(@Req() req: Request) {
     const parsedUrl = parse(req.url, true);

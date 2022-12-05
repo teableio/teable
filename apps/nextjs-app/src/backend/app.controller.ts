@@ -1,4 +1,3 @@
-// fixme: disable eslint for nest src
 import { Controller, Get, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AppService } from './app.service';
