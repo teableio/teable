@@ -12,7 +12,7 @@ interface IFileTreeProps {
 }
 
 const getFileTree = async (path: string) => {
-  const fileTreeResp = await fetch(`/api/fileTree/${path}`);
+  const fileTreeResp = await fetch(`/api/file-tree/${path}`);
   return await fileTreeResp.json();
 };
 

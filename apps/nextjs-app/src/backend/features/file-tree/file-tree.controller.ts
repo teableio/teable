@@ -4,11 +4,11 @@ import { FileTree } from './file-tree.class';
 
 @Controller('api')
 export class FileTreeController {
-  @Get('fileTree/*')
+  @Get('file-tree/*')
   getFileTree(@Req() req: Request) {
     const parsedUrl = parse(req.url, true);
     const { pathname } = parsedUrl;
-    const filePath = pathname?.split('/api/fileTree')[1];
+    const filePath = pathname?.split('/api/file-tree')[1];
     if (!filePath) {
       return {
         success: false,
@@ -27,11 +27,11 @@ export class FileTreeController {
     };
   }
 
-  @Get('fileContent/*')
+  @Get('file-content/*')
   getFileContent(@Req() req: Request) {
     const parsedUrl = parse(req.url, true);
     const { pathname } = parsedUrl;
-    const filePath = pathname?.split('/api/fileContent')[1];
+    const filePath = pathname?.split('/api/file-content')[1];
     if (!filePath) {
       return {
         success: false,

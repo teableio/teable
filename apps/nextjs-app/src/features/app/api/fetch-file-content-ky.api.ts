@@ -9,7 +9,7 @@ export const fetchFileContent = async (
   path: string
 ): Promise<ITextFileContent> => {
   return ky
-    .get(`/api/fileContent/${path}`)
+    .get(`/api/file-content/${path}`)
     .json<JsonApiResponse<ITextFileContent>>()
     .then((resp) => {
       if (!isJsonApiSuccessResponse(resp)) {
