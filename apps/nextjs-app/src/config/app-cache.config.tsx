@@ -1,8 +1,5 @@
 import { MapCacheAdapter } from '@soluble/cache-interop';
-import {
-  getIoRedisOptionsFromDsn,
-  IoRedisCacheAdapter,
-} from '@soluble/cache-ioredis';
+import { getIoRedisOptionsFromDsn, IoRedisCacheAdapter } from '@soluble/cache-ioredis';
 
 const appCacheDsn = process.env?.APP_CACHE_DSN ?? null;
 

@@ -7,11 +7,7 @@
     "lib": ["esnext"],
     "module": "ES2020",
     "noEmit": false,
-    "incremental": true,
-    "paths": {
-      "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
-      "@teable-group/sdk": ["../../../packages/sdk/src/index"]
-    }
+    "incremental": true
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
 }

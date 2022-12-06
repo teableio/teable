@@ -4,13 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import createServer from 'next';
 import type { NextServer } from 'next/dist/server/next';
-import { IAppConfig } from './app.interface';
+import * as appInterface from './app.interface';
 
 @Injectable()
 export class AppService implements OnModuleInit {
   private server!: NextServer;
   constructor(
-    @Inject('APP_CONFIG') private config: IAppConfig,
+    @Inject('APP_CONFIG') private config: appInterface.IAppConfig,
     private configService: ConfigService
   ) {}
 

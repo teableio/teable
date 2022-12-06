@@ -1,14 +1,11 @@
 import '@glideapps/glide-data-grid/dist/index.css';
 
-import type {
-  DataEditorProps,
-  GridCell,
-  GridColumn,
-  Item,
-} from '@glideapps/glide-data-grid';
+import type { DataEditorProps, GridCell, GridColumn, Item } from '@glideapps/glide-data-grid';
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
+import { useColumns } from '@teable-group/sdk/hooks/use-columns';
+import { useRowCount } from '@teable-group/sdk/hooks/use-row-count';
 import React, { useEffect, useState } from 'react';
-import type { ITeable } from '@/backend/teable/interface';
+import type { ITeable } from '@/backend/features/file-tree/interface';
 import { fetchFileContent } from '../api/fetch-file-content-ky.api';
 
 export const defaultProps: Partial<DataEditorProps> = {
@@ -62,7 +59,10 @@ export const DataGrid: React.FC<{ path: string }> = ({ path }) => {
     }
   }, [path]);
 
-  const cols = transformTeableSchemaIntoGridColumn(data, tableId);
+  const columns = useColumns('table1', 'view1');
+  const rowCount = useRowCount('table1', 'view1');
+  // const viewData = useView('table1', 'view1');
+
   const getCellContent = React.useCallback((cell: Item): GridCell => {
     const [col, row] = cell;
     // dumb but simple way to do this
@@ -78,7 +78,7 @@ export const DataGrid: React.FC<{ path: string }> = ({ path }) => {
     <DataEditor
       {...defaultProps}
       getCellContent={getCellContent}
-      columns={cols}
+      columns={columns}
       rowMarkers={'both'}
       onPaste={true} // we want to allow paste to just call onCellEdited
       // onCellEdited={setCellValue} // Sets the mock cell content
@@ -88,7 +88,7 @@ export const DataGrid: React.FC<{ path: string }> = ({ path }) => {
         tint: true,
         hint: 'New row...',
       }}
-      rows={20}
+      rows={rowCount}
     />
   );
 };

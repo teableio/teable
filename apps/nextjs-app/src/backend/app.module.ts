@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import type { IAppConfig } from './app.interface';
 import { AppService } from './app.service';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
+import { TableModule } from './features/table/table.module';
 
 @Module({})
 export class AppModule {
@@ -14,15 +15,12 @@ export class AppModule {
       module: AppModule,
       imports: [
         ConfigModule.forRoot({
-          envFilePath: [
-            '.env.development.local',
-            '.env.development',
-            '.env',
-          ].map((str) => {
+          envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
             return config.dir ? path.join(config.dir, str) : str;
           }),
         }),
         FileTreeModule,
+        TableModule,
       ],
       controllers: [AppController],
       providers: [{ provide: 'APP_CONFIG', useValue: config }, AppService],

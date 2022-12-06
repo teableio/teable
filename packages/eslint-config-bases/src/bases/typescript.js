@@ -54,15 +54,7 @@ module.exports = {
     'import/order': [
       'error',
       {
-        groups: [
-          'builtin',
-          'external',
-          'internal',
-          'parent',
-          'sibling',
-          'index',
-          'object',
-        ],
+        groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object'],
         alphabetize: { order: 'asc', caseInsensitive: true },
       },
     ],
@@ -78,19 +70,13 @@ module.exports = {
       },
     ],
     '@typescript-eslint/no-explicit-any': ['error', { ignoreRestArgs: false }],
-    '@typescript-eslint/no-empty-function': [
-      'error',
-      { allow: ['private-constructors'] },
-    ],
+    '@typescript-eslint/no-empty-function': ['error', { allow: ['private-constructors'] }],
     '@typescript-eslint/no-unused-vars': [
       'warn',
       { argsIgnorePattern: '^_', ignoreRestSiblings: true },
     ],
     '@typescript-eslint/consistent-type-exports': 'error',
-    '@typescript-eslint/consistent-type-imports': [
-      'error',
-      { prefer: 'type-imports' },
-    ],
+    '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
     '@typescript-eslint/naming-convention': [
       'error',
       {

@@ -1,5 +1,5 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
+import express from 'express';
 import { AppService } from './app.service';
 
 @Controller('/')
@@ -7,7 +7,7 @@ export class AppController {
   constructor(private appService: AppService) {}
 
   @Get(['/', '_next/*', 'home', '404'])
-  public async home(@Req() req: Request, @Res() res: Response) {
+  public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.appService.handler(req, res);
   }
 
