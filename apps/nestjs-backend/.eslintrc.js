@@ -37,22 +37,9 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['src/pages/\\_*.{ts,tsx}'],
+      files: ['**'],
       rules: {
-        'react/display-name': 'off',
-      },
-    },
-    {
-      files: ['src/_backend/**/*graphql*schema*.ts'],
-      rules: {
-        '@typescript-eslint/naming-convention': [
-          'error',
-          {
-            // Fine-tune naming convention for graphql resolvers and allow PascalCase
-            selector: ['objectLiteralProperty'],
-            format: ['camelCase', 'PascalCase'],
-          },
-        ],
+        '@next/next/no-assign-module-variable': 'off',
       },
     },
   ],

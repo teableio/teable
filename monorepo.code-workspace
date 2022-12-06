@@ -5,6 +5,10 @@
       "path": "apps/nextjs-app"
     },
     {
+      "name": "nestjs-backend",
+      "path": "apps/nestjs-backend"
+    },
+    {
       "name": "common-i18n",
       "path": "packages/common-i18n"
     },
@@ -50,6 +54,7 @@
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
+      "./apps/nesjs-backend",
       "./packages/common-i18n",
       "./packages/sdk",
       "./packages/db-main-prisma",

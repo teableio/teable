@@ -15,6 +15,12 @@
   },
   "sideEffects": false,
   "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "transpiled": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"
   },

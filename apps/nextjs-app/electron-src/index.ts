@@ -1,10 +1,10 @@
 // Packages
 import { join } from 'path';
+import { bootstrap, getAvailablePort } from '@teable-group/backend';
 import type { IpcMainEvent } from 'electron';
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 // import isDev from 'electron-is-dev';
 import log from 'electron-log';
-import { bootstrap, getAvailablePort } from '../src/backend/bootstrap';
 
 let mainWindow: Electron.BrowserWindow;
 log.info('app starting...');

@@ -1,12 +1,27 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "../../../../tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "./src",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "target": "es5",
+    "target": "es6",
+    "module": "commonjs",
     "noEmit": false,
+    "declaration": true,
     "allowJs": false,
-    "outDir": "../../main/backend"
-  }
+    "outDir": "dist",
+    "paths": {
+      "@teable-group/common-i18n": ["../../../packages/common-i18n/src/index"],
+      "@teable-group/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
+      "@teable-group/ui-lib/*": ["../../../packages/ui-lib/src/*"],
+      "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
+      "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
+      "@teable-group/sdk": ["../../../packages/sdk/src/index"],
+      "@teable-group/db-main-prisma": ["../../../packages/db-main-prisma/src/index"],
+      "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"]
+    }
+  },
+  "exclude": ["**/node_modules", "**/.*/", "dist"],
+  "include": ["src/**/*"]
 }
