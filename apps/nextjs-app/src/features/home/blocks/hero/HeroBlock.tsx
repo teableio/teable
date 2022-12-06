@@ -19,10 +19,9 @@ export const HeroBlock: FC<Props> = () => {
             readymade gluten {t('home:page.title')}
           </h1>
           <p className="mb-8 leading-relaxed">
-            Copper mug try-hard pitchfork pour-over freegan heirloom neutra air
-            plant cold-pressed tacos poke beard tote bag. Heirloom echo park
-            mlkshk tote bag selvage hot chicken authentic tumeric truffaut
-            hexagon try-hard chambray.
+            Copper mug try-hard pitchfork pour-over freegan heirloom neutra air plant cold-pressed
+            tacos poke beard tote bag. Heirloom echo park mlkshk tote bag selvage hot chicken
+            authentic tumeric truffaut hexagon try-hard chambray.
           </p>
           <div className="flex justify-center">
             <button className="inline-flex rounded border-0 bg-indigo-500 py-2 px-6 text-lg text-white hover:bg-indigo-600 focus:outline-none">

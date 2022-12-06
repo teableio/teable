@@ -4,11 +4,7 @@ import { fetchPoemsWithKy } from '../../api/fetch-poems-ky.api';
 import { PoemGrid } from '../../components';
 
 const PoemGridWithReactQueryAndKy: FC = () => {
-  const { data, isLoading, error } = useQuery(
-    ['posts'],
-    () => fetchPoemsWithKy(),
-    {}
-  );
+  const { data, isLoading, error } = useQuery(['posts'], () => fetchPoemsWithKy(), {});
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -24,8 +20,8 @@ export const PoetryBlock: FC = () => {
       <div className="lg:container lg:mx-auto">
         <h1 className="mb-2 text-4xl font-bold">Poetry on the wild.</h1>
         <h2 className="mb-2 text-xl font-bold text-indigo-600">
-          Client fetch with ky / react-query from nextjs api, db in supabase.io,
-          connection with prisma. Ui with tailwind
+          Client fetch with ky / react-query from nextjs api, db in supabase.io, connection with
+          prisma. Ui with tailwind
         </h2>
         <PoemGridWithReactQueryAndKy />
       </div>

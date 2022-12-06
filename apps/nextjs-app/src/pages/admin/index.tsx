@@ -15,9 +15,7 @@ AdminRoute.getLayout = function getLayout(page: ReactElement) {
   return <AdminLayout>{page}</AdminLayout>;
 };
 
-export const getServerSideProps: GetServerSideProps<Props> = async (
-  context
-) => {
+export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
   const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');
@@ -30,8 +28,6 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
   };
 };
 
-export default function AdminRoute(
-  _props: InferGetServerSidePropsType<typeof getServerSideProps>
-) {
+export default function AdminRoute(_props: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return <AdminMainPage />;
 }

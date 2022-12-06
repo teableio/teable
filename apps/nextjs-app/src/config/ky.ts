@@ -2,11 +2,7 @@ import type { NormalizedOptions } from 'ky';
 import { KyFactory } from '@/lib/factory/ky.factory';
 
 export const ky = new KyFactory({
-  onAuthFailure: (
-    _request: Request,
-    _options: NormalizedOptions,
-    _response: Response
-  ) => {
+  onAuthFailure: (_request: Request, _options: NormalizedOptions, _response: Response) => {
     console.log('do whatever');
   },
 }).create({

@@ -21,8 +21,6 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
   };
 };
 
-export default function Custom404(
-  _props: InferGetStaticPropsType<typeof getStaticProps>
-) {
+export default function Custom404(_props: InferGetStaticPropsType<typeof getStaticProps>) {
   return <NotFoundPage />;
 }

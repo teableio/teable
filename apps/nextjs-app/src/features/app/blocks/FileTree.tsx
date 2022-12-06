@@ -16,14 +16,9 @@ const getFileTree = async (path: string) => {
   return await fileTreeResp.json();
 };
 
-export const FileTree = (props: {
-  rootPath?: string;
-  tree?: IFileTreeProps;
-}) => {
+export const FileTree = (props: { rootPath?: string; tree?: IFileTreeProps }) => {
   const [open, setOpen] = React.useState(false);
-  const [fileTree, setFileTree] = React.useState<IFileTreeProps | undefined>(
-    props.tree
-  );
+  const [fileTree, setFileTree] = React.useState<IFileTreeProps | undefined>(props.tree);
 
   const { rootPath } = props;
   useEffect(() => {

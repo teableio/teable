@@ -18,8 +18,7 @@ export const useAppStore = create(
     (set) => ({
       currentFile: undefined,
       selectPath: undefined,
-      setCurrentFile: (file: ISelectFileNode) =>
-        set(() => ({ currentFile: file })),
+      setCurrentFile: (file: ISelectFileNode) => set(() => ({ currentFile: file })),
       setSelectPath: (path: string) => set(() => ({ selectPath: path })),
     }),
     {

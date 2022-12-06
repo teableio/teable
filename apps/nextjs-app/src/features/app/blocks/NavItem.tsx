@@ -66,13 +66,7 @@ export const NavItem = (props: INavItemProps) => {
     >
       {
         <div onClick={handleClick} className="w-4 hover:bg-gray-200">
-          {canOpenMap[props.icon] ? (
-            props.open ? (
-              <CaretDownIcon />
-            ) : (
-              <CaretRightIcon />
-            )
-          ) : null}
+          {canOpenMap[props.icon] ? props.open ? <CaretDownIcon /> : <CaretRightIcon /> : null}
         </div>
       }
       <div className="pl-2">{fileIconMap[props.icon]}</div>

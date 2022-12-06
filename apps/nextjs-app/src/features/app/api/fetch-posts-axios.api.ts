@@ -11,9 +11,7 @@ export const fetchPostsWithAxios = async (): Promise<IGetPosts> => {
     .then((resp) => {
       const payload = resp.data;
       if (!isJsonApiSuccessResponse(payload)) {
-        throw new Error(
-          `Error fetching posts: ${JSON.stringify(payload.errors)}`
-        );
+        throw new Error(`Error fetching posts: ${JSON.stringify(payload.errors)}`);
       }
       return payload.data;
     });

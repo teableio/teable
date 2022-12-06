@@ -5,10 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { PostRepositorySsr } from '@/_backend/api/rest/post-repository.ssr';
 import { prismaClient } from '@/_backend/config/container.config';
 
-export default async function handleListPosts(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handleListPosts(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     const postRepo = new PostRepositorySsr(prismaClient);
     try {
@@ -21,9 +18,7 @@ export default async function handleListPosts(
       );
     } catch (e) {
       const apiError = JsonApiErrorFactory.fromCatchVariable(e);
-      return res
-        .status(apiError.status ?? 500)
-        .json(JsonApiResponseFactory.fromError(apiError));
+      return res.status(apiError.status ?? 500).json(JsonApiResponseFactory.fromError(apiError));
     }
   } else {
     return res

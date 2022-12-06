@@ -59,10 +59,7 @@ export class FileTree {
         const children = this.getFilesRecursive(path + '/' + dirent.name);
         files.push(children);
       } else if (dirent.name.endsWith('.teable')) {
-        const children = this.transformTeableFileIntoTree(
-          fullPath,
-          dirent.name
-        );
+        const children = this.transformTeableFileIntoTree(fullPath, dirent.name);
         files.push(children);
       } else {
         files.push({

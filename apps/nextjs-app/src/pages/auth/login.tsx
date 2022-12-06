@@ -9,15 +9,11 @@ type Props = {
   /** Add props here */
 };
 
-export default function LoginRoute(
-  _props: InferGetServerSidePropsType<typeof getServerSideProps>
-) {
+export default function LoginRoute(_props: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return <LoginPage />;
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (
-  context
-) => {
+export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
   const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');

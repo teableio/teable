@@ -1,12 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import clsx from 'classnames';
-import {
-  createElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import gfm from 'remark-gfm';
 import markdown from 'remark-parse';
 import { remarkToSlate } from 'remark-slate-transformer';
@@ -99,10 +93,7 @@ const MarkdownShortcutsExample = ({ path }: IEditorProps) => {
   console.log(path);
   const [rawContent, setRawContent] = useState('');
   const renderElement = useCallback((props: any) => <Element {...props} />, []);
-  const editor = useMemo(
-    () => withShortcuts(withReact(withHistory(createEditor()))),
-    []
-  );
+  const editor = useMemo(() => withShortcuts(withReact(withHistory(createEditor()))), []);
 
   useEffect(() => {
     path &&
@@ -143,9 +134,7 @@ const MarkdownShortcutsExample = ({ path }: IEditorProps) => {
     });
   }, [editor]);
 
-  const value: any = rawContent
-    ? processor.processSync(rawContent).result
-    : initialValue;
+  const value: any = rawContent ? processor.processSync(rawContent).result : initialValue;
   editor.children = value; // <--- This line does the trick
   return (
     <article className="w-[48rem] m-auto prose">
@@ -178,8 +167,7 @@ const withShortcuts = (editor: BaseEditor) => {
       const path = block ? block[1] : [];
       const start = Editor.start(editor, path);
       const range = { anchor, focus: start };
-      const beforeText = (Editor.string(editor, range) +
-        text.slice(0, -1)) as IShortcutKey;
+      const beforeText = (Editor.string(editor, range) + text.slice(0, -1)) as IShortcutKey;
       const type = shortcutKeyMap[beforeText];
 
       if (type) {
@@ -202,10 +190,7 @@ const withShortcuts = (editor: BaseEditor) => {
             children: [],
           };
           Transforms.wrapNodes(editor, list, {
-            match: (n) =>
-              !Editor.isEditor(n) &&
-              SlateElement.isElement(n) &&
-              n.type === 'listItem',
+            match: (n) => !Editor.isEditor(n) && SlateElement.isElement(n) && n.type === 'listItem',
           });
         }
 
@@ -242,9 +227,7 @@ const withShortcuts = (editor: BaseEditor) => {
           if (block.type === 'listItem') {
             Transforms.unwrapNodes(editor, {
               match: (n) =>
-                !Editor.isEditor(n) &&
-                SlateElement.isElement(n) &&
-                n.type === 'bulleted-list',
+                !Editor.isEditor(n) && SlateElement.isElement(n) && n.type === 'bulleted-list',
               split: true,
             });
           }
@@ -297,12 +280,7 @@ const Element = ({ attributes, children, element }: any) => {
       return (
         <div>
           {element.children.map((child: any, index: number) => {
-            return (
-              <div
-                key={index}
-                dangerouslySetInnerHTML={{ __html: child.text }}
-              />
-            );
+            return <div key={index} dangerouslySetInnerHTML={{ __html: child.text }} />;
           })}
         </div>
       );
@@ -314,8 +292,7 @@ const Element = ({ attributes, children, element }: any) => {
               <span
                 key={index}
                 className={clsx({
-                  'text-red-400 p-[2px] rounded bg-gray-200':
-                    item.props.text?.inlineCode,
+                  'text-red-400 p-[2px] rounded bg-gray-200': item.props.text?.inlineCode,
                 })}
               >
                 {item}

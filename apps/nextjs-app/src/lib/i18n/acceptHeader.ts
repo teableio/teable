@@ -16,11 +16,7 @@ interface IOptions {
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
-function parse(
-  raw: string,
-  preferences: string[] | undefined,
-  options: IOptions
-) {
+function parse(raw: string, preferences: string[] | undefined, options: IOptions) {
   const lowers = new Map<string, { orig: string; pos: number }>();
   const header = raw.replace(/[ \t]/g, '');
 

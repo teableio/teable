@@ -26,10 +26,7 @@ export class TeableFile {
     }
   }
 
-  private getFileTree(
-    teableFileContent: ITeableFile,
-    parentPath: string
-  ): IFileNode[] {
+  private getFileTree(teableFileContent: ITeableFile, parentPath: string): IFileNode[] {
     return teableFileContent.teableList.map((teableName) => {
       return {
         name: teableName,

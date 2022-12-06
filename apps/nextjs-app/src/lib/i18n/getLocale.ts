@@ -29,9 +29,7 @@ function getAcceptPreferredLocale(
 function getLocaleFromCookie(req: NextRequest, locales: string[]) {
   const nextLocale = req.cookies.get('NEXT_LOCALE')?.value;
   return nextLocale
-    ? locales.find(
-        (locale: string) => nextLocale.toLowerCase() === locale.toLowerCase()
-      )
+    ? locales.find((locale: string) => nextLocale.toLowerCase() === locale.toLowerCase())
     : undefined;
 }
 
@@ -44,11 +42,7 @@ function detectLocale({
   req: NextRequest;
   preferredLocale?: string;
 }) {
-  return (
-    getLocaleFromCookie(req, i18n.locales) ||
-    preferredLocale ||
-    i18n.defaultLocale
-  );
+  return getLocaleFromCookie(req, i18n.locales) || preferredLocale || i18n.defaultLocale;
 }
 
 export function getLocaleDetection({ req, i18n }: IOptions) {

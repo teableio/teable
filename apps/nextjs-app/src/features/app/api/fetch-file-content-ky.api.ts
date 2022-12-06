@@ -5,9 +5,7 @@ import { ky } from '@/config/ky';
 interface ITextFileContent {
   content: string;
 }
-export const fetchFileContent = async (
-  path: string
-): Promise<ITextFileContent> => {
+export const fetchFileContent = async (path: string): Promise<ITextFileContent> => {
   return ky
     .get(`/api/file-content/${path}`)
     .json<JsonApiResponse<ITextFileContent>>()

@@ -48,9 +48,7 @@ export const LoginForm: FC<Props> = (_props) => {
           placeholder="Username or email"
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
-        {errors?.username && (
-          <p className={'bg-amber-600'}>{errors.username.message}</p>
-        )}
+        {errors?.username && <p className={'bg-amber-600'}>{errors.username.message}</p>}
       </label>
       <label>
         Password
@@ -64,9 +62,7 @@ export const LoginForm: FC<Props> = (_props) => {
           placeholder="Password"
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         />
-        {errors?.password && (
-          <p className={'bg-amber-600'}>{errors.password.message}</p>
-        )}
+        {errors?.password && <p className={'bg-amber-600'}>{errors.password.message}</p>}
       </label>
       <button
         type="submit"

@@ -1,4 +1,4 @@
 export interface IAppConfig {
   port: number;
-  dir?: string;
+  dir?: string; // directory of the next.js app
 }

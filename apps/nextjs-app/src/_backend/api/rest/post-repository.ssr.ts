@@ -1,14 +1,9 @@
-import {
-  HttpInternalServerError,
-  HttpNotFound,
-} from '@belgattitude/http-exception';
+import { HttpInternalServerError, HttpNotFound } from '@belgattitude/http-exception';
 import type { PrismaClientDbMain } from '@teable-group/db-main-prisma';
 import type { UnPromisify } from '@teable-group/ts-utils';
 import { assertNonEmptyString } from '@teable-group/ts-utils';
 
-export type IGetPosts = UnPromisify<
-  ReturnType<typeof PostRepositorySsr['prototype']['getPosts']>
->;
+export type IGetPosts = UnPromisify<ReturnType<typeof PostRepositorySsr['prototype']['getPosts']>>;
 
 export class PostRepositorySsr {
   constructor(private prisma: PrismaClientDbMain) {}
@@ -22,10 +17,7 @@ export class PostRepositorySsr {
         where: { id: postId },
         include: { author: true },
       });
-      assertNonEmptyString(
-        post,
-        () => new HttpNotFound(`Post ${postId} can't be found`)
-      );
+      assertNonEmptyString(post, () => new HttpNotFound(`Post ${postId} can't be found`));
       return post;
     } catch (e) {
       throw new HttpInternalServerError({

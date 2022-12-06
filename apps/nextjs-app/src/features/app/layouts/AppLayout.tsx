@@ -11,7 +11,5 @@ export const AppLayout: FC<PropsWithChildren> = (props) => {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
-  return (
-    <div>{isHydrated ? <div>{children}</div> : <div>Loading...</div>}</div>
-  );
+  return <div>{isHydrated ? <div>{children}</div> : <div>Loading...</div>}</div>;
 };

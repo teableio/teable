@@ -3,11 +3,7 @@ import type { Options, NormalizedOptions } from 'ky';
 
 type IProps = {
   baseUrl?: string;
-  onAuthFailure?: (
-    request: Request,
-    options: NormalizedOptions,
-    response: Response
-  ) => void;
+  onAuthFailure?: (request: Request, options: NormalizedOptions, response: Response) => void;
 };
 
 export class KyFactory {
@@ -19,10 +15,7 @@ export class KyFactory {
             afterResponse: [
               async (request, options, response): Promise<Response> => {
                 const { status } = response;
-                if (
-                  [401, 403].includes(status) &&
-                  this.props.onAuthFailure !== undefined
-                ) {
+                if ([401, 403].includes(status) && this.props.onAuthFailure !== undefined) {
                   this.props.onAuthFailure(request, options, response);
                 }
                 return response;

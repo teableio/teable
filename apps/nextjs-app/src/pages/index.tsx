@@ -8,15 +8,11 @@ type Props = {
   /** Add HomeRoute props here */
 };
 
-export default function DemoRoute(
-  _props: InferGetServerSidePropsType<typeof getServerSideProps>
-) {
+export default function DemoRoute(_props: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return <AppPage />;
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (
-  context
-) => {
+export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
   const locale = context.res.getHeader('X-Server-Locale') as string | undefined;
   if (locale === undefined) {
     throw new HttpBadRequest('locale is missing');

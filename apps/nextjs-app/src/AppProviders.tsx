@@ -13,7 +13,5 @@ type Props = PropsWithChildren;
 
 export const AppProviders: FC<Props> = (props) => {
   const { children } = props;
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 };

@@ -6,10 +6,7 @@ import superjson from 'superjson';
 import { prismaClient } from '@/_backend/config/container.config';
 import { SearchPoemsQuery } from '@/_backend/features/poem/SearchPoems';
 
-export default async function handleListPoems(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handleListPoems(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     const searchPoem = new SearchPoemsQuery(prismaClient);
     try {
@@ -26,9 +23,7 @@ export default async function handleListPoems(
       );
     } catch (e) {
       const apiError = JsonApiErrorFactory.fromCatchVariable(e);
-      return res
-        .status(apiError.status ?? 500)
-        .json(JsonApiResponseFactory.fromError(apiError));
+      return res.status(apiError.status ?? 500).json(JsonApiResponseFactory.fromError(apiError));
     }
   } else {
     return res

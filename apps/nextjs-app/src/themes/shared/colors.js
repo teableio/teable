@@ -6,20 +6,13 @@ const tailwindColors = require('tailwindcss/colors');
  *     that will log a warning when accessing the object key
  * @type {Record<string, string | Record<string, string>>}
  */
-const tailwindV3Colors = Object.entries(
-  Object.getOwnPropertyDescriptors(tailwindColors)
-)
+const tailwindV3Colors = Object.entries(Object.getOwnPropertyDescriptors(tailwindColors))
   .filter(
     ([, desc]) =>
-      Object.prototype.hasOwnProperty.call(desc, 'value') &&
-      typeof desc.value !== 'function'
+      Object.prototype.hasOwnProperty.call(desc, 'value') && typeof desc.value !== 'function'
   )
   .reduce((acc, [key]) => {
-    if (
-      !['coolGray', 'lightBlue', 'warmGray', 'trueGray', 'blueGray'].includes(
-        key
-      )
-    ) {
+    if (!['coolGray', 'lightBlue', 'warmGray', 'trueGray', 'blueGray'].includes(key)) {
       acc[key] = tailwindColors[key];
     }
     return acc;

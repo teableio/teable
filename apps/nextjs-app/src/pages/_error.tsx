@@ -3,10 +3,7 @@
  * @link https://nextjs.org/docs/advanced-features/custom-error-page
  */
 
-import {
-  captureException as sentryCaptureException,
-  flush as sentryFlush,
-} from '@sentry/nextjs';
+import { captureException as sentryCaptureException, flush as sentryFlush } from '@sentry/nextjs';
 import type { NextPage, NextPageContext } from 'next';
 import NextErrorComponent from 'next/error';
 import type { ErrorProps } from 'next/error';
@@ -32,9 +29,7 @@ type AugmentedNextPageContext = Omit<NextPageContext, 'err'> & {
  * Alternatively a good practice is to proxy the sentry in a nextjs api route, istio...
  * @see https://github.com/getsentry/sentry-javascript/issues/2916
  */
-const sentryCaptureExceptionFailsafe = (
-  err: Error | string
-): string | undefined => {
+const sentryCaptureExceptionFailsafe = (err: Error | string): string | undefined => {
   let browserSentryErrorId: string | undefined;
   try {
     browserSentryErrorId = sentryCaptureException(err);
@@ -56,17 +51,14 @@ const sentryFlushServerSide = async (flushAfter: number) => {
     try {
       await sentryFlush(flushAfter);
     } catch (e) {
-      const msg = `Couldn't flush sentry, reason ${
-        e instanceof Error ? e.message : 'unknown'
-      }`;
+      const msg = `Couldn't flush sentry, reason ${e instanceof Error ? e.message : 'unknown'}`;
       console.error(msg);
     }
   }
 };
 
 const CustomError: NextPage<CustomErrorProps> = (props) => {
-  const { statusCode, err, hasGetInitialPropsRun, sentryErrorId, message } =
-    props;
+  const { statusCode, err, hasGetInitialPropsRun, sentryErrorId, message } = props;
 
   let browserSentryErrorId: string | undefined;
 
@@ -86,11 +78,7 @@ const CustomError: NextPage<CustomErrorProps> = (props) => {
   );
 };
 
-CustomError.getInitialProps = async ({
-  res,
-  err,
-  asPath,
-}: AugmentedNextPageContext) => {
+CustomError.getInitialProps = async ({ res, err, asPath }: AugmentedNextPageContext) => {
   const errorInitialProps = (await NextErrorComponent.getInitialProps({
     res,
     err,
@@ -101,10 +89,7 @@ CustomError.getInitialProps = async ({
   errorInitialProps.hasGetInitialPropsRun = true;
 
   // Returning early because we don't want to log ignored errors to Sentry.
-  if (
-    typeof res?.statusCode === 'number' &&
-    sentryIgnoredStatusCodes.includes(res.statusCode)
-  ) {
+  if (typeof res?.statusCode === 'number' && sentryIgnoredStatusCodes.includes(res.statusCode)) {
     return errorInitialProps;
   }
 

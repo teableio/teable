@@ -18,10 +18,7 @@ export const NotFoundPage: FC<Props> = (props) => {
         <title>{title}</title>
       </Head>
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-white">
-        <h1
-          data-testid="not-found-title"
-          className="text-5xl text-black md:text-4xl lg:text-5xl"
-        >
+        <h1 data-testid="not-found-title" className="text-5xl text-black md:text-4xl lg:text-5xl">
           {title}
         </h1>
         <p className="mt-5 text-center text-xl no-underline hover:underline">
