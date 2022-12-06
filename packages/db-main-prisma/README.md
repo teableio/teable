@@ -30,7 +30,12 @@ yarn prisma-migrate-reset
 
 ### Database
 
-#### Option 1: Postgresql local
+#### Option 0: sqlite local
+
+The default env for `PRISMA_DATABASE_URL` is defined in the main [.env](.env) file.
+By default, it connects to the sqlite file main.db
+
+#### Option 1: Postgresql local (deprecated)
 
 The default env for `PRISMA_DATABASE_URL` is defined in the main [.env](.env) file.
 By default, it connects to the postgresql service defined in [../../docker-compose.yml](../../docker-compose.yml).
@@ -44,7 +49,7 @@ docker-compose up database
 yarn docker:up
 ```
 
-#### Option 2: An hosted postgres instance
+#### Option 2: An hosted postgres instance (deprecated)
 
 To quick start, you can use a free tier at supabase.io, but all providers will work.
 

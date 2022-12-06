@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("PRISMA_DATABASE_URL")
 }
 
@@ -15,18 +15,20 @@ model Table {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+
+  @@map(name: "table")
 }
 
 model Poem {
   id        Int            @id @default(autoincrement())
   slug      String         @unique
-  title     String         @db.VarChar(255)
-  content   String         @db.Text
-  locale    String?        @db.VarChar(5)
+  title     String
+  content   String
+  locale    String?
   keywords  PoemKeywords[]
-  author    String         @db.VarChar(120)
-  link      String?        @db.VarChar(255)
-  image     String?        @db.VarChar(255)
+  author    String
+  link      String?
+  image     String?
   createdAt DateTime       @default(now()) @map(name: "created_at")
   updatedAt DateTime       @updatedAt @map(name: "updated_at")
 
@@ -48,8 +50,8 @@ model PoemKeywords {
 
 model Keyword {
   id     Int            @id @default(autoincrement())
-  name   String         @unique @db.VarChar(120)
-  locale String?        @db.VarChar(5)
+  name   String         @unique
+  locale String?
   poems  PoemKeywords[]
 
   @@map(name: "keyword")
@@ -58,10 +60,10 @@ model Keyword {
 model Post {
   id          Int       @id @default(autoincrement())
   slug        String    @unique
-  title       String    @db.VarChar(300)
-  content     String    @db.Text
-  link        String?   @db.VarChar(300)
-  image       String?   @db.VarChar(300)
+  title       String
+  content     String
+  link        String?
+  image       String?
   author      User?     @relation(fields: [authorId], references: [id])
   authorId    Int?      @map(name: "author_id")
   publishedAt DateTime? @map(name: "published_at")
@@ -73,12 +75,12 @@ model Post {
 
 model User {
   id            Int       @id @default(autoincrement())
-  firstName     String?   @map(name: "first_name") @db.VarChar(80)
-  lastName      String?   @map(name: "last_name") @db.VarChar(80)
-  nickname      String    @unique @db.VarChar(64)
-  email         String    @unique @db.VarChar(150)
+  firstName     String?   @map(name: "first_name")
+  lastName      String?   @map(name: "last_name")
+  nickname      String    @unique
+  email         String    @unique
   emailVerified DateTime? @map("email_verified")
-  avatarUrl     String?   @map("avatar_url") @db.VarChar(255)
+  avatarUrl     String?   @map("avatar_url")
   createdAt     DateTime  @default(now()) @map(name: "created_at")
   updatedAt     DateTime  @updatedAt @map(name: "updated_at")
   accounts      Account[]
@@ -94,12 +96,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -119,8 +121,8 @@ model Session {
 }
 
 model VerificationToken {
-  identifier String   @db.VarChar(255)
-  token      String   @unique @db.VarChar(255)
+  identifier String
+  token      String   @unique
   expires    DateTime
 
   @@unique([identifier, token])
