@@ -7,15 +7,18 @@ const dsn = process.env.E2E_PRISMA_DATABASE_URL as string;
 
 export const getValidatedDsn = (): { dsn: string } & ParsedDsn => {
   const parsedDsn = parseDsn(dsn);
+  if (dsn.startsWith('file:')) {
+    return {
+      dsn,
+      host: 'localhost',
+      driver: 'sqlite',
+    };
+  }
   if (!parsedDsn.success) {
-    throw new Error(
-      `${pc.bgRed(`[SetupError]: E2E_PRISMA_DATABASE_URL ${parsedDsn.reason}`)}`
-    );
+    throw new Error(`${pc.bgRed(`[SetupError]: E2E_PRISMA_DATABASE_URL ${parsedDsn.reason}`)}`);
   }
   if (!parsedDsn.value.port) {
-    throw new Error(
-      `${pc.bgRed(`[SetupError]: E2E_PRISMA_DATABASE_URL must provide a port`)}`
-    );
+    throw new Error(`${pc.bgRed(`[SetupError]: E2E_PRISMA_DATABASE_URL must provide a port`)}`);
   }
   return {
     dsn,
@@ -24,7 +27,10 @@ export const getValidatedDsn = (): { dsn: string } & ParsedDsn => {
 };
 
 export const getAndCheckDatabaseDsn = async (): Promise<string> => {
-  const { dsn, port, host } = getValidatedDsn();
+  const { dsn, port, host, driver } = getValidatedDsn();
+  if (driver === 'sqlite') {
+    return dsn;
+  }
   const reachable = await isPortReachable(port as unknown as number, {
     host: host,
     timeout: 5_000,
@@ -32,11 +38,7 @@ export const getAndCheckDatabaseDsn = async (): Promise<string> => {
 
   if (!reachable) {
     throw new Error(
-      `${pc.bgRed(
-        `[SetupError]: Unreachable required e2e database ${[host, port].join(
-          ':'
-        )}`
-      )}`
+      `${pc.bgRed(`[SetupError]: Unreachable required e2e database ${[host, port].join(':')}`)}`
     );
   }
   return dsn;

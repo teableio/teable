@@ -48,7 +48,7 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/yarn-nm-install
 
-      - name: Start postgresql
+      - name: Start sqlite
         working-directory: packages/db-main-prisma
         run: docker-compose -f docker-compose.e2e.yml up --detach ${{ matrix.database }}
 
@@ -57,4 +57,4 @@ jobs:
         run: |
           yarn test-e2e
         env:
-          E2E_PRISMA_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/db-main-prisma-e2e?schema=public
+          E2E_PRISMA_DATABASE_URL: file:../db/test.db
