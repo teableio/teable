@@ -14,33 +14,14 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns(), '.next', '.out', 'main'],
+  ignorePatterns: [...getDefaultIgnorePatterns(), '.dist', '.out', 'main'],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/sonar',
     '@teable-group/eslint-config-bases/regexp',
     '@teable-group/eslint-config-bases/jest',
-    '@teable-group/eslint-config-bases/react',
     '@teable-group/eslint-config-bases/tailwind',
-    '@teable-group/eslint-config-bases/rtl',
-    // Add specific rules for nextjs
-    'plugin:@next/next/core-web-vitals',
     // Apply prettier and disable incompatible rules
     '@teable-group/eslint-config-bases/prettier',
-  ],
-  rules: {
-    // https://github.com/vercel/next.js/discussions/16832
-    '@next/next/no-img-element': 'off',
-    // For the sake of example
-    // https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/HEAD/docs/rules/anchor-is-valid.md
-    'jsx-a11y/anchor-is-valid': 'off',
-  },
-  overrides: [
-    {
-      files: ['**'],
-      rules: {
-        '@next/next/no-assign-module-variable': 'off',
-      },
-    },
   ],
 };

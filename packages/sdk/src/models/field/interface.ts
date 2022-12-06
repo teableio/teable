@@ -1,11 +1,3 @@
-export type IFileNode = {
-  name: string;
-  path: string;
-  isDirectory?: boolean;
-  type: string;
-  children?: IFileNode[];
-};
-
 // table schema start here
 export interface IFieldBase {
   id: string;
@@ -77,55 +69,3 @@ export type IField =
   | ILastUpdatedByField
   | ICreatedTimeField
   | ILastUpdatedTimeField;
-
-export interface IViewBase {
-  id: string;
-  name: string;
-  type: string;
-  query?: {
-    filter: string[];
-    sort: string[];
-  };
-}
-
-export interface IGridView extends IViewBase {
-  type: 'grid';
-  columns: {
-    fieldId: string;
-    width: number;
-    hidden: boolean;
-  }[];
-}
-
-export interface IGalleryView extends IViewBase {
-  type: 'gallery';
-  columns: {
-    fieldId: string;
-    hidden: boolean;
-  }[];
-}
-
-export type IView = IGridView | IGalleryView;
-
-export interface ITable {
-  id: string;
-  name: string;
-  description: string;
-  fieldMap: {
-    [fieldId: string]: IField;
-  };
-  viewList: string;
-  viewMap: {
-    [viewId: string]: IView;
-  };
-}
-export interface ITeable {
-  id: string;
-  name: string;
-  description: string;
-  schemaVersion: string;
-  tableList: string[];
-  schema: {
-    [tableId: string]: ITable;
-  };
-}

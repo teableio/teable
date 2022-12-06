@@ -1,11 +1,10 @@
 import '@glideapps/glide-data-grid/dist/index.css';
-
 import type { DataEditorProps, GridCell, GridColumn, Item } from '@glideapps/glide-data-grid';
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
 import { useColumns } from '@teable-group/sdk/hooks/use-columns';
 import { useRowCount } from '@teable-group/sdk/hooks/use-row-count';
+import type { ITeable } from '@teable-group/sdk/models/interface';
 import React, { useEffect, useState } from 'react';
-import type { ITeable } from '@/backend/features/file-tree/interface';
 import { fetchFileContent } from '../api/fetch-file-content-ky.api';
 
 export const defaultProps: Partial<DataEditorProps> = {
