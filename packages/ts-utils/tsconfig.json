@@ -9,12 +9,15 @@
     "lib": ["ESNext"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "./src",
     "noEmit": false,
     "incremental": true,
     "resolveJsonModule": true,
-    "paths": {}
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["**/*.ts", "**/*.js", "**/.cjs", "**/*.mjs", "**/*.json"]
+  "include": ["src"]
 }

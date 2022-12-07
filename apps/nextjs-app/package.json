@@ -34,7 +34,7 @@
     "build-fast": "cross-env NEXTJS_IGNORE_TYPECHECK=1 NEXTJS_IGNORE_ESLINT=1 NEXTJS_DISABLE_SENTRY=1 NEXTJS_SENTRY_UPLOAD_DRY_RUN=1 next build",
     "vercel-build": "yarn share-static-hardlink && next build",
     "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
-    "dev": "prebuild:electron && electron .",
+    "dev": "yarn prebuild:electron && electron .",
     "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
     "pack-app": "yarn build:electron && electron-builder --dir",
     "dist": "yarn build:electron && electron-builder",
@@ -58,7 +58,6 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@nestjs/testing": "9.2.0",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
@@ -123,11 +122,6 @@
     "@graphql-yoga/node": "2.13.13",
     "@headlessui/react": "1.7.3",
     "@hookform/resolvers": "2.9.10",
-    "@nestjs/common": "9.2.0",
-    "@nestjs/config": "2.2.0",
-    "@nestjs/core": "9.2.0",
-    "@nestjs/platform-express": "9.2.0",
-    "@nestjs/swagger": "6.1.3",
     "@radix-ui/colors": "0.1.8",
     "@radix-ui/react-collapsible": "1.0.1",
     "@radix-ui/react-dialog": "1.0.2",

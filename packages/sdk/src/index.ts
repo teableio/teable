@@ -1,3 +1,7 @@
-export const sayHello = (name: string): string => {
-  return `I'm the @teable-group/ui-lib component telling ${name} !`;
-};
+export * from './api';
+export * from './components';
+export * from './config';
+export * from './context';
+export * from './engine';
+export * from './hooks';
+export * from './models';

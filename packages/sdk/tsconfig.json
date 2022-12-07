@@ -7,11 +7,15 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "react-jsx",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "noEmit": false,
+    "declaration": true,
+    "declarationDir": "./dist",
+    "composite": true,
+    "sourceMap": true,
     "incremental": true,
     "paths": {
-      "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"],
-      "@teable-group/db-main-prisma": ["../../../packages/db-main-prisma/src/index"],
       "@/context/*": ["./context/*"],
       "@/config/*": ["./config/*"],
       "@/component/*": ["./component/*"],
@@ -20,5 +24,7 @@
       "@/models/*": ["./models/*"]
     }
   },
-  "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
+  "references": [{ "path": "../ts-utils" }],
+  "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
+  "include": ["./src"]
 }

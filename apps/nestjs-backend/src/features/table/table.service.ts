@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { Table, Prisma } from '@prisma/client';
+import { sqliteDb } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { CreateTableDto } from './create-table.dto';
 
@@ -8,14 +9,32 @@ export class TableService {
   constructor(private prisma: PrismaService) {}
 
   async createTable(createTableDto: CreateTableDto): Promise<Table> {
+    const dbTableName = createTableDto.name;
     const data: Prisma.TableCreateInput = {
       ...createTableDto,
-      dbTableName: createTableDto.name,
+      dbTableName,
     };
 
-    return this.prisma.table.create({
+    const tableIndexData = await this.prisma.table.create({
       data,
     });
+
+    const stmt = sqliteDb.prepare(`
+      CREATE TABLE ? (
+        id INT NOT NULL,
+        field1 TEXT,
+        field2 TEXT,
+        field3 TEXT,
+        field4 TEXT,
+        PRIMARY KEY (id),
+      );
+    `);
+
+    const info = stmt.run(dbTableName);
+
+    console.log(info);
+
+    return tableIndexData;
   }
 
   async getTable(tableId: string): Promise<Table> {

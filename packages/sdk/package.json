@@ -14,10 +14,13 @@
     "url": "https://github.com/tea-artist"
   },
   "sideEffects": false,
-  "source": "src/index.ts",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "source": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": "./dist"
+  },
   "scripts": {
     "build": "rimraf --no-glob ./dist && cross-env NODE_ENV=production microbundle --tsconfig ./tsconfig.build.json --jsx React.createElement --jsxFragment React.Fragment -f cjs,es --no-compress",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",

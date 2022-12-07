@@ -1,12 +1,12 @@
 import type { ITable } from './table/interface';
 
-export type IFileNode = {
+export interface IFileNode {
   name: string;
   path: string;
   isDirectory?: boolean;
   type: string;
   children?: IFileNode[];
-};
+}
 
 export interface ITeable {
   id: string;

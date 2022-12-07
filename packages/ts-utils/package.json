@@ -15,16 +15,14 @@
   },
   "sideEffects": false,
   "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./package.json": "./package.json"
+    ".": "./dist"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsc",
+    "dev": "tsc --watch",
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/ts-utils.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
@@ -52,7 +50,6 @@
     "size-limit": "8.1.0",
     "ts-jest": "29.0.3",
     "tslib": "2.4.0",
-    "tsup": "6.3.0",
     "typescript": "4.8.4",
     "vite": "3.2.1",
     "vite-tsconfig-paths": "3.5.2",

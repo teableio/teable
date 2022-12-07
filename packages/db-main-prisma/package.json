@@ -14,13 +14,8 @@
     "url": "https://github.com/tea-artist"
   },
   "sideEffects": false,
-  "main": "./src/index.ts",
-  "exports": {
-    ".": {
-      "transpiled": "./dist/index.js",
-      "default": "./src/index.ts"
-    }
-  },
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"
   },
@@ -41,11 +36,13 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "4.5.0"
+    "@prisma/client": "4.5.0",
+    "better-sqlite3": "8.0.1"
   },
   "devDependencies": {
     "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
+    "@types/better-sqlite3": "7.6.2",
     "@types/jest": "29.2.0",
     "@types/node": "18.11.7",
     "camelcase": "7.0.0",
