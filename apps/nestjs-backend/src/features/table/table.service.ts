@@ -20,17 +20,16 @@ export class TableService {
     });
 
     const stmt = sqliteDb.prepare(`
-      CREATE TABLE ? (
+      CREATE TABLE ${dbTableName} (
         id INT NOT NULL,
         field1 TEXT,
         field2 TEXT,
         field3 TEXT,
-        field4 TEXT,
-        PRIMARY KEY (id),
+        PRIMARY KEY (id)
       );
     `);
 
-    const info = stmt.run(dbTableName);
+    const info = stmt.run();
 
     console.log(info);
 

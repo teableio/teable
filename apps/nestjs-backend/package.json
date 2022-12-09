@@ -30,8 +30,8 @@
   "scripts": {
     "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main ./dist",
     "build": "yarn clean && tsc --build",
-    "dev": "yarn clean && nest start --watch",
-    "start": "NODE_ENV=production node --conditions=transpiled ./dist",
+    "dev": "yarn clean && nest start --watch --tsc",
+    "start": "NODE_ENV=production node ./dist",
     "?share-static-symlink": "echo 'Use this command to link assets... from shared static folder'",
     "share-static-symlink": "rimraf ./public/shared-assets && symlink-dir ../../static/assets ./public/shared-assets",
     "?share-static-hardlink": "echo 'Use this command to link assets... from shared static folder'",
