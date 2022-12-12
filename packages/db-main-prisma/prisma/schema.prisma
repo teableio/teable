@@ -8,15 +8,17 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
-model Table {
-  id        String   @id @default(cuid())
+model TableMeta {
+  id        String   @id
   name      String
+  description String?
+  icon        String?
   dbTableName String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  @@map(name: "table")
+  @@map(name: "table_meta")
 }
 
 model Poem {

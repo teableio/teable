@@ -8,7 +8,7 @@ export interface ITable {
   fieldMap: {
     [fieldId: string]: IField;
   };
-  viewList: string;
+  viewList: string[];
   viewMap: {
     [viewId: string]: IView;
   };
