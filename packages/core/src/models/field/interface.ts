@@ -1,71 +1,84 @@
+import type { FieldType } from './constant';
+
+type IDataType = string | number | boolean | Date | Array<IDataType>;
+
 // table schema start here
 export interface IFieldBase {
   id: string;
   name: string;
-  type: string;
-  isPrimaryKey?: boolean;
+  type: FieldType;
+  description?: string;
+  property?: unknown;
+  // for lookup field, it is a dynamic value
+  calculatedType: unknown;
+  // cellValue type enum (string, number, boolean, datetime, array)
+  dataType: IDataType;
+  notNull?: boolean;
+  unique?: boolean;
+  isPrimaryField?: boolean;
+  defaultValue?: unknown;
 }
 
-export interface ITextField extends IFieldBase {
-  type: 'text';
+export interface ISingleLineTextField extends IFieldBase {
+  type: FieldType.SingleLineText;
   defaultValue: string;
 }
 
 export interface INumberField extends IFieldBase {
-  type: 'number';
+  type: FieldType.Number;
   defaultValue: number;
 }
 
-export interface ISelectField extends IFieldBase {
-  type: 'select';
+export interface ISingleSelectField extends IFieldBase {
+  type: FieldType.SingleSelect;
   options: string[];
   defaultValue: string;
 }
 
-export interface IMultiSelectField extends IFieldBase {
-  type: 'multi-select';
+export interface IMultipleSelectField extends IFieldBase {
+  type: FieldType.MultipleSelect;
   options: string[];
   defaultValue: string[];
 }
 
 export interface ICheckboxField extends IFieldBase {
-  type: 'checkbox';
+  type: FieldType.Checkbox;
   defaultValue: boolean;
 }
 
 export interface IDateField extends IFieldBase {
-  type: 'date';
+  type: FieldType.Date;
   defaultValue: number;
 }
 
 export interface ICreatedByField extends IFieldBase {
-  type: 'created-by';
+  type: FieldType.CreatedBy;
   defaultValue: string;
 }
 
-export interface ILastUpdatedByField extends IFieldBase {
-  type: 'last-updated-by';
+export interface ILastModifiedByField extends IFieldBase {
+  type: FieldType.LastModifiedBy;
   defaultValue: string;
 }
 
 export interface ICreatedTimeField extends IFieldBase {
-  type: 'created-time';
+  type: FieldType.CreatedTime;
   defaultValue: number;
 }
 
-export interface ILastUpdatedTimeField extends IFieldBase {
-  type: 'last-updated-time';
+export interface ILastModifiedTimeField extends IFieldBase {
+  type: FieldType.LastModifiedTime;
   defaultValue: number;
 }
 
 export type IField =
-  | ITextField
+  | ISingleLineTextField
   | INumberField
-  | ISelectField
-  | IMultiSelectField
+  | ISingleSelectField
+  | IMultipleSelectField
   | ICheckboxField
   | IDateField
   | ICreatedByField
-  | ILastUpdatedByField
+  | ILastModifiedByField
   | ICreatedTimeField
-  | ILastUpdatedTimeField;
+  | ILastModifiedTimeField;

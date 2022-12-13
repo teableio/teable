@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 export enum Prefix {
   Table = 'tbl',
+  Field = 'fld',
   View = 'viw',
   Node = 'nod',
 }
@@ -20,4 +21,8 @@ export function randomString16() {
 
 export function generateTableId() {
   return Prefix.Table + randomString16();
+}
+
+export function generateFieldId() {
+  return Prefix.Field + randomString16();
 }

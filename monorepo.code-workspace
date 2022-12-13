@@ -17,6 +17,10 @@
       "path": "packages/sdk"
     },
     {
+      "name": "core",
+      "path": "packages/core"
+    },
+    {
       "name": "db-main-prisma",
       "path": "packages/db-main-prisma"
     },
@@ -57,6 +61,7 @@
       "./apps/nesjs-backend",
       "./packages/common-i18n",
       "./packages/sdk",
+      "./packages/core",
       "./packages/db-main-prisma",
       "./packages/eslint-config-bases",
       "./packages/ui-lib"

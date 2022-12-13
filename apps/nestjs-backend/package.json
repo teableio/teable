@@ -30,7 +30,7 @@
   "scripts": {
     "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main ./dist",
     "build": "yarn clean && tsc --build",
-    "dev": "yarn clean && nest start --watch --tsc",
+    "dev": "nest start --watch",
     "start": "NODE_ENV=production node ./dist",
     "?share-static-symlink": "echo 'Use this command to link assets... from shared static folder'",
     "share-static-symlink": "rimraf ./public/shared-assets && symlink-dir ../../static/assets ./public/shared-assets",
@@ -50,6 +50,7 @@
   },
   "devDependencies": {
     "@nestjs/testing": "9.2.0",
+    "@teable-group/eslint-config-bases": "workspace:^",
     "@types/better-sqlite3": "7.6.2",
     "@types/cors": "2.8.12",
     "@types/express": "4.17.14",

@@ -6167,6 +6167,7 @@ __metadata:
     "@teable-group/common-i18n": "workspace:^"
     "@teable-group/core": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
+    "@teable-group/eslint-config-bases": "workspace:^"
     "@teable-group/sdk": "workspace:^"
     "@types/better-sqlite3": "npm:7.6.2"
     "@types/cors": "npm:2.8.12"

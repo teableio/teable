@@ -25,26 +25,29 @@ model TableMeta {
 }
 
 model Field {
-  id          String    @id
+  id          String     @id
   name        String?
   description String?
   property    String?
   // field type enum, for user define
-  fieldType   String?   @map(name: "field_type")
+  type        String?
   // for lookup field, it is a dynamic value
-  caculatedFieldType String?   @map(name: "caculated_field_type")
-  // cellValue type enum (string, number, boolean, datatime, array)
-  dataType    String?   @map(name: "data_type")
-  notNull     Boolean?  @map(name: "not_null")
+  calculatedType String? @map(name: "calculated_type")
+  // cellValue type enum (string, number, boolean, datetime, array)
+  dataType    String?    @map(name: "data_type")
+  // db field type (TEXT, INTEGER, REAL, BLOB)
+  dbType      String?    @map(name: "db_type")
+  dbFieldName String     @map(name: "db_field_name")
+  notNull     Boolean?   @map(name: "not_null")
   unique      Boolean?
-  table       TableMeta @relation(fields: [tableId], references: [id])
-  tableId     String    @map(name: "table_id")
+  table       TableMeta  @relation(fields: [tableId], references: [id])
+  tableId     String     @map(name: "table_id")
 
-  createdAt   DateTime  @default(now()) @map(name: "created_at")
-  updatedAt   DateTime  @updatedAt @map(name: "updated_at")
-  deletedAt   DateTime? @map(name: "deleted_at")
-  createBy    String    @map(name: "create_by")
-  updateBy    String    @map(name: "update_by")
+  createdAt   DateTime   @default(now()) @map(name: "created_at")
+  updatedAt   DateTime   @updatedAt @map(name: "updated_at")
+  deletedAt   DateTime?  @map(name: "deleted_at")
+  createBy    String     @map(name: "create_by")
+  updateBy    String     @map(name: "update_by")
 
   @@map(name: "field")
 }

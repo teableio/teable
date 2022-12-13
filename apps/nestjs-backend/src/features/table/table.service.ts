@@ -2,17 +2,17 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { TableMeta, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { generateTableId } from '../../utils/id-generator';
+import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import type { CreateTableDto } from './create-table.dto';
 
 const tableNamePrefix = 'visual';
 
 @Injectable()
 export class TableService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   generateValidDbTableName(name: string) {
-    const matchedArray = name.match(/\w*/g);
-    const validInputName = matchedArray?.join('').substring(0, 10) || 'unnamed';
+    const validInputName = convertNameToValidCharacter(name);
     return `${tableNamePrefix}_${validInputName}`;
   }
 
@@ -34,16 +34,16 @@ export class TableService {
       }),
       this.prisma.$executeRawUnsafe(`
         CREATE TABLE ${dbTableName} (
-          id TEXT NOT NULL,
-          field1 TEXT,
-          field2 TEXT,
-          field3 TEXT,
+          __id TEXT NOT NULL,
+          name TEXT,
+          number REAL,
+          status TEXT,
           __autonumber INT NOT NULL AUTOINCREMENT,
           __createdAt DATETIME,
           __updatedAt DATETIME,
           __createBy TEXT,
           __updateBy TEXT,
-          PRIMARY KEY (id)
+          PRIMARY KEY (__id)
         );
       `),
     ]);
