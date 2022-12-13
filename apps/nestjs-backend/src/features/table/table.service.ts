@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import type { Table, Prisma } from '@prisma/client';
+import type { TableMeta, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { generateTableId } from '../../utils/id-generator';
 import type { CreateTableDto } from './create-table.dto';
@@ -16,26 +16,31 @@ export class TableService {
     return `${tableNamePrefix}_${validInputName}`;
   }
 
-  async createTable(createTableDto: CreateTableDto): Promise<Table> {
+  async createTable(createTableDto: CreateTableDto): Promise<TableMeta> {
     const validDbTableName = this.generateValidDbTableName(createTableDto.name);
     const tableId = generateTableId();
     const dbTableName = `${validDbTableName}_${tableId}`;
-    const data: Prisma.TableCreateInput = {
+    const data: Prisma.TableMetaCreateInput = {
       id: tableId,
       name: createTableDto.name,
       dbTableName,
     };
 
     const [tableIndexData] = await this.prisma.$transaction([
-      this.prisma.table.create({
+      this.prisma.tableMeta.create({
         data,
       }),
       this.prisma.$executeRawUnsafe(`
         CREATE TABLE ${dbTableName} (
-          id INT NOT NULL,
+          id TEXT NOT NULL,
           field1 TEXT,
           field2 TEXT,
           field3 TEXT,
+          __autonumber INT NOT NULL AUTOINCREMENT,
+          __createdAt DATETIME,
+          __updatedAt DATETIME,
+          __createBy TEXT,
+          __updateBy TEXT,
           PRIMARY KEY (id)
         );
       `),
@@ -44,8 +49,8 @@ export class TableService {
     return tableIndexData;
   }
 
-  async getTable(tableId: string): Promise<Table> {
-    const table = await this.prisma.table.findUnique({
+  async getTable(tableId: string): Promise<TableMeta> {
+    const table = await this.prisma.tableMeta.findUnique({
       where: {
         id: tableId,
       },

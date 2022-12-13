@@ -9,16 +9,44 @@ datasource db {
 }
 
 model TableMeta {
-  id        String   @id
-  name      String
+  id          String    @id
+  name        String?
   description String?
   icon        String?
-  dbTableName String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  fields      Field[]
+  dbTableName String    @map(name: "db_table_name")
+  createdAt   DateTime  @default(now()) @map(name: "created_at")
+  updatedAt   DateTime  @updatedAt @map(name: "updated_at")
+  deletedAt   DateTime? @map(name: "deleted_at")
+  createBy    String    @map(name: "create_by")
+  updateBy    String    @map(name: "update_by")
 
   @@map(name: "table_meta")
+}
+
+model Field {
+  id          String    @id
+  name        String?
+  description String?
+  property    String?
+  // field type enum, for user define
+  fieldType   String?   @map(name: "field_type")
+  // for lookup field, it is a dynamic value
+  caculatedFieldType String?   @map(name: "caculated_field_type")
+  // cellValue type enum (string, number, boolean, datatime, array)
+  dataType    String?   @map(name: "data_type")
+  notNull     Boolean?  @map(name: "not_null")
+  unique      Boolean?
+  table       TableMeta @relation(fields: [tableId], references: [id])
+  tableId     String    @map(name: "table_id")
+
+  createdAt   DateTime  @default(now()) @map(name: "created_at")
+  updatedAt   DateTime  @updatedAt @map(name: "updated_at")
+  deletedAt   DateTime? @map(name: "deleted_at")
+  createBy    String    @map(name: "create_by")
+  updateBy    String    @map(name: "update_by")
+
+  @@map(name: "field")
 }
 
 model Poem {
