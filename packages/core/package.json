@@ -14,12 +14,7 @@
     "url": "https://github.com/tea-artist"
   },
   "sideEffects": false,
-  "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.js",
-  "exports": {
-    ".": "./dist"
-  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

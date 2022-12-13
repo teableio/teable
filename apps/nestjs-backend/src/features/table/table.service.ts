@@ -34,16 +34,15 @@ export class TableService {
       }),
       this.prisma.$executeRawUnsafe(`
         CREATE TABLE ${dbTableName} (
-          __id TEXT NOT NULL,
+          __id TEXT NOT NULL UNIQUE,
           name TEXT,
           number REAL,
           status TEXT,
-          __autonumber INT NOT NULL AUTOINCREMENT,
+          __autonumber INTEGER PRIMARY KEY AUTOINCREMENT,
           __createdAt DATETIME,
           __updatedAt DATETIME,
           __createBy TEXT,
-          __updateBy TEXT,
-          PRIMARY KEY (__id)
+          __updateBy TEXT
         );
       `),
     ]);

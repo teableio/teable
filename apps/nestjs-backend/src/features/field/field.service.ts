@@ -32,7 +32,7 @@ export class FieldService {
   }
 
   async createField(tableId: string, createFieldDto: CreateFieldDto) {
-    const { name } = createFieldDto;
+    const { name, description, type, options, defaultValue, notNull, unique } = createFieldDto;
     const dbFieldName = await this.generateValidDbFieldName(tableId, name);
 
     const data: Prisma.FieldCreateInput = {
@@ -43,6 +43,12 @@ export class FieldService {
         },
       },
       name,
+      description,
+      type,
+      options: JSON.stringify(options),
+      notNull,
+      unique,
+      defaultValue,
       dbFieldName: dbFieldName,
       createBy: 'admin',
       updateBy: 'admin',

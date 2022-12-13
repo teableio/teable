@@ -3,7 +3,7 @@
   "display": "@teable-group/core",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "target": "ESNext",
     "lib": ["ESNext"],

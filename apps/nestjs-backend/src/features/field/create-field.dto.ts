@@ -15,7 +15,7 @@ export class CreateFieldDto implements IFieldDto {
     description: 'The description of the field.',
     example: 'this is a summary',
   })
-  description?: string | undefined;
+  description?: string;
 
   @ApiProperty({
     description: 'The types supported by teable.',
@@ -24,33 +24,29 @@ export class CreateFieldDto implements IFieldDto {
   type!: FieldType;
 
   @ApiProperty({
-    example: {
-      id: 'sltxxxxxxxx',
-      name: 'A',
-      color: 'red',
-    },
+    example: null,
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
   })
-  options?: unknown;
+  options?: object;
 
   @ApiProperty({
     description:
       'The defaultValue of the field. The datatype of the value depends on the field type.',
-    example: 'row title',
+    example: 'default value',
   })
   defaultValue?: string;
 
   @ApiProperty({
     description: 'Set if value are not allowed to be null, not all fields support this option.',
-    example: 'row title',
+    example: false,
   })
-  notNull?: boolean | undefined;
+  notNull?: boolean;
 
   @ApiProperty({
     description:
       'Set if value are not allowed to be duplicated, not all fields support this option.',
-    example: 'row title',
+    example: false,
   })
-  unique?: boolean | undefined;
+  unique?: boolean;
 }
