@@ -1,6 +1,6 @@
 import { HttpInternalServerError } from '@belgattitude/http-exception';
+import type { UnPromisify } from '@teable-group/core';
 import type { PrismaClientDbMain } from '@teable-group/db-main-prisma';
-import type { UnPromisify } from '@teable-group/ts-utils';
 import type { ISearchPoemsParams } from './SearchPoems.types';
 
 type ISearchPoems = UnPromisify<ReturnType<SearchPoemsQuery['searchPoems']>>;

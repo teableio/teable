@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/ts-utils",
+  "name": "@teable-group/core",
   "version": "1.1.1",
   "license": "AGPL-3.0",
   "private": true,
@@ -7,7 +7,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/teable-group/teable",
-    "directory": "packages/ts-utils"
+    "directory": "packages/core"
   },
   "author": {
     "name": "tea artist",
@@ -24,7 +24,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/ts-utils.eslintcache",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
     "check-size": "size-limit",

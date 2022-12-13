@@ -10,7 +10,7 @@ export default defineConfig({
     environment: 'node',
     passWithNoTests: false,
     cache: {
-      dir: '../../.cache/vitest/ts-utils',
+      dir: '../../.cache/vitest/core',
     },
     coverage: {
       provider: 'istanbul',

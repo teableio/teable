@@ -1,5 +1,5 @@
 // To test out support for emotion-11/styled in storybook
-import { isNonEmptyString } from '@teable-group/ts-utils';
+import { isNonEmptyString } from '@teable-group/core';
 import type { FC } from 'react';
 
 type Props = {
@@ -13,9 +13,7 @@ export const BasicCard: FC<Props> = (props) => {
   const imgSrc = isNonEmptyString(image) ? image : undefined;
   return (
     <>
-      {imgSrc !== undefined ? (
-        <img loading="lazy" src={imgSrc} alt="something" />
-      ) : null}
+      {imgSrc !== undefined ? <img loading="lazy" src={imgSrc} alt="something" /> : null}
       <div className="container">
         <h4>
           <strong>{title}</strong>

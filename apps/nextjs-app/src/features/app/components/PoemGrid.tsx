@@ -1,4 +1,4 @@
-import { ArrayUtils } from '@teable-group/ts-utils';
+import { ArrayUtils } from '@teable-group/core';
 import type { FC } from 'react';
 import type { SearchPoems } from '@/_backend/features/poem/SearchPoems';
 import { PoemCard } from './PoemCard';

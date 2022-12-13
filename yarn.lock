@@ -6056,9 +6056,9 @@ __metadata:
     "@tanstack/react-query": "npm:4.13.0"
     "@teable-group/backend": "workspace:^"
     "@teable-group/common-i18n": "workspace:^"
+    "@teable-group/core": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/sdk": "workspace:^"
-    "@teable-group/ts-utils": "workspace:^"
     "@testing-library/dom": "npm:8.19.0"
     "@testing-library/jest-dom": "npm:5.16.5"
     "@testing-library/react": "npm:13.4.0"
@@ -6165,9 +6165,9 @@ __metadata:
     "@nestjs/swagger": "npm:6.1.3"
     "@nestjs/testing": "npm:9.2.0"
     "@teable-group/common-i18n": "workspace:^"
+    "@teable-group/core": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/sdk": "workspace:^"
-    "@teable-group/ts-utils": "workspace:^"
     "@types/better-sqlite3": "npm:7.6.2"
     "@types/cors": "npm:2.8.12"
     "@types/express": "npm:4.17.14"
@@ -6215,6 +6215,32 @@ __metadata:
     prettier: "npm:2.7.1"
     rimraf: "npm:3.0.2"
     typescript: "npm:4.8.4"
+  languageName: unknown
+  linkType: soft
+
+"@teable-group/core@workspace:^, @teable-group/core@workspace:packages/core":
+  version: 0.0.0-use.local
+  resolution: "@teable-group/core@workspace:packages/core"
+  dependencies:
+    "@size-limit/file": "npm:8.1.0"
+    "@teable-group/eslint-config-bases": "workspace:^"
+    "@types/jest": "npm:29.2.0"
+    "@types/node": "npm:18.11.7"
+    "@vitest/coverage-istanbul": "npm:0.24.3"
+    "@vitest/ui": "npm:0.24.3"
+    cross-env: "npm:7.0.3"
+    es-check: "npm:7.0.1"
+    eslint: "npm:8.26.0"
+    get-tsconfig: "npm:4.2.0"
+    jest: "npm:29.2.2"
+    rimraf: "npm:3.0.2"
+    size-limit: "npm:8.1.0"
+    ts-jest: "npm:29.0.3"
+    tslib: "npm:2.4.0"
+    typescript: "npm:4.8.4"
+    vite: "npm:3.2.1"
+    vite-tsconfig-paths: "npm:3.5.2"
+    vitest: "npm:0.24.3"
   languageName: unknown
   linkType: soft
 
@@ -6306,8 +6332,8 @@ __metadata:
   resolution: "@teable-group/sdk@workspace:packages/sdk"
   dependencies:
     "@belgattitude/http-exception": "npm:^1.4.0"
+    "@teable-group/core": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@teable-group/ts-utils": "workspace:^"
     "@testing-library/react": "npm:13.4.0"
     "@testing-library/react-hooks": "npm:8.0.1"
     "@types/jest": "npm:29.2.0"
@@ -6364,33 +6390,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@teable-group/ts-utils@workspace:^, @teable-group/ts-utils@workspace:packages/ts-utils":
-  version: 0.0.0-use.local
-  resolution: "@teable-group/ts-utils@workspace:packages/ts-utils"
-  dependencies:
-    "@size-limit/file": "npm:8.1.0"
-    "@teable-group/eslint-config-bases": "workspace:^"
-    "@types/jest": "npm:29.2.0"
-    "@types/node": "npm:18.11.7"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
-    cross-env: "npm:7.0.3"
-    es-check: "npm:7.0.1"
-    eslint: "npm:8.26.0"
-    get-tsconfig: "npm:4.2.0"
-    jest: "npm:29.2.2"
-    rimraf: "npm:3.0.2"
-    size-limit: "npm:8.1.0"
-    ts-jest: "npm:29.0.3"
-    tslib: "npm:2.4.0"
-    tsup: "npm:6.3.0"
-    typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
-  languageName: unknown
-  linkType: soft
-
 "@teable-group/ui-lib@workspace:packages/ui-lib":
   version: 0.0.0-use.local
   resolution: "@teable-group/ui-lib@workspace:packages/ui-lib"
@@ -6409,8 +6408,8 @@ __metadata:
     "@tailwindcss/aspect-ratio": "npm:0.4.2"
     "@tailwindcss/forms": "npm:0.5.3"
     "@tailwindcss/line-clamp": "npm:0.4.2"
+    "@teable-group/core": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@teable-group/ts-utils": "workspace:^"
     "@testing-library/jest-dom": "npm:5.16.5"
     "@testing-library/react": "npm:13.4.0"
     "@testing-library/react-hooks": "npm:8.0.1"
@@ -9695,17 +9694,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bundle-require@npm:^3.1.0":
-  version: 3.1.0
-  resolution: "bundle-require@npm:3.1.0"
-  dependencies:
-    load-tsconfig: "npm:^0.2.0"
-  peerDependencies:
-    esbuild: ">=0.13"
-  checksum: 6d8dd83591b1ffb09242aa3635e094d061ecac4bf7c042c99cb373ecadecfc3ad7357edbd2b876bdbb7fc01063eb9df59eb78cf7d44b7d1f251139f186d98acf
-  languageName: node
-  linkType: hard
-
 "busboy@npm:^1.0.0, busboy@npm:^1.6.0":
   version: 1.6.0
   resolution: "busboy@npm:1.6.0"
@@ -9762,13 +9750,6 @@ __metadata:
   bin:
     c8: bin/c8.js
   checksum: b04042243eb30ec9d464e74565724340f95ba52007e34efcb30480b6bfea1ef6319806c1ed38c04a7917f224f8d74dac13a789fe7bc9cf835557201c215c3573
-  languageName: node
-  linkType: hard
-
-"cac@npm:^6.7.12":
-  version: 6.7.14
-  resolution: "cac@npm:6.7.14"
-  checksum: 2cc8918bf80255abb06825da69275294c4cacf4a282c8a6297cce401f785e225c73c1aa2f32d615d9a77ba9ee9ced6cf3d3e606ddf594ab8d95f6b3525807c9e
   languageName: node
   linkType: hard
 
@@ -10114,7 +10095,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chokidar@npm:>=3.0.0 <4.0.0, chokidar@npm:^3.3.1, chokidar@npm:^3.4.1, chokidar@npm:^3.4.2, chokidar@npm:^3.5.1, chokidar@npm:^3.5.3":
+"chokidar@npm:>=3.0.0 <4.0.0, chokidar@npm:^3.3.1, chokidar@npm:^3.4.1, chokidar@npm:^3.4.2, chokidar@npm:^3.5.3":
   version: 3.5.3
   resolution: "chokidar@npm:3.5.3"
   dependencies:
@@ -12681,7 +12662,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.15.1, esbuild@npm:^0.15.9, esbuild@npm:~0.15.10":
+"esbuild@npm:^0.15.9, esbuild@npm:~0.15.10":
   version: 0.15.10
   resolution: "esbuild@npm:0.15.10"
   dependencies:
@@ -14626,7 +14607,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"globby@npm:^11.0.0, globby@npm:^11.0.2, globby@npm:^11.0.3, globby@npm:^11.1.0":
+"globby@npm:^11.0.0, globby@npm:^11.0.2, globby@npm:^11.1.0":
   version: 11.1.0
   resolution: "globby@npm:11.1.0"
   dependencies:
@@ -17001,13 +16982,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"joycon@npm:^3.0.1":
-  version: 3.1.1
-  resolution: "joycon@npm:3.1.1"
-  checksum: a51b680763b484e3bc516a33e959db12fb61fa8f58130e060151e8412607256b3647d97d5a16e66bd990d8a4a319a36b185af3f119340c4362c06faf38900d08
-  languageName: node
-  linkType: hard
-
 "js-sdsl@npm:^4.1.4":
   version: 4.1.4
   resolution: "js-sdsl@npm:4.1.4"
@@ -17503,13 +17477,6 @@ __metadata:
     pify: "npm:^3.0.0"
     strip-bom: "npm:^3.0.0"
   checksum: 118d155c8ad6f80a10d30023e4a4dcc0e4bad65377cc8a9ca998af30861762ba2c8e376f4d09bef54c263f77e6f70d26f2a5943a1fb95af8f97e67ac77ac52b5
-  languageName: node
-  linkType: hard
-
-"load-tsconfig@npm:^0.2.0":
-  version: 0.2.3
-  resolution: "load-tsconfig@npm:0.2.3"
-  checksum: 71c96bd3de77d15725c775d10050f680c7ea1156e94c70f69a19009aec4ed7d38c448a53e32731d3727ee95b48e63cb533a086229647456e017424659ccf9a36
   languageName: node
   linkType: hard
 
@@ -20922,7 +20889,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss-load-config@npm:^3.0.0, postcss-load-config@npm:^3.0.1, postcss-load-config@npm:^3.1.4":
+"postcss-load-config@npm:^3.0.0, postcss-load-config@npm:^3.1.4":
   version: 3.1.4
   resolution: "postcss-load-config@npm:3.1.4"
   dependencies:
@@ -23198,7 +23165,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rollup@npm:^2.35.1, rollup@npm:^2.74.1, rollup@npm:^2.79.1":
+"rollup@npm:^2.35.1, rollup@npm:^2.79.1":
   version: 2.79.1
   resolution: "rollup@npm:2.79.1"
   dependencies:
@@ -24073,15 +24040,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"source-map@npm:0.8.0-beta.0":
-  version: 0.8.0-beta.0
-  resolution: "source-map@npm:0.8.0-beta.0"
-  dependencies:
-    whatwg-url: "npm:^7.0.0"
-  checksum: 4bc71864ed618ad3a75194fee233aff938dd1716010e34ca8c33e3216a5977ebf56ae6cd1102f72be1a9a7388d25c55865f7710ba30ea5255e8713f38eae89b3
-  languageName: node
-  linkType: hard
-
 "source-map@npm:^0.5.0, source-map@npm:^0.5.6":
   version: 0.5.7
   resolution: "source-map@npm:0.5.7"
@@ -24685,7 +24643,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sucrase@npm:^3.20.0, sucrase@npm:^3.20.3":
+"sucrase@npm:^3.20.0":
   version: 3.27.0
   resolution: "sucrase@npm:3.27.0"
   dependencies:
@@ -25381,15 +25339,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tr46@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "tr46@npm:1.0.1"
-  dependencies:
-    punycode: "npm:^2.1.0"
-  checksum: 077551401b0752fb141ba39d6c287b3783d32ac5a054a0e991b084c888e47789857f2957199840c1f1529deb9c6b9cbd53ab836f3bfcad41411f430e8685ddd8
-  languageName: node
-  linkType: hard
-
 "tr46@npm:^3.0.0":
   version: 3.0.0
   resolution: "tr46@npm:3.0.0"
@@ -25415,15 +25364,6 @@ __metadata:
     slugify: dist/bin/slugify
     transliterate: dist/bin/transliterate
   checksum: e90ce62b3c8baa01fd3f8fd4828736bb2fafaa4165c5863536de2f3546184f0819b2183a07d0523c7a8b6507aca18b5a96aafea6037ad2c0379c2ac4bfcff621
-  languageName: node
-  linkType: hard
-
-"tree-kill@npm:^1.2.2":
-  version: 1.2.2
-  resolution: "tree-kill@npm:1.2.2"
-  bin:
-    tree-kill: cli.js
-  checksum: e1c77812496ec255402297a3494acc4cda93d532ebefb1c6704b38d2a8eb6b9ed03d5f0b088a13341705f2923e52a73c3c2bb87a30ea890095cc51fb7a4ce6e0
   languageName: node
   linkType: hard
 
@@ -25660,42 +25600,6 @@ __metadata:
   version: 1.14.1
   resolution: "tslib@npm:1.14.1"
   checksum: 441af59dc42ad4ae57140e62cb362369620c6076845c2c2b0ecc863c1d719ce24fdbc301e9053433fef43075e061bf84b702318ff1204b496a5bba10baf9eb9f
-  languageName: node
-  linkType: hard
-
-"tsup@npm:6.3.0":
-  version: 6.3.0
-  resolution: "tsup@npm:6.3.0"
-  dependencies:
-    bundle-require: "npm:^3.1.0"
-    cac: "npm:^6.7.12"
-    chokidar: "npm:^3.5.1"
-    debug: "npm:^4.3.1"
-    esbuild: "npm:^0.15.1"
-    execa: "npm:^5.0.0"
-    globby: "npm:^11.0.3"
-    joycon: "npm:^3.0.1"
-    postcss-load-config: "npm:^3.0.1"
-    resolve-from: "npm:^5.0.0"
-    rollup: "npm:^2.74.1"
-    source-map: "npm:0.8.0-beta.0"
-    sucrase: "npm:^3.20.3"
-    tree-kill: "npm:^1.2.2"
-  peerDependencies:
-    "@swc/core": ^1
-    postcss: ^8.4.12
-    typescript: ^4.1.0
-  peerDependenciesMeta:
-    "@swc/core":
-      optional: true
-    postcss:
-      optional: true
-    typescript:
-      optional: true
-  bin:
-    tsup: dist/cli-default.js
-    tsup-node: dist/cli-node.js
-  checksum: da29af085b15b373684708044be7e7eaad76d2a3fb5a1732033111f9d2a02092f2b6ee1047fd8ce2408a70f78a7651de9edc5af38850962d676171ac420daa03
   languageName: node
   linkType: hard
 
@@ -26761,13 +26665,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webidl-conversions@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "webidl-conversions@npm:4.0.2"
-  checksum: 68c1adc8200c122eeb9cd3ccb6407e929dab3108210a249ce485ac71acbe8d943cf97fe03687fe350295be467de1c0538d4ee0e0818267a941f1fbcdb0d8f765
-  languageName: node
-  linkType: hard
-
 "webidl-conversions@npm:^7.0.0":
   version: 7.0.0
   resolution: "webidl-conversions@npm:7.0.0"
@@ -26997,17 +26894,6 @@ __metadata:
     tr46: "npm:~0.0.3"
     webidl-conversions: "npm:^3.0.0"
   checksum: bd0cc6b75b84b3d032e30712e2f40eefbc07ecd14f093e87b2f81bb68bce10a3961e8eb646a7a8cc9c2352548fb501eeff668c8b2595fd7c6ea91d1406ce11ee
-  languageName: node
-  linkType: hard
-
-"whatwg-url@npm:^7.0.0":
-  version: 7.1.0
-  resolution: "whatwg-url@npm:7.1.0"
-  dependencies:
-    lodash.sortby: "npm:^4.7.0"
-    tr46: "npm:^1.0.1"
-    webidl-conversions: "npm:^4.0.2"
-  checksum: 81485960495654692080d29ba6c311765eed40d8ea2227dc1a22609302d9091992255aabf6c17529a23efe3afae0527dd24f350895e25fbd2906225b1f389cbd
   languageName: node
   linkType: hard
 

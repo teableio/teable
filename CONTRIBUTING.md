@@ -73,6 +73,6 @@ Commit messages are enforced through [commitlint](https://github.com/conventiona
 │   └── nextjs-app
 ├── packages
 │   ├── ...
-│   └── ts-utils
+│   └── core
 └ package.json
 ```

@@ -24,6 +24,8 @@ export class TableService {
       id: tableId,
       name: createTableDto.name,
       dbTableName,
+      createBy: 'admin',
+      updateBy: 'admin',
     };
 
     const [tableIndexData] = await this.prisma.$transaction([

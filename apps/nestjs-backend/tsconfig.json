@@ -6,6 +6,8 @@
     "experimentalDecorators": true,
     "target": "es6",
     "moduleResolution": "Node",
+    "declaration": true,
+    "declarationDir": "./dist",
     "module": "CommonJS",
     "noEmit": false,
     "sourceMap": true,
@@ -14,7 +16,7 @@
     "outDir": "./dist"
   },
   "references": [
-    { "path": "../../packages/ts-utils" },
+    { "path": "../../packages/core" },
     { "path": "../../packages/db-main-prisma" },
     { "path": "../../packages/sdk" }
   ],

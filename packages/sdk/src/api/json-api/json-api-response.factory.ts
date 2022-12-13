@@ -1,4 +1,4 @@
-import { isPlainObject } from '@teable-group/ts-utils';
+import { isPlainObject } from '@teable-group/core';
 import type {
   IJsonApiError,
   IJsonApiErrorResponse,

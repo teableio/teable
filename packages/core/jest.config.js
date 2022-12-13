@@ -24,8 +24,8 @@ const getTsConfigBasePaths = (tsConfigFile) => {
 
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 const config = {
-  displayName: `ts-utils:unit`,
-  cacheDirectory: getJestCachePath('@teable-group/ts-utils'),
+  displayName: `core:unit`,
+  cacheDirectory: getJestCachePath('@teable-group/core'),
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   verbose: true,
@@ -47,11 +47,7 @@ const config = {
   // false by default, overrides in cli, ie: yarn test:unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/../coverage',
-  collectCoverageFrom: [
-    '<rootDir>/**/*.{ts,tsx,js,jsx}',
-    '!**/*.test.{js,ts}',
-    '!**/__mock__/*',
-  ],
+  collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.{js,ts}', '!**/__mock__/*'],
 };
 
 export default config;

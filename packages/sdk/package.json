@@ -36,7 +36,7 @@
   },
   "dependencies": {
     "@belgattitude/http-exception": "^1.4.0",
-    "@teable-group/ts-utils": "workspace:^",
+    "@teable-group/core": "workspace:^",
     "dequal": "^2.0.3"
   },
   "peerDependencies": {

@@ -24,7 +24,7 @@
       "@/models/*": ["./models/*"]
     }
   },
-  "references": [{ "path": "../ts-utils" }],
+  "references": [{ "path": "../core" }],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
   "include": ["./src"]
 }

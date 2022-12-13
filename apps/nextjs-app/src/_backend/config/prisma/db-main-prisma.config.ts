@@ -1,5 +1,5 @@
+import { assertNonEmptyString } from '@teable-group/core';
 import { PrismaManager, PrismaClientDbMain } from '@teable-group/db-main-prisma';
-import { assertNonEmptyString } from '@teable-group/ts-utils';
 
 const isDev = process.env?.NODE_ENV === 'development';
 

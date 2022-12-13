@@ -11,7 +11,7 @@
     "noEmit": false,
     "incremental": true,
     "paths": {
-      "@teable-group/ts-utils": ["../../../packages/ts-utils/src/index"]
+      "@teable-group/core": ["../../../packages/core/src/index"]
     }
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"]

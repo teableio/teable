@@ -48,20 +48,20 @@
   - @teable-group/common-i18n@1.2.1
   - @teable-group/sdk@3.15.1
   - @teable-group/db-main-prisma@2.12.2
-  - @teable-group/ts-utils@1.1.1
+  - @teable-group/core@1.1.1
   - @teable-group/ui-lib@3.15.1
 
 ## 3.54.0
 
 ### Minor Changes
 
-- [#2713](https://github.com/teable-group/teable/pull/2713) [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0) Thanks [@belgattitude](https://github.com/belgattitude)! - Move typescript utils to @teable-group/ts-utils
+- [#2713](https://github.com/teable-group/teable/pull/2713) [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0) Thanks [@belgattitude](https://github.com/belgattitude)! - Move typescript utils to @teable-group/core
 
 ### Patch Changes
 
 - Updated dependencies [[`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0), [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0)]:
   - @teable-group/sdk@3.15.0
-  - @teable-group/ts-utils@1.1.0
+  - @teable-group/core@1.1.0
   - @teable-group/ui-lib@3.15.0
 
 ## 3.53.0

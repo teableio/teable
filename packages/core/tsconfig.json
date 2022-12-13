@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "@teable-group/ts-utils",
+  "display": "@teable-group/core",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "ESNext",

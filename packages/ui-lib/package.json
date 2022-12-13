@@ -33,7 +33,7 @@
     "serve-storybook": "sirv build/storybook --cors --port 8888"
   },
   "dependencies": {
-    "@teable-group/ts-utils": "workspace:^"
+    "@teable-group/core": "workspace:^"
   },
   "peerDependencies": {
     "@types/react": "^18.0.0",

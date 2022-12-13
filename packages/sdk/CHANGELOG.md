@@ -10,18 +10,18 @@
   Ref: [changesets@2.25.0](https://github.com/changesets/changesets/releases/tag/%40changesets%2Fcli%402.25.0) & [#662](https://github.com/changesets/changesets/pull/662).
 
 - Updated dependencies [[`e0b03b05`](https://github.com/teable-group/teable/commit/e0b03b059ea2b75272c2a86139f7ff8b0af874a9)]:
-  - @teable-group/ts-utils@1.1.1
+  - @teable-group/core@1.1.1
 
 ## 3.15.0
 
 ### Minor Changes
 
-- [#2713](https://github.com/teable-group/teable/pull/2713) [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0) Thanks [@belgattitude](https://github.com/belgattitude)! - Move typescript utils to @teable-group/ts-utils
+- [#2713](https://github.com/teable-group/teable/pull/2713) [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0) Thanks [@belgattitude](https://github.com/belgattitude)! - Move typescript utils to @teable-group/core
 
 ### Patch Changes
 
 - Updated dependencies [[`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0), [`e279d984`](https://github.com/teable-group/teable/commit/e279d984d01937264b077a111863b38d15fcb1d0)]:
-  - @teable-group/ts-utils@1.1.0
+  - @teable-group/core@1.1.0
 
 ## 3.14.2
 
