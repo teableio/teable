@@ -1,4 +1,4 @@
-import type { Table } from 'models/table/table';
+import type { Table } from '../table/table';
 
 export class View {
   constructor(private readonly ctx: React.Context<Table>) {}

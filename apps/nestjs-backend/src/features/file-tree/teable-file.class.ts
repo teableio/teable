@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { IFileNode } from '@teable-group/sdk';
+import type { IFileNode } from '@teable-group/ts-utils';
 
 //  TODO: need complete teable file structure
 interface ITeableFile {
