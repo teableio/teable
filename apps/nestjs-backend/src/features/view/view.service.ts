@@ -14,7 +14,11 @@ export class ViewService {
     return `${ROW_INDEX_FIELD_PREFIX}_${viewId}`;
   }
 
-  async generateCreateViewPromise(tableId: string, createViewDto: CreateViewDto) {
+  async generateCreateViewPromise(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    createViewDto: CreateViewDto
+  ) {
     const { name, description, type, options, sort, filter } = createViewDto;
     const viewId = generateViewId();
     const data: Prisma.ViewCreateInput = {
@@ -34,7 +38,7 @@ export class ViewService {
       lastModifiedBy: 'admin',
     };
 
-    const { dbTableName } = await this.prisma.tableMeta.findUniqueOrThrow({
+    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
       },
@@ -43,33 +47,37 @@ export class ViewService {
       },
     });
 
+    console.log('dbTableName: ', dbTableName);
+
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
     return [
       // create a new view in view model
-      this.prisma.view.create({
+      prisma.view.create({
         data,
       }),
       // add a field for maintain row order index
-      this.prisma.$executeRawUnsafe(`
+      prisma.$executeRawUnsafe(`
         ALTER TABLE ${dbTableName}
         ADD ${rowIndexFieldName} INT;
       `),
       // fill initial order for every record, with auto increment integer
-      this.prisma.$executeRawUnsafe(`
-        DECLARE @rowOrder INT = 0
-        UPDATE ${dbTableName}
-        SET ${rowIndexFieldName} = @rowOrder := @rowOrder + 1;
+      prisma.$executeRawUnsafe(`
+        UPDATE ${dbTableName} SET ${rowIndexFieldName} = __autoNumber
       `),
-      // set strick not null and unique type for safety
-      this.prisma.$executeRawUnsafe(`
-        ALTER TABLE ${dbTableName}
-        ALTER COLUMN ${rowIndexFieldName} NOT NULL UNIQUE;
-      `),
+      // set strick not null and unique type for safety（sqlite cannot do that)
+      // prisma.$executeRawUnsafe(`
+      //   ALTER TABLE ${dbTableName}
+      //   CONSTRAINT COLUMN ${rowIndexFieldName} NOT NULL UNIQUE;
+      // `),
     ];
   }
 
   async createView(tableId: string, createViewDto: CreateViewDto) {
-    const prismaPromises = await this.generateCreateViewPromise(tableId, createViewDto);
+    const prismaPromises = await this.generateCreateViewPromise(
+      this.prisma,
+      tableId,
+      createViewDto
+    );
     const [viewData] = await this.prisma.$transaction(prismaPromises);
     return viewData;
   }

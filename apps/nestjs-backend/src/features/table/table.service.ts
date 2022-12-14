@@ -3,7 +3,6 @@ import type { TableMeta, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma.service';
 import { generateTableId, generateViewId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { getDbFieldTypeByFieldType } from '../../utils/type-transform';
 import { FieldService } from '../field/field.service';
 import { ViewService } from '../view/view.service';
 import { DEFAULT_FIELDS, DEFAULT_VIEW } from './constant';
@@ -38,30 +37,17 @@ export class TableService {
       lastModifiedBy: 'admin',
     };
 
-    const createFieldTask = await this.fieldService.generateMultipleCreateFieldPromise(
-      tableId,
-      DEFAULT_FIELDS
-    );
-
-    const createViewTask = await this.viewService.generateCreateViewPromise(tableId, DEFAULT_VIEW);
-
-    const tableSQL = DEFAULT_FIELDS.map((field) => {
-      return `${field.name} ${getDbFieldTypeByFieldType(field.type)},`;
-    }).join('\n');
-
-    const [tableIndexData] = await this.prisma.$transaction([
+    return await this.prisma.$transaction(async (prisma) => {
       // 1. create table meta
-      this.prisma.tableMeta.create({
+      const tableMeta = await prisma.tableMeta.create({
         data,
-      }),
-      // 2. create field for table
-      ...createFieldTask,
-      // 3. create view for table
-      ...createViewTask,
-      // 4. create a real db table
-      this.prisma.$executeRawUnsafe(`
+      });
+
+      console.log('table meta create succeed: ', tableMeta);
+
+      // 2. create a real db table
+      const dbTable = await prisma.$executeRawUnsafe(`
         CREATE TABLE ${dbTableName} (
-          ${tableSQL}
           __id TEXT NOT NULL UNIQUE,
           __autoNumber INTEGER PRIMARY KEY AUTOINCREMENT,
           ${rowIndexFieldName} NOT NULL UNIQUE,
@@ -70,10 +56,38 @@ export class TableService {
           __createdBy TEXT,
           __lastModifiedBy TEXT
         );
-      `),
-    ]);
+      `);
 
-    return tableIndexData;
+      console.log('dbTable create succeed: ', dbTable);
+
+      // 3. create field for table
+      const fieldPromise = await this.fieldService.generateMultipleCreateFieldPromise(
+        prisma,
+        tableId,
+        DEFAULT_FIELDS
+      );
+
+      for (const index in fieldPromise) {
+        const result = await fieldPromise[index];
+        console.log(`field task ${+index + 1} / ${fieldPromise.length} succeed: `, result);
+      }
+
+      // console.log('fields create succeed: ', fieldData);
+
+      // 4. create view for table
+      const viewPromise = await this.viewService.generateCreateViewPromise(
+        prisma,
+        tableId,
+        DEFAULT_VIEW
+      );
+
+      for (const index in viewPromise) {
+        const result = await viewPromise[index];
+        console.log(`view task ${+index + 1} / ${viewPromise.length} succeed: `, result);
+      }
+
+      return tableMeta;
+    });
   }
 
   async getTable(tableId: string): Promise<TableMeta> {
