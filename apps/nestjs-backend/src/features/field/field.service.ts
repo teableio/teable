@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { preservedFieldName } from '../../constant/field';
 import { PrismaService } from '../../prisma.service';
 import { generateFieldId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { preservedFieldName } from './constant';
 import type { CreateFieldDto } from './create-field.dto';
 
 @Injectable()
 export class FieldService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateValidDbFieldName(tableId: string, name: string): Promise<string> {
-    let validName = convertNameToValidCharacter(name);
+  async multipleGenerateValidDbFieldName(tableId: string, names: string[]): Promise<string[]> {
+    const validNames = names.map((name) => convertNameToValidCharacter(name));
+    let newValidNames = [...validNames];
     let index = 1;
 
     // eslint-disable-next-line no-constant-condition
@@ -19,21 +20,24 @@ export class FieldService {
       const exist = await this.prisma.field.count({
         where: {
           tableId,
-          dbFieldName: validName,
+          dbFieldName: { in: newValidNames },
         },
       });
-      if (!exist && !preservedFieldName.has(validName)) {
+      if (!exist && !newValidNames.some((validName) => preservedFieldName.has(validName))) {
         break;
       }
-      validName = `${name}_${index++}`;
+      newValidNames = validNames.map((name) => `${name}_${index++}`);
     }
 
-    return validName;
+    return newValidNames;
   }
 
-  async createField(tableId: string, createFieldDto: CreateFieldDto) {
-    const { name, description, type, options, defaultValue, notNull, unique } = createFieldDto;
-    const dbFieldName = await this.generateValidDbFieldName(tableId, name);
+  private generateDbCreatePromise(
+    tableId: string,
+    createFieldDto: CreateFieldDto & { dbFieldName: string }
+  ) {
+    const { name, dbFieldName, description, type, options, defaultValue, notNull, unique } =
+      createFieldDto;
 
     const data: Prisma.FieldCreateInput = {
       id: generateFieldId(),
@@ -49,10 +53,27 @@ export class FieldService {
       notNull,
       unique,
       defaultValue,
-      dbFieldName: dbFieldName,
-      createBy: 'admin',
-      updateBy: 'admin',
+      columnIndexes: JSON.stringify({}),
+      dbFieldName,
+      createdBy: 'admin',
+      lastModifiedBy: 'admin',
     };
+
+    return this.prisma.field.create({ data });
+  }
+
+  async generateMultipleCreateFieldPromise(
+    tableId: string,
+    multipleCreateFieldDto: CreateFieldDto[]
+  ) {
+    const dbFieldNames = await this.multipleGenerateValidDbFieldName(
+      tableId,
+      multipleCreateFieldDto.map((dto) => dto.name)
+    );
+
+    const prismaPromises = multipleCreateFieldDto.map((createFieldDto, i) =>
+      this.generateDbCreatePromise(tableId, { ...createFieldDto, dbFieldName: dbFieldNames[i] })
+    );
 
     const { dbTableName } = await this.prisma.tableMeta.findUniqueOrThrow({
       where: {
@@ -63,17 +84,32 @@ export class FieldService {
       },
     });
 
-    const [tableIndexData] = await this.prisma.$transaction([
-      this.prisma.field.create({
-        data,
-      }),
+    const createFieldSQL = dbFieldNames
+      .map((dbFieldName) => {
+        return `ADD ${dbFieldName} ${'TEXT'}`;
+      })
+      .join('\n');
+
+    return [
+      ...prismaPromises,
       this.prisma.$executeRawUnsafe(`
         ALTER TABLE ${dbTableName}
-        ADD ${dbFieldName} ${'TEXT'};
+        ${createFieldSQL};
       `),
-    ]);
+    ];
+  }
 
-    return tableIndexData;
+  async createField(tableId: string, createFieldDto: CreateFieldDto) {
+    return this.multipleCreateField(tableId, [createFieldDto]);
+  }
+
+  // we have to support multiple action, because users will do it in batch
+  async multipleCreateField(tableId: string, multipleCreateFieldDto: CreateFieldDto[]) {
+    const prismaPromises = await this.generateMultipleCreateFieldPromise(
+      tableId,
+      multipleCreateFieldDto
+    );
+    return await this.prisma.$transaction(prismaPromises);
   }
 
   async getField(tableId: string, fieldId: string) {

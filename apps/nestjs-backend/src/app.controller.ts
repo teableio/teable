@@ -12,10 +12,4 @@ export class AppController {
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.appService.handler(req, res);
   }
-
-  @ApiExcludeEndpoint()
-  @Get('spaces')
-  getSpaces() {
-    return JSON.stringify({ hello: 'world' });
-  }
 }

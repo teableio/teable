@@ -7,9 +7,10 @@ export enum DbFieldType {
 
 export const preservedFieldName = new Set([
   '__id',
-  '__autonumber',
-  '__createdAt',
-  '__updatedAt',
+  '__autoNumber',
+  '__createdTime',
+  '__lastModifiedTime',
   '__createBy',
-  '__updateBy',
+  '__lastModifiedBy',
+  '__row_index_view_default',
 ]);

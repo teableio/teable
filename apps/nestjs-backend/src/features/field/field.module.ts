@@ -6,5 +6,6 @@ import { FieldService } from './field.service';
 @Module({
   providers: [FieldService, PrismaService],
   controllers: [FieldController],
+  exports: [FieldService],
 })
 export class FieldModule {}

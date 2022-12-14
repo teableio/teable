@@ -26,3 +26,7 @@ export function generateTableId() {
 export function generateFieldId() {
   return Prefix.Field + randomString16();
 }
+
+export function generateViewId() {
+  return Prefix.View + randomString16();
+}

@@ -14,7 +14,7 @@ export class TableController {
     return this.tableService.getTable(tableId);
   }
 
-  @ApiOperation({ summary: 'Create article' })
+  @ApiOperation({ summary: 'Create table' })
   @ApiResponse({ status: 201, description: 'The Table has been successfully created.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @Post()
