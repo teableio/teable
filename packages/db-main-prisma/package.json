@@ -36,7 +36,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "4.5.0",
+    "@prisma/client": "4.7.1",
     "better-sqlite3": "8.0.1"
   },
   "devDependencies": {
@@ -57,7 +57,7 @@
     "npm-run-all": "4.1.5",
     "picocolors": "1.0.0",
     "prettier": "2.7.1",
-    "prisma": "4.5.0",
+    "prisma": "4.7.1",
     "rimraf": "3.0.2",
     "transliteration": "2.3.5",
     "ts-jest": "29.0.3",
