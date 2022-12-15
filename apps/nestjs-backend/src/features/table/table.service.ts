@@ -23,32 +23,6 @@ export class TableService {
     return `${tableNamePrefix}_${validInputName}`;
   }
 
-  private async createDefaultField(prisma: Prisma.TransactionClient, tableId: string) {
-    const fieldPromise = await this.fieldService.generateMultipleCreateFieldPromise(
-      prisma,
-      tableId,
-      DEFAULT_FIELDS
-    );
-
-    for (const index in fieldPromise) {
-      const result = await fieldPromise[index];
-      console.log(`field task ${+index + 1} / ${fieldPromise.length} succeed: `, result);
-    }
-  }
-
-  private async createDefaultView(prisma: Prisma.TransactionClient, tableId: string) {
-    const viewPromise = await this.viewService.generateCreateViewPromise(
-      prisma,
-      tableId,
-      DEFAULT_VIEW
-    );
-
-    for (const index in viewPromise) {
-      const result = await viewPromise[index];
-      console.log(`view task ${+index + 1} / ${viewPromise.length} succeed: `, result);
-    }
-  }
-
   private async createDBTable(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -88,14 +62,13 @@ export class TableService {
 
     return await this.prisma.$transaction(async (prisma) => {
       // 1. create db table
-
       const tableMeta = await this.createDBTable(prisma, tableId, createTableDto);
 
       // 2. create field for table
-      await this.createDefaultField(prisma, tableId);
+      await this.fieldService.multipleCreateFieldTransaction(prisma, tableId, DEFAULT_FIELDS);
 
       // 3. create view for table
-      await this.createDefaultView(prisma, tableId);
+      await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
 
       return tableMeta;
     });
