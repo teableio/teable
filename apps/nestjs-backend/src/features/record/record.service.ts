@@ -66,12 +66,12 @@ export class RecordService {
     createRecordsDto: CreateRecordsDto
   ) {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__autoNumber)': null | number }]>(`
+    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__autoNumber)': null | bigint }]>(`
       SELECT MAX(__autoNumber)
       FROM ${dbTableName};
     `);
-    const rowCount = queryResult[0]['MAX(__autoNumber)'] || 0;
-    console.log('rowCount: ', rowCount);
+    const rowCount = Number(queryResult[0]['MAX(__autoNumber)']);
+    console.log('queryResult: ', queryResult);
     const dbValueMatrix: unknown[][] = [];
     for (let i = 0; i < createRecordsDto.records.length; i++) {
       const recordData = createRecordsDto.records[i].fields;
