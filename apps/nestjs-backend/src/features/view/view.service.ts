@@ -61,7 +61,7 @@ export class ViewService {
 
     // 3. fill initial order for every record, with auto increment integer
     await prisma.$executeRawUnsafe(`
-      UPDATE ${dbTableName} SET ${rowIndexFieldName} = __autoNumber;
+      UPDATE ${dbTableName} SET ${rowIndexFieldName} = __row_default;
     `);
 
     // set strick not null and unique type for safety（sqlite cannot do that)

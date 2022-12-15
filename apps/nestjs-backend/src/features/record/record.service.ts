@@ -66,11 +66,11 @@ export class RecordService {
     createRecordsDto: CreateRecordsDto
   ) {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__autoNumber)': null | bigint }]>(`
-      SELECT MAX(__autoNumber)
+    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__auto_number)': null | bigint }]>(`
+      SELECT MAX(__auto_number)
       FROM ${dbTableName};
     `);
-    const rowCount = Number(queryResult[0]['MAX(__autoNumber)']);
+    const rowCount = Number(queryResult[0]['MAX(__auto_number)']);
     console.log('queryResult: ', queryResult);
     const dbValueMatrix: unknown[][] = [];
     for (let i = 0; i < createRecordsDto.records.length; i++) {
@@ -87,8 +87,8 @@ export class RecordService {
       // 2. generate rowIndexValues
       const rowIndexValues = rowIndexFieldNames.map(() => rowCount + i);
 
-      // 3. generate id, createdTime, createdBy
-      const systemValues = [generateRecordId(), new Date(), 'admin'];
+      // 3. generate id, __row_default, created_time, created_by
+      const systemValues = [generateRecordId(), rowCount + i, new Date(), 'admin'];
 
       dbValueMatrix.push([...recordValues, ...rowIndexValues, ...systemValues]);
     }
@@ -115,7 +115,7 @@ export class RecordService {
     const allDbFieldNames = [
       ...userFields.map((field) => field.dbFieldName),
       ...rowIndexFieldNames,
-      ...['__id', '__createdTime', '__createdBy'],
+      ...['__id', '__row_default', '__created_time', '__created_by'],
     ];
 
     console.log('allDbFieldNames: ', allDbFieldNames);

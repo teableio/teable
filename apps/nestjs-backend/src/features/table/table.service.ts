@@ -48,11 +48,12 @@ export class TableService {
     const dbTable = await prisma.$executeRawUnsafe(`
       CREATE TABLE ${dbTableName} (
         __id TEXT NOT NULL UNIQUE,
-        __autoNumber INTEGER PRIMARY KEY AUTOINCREMENT,
-        __createdTime DATETIME NOT NULL,
-        __lastModifiedTime DATETIME,
-        __createdBy TEXT NOT NULL,
-        __lastModifiedBy TEXT
+        __auto_number INTEGER PRIMARY KEY AUTOINCREMENT,
+        __row_default INTEGER NOT NULL,
+        __created_time DATETIME NOT NULL,
+        __last_modified_time DATETIME,
+        __created_by TEXT NOT NULL,
+        __last_modified_by TEXT
       );
     `);
     console.log('dbTable create succeed: ', dbTable);
