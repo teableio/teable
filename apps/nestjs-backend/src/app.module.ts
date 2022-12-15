@@ -5,7 +5,6 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import type { IAppConfig } from './app.interface';
 import { AppService } from './app.service';
-import { FieldModule } from './features/field/field.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { TableModule } from './features/table/table.module';
 
@@ -22,7 +21,6 @@ export class AppModule {
         }),
         FileTreeModule,
         TableModule,
-        FieldModule,
       ],
       controllers: [AppController],
       providers: [{ provide: 'APP_CONFIG', useValue: config }, AppService],

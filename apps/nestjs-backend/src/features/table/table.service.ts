@@ -4,8 +4,9 @@ import { PrismaService } from '../../prisma.service';
 import { generateTableId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
+import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
-import { DEFAULT_FIELDS, DEFAULT_VIEW } from './constant';
+import { DEFAULT_FIELDS, DEFAULT_RECORDS, DEFAULT_VIEW } from './constant';
 import type { CreateTableDto } from './create-table.dto';
 
 const tableNamePrefix = 'visual';
@@ -15,7 +16,8 @@ export class TableService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly viewService: ViewService,
-    private readonly fieldService: FieldService
+    private readonly fieldService: FieldService,
+    private readonly recordService: RecordService
   ) {}
 
   generateValidDbTableName(name: string) {
@@ -47,9 +49,9 @@ export class TableService {
       CREATE TABLE ${dbTableName} (
         __id TEXT NOT NULL UNIQUE,
         __autoNumber INTEGER PRIMARY KEY AUTOINCREMENT,
-        __createdTime DATETIME,
+        __createdTime DATETIME NOT NULL,
         __lastModifiedTime DATETIME,
-        __createdBy TEXT,
+        __createdBy TEXT NOT NULL,
         __lastModifiedBy TEXT
       );
     `);
@@ -65,10 +67,13 @@ export class TableService {
       const tableMeta = await this.createDBTable(prisma, tableId, createTableDto);
 
       // 2. create field for table
-      await this.fieldService.multipleCreateFieldTransaction(prisma, tableId, DEFAULT_FIELDS);
+      await this.fieldService.multipleCreateFieldsTransaction(prisma, tableId, DEFAULT_FIELDS);
 
       // 3. create view for table
       await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
+
+      // 4. create records for table
+      await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORDS);
 
       return tableMeta;
     });

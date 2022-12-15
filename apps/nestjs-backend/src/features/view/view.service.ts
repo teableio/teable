@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { generateViewId } from '../../utils/id-generator';
+import { ROW_INDEX_FIELD_PREFIX } from './constant';
 import type { CreateViewDto } from './create-view.dto';
-
-export const ROW_INDEX_FIELD_PREFIX = '__row';
 
 @Injectable()
 export class ViewService {
@@ -47,8 +46,6 @@ export class ViewService {
       },
     });
 
-    console.log('dbTableName: ', dbTableName);
-
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
 
     // 1. create a new view in view model
@@ -64,7 +61,7 @@ export class ViewService {
 
     // 3. fill initial order for every record, with auto increment integer
     await prisma.$executeRawUnsafe(`
-      UPDATE ${dbTableName} SET ${rowIndexFieldName} = __autoNumber
+      UPDATE ${dbTableName} SET ${rowIndexFieldName} = __autoNumber;
     `);
 
     // set strick not null and unique type for safety（sqlite cannot do that)

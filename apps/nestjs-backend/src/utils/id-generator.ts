@@ -5,6 +5,7 @@ export enum Prefix {
   Field = 'fld',
   View = 'viw',
   Node = 'nod',
+  Record = 'rec',
 }
 
 function randomHexString(len: number) {
@@ -15,18 +16,18 @@ function randomHexString(len: number) {
   throw new Error('len must > 0 and divisible by 2');
 }
 
-export function randomString16() {
-  return randomHexString(16);
-}
-
 export function generateTableId() {
-  return Prefix.Table + randomString16();
+  return Prefix.Table + randomHexString(16);
 }
 
 export function generateFieldId() {
-  return Prefix.Field + randomString16();
+  return Prefix.Field + randomHexString(16);
 }
 
 export function generateViewId() {
-  return Prefix.View + randomString16();
+  return Prefix.View + randomHexString(16);
+}
+
+export function generateRecordId() {
+  return Prefix.Record + randomHexString(8);
 }

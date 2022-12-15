@@ -25,13 +25,11 @@ export class CreateViewDto implements IViewDto {
 
   @ApiProperty({
     description: 'The filter options of the View.',
-    example: 'View1',
   })
   filter?: IFilter;
 
   @ApiProperty({
     description: 'The sort options of the View.',
-    example: 'View1',
   })
   sort?: ISort;
 

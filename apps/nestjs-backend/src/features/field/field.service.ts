@@ -40,10 +40,10 @@ export class FieldService {
   private async dbCreateField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createFieldDto: CreateFieldDto & { dbFieldName: string }
+    dbFieldName: string,
+    createFieldDto: CreateFieldDto
   ) {
-    const { name, dbFieldName, description, type, options, defaultValue, notNull, unique } =
-      createFieldDto;
+    const { name, description, type, options, defaultValue, notNull, unique } = createFieldDto;
 
     const data: Prisma.FieldCreateInput = {
       id: generateFieldId(),
@@ -65,10 +65,11 @@ export class FieldService {
       lastModifiedBy: 'admin',
     };
 
-    return prisma.field.create({ data });
+    console.log('createFieldData: ', data);
+    return await prisma.field.create({ data });
   }
 
-  async multipleCreateFieldTransaction(
+  async multipleCreateFieldsTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
     multipleCreateFieldDto: CreateFieldDto[]
@@ -88,13 +89,13 @@ export class FieldService {
       },
     });
 
+    console.log('theDbTableName: ', dbTableName);
+
     const multiFieldData: Field[] = [];
     for (let i = 0; i < multipleCreateFieldDto.length; i++) {
       const createFieldDto = multipleCreateFieldDto[i];
-      const fieldData = await this.dbCreateField(prisma, tableId, {
-        ...createFieldDto,
-        dbFieldName: dbFieldNames[i],
-      });
+      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], createFieldDto);
+      console.log('createField: ', fieldData);
       multiFieldData.push(fieldData);
     }
 
@@ -111,13 +112,13 @@ export class FieldService {
   }
 
   async createField(tableId: string, createFieldDto: CreateFieldDto) {
-    return (await this.multipleCreateField(tableId, [createFieldDto]))[0];
+    return (await this.multipleCreateFields(tableId, [createFieldDto]))[0];
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateField(tableId: string, multipleCreateFieldDto: CreateFieldDto[]) {
+  async multipleCreateFields(tableId: string, multipleCreateFieldsDto: CreateFieldDto[]) {
     return await this.prisma.$transaction(async (prisma) => {
-      return this.multipleCreateFieldTransaction(prisma, tableId, multipleCreateFieldDto);
+      return this.multipleCreateFieldsTransaction(prisma, tableId, multipleCreateFieldsDto);
     });
   }
 

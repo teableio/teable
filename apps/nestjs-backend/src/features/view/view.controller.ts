@@ -20,7 +20,7 @@ export class ViewController {
   @ApiParam({
     name: 'tableId',
     description: 'The id for table.',
-    example: 'tbl80ba3a85e3f843b0',
+    example: 'tbla63d4543eb5eded6',
   })
   @Post()
   createView(@Param('tableId') tableId: string, @Body() createViewDto: CreateViewDto) {

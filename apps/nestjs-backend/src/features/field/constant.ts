@@ -10,7 +10,6 @@ export const preservedFieldName = new Set([
   '__autoNumber',
   '__createdTime',
   '__lastModifiedTime',
-  '__createBy',
+  '__createdBy',
   '__lastModifiedBy',
-  '__row_index_view_default',
 ]);
