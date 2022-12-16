@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IViewBase } from '@teable-group/core';
 import { ViewType, IFilter, ISort } from '@teable-group/core';
 
@@ -17,23 +17,23 @@ export class CreateViewDto implements IViewDto {
   })
   type!: ViewType;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The description of the View.',
     example: 'this is a summary',
   })
   description?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The filter options of the View.',
   })
   filter?: IFilter;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The sort options of the View.',
   })
   sort?: ISort;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: null,
     description:
       "The configuration options of the View. The structure of the View's options depend on the View's type.",

@@ -1,8 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FieldKeyType } from './constant';
 
 export class CreateRecordsDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Define the field key type when create and return records, default is `name`',
     example: 'name',
     default: 'name',

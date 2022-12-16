@@ -1,5 +1,11 @@
+import type { FieldType } from './constant';
 import { Field } from './field';
-import type { ISingleLineTextField } from './interface';
+import type { IFieldBase } from './interface';
+
+export interface ISingleLineTextField extends IFieldBase {
+  type: FieldType.SingleLineText;
+  defaultValue: string;
+}
 
 export class SingleLineTextField extends Field {
   constructor(public readonly field: ISingleLineTextField) {

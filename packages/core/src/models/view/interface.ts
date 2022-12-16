@@ -58,14 +58,12 @@ export type IFilterDateTime =
 // };
 // interface IAttachmentCondition{
 //   fieldType: FieldType.Attachment;
-//   // TODO: 未定义
 //   value: any;
 //   };
 // interface IMultipleRecordLinksCondition{
 //   fieldType: FieldType.MultipleRecordLinks;
 //   value: any;
 // };
-//   // TODO: 下面的字段支持 filter 操作
 // interface IURLCondition{
 //   fieldType: FieldType.URL;
 //   value: any;
