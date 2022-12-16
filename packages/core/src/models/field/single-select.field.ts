@@ -1,13 +1,15 @@
-import type Colors from './colors';
+import type { Colors } from './colors';
 import type { FieldType } from './constant';
 import { Field } from './field';
 import type { IFieldBase } from './interface';
 
+export interface ISingleSelectFieldChoices {
+  name: string;
+  color: Colors;
+}
+
 export interface ISingleSelectFieldOptions {
-  choices: {
-    name: string;
-    color: Colors;
-  }[];
+  choices: ISingleSelectFieldChoices[];
 }
 
 export interface ISingleSelectField extends IFieldBase {

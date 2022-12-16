@@ -60,9 +60,6 @@ export enum Colors {
   Yellow = 'yellow',
 }
 
-export default Colors;
-
-/** @hidden */
 export const rgbTuplesByColor = {
   [Colors.BlueBright]: [45, 127, 249],
   [Colors.BlueDark1]: [39, 80, 174],

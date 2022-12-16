@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import type { IFieldBase } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { NumberOptionsDto } from './options-dto/number.dto';
@@ -6,10 +6,12 @@ import { SingleSelectOptionsDto } from './options-dto/single-select.dto';
 
 type IFieldDto = Omit<IFieldBase, 'id' | 'calculatedType' | 'dataType' | 'isPrimaryField'>;
 
+@ApiExtraModels(SingleSelectOptionsDto)
+@ApiExtraModels(NumberOptionsDto)
 export class CreateFieldDto implements IFieldDto {
   @ApiProperty({
     description: 'The name of the field.',
-    example: 'field1',
+    example: 'Single Select',
   })
   name!: string;
 
@@ -21,12 +23,11 @@ export class CreateFieldDto implements IFieldDto {
 
   @ApiProperty({
     description: 'The types supported by teable.',
-    example: FieldType.SingleLineText,
+    example: FieldType.SingleSelect,
   })
   type!: FieldType;
 
   @ApiPropertyOptional({
-    example: null,
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
     oneOf: [
@@ -34,12 +35,12 @@ export class CreateFieldDto implements IFieldDto {
       { $ref: getSchemaPath(NumberOptionsDto) },
     ],
   })
-  options?: object;
+  options?: SingleSelectOptionsDto | NumberOptionsDto;
 
   @ApiPropertyOptional({
     description:
       'The defaultValue of the field. The datatype of the value depends on the field type.',
-    example: 'default value',
+    example: { name: 'light', color: 'yellow' },
   })
   defaultValue?: string;
 

@@ -1,4 +1,4 @@
-import type { IField } from '../field/interface';
+import type { IField } from '../field';
 import type { IView } from '../view/interface';
 
 export interface ITable {
