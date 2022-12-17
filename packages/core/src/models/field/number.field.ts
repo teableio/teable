@@ -1,5 +1,5 @@
 import type { FieldType } from './constant';
-import { Field } from './field';
+import { CellValueType, Field } from './field';
 import type { IFieldBase } from './interface';
 
 export interface INumberFieldOptions {
@@ -9,19 +9,27 @@ export interface INumberFieldOptions {
 export interface INumberField extends IFieldBase {
   type: FieldType.Number;
   options: INumberFieldOptions;
-  defaultValue: number;
+  defaultValue: string;
 }
 
 export class NumberField extends Field {
-  constructor(public readonly field: INumberField) {
-    super(field);
+  constructor(public readonly data: INumberField) {
+    super(data);
   }
 
   get type() {
-    return this.field.type;
+    return this.data.type;
   }
 
   get defaultValue() {
-    return this.field.defaultValue;
+    return this.data.defaultValue;
+  }
+
+  get calculatedType() {
+    return this.data.type;
+  }
+
+  get cellValueType() {
+    return CellValueType.Number;
   }
 }

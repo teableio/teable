@@ -4,11 +4,11 @@ import { FieldType } from '@teable-group/core';
 import { NumberOptionsDto } from './options-dto/number.dto';
 import { SingleSelectOptionsDto } from './options-dto/single-select.dto';
 
-type IFieldDto = Omit<IFieldBase, 'id' | 'calculatedType' | 'dataType' | 'isPrimaryField'>;
+export type IFieldCreateDto = Omit<IFieldBase, 'id'>;
 
 @ApiExtraModels(SingleSelectOptionsDto)
 @ApiExtraModels(NumberOptionsDto)
-export class CreateFieldDto implements IFieldDto {
+export abstract class CreateFieldDto implements IFieldCreateDto {
   @ApiProperty({
     description: 'The name of the field.',
     example: 'Single Select',

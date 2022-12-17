@@ -33,9 +33,9 @@ model Field {
   // field type enum, for user define
   type                 String?
   // for lookup field, it is a dynamic value
-  calculatedType       String?    @map(name: "calculated_type")
+  calculatedType       String     @map(name: "calculated_type")
   // cellValue type enum (string, number, boolean, datetime, array)
-  dataType             String?    @map(name: "data_type")
+  cellValueType        String     @map(name: "cell_value_type")
   // db field type (TEXT, INTEGER, REAL, BLOB)
   columnIndexes        String     @map(name: "column_indexs")
   dbType               String?    @map(name: "db_type")

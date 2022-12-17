@@ -1,6 +1,6 @@
 import type { Colors } from './colors';
 import type { FieldType } from './constant';
-import { Field } from './field';
+import { CellValueType, Field } from './field';
 import type { IFieldBase } from './interface';
 
 export interface ISingleSelectFieldChoices {
@@ -19,15 +19,23 @@ export interface ISingleSelectField extends IFieldBase {
 }
 
 export class SingleSelectField extends Field {
-  constructor(public readonly field: ISingleSelectField) {
-    super(field);
+  constructor(public readonly data: ISingleSelectField) {
+    super(data);
   }
 
   get type() {
-    return this.field.type;
+    return this.data.type;
   }
 
   get defaultValue() {
-    return this.field.defaultValue;
+    return this.data.defaultValue;
+  }
+
+  get calculatedType() {
+    return this.data.type;
+  }
+
+  get cellValueType() {
+    return CellValueType.String;
   }
 }

@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CreateFieldDto } from './create-field.dto';
+import { FieldPipe } from './field.pipe';
 import { FieldService } from './field.service';
+import { IFieldInstance } from './model/factory';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -23,7 +25,12 @@ export class FieldController {
     example: 'tbla63d4543eb5eded6',
   })
   @Post()
-  createField(@Param('tableId') tableId: string, @Body() createFieldDto: CreateFieldDto) {
-    return this.fieldService.createField(tableId, createFieldDto);
+  createField(
+    @Param('tableId') tableId: string,
+    @Body() _createFieldDto: CreateFieldDto, // dto for swagger document
+    @Body(FieldPipe) fieldInstance: IFieldInstance
+  ) {
+    console.log('fieldInstance: ', fieldInstance);
+    return this.fieldService.createField(tableId, fieldInstance);
   }
 }

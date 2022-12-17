@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma.service';
 import { generateTableId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
+import { createFieldInstance } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORDS, DEFAULT_VIEW } from './constant';
@@ -68,7 +69,11 @@ export class TableService {
       const tableMeta = await this.createDBTable(prisma, tableId, createTableDto);
 
       // 2. create field for table
-      await this.fieldService.multipleCreateFieldsTransaction(prisma, tableId, DEFAULT_FIELDS);
+      await this.fieldService.multipleCreateFieldsTransaction(
+        prisma,
+        tableId,
+        DEFAULT_FIELDS.map(createFieldInstance)
+      );
 
       // 3. create view for table
       await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);

@@ -5,7 +5,7 @@ import { generateFieldId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { getDbFieldTypeByFieldType } from '../../utils/type-transform';
 import { preservedFieldName } from './constant';
-import type { CreateFieldDto } from './create-field.dto';
+import type { IFieldInstance } from './model/factory';
 
 @Injectable()
 export class FieldService {
@@ -16,7 +16,7 @@ export class FieldService {
     tableId: string,
     names: string[]
   ): Promise<string[]> {
-    const validNames = names.map((name) => convertNameToValidCharacter(name));
+    const validNames = names.map((name) => convertNameToValidCharacter(name, 50));
     let newValidNames = [...validNames];
     let index = 1;
 
@@ -41,9 +41,9 @@ export class FieldService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     dbFieldName: string,
-    createFieldDto: CreateFieldDto
+    fieldInstance: IFieldInstance
   ) {
-    const { name, description, type, options, defaultValue, notNull, unique } = createFieldDto;
+    const { name, description, type, options, defaultValue, notNull, unique } = fieldInstance.data;
 
     const data: Prisma.FieldCreateInput = {
       id: generateFieldId(),
@@ -58,9 +58,12 @@ export class FieldService {
       options: JSON.stringify(options),
       notNull,
       unique,
-      defaultValue,
-      columnIndexes: JSON.stringify({}),
+      defaultValue: JSON.stringify(defaultValue),
       dbFieldName,
+      columnIndexes: JSON.stringify({}),
+      dbType: fieldInstance.dbFieldType,
+      calculatedType: fieldInstance.calculatedType,
+      cellValueType: fieldInstance.cellValueType,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -72,12 +75,12 @@ export class FieldService {
   async multipleCreateFieldsTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    multipleCreateFieldDto: CreateFieldDto[]
+    multipleIFieldInstance: IFieldInstance[]
   ) {
     const dbFieldNames = await this.multipleGenerateValidDbFieldName(
       prisma,
       tableId,
-      multipleCreateFieldDto.map((dto) => dto.name)
+      multipleIFieldInstance.map((dto) => dto.name)
     );
 
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
@@ -92,9 +95,9 @@ export class FieldService {
     console.log('theDbTableName: ', dbTableName);
 
     const multiFieldData: Field[] = [];
-    for (let i = 0; i < multipleCreateFieldDto.length; i++) {
-      const createFieldDto = multipleCreateFieldDto[i];
-      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], createFieldDto);
+    for (let i = 0; i < multipleIFieldInstance.length; i++) {
+      const fieldInstance = multipleIFieldInstance[i];
+      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], fieldInstance);
       console.log('createField: ', fieldData);
       multiFieldData.push(fieldData);
     }
@@ -103,7 +106,7 @@ export class FieldService {
       const dbFieldName = dbFieldNames[i];
       await prisma.$executeRawUnsafe(
         `ALTER TABLE ${dbTableName} ADD ${dbFieldName} ${getDbFieldTypeByFieldType(
-          multipleCreateFieldDto[i].type
+          multipleIFieldInstance[i].type
         )};`
       );
     }
@@ -111,12 +114,12 @@ export class FieldService {
     return multiFieldData;
   }
 
-  async createField(tableId: string, createFieldDto: CreateFieldDto) {
-    return (await this.multipleCreateFields(tableId, [createFieldDto]))[0];
+  async createField(tableId: string, fieldInstance: IFieldInstance) {
+    return (await this.multipleCreateFields(tableId, [fieldInstance]))[0];
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateFields(tableId: string, multipleCreateFieldsDto: CreateFieldDto[]) {
+  async multipleCreateFields(tableId: string, multipleCreateFieldsDto: IFieldInstance[]) {
     return await this.prisma.$transaction(async (prisma) => {
       return this.multipleCreateFieldsTransaction(prisma, tableId, multipleCreateFieldsDto);
     });

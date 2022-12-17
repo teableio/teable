@@ -1,5 +1,5 @@
 import type { FieldType } from './constant';
-import { Field } from './field';
+import { CellValueType, Field } from './field';
 import type { IFieldBase } from './interface';
 
 export interface ISingleLineTextField extends IFieldBase {
@@ -8,16 +8,24 @@ export interface ISingleLineTextField extends IFieldBase {
 }
 
 export class SingleLineTextField extends Field {
-  constructor(public readonly field: ISingleLineTextField) {
-    super(field);
+  constructor(public readonly data: ISingleLineTextField) {
+    super(data);
   }
 
   get type() {
-    return this.field.type;
+    return this.data.type;
   }
 
   get defaultValue() {
-    return this.field.defaultValue;
+    return this.data.defaultValue;
+  }
+
+  get calculatedType() {
+    return this.data.type;
+  }
+
+  get cellValueType() {
+    return CellValueType.String;
   }
 }
 
