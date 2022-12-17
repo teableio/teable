@@ -78,60 +78,6 @@ model View {
   @@map(name: "view")
 }
 
-model Poem {
-  id        Int            @id @default(autoincrement())
-  slug      String         @unique
-  title     String
-  content   String
-  locale    String?
-  keywords  PoemKeywords[]
-  author    String
-  link      String?
-  image     String?
-  createdAt DateTime       @default(now()) @map(name: "created_at")
-  updatedAt DateTime       @updatedAt @map(name: "updated_at")
-
-  @@map(name: "poem")
-}
-
-model PoemKeywords {
-  id        Int      @id @default(autoincrement())
-  poem      Poem     @relation(fields: [poemId], references: [id], onDelete: Cascade)
-  poemId    Int      @map(name: "poem_id")
-  keyword   Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
-  keywordId Int      @map(name: "keyword_id")
-  createdAt DateTime @default(now()) @map(name: "created_at")
-  updatedAt DateTime @updatedAt @map(name: "updated_at")
-
-  @@unique([poemId, keywordId])
-  @@map(name: "poem_keywords")
-}
-
-model Keyword {
-  id     Int            @id @default(autoincrement())
-  name   String         @unique
-  locale String?
-  poems  PoemKeywords[]
-
-  @@map(name: "keyword")
-}
-
-model Post {
-  id          Int       @id @default(autoincrement())
-  slug        String    @unique
-  title       String
-  content     String
-  link        String?
-  image       String?
-  author      User?     @relation(fields: [authorId], references: [id])
-  authorId    Int?      @map(name: "author_id")
-  publishedAt DateTime? @map(name: "published_at")
-  createdAt   DateTime  @default(now()) @map(name: "created_at")
-  updatedAt   DateTime  @updatedAt @map(name: "updated_at")
-
-  @@map(name: "post")
-}
-
 model User {
   id            Int       @id @default(autoincrement())
   firstName     String?   @map(name: "first_name")
@@ -145,7 +91,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
 
-  Post Post[]
+  // Post Post[]
   @@map("users")
 }
 
