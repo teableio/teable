@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { IColumn } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { generateViewId } from '../../utils/id-generator';
@@ -13,6 +14,31 @@ export class ViewService {
     return `${ROW_INDEX_FIELD_PREFIX}_${viewId}`;
   }
 
+  async getColumnsByView(prisma: Prisma.TransactionClient, viewId: string): Promise<IColumn[]> {
+    const view = await prisma.view.findUniqueOrThrow({
+      where: {
+        id: viewId,
+      },
+      select: {
+        id: true,
+        columns: true,
+      },
+    });
+
+    return JSON.parse(view.columns);
+  }
+
+  private async getAllFields(prisma: Prisma.TransactionClient, tableId: string) {
+    return await prisma.field.findMany({
+      where: {
+        tableId,
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -20,6 +46,10 @@ export class ViewService {
   ) {
     const { name, description, type, options, sort, filter } = createViewDto;
     const viewId = generateViewId();
+    const columns = (await this.getAllFields(prisma, tableId)).map((field) => ({
+      fieldId: field.id,
+    }));
+
     const data: Prisma.ViewCreateInput = {
       id: viewId,
       table: {
@@ -33,6 +63,7 @@ export class ViewService {
       options: options ? JSON.stringify(options) : undefined,
       sort: sort ? JSON.stringify(sort) : undefined,
       filter: filter ? JSON.stringify(filter) : undefined,
+      columns: JSON.stringify(columns),
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };

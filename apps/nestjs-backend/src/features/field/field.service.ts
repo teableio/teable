@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import type { IColumn } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import { generateFieldId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { getDbFieldTypeByFieldType } from '../../utils/type-transform';
 import { preservedFieldName } from './constant';
 import type { IFieldInstance } from './model/factory';
 
@@ -43,10 +42,11 @@ export class FieldService {
     dbFieldName: string,
     fieldInstance: IFieldInstance
   ) {
-    const { name, description, type, options, defaultValue, notNull, unique } = fieldInstance.data;
+    const { id, name, description, type, options, defaultValue, notNull, unique } =
+      fieldInstance.data;
 
     const data: Prisma.FieldCreateInput = {
-      id: generateFieldId(),
+      id,
       table: {
         connect: {
           id: tableId,
@@ -60,7 +60,6 @@ export class FieldService {
       unique,
       defaultValue: JSON.stringify(defaultValue),
       dbFieldName,
-      columnIndexes: JSON.stringify({}),
       dbType: fieldInstance.dbFieldType,
       calculatedType: fieldInstance.calculatedType,
       cellValueType: fieldInstance.cellValueType,
@@ -72,17 +71,74 @@ export class FieldService {
     return await prisma.field.create({ data });
   }
 
-  async multipleCreateFieldsTransaction(
+  private async getAllViewColumns(prisma: Prisma.TransactionClient, tableId: string) {
+    const views = await prisma.view.findMany({
+      where: {
+        tableId,
+      },
+      select: {
+        id: true,
+        columns: true,
+      },
+    });
+
+    return views.map<{ id: string; columns: IColumn[] }>((view) => ({
+      id: view.id,
+      columns: JSON.parse(view.columns),
+    }));
+  }
+
+  private async insertNewColumnsInViews(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    multipleIFieldInstance: IFieldInstance[]
+    fieldInstances: IFieldInstance[]
   ) {
+    const allView = await this.getAllViewColumns(prisma, tableId);
+    const newColumns = fieldInstances.map((field) => ({ fieldId: field.data.id }));
+    const newViewColumns = allView.map((view) => ({
+      id: view.id,
+      columns: [...view.columns, ...newColumns],
+    }));
+
+    for (const view of newViewColumns) {
+      await prisma.view.update({
+        where: {
+          id: view.id,
+        },
+        data: {
+          columns: JSON.stringify(view.columns),
+        },
+      });
+    }
+  }
+
+  private async dbCreateMultipleField(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    fieldInstances: IFieldInstance[]
+  ) {
+    const multiFieldData: Field[] = [];
     const dbFieldNames = await this.multipleGenerateValidDbFieldName(
       prisma,
       tableId,
-      multipleIFieldInstance.map((dto) => dto.name)
+      fieldInstances.map((dto) => dto.name)
     );
 
+    for (let i = 0; i < fieldInstances.length; i++) {
+      const fieldInstance = fieldInstances[i];
+      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], fieldInstance);
+      console.log('createField: ', fieldData);
+      multiFieldData.push(fieldData);
+    }
+    return multiFieldData;
+  }
+
+  private async alterVisualTable(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    dbFieldNames: string[],
+    fieldInstances: IFieldInstance[]
+  ) {
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
@@ -92,24 +148,32 @@ export class FieldService {
       },
     });
 
-    console.log('theDbTableName: ', dbTableName);
-
-    const multiFieldData: Field[] = [];
-    for (let i = 0; i < multipleIFieldInstance.length; i++) {
-      const fieldInstance = multipleIFieldInstance[i];
-      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], fieldInstance);
-      console.log('createField: ', fieldData);
-      multiFieldData.push(fieldData);
-    }
-
     for (let i = 0; i < dbFieldNames.length; i++) {
       const dbFieldName = dbFieldNames[i];
       await prisma.$executeRawUnsafe(
-        `ALTER TABLE ${dbTableName} ADD ${dbFieldName} ${getDbFieldTypeByFieldType(
-          multipleIFieldInstance[i].type
-        )};`
+        `ALTER TABLE ${dbTableName} ADD ${dbFieldName} ${fieldInstances[i].dbFieldType};`
       );
     }
+  }
+
+  async multipleCreateFieldsTransaction(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    fieldInstances: IFieldInstance[]
+  ) {
+    // 1. save field meta in db
+    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, fieldInstances);
+
+    // 2. maintain columns in view
+    await this.insertNewColumnsInViews(prisma, tableId, fieldInstances);
+
+    // 3. alter table with real field in visual table
+    await this.alterVisualTable(
+      prisma,
+      tableId,
+      multiFieldData.map((field) => field.dbFieldName),
+      fieldInstances
+    );
 
     return multiFieldData;
   }

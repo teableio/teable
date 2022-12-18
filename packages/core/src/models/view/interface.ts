@@ -139,13 +139,15 @@ export interface IViewBase {
   };
 }
 
+export interface IColumn {
+  fieldId: string;
+  width?: number;
+  hidden?: boolean;
+}
+
 export interface IGridView extends IViewBase {
   type: ViewType.Grid;
-  columns: {
-    fieldId: string;
-    width: number;
-    hidden: boolean;
-  }[];
+  columns: IColumn[];
 }
 
 export interface IGalleryView extends IViewBase {

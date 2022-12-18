@@ -31,13 +31,12 @@ model Field {
   description          String?
   options              String?
   // field type enum, for user define
-  type                 String?
+  type                 String
   // for lookup field, it is a dynamic value
   calculatedType       String     @map(name: "calculated_type")
   // cellValue type enum (string, number, boolean, datetime, array)
   cellValueType        String     @map(name: "cell_value_type")
   // db field type (TEXT, INTEGER, REAL, BLOB)
-  columnIndexes        String     @map(name: "column_indexs")
   dbType               String?    @map(name: "db_type")
   dbFieldName          String     @map(name: "db_field_name")
   defaultValue         String?    @map(name: "default_value")
@@ -68,6 +67,8 @@ model View {
   filter              String?
   group               String?
   options             String?
+  // maintain columns in view
+  columns             String
 
   createdTime         DateTime  @default(now()) @map(name: "created_time")
   lastModifiedTime    DateTime  @updatedAt @map(name: "last_modified_time")
