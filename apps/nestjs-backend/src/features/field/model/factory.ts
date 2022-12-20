@@ -1,6 +1,5 @@
 import type { INumberField, ISingleLineTextField, ISingleSelectField } from '@teable-group/core';
-import { assertNever, FieldType } from '@teable-group/core';
-import { generateFieldId } from '../../../utils/id-generator';
+import { assertNever, FieldType, generateFieldId } from '@teable-group/core';
 import type { CreateFieldDto } from '../create-field.dto';
 import { NumberFieldExtended } from './number.field';
 import { SingleLineTextFieldExtended } from './single-line-text.field';

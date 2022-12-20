@@ -1,7 +1,8 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import type { TableMeta, Prisma } from '@prisma/client';
+import { generateTableId } from '@teable-group/core';
+import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
+import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import { generateTableId } from '../../utils/id-generator';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
 import { createFieldInstance } from '../field/model/factory';
@@ -45,18 +46,8 @@ export class TableService {
     });
     console.log('table meta create succeed: ', tableMeta);
 
-    // 2. create a real db table
-    const dbTable = await prisma.$executeRawUnsafe(`
-      CREATE TABLE ${dbTableName} (
-        __id TEXT NOT NULL UNIQUE,
-        __auto_number INTEGER PRIMARY KEY AUTOINCREMENT,
-        __row_default INTEGER NOT NULL,
-        __created_time DATETIME NOT NULL,
-        __last_modified_time DATETIME,
-        __created_by TEXT NOT NULL,
-        __last_modified_by TEXT
-      );
-    `);
+    // create a real db table
+    const dbTable = await prisma.$executeRawUnsafe(visualTableSql(dbTableName));
     console.log('dbTable create succeed: ', dbTable);
     return tableMeta;
   }

@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { IColumn } from '@teable-group/core';
+import { generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import { generateViewId } from '../../utils/id-generator';
 import { ROW_INDEX_FIELD_PREFIX } from './constant';
 import type { CreateViewDto } from './create-view.dto';
 

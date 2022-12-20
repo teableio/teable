@@ -1,7 +1,7 @@
 import { HttpException, Injectable } from '@nestjs/common';
+import { generateRecordId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import { generateRecordId } from '../../utils/id-generator';
 import { ROW_INDEX_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsDto } from './create-records.dto';
 

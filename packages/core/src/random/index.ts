@@ -1,1 +1,2 @@
-export { getRandomInt } from './getRandomInt';
+export * from './get-random-int';
+export * from './id-generator';
