@@ -44,3 +44,23 @@ export enum FilterDuration {
   TheLastMonth = 'TheLastMonth',
   TheNextMonth = 'TheNextMonth',
 }
+
+export enum StatisticsFunc {
+  Sum = 'sum',
+  CountAll = 'countAll',
+  Empty = 'empty',
+  Filled = 'filled',
+  Unique = 'unique',
+  PercentEmpty = 'percentEmpty',
+  PercentFilled = 'percentFilled',
+  PercentUnique = 'percentUnique',
+  Average = 'average',
+  Max = 'max',
+  Min = 'min',
+  DateRangeOfDays = 'dateRangeOfDays',
+  DateRangeOfMonths = 'dateRangeOfMonths',
+  Checked = 'checked',
+  UnChecked = 'unChecked',
+  PercentChecked = 'percentChecked',
+  PercentUnChecked = 'percentUnChecked',
+}

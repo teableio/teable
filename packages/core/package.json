@@ -29,6 +29,9 @@
     "test-unit-watch": "vitest watch --ui",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --fix"
   },
+  "dependencies": {
+    "lodash": "4.17.21"
+  },
   "devDependencies": {
     "@size-limit/file": "8.1.0",
     "@teable-group/eslint-config-bases": "workspace:^",

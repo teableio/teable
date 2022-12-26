@@ -58,7 +58,6 @@ model View {
   id                  String    @id
   name                String?
   description         String?
-  meta                String?
   table               TableMeta @relation(fields: [tableId], references: [id])
   tableId             String    @map(name: "table_id")
   // view type enum, for user interface (grid, kanban, gantt, calendar, form, etc...)

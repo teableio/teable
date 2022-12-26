@@ -1,4 +1,4 @@
-import type { FilterConjunction, FilterDuration, ViewType } from './constant';
+import type { StatisticsFunc, FilterConjunction, FilterDuration, ViewType } from './constant';
 
 export type IFilterCheckbox = [boolean] | null;
 export type IFilterText = [string] | null;
@@ -126,23 +126,26 @@ export interface IFilter {
   conditions: unknown;
 }
 
-export interface IViewBase {
-  id: string;
-  name: string;
-  type: ViewType;
-  description?: string;
-  filter?: IFilter;
-  sort?: ISort;
-  options?: {
-    filter: string[];
-    sort: string[];
-  };
-}
-
 export interface IColumn {
   fieldId: string;
   width?: number;
   hidden?: boolean;
+  statisticFunc?: StatisticsFunc;
+}
+
+export interface IRow {
+  recordId: string;
+}
+
+export interface IViewBase {
+  id: string;
+  name: string;
+  type: ViewType;
+  rows: IRow[];
+  description?: string;
+  filter?: IFilter;
+  sort?: ISort;
+  options?: unknown;
 }
 
 export interface IGridView extends IViewBase {
