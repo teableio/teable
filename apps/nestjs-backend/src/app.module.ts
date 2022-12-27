@@ -7,6 +7,7 @@ import type { IAppConfig } from './app.interface';
 import { AppService } from './app.service';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { TableModule } from './features/table/table.module';
+import { WsModule } from './ws/ws.module';
 
 @Module({})
 export class AppModule {
@@ -19,6 +20,7 @@ export class AppModule {
             return config.dir ? path.join(config.dir, str) : str;
           }),
         }),
+        WsModule,
         FileTreeModule,
         TableModule,
       ],

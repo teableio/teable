@@ -78,6 +78,27 @@ model View {
   @@map(name: "view")
 }
 
+model Ops {
+  collection           String
+  docId                String   @map(name: "doc_id")
+  version              Int
+  operation            String
+
+  @@unique([collection, docId, version])
+  @@map(name: "ops")
+}
+
+model Snapshots {
+  collection           String
+  docId                String   @map(name: "doc_id")
+  docType              String   @map(name: "doc_type")
+  version              Int
+  data                 String
+
+  @@unique([collection, docId])
+  @@map(name: "snapshots")
+}
+
 model User {
   id            Int       @id @default(autoincrement())
   firstName     String?   @map(name: "first_name")

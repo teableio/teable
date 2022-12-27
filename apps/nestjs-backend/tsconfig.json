@@ -12,7 +12,7 @@
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
-    "rootDir": "./src",
+    "baseUrl": "./",
     "outDir": "./dist"
   },
   "references": [
@@ -20,6 +20,5 @@
     { "path": "../../packages/db-main-prisma" },
     { "path": "../../packages/sdk" }
   ],
-  "exclude": ["**/node_modules", "**/.*/", "dist"],
-  "include": ["src/"]
+  "exclude": ["**/node_modules", "**/.*/", "dist"]
 }

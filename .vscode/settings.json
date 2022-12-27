@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["AUTOINCREMENT", "DATETIME", "gantt", "Localstorage", "teable"],
+  "cSpell.words": ["AUTOINCREMENT", "DATETIME", "gantt", "Localstorage", "sharedb", "teable"],
   "eslint.workingDirectories": [
     {
       "pattern": "./apps/*/"

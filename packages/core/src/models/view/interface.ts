@@ -142,6 +142,7 @@ export interface IViewBase {
   name: string;
   type: ViewType;
   rows: IRow[];
+  columns: IColumn[];
   description?: string;
   filter?: IFilter;
   sort?: ISort;
@@ -150,15 +151,10 @@ export interface IViewBase {
 
 export interface IGridView extends IViewBase {
   type: ViewType.Grid;
-  columns: IColumn[];
 }
 
 export interface IGalleryView extends IViewBase {
   type: ViewType.Gallery;
-  columns: {
-    fieldId: string;
-    hidden: boolean;
-  }[];
 }
 
 export type IView = IGridView | IGalleryView;

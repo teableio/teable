@@ -1,0 +1,36 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Jest nest backend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/nestjs-backend",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "../../node_modules/.bin/jest",
+        "${relativeFile}",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug nest backend",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "args": ["apps/nestjs-backend/src/index.ts"],
+      "runtimeArgs": ["start:debug"],
+      "outFiles": ["${workspaceFolder}/**/*.js", "!**/node_modules/**"],
+      "cwd": "${workspaceFolder}/apps/nestjs-backend",
+      "internalConsoleOptions": "openOnSessionStart",
+      "sourceMaps": true,
+      "console": "internalConsole",
+      "outputCapture": "std"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ export class AppService implements OnModuleInit {
     private configService: ConfigService
   ) {}
 
-  async onModuleInit() {
+  private async startNEXTjs() {
     const nodeEnv = this.configService.get<string>('NODE_ENV');
     try {
       this.server = createServer({
@@ -28,6 +28,10 @@ export class AppService implements OnModuleInit {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  async onModuleInit() {
+    await this.startNEXTjs();
   }
 
   handler(req: Request, res: Response) {

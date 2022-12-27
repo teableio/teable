@@ -10,4 +10,4 @@ console.log(`current sqlite file: ${dbPath}`);
 const sqliteDb: Database.Database = new Database(dbPath, { verbose: console.log });
 sqliteDb.pragma('journal_mode = WAL');
 
-export { sqliteDb };
+export { sqliteDb, dbPath };
