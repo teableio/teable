@@ -51,7 +51,7 @@ export class FieldOpBuilder {
     };
   }
 
-  static addField2Actions(field: IField): IOtOperation {
+  static addField(field: IField): IOtOperation {
     return {
       p: ['fieldMap', field.id],
       oi: field,
@@ -62,14 +62,6 @@ export class FieldOpBuilder {
     id: string;
     oldValue: string;
     newValue: string | null;
-  }): IOtOperation {
-    return this.setViewMeta({ ...params, key: FieldMetaKey.Name });
-  }
-
-  static setFieldType(params: {
-    id: string;
-    oldValue: FieldType;
-    newValue: FieldType;
   }): IOtOperation {
     return this.setViewMeta({ ...params, key: FieldMetaKey.Name });
   }

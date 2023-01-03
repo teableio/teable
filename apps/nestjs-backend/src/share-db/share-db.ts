@@ -4,7 +4,7 @@ import { IShareDbConfig } from './interface';
 
 @Injectable()
 export class ShareDb extends ShareDBClass {
-  constructor(@Inject('SHAREDB_CONFIG') private config: IShareDbConfig) {
+  constructor(@Inject('SHAREDB_CONFIG') config: IShareDbConfig) {
     super({
       db: config.db,
     });
