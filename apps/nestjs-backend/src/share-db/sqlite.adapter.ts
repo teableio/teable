@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Sqlite from 'better-sqlite3';
+import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import type { RawOp } from 'sharedb/lib/sharedb';
 
 export class SqliteDB extends ShareDb.DB {
   sqlite: Sqlite.Database;
   closed: boolean;
+  projectsSnapshots = true;
 
   constructor(param: { filename: string | Buffer; options?: Sqlite.Options }) {
     super();
@@ -26,7 +27,7 @@ export class SqliteDB extends ShareDb.DB {
   commit(
     collection: string,
     id: string,
-    op: RawOp,
+    op: CreateOp | DeleteOp | EditOp,
     snapshot: any,
     options: any,
     callback: (err: unknown, succeed?: boolean) => void

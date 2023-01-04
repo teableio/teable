@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CreateFieldDto } from './create-field.dto';
+import { FieldCommandService } from './field-command.service';
 import { FieldPipe } from './field.pipe';
 import { FieldService } from './field.service';
 import { IFieldInstance } from './model/factory';
@@ -9,7 +10,10 @@ import { IFieldInstance } from './model/factory';
 @ApiTags('field')
 @Controller('api/table/:tableId/field')
 export class FieldController {
-  constructor(private readonly fieldService: FieldService) {}
+  constructor(
+    private readonly fieldService: FieldService,
+    private readonly fieldCommandService: FieldCommandService
+  ) {}
 
   @Get(':fieldId')
   getField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
@@ -31,6 +35,6 @@ export class FieldController {
     @Body(FieldPipe) fieldInstance: IFieldInstance
   ) {
     console.log('fieldInstance: ', fieldInstance);
-    return this.fieldService.createField(tableId, fieldInstance);
+    return this.fieldCommandService.createField(tableId, fieldInstance);
   }
 }

@@ -1,20 +1,31 @@
 export enum OpName {
-  SetRecord,
-  AddRecord,
-  DeleteRecord,
-  AddRow,
-  DeleteRow,
+  SetRecord = 'setRecord',
+  AddRecord = 'addRecord',
+  DeleteRecord = 'deleteRecord',
+  AddRow = 'addRow',
+  DeleteRow = 'deleteRow',
+
+  AddField = 'addField',
+  AddColumn = 'addColumn',
+  DeleteField = 'deleteField',
+  DeleteColumn = 'deleteColumn',
+  SetFieldName = 'setFieldName',
+  SetFieldDescription = 'setFieldDescription',
+  SetFieldOptions = 'setFieldOptions',
+  SetFieldNotNull = 'setFieldNotNull',
+  SetFieldUnique = 'setFieldUnique',
+  SetFieldDefaultValue = 'setFieldDefaultValue',
 }
 
-export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | false {
+export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {
   const passIndex = matchList.findIndex((i) => i === '*');
 
   if (passIndex > -1) {
     if (path.length < passIndex) {
-      return false;
+      return null;
     }
   } else if (path.length !== matchList.length) {
-    return false;
+    return null;
   }
 
   const res: Record<string, string | number> = {};
@@ -29,7 +40,7 @@ export function pathMatcher<T>(path: (string | number)[], matchList: string[]): 
       continue;
     }
     if (path[i] !== matchList[i]) {
-      return false;
+      return null;
     }
   }
   return res as T;

@@ -58,6 +58,15 @@ export class RecordService {
     return userFields;
   }
 
+  async getRowCount(prisma: Prisma.TransactionClient, dbTableName: string) {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__auto_number)': null | bigint }]>(`
+    SELECT MAX(__auto_number)
+    FROM ${dbTableName};
+    `);
+    return Number(queryResult[0]['MAX(__auto_number)']);
+  }
+
   async getDbValueMatrix(
     prisma: Prisma.TransactionClient,
     dbTableName: string,
@@ -65,13 +74,7 @@ export class RecordService {
     rowIndexFieldNames: string[],
     createRecordsDto: CreateRecordsDto
   ) {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__auto_number)': null | bigint }]>(`
-      SELECT MAX(__auto_number)
-      FROM ${dbTableName};
-    `);
-    const rowCount = Number(queryResult[0]['MAX(__auto_number)']);
-    console.log('queryResult: ', queryResult);
+    const rowCount = await this.getRowCount(prisma, dbTableName);
     const dbValueMatrix: unknown[][] = [];
     for (let i = 0; i < createRecordsDto.records.length; i++) {
       const recordData = createRecordsDto.records[i].fields;

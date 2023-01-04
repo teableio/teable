@@ -1,28 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { dbPath } from '@teable-group/db-main-prisma';
-import { ShareDb } from './share-db';
-import { SqliteDB } from './sqlite.adapter';
+import { ShareDbService } from './share-db.service';
 
 describe('ShareDb', () => {
-  let provider: ShareDb;
+  let provider: ShareDbService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        {
-          provide: 'SHAREDB_CONFIG',
-          useValue: {
-            db: new SqliteDB({
-              filename: dbPath,
-            }),
-          },
-        },
-        ShareDb,
-      ],
+      providers: [ShareDbService],
     }).compile();
 
-    provider = module.get<ShareDb>(ShareDb);
+    provider = module.get<ShareDbService>(ShareDbService);
   });
 
   it('should be defined', () => {

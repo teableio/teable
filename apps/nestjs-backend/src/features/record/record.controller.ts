@@ -1,13 +1,17 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreateRecordsDto } from './create-records.dto';
+import { RecordCommandService } from './record-command.service';
 import { RecordService } from './record.service';
 
 @ApiBearerAuth()
 @ApiTags('record')
 @Controller('api/table/:tableId/record')
 export class RecordController {
-  constructor(private readonly recordService: RecordService) {}
+  constructor(
+    private readonly recordService: RecordService,
+    private readonly recordCommandService: RecordCommandService
+  ) {}
 
   @Get(':recordId')
   getRecord(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
@@ -24,6 +28,6 @@ export class RecordController {
   })
   @Post()
   createRecords(@Param('tableId') tableId: string, @Body() createRecordsDto: CreateRecordsDto) {
-    return this.recordService.multipleCreateRecords(tableId, createRecordsDto);
+    return this.recordCommandService.multipleCreateRecords(tableId, createRecordsDto);
   }
 }

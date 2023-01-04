@@ -2,11 +2,11 @@ import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@n
 import { WebSocketGateway } from '@nestjs/websockets';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Server } from 'ws';
-import { ShareDb } from '../share-db/share-db';
+import { ShareDbService } from '../share-db/share-db.service';
 
 @WebSocketGateway()
 export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private readonly shareDb: ShareDb) {}
+  constructor(private readonly shareDb: ShareDbService) {}
 
   handleDisconnect() {
     console.log('client disconnect');

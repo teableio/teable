@@ -71,7 +71,7 @@ export class FieldService {
     return await prisma.field.create({ data });
   }
 
-  private async getAllViewColumns(prisma: Prisma.TransactionClient, tableId: string) {
+  async getAllViewColumns(prisma: Prisma.TransactionClient, tableId: string) {
     const views = await prisma.view.findMany({
       where: {
         tableId,
