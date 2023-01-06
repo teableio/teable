@@ -1,3 +1,7 @@
+export interface IRecordSnapshot {
+  record: IRecord;
+}
+
 export interface IRecord {
   id: string;
   createdTime: number;

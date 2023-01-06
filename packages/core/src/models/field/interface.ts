@@ -11,3 +11,7 @@ export interface IFieldBase {
   isPrimaryField?: boolean;
   defaultValue?: unknown;
 }
+
+export interface IFieldSnapshot {
+  field: IFieldBase;
+}
