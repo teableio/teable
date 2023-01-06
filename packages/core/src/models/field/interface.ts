@@ -1,3 +1,4 @@
+import type { IColumn } from '../view';
 import type { FieldType } from './constant';
 
 export interface IFieldBase {
@@ -14,4 +15,5 @@ export interface IFieldBase {
 
 export interface IFieldSnapshot {
   field: IFieldBase;
+  columnMeta: { [viewId: string]: IColumn };
 }

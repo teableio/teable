@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import ShareDBClass from 'sharedb';
+import { FieldService } from '../../src/features/field/field.service';
+import { RecordService } from '../../src/features/record/record.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  constructor(readonly sqliteDbAdapter: SqliteDbAdapter) {
+  constructor(
+    readonly sqliteDbAdapter: SqliteDbAdapter,
+    private readonly fieldService: FieldService,
+    private readonly recordService: RecordService
+  ) {
     super({
       db: sqliteDbAdapter,
     });
@@ -43,8 +49,8 @@ export class ShareDbService extends ShareDBClass {
     next();
   }
 
-  async submitOps(collectionName: 'table' | 'dashboard', id: string, ops: IOtOperation[]) {
-    const doc = this.connect().get(collectionName, id);
+  async submitOps(collectionId: string, id: string, ops: IOtOperation[]) {
+    const doc = this.connect().get(collectionId, id);
     return new Promise<undefined>((resolve, reject) => {
       doc.submitOp(ops, undefined, (error) => {
         if (error) return reject(error);
@@ -54,8 +60,8 @@ export class ShareDbService extends ShareDBClass {
     });
   }
 
-  async createDocument(collectionName: 'table' | 'dashboard', id: string) {
-    const doc = this.connect().get(collectionName, id);
+  async createDocument(collectionId: string, id: string) {
+    const doc = this.connect().get(collectionId, id);
     return new Promise<undefined>((resolve, reject) => {
       doc.create({ title: id }, (error) => {
         if (error) return reject(error);

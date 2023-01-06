@@ -1,7 +1,3 @@
-export interface IRecordSnapshot {
-  record: IRecord;
-}
-
 export interface IRecord {
   id: string;
   createdTime: number;
@@ -13,4 +9,9 @@ export interface IRecord {
 
 export interface IRecordFields {
   [fieldId: string]: unknown;
+}
+
+export interface IRecordSnapshot {
+  record: IRecord;
+  recordOrder: { [viewId: string]: number };
 }

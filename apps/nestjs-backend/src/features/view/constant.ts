@@ -1,1 +1,1 @@
-export const ROW_INDEX_FIELD_PREFIX = '__row';
+export const ROW_ORDER_FIELD_PREFIX = '__row';

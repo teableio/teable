@@ -127,7 +127,7 @@ export interface IFilter {
 }
 
 export interface IColumn {
-  fieldId: string;
+  order: number;
   width?: number;
   hidden?: boolean;
   statisticFunc?: StatisticsFunc;

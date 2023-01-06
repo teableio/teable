@@ -13,7 +13,7 @@ export class AddRecordBuilder implements IOpBuilder {
   // you should only build an empty record
   build(recordId: string): IOtOperation {
     return {
-      p: ['recordMap', recordId],
+      p: ['record'],
       oi: {
         id: recordId,
         fields: {},

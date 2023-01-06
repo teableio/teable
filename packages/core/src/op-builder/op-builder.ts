@@ -1,22 +1,17 @@
 import type { IOtOperation } from '../models';
-import { AddColumnBuilder } from './field/add-column';
 import { AddFieldBuilder } from './field/add-field';
-import { DeleteColumnBuilder } from './field/delete-column';
 import { DeleteFieldBuilder } from './field/delete-field';
+import { SetColumnMetaBuilder } from './field/set-column-meta';
 import { AddRecordBuilder } from './record/add-record';
-import { AddRowBuilder } from './record/add-row';
 import { DeleteRecordBuilder } from './record/delete-record';
-import { DeleteRowBuilder } from './record/delete-row';
 import { SetRecordBuilder } from './record/set-record';
+import { SetRecordOrderBuilder } from './record/set-record-order';
 
-export type { IAddColumnOpContext } from './field/add-column';
 export type { IAddFieldOpContext } from './field/add-field';
-export type { IDeleteColumnOpContext } from './field/delete-column';
 export type { IDeleteFieldOpContext } from './field/delete-field';
 export type { IAddRecordOpContext } from './record/add-record';
-export type { IAddRowOpContext } from './record/add-row';
+export type { IAddRowOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
-export type { IDeleteRowOpContext } from './record/delete-row';
 export type { ISetRecordOpContext } from './record/set-record';
 
 export class OpBuilder {
@@ -25,13 +20,11 @@ export class OpBuilder {
     addRecord: new AddRecordBuilder(),
     setRecord: new SetRecordBuilder(),
     deleteRecord: new DeleteRecordBuilder(),
-    addRow: new AddRowBuilder(),
-    deleteRow: new DeleteRowBuilder(),
+    setRecordOrder: new SetRecordOrderBuilder(),
 
     addField: new AddFieldBuilder(),
     deleteField: new DeleteFieldBuilder(),
-    addColumn: new AddColumnBuilder(),
-    deleteColumn: new DeleteColumnBuilder(),
+    setColumnMeta: new SetColumnMetaBuilder(),
   };
 
   static ops2Contexts(ops: IOtOperation[]) {

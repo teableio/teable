@@ -47,13 +47,12 @@ export class RecordOpenApiService {
           newCellValue: value,
         })
       );
-      const addRowOp = OpBuilder.items.addRow.build({
-        recordId,
+      const setRecordOrderOp = OpBuilder.items.setRecordOrder.build({
         viewId: defaultView.id,
-        rowIndex: rowCount,
+        newOrder: rowCount,
       });
 
-      acc.push(createRecordOp, ...setRecordOps, addRowOp);
+      acc.push(createRecordOp, ...setRecordOps, setRecordOrderOp);
       return acc;
     }, []);
   }

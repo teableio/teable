@@ -19,7 +19,7 @@ export class AddFieldBuilder implements IOpBuilder {
 
   build(field: IFieldBase): IOtOperation {
     return {
-      p: ['fieldMap', field.id],
+      p: ['field'],
       oi: field,
     };
   }

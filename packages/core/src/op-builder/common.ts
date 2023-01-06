@@ -1,14 +1,13 @@
 export enum OpName {
   SetRecord = 'setRecord',
+  SetRecordOrder = 'setRecordOrder',
   AddRecord = 'addRecord',
   DeleteRecord = 'deleteRecord',
-  AddRow = 'addRow',
-  DeleteRow = 'deleteRow',
 
   AddField = 'addField',
-  AddColumn = 'addColumn',
+  SetFieldOrder = 'setFieldOrder',
+  SetColumnMeta = 'setColumnMeta',
   DeleteField = 'deleteField',
-  DeleteColumn = 'deleteColumn',
   SetFieldName = 'setFieldName',
   SetFieldDescription = 'setFieldDescription',
   SetFieldOptions = 'setFieldOptions',

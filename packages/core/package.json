@@ -19,7 +19,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
     "check-size": "size-limit",
@@ -27,7 +27,7 @@
     "test-unit": "vitest run",
     "test-unit-jest": "jest --config ./jest.config.js",
     "test-unit-watch": "vitest watch --ui",
-    "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.mjs,.cjs,.mts,.cts --fix"
+    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
     "lodash": "4.17.21"

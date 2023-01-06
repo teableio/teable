@@ -3,7 +3,7 @@ import type { IColumn } from '@teable-group/core';
 import { generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import { ROW_INDEX_FIELD_PREFIX } from './constant';
+import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import type { CreateViewDto } from './create-view.dto';
 
 @Injectable()
@@ -11,7 +11,7 @@ export class ViewService {
   constructor(private readonly prisma: PrismaService) {}
 
   getRowIndexFieldName(viewId: string) {
-    return `${ROW_INDEX_FIELD_PREFIX}_${viewId}`;
+    return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
   }
 
   async getColumnsByView(prisma: Prisma.TransactionClient, viewId: string): Promise<IColumn[]> {
@@ -84,10 +84,10 @@ export class ViewService {
       data,
     });
 
-    // 2. add a field for maintain row order index
+    // 2. add a field for maintain row order number
     await prisma.$executeRawUnsafe(`
       ALTER TABLE ${dbTableName}
-      ADD ${rowIndexFieldName} INT;
+      ADD ${rowIndexFieldName} REAL;
     `);
 
     // 3. fill initial order for every record, with auto increment integer

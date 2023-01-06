@@ -68,6 +68,8 @@ model View {
   options             String?
   // maintain columns in view
   columns             String
+  // maintain own order in viewList
+  order               Float
 
   createdTime         DateTime  @default(now()) @map(name: "created_time")
   lastModifiedTime    DateTime  @updatedAt @map(name: "last_modified_time")
