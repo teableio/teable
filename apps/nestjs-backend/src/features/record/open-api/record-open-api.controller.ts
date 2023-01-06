@@ -1,16 +1,16 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CreateRecordsDto } from './create-records.dto';
-import { RecordCommandService } from './record-command.service';
-import { RecordService } from './record.service';
+import { CreateRecordsDto } from '../create-records.dto';
+import { RecordService } from '../record.service';
+import { RecordOpenApiService } from './record-open-api.service';
 
 @ApiBearerAuth()
 @ApiTags('record')
 @Controller('api/table/:tableId/record')
-export class RecordController {
+export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
-    private readonly recordCommandService: RecordCommandService
+    private readonly recordCommandService: RecordOpenApiService
   ) {}
 
   @Get(':recordId')

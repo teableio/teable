@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { generateRecordId, OpBuilder } from '@teable-group/core';
-import { PrismaService } from '../../prisma.service';
-import { ShareDbService } from '../../share-db/share-db.service';
-import type { CreateRecordsDto } from './create-records.dto';
-import { RecordService } from './record.service';
+import { PrismaService } from '../../../prisma.service';
+import { ShareDbService } from '../../../share-db/share-db.service';
+import type { CreateRecordsDto } from '../create-records.dto';
+import { RecordService } from '../record.service';
 
 @Injectable()
-export class RecordCommandService {
+export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,

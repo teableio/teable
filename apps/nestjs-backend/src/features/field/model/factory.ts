@@ -5,9 +5,11 @@ import { NumberFieldExtended } from './number.field';
 import { SingleLineTextFieldExtended } from './single-line-text.field';
 import { SingleSelectFieldExtended } from './single-select.field';
 
-export function createFieldInstance(createFieldDto: CreateFieldDto) {
+export function createFieldInstance(createFieldDto: CreateFieldDto & { id?: string }) {
   // generate Id first
-  const fieldDto = { ...createFieldDto, id: generateFieldId() };
+  const fieldDto = createFieldDto.id
+    ? createFieldDto
+    : { ...createFieldDto, id: generateFieldId() };
 
   switch (createFieldDto.type) {
     case FieldType.SingleLineText:

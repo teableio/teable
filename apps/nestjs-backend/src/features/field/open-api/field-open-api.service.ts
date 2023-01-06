@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { OpBuilder } from '@teable-group/core';
-import { PrismaService } from '../../prisma.service';
-import { ShareDbService } from '../../share-db/share-db.service';
-import type { IFieldInstance } from './model/factory';
+import { PrismaService } from '../../../prisma.service';
+import { ShareDbService } from '../../../share-db/share-db.service';
+import type { IFieldInstance } from '../model/factory';
 
 @Injectable()
-export class FieldCommandService {
+export class FieldOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService

@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import { dbPath } from '@teable-group/db-main-prisma';
 import ShareDBClass from 'sharedb';
-import { SqliteDB } from './sqlite.adapter';
+import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  constructor() {
+  constructor(readonly sqliteDbAdapter: SqliteDbAdapter) {
     super({
-      db: new SqliteDB({
-        filename: dbPath,
-      }),
+      db: sqliteDbAdapter,
     });
 
     this.use('submit', this.onSubmit);

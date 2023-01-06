@@ -9,6 +9,16 @@ import { DeleteRecordBuilder } from './record/delete-record';
 import { DeleteRowBuilder } from './record/delete-row';
 import { SetRecordBuilder } from './record/set-record';
 
+export type { IAddColumnOpContext } from './field/add-column';
+export type { IAddFieldOpContext } from './field/add-field';
+export type { IDeleteColumnOpContext } from './field/delete-column';
+export type { IDeleteFieldOpContext } from './field/delete-field';
+export type { IAddRecordOpContext } from './record/add-record';
+export type { IAddRowOpContext } from './record/add-row';
+export type { IDeleteRecordOpContext } from './record/delete-record';
+export type { IDeleteRowOpContext } from './record/delete-row';
+export type { ISetRecordOpContext } from './record/set-record';
+
 export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static items = {

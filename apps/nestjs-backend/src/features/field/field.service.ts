@@ -8,7 +8,7 @@ import type { IFieldInstance } from './model/factory';
 
 @Injectable()
 export class FieldService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prismaService: PrismaService) {}
 
   async multipleGenerateValidDbFieldName(
     prisma: Prisma.TransactionClient,
@@ -112,7 +112,7 @@ export class FieldService {
     }
   }
 
-  private async dbCreateMultipleField(
+  async dbCreateMultipleField(
     prisma: Prisma.TransactionClient,
     tableId: string,
     fieldInstances: IFieldInstance[]
@@ -133,7 +133,7 @@ export class FieldService {
     return multiFieldData;
   }
 
-  private async alterVisualTable(
+  async alterVisualTable(
     prisma: Prisma.TransactionClient,
     tableId: string,
     dbFieldNames: string[],
@@ -183,9 +183,9 @@ export class FieldService {
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateFields(tableId: string, multipleCreateFieldsDto: IFieldInstance[]) {
-    return await this.prisma.$transaction(async (prisma) => {
-      return this.multipleCreateFieldsTransaction(prisma, tableId, multipleCreateFieldsDto);
+  async multipleCreateFields(tableId: string, fieldInstances: IFieldInstance[]) {
+    return await this.prismaService.$transaction(async (prisma) => {
+      return this.multipleCreateFieldsTransaction(prisma, tableId, fieldInstances);
     });
   }
 

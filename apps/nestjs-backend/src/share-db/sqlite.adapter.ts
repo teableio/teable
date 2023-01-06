@@ -1,18 +1,46 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Injectable } from '@nestjs/common';
+import type {
+  IOtOperation,
+  IRecord,
+  IAddRowOpContext,
+  IAddFieldOpContext,
+  IAddRecordOpContext,
+  IAddColumnOpContext,
+} from '@teable-group/core';
+import { OpName, OpBuilder } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
+import { dbPath } from '@teable-group/db-main-prisma';
 import Sqlite from 'better-sqlite3';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
+import { FieldService } from '../../src/features/field/field.service';
+import { createFieldInstance } from '../../src/features/field/model/factory';
+import { RecordService } from '../../src/features/record/record.service';
+import { ROW_INDEX_FIELD_PREFIX } from '../../src/features/view/constant';
+import { PrismaService } from '../../src/prisma.service';
 
-export class SqliteDB extends ShareDb.DB {
+export interface ICollectionSnapshot {
+  type: string;
+  v: number;
+  data: IRecord;
+}
+
+@Injectable()
+export class SqliteDbAdapter extends ShareDb.DB {
   sqlite: Sqlite.Database;
   closed: boolean;
   projectsSnapshots = true;
 
-  constructor(param: { filename: string | Buffer; options?: Sqlite.Options }) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly recordService: RecordService,
+    private readonly fieldService: FieldService
+  ) {
     super();
 
     this.closed = false;
-    this.sqlite = new Sqlite(param.filename, param.options);
+    this.sqlite = new Sqlite(dbPath);
   }
 
   close(callback: () => void) {
@@ -22,13 +50,129 @@ export class SqliteDB extends ShareDb.DB {
     if (callback) callback();
   }
 
+  private async addRecord(
+    prisma: Prisma.TransactionClient,
+    dbTableName: string,
+    context: IAddRecordOpContext
+  ) {
+    const { recordId } = context;
+    const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
+      recordId,
+      rowCount,
+      new Date(),
+      'admin',
+      0
+    );
+  }
+
+  private async addRow(
+    prisma: Prisma.TransactionClient,
+    dbTableName: string,
+    context: IAddRowOpContext
+  ) {
+    const { recordId, viewId, rowIndex } = context;
+    await prisma.$executeRawUnsafe(
+      `UPDATE ${dbTableName} SET ${ROW_INDEX_FIELD_PREFIX}_${viewId} = ? WHERE recordId = ?`,
+      rowIndex,
+      recordId
+    );
+  }
+
+  private async addField(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    context: IAddFieldOpContext
+  ) {
+    const { fieldId, fieldType, fieldName, defaultValue, options } = context;
+    const fieldInstance = createFieldInstance({
+      ...context,
+      id: fieldId,
+      type: fieldType,
+      name: fieldName,
+      defaultValue: defaultValue as any,
+      options: options as any,
+    });
+
+    // 1. save field meta in db
+    const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [
+      fieldInstance,
+    ]);
+
+    // 2. alter table with real field in visual table
+    await this.fieldService.alterVisualTable(
+      prisma,
+      tableId,
+      multiFieldData.map((field) => field.dbFieldName),
+      [fieldInstance]
+    );
+  }
+
+  private async addColumn(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    context: IAddColumnOpContext
+  ) {
+    const { columnIndex, viewId, column } = context;
+
+    const view = await prisma.view.findUniqueOrThrow({
+      where: { id: viewId },
+      select: { id: true, columns: true },
+    });
+
+    const columns = JSON.parse(view.columns);
+
+    // columns has been mutated
+    columns.splice(columnIndex, 0, column);
+
+    await prisma.view.update({
+      where: { id: viewId },
+      data: { columns: JSON.stringify(columns) },
+    });
+  }
+
+  private async updateSnapshotByOps(
+    prisma: Prisma.TransactionClient,
+    collection: string,
+    docId: string,
+    ops: IOtOperation[]
+  ) {
+    const tableMeta = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: collection },
+      select: { dbTableName: true },
+    });
+    const dbTableName = tableMeta.dbTableName;
+
+    const ops2Contexts = OpBuilder.ops2Contexts(ops);
+    // TODO: group and batch update maybe faster;
+    for (const opContext of ops2Contexts) {
+      switch (opContext.name) {
+        case OpName.AddRecord:
+          await this.addRecord(prisma, dbTableName, opContext);
+          break;
+        case OpName.AddRow:
+          await this.addRow(prisma, dbTableName, opContext);
+          break;
+        case OpName.AddField:
+          await this.addField(prisma, collection, opContext);
+          break;
+        case OpName.AddColumn:
+          await this.addColumn(prisma, collection, opContext);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   // Persists an op and snapshot if it is for the next version. Calls back with
   // callback(err, succeeded)
-  commit(
+  async commit(
     collection: string,
     id: string,
-    op: CreateOp | DeleteOp | EditOp,
-    snapshot: any,
+    rawOp: CreateOp | DeleteOp | EditOp,
+    snapshot: ICollectionSnapshot,
     options: any,
     callback: (err: unknown, succeed?: boolean) => void
   ) {
@@ -44,15 +188,33 @@ export class SqliteDB extends ShareDb.DB {
      */
 
     try {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      const res: { max_version: null | number } = this.sqlite
-        .prepare('SELECT max(version) AS max_version FROM ops WHERE collection = ? AND doc_id = ?')
-        .get([collection, id]);
+      const opsResult = await this.prismaService.ops.aggregate({
+        _max: { version: true },
+        where: { collection, docId: id },
+      });
 
-      const maxVersion = Number(res.max_version);
+      const maxVersion = opsResult._max.version || 0;
+
       if (snapshot.v !== maxVersion + 1) {
         return callback(null, false);
       }
+
+      this.prismaService.$transaction(async (prisma) => {
+        // 1. save op in db;
+        await prisma.ops.create({
+          data: {
+            docId: id,
+            collection,
+            version: snapshot.v,
+            operation: JSON.stringify(rawOp),
+          },
+        });
+
+        // 2. parse op and update snapshot
+        if (rawOp.op) {
+          await this.updateSnapshotByOps(prisma, collection, id, rawOp.op);
+        }
+      });
 
       const insertOpStmt = this.sqlite.prepare(
         'INSERT INTO ops (collection, doc_id, version, operation) VALUES (?, ?, ?, ?)'
@@ -67,7 +229,7 @@ export class SqliteDB extends ShareDb.DB {
             );
 
       const transaction = this.sqlite.transaction(() => {
-        insertOpStmt.run([collection, id, snapshot.v, JSON.stringify(op)]);
+        insertOpStmt.run([collection, id, snapshot.v, JSON.stringify(rawOp)]);
         insertSnapshotStmt.run({
           [1]: collection,
           [2]: id,

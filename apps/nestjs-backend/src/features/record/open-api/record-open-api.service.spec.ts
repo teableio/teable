@@ -1,16 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { RecordCommandService } from './record-command.service';
+import { RecordOpenApiService } from './record-open-api.service';
 
-describe('RecordCommandService', () => {
-  let service: RecordCommandService;
+describe('RecordOpenApiService', () => {
+  let service: RecordOpenApiService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RecordCommandService],
+      providers: [RecordOpenApiService],
     }).compile();
 
-    service = module.get<RecordCommandService>(RecordCommandService);
+    service = module.get<RecordOpenApiService>(RecordOpenApiService);
   });
 
   it('should be defined', () => {

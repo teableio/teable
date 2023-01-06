@@ -1,16 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { RecordController } from './record.controller';
+import { FieldOpenApiController } from './field-open-api.controller';
 
-describe('RecordController', () => {
-  let controller: RecordController;
+describe('FieldOpenApiController', () => {
+  let controller: FieldOpenApiController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [RecordController],
+      controllers: [FieldOpenApiController],
     }).compile();
 
-    controller = module.get<RecordController>(RecordController);
+    controller = module.get<FieldOpenApiController>(FieldOpenApiController);
   });
 
   it('should be defined', () => {
