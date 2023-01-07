@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumn } from '@teable-group/core';
+import type { IColumnMeta } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -40,6 +40,7 @@ export class FieldService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     dbFieldName: string,
+    columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
     const { id, name, description, type, options, defaultValue, notNull, unique } =
@@ -59,6 +60,7 @@ export class FieldService {
       notNull,
       unique,
       defaultValue: JSON.stringify(defaultValue),
+      columnMeta: JSON.stringify(columnMeta),
       dbFieldName,
       dbType: fieldInstance.dbFieldType,
       calculatedType: fieldInstance.calculatedType,
@@ -71,45 +73,38 @@ export class FieldService {
     return await prisma.field.create({ data });
   }
 
-  async getAllViewColumns(prisma: Prisma.TransactionClient, tableId: string) {
-    const views = await prisma.view.findMany({
-      where: {
-        tableId,
-      },
-      select: {
-        id: true,
-        columns: true,
-      },
-    });
-
-    return views.map<{ id: string; columns: IColumn[] }>((view) => ({
-      id: view.id,
-      columns: JSON.parse(view.columns),
-    }));
-  }
-
-  private async insertNewColumnsInViews(
+  private async getColumnsMeta(
     prisma: Prisma.TransactionClient,
     tableId: string,
     fieldInstances: IFieldInstance[]
-  ) {
-    const allView = await this.getAllViewColumns(prisma, tableId);
-    const newColumns = fieldInstances.map((field) => ({ fieldId: field.data.id }));
-    const newViewColumns = allView.map((view) => ({
-      id: view.id,
-      columns: [...view.columns, ...newColumns],
-    }));
+  ): Promise<IColumnMeta[]> {
+    const views = await prisma.view.findMany({
+      where: { tableId },
+      select: { id: true },
+    });
 
-    for (const view of newViewColumns) {
-      await prisma.view.update({
-        where: {
-          id: view.id,
-        },
-        data: {
-          columns: JSON.stringify(view.columns),
-        },
-      });
-    }
+    const fieldsData = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, columnMeta: true },
+    });
+
+    const maxOrder = fieldsData.reduce((max, field) => {
+      const columnMeta = JSON.parse(field.columnMeta);
+      const maxViewOrder = Object.keys(columnMeta).reduce((mx, viewId) => {
+        return Math.max(mx, columnMeta[viewId].order);
+      }, -1);
+      return Math.max(max, maxViewOrder);
+    }, -1);
+
+    return fieldInstances.map(() => {
+      const columnMeta: IColumnMeta = {};
+      for (const view of views) {
+        columnMeta[view.id] = {
+          order: maxOrder + 1,
+        };
+      }
+      return columnMeta;
+    });
   }
 
   async dbCreateMultipleField(
@@ -124,9 +119,18 @@ export class FieldService {
       fieldInstances.map((dto) => dto.name)
     );
 
+    // maintain columnsMeta by view
+    const columnsMeta = await this.getColumnsMeta(prisma, tableId, fieldInstances);
+
     for (let i = 0; i < fieldInstances.length; i++) {
       const fieldInstance = fieldInstances[i];
-      const fieldData = await this.dbCreateField(prisma, tableId, dbFieldNames[i], fieldInstance);
+      const fieldData = await this.dbCreateField(
+        prisma,
+        tableId,
+        dbFieldNames[i],
+        columnsMeta[i],
+        fieldInstance
+      );
       console.log('createField: ', fieldData);
       multiFieldData.push(fieldData);
     }
@@ -161,13 +165,10 @@ export class FieldService {
     tableId: string,
     fieldInstances: IFieldInstance[]
   ) {
-    // 1. save field meta in db
+    // 1. save field in db
     const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, fieldInstances);
 
-    // 2. maintain columns in view
-    await this.insertNewColumnsInViews(prisma, tableId, fieldInstances);
-
-    // 3. alter table with real field in visual table
+    // 2. alter table with real field in visual table
     await this.alterVisualTable(
       prisma,
       tableId,

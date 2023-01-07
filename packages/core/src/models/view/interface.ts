@@ -1,4 +1,4 @@
-import type { StatisticsFunc, FilterConjunction, FilterDuration, ViewType } from './constant';
+import type { FilterConjunction, FilterDuration, ViewType } from './constant';
 
 export type IFilterCheckbox = [boolean] | null;
 export type IFilterText = [string] | null;
@@ -124,13 +124,6 @@ export type ISort = {
 export interface IFilter {
   conjunction: FilterConjunction;
   conditions: unknown;
-}
-
-export interface IColumn {
-  order: number;
-  width?: number;
-  hidden?: boolean;
-  statisticFunc?: StatisticsFunc;
 }
 
 export interface IRow {

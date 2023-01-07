@@ -13,6 +13,7 @@ export type { IAddRecordOpContext } from './record/add-record';
 export type { IAddRowOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
+export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 
 export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention

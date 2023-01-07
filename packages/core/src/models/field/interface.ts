@@ -1,4 +1,4 @@
-import type { IColumn } from '../view';
+import type { StatisticsFunc } from '../view';
 import type { FieldType } from './constant';
 
 export interface IFieldBase {
@@ -13,7 +13,18 @@ export interface IFieldBase {
   defaultValue?: unknown;
 }
 
+export interface IColumn {
+  order: number;
+  width?: number;
+  hidden?: boolean;
+  statisticFunc?: StatisticsFunc;
+}
+
+export interface IColumnMeta {
+  [viewId: string]: IColumn;
+}
+
 export interface IFieldSnapshot {
   field: IFieldBase;
-  columnMeta: { [viewId: string]: IColumn };
+  columnMeta: IColumnMeta;
 }

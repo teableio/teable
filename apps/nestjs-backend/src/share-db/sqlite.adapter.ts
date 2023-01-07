@@ -6,7 +6,7 @@ import type {
   IAddRowOpContext,
   IAddFieldOpContext,
   IAddRecordOpContext,
-  IAddColumnOpContext,
+  ISetColumnMetaOpContext,
 } from '@teable-group/core';
 import { OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -17,7 +17,7 @@ import ShareDb from 'sharedb';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
 import { RecordService } from '../../src/features/record/record.service';
-import { ROW_INDEX_FIELD_PREFIX } from '../../src/features/view/constant';
+import { ROW_ORDER_FIELD_PREFIX } from '../../src/features/view/constant';
 import { PrismaService } from '../../src/prisma.service';
 
 export interface ICollectionSnapshot {
@@ -67,15 +67,16 @@ export class SqliteDbAdapter extends ShareDb.DB {
     );
   }
 
-  private async addRow(
+  private async setRecordOrder(
     prisma: Prisma.TransactionClient,
+    recordId: string,
     dbTableName: string,
     context: IAddRowOpContext
   ) {
-    const { recordId, viewId, rowIndex } = context;
+    const { viewId, newOrder } = context;
     await prisma.$executeRawUnsafe(
-      `UPDATE ${dbTableName} SET ${ROW_INDEX_FIELD_PREFIX}_${viewId} = ? WHERE recordId = ?`,
-      rowIndex,
+      `UPDATE ${dbTableName} SET ${ROW_ORDER_FIELD_PREFIX}_${viewId} = ? WHERE recordId = ?`,
+      newOrder,
       recordId
     );
   }
@@ -109,26 +110,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
     );
   }
 
-  private async addColumn(
+  private async setColumnMeta(
     prisma: Prisma.TransactionClient,
-    tableId: string,
-    context: IAddColumnOpContext
+    fieldId: string,
+    context: ISetColumnMetaOpContext
   ) {
-    const { columnIndex, viewId, column } = context;
+    const { metaKey, viewId, newMetaValue } = context;
 
-    const view = await prisma.view.findUniqueOrThrow({
-      where: { id: viewId },
-      select: { id: true, columns: true },
+    const fieldData = await prisma.field.findUniqueOrThrow({
+      where: { id: fieldId },
+      select: { columnMeta: true },
     });
 
-    const columns = JSON.parse(view.columns);
+    const columnMeta = JSON.parse(fieldData.columnMeta);
 
-    // columns has been mutated
-    columns.splice(columnIndex, 0, column);
+    columnMeta[viewId][metaKey] = newMetaValue;
 
-    await prisma.view.update({
-      where: { id: viewId },
-      data: { columns: JSON.stringify(columns) },
+    await prisma.field.update({
+      where: { id: fieldId },
+      data: { columnMeta: JSON.stringify(columnMeta) },
     });
   }
 
@@ -151,14 +151,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
         case OpName.AddRecord:
           await this.addRecord(prisma, dbTableName, opContext);
           break;
-        case OpName.AddRow:
-          await this.addRow(prisma, dbTableName, opContext);
+        case OpName.SetRecordOrder:
+          await this.setRecordOrder(prisma, docId, dbTableName, opContext);
           break;
         case OpName.AddField:
           await this.addField(prisma, collection, opContext);
           break;
-        case OpName.AddColumn:
-          await this.addColumn(prisma, collection, opContext);
+        case OpName.SetColumnMeta:
+          await this.setColumnMeta(prisma, docId, opContext);
           break;
         default:
           break;

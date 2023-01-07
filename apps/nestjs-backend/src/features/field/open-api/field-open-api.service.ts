@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { IColumnMeta } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -17,10 +18,18 @@ export class FieldOpenApiService {
   }
 
   async createFields2Ops(tableId: string, fieldInstance: IFieldInstance) {
-    const defaultView = await this.prismaService.view.findFirstOrThrow({
-      where: { tableId },
-      select: { id: true, columns: true },
+    const fieldsData = await this.prismaService.field.findMany({
+      where: { tableId: tableId },
+      select: { id: true, columnMeta: true },
     });
+
+    const defaultViewId = Object.keys(JSON.parse(fieldsData[0].columnMeta))[0];
+
+    const maxFieldOrder = fieldsData.reduce((max, fieldData) => {
+      const columnMeta: IColumnMeta = JSON.parse(fieldData.columnMeta);
+      const order = columnMeta[defaultViewId].order;
+      return Math.max(max, order);
+    }, -1);
 
     const addFieldOp = OpBuilder.items.addField.build({
       ...fieldInstance.data,
@@ -30,8 +39,8 @@ export class FieldOpenApiService {
     // because we will build all columns after submit
     const setColumnOrderOp = OpBuilder.items.setColumnMeta.build({
       metaKey: 'order',
-      newMetaValue: defaultView.columns.length,
-      viewId: defaultView.id,
+      viewId: defaultViewId,
+      newMetaValue: maxFieldOrder + 1,
     });
 
     return [addFieldOp, setColumnOrderOp];

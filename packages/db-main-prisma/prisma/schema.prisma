@@ -44,6 +44,8 @@ model Field {
   unique               Boolean?
   table                TableMeta  @relation(fields: [tableId], references: [id])
   tableId              String     @map(name: "table_id")
+  // maintain columnMeta in view
+  columnMeta           String     @map(name: "column_meta")
 
   createdTime          DateTime   @default(now()) @map(name: "created_time")
   lastModifiedTime     DateTime   @updatedAt @map(name: "last_modified_time")
@@ -66,8 +68,6 @@ model View {
   filter              String?
   group               String?
   options             String?
-  // maintain columns in view
-  columns             String
   // maintain own order in viewList
   order               Float
 
