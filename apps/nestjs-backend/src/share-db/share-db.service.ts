@@ -60,10 +60,10 @@ export class ShareDbService extends ShareDBClass {
     });
   }
 
-  async createDocument(collectionId: string, id: string) {
+  async createDocument(collectionId: string, id: string, snapshot: unknown) {
     const doc = this.connect().get(collectionId, id);
     return new Promise<undefined>((resolve, reject) => {
-      doc.create({ title: id }, (error) => {
+      doc.create(snapshot, (error) => {
         if (error) return reject(error);
         console.log('create succeed!');
         resolve(undefined);

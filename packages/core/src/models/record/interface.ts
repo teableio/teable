@@ -12,6 +12,6 @@ export interface IRecordFields {
 }
 
 export interface IRecordSnapshot {
-  record: IRecord;
+  record: Pick<IRecord, 'id' | 'fields'> & Partial<IRecord>;
   recordOrder: { [viewId: string]: number };
 }

@@ -1,41 +1,18 @@
-import type { IOtOperation } from '../../models';
-import { OpName, pathMatcher } from '../common';
-import type { IOpBuilder } from '../interface';
+import type { IRecordSnapshot } from '../../models';
+import { OpName } from '../common';
+import type { ICreateOpBuilder } from '../interface';
 
-export interface IAddRecordOpContext {
-  name: OpName.AddRecord;
-  recordId: string;
-}
-
-export class AddRecordBuilder implements IOpBuilder {
+export class AddRecordBuilder implements ICreateOpBuilder {
   name: OpName.AddRecord = OpName.AddRecord;
 
   // you should only build an empty record
-  build(recordId: string): IOtOperation {
+  build(recordId: string): IRecordSnapshot {
     return {
-      p: ['record'],
-      oi: {
+      record: {
         id: recordId,
         fields: {},
       },
-    };
-  }
-
-  detect(op: IOtOperation): IAddRecordOpContext | null {
-    const { p, oi, od } = op;
-    if (!oi || od) {
-      return null;
-    }
-
-    const result = pathMatcher<{ recordId: string }>(p, ['recordMap', ':recordId']);
-
-    if (!result) {
-      return null;
-    }
-
-    return {
-      name: this.name,
-      recordId: result.recordId,
+      recordOrder: {},
     };
   }
 }

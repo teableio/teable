@@ -4,16 +4,16 @@ import type {
   IOtOperation,
   IRecord,
   IAddRowOpContext,
-  IAddFieldOpContext,
-  IAddRecordOpContext,
   ISetColumnMetaOpContext,
+  IFieldSnapshot,
 } from '@teable-group/core';
-import { OpName, OpBuilder } from '@teable-group/core';
+import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { dbPath } from '@teable-group/db-main-prisma';
 import Sqlite from 'better-sqlite3';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
+import type { CreateFieldDto } from 'src/features/field/create-field.dto';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
 import { RecordService } from '../../src/features/record/record.service';
@@ -50,12 +50,13 @@ export class SqliteDbAdapter extends ShareDb.DB {
     if (callback) callback();
   }
 
-  private async addRecord(
-    prisma: Prisma.TransactionClient,
-    dbTableName: string,
-    context: IAddRecordOpContext
-  ) {
-    const { recordId } = context;
+  private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
+    const tableMeta = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    const dbTableName = tableMeta.dbTableName;
+
     const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
     await prisma.$executeRawUnsafe(
       `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
@@ -84,17 +85,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async addField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    context: IAddFieldOpContext
+    fieldSnapshot: IFieldSnapshot
   ) {
-    const { fieldId, fieldType, fieldName, defaultValue, options } = context;
-    const fieldInstance = createFieldInstance({
-      ...context,
-      id: fieldId,
-      type: fieldType,
-      name: fieldName,
-      defaultValue: defaultValue as any,
-      options: options as any,
-    });
+    const fieldInstance = createFieldInstance(fieldSnapshot.field as CreateFieldDto);
 
     // 1. save field meta in db
     const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [
@@ -132,7 +125,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     });
   }
 
-  private async updateSnapshotByOps(
+  private async updateSnapshot(
     prisma: Prisma.TransactionClient,
     collection: string,
     docId: string,
@@ -148,14 +141,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // TODO: group and batch update maybe faster;
     for (const opContext of ops2Contexts) {
       switch (opContext.name) {
-        case OpName.AddRecord:
-          await this.addRecord(prisma, dbTableName, opContext);
-          break;
         case OpName.SetRecordOrder:
           await this.setRecordOrder(prisma, docId, dbTableName, opContext);
-          break;
-        case OpName.AddField:
-          await this.addField(prisma, collection, opContext);
           break;
         case OpName.SetColumnMeta:
           await this.setColumnMeta(prisma, docId, opContext);
@@ -163,6 +150,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
         default:
           break;
       }
+    }
+  }
+
+  private async createSnapshot(
+    prisma: Prisma.TransactionClient,
+    collection: string,
+    docId: string,
+    snapshot: unknown
+  ) {
+    const docType = docId.slice(0, 3);
+    switch (docType) {
+      case IdPrefix.Record:
+        await this.addRecord(prisma, collection, docId);
+        break;
+      case IdPrefix.Field:
+        await this.addField(prisma, collection, snapshot as IFieldSnapshot);
+        break;
+      default:
+        break;
     }
   }
 
@@ -210,9 +216,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
           },
         });
 
-        // 2. parse op and update snapshot
+        // create snapshot
+        if (rawOp.create) {
+          await this.createSnapshot(prisma, collection, id, rawOp.create.data);
+        }
+
+        // update snapshot
         if (rawOp.op) {
-          await this.updateSnapshotByOps(prisma, collection, id, rawOp.op);
+          await this.updateSnapshot(prisma, collection, id, rawOp.op);
         }
       });
 

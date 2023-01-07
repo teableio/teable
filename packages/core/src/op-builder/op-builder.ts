@@ -7,9 +7,7 @@ import { DeleteRecordBuilder } from './record/delete-record';
 import { SetRecordBuilder } from './record/set-record';
 import { SetRecordOrderBuilder } from './record/set-record-order';
 
-export type { IAddFieldOpContext } from './field/add-field';
 export type { IDeleteFieldOpContext } from './field/delete-field';
-export type { IAddRecordOpContext } from './record/add-record';
 export type { IAddRowOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
@@ -17,15 +15,19 @@ export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 
 export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static items = {
-    addRecord: new AddRecordBuilder(),
+  static editor = {
     setRecord: new SetRecordBuilder(),
     deleteRecord: new DeleteRecordBuilder(),
     setRecordOrder: new SetRecordOrderBuilder(),
 
-    addField: new AddFieldBuilder(),
     deleteField: new DeleteFieldBuilder(),
     setColumnMeta: new SetColumnMetaBuilder(),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  static creator = {
+    addField: new AddFieldBuilder(),
+    addRecord: new AddRecordBuilder(),
   };
 
   static ops2Contexts(ops: IOtOperation[]) {
@@ -39,7 +41,7 @@ export class OpBuilder {
   }
 
   static detect(op: IOtOperation) {
-    for (const builder of Object.values(this.items)) {
+    for (const builder of Object.values(this.editor)) {
       const result = builder.detect(op);
       if (result) {
         return result;

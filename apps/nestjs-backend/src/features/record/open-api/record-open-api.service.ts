@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation } from '@teable-group/core';
+import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
 import { generateRecordId, OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -15,11 +15,27 @@ export class RecordOpenApiService {
   ) {}
 
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
-    const ops = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
-    await this.shareDbService.submitOps('table', tableId, ops);
+    const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
+    await Promise.all(
+      result.createSnapshots.map((snapshot) => {
+        return this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
+      })
+    );
+
+    await Promise.all(
+      result.recordOperations.map((item) => {
+        return this.shareDbService.submitOps(tableId, item.recordId, item.ops);
+      })
+    );
   }
 
-  async multipleCreateRecords2Ops(tableId: string, createRecordsDto: CreateRecordsDto) {
+  async multipleCreateRecords2Ops(
+    tableId: string,
+    createRecordsDto: CreateRecordsDto
+  ): Promise<{
+    createSnapshots: IRecordSnapshot[];
+    recordOperations: { recordId: string; ops: IOtOperation[] }[];
+  }> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
       where: { tableId },
       select: { id: true },
@@ -35,25 +51,38 @@ export class RecordOpenApiService {
     });
 
     const rowCount = await this.recordService.getRowCount(this.prismaService, dbTableName);
-
-    return createRecordsDto.records.reduce<IOtOperation[]>((acc, record) => {
+    const createSnapshots = createRecordsDto.records.map<IRecordSnapshot>(() => {
       const recordId = generateRecordId();
-      const createRecordOp = OpBuilder.items.addRecord.build(recordId);
+      return OpBuilder.creator.addRecord.build(recordId);
+    });
+
+    const recordOperations = createRecordsDto.records.map<{
+      recordId: string;
+      ops: IOtOperation[];
+    }>((record, index) => {
+      const recordId = createSnapshots[index].record.id;
       const setRecordOps = Object.entries(record.fields).map(([fieldId, value]) =>
-        OpBuilder.items.setRecord.build({
+        OpBuilder.editor.setRecord.build({
           recordId,
           fieldId,
           oldCellValue: null,
           newCellValue: value,
         })
       );
-      const setRecordOrderOp = OpBuilder.items.setRecordOrder.build({
+      const setRecordOrderOp = OpBuilder.editor.setRecordOrder.build({
         viewId: defaultView.id,
         newOrder: rowCount,
       });
 
-      acc.push(createRecordOp, ...setRecordOps, setRecordOrderOp);
-      return acc;
+      return {
+        recordId,
+        ops: [...setRecordOps, setRecordOrderOp],
+      };
     }, []);
+
+    return {
+      createSnapshots,
+      recordOperations,
+    };
   }
 }

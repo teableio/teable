@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta } from '@teable-group/core';
+import type { IColumnMeta, IFieldSnapshot, IOtOperation } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -13,11 +13,20 @@ export class FieldOpenApiService {
   ) {}
 
   async createField(tableId: string, fieldInstance: IFieldInstance) {
-    const ops = await this.createFields2Ops(tableId, fieldInstance);
-    await this.shareDbService.submitOps(tableId, 'field', ops);
+    const result = await this.createField2Ops(tableId, fieldInstance);
+    const fieldId = result.createSnapshot.field.id;
+    await this.shareDbService.createDocument(tableId, fieldId, result.createSnapshot);
+
+    await this.shareDbService.submitOps(tableId, fieldId, [result.fieldOperation]);
   }
 
-  async createFields2Ops(tableId: string, fieldInstance: IFieldInstance) {
+  async createField2Ops(
+    tableId: string,
+    fieldInstance: IFieldInstance
+  ): Promise<{
+    createSnapshot: IFieldSnapshot;
+    fieldOperation: IOtOperation;
+  }> {
     const fieldsData = await this.prismaService.field.findMany({
       where: { tableId: tableId },
       select: { id: true, columnMeta: true },
@@ -31,18 +40,21 @@ export class FieldOpenApiService {
       return Math.max(max, order);
     }, -1);
 
-    const addFieldOp = OpBuilder.items.addField.build({
+    const createSnapshot = OpBuilder.creator.addField.build({
       ...fieldInstance.data,
     });
 
     // we only need build column in default view here
     // because we will build all columns after submit
-    const setColumnOrderOp = OpBuilder.items.setColumnMeta.build({
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
       metaKey: 'order',
       viewId: defaultViewId,
       newMetaValue: maxFieldOrder + 1,
     });
 
-    return [addFieldOp, setColumnOrderOp];
+    return {
+      createSnapshot,
+      fieldOperation,
+    };
   }
 }
