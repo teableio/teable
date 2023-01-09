@@ -1,10 +1,10 @@
 export interface IRecord {
   id: string;
-  createdTime: number;
-  lastModifiedTime: number;
-  createdBy: string;
-  lastModifiedBy: string;
   fields: IRecordFields;
+  createdTime?: number;
+  lastModifiedTime?: number;
+  createdBy?: string;
+  lastModifiedBy?: string;
 }
 
 export interface IRecordFields {
@@ -12,6 +12,6 @@ export interface IRecordFields {
 }
 
 export interface IRecordSnapshot {
-  record: Pick<IRecord, 'id' | 'fields'> & Partial<IRecord>;
+  record: IRecord;
   recordOrder: { [viewId: string]: number };
 }

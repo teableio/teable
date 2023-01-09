@@ -9,7 +9,7 @@ export interface IFieldBase {
   options?: unknown;
   notNull?: boolean;
   unique?: boolean;
-  isPrimaryField?: boolean;
+  isPrimary?: boolean;
   defaultValue?: unknown;
 }
 

@@ -6,6 +6,8 @@ import type {
   IAddRowOpContext,
   ISetColumnMetaOpContext,
   IFieldSnapshot,
+  IRecordSnapshot,
+  FieldType,
 } from '@teable-group/core';
 import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -13,18 +15,41 @@ import { dbPath } from '@teable-group/db-main-prisma';
 import Sqlite from 'better-sqlite3';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import type { CreateFieldDto } from 'src/features/field/create-field.dto';
+import type { CreateFieldDto } from '../../src/features/field/create-field.dto';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
 import { RecordService } from '../../src/features/record/record.service';
-import { ROW_ORDER_FIELD_PREFIX } from '../../src/features/view/constant';
 import { PrismaService } from '../../src/prisma.service';
+import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
 
 export interface ICollectionSnapshot {
   type: string;
   v: number;
   data: IRecord;
 }
+
+interface ISnapshotBase<T = unknown> {
+  id: string;
+  v: number;
+  type: string | null;
+  data: T;
+  m?: unknown;
+}
+
+/* eslint-disable @typescript-eslint/naming-convention */
+interface IVisualTableDefaultField {
+  __id: string;
+  __version: number;
+  __auto_number: number;
+  __created_time: Date;
+  __last_modified_time?: Date;
+  __created_by: string;
+  __last_modified_by?: string;
+}
+/* eslint-enable @typescript-eslint/naming-convention */
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type IProjection = string[] & { '&submit'?: boolean };
 
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
@@ -76,7 +101,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const { viewId, newOrder } = context;
     await prisma.$executeRawUnsafe(
-      `UPDATE ${dbTableName} SET ${ROW_ORDER_FIELD_PREFIX}_${viewId} = ? WHERE recordId = ?`,
+      `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE recordId = ?`,
       newOrder,
       recordId
     );
@@ -227,67 +252,191 @@ export class SqliteDbAdapter extends ShareDb.DB {
         }
       });
 
-      const insertOpStmt = this.sqlite.prepare(
-        'INSERT INTO ops (collection, doc_id, version, operation) VALUES (?, ?, ?, ?)'
-      );
-      const insertSnapshotStmt =
-        snapshot.v === 1
-          ? this.sqlite.prepare(
-              'INSERT INTO snapshots (collection, doc_id, doc_type, version, data) VALUES ($1, $2, $3, $4, $5)'
-            )
-          : this.sqlite.prepare(
-              'UPDATE snapshots SET doc_type = $3, version = $4, data = $5 WHERE collection = $1 AND doc_id = $2 AND version = ($4 - 1)'
-            );
-
-      const transaction = this.sqlite.transaction(() => {
-        insertOpStmt.run([collection, id, snapshot.v, JSON.stringify(rawOp)]);
-        insertSnapshotStmt.run({
-          [1]: collection,
-          [2]: id,
-          [3]: snapshot.type,
-          [4]: snapshot.v,
-          [5]: JSON.stringify(snapshot.data),
-        });
-      });
-
-      transaction();
-
       callback(null, true);
     } catch (err) {
       callback(err);
     }
   }
 
+  /**
+   * get record snapshot from db
+   * @param tableId
+   * @param recordIds
+   * @param projection projection for fieldIds
+   * @returns snapshotData
+   */
+  private async getRecordSnapshotBulk(
+    tableId: string,
+    recordIds: string[],
+    projection?: string[]
+  ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
+    const tableMeta = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    const dbTableName = tableMeta.dbTableName;
+
+    const allFields = await this.prismaService.field.findMany({
+      where: { tableId },
+      select: { id: true, dbFieldName: true },
+    });
+
+    const allViews = await this.prismaService.view.findMany({
+      where: { tableId },
+      select: { id: true },
+    });
+    const viewOrderFieldName = allViews.map((view) => getViewOrderFieldName(view.id));
+
+    const fields = projection
+      ? allFields.filter((field) => projection.includes(field.id))
+      : allFields;
+    const columnSql = fields
+      .map((f) => f.dbFieldName)
+      .concat([
+        '__id',
+        '__version',
+        '__auto_number',
+        '__created_time',
+        '__last_modified_time',
+        '__created_by',
+        '__last_modified_by',
+        ...viewOrderFieldName,
+      ])
+      .join(',');
+
+    const result = await this.prismaService.$queryRawUnsafe<
+      ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+    >(
+      `SELECT ${columnSql} FROM ${dbTableName} WHERE recordId IN (${recordIds
+        .map(() => '?')
+        .join(',')})`,
+      ...recordIds
+    );
+
+    return result.map((record) => {
+      const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
+        acc[field.id] = record[field.dbFieldName];
+        return acc;
+      }, {});
+
+      const recordOrder = viewOrderFieldName.reduce<{ [viewId: string]: number }>(
+        (acc, vFieldName, index) => {
+          acc[allViews[index].id] = record[vFieldName] as number;
+          return acc;
+        },
+        {}
+      );
+
+      return {
+        id: record.__id,
+        v: record.__version,
+        type: 'json0',
+        data: {
+          record: {
+            fields: fieldsData,
+            id: record.__id,
+          },
+          recordOrder,
+        },
+      };
+    });
+  }
+
+  private async getFieldSnapshotBulk(
+    tableId: string,
+    fieldIds: string[]
+  ): Promise<ISnapshotBase<IFieldSnapshot>[]> {
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId, id: { in: fieldIds } },
+    });
+
+    return fields.map((field) => {
+      return {
+        id: field.id,
+        v: field.version,
+        type: 'json0',
+        data: {
+          field: {
+            id: field.id,
+            name: field.name,
+            type: field.type as FieldType,
+            description: field.description || undefined,
+            options: JSON.parse(field.options as string) || undefined,
+            notNull: field.notNull || undefined,
+            unique: field.unique || undefined,
+            isPrimary: field.isPrimary || undefined,
+            defaultValue: JSON.parse(field.defaultValue as string) || undefined,
+          },
+          columnMeta: JSON.parse(field.columnMeta),
+        },
+      };
+    });
+  }
+
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
-  getSnapshot(
+  async getSnapshotBulk(
+    collection: string,
+    ids: string[],
+    projection: IProjection | undefined,
+    options: unknown,
+    callback: (err: unknown, data: Snapshot[]) => void
+  ) {
+    const docType = ids[0].slice(0, 3);
+    if (ids.find((id) => id.slice(0, 3) !== docType)) {
+      throw new Error('get snapshot bulk ids must be same type');
+    }
+
+    let snapshotData: ISnapshotBase[] = [];
+    switch (docType) {
+      case IdPrefix.Record:
+        snapshotData = await this.getRecordSnapshotBulk(
+          collection,
+          ids,
+          // Do not project when called by ShareDB submit
+          projection?.['&submit'] ? undefined : projection
+        );
+        break;
+      case IdPrefix.Field:
+        snapshotData = await this.getFieldSnapshotBulk(collection, ids);
+        break;
+      default:
+        break;
+    }
+
+    if (snapshotData) {
+      const snapshots = snapshotData.map(
+        (snapshot) =>
+          new Snapshot(
+            snapshot.id,
+            snapshot.v,
+            snapshot.type,
+            snapshot.data,
+            undefined // TODO: metadata
+          )
+      );
+      callback(null, snapshots);
+    } else {
+      const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, undefined));
+      callback(null, snapshots);
+    }
+  }
+
+  async getSnapshot(
     collection: string,
     id: string,
-    fields: string[],
-    options: any,
-    callback: (err: unknown, data: any) => void
+    projection: IProjection | undefined,
+    options: unknown,
+    callback: (err: unknown, data?: Snapshot) => void
   ) {
-    const res = this.sqlite
-      .prepare(
-        'SELECT version, data, doc_type FROM snapshots WHERE collection = ? AND doc_id = ? LIMIT 1'
-      )
-      .get([collection, id]);
-
-    console.log('getSnapshot:', res);
-    if (res) {
-      const snapshot = new Snapshot(
-        id,
-        res.version,
-        res.doc_type,
-        JSON.parse(res.data),
-        undefined // TODO: metadata
-      );
-      callback(null, snapshot);
-    } else {
-      const snapshot = new Snapshot(id, 0, null, undefined, undefined);
-      callback(null, snapshot);
-    }
+    this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
+      if (err) {
+        callback(err);
+      } else {
+        callback(null, data[0]);
+      }
+    });
   }
 
   // Get operations between [from, to) non-inclusively. (Ie, the range should

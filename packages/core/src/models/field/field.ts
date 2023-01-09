@@ -15,8 +15,8 @@ export abstract class Field {
     return this.data.name;
   }
 
-  get isPrimaryField() {
-    return this.data.isPrimaryField;
+  get isPrimary() {
+    return this.data.isPrimary;
   }
 
   abstract get type(): unknown;

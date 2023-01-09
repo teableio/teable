@@ -16,6 +16,7 @@ model TableMeta {
   fields            Field[]
   views             View[]
   dbTableName       String    @map(name: "db_table_name")
+  version           Int
   createdTime       DateTime  @default(now()) @map(name: "created_at")
   lastModifiedTime  DateTime  @updatedAt @map(name: "last_modified_at")
   deletedTime       DateTime? @map(name: "deleted_at")
@@ -27,7 +28,7 @@ model TableMeta {
 
 model Field {
   id                   String     @id
-  name                 String?
+  name                 String
   description          String?
   options              String?
   // field type enum, for user define
@@ -42,10 +43,12 @@ model Field {
   defaultValue         String?    @map(name: "default_value")
   notNull              Boolean?   @map(name: "not_null")
   unique               Boolean?
+  isPrimary            Boolean?   @map(name: "is_primary")
   table                TableMeta  @relation(fields: [tableId], references: [id])
   tableId              String     @map(name: "table_id")
   // maintain columnMeta in view
   columnMeta           String     @map(name: "column_meta")
+  version              Int
 
   createdTime          DateTime   @default(now()) @map(name: "created_time")
   lastModifiedTime     DateTime   @updatedAt @map(name: "last_modified_time")
@@ -70,6 +73,7 @@ model View {
   options             String?
   // maintain own order in viewList
   order               Float
+  version             Int
 
   createdTime         DateTime  @default(now()) @map(name: "created_time")
   lastModifiedTime    DateTime  @updatedAt @map(name: "last_modified_time")
