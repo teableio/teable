@@ -94,6 +94,7 @@
     "cors": "2.8.5",
     "express": "4.18.2",
     "is-port-reachable": "3.1.0",
+    "knex": "2.4.0",
     "lodash": "4.17.21",
     "next": "13.0.2",
     "reflect-metadata": "0.1.13",

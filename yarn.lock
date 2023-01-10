@@ -6226,6 +6226,7 @@ __metadata:
     get-tsconfig: "npm:4.2.0"
     is-port-reachable: "npm:3.1.0"
     jest: "npm:29.2.2"
+    knex: "npm:2.4.0"
     lodash: "npm:4.17.21"
     next: "npm:13.0.2"
     npm-run-all: "npm:4.1.5"
@@ -10604,6 +10605,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"colorette@npm:2.0.19":
+  version: 2.0.19
+  resolution: "colorette@npm:2.0.19"
+  checksum: f887e4f7608a1a37037f0b9f7da4d1608e2e1ac0126b87c4c143ff0348bc586173b86fde37f71f1b7742cd1c04285d0cb3cbeab391935886c86a162f4f2b5b87
+  languageName: node
+  linkType: hard
+
 "colorette@npm:^1.2.2":
   version: 1.4.0
   resolution: "colorette@npm:1.4.0"
@@ -10706,6 +10714,13 @@ __metadata:
   version: 8.3.0
   resolution: "commander@npm:8.3.0"
   checksum: 94dba589da4444bc07d60537438ce36bbf78b52b18bb720fb3727a3b589cb27b53171065742e6e442962e273976f034ca7475cc5517d92c7033fae2f6ed50e76
+  languageName: node
+  linkType: hard
+
+"commander@npm:^9.1.0":
+  version: 9.5.0
+  resolution: "commander@npm:9.5.0"
+  checksum: 1d09146ccb60400550629bcded4b72eeb100728207ecb2538dd827b19571dc16d3b0ee5da762d9bdbbe680ed5cca6658cac5bfce262b1b73eabe5ef8c15cdd9d
   languageName: node
   linkType: hard
 
@@ -11567,7 +11582,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.0.0, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
+"debug@npm:4, debug@npm:4.3.4, debug@npm:^4.0.0, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
   version: 4.3.4
   resolution: "debug@npm:4.3.4"
   dependencies:
@@ -13326,6 +13341,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"esm@npm:^3.2.25":
+  version: 3.2.25
+  resolution: "esm@npm:3.2.25"
+  checksum: b67822bd9ce08a63a6a44634e4449f27bb87bde1787a4d9fee6387e7aea8a43900e74641d857e65e5b3013174d8f7fa8301b8b7ca33a38f8b89246d4b718bc5b
+  languageName: node
+  linkType: hard
+
 "espree@npm:^9.4.0":
   version: 9.4.0
   resolution: "espree@npm:9.4.0"
@@ -14529,6 +14551,13 @@ __metadata:
   version: 2.0.6
   resolution: "get-value@npm:2.0.6"
   checksum: 76d53ea787af176684a9b29d81ac2d1ede3de60ebabb20e9be91c55e619aeca9928c4b754dd40e12f613d42740357bda7048beb42df2827be663b5181192d687
+  languageName: node
+  linkType: hard
+
+"getopts@npm:2.3.0":
+  version: 2.3.0
+  resolution: "getopts@npm:2.3.0"
+  checksum: e3e91ae899af5763d86d45e39cd2e41911374c313b602b2600a031be497af2f2635f7a99418d3c0bf2690d3ce1ed4fbf1293e6dc97b5eac0342639485cf44b6b
   languageName: node
   linkType: hard
 
@@ -17472,6 +17501,45 @@ __metadata:
   version: 2.0.5
   resolution: "klona@npm:2.0.5"
   checksum: a4dcd9c0ea136553a0343f57e8da6b9d4cc0275e54711061c46ef12b2b890e88e830ff67e853d738cb1b3e7049426cda203592abb39fcb2ef724526fb5fa139f
+  languageName: node
+  linkType: hard
+
+"knex@npm:2.4.0":
+  version: 2.4.0
+  resolution: "knex@npm:2.4.0"
+  dependencies:
+    colorette: "npm:2.0.19"
+    commander: "npm:^9.1.0"
+    debug: "npm:4.3.4"
+    escalade: "npm:^3.1.1"
+    esm: "npm:^3.2.25"
+    get-package-type: "npm:^0.1.0"
+    getopts: "npm:2.3.0"
+    interpret: "npm:^2.2.0"
+    lodash: "npm:^4.17.21"
+    pg-connection-string: "npm:2.5.0"
+    rechoir: "npm:^0.8.0"
+    resolve-from: "npm:^5.0.0"
+    tarn: "npm:^3.0.2"
+    tildify: "npm:2.0.0"
+  peerDependenciesMeta:
+    better-sqlite3:
+      optional: true
+    mysql:
+      optional: true
+    mysql2:
+      optional: true
+    pg:
+      optional: true
+    pg-native:
+      optional: true
+    sqlite3:
+      optional: true
+    tedious:
+      optional: true
+  bin:
+    knex: bin/cli.js
+  checksum: 17456b5a0045d97fec8cc7751a84f89720ab12b2c5a8d804f75146c4f78e478f4bbf142961c5b7bb165255c2381295e60e6f36d7c508c7ff69f5270eba6490b8
   languageName: node
   linkType: hard
 
@@ -20597,6 +20665,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pg-connection-string@npm:2.5.0":
+  version: 2.5.0
+  resolution: "pg-connection-string@npm:2.5.0"
+  checksum: 3a751060f9517ccc1484b42439cfd4ef758273a0954d41d71e15b5a671845ab4706b82de1a9181f2f858369ec362638f741dbea415c85d530845b634e10f1069
+  languageName: node
+  linkType: hard
+
 "picocolors@npm:1.0.0, picocolors@npm:^1.0.0":
   version: 1.0.0
   resolution: "picocolors@npm:1.0.0"
@@ -22636,6 +22711,15 @@ __metadata:
   dependencies:
     resolve: "npm:^1.1.6"
   checksum: 9c739042ee71825d9e72879f89c165e425290bfc1feadb5437716604e33140fdac85970a2dcccbd2932dac6e20f4a277b80c2ecfc4b904a44c49e187fb67293e
+  languageName: node
+  linkType: hard
+
+"rechoir@npm:^0.8.0":
+  version: 0.8.0
+  resolution: "rechoir@npm:0.8.0"
+  dependencies:
+    resolve: "npm:^1.20.0"
+  checksum: 474f0e7813c90ae5d26a6d107700e215f888fe103705d4d6c99cac0606300f50494bc243725b373c45ba29ad693acf7315c3b432494796d2ead4b81fed996758
   languageName: node
   linkType: hard
 
@@ -25152,6 +25236,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tarn@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "tarn@npm:3.0.2"
+  checksum: 237adb62995ac72d3fb32dd01db537804eafe6ce1484a605a1dd24463e7c0e4d47fa6b8421bb1216f91d5ee6b0871b501499fa2df996bf94dfe80f8492e97aad
+  languageName: node
+  linkType: hard
+
 "telejson@npm:^6.0.8":
   version: 6.0.8
   resolution: "telejson@npm:6.0.8"
@@ -25364,6 +25455,13 @@ __metadata:
   version: 2.3.8
   resolution: "through@npm:2.3.8"
   checksum: c9d6883ace26b3c967283827cafdd4ceee6164fa4d3754865f5032dcb564e0cbdea9dc6f43806afa51e1f2863d8e3beca141cbf7b8dcff989982aef69bb851c0
+  languageName: node
+  linkType: hard
+
+"tildify@npm:2.0.0":
+  version: 2.0.0
+  resolution: "tildify@npm:2.0.0"
+  checksum: 4365ed63a4bdb3aff484c119317dce5859b3270cf9b4acb09e922876ec1b9f7187868688adcf4aa5f83694786934a59b74f331d80cc9434c7895adc4c5fe760d
   languageName: node
   linkType: hard
 

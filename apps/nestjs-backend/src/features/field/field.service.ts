@@ -43,7 +43,7 @@ export class FieldService {
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
-    const { id, name, description, type, options, defaultValue, notNull, unique } =
+    const { id, name, description, type, options, defaultValue, notNull, unique, isPrimary } =
       fieldInstance.data;
 
     const data: Prisma.FieldCreateInput = {
@@ -59,6 +59,8 @@ export class FieldService {
       options: JSON.stringify(options),
       notNull,
       unique,
+      isPrimary,
+      version: 0,
       defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
       dbFieldName,
