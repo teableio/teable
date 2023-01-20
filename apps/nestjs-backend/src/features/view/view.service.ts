@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumn } from '@teable-group/core';
+import type { IColumnMeta } from '@teable-group/core';
 import { generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
@@ -14,29 +14,28 @@ export class ViewService {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
   }
 
-  async getColumnsByView(prisma: Prisma.TransactionClient, viewId: string): Promise<IColumn[]> {
-    const view = await prisma.view.findUniqueOrThrow({
-      where: {
-        id: viewId,
-      },
-      select: {
-        id: true,
-        columns: true,
-      },
+  private async updateColumnMeta(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    viewId: string
+  ) {
+    const fields = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, columnMeta: true },
     });
 
-    return JSON.parse(view.columns);
-  }
+    for (let index = 0; index < fields.length; index++) {
+      const field = fields[index];
+      const columnMeta: IColumnMeta = JSON.parse(field.columnMeta);
+      columnMeta[viewId] = {
+        order: index,
+      };
 
-  private async getAllFields(prisma: Prisma.TransactionClient, tableId: string) {
-    return await prisma.field.findMany({
-      where: {
-        tableId,
-      },
-      select: {
-        id: true,
-      },
-    });
+      await prisma.field.update({
+        where: { id: field.id },
+        data: { columnMeta: JSON.stringify(columnMeta) },
+      });
+    }
   }
 
   async createViewTransaction(
@@ -46,9 +45,12 @@ export class ViewService {
   ) {
     const { name, description, type, options, sort, filter } = createViewDto;
     const viewId = generateViewId();
-    const columns = (await this.getAllFields(prisma, tableId)).map((field) => ({
-      fieldId: field.id,
-    }));
+
+    const viewAggregate = await prisma.view.aggregate({
+      where: { tableId },
+      _max: { order: true },
+    });
+    const maxOrder = viewAggregate._max.order || 0;
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -63,7 +65,8 @@ export class ViewService {
       options: options ? JSON.stringify(options) : undefined,
       sort: sort ? JSON.stringify(sort) : undefined,
       filter: filter ? JSON.stringify(filter) : undefined,
-      columns: JSON.stringify(columns),
+      version: 0,
+      order: maxOrder + 1,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -84,13 +87,16 @@ export class ViewService {
       data,
     });
 
-    // 2. add a field for maintain row order number
+    // 2. add view id to columnMeta in every field
+    await this.updateColumnMeta(prisma, tableId, viewId);
+
+    // 3. add a field for maintain row order number
     await prisma.$executeRawUnsafe(`
       ALTER TABLE ${dbTableName}
       ADD ${rowIndexFieldName} REAL;
     `);
 
-    // 3. fill initial order for every record, with auto increment integer
+    // 4. fill initial order for every record, with auto increment integer
     await prisma.$executeRawUnsafe(`
       UPDATE ${dbTableName} SET ${rowIndexFieldName} = __row_default;
     `);

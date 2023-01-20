@@ -46,7 +46,7 @@ model Field {
   isPrimary            Boolean?   @map(name: "is_primary")
   table                TableMeta  @relation(fields: [tableId], references: [id])
   tableId              String     @map(name: "table_id")
-  // maintain columnMeta in view
+  // maintain columnMeta in field
   columnMeta           String     @map(name: "column_meta")
   version              Int
 

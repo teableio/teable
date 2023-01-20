@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import type {
@@ -38,6 +39,18 @@ interface ISnapshotBase<T = unknown> {
   m?: unknown;
 }
 
+export interface ISnapshotQuery {
+  viewId: string;
+  where?: Knex.DbRecord<any>;
+  orderBy: {
+    column: string;
+    order?: 'asc' | 'desc';
+    nulls?: 'first' | 'last';
+  }[];
+  offset?: number;
+  limit?: number;
+}
+
 /* eslint-disable @typescript-eslint/naming-convention */
 interface IVisualTableDefaultField {
   __id: string;
@@ -72,21 +85,27 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   query = async (
     collection: string,
-    query: {
-      viewId: string;
-      where?: Knex.DbRecord<any>;
-      orderBy: {
-        column: string;
-        order?: 'asc' | 'desc';
-        nulls?: 'first' | 'last';
-      }[];
-      offset?: number;
-      limit?: number;
-    },
+    query: ISnapshotQuery,
     projection: IProjection,
     options: any,
     callback: ShareDb.DBQueryCallback
   ) => {
+    this.queryPoll(collection, query, options, (error, ids) => {
+      if (error) {
+        return callback(error, []);
+      }
+      this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
+        callback(error, snapshots);
+      });
+    });
+  };
+
+  async queryPoll(
+    collection: string,
+    query: ISnapshotQuery,
+    options: any,
+    callback: (error: ShareDb.Error | null, ids: string[]) => void
+  ) {
     const { viewId, where = {}, orderBy, offset = 0, limit = 10 } = query;
     const idPrefix = collection.slice(0, 3);
     if (idPrefix !== IdPrefix.Table) {
@@ -116,16 +135,27 @@ export class SqliteDbAdapter extends ShareDb.DB {
       ...sqlNative.bindings
     );
 
-    this.getSnapshotBulk(
-      collection,
-      result.map((r) => r.__id),
-      projection,
-      options,
-      (error, snapshots) => {
-        callback(error, snapshots);
-      }
+    callback(
+      null,
+      result.map((r) => r.__id)
     );
-  };
+  }
+
+  // Return true to avoid polling if there is no possibility that an op could
+  // affect a query's results
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  skipPoll(
+    collection: string,
+    id: string,
+    op: CreateOp | DeleteOp | EditOp,
+    query: ISnapshotQuery
+  ): boolean {
+    // ShareDB is in charge of doing the validation of ops, so at this point we
+    // should be able to assume that the op is structured validly
+    if (op.create || op.del) return false;
+    return !op.op;
+  }
 
   close(callback: () => void) {
     this.closed = true;
