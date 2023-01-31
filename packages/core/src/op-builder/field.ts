@@ -34,10 +34,10 @@ export class FieldOpBuilder {
     viewId: string;
     hidden?: boolean;
   }): IOtOperation {
-    const { hidden, fieldId, fieldType, columnIndex, viewId } = params;
+    const { hidden, fieldType, columnIndex, viewId } = params;
 
     const newColumn: IColumn = {
-      fieldId,
+      order: columnIndex,
       hidden,
     };
 

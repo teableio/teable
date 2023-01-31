@@ -4,6 +4,6 @@ import { RecordService } from './record.service';
 
 @Module({
   providers: [RecordService, PrismaService],
-  exports: [RecordService],
+  exports: [RecordService, PrismaService],
 })
 export class RecordModule {}

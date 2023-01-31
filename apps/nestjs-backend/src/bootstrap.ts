@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 import isPortReachable from 'is-port-reachable';
@@ -15,6 +16,7 @@ export async function bootstrap(port: number, dir?: string) {
         dir: dir,
       })
     );
+    app.useWebSocketAdapter(new WsAdapter(app));
     app.useGlobalFilters(new NotFoundExceptionFilter());
     app.use(json({ limit: '50mb' }));
     app.use(urlencoded({ limit: '50mb', extended: true }));
