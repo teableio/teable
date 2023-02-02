@@ -1,3 +1,4 @@
+import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -8,6 +9,24 @@ import { NotFoundExceptionFilter } from './filter/not-found.filter';
 
 const host = 'localhost';
 
+export function setUpAppMiddleware(app: INestApplication) {
+  app.useWebSocketAdapter(new WsAdapter(app));
+  app.useGlobalFilters(new NotFoundExceptionFilter());
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
+  // app.setGlobalPrefix('api');
+
+  const options = new DocumentBuilder()
+    .setTitle('Teable App')
+    .setDescription('Manage Data as easy as drink a cup of tea')
+    // .setVersion('1.0')
+    // .setBasePath('api')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, options);
+  SwaggerModule.setup('/docs', app, document);
+}
+
 export async function bootstrap(port: number, dir?: string) {
   try {
     const app = await NestFactory.create(
@@ -16,21 +35,8 @@ export async function bootstrap(port: number, dir?: string) {
         dir: dir,
       })
     );
-    app.useWebSocketAdapter(new WsAdapter(app));
-    app.useGlobalFilters(new NotFoundExceptionFilter());
-    app.use(json({ limit: '50mb' }));
-    app.use(urlencoded({ limit: '50mb', extended: true }));
-    // app.setGlobalPrefix('api');
 
-    const options = new DocumentBuilder()
-      .setTitle('Teable App')
-      .setDescription('Manage Data as easy as drink a cup of tea')
-      // .setVersion('1.0')
-      // .setBasePath('api')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, options);
-    SwaggerModule.setup('/docs', app, document);
+    setUpAppMiddleware(app);
 
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);

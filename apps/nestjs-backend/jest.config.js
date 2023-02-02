@@ -29,7 +29,7 @@ const config = {
   testEnvironment: 'node',
   verbose: true,
   rootDir: './',
-  testMatch: ['<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}'],
+  testMatch: ['<rootDir>/{src,test}/**/*.{spec,test,e2e-spec}.{js,jsx,ts,tsx}'],
   transform: {
     '^.+\\.m?[tj]sx?$': [
       'ts-jest',
