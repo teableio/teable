@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
+import type { Doc } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { FieldService } from '../../src/features/field/field.service';
 import { RecordService } from '../../src/features/record/record.service';
@@ -62,11 +63,11 @@ export class ShareDbService extends ShareDBClass {
 
   async createDocument(collectionId: string, id: string, snapshot: unknown) {
     const doc = this.connect().get(collectionId, id);
-    return new Promise<undefined>((resolve, reject) => {
+    return new Promise<Doc>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
-        console.log('create succeed!');
-        resolve(undefined);
+        console.log(`create document ${collectionId}.${id} succeed!`);
+        resolve(doc);
       });
     });
   }

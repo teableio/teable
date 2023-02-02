@@ -15,7 +15,7 @@ export class SetRecordOrderBuilder implements IOpBuilder {
   build(params: { viewId: string; newOrder: number; oldOrder?: number }): IOtOperation {
     const { viewId, newOrder, oldOrder } = params;
     return {
-      p: ['record', 'recordOrder', viewId],
+      p: ['recordOrder', viewId],
       oi: { newOrder },
       ...(oldOrder ? { od: oldOrder } : {}),
     };
@@ -24,7 +24,7 @@ export class SetRecordOrderBuilder implements IOpBuilder {
   detect(op: IOtOperation): IAddRowOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<{ viewId: string }>(p, ['record', 'recordOrder', ':viewId']);
+    const result = pathMatcher<{ viewId: string }>(p, ['recordOrder', ':viewId']);
 
     if (!result) {
       return null;

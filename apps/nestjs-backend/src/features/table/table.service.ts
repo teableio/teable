@@ -89,4 +89,31 @@ export class TableService {
     }
     return table;
   }
+
+  /**
+   * ! dangerous function, table will be dropped, and all data will be lost
+   */
+  async deleteTableArbitrary(tableId: string) {
+    return await this.prisma.$transaction(async (prisma) => {
+      // delete field for table
+      await prisma.field.deleteMany({
+        where: { tableId },
+      });
+
+      // delete view for table
+      await prisma.view.deleteMany({
+        where: { tableId },
+      });
+
+      // clear tableMeta
+      const deleteTable = await prisma.tableMeta.delete({
+        where: { id: tableId },
+      });
+      const dbTableName = deleteTable.dbTableName;
+      console.log('Dropping: ', dbTableName);
+
+      // drop db table
+      await prisma.$executeRawUnsafe(`DROP TABLE ${dbTableName}`);
+    });
+  }
 }

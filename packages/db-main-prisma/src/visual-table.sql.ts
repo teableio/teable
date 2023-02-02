@@ -7,6 +7,6 @@ export const visualTableSql = (dbTableName: string) => `
     __last_modified_time DATETIME,
     __created_by TEXT NOT NULL,
     __last_modified_by TEXT,
-    __version INTEGER NOT NULL,
+    __version INTEGER NOT NULL
   );
 `;

@@ -176,13 +176,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
+    console.log('adding record: ', tableId, recordId);
     await prisma.$executeRawUnsafe(
       `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
       recordId,
       rowCount,
       new Date(),
       'admin',
-      0
+      1
     );
   }
 
@@ -194,7 +195,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const { viewId, newOrder } = context;
     await prisma.$executeRawUnsafe(
-      `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE recordId = ?`,
+      `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE __id = ?`,
       newOrder,
       recordId
     );
@@ -319,7 +320,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
         return callback(null, false);
       }
 
-      this.prismaService.$transaction(async (prisma) => {
+      await this.prismaService.$transaction(async (prisma) => {
         // 1. save op in db;
         await prisma.ops.create({
           data: {
@@ -370,7 +371,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       where: { tableId },
       select: { id: true },
     });
-    const viewOrderFieldName = allViews.map((view) => getViewOrderFieldName(view.id));
+    const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
     const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
     const columnSql = fields
@@ -383,14 +384,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
         '__last_modified_time',
         '__created_by',
         '__last_modified_by',
-        ...viewOrderFieldName,
+        ...fieldNameOfViewOrder,
       ])
       .join(',');
 
     const result = await this.prismaService.$queryRawUnsafe<
       ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
     >(
-      `SELECT ${columnSql} FROM ${dbTableName} WHERE recordId IN (${recordIds
+      `SELECT ${columnSql} FROM ${dbTableName} WHERE __id IN (${recordIds
         .map(() => '?')
         .join(',')})`,
       ...recordIds
@@ -402,7 +403,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
         return acc;
       }, {});
 
-      const recordOrder = viewOrderFieldName.reduce<{ [viewId: string]: number }>(
+      const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
         (acc, vFieldName, index) => {
           acc[allViews[index].id] = record[vFieldName] as number;
           return acc;
@@ -478,7 +479,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
           collection,
           ids,
           // Do not project when called by ShareDB submit
-          projection?.['&submit'] ? undefined : projection
+          projection && projection['$submit'] ? undefined : projection
         );
         break;
       case IdPrefix.Field:
@@ -488,7 +489,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
         break;
     }
 
-    if (snapshotData) {
+    if (snapshotData.length) {
       const snapshots = snapshotData.map(
         (snapshot) =>
           new Snapshot(

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateTableDto } from './create-table.dto';
 import { TableService } from './table.service';
@@ -20,5 +20,10 @@ export class TableController {
   @Post()
   createTable(@Body() createTable: CreateTableDto) {
     return this.tableService.createTable(createTable);
+  }
+
+  @Delete('/arbitrary/:tableId')
+  deleteTableArbitrary(@Param('tableId') tableId: string) {
+    return this.tableService.deleteTableArbitrary(tableId);
   }
 }

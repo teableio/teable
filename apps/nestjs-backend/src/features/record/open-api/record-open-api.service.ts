@@ -16,17 +16,28 @@ export class RecordOpenApiService {
 
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
     const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
-    await Promise.all(
+    const docs = await Promise.all(
       result.createSnapshots.map((snapshot) => {
         return this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
       })
     );
-
+    console.log('records: successful create record document: ', docs);
     await Promise.all(
-      result.recordOperations.map((item) => {
-        return this.shareDbService.submitOps(tableId, item.recordId, item.ops);
+      docs.map((doc) => {
+        return new Promise((resolve, reject) => {
+          const item = result.recordOperations.find((item) => item.recordId === doc.id);
+          if (!item) {
+            throw new Error("Can't find record operations");
+          }
+          doc.submitOp(item.ops, undefined, (error) => {
+            if (error) return reject(error);
+            console.log('submit succeed!');
+            resolve(undefined);
+          });
+        });
       })
     );
+    console.log('records: successful submitOps');
   }
 
   async multipleCreateRecords2Ops(
