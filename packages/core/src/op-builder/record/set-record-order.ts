@@ -2,7 +2,7 @@ import type { IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
-export interface IAddRowOpContext {
+export interface ISetRecordOrderOpContext {
   name: OpName.SetRecordOrder;
   viewId: string;
   newOrder: number;
@@ -16,12 +16,12 @@ export class SetRecordOrderBuilder implements IOpBuilder {
     const { viewId, newOrder, oldOrder } = params;
     return {
       p: ['recordOrder', viewId],
-      oi: { newOrder },
+      oi: newOrder,
       ...(oldOrder ? { od: oldOrder } : {}),
     };
   }
 
-  detect(op: IOtOperation): IAddRowOpContext | null {
+  detect(op: IOtOperation): ISetRecordOrderOpContext | null {
     const { p, oi, od } = op;
 
     const result = pathMatcher<{ viewId: string }>(p, ['recordOrder', ':viewId']);

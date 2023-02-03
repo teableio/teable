@@ -1,12 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { FieldType } from '@teable-group/core';
 import request from 'supertest';
+import type { FieldVo } from '../src/features/field/open-api/field.vo';
 import { TableModule } from '../src/features/table/table.module';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
+  let fields: FieldVo[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -19,8 +22,11 @@ describe('OpenAPI RecordController (e2e)', () => {
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',
     });
-
     tableId = result.body.id;
+
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    fields = fieldsResult.body;
+    console.log('fields: ', fields);
   });
 
   afterAll(async () => {
@@ -29,12 +35,19 @@ describe('OpenAPI RecordController (e2e)', () => {
   });
 
   it('/api/table/{tableId}/record (POST)', async () => {
+    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText);
+    if (!firstTextField) {
+      throw new Error('can not find text field');
+    }
+
     await request(app.getHttpServer())
       .post(`/api/table/${tableId}/record`)
       .send({
         records: [
           {
-            fields: {},
+            fields: {
+              [firstTextField.id]: 'New Record' + new Date(),
+            },
           },
         ],
       })

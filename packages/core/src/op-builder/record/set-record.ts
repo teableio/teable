@@ -5,7 +5,6 @@ import type { IOpBuilder } from '../interface';
 
 export interface ISetRecordOpContext {
   name: OpName.SetRecord;
-  recordId: string;
   fieldId: string;
   newValue: unknown;
   oldValue: unknown;
@@ -14,13 +13,8 @@ export interface ISetRecordOpContext {
 export class SetRecordBuilder implements IOpBuilder {
   name: OpName.SetRecord = OpName.SetRecord;
 
-  build(params: {
-    recordId: string;
-    fieldId: string;
-    newCellValue: unknown;
-    oldCellValue: unknown;
-  }): IOtOperation {
-    const { recordId, fieldId } = params;
+  build(params: { fieldId: string; newCellValue: unknown; oldCellValue: unknown }): IOtOperation {
+    const { fieldId } = params;
     let { newCellValue, oldCellValue } = params;
     newCellValue = newCellValue ?? null;
     oldCellValue = oldCellValue ?? null;
@@ -32,7 +26,7 @@ export class SetRecordBuilder implements IOpBuilder {
     // convert set null to delete key
     if (newCellValue == null || (Array.isArray(newCellValue) && newCellValue.length === 0)) {
       return {
-        p: ['recordMap', recordId, 'fields', fieldId],
+        p: ['record', 'fields', fieldId],
         od: oldCellValue,
       };
     }
@@ -40,13 +34,13 @@ export class SetRecordBuilder implements IOpBuilder {
     // convert new cellValue to insert key
     if (oldCellValue == null) {
       return {
-        p: ['recordMap', recordId, 'fields', fieldId],
+        p: ['record', 'fields', fieldId],
         oi: newCellValue,
       };
     }
 
     return {
-      p: ['recordMap', recordId, 'fields', fieldId],
+      p: ['record', 'fields', fieldId],
       od: oldCellValue,
       oi: newCellValue,
     };
@@ -54,12 +48,7 @@ export class SetRecordBuilder implements IOpBuilder {
 
   detect(op: IOtOperation): ISetRecordOpContext | null {
     const { p, oi, od } = op;
-    const result = pathMatcher<{ fieldId: string; recordId: string }>(p, [
-      'recordMap',
-      ':recordId',
-      'fields',
-      ':fieldId',
-    ]);
+    const result = pathMatcher<{ fieldId: string }>(p, ['record', 'fields', ':fieldId']);
 
     if (!result) {
       return null;
@@ -67,7 +56,6 @@ export class SetRecordBuilder implements IOpBuilder {
 
     return {
       name: this.name,
-      recordId: result.recordId,
       fieldId: result.fieldId,
       newValue: oi,
       oldValue: od,

@@ -8,7 +8,7 @@ import { SetRecordBuilder } from './record/set-record';
 import { SetRecordOrderBuilder } from './record/set-record-order';
 
 export type { IDeleteFieldOpContext } from './field/delete-field';
-export type { IAddRowOpContext } from './record/set-record-order';
+export type { ISetRecordOrderOpContext as IAddRowOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
 export type { ISetColumnMetaOpContext } from './field/set-column-meta';

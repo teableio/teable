@@ -9,6 +9,7 @@ import type {
   IFieldSnapshot,
   IRecordSnapshot,
   FieldType,
+  ISetRecordOpContext,
 } from '@teable-group/core';
 import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -16,6 +17,7 @@ import { dbPath } from '@teable-group/db-main-prisma';
 import Sqlite from 'better-sqlite3';
 import type { Knex } from 'knex';
 import knex from 'knex';
+import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { CreateFieldDto } from '../../src/features/field/create-field.dto';
@@ -191,12 +193,42 @@ export class SqliteDbAdapter extends ShareDb.DB {
     prisma: Prisma.TransactionClient,
     recordId: string,
     dbTableName: string,
-    context: IAddRowOpContext
+    contexts: IAddRowOpContext[]
   ) {
-    const { viewId, newOrder } = context;
+    for (const context of contexts) {
+      const { viewId, newOrder } = context;
+      await prisma.$executeRawUnsafe(
+        `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE __id = ?`,
+        newOrder,
+        recordId
+      );
+    }
+  }
+
+  private async setRecords(
+    prisma: Prisma.TransactionClient,
+    recordId: string,
+    dbTableName: string,
+    contexts: ISetRecordOpContext[]
+  ) {
+    const fieldIdsSet = contexts.reduce((acc, cur) => {
+      return acc.add(cur.fieldId);
+    }, new Set<string>());
+    const fields = await prisma.field.findMany({
+      where: { id: { in: Array.from(fieldIdsSet) } },
+      select: { id: true, dbFieldName: true },
+    });
+    const fieldMap = keyBy(fields, 'id');
+
+    const sqlForField = contexts
+      .map((ctx) => {
+        return `${fieldMap[ctx.fieldId].dbFieldName} = ?`;
+      })
+      .join(',');
+
     await prisma.$executeRawUnsafe(
-      `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE __id = ?`,
-      newOrder,
+      `UPDATE ${dbTableName} SET ${sqlForField} WHERE __id = ?`,
+      ...contexts.map((ctx) => ctx.newValue),
       recordId
     );
   }
@@ -225,23 +257,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async setColumnMeta(
     prisma: Prisma.TransactionClient,
     fieldId: string,
-    context: ISetColumnMetaOpContext
+    contexts: ISetColumnMetaOpContext[]
   ) {
-    const { metaKey, viewId, newMetaValue } = context;
+    for (const context of contexts) {
+      const { metaKey, viewId, newMetaValue } = context;
 
-    const fieldData = await prisma.field.findUniqueOrThrow({
-      where: { id: fieldId },
-      select: { columnMeta: true },
-    });
+      const fieldData = await prisma.field.findUniqueOrThrow({
+        where: { id: fieldId },
+        select: { columnMeta: true },
+      });
 
-    const columnMeta = JSON.parse(fieldData.columnMeta);
+      const columnMeta = JSON.parse(fieldData.columnMeta);
 
-    columnMeta[viewId][metaKey] = newMetaValue;
+      columnMeta[viewId][metaKey] = newMetaValue;
 
-    await prisma.field.update({
-      where: { id: fieldId },
-      data: { columnMeta: JSON.stringify(columnMeta) },
-    });
+      await prisma.field.update({
+        where: { id: fieldId },
+        data: { columnMeta: JSON.stringify(columnMeta) },
+      });
+    }
   }
 
   private async updateSnapshot(
@@ -253,17 +287,22 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const dbTableName = await this.getDbTableName(prisma, collection);
 
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
-    // TODO: group and batch update maybe faster;
-    for (const opContext of ops2Contexts) {
-      switch (opContext.name) {
+    // group by op name execute faster
+    const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
+    for (const opName in ops2ContextsGrouped) {
+      const opContexts = ops2ContextsGrouped[opName];
+      switch (opName) {
         case OpName.SetRecordOrder:
-          await this.setRecordOrder(prisma, docId, dbTableName, opContext);
+          await this.setRecordOrder(prisma, docId, dbTableName, opContexts as IAddRowOpContext[]);
+          break;
+        case OpName.SetRecord:
+          await this.setRecords(prisma, docId, dbTableName, opContexts as ISetRecordOpContext[]);
           break;
         case OpName.SetColumnMeta:
-          await this.setColumnMeta(prisma, docId, opContext);
+          await this.setColumnMeta(prisma, docId, opContexts as ISetColumnMetaOpContext[]);
           break;
         default:
-          break;
+          throw new Error(`op name ${opName} save method did not implement`);
       }
     }
   }

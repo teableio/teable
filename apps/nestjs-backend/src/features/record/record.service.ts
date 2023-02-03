@@ -91,7 +91,7 @@ export class RecordService {
       const rowIndexValues = rowIndexFieldNames.map(() => rowCount + i);
 
       // 3. generate id, __row_default, created_time, created_by, version
-      const systemValues = [generateRecordId(), rowCount + i, new Date(), 'admin', 1];
+      const systemValues = [generateRecordId(), rowCount + i, new Date().getTime(), 'admin', 1];
 
       dbValueMatrix.push([...recordValues, ...rowIndexValues, ...systemValues]);
     }

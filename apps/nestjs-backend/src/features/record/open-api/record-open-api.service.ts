@@ -21,7 +21,7 @@ export class RecordOpenApiService {
         return this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
       })
     );
-    console.log('records: successful create record document: ', docs);
+    console.log('records: successful create record document: ');
     await Promise.all(
       docs.map((doc) => {
         return new Promise((resolve, reject) => {
@@ -31,7 +31,6 @@ export class RecordOpenApiService {
           }
           doc.submitOp(item.ops, undefined, (error) => {
             if (error) return reject(error);
-            console.log('submit succeed!');
             resolve(undefined);
           });
         });
@@ -74,7 +73,6 @@ export class RecordOpenApiService {
       const recordId = createSnapshots[index].record.id;
       const setRecordOps = Object.entries(record.fields).map(([fieldId, value]) =>
         OpBuilder.editor.setRecord.build({
-          recordId,
           fieldId,
           oldCellValue: null,
           newCellValue: value,
