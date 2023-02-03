@@ -45,6 +45,11 @@ export abstract class CreateFieldDto implements IFieldCreateDto {
   defaultValue?: string;
 
   @ApiPropertyOptional({
+    description: 'Set if it is a primary field',
+  })
+  isPrimary?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Set if value are not allowed to be null, not all fields support this option.',
     example: false,
   })

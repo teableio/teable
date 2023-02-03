@@ -1,10 +1,19 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiOkResponse,
+  ApiForbiddenResponse,
+  ApiCreatedResponse,
+} from '@nestjs/swagger';
 import { CreateFieldDto } from '../create-field.dto';
 import { FieldService } from '../field.service';
 import { IFieldInstance } from '../model/factory';
 import { FieldOpenApiService } from './field-open-api.service';
 import { FieldPipe } from './field.pipe';
+import { FieldVo } from './field.vo';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -16,19 +25,36 @@ export class FieldOpenApiController {
   ) {}
 
   @Get(':fieldId')
-  getField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
+  @ApiOperation({ summary: 'Get a specific field' })
+  @ApiOkResponse({
+    description: 'Field',
+    type: FieldVo,
+  })
+  getField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string): Promise<FieldVo> {
     return this.fieldService.getField(tableId, fieldId);
   }
 
+  @Get()
+  @ApiOperation({ summary: 'Batch fetch fields' })
+  @ApiOkResponse({
+    description: 'Field',
+    type: FieldVo,
+    isArray: true,
+  })
+  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
+  getFields(@Param('tableId') tableId: string): Promise<FieldVo[]> {
+    return this.fieldService.getFields(tableId);
+  }
+
+  @Post()
   @ApiOperation({ summary: 'Create Field' })
-  @ApiResponse({ status: 201, description: 'The field has been successfully created.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiCreatedResponse({ description: 'The field has been successfully created.' })
+  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @ApiParam({
     name: 'tableId',
     description: 'The id for table.',
     example: 'tbla63d4543eb5eded6',
   })
-  @Post()
   createField(
     @Param('tableId') tableId: string,
     @Body() _createFieldDto: CreateFieldDto, // dto for swagger document

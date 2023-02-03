@@ -1,4 +1,4 @@
-import type { UnPromisify } from '@teable-group/core';
+import type { IUnPromisify } from '@teable-group/core';
 import type { TableQuery } from './table.query';
 
 export interface ISearchPoemsParams {
@@ -6,4 +6,4 @@ export interface ISearchPoemsParams {
   offset?: number;
 }
 
-export type ITableData = UnPromisify<ReturnType<TableQuery['execute']>>;
+export type ITableData = IUnPromisify<ReturnType<TableQuery['execute']>>;

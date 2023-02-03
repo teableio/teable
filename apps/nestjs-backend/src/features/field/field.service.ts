@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { IColumnMeta } from '@teable-group/core';
+import { nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { preservedFieldName } from './constant';
 import type { IFieldInstance } from './model/factory';
+import type { FieldVo } from './open-api/field.vo';
 
 @Injectable()
 export class FieldService {
@@ -192,7 +194,19 @@ export class FieldService {
     });
   }
 
-  async getField(tableId: string, fieldId: string) {
-    return `get tableId: ${tableId} fieldId: ${fieldId}`;
+  async getField(tableId: string, fieldId: string): Promise<FieldVo> {
+    const field = await this.prismaService.field.findUniqueOrThrow({
+      where: { id: fieldId },
+    });
+
+    return nullsToUndefined(field) as FieldVo;
+  }
+
+  async getFields(tableId: string): Promise<FieldVo[]> {
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId },
+    });
+
+    return fields.map((field) => nullsToUndefined(field) as FieldVo);
   }
 }

@@ -1,9 +1,9 @@
 import { HttpInternalServerError } from '@belgattitude/http-exception';
 import type { PrismaClientDbMain } from '@teable-group/db-main-prisma';
-import type { UnPromisify } from '@teable-group/core';
+import type { IUnPromisify } from '@teable-group/core';
 import type { ISearchPoemsParams } from './table.types';
 
-type ITableData = UnPromisify<ReturnType<TableQuery['searchTable']>>;
+type ITableData = IUnPromisify<ReturnType<TableQuery['searchTable']>>;
 
 export class TableQuery {
   constructor(private readonly prisma: PrismaClientDbMain) {}

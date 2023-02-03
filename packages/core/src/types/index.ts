@@ -1,1 +1,2 @@
-export type { IUnPromisify as UnPromisify } from './Unpromisify';
+export type { IUnPromisify } from './un-promisify';
+export type { IRecursivelyReplaceNullWithUndefined } from './remove-null';
