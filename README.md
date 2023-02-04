@@ -58,18 +58,20 @@ That gives me some more time to improve it to the next level.
 ```
 .
 ├── apps
-│   └── nextjs-app  (i18n, ssr, api, vitest)
+│   ├── nextjs-app          (react, ssr, vitest)
+│   └── nestjs-backend      (nestjs, api, prisma, jest)
 └── packages
     ├── common-i18n         (locales...)
     ├── sdk                 (sdk for extensions)
-    ├── db-main-prisma
+    ├── db-main-prisma      (schema, migrations, prisma client)
     ├── eslint-config-bases (to shared eslint configs)
     └── ui-lib              (storybook)
 ```
 
 #### Example apps
 
-- [apps/nextjs-app](./apps/nextjs-app): SSR, i18n, tailwind v3, graphQL, rest... [README](./apps/nextjs-app/README.md) | [DEMO/Vercel](https://monorepo-nextjs-app.vercel.app) | [CHANGELOG](./apps/nextjs-app/CHANGELOG.md)
+- [apps/nextjs-app](./apps/nextjs-app): React, SSR, i18n, tailwind v3... [README](./apps/nextjs-app/README.md) | [DEMO/Vercel](https://monorepo-nextjs-app.vercel.app) | [CHANGELOG](./apps/nextjs-app/CHANGELOG.md)
+- [apps/nestjs-backend](./apps/nestjs-backend): nestjs, api, prisma, jest... [README](./apps/nestjs-backend/README.md) | [CHANGELOG](./apps/nestjs-backend/CHANGELOG.md)
 
 > Apps should not depend on apps, they can depend on packages
 
@@ -266,12 +268,8 @@ Inspiration can be found in [apps/nextjs-app/tsconfig.json](./apps/nextjs-app/ts
       // regular app aliases
       "@/components/*": ["./components/*"],
       // packages aliases, relative to app_directory/baseUrl
-      "@teable-group/magnificent-poney/*": [
-        "../../../packages/magnificent-poney/src/*",
-      ],
-      "@teable-group/magnificent-poney": [
-        "../../../packages/magnificent-poney/src/index",
-      ],
+      "@teable-group/magnificent-poney/*": ["../../../packages/magnificent-poney/src/*"],
+      "@teable-group/magnificent-poney": ["../../../packages/magnificent-poney/src/index"],
     },
   },
 }
