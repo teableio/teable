@@ -5,7 +5,7 @@ import { RecordOpenApiController } from './record-open-api.controller';
 describe('RecordOpenApiController', () => {
   let controller: RecordOpenApiController;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RecordOpenApiController],
     }).compile();

@@ -15,14 +15,13 @@ import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { dbPath } from '@teable-group/db-main-prisma';
 import Sqlite from 'better-sqlite3';
-import type { Knex } from 'knex';
-import knex from 'knex';
 import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { CreateFieldDto } from '../../src/features/field/create-field.dto';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
+import type { ISnapshotQuery } from '../../src/features/record/record.service';
 import { RecordService } from '../../src/features/record/record.service';
 import { PrismaService } from '../../src/prisma.service';
 import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
@@ -39,18 +38,6 @@ interface ISnapshotBase<T = unknown> {
   type: string | null;
   data: T;
   m?: unknown;
-}
-
-export interface ISnapshotQuery {
-  viewId: string;
-  where?: Knex.DbRecord<any>;
-  orderBy: {
-    column: string;
-    order?: 'asc' | 'desc';
-    nulls?: 'first' | 'last';
-  }[];
-  offset?: number;
-  limit?: number;
 }
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -70,7 +57,6 @@ type IProjection = { [fieldKey: string]: boolean };
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
   sqlite: Sqlite.Database;
-  queryBuilder: ReturnType<typeof knex>;
   closed: boolean;
   projectsSnapshots = true;
 
@@ -80,7 +66,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     private readonly fieldService: FieldService
   ) {
     super();
-    this.queryBuilder = knex({ client: 'sqlite3' });
     this.closed = false;
     this.sqlite = new Sqlite(dbPath);
   }
@@ -108,7 +93,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
-    const { viewId, where = {}, orderBy, offset = 0, limit = 10 } = query;
+    const { limit = 10 } = query;
     const idPrefix = collection.slice(0, 3);
     if (idPrefix !== IdPrefix.Table) {
       throw new Error('query collection must be table id');
@@ -118,19 +103,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
       throw new Error("limit can't be greater than 1000");
     }
 
-    const dbTableName = await this.getDbTableName(this.prismaService, collection);
-    const orderFieldName = getViewOrderFieldName(viewId);
-    const sqlNative = this.queryBuilder(dbTableName)
-      .where(where)
-      .select('__id')
-      .orderBy(orderFieldName, 'asc')
-      .orderBy(orderBy)
-      .offset(offset)
-      .limit(limit)
-      .toSQL()
-      .toNative();
-
-    console.log('sqlNative: ', sqlNative);
+    const sqlNative = await this.recordService.buildQuery(this.prismaService, collection, {
+      ...query,
+      idOnly: true,
+    });
 
     const result = await this.prismaService.$queryRawUnsafe<{ __id: string }[]>(
       sqlNative.sql,
@@ -166,16 +142,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
     if (callback) callback();
   }
 
-  private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
-    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    return tableMeta.dbTableName;
-  }
-
   private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
 
     const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
     console.log('adding record: ', tableId, recordId);
@@ -284,7 +252,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     docId: string,
     ops: IOtOperation[]
   ) {
-    const dbTableName = await this.getDbTableName(prisma, collection);
+    const dbTableName = await this.recordService.getDbTableName(prisma, collection);
 
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
     // group by op name execute faster
@@ -399,7 +367,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     recordIds: string[],
     projection?: IProjection
   ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
-    const dbTableName = await this.getDbTableName(this.prismaService, tableId);
+    const dbTableName = await this.recordService.getDbTableName(this.prismaService, tableId);
 
     const allFields = await this.prismaService.field.findMany({
       where: { tableId },

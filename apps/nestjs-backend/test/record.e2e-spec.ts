@@ -34,6 +34,14 @@ describe('OpenAPI RecordController (e2e)', () => {
     console.log('clear table: ', result.body);
   });
 
+  it('/api/table/{tableId}/record (GET)', async () => {
+    const result = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .expect(200);
+    expect(result.body).toBeInstanceOf(Array);
+    console.log('result: ', result.body);
+  });
+
   it('/api/table/{tableId}/record (POST)', async () => {
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText);
     if (!firstTextField) {

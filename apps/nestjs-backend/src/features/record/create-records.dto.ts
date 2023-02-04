@@ -3,7 +3,7 @@ import { FieldKeyType } from './constant';
 
 export class CreateRecordsDto {
   @ApiPropertyOptional({
-    description: 'Define the field key type when create and return records, default is `name`',
+    description: 'Define the field key type when create and return records, default is `id`',
     example: 'id',
     default: 'id',
   })

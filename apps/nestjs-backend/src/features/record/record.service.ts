@@ -1,15 +1,36 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { generateRecordId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Knex } from 'knex';
+import knex from 'knex';
+import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsDto } from './create-records.dto';
+import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
+export interface ISnapshotQuery {
+  viewId: string;
+  where?: Knex.DbRecord<unknown>;
+  orderBy?: {
+    column: string;
+    order?: 'asc' | 'desc';
+    nulls?: 'first' | 'last';
+  }[];
+  offset?: number;
+  limit?: number;
+  idOnly?: boolean;
+}
+
 @Injectable()
 export class RecordService {
-  constructor(private readonly prisma: PrismaService) {}
+  queryBuilder: ReturnType<typeof knex>;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.queryBuilder = knex({ client: 'sqlite3' });
+  }
 
   private async getRowOrderFieldNames(prisma: Prisma.TransactionClient, tableId: string) {
     // get rowIndexFieldName by select all views, combine field prefix and ids;
@@ -159,7 +180,49 @@ export class RecordService {
     });
   }
 
-  async getRecord(tableId: string, recordId: string) {
-    return `get tableId: ${tableId} RecordId: ${recordId}`;
+  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
+    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return tableMeta.dbTableName;
+  }
+
+  async buildQuery(prisma: Prisma.TransactionClient, tableId: string, query: ISnapshotQuery) {
+    const { viewId, where = {}, orderBy = [], offset = 0, limit = 10, idOnly } = query;
+
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const orderFieldName = getViewOrderFieldName(viewId);
+    const sqlNative = this.queryBuilder(dbTableName)
+      .where(where)
+      .select(idOnly ? '__id' : '*')
+      .orderBy(orderFieldName, 'asc')
+      .orderBy(orderBy)
+      .offset(offset)
+      .limit(limit)
+      .toSQL()
+      .toNative();
+
+    console.log('sqlNative: ', sqlNative);
+    return sqlNative;
+  }
+
+  async getRecords(tableId: string, query: RecordsRo) {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const defaultView = await this.prisma.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = defaultView.id;
+    }
+
+    const sqlNative = await this.buildQuery(this.prisma, tableId, {
+      viewId,
+      offset: query.skip,
+      limit: query.take,
+    });
+
+    return await this.prisma.$queryRawUnsafe<unknown[]>(sqlNative.sql, ...sqlNative.bindings);
   }
 }

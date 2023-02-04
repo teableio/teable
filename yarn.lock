@@ -6215,6 +6215,8 @@ __metadata:
     "@types/ws": "npm:8.5.3"
     axios: "npm:1.1.3"
     better-sqlite3: "npm:8.0.1"
+    class-transformer: "npm:0.5.1"
+    class-validator: "npm:0.14.0"
     cors: "npm:2.8.5"
     cross-env: "npm:7.0.3"
     dotenv-flow: "npm:3.2.0"
@@ -7315,6 +7317,13 @@ __metadata:
   version: 2.0.6
   resolution: "@types/unist@npm:2.0.6"
   checksum: 4731b678e9d9ab41386b48bf67a5da9000705c6ae84cd4fc866f774004f5e8190a33117dbff95efc54b44404deaa08a421b646823b01c57db3eeb0652cdc71a9
+  languageName: node
+  linkType: hard
+
+"@types/validator@npm:^13.7.10":
+  version: 13.7.11
+  resolution: "@types/validator@npm:13.7.11"
+  checksum: b13d2b29962980332043a2bf65ba81848afb295f4616dc2d9a4340a347b3a182605265bc81d67e74279c2fefb0005dde4a3a000307c971574254f50cf5ad6238
   languageName: node
   linkType: hard
 
@@ -10315,6 +10324,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"class-transformer@npm:0.5.1":
+  version: 0.5.1
+  resolution: "class-transformer@npm:0.5.1"
+  checksum: 08f2a0eaf5e674ef8b8839bd63c9b917fcc811a8d7044702dee933b1ba88d8906f5141c616173c22568d8b3e95cdf4e3afd25dcbd0f878b138a0b6e550b11d0c
+  languageName: node
+  linkType: hard
+
 "class-utils@npm:^0.3.5":
   version: 0.3.6
   resolution: "class-utils@npm:0.3.6"
@@ -10324,6 +10340,17 @@ __metadata:
     isobject: "npm:^3.0.0"
     static-extend: "npm:^0.1.1"
   checksum: e7fc96034dc63955d303b96c41eaa5728ca86b25aa9a14931d8a440bf7a30c6e7f52837d97337716e24bf74a46e703bbf05eba1b8ef8b67324e61955abc6b0aa
+  languageName: node
+  linkType: hard
+
+"class-validator@npm:0.14.0":
+  version: 0.14.0
+  resolution: "class-validator@npm:0.14.0"
+  dependencies:
+    "@types/validator": "npm:^13.7.10"
+    libphonenumber-js: "npm:^1.10.14"
+    validator: "npm:^13.7.0"
+  checksum: 3bd7e3b93ee293b5cd456a52f7240accc69400234cc95985f38271c3f5ca44eb65d751d95d93a18f1bedd6373411b9909ee5c6d117cc6ca0fc77072c25880ccd
   languageName: node
   linkType: hard
 
@@ -17617,6 +17644,13 @@ __metadata:
     prelude-ls: "npm:~1.1.2"
     type-check: "npm:~0.3.2"
   checksum: ca790d4b61d6ae2357b4e33f5a5da663c403c796f572b90f4fd9f1afd3cd71cf29903905638f81d7c5cb585619ae1d7f959deb0c86802bae02ba37c14a0902a8
+  languageName: node
+  linkType: hard
+
+"libphonenumber-js@npm:^1.10.14":
+  version: 1.10.19
+  resolution: "libphonenumber-js@npm:1.10.19"
+  checksum: b3e1adffece4152088ac1ce75fdb88da6ea5bc702c4671585a836ffdb67b25d2dc2c7cf920363a1cce6f8ff891a8a368c8394aa13b76e98c343b4993a7dc2762
   languageName: node
   linkType: hard
 
@@ -26696,6 +26730,13 @@ __metadata:
     spdx-correct: "npm:^3.0.0"
     spdx-expression-parse: "npm:^3.0.0"
   checksum: 6d62b39e947077e554dfdf6a760fb52e8db73e7724aeeab1a1f4aa742e75b2ca5092b9f7b1b9171778e96f592628932ee07784a2c86f4152411180a32a8824be
+  languageName: node
+  linkType: hard
+
+"validator@npm:^13.7.0":
+  version: 13.9.0
+  resolution: "validator@npm:13.9.0"
+  checksum: f9839f6c59d717dbce3f34cc20314b2bd9c39847fe543f56e87fc6874461c63f0196dc4c8ed81febf0cc2ae1c67dc47347ac2076ea3d35fa141a94d19eb5c9f5
   languageName: node
   linkType: hard
 
