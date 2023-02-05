@@ -6,6 +6,12 @@ import { ShareDbService } from '../../../share-db/share-db.service';
 import type { CreateRecordsDto } from '../create-records.dto';
 import { RecordService } from '../record.service';
 
+interface ICreateRecordOpMeta {
+  recordId: string;
+  snapshot: IRecordSnapshot;
+  ops: IOtOperation[];
+}
+
 @Injectable()
 export class RecordOpenApiService {
   constructor(
@@ -16,36 +22,22 @@ export class RecordOpenApiService {
 
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
     const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
-    const docs = await Promise.all(
-      result.createSnapshots.map((snapshot) => {
-        return this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
-      })
-    );
-    console.log('records: successful create record document: ');
-    await Promise.all(
-      docs.map((doc) => {
-        return new Promise((resolve, reject) => {
-          const item = result.recordOperations.find((item) => item.recordId === doc.id);
-          if (!item) {
-            throw new Error("Can't find record operations");
-          }
-          doc.submitOp(item.ops, undefined, (error) => {
-            if (error) return reject(error);
-            resolve(undefined);
-          });
+    for (const opMeta of result) {
+      const { snapshot, ops } = opMeta;
+      const doc = await this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
+      await new Promise((resolve, reject) => {
+        doc.submitOp(ops, undefined, (error) => {
+          if (error) return reject(error);
+          resolve(undefined);
         });
-      })
-    );
-    console.log('records: successful submitOps');
+      });
+    }
   }
 
   async multipleCreateRecords2Ops(
     tableId: string,
     createRecordsDto: CreateRecordsDto
-  ): Promise<{
-    createSnapshots: IRecordSnapshot[];
-    recordOperations: { recordId: string; ops: IOtOperation[] }[];
-  }> {
+  ): Promise<ICreateRecordOpMeta[]> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
       where: { tableId },
       select: { id: true },
@@ -61,16 +53,11 @@ export class RecordOpenApiService {
     });
 
     const rowCount = await this.recordService.getRowCount(this.prismaService, dbTableName);
-    const createSnapshots = createRecordsDto.records.map<IRecordSnapshot>(() => {
-      const recordId = generateRecordId();
-      return OpBuilder.creator.addRecord.build(recordId);
-    });
 
-    const recordOperations = createRecordsDto.records.map<{
-      recordId: string;
-      ops: IOtOperation[];
-    }>((record, index) => {
-      const recordId = createSnapshots[index].record.id;
+    return createRecordsDto.records.map((record, index) => {
+      const recordId = generateRecordId();
+      const snapshot = OpBuilder.creator.addRecord.build(recordId);
+
       const setRecordOps = Object.entries(record.fields).map(([fieldId, value]) =>
         OpBuilder.editor.setRecord.build({
           fieldId,
@@ -80,18 +67,14 @@ export class RecordOpenApiService {
       );
       const setRecordOrderOp = OpBuilder.editor.setRecordOrder.build({
         viewId: defaultView.id,
-        newOrder: rowCount,
+        newOrder: rowCount + index,
       });
 
       return {
         recordId,
+        snapshot,
         ops: [...setRecordOps, setRecordOrderOp],
       };
     }, []);
-
-    return {
-      createSnapshots,
-      recordOperations,
-    };
   }
 }

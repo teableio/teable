@@ -61,5 +61,36 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(201)
       .expect({});
+
+    const result = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .query({
+        skip: 0,
+        take: 1000,
+      })
+      .expect(200);
+    expect(result.body).toHaveLength(4);
+    console.log('result: ', result.body);
+  });
+
+  it('/api/table/{tableId}/record (POST) (1000x)', async () => {
+    const count = 1000;
+    console.time(`create ${count} records`);
+    const records = Array.from({ length: count }).map((_, i) => ({
+      fields: {
+        [fields[0].id]: 'New Record' + new Date(),
+        [fields[1].id]: i,
+        [fields[0].id]: 'light',
+      },
+    }));
+
+    await request(app.getHttpServer())
+      .post(`/api/table/${tableId}/record`)
+      .send({
+        records,
+      })
+      .expect(201)
+      .expect({});
+    console.timeEnd(`create ${count} records`);
   });
 });
