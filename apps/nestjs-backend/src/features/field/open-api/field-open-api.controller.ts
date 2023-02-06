@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -8,12 +8,13 @@ import {
   ApiForbiddenResponse,
   ApiCreatedResponse,
 } from '@nestjs/swagger';
-import { CreateFieldDto } from '../create-field.dto';
 import { FieldService } from '../field.service';
+import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';
+import { FieldVo } from '../model/field.vo';
+import { GetFieldsRo } from '../model/get-fields.ro';
 import { FieldOpenApiService } from './field-open-api.service';
 import { FieldPipe } from './field.pipe';
-import { FieldVo } from './field.vo';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -42,8 +43,8 @@ export class FieldOpenApiController {
     isArray: true,
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  getFields(@Param('tableId') tableId: string): Promise<FieldVo[]> {
-    return this.fieldService.getFields(tableId);
+  getFields(@Param('tableId') tableId: string, @Query() query: GetFieldsRo): Promise<FieldVo[]> {
+    return this.fieldService.getFields(tableId, query);
   }
 
   @Post()
@@ -57,7 +58,7 @@ export class FieldOpenApiController {
   })
   createField(
     @Param('tableId') tableId: string,
-    @Body() _createFieldDto: CreateFieldDto, // dto for swagger document
+    @Body() _createFieldDto: CreateFieldRo, // dto for swagger document
     @Body(FieldPipe) fieldInstance: IFieldInstance
   ) {
     console.log('fieldInstance: ', fieldInstance);

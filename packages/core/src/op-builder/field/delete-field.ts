@@ -1,4 +1,4 @@
-import type { FieldType, IFieldBase, IOtOperation } from '../../models';
+import type { FieldType, FieldBase, IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
@@ -17,7 +17,7 @@ export interface IDeleteFieldOpContext {
 export class DeleteFieldBuilder implements IOpBuilder {
   name: OpName.DeleteField = OpName.DeleteField;
 
-  build(field: IFieldBase): IOtOperation {
+  build(field: FieldBase): IOtOperation {
     return {
       p: ['fieldMap', field.id],
       od: field,
@@ -36,7 +36,7 @@ export class DeleteFieldBuilder implements IOpBuilder {
       return null;
     }
 
-    const field: IFieldBase = oi;
+    const field: FieldBase = oi;
     return {
       name: this.name,
       id: field.id,

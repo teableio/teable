@@ -1,41 +1,25 @@
 import type { Colors } from './colors';
 import type { FieldType } from './constant';
-import { CellValueType, Field } from './field';
-import type { IFieldBase } from './interface';
+import type { CellValueType } from './field';
+import { Field } from './field';
 
-export interface ISingleSelectFieldChoices {
-  name: string;
-  color: Colors;
+export class SingleSelectFieldChoices {
+  name!: string;
+  color!: Colors;
 }
 
-export interface ISingleSelectFieldOptions {
-  choices: ISingleSelectFieldChoices[];
-}
-
-export interface ISingleSelectField extends IFieldBase {
-  type: FieldType.SingleSelect;
-  options: ISingleSelectFieldOptions;
-  defaultValue: string;
+export class SingleSelectFieldOptions {
+  choices!: SingleSelectFieldChoices[];
 }
 
 export class SingleSelectField extends Field {
-  constructor(public readonly data: ISingleSelectField) {
-    super(data);
-  }
+  type!: FieldType.SingleSelect;
 
-  get type() {
-    return this.data.type;
-  }
+  options!: SingleSelectFieldOptions;
 
-  get defaultValue() {
-    return this.data.defaultValue;
-  }
+  defaultValue!: string;
 
-  get calculatedType() {
-    return this.data.type;
-  }
+  calculatedType!: FieldType.SingleSelect;
 
-  get cellValueType() {
-    return CellValueType.String;
-  }
+  cellValueType!: CellValueType.String;
 }

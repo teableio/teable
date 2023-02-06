@@ -1,23 +1,37 @@
-import type { INumberField, ISingleLineTextField, ISingleSelectField } from '@teable-group/core';
-import { assertNever, FieldType, generateFieldId } from '@teable-group/core';
-import type { CreateFieldDto } from '../create-field.dto';
-import { NumberFieldExtended } from './number.field';
-import { SingleLineTextFieldExtended } from './single-line-text.field';
-import { SingleSelectFieldExtended } from './single-select.field';
+import { assertNever, CellValueType, FieldType, generateFieldId } from '@teable-group/core';
+import { plainToInstance } from 'class-transformer';
+import { DbFieldType } from '../constant';
+import type { CreateFieldRo } from './create-field.ro';
+import { NumberFieldDto } from './field-dto/number-field.dto';
+import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
+import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
 
-export function createFieldInstance(createFieldDto: CreateFieldDto & { id?: string }) {
+export function createFieldInstance(createFieldRo: CreateFieldRo & { id?: string }) {
   // generate Id first
-  const fieldDto = createFieldDto.id
-    ? createFieldDto
-    : { ...createFieldDto, id: generateFieldId() };
+  const fieldDto = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 
-  switch (createFieldDto.type) {
+  switch (createFieldRo.type) {
     case FieldType.SingleLineText:
-      return new SingleLineTextFieldExtended(fieldDto as ISingleLineTextField);
+      return plainToInstance(SingleLineTextFieldDto, {
+        ...fieldDto,
+        calculatedType: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      } as SingleLineTextFieldDto);
     case FieldType.Number:
-      return new NumberFieldExtended(fieldDto as INumberField);
+      return plainToInstance(NumberFieldDto, {
+        ...fieldDto,
+        calculatedType: FieldType.Number,
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+      } as NumberFieldDto);
     case FieldType.SingleSelect:
-      return new SingleSelectFieldExtended(fieldDto as ISingleSelectField);
+      return plainToInstance(SingleSelectFieldDto, {
+        ...fieldDto,
+        calculatedType: FieldType.SingleSelect,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      } as SingleSelectFieldDto);
     case FieldType.Attachment:
     case FieldType.Button:
     case FieldType.CreatedBy:
@@ -44,7 +58,7 @@ export function createFieldInstance(createFieldDto: CreateFieldDto & { id?: stri
     case FieldType.MultipleRecordLinks:
       throw new Error('did not implement yet');
     default:
-      assertNever(createFieldDto.type);
+      assertNever(createFieldRo.type);
   }
 }
 

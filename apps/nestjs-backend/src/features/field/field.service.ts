@@ -2,11 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { IColumnMeta } from '@teable-group/core';
 import { nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
+import { plainToInstance } from 'class-transformer';
+import { sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { preservedFieldName } from './constant';
 import type { IFieldInstance } from './model/factory';
-import type { FieldVo } from './open-api/field.vo';
+import { FieldVo } from './model/field.vo';
+import type { GetFieldsRo } from './model/get-fields.ro';
 
 @Injectable()
 export class FieldService {
@@ -46,7 +49,7 @@ export class FieldService {
     fieldInstance: IFieldInstance
   ) {
     const { id, name, description, type, options, defaultValue, notNull, unique, isPrimary } =
-      fieldInstance.data;
+      fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
       id,
@@ -202,11 +205,33 @@ export class FieldService {
     return nullsToUndefined(field) as FieldVo;
   }
 
-  async getFields(tableId: string): Promise<FieldVo[]> {
-    const fields = await this.prismaService.field.findMany({
+  async getFields(tableId: string, query: GetFieldsRo): Promise<FieldVo[]> {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const view = await this.prismaService.view.findFirstOrThrow({
+        where: { tableId },
+      });
+      viewId = view.id;
+    }
+
+    const fieldsPlain = await this.prismaService.field.findMany({
       where: { tableId },
     });
 
-    return fields.map((field) => nullsToUndefined(field) as FieldVo);
+    const fields = fieldsPlain.map((field) => {
+      return {
+        ...field,
+        options: JSON.parse(field.options as string),
+        defaultValue: JSON.parse(field.defaultValue as string),
+        columnMeta: JSON.parse(field.columnMeta),
+      };
+    });
+
+    const sortedFields = sortBy(fields, (field) => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return field.columnMeta[viewId!].order;
+    });
+
+    return plainToInstance(FieldVo, sortedFields);
   }
 }

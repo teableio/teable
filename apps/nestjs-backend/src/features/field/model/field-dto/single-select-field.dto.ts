@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Colors } from '@teable-group/core';
-import type { ISingleSelectFieldChoices, ISingleSelectFieldOptions } from '@teable-group/core';
+import { SingleSelectField, Colors } from '@teable-group/core';
+import type { SingleSelectFieldChoices, SingleSelectFieldOptions } from '@teable-group/core';
+import type { DbFieldType } from '../../constant';
 
-class SingleSelectOption implements ISingleSelectFieldChoices {
+class SingleSelectOption implements SingleSelectFieldChoices {
   @ApiProperty({
     type: String,
     example: 'light',
@@ -18,11 +19,15 @@ class SingleSelectOption implements ISingleSelectFieldChoices {
   color!: Colors;
 }
 
-export class SingleSelectOptionsDto implements ISingleSelectFieldOptions {
+export class SingleSelectOptionsDto implements SingleSelectFieldOptions {
   @ApiProperty({
     type: [SingleSelectOption],
     description:
       'The display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
   })
   choices!: SingleSelectOption[];
+}
+
+export class SingleSelectFieldDto extends SingleSelectField {
+  dbFieldType!: DbFieldType.Text;
 }

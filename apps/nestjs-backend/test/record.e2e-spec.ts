@@ -2,8 +2,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
+import { json, urlencoded } from 'express';
 import request from 'supertest';
-import type { FieldVo } from '../src/features/field/open-api/field.vo';
+import type { FieldVo } from '../src/features/field/model/field.vo';
 import { TableModule } from '../src/features/table/table.module';
 
 describe('OpenAPI RecordController (e2e)', () => {
@@ -17,6 +18,8 @@ describe('OpenAPI RecordController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(json({ limit: '50mb' }));
+    app.use(urlencoded({ limit: '50mb', extended: true }));
     await app.init();
 
     const result = await request(app.getHttpServer()).post('/api/table').send({
@@ -29,10 +32,10 @@ describe('OpenAPI RecordController (e2e)', () => {
     console.log('fields: ', fields);
   });
 
-  afterAll(async () => {
-    const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
-    console.log('clear table: ', result.body);
-  });
+  // afterAll(async () => {
+  //   const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+  //   console.log('clear table: ', result.body);
+  // });
 
   it('/api/table/{tableId}/record (GET)', async () => {
     const result = await request(app.getHttpServer())
@@ -80,7 +83,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       fields: {
         [fields[0].id]: 'New Record' + new Date(),
         [fields[1].id]: i,
-        [fields[0].id]: 'light',
+        [fields[2].id]: 'light',
       },
     }));
 

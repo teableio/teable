@@ -1,8 +1,8 @@
-import type { IColumn, IOtOperation } from '../../models';
+import type { Column, IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
-type IMetaKey = keyof IColumn;
+type IMetaKey = keyof Column;
 
 export interface ISetColumnMetaOpContext {
   name: OpName.SetColumnMeta;

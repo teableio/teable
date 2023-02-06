@@ -1,30 +1,8 @@
-import type { StatisticsFunc } from '../view';
-import type { FieldType } from './constant';
+import type { Column, FieldBase } from './field';
 
-export interface IFieldBase {
-  id: string;
-  name: string;
-  type: FieldType;
-  description?: string;
-  options?: unknown;
-  notNull?: boolean;
-  unique?: boolean;
-  isPrimary?: boolean;
-  defaultValue?: unknown;
-}
-
-export interface IColumn {
-  order: number;
-  width?: number;
-  hidden?: boolean;
-  statisticFunc?: StatisticsFunc;
-}
-
-export interface IColumnMeta {
-  [viewId: string]: IColumn;
-}
+export type IColumnMeta = { [key: string]: Column };
 
 export interface IFieldSnapshot {
-  field: IFieldBase;
+  field: FieldBase;
   columnMeta: IColumnMeta;
 }

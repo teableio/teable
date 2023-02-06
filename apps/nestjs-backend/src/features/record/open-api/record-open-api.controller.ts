@@ -11,7 +11,7 @@ import { RecordsRo } from './records.ro';
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
-    private readonly recordCommandService: RecordOpenApiService
+    private readonly recordOpenApiService: RecordOpenApiService
   ) {}
 
   @Get()
@@ -29,6 +29,6 @@ export class RecordOpenApiController {
   })
   @Post()
   createRecords(@Param('tableId') tableId: string, @Body() createRecordsDto: CreateRecordsDto) {
-    return this.recordCommandService.multipleCreateRecords(tableId, createRecordsDto);
+    return this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsDto);
   }
 }

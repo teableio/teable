@@ -1,35 +1,19 @@
 import type { FieldType } from './constant';
-import { CellValueType, Field } from './field';
-import type { IFieldBase } from './interface';
+import type { CellValueType } from './field';
+import { Field } from './field';
 
-export interface INumberFieldOptions {
-  precision: number;
-}
-
-export interface INumberField extends IFieldBase {
-  type: FieldType.Number;
-  options: INumberFieldOptions;
-  defaultValue: string;
+export class NumberFieldOptions {
+  precision!: number;
 }
 
 export class NumberField extends Field {
-  constructor(public readonly data: INumberField) {
-    super(data);
-  }
+  type!: FieldType.Number;
 
-  get type() {
-    return this.data.type;
-  }
+  options!: NumberFieldOptions;
 
-  get defaultValue() {
-    return this.data.defaultValue;
-  }
+  defaultValue?: number;
 
-  get calculatedType() {
-    return this.data.type;
-  }
+  calculatedType!: FieldType.Number;
 
-  get cellValueType() {
-    return CellValueType.Number;
-  }
+  cellValueType!: CellValueType.Number;
 }

@@ -18,7 +18,7 @@ import Sqlite from 'better-sqlite3';
 import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import type { CreateFieldDto } from '../../src/features/field/create-field.dto';
+import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
 import type { ISnapshotQuery } from '../../src/features/record/record.service';
@@ -206,7 +206,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     tableId: string,
     fieldSnapshot: IFieldSnapshot
   ) {
-    const fieldInstance = createFieldInstance(fieldSnapshot.field as CreateFieldDto);
+    const fieldInstance = createFieldInstance(fieldSnapshot.field as CreateFieldRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [

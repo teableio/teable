@@ -41,7 +41,7 @@ export class FieldOpenApiService {
     }, -1);
 
     const createSnapshot = OpBuilder.creator.addField.build({
-      ...fieldInstance.data,
+      ...fieldInstance,
     });
 
     // we only need build column in default view here

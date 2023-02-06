@@ -1,4 +1,4 @@
-import type { IColumn, IField, IOtOperation } from '../models';
+import type { Column, Field, IOtOperation } from '../models';
 import { FieldType, StatisticsFunc } from '../models';
 
 enum FieldMetaKey {
@@ -36,7 +36,7 @@ export class FieldOpBuilder {
   }): IOtOperation {
     const { hidden, fieldType, columnIndex, viewId } = params;
 
-    const newColumn: IColumn = {
+    const newColumn: Column = {
       order: columnIndex,
       hidden,
     };
@@ -51,7 +51,7 @@ export class FieldOpBuilder {
     };
   }
 
-  static addField(field: IField): IOtOperation {
+  static addField(field: Field): IOtOperation {
     return {
       p: ['fieldMap', field.id],
       oi: field,

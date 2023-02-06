@@ -5,6 +5,8 @@
   "compilerOptions": {
     "module": "CommonJS",
     "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "target": "ESNext",
     "lib": ["ESNext"],
     "esModuleInterop": true,

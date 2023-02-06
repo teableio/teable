@@ -1,34 +1,15 @@
 import type { FieldType } from './constant';
-import { CellValueType, Field } from './field';
-import type { IFieldBase } from './interface';
-
-export interface ISingleLineTextField extends IFieldBase {
-  type: FieldType.SingleLineText;
-  defaultValue: string;
-}
+import type { CellValueType } from './field';
+import { Field } from './field';
 
 export class SingleLineTextField extends Field {
-  constructor(public readonly data: ISingleLineTextField) {
-    super(data);
-  }
+  type!: FieldType.SingleLineText;
 
-  get type() {
-    return this.data.type;
-  }
+  options?: undefined;
 
-  get defaultValue() {
-    return this.data.defaultValue;
-  }
+  defaultValue?: string;
 
-  get calculatedType() {
-    return this.data.type;
-  }
+  calculatedType!: FieldType.SingleLineText;
 
-  get cellValueType() {
-    return CellValueType.String;
-  }
+  cellValueType!: CellValueType.String;
 }
-
-// const t = new SingleLineTextField();
-
-// t.type

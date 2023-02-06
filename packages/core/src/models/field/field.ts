@@ -1,4 +1,23 @@
-import type { IFieldBase } from './interface';
+import type { StatisticsFunc } from '../view';
+import type { FieldType } from './constant';
+export class FieldBase {
+  id!: string;
+  name!: string;
+  type!: FieldType;
+  description?: string;
+  options?: unknown;
+  notNull?: boolean;
+  unique?: boolean;
+  isPrimary?: boolean;
+  defaultValue?: unknown;
+}
+
+export class Column {
+  order!: number;
+  width?: number;
+  hidden?: boolean;
+  statisticFunc?: StatisticsFunc;
+}
 
 export enum CellValueType {
   String = 'string',
@@ -8,24 +27,16 @@ export enum CellValueType {
   Array = 'array',
 }
 
-export abstract class Field {
-  constructor(public readonly data: IFieldBase) {}
+export abstract class Field extends FieldBase {
+  abstract type: FieldType;
 
-  get name() {
-    return this.data.name;
-  }
+  abstract options?: unknown;
 
-  get isPrimary() {
-    return this.data.isPrimary;
-  }
-
-  abstract get type(): unknown;
-
-  abstract get defaultValue(): unknown;
+  abstract defaultValue?: unknown;
 
   // for lookup field, it is a dynamic value
-  abstract get calculatedType(): unknown;
+  abstract calculatedType: unknown;
 
   // cellValue type enum (string, number, boolean, datetime, array)
-  abstract get cellValueType(): CellValueType;
+  abstract cellValueType: CellValueType;
 }
