@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Doc } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { FieldService } from '../../src/features/field/field.service';
@@ -50,8 +51,19 @@ export class ShareDbService extends ShareDBClass {
     next();
   }
 
-  async submitOps(collectionId: string, id: string, ops: IOtOperation[]) {
-    const doc = this.connect().get(collectionId, id);
+  async submitOps(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    id: string,
+    ops: IOtOperation[]
+  ) {
+    const connection = this.connect();
+    if (!connection.agent) {
+      throw new Error('can not find agent in connection');
+    }
+    connection.agent.custom.transactionClient = prisma;
+    const doc = connection.get(collectionId, id);
+
     return new Promise<undefined>((resolve, reject) => {
       doc.submitOp(ops, undefined, (error) => {
         if (error) return reject(error);
@@ -61,8 +73,18 @@ export class ShareDbService extends ShareDBClass {
     });
   }
 
-  async createDocument(collectionId: string, id: string, snapshot: unknown) {
-    const doc = this.connect().get(collectionId, id);
+  async createDocument(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    id: string,
+    snapshot: unknown
+  ) {
+    const connection = this.connect();
+    if (!connection.agent) {
+      throw new Error('can not find agent in connection');
+    }
+    connection.agent.custom.transactionClient = prisma;
+    const doc = connection.get(collectionId, id);
     return new Promise<Doc>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);

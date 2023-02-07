@@ -15,9 +15,25 @@ export class FieldOpenApiService {
   async createField(tableId: string, fieldInstance: IFieldInstance) {
     const result = await this.createField2Ops(tableId, fieldInstance);
     const fieldId = result.createSnapshot.field.id;
-    await this.shareDbService.createDocument(tableId, fieldId, result.createSnapshot);
-
-    await this.shareDbService.submitOps(tableId, fieldId, [result.fieldOperation]);
+    await this.prismaService.$transaction(async (prisma) => {
+      const doc = await this.shareDbService.createDocument(
+        prisma,
+        tableId,
+        fieldId,
+        result.createSnapshot
+      );
+      await new Promise((resolve, reject) => {
+        doc.submitOp(
+          [result.fieldOperation],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { agentCustom: { transactionClient: prisma } } as any,
+          (error) => {
+            if (error) return reject(error);
+            resolve(undefined);
+          }
+        );
+      });
+    });
   }
 
   async createField2Ops(

@@ -13,18 +13,15 @@ import type {
 } from '@teable-group/core';
 import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { dbPath } from '@teable-group/db-main-prisma';
-import Sqlite from 'better-sqlite3';
 import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
 import type { ISnapshotQuery } from '../../src/features/record/record.service';
 import { RecordService } from '../../src/features/record/record.service';
-import { PrismaService } from '../../src/prisma.service';
 import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
+import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 
 export interface ICollectionSnapshot {
   type: string;
@@ -56,18 +53,15 @@ type IProjection = { [fieldKey: string]: boolean };
 
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
-  sqlite: Sqlite.Database;
   closed: boolean;
   projectsSnapshots = true;
 
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService
   ) {
     super();
     this.closed = false;
-    this.sqlite = new Sqlite(dbPath);
   }
 
   query = async (
@@ -82,7 +76,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
         return callback(error, []);
       }
       this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
-        callback(error, snapshots);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        callback(error, snapshots!);
       });
     });
   };
@@ -90,9 +85,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
   async queryPoll(
     collection: string,
     query: ISnapshotQuery,
-    options: any,
+    options: {
+      agentCustom: { transactionClient: Prisma.TransactionClient };
+    },
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
+    const prisma = options.agentCustom.transactionClient;
     const { limit = 10 } = query;
     const idPrefix = collection.slice(0, 3);
     if (idPrefix !== IdPrefix.Table) {
@@ -103,12 +101,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
       throw new Error("limit can't be greater than 1000");
     }
 
-    const sqlNative = await this.recordService.buildQuery(this.prismaService, collection, {
+    const sqlNative = await this.recordService.buildQuery(prisma, collection, {
       ...query,
       idOnly: true,
     });
 
-    const result = await this.prismaService.$queryRawUnsafe<{ __id: string }[]>(
+    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
       sqlNative.sql,
       ...sqlNative.bindings
     );
@@ -137,7 +135,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   close(callback: () => void) {
     this.closed = true;
-    this.sqlite.close();
 
     if (callback) callback();
   }
@@ -301,7 +298,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     rawOp: CreateOp | DeleteOp | EditOp,
     snapshot: ICollectionSnapshot,
-    options: any,
+    options: { agentCustom: { transactionClient: Prisma.TransactionClient } },
     callback: (err: unknown, succeed?: boolean) => void
   ) {
     /*
@@ -314,9 +311,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
-
     try {
-      const opsResult = await this.prismaService.ops.aggregate({
+      const prisma = options.agentCustom.transactionClient;
+      const opsResult = await prisma.ops.aggregate({
         _max: { version: true },
         where: { collection, docId: id },
       });
@@ -327,27 +324,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
         return callback(null, false);
       }
 
-      await this.prismaService.$transaction(async (prisma) => {
-        // 1. save op in db;
-        await prisma.ops.create({
-          data: {
-            docId: id,
-            collection,
-            version: snapshot.v,
-            operation: JSON.stringify(rawOp),
-          },
-        });
-
-        // create snapshot
-        if (rawOp.create) {
-          await this.createSnapshot(prisma, collection, id, rawOp.create.data);
-        }
-
-        // update snapshot
-        if (rawOp.op) {
-          await this.updateSnapshot(prisma, collection, id, rawOp.op);
-        }
+      // 1. save op in db;
+      await prisma.ops.create({
+        data: {
+          docId: id,
+          collection,
+          version: snapshot.v,
+          operation: JSON.stringify(rawOp),
+        },
       });
+
+      // create snapshot
+      if (rawOp.create) {
+        await this.createSnapshot(prisma, collection, id, rawOp.create.data);
+      }
+
+      // update snapshot
+      if (rawOp.op) {
+        await this.updateSnapshot(prisma, collection, id, rawOp.op);
+      }
 
       callback(null, true);
     } catch (err) {
@@ -363,18 +358,19 @@ export class SqliteDbAdapter extends ShareDb.DB {
    * @returns snapshotData
    */
   private async getRecordSnapshotBulk(
+    prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
     projection?: IProjection
   ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
-    const dbTableName = await this.recordService.getDbTableName(this.prismaService, tableId);
+    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
 
-    const allFields = await this.prismaService.field.findMany({
+    const allFields = await prisma.field.findMany({
       where: { tableId },
       select: { id: true, dbFieldName: true },
     });
 
-    const allViews = await this.prismaService.view.findMany({
+    const allViews = await prisma.view.findMany({
       where: { tableId },
       select: { id: true },
     });
@@ -395,7 +391,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       ])
       .join(',');
 
-    const result = await this.prismaService.$queryRawUnsafe<
+    const result = await prisma.$queryRawUnsafe<
       ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
     >(
       `SELECT ${columnSql} FROM ${dbTableName} WHERE __id IN (${recordIds
@@ -434,10 +430,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
   }
 
   private async getFieldSnapshotBulk(
+    prisma: Prisma.TransactionClient,
     tableId: string,
     fieldIds: string[]
   ): Promise<ISnapshotBase<IFieldSnapshot>[]> {
-    const fields = await this.prismaService.field.findMany({
+    const fields = await prisma.field.findMany({
       where: { tableId, id: { in: fieldIds } },
     });
 
@@ -471,46 +468,52 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
-    options: unknown,
-    callback: (err: ShareDb.Error | null, data: Snapshot[]) => void
+    options: { agentCustom: { transactionClient: Prisma.TransactionClient } },
+    callback: (err: ShareDb.Error | null, data?: Snapshot[]) => void
   ) {
-    const docType = ids[0].slice(0, 3);
-    if (ids.find((id) => id.slice(0, 3) !== docType)) {
-      throw new Error('get snapshot bulk ids must be same type');
-    }
+    try {
+      const prisma = options.agentCustom.transactionClient;
+      const docType = ids[0].slice(0, 3);
+      if (ids.find((id) => id.slice(0, 3) !== docType)) {
+        throw new Error('get snapshot bulk ids must be same type');
+      }
 
-    let snapshotData: ISnapshotBase[] = [];
-    switch (docType) {
-      case IdPrefix.Record:
-        snapshotData = await this.getRecordSnapshotBulk(
-          collection,
-          ids,
-          // Do not project when called by ShareDB submit
-          projection && projection['$submit'] ? undefined : projection
+      let snapshotData: ISnapshotBase[] = [];
+      switch (docType) {
+        case IdPrefix.Record:
+          snapshotData = await this.getRecordSnapshotBulk(
+            prisma,
+            collection,
+            ids,
+            // Do not project when called by ShareDB submit
+            projection && projection['$submit'] ? undefined : projection
+          );
+          break;
+        case IdPrefix.Field:
+          snapshotData = await this.getFieldSnapshotBulk(prisma, collection, ids);
+          break;
+        default:
+          break;
+      }
+
+      if (snapshotData.length) {
+        const snapshots = snapshotData.map(
+          (snapshot) =>
+            new Snapshot(
+              snapshot.id,
+              snapshot.v,
+              snapshot.type,
+              snapshot.data,
+              undefined // TODO: metadata
+            )
         );
-        break;
-      case IdPrefix.Field:
-        snapshotData = await this.getFieldSnapshotBulk(collection, ids);
-        break;
-      default:
-        break;
-    }
-
-    if (snapshotData.length) {
-      const snapshots = snapshotData.map(
-        (snapshot) =>
-          new Snapshot(
-            snapshot.id,
-            snapshot.v,
-            snapshot.type,
-            snapshot.data,
-            undefined // TODO: metadata
-          )
-      );
-      callback(null, snapshots);
-    } else {
-      const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, undefined));
-      callback(null, snapshots);
+        callback(null, snapshots);
+      } else {
+        const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, undefined));
+        callback(null, snapshots);
+      }
+    } catch (err) {
+      callback(err as any);
     }
   }
 
@@ -518,14 +521,15 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: unknown,
+    options: { agentCustom: { transactionClient: Prisma.TransactionClient } },
     callback: (err: unknown, data?: Snapshot) => void
   ) {
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
       if (err) {
         callback(err);
       } else {
-        callback(null, data[0]);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        callback(null, data![0]);
       }
     });
   }
@@ -539,20 +543,26 @@ export class SqliteDbAdapter extends ShareDb.DB {
   // The version will be inferred from the parameters if it is missing.
   //
   // Callback should be called as callback(error, [list of ops]);
-  getOps(
+  async getOps(
     collection: string,
     id: string,
     from: number,
     to: number,
-    options: any,
+    options: { agentCustom: { transactionClient: Prisma.TransactionClient } },
     callback: (error: unknown, data?: any) => void
   ) {
     try {
-      const res = this.sqlite
-        .prepare(
-          'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?'
-        )
-        .all([collection, id, from, to]);
+      const prisma = options.agentCustom.transactionClient;
+      const res = await prisma.$queryRawUnsafe<
+        { collection: string; id: string; from: number; to: number }[]
+      >(
+        'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
+        collection,
+        id,
+        from,
+        to
+      );
+
       console.log('getOps:', { collection, id, from, to });
       console.log('getOps:result:', res);
       callback(
