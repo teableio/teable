@@ -72,7 +72,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         take: 1000,
       })
       .expect(200);
-    expect(result.body).toHaveLength(4);
+    expect(result.body.records).toHaveLength(4);
     console.log('result: ', result.body);
   });
 

@@ -7,6 +7,7 @@ import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name'
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsDto } from './create-records.dto';
+import type { RecordsVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
@@ -207,7 +208,7 @@ export class RecordService {
     return sqlNative;
   }
 
-  async getRecords(tableId: string, query: RecordsRo) {
+  async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
     let viewId = query.viewId;
     if (!viewId) {
       const defaultView = await this.prisma.view.findFirstOrThrow({
@@ -223,6 +224,18 @@ export class RecordService {
       limit: query.take,
     });
 
-    return await this.prisma.$queryRawUnsafe<unknown[]>(sqlNative.sql, ...sqlNative.bindings);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const records = await this.prisma.$queryRawUnsafe<any[]>(sqlNative.sql, ...sqlNative.bindings);
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const countQuery = await this.prisma.$queryRawUnsafe<{ 'COUNT(*)': bigint }[]>(
+      `SELECT COUNT(*) FROM ${dbTableName}`
+    );
+    const total = Number(countQuery[0]['COUNT(*)']);
+
+    return {
+      records,
+      total,
+    };
   }
 }
