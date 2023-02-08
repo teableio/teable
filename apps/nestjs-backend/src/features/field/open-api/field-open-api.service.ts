@@ -16,12 +16,7 @@ export class FieldOpenApiService {
     const result = await this.createField2Ops(tableId, fieldInstance);
     const fieldId = result.createSnapshot.field.id;
     await this.prismaService.$transaction(async (prisma) => {
-      const doc = await this.shareDbService.createDocument(
-        prisma,
-        tableId,
-        fieldId,
-        result.createSnapshot
-      );
+      const doc = await this.shareDbService.createDocument(tableId, fieldId, result.createSnapshot);
       await new Promise((resolve, reject) => {
         doc.submitOp(
           [result.fieldOperation],

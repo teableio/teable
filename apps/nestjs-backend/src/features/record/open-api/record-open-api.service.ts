@@ -4,6 +4,7 @@ import { generateRecordId, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateRecordsDto } from '../create-records.dto';
 import { RecordService } from '../record.service';
 
@@ -18,32 +19,25 @@ export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
-    private readonly shareDbService: ShareDbService
+    private readonly shareDbService: ShareDbService,
+    private readonly transactionService: TransactionService
   ) {}
 
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
     await this.prismaService.$transaction(async (prisma) => {
+      this.transactionService.set(tableId, prisma);
       const result = await this.multipleCreateRecords2Ops(prisma, tableId, createRecordsDto);
       for (const opMeta of result) {
         const { snapshot, ops } = opMeta;
-        const doc = await this.shareDbService.createDocument(
-          prisma,
-          tableId,
-          snapshot.record.id,
-          snapshot
-        );
+        const doc = await this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
         await new Promise((resolve, reject) => {
-          doc.submitOp(
-            ops,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            { source: { transactionClient: prisma } } as any,
-            (error) => {
-              if (error) return reject(error);
-              resolve(undefined);
-            }
-          );
+          doc.submitOp(ops, undefined, (error) => {
+            if (error) return reject(error);
+            resolve(undefined);
+          });
         });
       }
+      this.transactionService.remove(tableId);
     });
   }
 

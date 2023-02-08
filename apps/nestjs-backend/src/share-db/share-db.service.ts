@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Doc } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { FieldService } from '../../src/features/field/field.service';
@@ -18,52 +17,41 @@ export class ShareDbService extends ShareDBClass {
       db: sqliteDbAdapter,
     });
 
-    this.use('submit', this.onSubmit);
-    this.use('apply', this.onApply);
-    this.use('commit', this.onCommit);
-    this.use('afterWrite', this.onAfterWrite);
+    // this.use('submit', this.onSubmit);
+    // this.use('apply', this.onApply);
+    // this.use('commit', this.onCommit);
+    // this.use('afterWrite', this.onAfterWrite);
   }
 
-  private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
-    console.log('ShareDb:SUBMIT:', context.ops, context.snapshot);
+  // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
+  //   console.log('ShareDb:SUBMIT:', context.ops, context.snapshot);
 
-    next();
-  }
+  //   next();
+  // }
 
-  private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
-    console.log('ShareDb:apply:', context.ops, context.snapshot);
+  // private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
+  //   console.log('ShareDb:apply:', context.ops, context.snapshot);
 
-    next();
-  }
+  //   next();
+  // }
 
-  private onCommit(context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) {
-    console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
+  // private onCommit(context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) {
+  //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
 
-    next();
-  }
+  //   next();
+  // }
 
-  private onAfterWrite(
-    context: ShareDBClass.middleware.SubmitContext,
-    next: (err?: unknown) => void
-  ) {
-    console.log('ShareDb:afterWrite:', context.ops);
+  // private onAfterWrite(
+  //   context: ShareDBClass.middleware.SubmitContext,
+  //   next: (err?: unknown) => void
+  // ) {
+  //   console.log('ShareDb:afterWrite:', context.ops);
 
-    next();
-  }
+  //   next();
+  // }
 
-  async submitOps(
-    prisma: Prisma.TransactionClient,
-    collectionId: string,
-    id: string,
-    ops: IOtOperation[]
-  ) {
-    const connection = this.connect();
-    if (!connection.agent) {
-      throw new Error('can not find agent in connection');
-    }
-    connection.agent.custom.transactionClient = prisma;
-    const doc = connection.get(collectionId, id);
-
+  async submitOps(collectionId: string, id: string, ops: IOtOperation[]) {
+    const doc = this.connect().get(collectionId, id);
     return new Promise<undefined>((resolve, reject) => {
       doc.submitOp(ops, undefined, (error) => {
         if (error) return reject(error);
@@ -73,18 +61,8 @@ export class ShareDbService extends ShareDBClass {
     });
   }
 
-  async createDocument(
-    prisma: Prisma.TransactionClient,
-    collectionId: string,
-    id: string,
-    snapshot: unknown
-  ) {
-    const connection = this.connect();
-    if (!connection.agent) {
-      throw new Error('can not find agent in connection');
-    }
-    connection.agent.custom.transactionClient = prisma;
-    const doc = connection.get(collectionId, id);
+  async createDocument(collectionId: string, id: string, snapshot: unknown) {
+    const doc = this.connect().get(collectionId, id);
     return new Promise<Doc>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
