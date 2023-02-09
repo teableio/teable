@@ -3,6 +3,7 @@ import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
 import type { FC } from 'react';
 import { appConfig } from '../app.config';
+import { DemoGrid } from '../components/DemoGrid';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
@@ -46,9 +47,10 @@ export const AppPage: FC = () => {
         <div className="h-full flex items-start fixed w-full">
           <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
             <SideMenu />
+            gggdd
           </div>
           <div className="grow-1 h-screen w-full m-4 overflow-y-auto">
-            <AppSwitch path={currentFile?.path} />
+            <DemoGrid />
           </div>
         </div>
       </AppLayout>

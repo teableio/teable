@@ -2608,9 +2608,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@glideapps/glide-data-grid@npm:5.2.0":
-  version: 5.2.0
-  resolution: "@glideapps/glide-data-grid@npm:5.2.0"
+"@glideapps/glide-data-grid@npm:5.2.1":
+  version: 5.2.1
+  resolution: "@glideapps/glide-data-grid@npm:5.2.1"
   dependencies:
     canvas-hypertxt: "npm:^0.0.7"
     react-number-format: "npm:^5.0.0"
@@ -2620,7 +2620,7 @@ __metadata:
     react: ^16.12.0 || 17.x || 18.x
     react-dom: ^16.12.0 || 17.x || 18.x
     react-responsive-carousel: ^3.2.7
-  checksum: e01959f22176f7dd80a553ac9ffb40014548a11bd59515eac16d0cb5a8887c04beb7e4a7f25e49d762f6381bd57e693f0b30e03a73e933e0268330e32ddd1d15
+  checksum: cf8edb1acdf5e2bf79b28fcfd7c3949d1ff861055f4d4fddf0eb7c5593f0cfdf56d40782ac8290889bb15f32485899966eccdf6900e16ee52e864c45ae74d58b
   languageName: node
   linkType: hard
 
@@ -6066,7 +6066,7 @@ __metadata:
     "@babel/core": "npm:7.19.6"
     "@belgattitude/http-exception": "npm:1.4.0"
     "@fontsource/inter": "npm:4.5.14"
-    "@glideapps/glide-data-grid": "npm:5.2.0"
+    "@glideapps/glide-data-grid": "npm:5.2.1"
     "@graphql-yoga/node": "npm:2.13.13"
     "@headlessui/react": "npm:1.7.3"
     "@hookform/resolvers": "npm:2.9.10"
@@ -6104,6 +6104,7 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
+    "@types/sharedb": "npm:3.2.1"
     "@types/testing-library__jest-dom": "npm:5.14.5"
     "@vitejs/plugin-react": "npm:2.2.0"
     "@vitest/coverage-istanbul": "npm:0.24.3"
@@ -6136,7 +6137,7 @@ __metadata:
     jose: "npm:4.10.3"
     ky: "npm:0.31.4"
     lodash: "npm:4.17.21"
-    marked: "npm:4.2.3"
+    marked: "npm:4.2.12"
     micro: "npm:9.4.1"
     next: "npm:13.0.2"
     next-connect: "npm:0.13.0"
@@ -6155,6 +6156,7 @@ __metadata:
     react-hook-form: "npm:7.38.0"
     react-i18next: "npm:11.18.6"
     react-responsive-carousel: "npm:3.2.23"
+    reconnecting-websocket: "npm:4.4.0"
     reflect-metadata: "npm:0.1.13"
     remark-gfm: "npm:3.0.1"
     remark-parse: "npm:10.0.1"
@@ -6163,6 +6165,7 @@ __metadata:
     rooks: "npm:7.4.1"
     rxjs: "npm:7.5.7"
     sass: "npm:1.55.0"
+    sharedb: "npm:3.2.2"
     sharp: "npm:0.31.1"
     size-limit: "npm:8.1.0"
     slate: "npm:0.86.0"
@@ -18245,12 +18248,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"marked@npm:4.2.3":
-  version: 4.2.3
-  resolution: "marked@npm:4.2.3"
+"marked@npm:4.2.12":
+  version: 4.2.12
+  resolution: "marked@npm:4.2.12"
   bin:
     marked: bin/marked.js
-  checksum: eef338852a04728a8f5cc987877edad94cab26e1f8c9d7991f422790c1758671387cda124d312a4be6a014073563698d22060211fe4d1926f9a7440545ae69ae
+  checksum: 2dd223c4f78d723c583d3be8bb7d7d9d7f92f2e201279b65bd41136755730228f12c4140393f3989f71be448bf30218e8fcbddee071316461c275f9af555b053
   languageName: node
   linkType: hard
 
@@ -22759,6 +22762,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"reconnecting-websocket@npm:4.4.0":
+  version: 4.4.0
+  resolution: "reconnecting-websocket@npm:4.4.0"
+  checksum: 3548bbd74d1370fd3b9f4cfb827719d4bb1e15527b2dea4bdce09a960b33d7e0e1cc39cc46619dfb93fc0c9bed8c7b3c3375f4f2762e8ef5926f2a08ca7408ed
+  languageName: node
+  linkType: hard
+
 "recrawl-sync@npm:^2.0.3":
   version: 2.2.1
   resolution: "recrawl-sync@npm:2.2.1"
@@ -23942,6 +23952,19 @@ __metadata:
     hat: "npm:0.0.3"
     ot-json0: "npm:^1.0.1"
   checksum: c899bf7555979f4ff48385acfc7f788c9a02fe8014e3620fbd7d32a82b3043285005b5b1ce3d60e0831405689e48caf17f47218c2fed7af47086d0f7706d233a
+  languageName: node
+  linkType: hard
+
+"sharedb@npm:3.2.2":
+  version: 3.2.2
+  resolution: "sharedb@npm:3.2.2"
+  dependencies:
+    arraydiff: "npm:^0.1.1"
+    async: "npm:^2.6.3"
+    fast-deep-equal: "npm:^2.0.1"
+    hat: "npm:0.0.3"
+    ot-json0: "npm:^1.0.1"
+  checksum: 5aa17adf5e3716b8221fbb09feae4180ba078b495b2c3634646d3ee728e46e77e0c019c3c3e8cdcc70c9b7d1e51f98bb26d3bcd462ea8e438d801e3122232a2b
   languageName: node
   linkType: hard
 

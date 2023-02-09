@@ -41,7 +41,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
       .expect(200);
-    expect(result.body).toBeInstanceOf(Array);
+    expect(result.body.records).toBeInstanceOf(Array);
     console.log('result: ', result.body);
   });
 

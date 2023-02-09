@@ -210,6 +210,7 @@ export class FieldService {
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
         where: { tableId },
+        select: { id: true },
       });
       viewId = view.id;
     }

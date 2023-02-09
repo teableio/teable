@@ -19,7 +19,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
   afterInit(server: Server) {
     console.log('WsGateway afterInit');
     server.on('connection', (webSocket) => {
-      console.log('server:on:connection', webSocket);
+      console.log('server:on:connection');
       const stream = new WebSocketJSONStream(webSocket);
       this.shareDb.listen(stream);
     });

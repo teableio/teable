@@ -55,7 +55,6 @@ type IProjection = { [fieldKey: string]: boolean };
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
   closed: boolean;
-  projectsSnapshots = true;
 
   constructor(
     private readonly recordService: RecordService,
@@ -73,11 +72,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
     options: any,
     callback: ShareDb.DBQueryCallback
   ) => {
+    console.log(`query: ${collection}`);
     this.queryPoll(collection, query, options, (error, ids) => {
+      console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
       this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
+        console.log('snapshot result: ', snapshots);
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         callback(error, snapshots!);
       });
@@ -92,6 +94,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const prisma = this.transactionService.get(collection);
     const { limit = 10 } = query;
+    let viewId = query.viewId;
     const idPrefix = collection.slice(0, 3);
     if (idPrefix !== IdPrefix.Table) {
       throw new Error('query collection must be table id');
@@ -101,8 +104,17 @@ export class SqliteDbAdapter extends ShareDb.DB {
       throw new Error("limit can't be greater than 1000");
     }
 
+    if (!viewId) {
+      const view = await prisma.view.findFirstOrThrow({
+        where: { tableId: collection },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+
     const sqlNative = await this.recordService.buildQuery(prisma, collection, {
       ...query,
+      viewId,
       idOnly: true,
     });
 

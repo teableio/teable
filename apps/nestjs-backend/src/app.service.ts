@@ -22,7 +22,6 @@ export class AppService implements OnModuleInit {
         port: this.config.port,
         dir: this.config.dir,
         hostname: 'localhost',
-        customServer: true,
       });
       await this.server.prepare();
     } catch (error) {
