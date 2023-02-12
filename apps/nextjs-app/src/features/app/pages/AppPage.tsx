@@ -2,8 +2,10 @@ import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
 import type { FC } from 'react';
+import { useLocalstorageState } from 'rooks';
 import { appConfig } from '../app.config';
 import { DemoGrid } from '../components/DemoGrid';
+import { DemoGridSchema } from '../components/DemoSchema';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
@@ -37,6 +39,7 @@ const AppSwitch: FC<{ path?: string }> = ({ path }) => {
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);
   const currentFile = useAppStore((state) => state.currentFile);
+  const [tableId, setTableId] = useLocalstorageState('teable_table_id', '');
   return (
     <>
       <NextSeo
@@ -47,10 +50,15 @@ export const AppPage: FC = () => {
         <div className="h-full flex items-start fixed w-full">
           <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
             <SideMenu />
-            gggdd
+            Teable Technical Preview
+            <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
           </div>
           <div className="grow-1 h-screen w-full m-4 overflow-y-auto">
-            <DemoGrid />
+            <DemoGridSchema tableId={tableId}>
+              {(tableId, columns, connection) => (
+                <DemoGrid tableId={tableId} columns={columns} connection={connection} />
+              )}
+            </DemoGridSchema>
           </div>
         </div>
       </AppLayout>
