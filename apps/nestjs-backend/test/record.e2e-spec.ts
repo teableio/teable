@@ -42,7 +42,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       .get(`/api/table/${tableId}/record`)
       .expect(200);
     expect(result.body.records).toBeInstanceOf(Array);
-    console.log('result: ', result.body);
+    // console.log('result: ', result.body);
   });
 
   it('/api/table/{tableId}/record (POST)', async () => {
@@ -73,7 +73,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(200);
     expect(result.body.records).toHaveLength(4);
-    console.log('result: ', result.body);
+    // console.log('result: ', result.body);
   });
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {

@@ -18,10 +18,10 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import { FieldService } from '../../src/features/field/field.service';
 import { createFieldInstance } from '../../src/features/field/model/factory';
-import type { ISnapshotQuery } from '../../src/features/record/record.service';
 import { RecordService } from '../../src/features/record/record.service';
 import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
 import type { CreateFieldRo } from '../features/field/model/create-field.ro';
+import type { ISnapshotQuery } from './interface';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -74,12 +74,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) => {
     console.log(`query: ${collection}`);
     this.queryPoll(collection, query, options, (error, ids) => {
-      console.log('query pull result: ', ids);
+      // console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
       this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
-        console.log('snapshot result: ', snapshots);
+        // console.log('snapshot result: ', snapshots);
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         callback(error, snapshots!);
       });
@@ -92,41 +92,51 @@ export class SqliteDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
-    const prisma = this.transactionService.get(collection);
-    const { limit = 10 } = query;
-    let viewId = query.viewId;
-    const idPrefix = collection.slice(0, 3);
-    if (idPrefix !== IdPrefix.Table) {
-      throw new Error('query collection must be table id');
-    }
+    try {
+      const prisma = this.transactionService.get(collection);
+      let viewId = query.viewId;
+      if (!viewId) {
+        const view = await prisma.view.findFirstOrThrow({
+          where: { tableId: collection },
+          select: { id: true },
+        });
+        viewId = view.id;
+      }
 
-    if (limit > 1000) {
-      throw new Error("limit can't be greater than 1000");
-    }
+      if (query.type === 'field') {
+        const ids = await this.fieldService.getFieldIds(prisma, collection, viewId);
+        callback(null, ids);
+        return;
+      }
 
-    if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
-        where: { tableId: collection },
-        select: { id: true },
+      const { limit = 100 } = query;
+      const idPrefix = collection.slice(0, 3);
+      if (idPrefix !== IdPrefix.Table) {
+        throw new Error('query collection must be table id');
+      }
+
+      if (limit > 1000) {
+        throw new Error("limit can't be greater than 1000");
+      }
+
+      const sqlNative = await this.recordService.buildQuery(prisma, collection, {
+        ...query,
+        viewId,
+        idOnly: true,
       });
-      viewId = view.id;
+
+      const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
+        sqlNative.sql,
+        ...sqlNative.bindings
+      );
+
+      callback(
+        null,
+        result.map((r) => r.__id)
+      );
+    } catch (e) {
+      callback(e as any, []);
     }
-
-    const sqlNative = await this.recordService.buildQuery(prisma, collection, {
-      ...query,
-      viewId,
-      idOnly: true,
-    });
-
-    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
-
-    callback(
-      null,
-      result.map((r) => r.__id)
-    );
   }
 
   // Return true to avoid polling if there is no possibility that an op could
@@ -155,7 +165,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
 
     const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
-    console.log('adding record: ', tableId, recordId);
     await prisma.$executeRawUnsafe(
       `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
       recordId,
@@ -575,8 +584,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
         to
       );
 
-      console.log('getOps:', { collection, id, from, to });
-      console.log('getOps:result:', res);
       callback(
         null,
         res.map(function (row: any) {

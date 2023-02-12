@@ -66,7 +66,7 @@ export class ShareDbService extends ShareDBClass {
     return new Promise<Doc>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
-        console.log(`create document ${collectionId}.${id} succeed!`);
+        // console.log(`create document ${collectionId}.${id} succeed!`);
         resolve(doc);
       });
     });

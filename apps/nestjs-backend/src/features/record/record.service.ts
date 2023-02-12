@@ -1,8 +1,8 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { generateRecordId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { Knex } from 'knex';
 import knex from 'knex';
+import type { ISnapshotQuery } from '../../../src/share-db/interface';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
@@ -12,24 +12,11 @@ import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
-export interface ISnapshotQuery {
-  viewId: string;
-  where?: Knex.DbRecord<unknown>;
-  orderBy?: {
-    column: string;
-    order?: 'asc' | 'desc';
-    nulls?: 'first' | 'last';
-  }[];
-  offset?: number;
-  limit?: number;
-  idOnly?: boolean;
-}
-
 @Injectable()
 export class RecordService {
   queryBuilder: ReturnType<typeof knex>;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(private readonly prismaService: PrismaService) {
     this.queryBuilder = knex({ client: 'sqlite3' });
   }
 
@@ -72,7 +59,6 @@ export class RecordService {
       },
     });
 
-    console.log('userFields: ', userFields, userFieldIds);
     if (userFields.length !== userFieldIds.length) {
       throw new HttpException('some fields not found', 400);
     }
@@ -143,8 +129,6 @@ export class RecordService {
       ...['__id', '__row_default', '__created_time', '__created_by', '__version'],
     ];
 
-    console.log('allDbFieldNames: ', allDbFieldNames);
-
     const dbValueMatrix = await this.getDbValueMatrix(
       prisma,
       dbTableName,
@@ -158,10 +142,10 @@ export class RecordService {
       .map((dbValues) => `(${dbValues.map((value) => JSON.stringify(value)).join(', ')})`)
       .join(',\n');
 
-    console.log('allDbFieldNames: ', allDbFieldNames);
-    console.log('dbFieldSQL: ', dbFieldSQL);
-    console.log('dbValueMatrix: ', dbValueMatrix);
-    console.log('dbValuesSQL: ', dbValuesSQL);
+    // console.log('allDbFieldNames: ', allDbFieldNames);
+    // console.log('dbFieldSQL: ', dbFieldSQL);
+    // console.log('dbValueMatrix: ', dbValueMatrix);
+    // console.log('dbValuesSQL: ', dbValuesSQL);
 
     const result = await prisma.$executeRawUnsafe(`
       INSERT INTO ${dbTableName} (${dbFieldSQL})
@@ -176,7 +160,7 @@ export class RecordService {
 
   // we have to support multiple action, because users will do it in batch
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
-    return await this.prisma.$transaction(async (prisma) => {
+    return await this.prismaService.$transaction(async (prisma) => {
       return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsDto);
     });
   }
@@ -211,24 +195,27 @@ export class RecordService {
   async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
     let viewId = query.viewId;
     if (!viewId) {
-      const defaultView = await this.prisma.view.findFirstOrThrow({
+      const defaultView = await this.prismaService.view.findFirstOrThrow({
         where: { tableId },
         select: { id: true },
       });
       viewId = defaultView.id;
     }
 
-    const sqlNative = await this.buildQuery(this.prisma, tableId, {
+    const sqlNative = await this.buildQuery(this.prismaService, tableId, {
       viewId,
       offset: query.skip,
       limit: query.take,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const records = await this.prisma.$queryRawUnsafe<any[]>(sqlNative.sql, ...sqlNative.bindings);
-    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+    const records = await this.prismaService.$queryRawUnsafe<any[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
+    const dbTableName = await this.getDbTableName(this.prismaService, tableId);
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const countQuery = await this.prisma.$queryRawUnsafe<{ 'COUNT(*)': bigint }[]>(
+    const countQuery = await this.prismaService.$queryRawUnsafe<{ 'COUNT(*)': bigint }[]>(
       `SELECT COUNT(*) FROM ${dbTableName}`
     );
     const total = Number(countQuery[0]['COUNT(*)']);

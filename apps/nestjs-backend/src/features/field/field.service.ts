@@ -3,6 +3,7 @@ import type { IColumnMeta } from '@teable-group/core';
 import { nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
+import knex from 'knex';
 import { sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -13,7 +14,11 @@ import type { GetFieldsRo } from './model/get-fields.ro';
 
 @Injectable()
 export class FieldService {
-  constructor(private readonly prismaService: PrismaService) {}
+  queryBuilder: ReturnType<typeof knex>;
+
+  constructor(private readonly prismaService: PrismaService) {
+    this.queryBuilder = knex({ client: 'sqlite3' });
+  }
 
   async multipleGenerateValidDbFieldName(
     prisma: Prisma.TransactionClient,
@@ -234,5 +239,36 @@ export class FieldService {
     });
 
     return plainToInstance(FieldVo, sortedFields);
+  }
+
+  async getFieldIds(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    viewId: string
+  ): Promise<string[]> {
+    const fieldsPlain = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, columnMeta: true },
+    });
+
+    const fields = fieldsPlain.map((field) => {
+      return {
+        ...field,
+        columnMeta: JSON.parse(field.columnMeta),
+      };
+    });
+
+    return sortBy(fields, (field) => {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return field.columnMeta[viewId!].order;
+    }).map((field) => field.id);
+  }
+
+  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
+    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return tableMeta.dbTableName;
   }
 }
