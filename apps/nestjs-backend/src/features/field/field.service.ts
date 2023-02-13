@@ -70,7 +70,7 @@ export class FieldService {
       notNull,
       unique,
       isPrimary,
-      version: 0,
+      version: 1,
       defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
       dbFieldName,

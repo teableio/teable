@@ -57,10 +57,9 @@ export class FieldOpenApiService {
 
     // we only need build column in default view here
     // because we will build all columns after submit
-    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
-      metaKey: 'order',
+    const fieldOperation = OpBuilder.editor.addColumnMeta.build({
       viewId: defaultViewId,
-      newMetaValue: maxFieldOrder + 1,
+      newMetaValue: { order: maxFieldOrder + 1 },
     });
 
     return {

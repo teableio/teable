@@ -1,4 +1,5 @@
 import type { IOtOperation } from '../models';
+import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
 import { DeleteFieldBuilder } from './field/delete-field';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
@@ -12,6 +13,7 @@ export type { ISetRecordOrderOpContext as IAddRowOpContext } from './record/set-
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
 export type { ISetColumnMetaOpContext } from './field/set-column-meta';
+export type { IAddColumnMetaOpContext } from './field/add-column-meta';
 
 export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -21,6 +23,7 @@ export class OpBuilder {
     setRecordOrder: new SetRecordOrderBuilder(),
 
     deleteField: new DeleteFieldBuilder(),
+    addColumnMeta: new AddColumnMetaBuilder(),
     setColumnMeta: new SetColumnMetaBuilder(),
   };
 

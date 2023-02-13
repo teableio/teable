@@ -65,7 +65,7 @@ export class ViewService {
       options: options ? JSON.stringify(options) : undefined,
       sort: sort ? JSON.stringify(sort) : undefined,
       filter: filter ? JSON.stringify(filter) : undefined,
-      version: 0,
+      version: 1,
       order: maxOrder + 1,
       createdBy: 'admin',
       lastModifiedBy: 'admin',

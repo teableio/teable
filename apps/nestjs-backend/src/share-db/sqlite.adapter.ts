@@ -10,6 +10,7 @@ import type {
   IRecordSnapshot,
   FieldType,
   ISetRecordOpContext,
+  IAddColumnMetaOpContext,
 } from '@teable-group/core';
 import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -227,6 +228,32 @@ export class SqliteDbAdapter extends ShareDb.DB {
     );
   }
 
+  private async addColumnMeta(
+    prisma: Prisma.TransactionClient,
+    fieldId: string,
+    contexts: IAddColumnMetaOpContext[]
+  ) {
+    for (const context of contexts) {
+      const { viewId, newMetaValue } = context;
+
+      const fieldData = await prisma.field.findUniqueOrThrow({
+        where: { id: fieldId },
+        select: { columnMeta: true },
+      });
+
+      const columnMeta = JSON.parse(fieldData.columnMeta);
+
+      Object.entries(newMetaValue).forEach(([key, value]) => {
+        columnMeta[viewId][key] = value;
+      });
+
+      await prisma.field.update({
+        where: { id: fieldId },
+        data: { columnMeta: JSON.stringify(columnMeta) },
+      });
+    }
+  }
+
   private async setColumnMeta(
     prisma: Prisma.TransactionClient,
     fieldId: string,
@@ -273,6 +300,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
           break;
         case OpName.SetColumnMeta:
           await this.setColumnMeta(prisma, docId, opContexts as ISetColumnMetaOpContext[]);
+          break;
+        case OpName.AddColumnMeta:
+          await this.addColumnMeta(prisma, docId, opContexts as IAddColumnMetaOpContext[]);
           break;
         default:
           throw new Error(`op name ${opName} save method did not implement`);

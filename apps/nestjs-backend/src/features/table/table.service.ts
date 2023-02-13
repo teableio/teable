@@ -40,7 +40,7 @@ export class TableService {
       dbTableName,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
-      version: 0,
+      version: 1,
     };
     const tableMeta = await prisma.tableMeta.create({
       data,
