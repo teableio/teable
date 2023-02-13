@@ -38,18 +38,6 @@ interface ISnapshotBase<T = unknown> {
   m?: unknown;
 }
 
-/* eslint-disable @typescript-eslint/naming-convention */
-interface IVisualTableDefaultField {
-  __id: string;
-  __version: number;
-  __auto_number: number;
-  __created_time: Date;
-  __last_modified_time?: Date;
-  __created_by: string;
-  __last_modified_by?: string;
-}
-/* eslint-enable @typescript-eslint/naming-convention */
-
 type IProjection = { [fieldKey: string]: boolean };
 
 @Injectable()
@@ -74,12 +62,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) => {
     console.log(`query: ${collection}`);
     this.queryPoll(collection, query, options, (error, ids) => {
-      // console.log('query pull result: ', ids);
+      console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
       this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
-        // console.log('snapshot result: ', snapshots);
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         callback(error, snapshots!);
       });
@@ -384,70 +371,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     recordIds: string[],
     projection?: IProjection
   ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
-    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
-
-    const allFields = await prisma.field.findMany({
-      where: { tableId },
-      select: { id: true, dbFieldName: true },
-    });
-
-    const allViews = await prisma.view.findMany({
-      where: { tableId },
-      select: { id: true },
-    });
-    const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
-
-    const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
-    const columnSql = fields
-      .map((f) => f.dbFieldName)
-      .concat([
-        '__id',
-        '__version',
-        '__auto_number',
-        '__created_time',
-        '__last_modified_time',
-        '__created_by',
-        '__last_modified_by',
-        ...fieldNameOfViewOrder,
-      ])
-      .join(',');
-
-    const result = await prisma.$queryRawUnsafe<
-      ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
-    >(
-      `SELECT ${columnSql} FROM ${dbTableName} WHERE __id IN (${recordIds
-        .map(() => '?')
-        .join(',')})`,
-      ...recordIds
-    );
-
-    return result.map((record) => {
-      const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-        acc[field.id] = record[field.dbFieldName];
-        return acc;
-      }, {});
-
-      const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
-        (acc, vFieldName, index) => {
-          acc[allViews[index].id] = record[vFieldName] as number;
-          return acc;
-        },
-        {}
-      );
-
-      return {
-        id: record.__id,
-        v: record.__version,
-        type: 'json0',
-        data: {
-          record: {
-            fields: fieldsData,
-            id: record.__id,
-          },
-          recordOrder,
-        },
-      };
-    });
+    return await this.recordService.getRecordSnapshotBulk(prisma, tableId, recordIds, projection);
   }
 
   private async getFieldSnapshotBulk(
@@ -459,27 +383,29 @@ export class SqliteDbAdapter extends ShareDb.DB {
       where: { tableId, id: { in: fieldIds } },
     });
 
-    return fields.map((field) => {
-      return {
-        id: field.id,
-        v: field.version,
-        type: 'json0',
-        data: {
-          field: {
-            id: field.id,
-            name: field.name,
-            type: field.type as FieldType,
-            description: field.description || undefined,
-            options: JSON.parse(field.options as string) || undefined,
-            notNull: field.notNull || undefined,
-            unique: field.unique || undefined,
-            isPrimary: field.isPrimary || undefined,
-            defaultValue: JSON.parse(field.defaultValue as string) || undefined,
+    return fields
+      .sort((a, b) => fieldIds.indexOf(a.id) - fieldIds.indexOf(b.id))
+      .map((field) => {
+        return {
+          id: field.id,
+          v: field.version,
+          type: 'json0',
+          data: {
+            field: {
+              id: field.id,
+              name: field.name,
+              type: field.type as FieldType,
+              description: field.description || undefined,
+              options: JSON.parse(field.options as string) || undefined,
+              notNull: field.notNull || undefined,
+              unique: field.unique || undefined,
+              isPrimary: field.isPrimary || undefined,
+              defaultValue: JSON.parse(field.defaultValue as string) || undefined,
+            },
+            columnMeta: JSON.parse(field.columnMeta),
           },
-          columnMeta: JSON.parse(field.columnMeta),
-        },
-      };
-    });
+        };
+      });
   }
 
   // Get the named document from the database. The callback is called with (err,

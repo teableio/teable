@@ -52,7 +52,6 @@ export function useAsyncData<TRowType>(
     (cell) => {
       const [col, row] = cell;
       const rowData: TRowType | undefined = dataRef.current[row];
-      console.log('getCellContent', cell, rowData);
       if (rowData !== undefined) {
         return toCell(rowData, col);
       }
@@ -75,7 +74,6 @@ export function useAsyncData<TRowType>(
       const damageList: { cell: [number, number] }[] = [];
       const data = dataRef.current;
       for (const [i, element] of d.entries()) {
-        console.log('loadPage', i, element);
         data[i + startIndex] = element;
         for (let col = vr.x; col <= vr.x + vr.width; col++) {
           damageList.push({

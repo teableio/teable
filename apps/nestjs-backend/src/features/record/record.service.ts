@@ -12,6 +12,18 @@ import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
+/* eslint-disable @typescript-eslint/naming-convention */
+export interface IVisualTableDefaultField {
+  __id: string;
+  __version: number;
+  __auto_number: number;
+  __created_time: Date;
+  __last_modified_time?: Date;
+  __created_by: string;
+  __last_modified_by?: string;
+}
+/* eslint-enable @typescript-eslint/naming-convention */
+
 @Injectable()
 export class RecordService {
   queryBuilder: ReturnType<typeof knex>;
@@ -190,6 +202,82 @@ export class RecordService {
 
     console.log('sqlNative: ', sqlNative);
     return sqlNative;
+  }
+
+  async getRecordSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordIds: string[],
+    projection?: { [fieldKey: string]: boolean }
+  ) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+
+    const allFields = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, dbFieldName: true },
+    });
+
+    const allViews = await prisma.view.findMany({
+      where: { tableId },
+      select: { id: true },
+    });
+    const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
+
+    const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
+    const columnSql = fields
+      .map((f) => f.dbFieldName)
+      .concat([
+        '__id',
+        '__version',
+        '__auto_number',
+        '__created_time',
+        '__last_modified_time',
+        '__created_by',
+        '__last_modified_by',
+        ...fieldNameOfViewOrder,
+      ]);
+
+    const sqlNative = this.queryBuilder(dbTableName)
+      .select(columnSql)
+      .whereIn('__id', recordIds)
+      .toSQL()
+      .toNative();
+
+    const result = await prisma.$queryRawUnsafe<
+      ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+    >(sqlNative.sql, ...sqlNative.bindings);
+
+    return result
+      .sort((a, b) => {
+        return recordIds.indexOf(a.__id) - recordIds.indexOf(b.__id);
+      })
+      .map((record) => {
+        const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
+          acc[field.id] = record[field.dbFieldName];
+          return acc;
+        }, {});
+
+        const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
+          (acc, vFieldName, index) => {
+            acc[allViews[index].id] = record[vFieldName] as number;
+            return acc;
+          },
+          {}
+        );
+
+        return {
+          id: record.__id,
+          v: record.__version,
+          type: 'json0',
+          data: {
+            record: {
+              fields: fieldsData,
+              id: record.__id,
+            },
+            recordOrder,
+          },
+        };
+      });
   }
 
   async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {

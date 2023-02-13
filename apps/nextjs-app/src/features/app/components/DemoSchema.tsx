@@ -54,7 +54,7 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
         return {
           id: field.id,
           title: field.name,
-          width: 150,
+          width: 400,
           icon: GridColumnIcon.HeaderString,
           kind: GridCellKind.Text,
         };
@@ -62,7 +62,7 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
         return {
           id: field.id,
           title: field.name,
-          width: 150,
+          width: 200,
           icon: GridColumnIcon.HeaderArray,
           kind: GridCellKind.Text,
         };
@@ -70,7 +70,7 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
         return {
           id: field.id,
           title: field.name,
-          width: 150,
+          width: 200,
           icon: GridColumnIcon.HeaderNumber,
           kind: GridCellKind.Text,
         };

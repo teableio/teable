@@ -59,7 +59,7 @@ describe('Performance test data generator', () => {
   }
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {
-    const count = 1000;
+    const count = 50_000;
     console.time(`create ${count} records`);
     for (let i = 0; i < count / 1000; i++) {
       await addRecords(1000).expect(201).expect({});

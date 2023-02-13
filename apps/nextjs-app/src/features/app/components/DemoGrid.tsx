@@ -19,15 +19,21 @@ export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connectio
   const getRowData = useCallback(
     async (r: Item) => {
       await new Promise((res) => setTimeout(res, 300));
-      const [skip, take] = r;
+      const [offset, limit] = r;
       const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
-        skip,
-        take,
-        limit: 1000,
+        offset: offset,
+        limit: limit,
+      });
+      console.log('record:query:', {
+        offset: offset,
+        limit: limit,
       });
       const recordDocs = await new Promise<typeof query['results']>((resolve) => {
         query.on('ready', () => {
-          console.log('record:ready:', query.results);
+          console.log(
+            'record:ready:',
+            query.results.map((r) => r.data.record)
+          );
           resolve(query.results);
         });
       });
@@ -78,7 +84,7 @@ export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connectio
       getCellsForSelection={getCellsForSelection}
       width={'100%'}
       columns={columns}
-      rows={10000}
+      rows={50000}
       rowMarkers="both"
     />
   );
