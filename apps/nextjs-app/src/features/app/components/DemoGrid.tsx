@@ -84,7 +84,7 @@ export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connectio
       getCellsForSelection={getCellsForSelection}
       width={'100%'}
       columns={columns}
-      rows={50000}
+      rows={1000}
       rowMarkers="both"
     />
   );

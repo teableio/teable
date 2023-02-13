@@ -57,7 +57,7 @@ describe('Performance test data generator', () => {
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {
     const fieldCount = 20;
-    const count = 50_000;
+    const count = 1_000;
 
     for (let i = 0; i < fieldCount; i++) {
       const fieldRo: CreateFieldRo = {
