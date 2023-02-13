@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
 import { json, urlencoded } from 'express';
 import request from 'supertest';
+import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
 import { TableModule } from '../src/features/table/table.module';
 
@@ -28,10 +29,6 @@ describe('Performance test data generator', () => {
       name: 'table1',
     });
     tableId = result.body.id;
-
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    fields = fieldsResult.body;
-    console.log('fields: ', fields);
   });
 
   function addRecords(count: number) {
@@ -59,11 +56,31 @@ describe('Performance test data generator', () => {
   }
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {
+    const fieldCount = 20;
     const count = 50_000;
+
+    for (let i = 0; i < fieldCount; i++) {
+      const fieldRo: CreateFieldRo = {
+        name: 'New field' + i,
+        description: 'the new field',
+        type: [FieldType.SingleLineText, FieldType.Number, FieldType.SingleSelect][i % 3],
+      };
+
+      await request(app.getHttpServer())
+        .post(`/api/table/${tableId}/field`)
+        .send(fieldRo)
+        .expect(201)
+        .expect({});
+    }
+
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    fields = fieldsResult.body;
+
     console.time(`create ${count} records`);
     for (let i = 0; i < count / 1000; i++) {
       await addRecords(1000).expect(201).expect({});
     }
     console.timeEnd(`create ${count} records`);
+    console.log(`new table: ${tableId} created`);
   });
 });

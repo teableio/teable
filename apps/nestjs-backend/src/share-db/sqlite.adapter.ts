@@ -63,7 +63,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) => {
     console.log(`query: ${collection}`);
     this.queryPoll(collection, query, options, (error, ids) => {
-      console.log('query pull result: ', ids);
+      // console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
