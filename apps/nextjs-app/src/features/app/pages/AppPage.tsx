@@ -53,7 +53,7 @@ export const AppPage: FC = () => {
             Teable Technical Preview
             <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
           </div>
-          <div className="grow-1 h-screen w-full m-4 overflow-y-auto">
+          <div className="grow-1 h-screen w-full overflow-y-auto">
             <DemoGridSchema tableId={tableId}>
               {(tableId, columns, connection) => (
                 <DemoGrid tableId={tableId} columns={columns} connection={connection} />

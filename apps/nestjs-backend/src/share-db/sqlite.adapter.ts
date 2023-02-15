@@ -11,8 +11,11 @@ import type {
   FieldType,
   ISetRecordOpContext,
   IAddColumnMetaOpContext,
+  IRecordSnapshotQuery,
+  IFieldSnapshotQuery,
+  IRowCountQuery,
 } from '@teable-group/core';
-import { IdPrefix, OpName, OpBuilder } from '@teable-group/core';
+import { SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
@@ -22,7 +25,6 @@ import { createFieldInstance } from '../../src/features/field/model/factory';
 import { RecordService } from '../../src/features/record/record.service';
 import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
 import type { CreateFieldRo } from '../features/field/model/create-field.ro';
-import type { ISnapshotQuery } from './interface';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -56,29 +58,46 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   query = async (
     collection: string,
-    query: ISnapshotQuery,
+    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IRowCountQuery,
     projection: IProjection,
     options: any,
     callback: ShareDb.DBQueryCallback
   ) => {
     console.log(`query: ${collection}`);
-    this.queryPoll(collection, query, options, (error, ids) => {
+    this.queryPoll(collection, query, options, (error, results) => {
       // console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
-      this.getSnapshotBulk(collection, ids, projection, options, (error, snapshots) => {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        callback(error, snapshots!);
-      });
+      if (query.type === SnapshotQueryType.RowCount) {
+        return callback(error, [
+          new Snapshot(
+            String(results[0]),
+            1,
+            'json0',
+            results[0],
+            undefined // TODO: metadata
+          ),
+        ]);
+      }
+      this.getSnapshotBulk(
+        collection,
+        results as string[],
+        projection,
+        options,
+        (error, snapshots) => {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          callback(error, snapshots!);
+        }
+      );
     });
   };
 
   async queryPoll(
     collection: string,
-    query: ISnapshotQuery,
+    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IRowCountQuery,
     options: any,
-    callback: (error: ShareDb.Error | null, ids: string[]) => void
+    callback: (error: ShareDb.Error | null, ids: (string | number)[]) => void
   ) {
     try {
       const prisma = this.transactionService.get(collection);
@@ -91,37 +110,24 @@ export class SqliteDbAdapter extends ShareDb.DB {
         viewId = view.id;
       }
 
-      if (query.type === 'field') {
+      if (query.type === SnapshotQueryType.Field) {
         const ids = await this.fieldService.getFieldIds(prisma, collection, viewId);
         callback(null, ids);
         return;
       }
 
-      const { limit = 100 } = query;
-      const idPrefix = collection.slice(0, 3);
-      if (idPrefix !== IdPrefix.Table) {
-        throw new Error('query collection must be table id');
+      if (query.type === SnapshotQueryType.Record) {
+        const ids = await this.recordService.getRecordIds(prisma, collection, { ...query, viewId });
+        callback(null, ids);
+        return;
       }
 
-      if (limit > 1000) {
-        throw new Error("limit can't be greater than 1000");
+      if (query.type === SnapshotQueryType.RowCount) {
+        console.log({ query }, viewId);
+        const count = await this.recordService.getRowCount(prisma, collection, viewId);
+        console.log('count: ', count);
+        callback(null, [count]);
       }
-
-      const sqlNative = await this.recordService.buildQuery(prisma, collection, {
-        ...query,
-        viewId,
-        idOnly: true,
-      });
-
-      const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
-      );
-
-      callback(
-        null,
-        result.map((r) => r.__id)
-      );
     } catch (e) {
       callback(e as any, []);
     }
@@ -135,7 +141,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     op: CreateOp | DeleteOp | EditOp,
-    query: ISnapshotQuery
+    query: IRecordSnapshotQuery
   ): boolean {
     // ShareDB is in charge of doing the validation of ops, so at this point we
     // should be able to assume that the op is structured validly
@@ -152,7 +158,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
     const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
 
-    const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
+    const rowCount = await this.recordService.getAllRecordCount(prisma, dbTableName);
     await prisma.$executeRawUnsafe(
       `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
       recordId,

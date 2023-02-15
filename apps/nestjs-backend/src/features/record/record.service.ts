@@ -1,8 +1,8 @@
 import { HttpException, Injectable } from '@nestjs/common';
-import { generateRecordId } from '@teable-group/core';
+import type { IRecordSnapshotQuery } from '@teable-group/core';
+import { generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import type { ISnapshotQuery } from '../../../src/share-db/interface';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
@@ -78,13 +78,15 @@ export class RecordService {
     return userFields;
   }
 
-  async getRowCount(prisma: Prisma.TransactionClient, dbTableName: string) {
+  async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
+    const sqlNative = this.queryBuilder(dbTableName).max('__auto_number').toSQL().toNative();
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const queryResult = await prisma.$queryRawUnsafe<[{ 'MAX(__auto_number)': null | bigint }]>(`
-    SELECT MAX(__auto_number)
-    FROM ${dbTableName};
-    `);
-    return Number(queryResult[0]['MAX(__auto_number)']);
+    const queryResult = await prisma.$queryRawUnsafe<[{ 'max(`__auto_number`)': null | bigint }]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
+
+    return Number(queryResult[0]['max(`__auto_number`)']);
   }
 
   async getDbValueMatrix(
@@ -94,7 +96,7 @@ export class RecordService {
     rowIndexFieldNames: string[],
     createRecordsDto: CreateRecordsDto
   ) {
-    const rowCount = await this.getRowCount(prisma, dbTableName);
+    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
     const dbValueMatrix: unknown[][] = [];
     for (let i = 0; i < createRecordsDto.records.length; i++) {
       const recordData = createRecordsDto.records[i].fields;
@@ -185,7 +187,11 @@ export class RecordService {
     return tableMeta.dbTableName;
   }
 
-  async buildQuery(prisma: Prisma.TransactionClient, tableId: string, query: ISnapshotQuery) {
+  async buildQuery(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    query: IRecordSnapshotQuery & { idOnly?: boolean }
+  ) {
     const { viewId, where = {}, orderBy = [], offset = 0, limit = 10, idOnly } = query;
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
@@ -202,6 +208,40 @@ export class RecordService {
 
     console.log('sqlNative: ', sqlNative);
     return sqlNative;
+  }
+
+  async getRecordIds(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    query: IRecordSnapshotQuery
+  ) {
+    const { limit = 100, viewId } = query;
+    const idPrefix = tableId.slice(0, 3);
+    if (idPrefix !== IdPrefix.Table) {
+      throw new Error('query collection must be table id');
+    }
+
+    if (limit > 1000) {
+      throw new Error("limit can't be greater than 1000");
+    }
+
+    const sqlNative = await this.buildQuery(prisma, tableId, {
+      ...query,
+      viewId,
+      idOnly: true,
+    });
+
+    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
+
+    return result.map((r) => r.__id);
+  }
+
+  async getRowCount(prisma: Prisma.TransactionClient, tableId: string, viewId: string) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+    return await this.getAllRecordCount(prisma, dbTableName);
   }
 
   async getRecordSnapshotBulk(

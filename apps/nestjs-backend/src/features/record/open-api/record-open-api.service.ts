@@ -52,15 +52,11 @@ export class RecordOpenApiService {
     });
 
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
+      where: { id: tableId },
+      select: { dbTableName: true },
     });
 
-    const rowCount = await this.recordService.getRowCount(prisma, dbTableName);
+    const rowCount = await this.recordService.getAllRecordCount(prisma, dbTableName);
 
     return createRecordsDto.records.map((record, index) => {
       const recordId = generateRecordId();

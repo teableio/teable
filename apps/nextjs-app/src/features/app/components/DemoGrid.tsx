@@ -1,10 +1,12 @@
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
 import type { GridColumn, Item, DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
-import { useCallback, useRef } from 'react';
+import { SnapshotQueryType } from '@teable-group/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Connection } from 'sharedb/lib/client';
 import '@glideapps/glide-data-grid/dist/index.css';
 import { useAsyncData } from './useAsyncData';
+
 export interface IDemoGridProps {
   tableId: string;
   columns: (GridColumn & {
@@ -15,16 +17,37 @@ export interface IDemoGridProps {
 
 export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connection }) => {
   const ref = useRef<DataEditorRef | null>(null);
+  const [rowCount, setRowCount] = useState(0);
+
+  useEffect(() => {
+    const query = connection.createSubscribeQuery<number>(tableId, {
+      type: SnapshotQueryType.RowCount,
+    });
+
+    query.on('ready', () => {
+      console.log('rowCount:ready:', query);
+      const count = query.results[0].data;
+      setRowCount(count);
+    });
+
+    query.on('changed', () => {
+      const count = query.results[0].data;
+
+      console.log('rowCount:changed:', count);
+      setRowCount(count);
+    });
+
+    return () => {
+      query.destroy();
+    };
+  }, [tableId, connection]);
 
   const getRowData = useCallback(
     async (r: Item) => {
       await new Promise((res) => setTimeout(res, 300));
       const [offset, limit] = r;
       const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
-        offset: offset,
-        limit: limit,
-      });
-      console.log('record:query:', {
+        type: SnapshotQueryType.Record,
         offset: offset,
         limit: limit,
       });
@@ -84,7 +107,7 @@ export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connectio
       getCellsForSelection={getCellsForSelection}
       width={'100%'}
       columns={columns}
-      rows={1000}
+      rows={rowCount}
       rowMarkers="both"
     />
   );
