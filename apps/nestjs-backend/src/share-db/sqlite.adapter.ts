@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   IOtOperation,
   IRecord,
-  IAddRowOpContext,
+  ISetRecordOrderOpContext,
   ISetColumnMetaOpContext,
   IFieldSnapshot,
   IRecordSnapshot,
@@ -173,7 +173,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     prisma: Prisma.TransactionClient,
     recordId: string,
     dbTableName: string,
-    contexts: IAddRowOpContext[]
+    contexts: ISetRecordOrderOpContext[]
   ) {
     for (const context of contexts) {
       const { viewId, newOrder } = context;
@@ -299,7 +299,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
       const opContexts = ops2ContextsGrouped[opName];
       switch (opName) {
         case OpName.SetRecordOrder:
-          await this.setRecordOrder(prisma, docId, dbTableName, opContexts as IAddRowOpContext[]);
+          await this.setRecordOrder(
+            prisma,
+            docId,
+            dbTableName,
+            opContexts as ISetRecordOrderOpContext[]
+          );
           break;
         case OpName.SetRecord:
           await this.setRecords(prisma, docId, dbTableName, opContexts as ISetRecordOpContext[]);

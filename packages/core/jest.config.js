@@ -1,9 +1,10 @@
 // @ts-check
-import { getTsconfig } from 'get-tsconfig';
-import { pathsToModuleNameMapper } from 'ts-jest';
-import { getJestCachePath } from '../../cache.config.js';
+const { getTsconfig } = require('get-tsconfig');
+const { pathsToModuleNameMapper } = require('ts-jest');
 
-const tsConfigFile = new URL('./tsconfig.json', import.meta.url).pathname;
+const { getJestCachePath } = require('../../cache.config');
+
+const tsConfigFile = './tsconfig.json';
 
 /**
  * Transform the tsconfig paths into jest compatible one (support extends)
@@ -47,7 +48,11 @@ const config = {
   // false by default, overrides in cli, ie: yarn test:unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/../coverage',
-  collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.{js,ts}', '!**/__mock__/*'],
+  collectCoverageFrom: [
+    '<rootDir>/**/*.{ts,tsx,js,jsx}',
+    '!**/*.{spec,test}.{js,ts}',
+    '!**/__mock__/*',
+  ],
 };
 
-export default config;
+module.exports = config;

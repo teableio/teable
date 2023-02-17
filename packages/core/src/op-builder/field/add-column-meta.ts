@@ -31,6 +31,10 @@ export class AddColumnMetaBuilder implements IOpBuilder {
   detect(op: IOtOperation): IAddColumnMetaOpContext | null {
     const { p, oi, od } = op;
 
+    if (!oi) {
+      return null;
+    }
+
     const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, ['columnMeta', ':viewId']);
 
     if (!result) {

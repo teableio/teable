@@ -31,6 +31,20 @@
       "sourceMaps": true,
       "console": "internalConsole",
       "outputCapture": "std"
+    },
+    {
+      "name": "Jest core",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/core",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "../../node_modules/.bin/jest",
+        "${relativeFile}",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }
