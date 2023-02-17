@@ -38,12 +38,13 @@ model Field {
   // cellValue type enum (string, number, boolean, datetime, array)
   cellValueType        String     @map(name: "cell_value_type")
   // db field type (TEXT, INTEGER, REAL, BLOB)
-  dbType               String?    @map(name: "db_type")
+  dbFieldType               String?    @map(name: "db_field_type")
   dbFieldName          String     @map(name: "db_field_name")
   defaultValue         String?    @map(name: "default_value")
   notNull              Boolean?   @map(name: "not_null")
   unique               Boolean?
   isPrimary            Boolean?   @map(name: "is_primary")
+  isComputed           Boolean?   @map(name: "is_computed")
   table                TableMeta  @relation(fields: [tableId], references: [id])
   tableId              String     @map(name: "table_id")
   // maintain columnMeta in field

@@ -5,7 +5,7 @@ import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
-import { createFieldInstance } from '../field/model/factory';
+import { createFieldInstanceByRo } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORDS, DEFAULT_VIEW } from './constant';
@@ -64,7 +64,7 @@ export class TableService {
       await this.fieldService.multipleCreateFieldsTransaction(
         prisma,
         tableId,
-        DEFAULT_FIELDS.map(createFieldInstance)
+        DEFAULT_FIELDS.map(createFieldInstanceByRo)
       );
 
       // 3. create view for table

@@ -27,3 +27,10 @@ export enum FieldType {
   AutoNumber = 'autoNumber',
   Button = 'button',
 }
+
+export enum DbFieldType {
+  Text = 'TEXT',
+  Integer = 'INTEGER',
+  Real = 'REAL',
+  Blob = 'BLOB',
+}

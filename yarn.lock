@@ -6394,6 +6394,7 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
+    "@types/sharedb": "npm:3.2.1"
     "@vitejs/plugin-react": "npm:2.2.0"
     "@vitest/coverage-istanbul": "npm:0.24.3"
     "@vitest/ui": "npm:0.24.3"
@@ -6408,6 +6409,7 @@ __metadata:
     react: "npm:18.2.0"
     react-dom: "npm:18.2.0"
     rimraf: "npm:3.0.2"
+    sharedb: "npm:3.2.3"
     ts-jest: "npm:29.0.3"
     typescript: "npm:4.8.4"
     vite: "npm:3.2.1"
@@ -23965,6 +23967,19 @@ __metadata:
     hat: "npm:0.0.3"
     ot-json0: "npm:^1.0.1"
   checksum: 5aa17adf5e3716b8221fbb09feae4180ba078b495b2c3634646d3ee728e46e77e0c019c3c3e8cdcc70c9b7d1e51f98bb26d3bcd462ea8e438d801e3122232a2b
+  languageName: node
+  linkType: hard
+
+"sharedb@npm:3.2.3":
+  version: 3.2.3
+  resolution: "sharedb@npm:3.2.3"
+  dependencies:
+    arraydiff: "npm:^0.1.1"
+    async: "npm:^2.6.3"
+    fast-deep-equal: "npm:^2.0.1"
+    hat: "npm:0.0.3"
+    ot-json0: "npm:^1.0.1"
+  checksum: c005c7468114f391ef56f23b3dcc7237d3076befb95ec67298fa22fea4f581c256104b6f45d99d5e2ce504eb3b172b9f9734c30f165750f6fdf141715949e3d3
   languageName: node
   linkType: hard
 

@@ -1,14 +1,12 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import type { FieldBase } from '@teable-group/core';
+import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { NumberOptionsDto } from './field-dto/number-field.dto';
 import { SingleSelectOptionsDto } from './field-dto/single-select-field.dto';
 
-export type IFieldCreateRo = Omit<FieldBase, 'id'>;
-
 @ApiExtraModels(SingleSelectOptionsDto)
 @ApiExtraModels(NumberOptionsDto)
-export class CreateFieldRo implements IFieldCreateRo {
+export class CreateFieldRo implements IFieldRo {
   @ApiProperty({
     description: 'The name of the field.',
     example: 'Single Select',

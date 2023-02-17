@@ -1,9 +1,11 @@
-import type { FieldType } from './constant';
+import type { FieldType, DbFieldType } from './constant';
 import type { CellValueType } from './field';
-import { Field } from './field';
+import { FieldCore } from './field';
 
-export class SingleLineTextField extends Field {
+export class SingleLineTextField extends FieldCore {
   type!: FieldType.SingleLineText;
+
+  dbFieldType!: DbFieldType.Text;
 
   options?: undefined;
 
@@ -12,4 +14,18 @@ export class SingleLineTextField extends Field {
   calculatedType!: FieldType.SingleLineText;
 
   cellValueType!: CellValueType.String;
+
+  isComputed!: false;
+
+  cellValue2String(cellValue: string) {
+    return cellValue;
+  }
+
+  convertStringToCellValue(value: string): string | null {
+    if (value === '' || value == null) {
+      return null;
+    }
+
+    return value;
+  }
 }

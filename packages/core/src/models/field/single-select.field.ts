@@ -1,7 +1,7 @@
 import type { Colors } from './colors';
-import type { FieldType } from './constant';
+import type { FieldType, DbFieldType } from './constant';
 import type { CellValueType } from './field';
-import { Field } from './field';
+import { FieldCore } from './field';
 
 export class SingleSelectFieldChoices {
   name!: string;
@@ -12,8 +12,10 @@ export class SingleSelectFieldOptions {
   choices!: SingleSelectFieldChoices[];
 }
 
-export class SingleSelectField extends Field {
+export class SingleSelectField extends FieldCore {
   type!: FieldType.SingleSelect;
+
+  dbFieldType!: DbFieldType.Text;
 
   options!: SingleSelectFieldOptions;
 
@@ -22,4 +24,22 @@ export class SingleSelectField extends Field {
   calculatedType!: FieldType.SingleSelect;
 
   cellValueType!: CellValueType.String;
+
+  isComputed!: false;
+
+  cellValue2String(cellValue: string) {
+    return cellValue;
+  }
+
+  convertStringToCellValue(value: string): string | null {
+    if (value === '' || value == null) {
+      return null;
+    }
+
+    if (this.options.choices.find((c) => c.name === value)) {
+      return value;
+    }
+
+    return null;
+  }
 }

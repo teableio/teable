@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SingleSelectField, Colors } from '@teable-group/core';
 import type { SingleSelectFieldChoices, SingleSelectFieldOptions } from '@teable-group/core';
-import type { DbFieldType } from '../../constant';
 
 class SingleSelectOption implements SingleSelectFieldChoices {
   @ApiProperty({
@@ -28,6 +27,4 @@ export class SingleSelectOptionsDto implements SingleSelectFieldOptions {
   choices!: SingleSelectOption[];
 }
 
-export class SingleSelectFieldDto extends SingleSelectField {
-  dbFieldType!: DbFieldType.Text;
-}
+export class SingleSelectFieldDto extends SingleSelectField {}

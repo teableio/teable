@@ -1,13 +1,15 @@
-import type { FieldType } from './constant';
+import type { DbFieldType, FieldType } from './constant';
 import type { CellValueType } from './field';
-import { Field } from './field';
+import { FieldCore } from './field';
 
 export class NumberFieldOptions {
   precision!: number;
 }
 
-export class NumberField extends Field {
+export class NumberField extends FieldCore {
   type!: FieldType.Number;
+
+  dbFieldType!: DbFieldType.Real;
 
   options!: NumberFieldOptions;
 
@@ -16,4 +18,18 @@ export class NumberField extends Field {
   calculatedType!: FieldType.Number;
 
   cellValueType!: CellValueType.Number;
+
+  isComputed!: false;
+
+  cellValue2String(cellValue: number) {
+    return cellValue.toFixed(this.options.precision);
+  }
+
+  convertStringToCellValue(value: string): number | null {
+    const num = Number(value);
+    if (Number.isNaN(num)) {
+      return null;
+    }
+    return num;
+  }
 }

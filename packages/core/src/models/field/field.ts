@@ -1,15 +1,22 @@
 import type { StatisticsFunc } from '../view';
-import type { FieldType } from './constant';
-export class FieldBase {
-  id!: string;
-  name!: string;
-  type!: FieldType;
+import type { DbFieldType, FieldType } from './constant';
+export interface IFieldRo {
+  name: string;
+  type: FieldType;
   description?: string;
   options?: unknown;
   notNull?: boolean;
   unique?: boolean;
   isPrimary?: boolean;
   defaultValue?: unknown;
+}
+
+export interface IFieldVo extends IFieldRo {
+  id: string;
+  isComputed?: boolean;
+  calculatedType: unknown;
+  cellValueType: CellValueType;
+  dbFieldType: DbFieldType;
 }
 
 export class Column {
@@ -27,8 +34,24 @@ export enum CellValueType {
   Array = 'array',
 }
 
-export abstract class Field extends FieldBase {
+export abstract class FieldCore implements IFieldVo {
+  id!: string;
+
+  name!: string;
+
+  description?: string;
+
+  notNull?: boolean;
+
+  unique?: boolean;
+
+  isPrimary?: boolean;
+
   abstract type: FieldType;
+
+  abstract isComputed?: boolean;
+
+  abstract dbFieldType: DbFieldType;
 
   abstract options?: unknown;
 
@@ -39,4 +62,8 @@ export abstract class Field extends FieldBase {
 
   // cellValue type enum (string, number, boolean, datetime, array)
   abstract cellValueType: CellValueType;
+
+  abstract cellValue2String(value: unknown): string;
+
+  abstract convertStringToCellValue(str: string): unknown;
 }

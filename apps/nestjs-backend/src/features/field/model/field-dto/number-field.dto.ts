@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NumberField } from '@teable-group/core';
 import type { NumberFieldOptions } from '@teable-group/core';
-import type { DbFieldType } from '../../constant';
 
 export class NumberOptionsDto implements NumberFieldOptions {
   @ApiProperty({
@@ -13,6 +12,4 @@ export class NumberOptionsDto implements NumberFieldOptions {
   precision!: number;
 }
 
-export class NumberFieldDto extends NumberField {
-  dbFieldType!: DbFieldType.Real;
-}
+export class NumberFieldDto extends NumberField {}

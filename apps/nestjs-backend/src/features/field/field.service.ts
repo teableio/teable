@@ -74,7 +74,7 @@ export class FieldService {
       defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
       dbFieldName,
-      dbType: fieldInstance.dbFieldType,
+      dbFieldType: fieldInstance.dbFieldType,
       calculatedType: fieldInstance.calculatedType,
       cellValueType: fieldInstance.cellValueType,
       createdBy: 'admin',

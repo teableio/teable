@@ -8,23 +8,25 @@ import type {
   ISetColumnMetaOpContext,
   IFieldSnapshot,
   IRecordSnapshot,
-  FieldType,
   ISetRecordOpContext,
   IAddColumnMetaOpContext,
   IRecordSnapshotQuery,
   IFieldSnapshotQuery,
   IRowCountQuery,
+  ISetFieldNameOpContext,
 } from '@teable-group/core';
 import { SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { instanceToPlain } from 'class-transformer';
 import { groupBy, keyBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import { FieldService } from '../../src/features/field/field.service';
-import { createFieldInstance } from '../../src/features/field/model/factory';
-import { RecordService } from '../../src/features/record/record.service';
-import { getViewOrderFieldName } from '../../src/utils/view-order-field-name';
+import { FieldService } from '../features/field/field.service';
 import type { CreateFieldRo } from '../features/field/model/create-field.ro';
+import { createFieldInstanceByRaw, createFieldInstanceByRo } from '../features/field/model/factory';
+import type { FieldVo } from '../features/field/model/field.vo';
+import { RecordService } from '../features/record/record.service';
+import { getViewOrderFieldName } from '../utils/view-order-field-name';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -218,7 +220,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     tableId: string,
     fieldSnapshot: IFieldSnapshot
   ) {
-    const fieldInstance = createFieldInstance(fieldSnapshot.field as CreateFieldRo);
+    const fieldInstance = createFieldInstanceByRo(fieldSnapshot.field as CreateFieldRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [
@@ -284,6 +286,20 @@ export class SqliteDbAdapter extends ShareDb.DB {
     }
   }
 
+  private async setFieldName(
+    prisma: Prisma.TransactionClient,
+    fieldId: string,
+    contexts: ISetFieldNameOpContext[]
+  ) {
+    for (const context of contexts) {
+      const { newName } = context;
+      await prisma.field.update({
+        where: { id: fieldId },
+        data: { name: newName },
+      });
+    }
+  }
+
   private async updateSnapshot(
     prisma: Prisma.TransactionClient,
     collection: string,
@@ -314,6 +330,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
           break;
         case OpName.AddColumnMeta:
           await this.addColumnMeta(prisma, docId, opContexts as IAddColumnMetaOpContext[]);
+          break;
+        case OpName.SetFieldName:
+          await this.setFieldName(prisma, docId, opContexts as ISetFieldNameOpContext[]);
           break;
         default:
           throw new Error(`op name ${opName} save method did not implement`);
@@ -423,26 +442,17 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const fields = await prisma.field.findMany({
       where: { tableId, id: { in: fieldIds } },
     });
+    const fieldInstances = fields.map((field) => createFieldInstanceByRaw(field));
 
     return fields
       .sort((a, b) => fieldIds.indexOf(a.id) - fieldIds.indexOf(b.id))
-      .map((field) => {
+      .map((field, i) => {
         return {
           id: field.id,
           v: field.version,
           type: 'json0',
           data: {
-            field: {
-              id: field.id,
-              name: field.name,
-              type: field.type as FieldType,
-              description: field.description || undefined,
-              options: JSON.parse(field.options as string) || undefined,
-              notNull: field.notNull || undefined,
-              unique: field.unique || undefined,
-              isPrimary: field.isPrimary || undefined,
-              defaultValue: JSON.parse(field.defaultValue as string) || undefined,
-            },
+            field: instanceToPlain(fieldInstances[i]) as FieldVo,
             columnMeta: JSON.parse(field.columnMeta),
           },
         };

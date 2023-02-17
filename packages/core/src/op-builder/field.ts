@@ -1,4 +1,4 @@
-import type { Column, Field, IOtOperation } from '../models';
+import type { Column, FieldCore, IOtOperation } from '../models';
 import { FieldType, StatisticsFunc } from '../models';
 
 enum FieldMetaKey {
@@ -51,7 +51,7 @@ export class FieldOpBuilder {
     };
   }
 
-  static addField(field: Field): IOtOperation {
+  static addField(field: FieldCore): IOtOperation {
     return {
       p: ['fieldMap', field.id],
       oi: field,

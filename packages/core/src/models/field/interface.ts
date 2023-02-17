@@ -1,8 +1,8 @@
-import type { Column, FieldBase } from './field';
+import type { Column, IFieldVo } from './field';
 
 export type IColumnMeta = { [key: string]: Column };
 
 export interface IFieldSnapshot {
-  field: FieldBase;
+  field: IFieldVo;
   columnMeta: IColumnMeta;
 }

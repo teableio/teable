@@ -1,9 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
-import type { Field } from '@teable-group/core';
-import { CellValueType, FieldType } from '@teable-group/core';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { IFieldVo } from '@teable-group/core';
+import { CellValueType, FieldType, DbFieldType } from '@teable-group/core';
 import { CreateFieldRo } from './create-field.ro';
 
-export class FieldVo extends CreateFieldRo implements Field {
+export class FieldVo extends CreateFieldRo implements IFieldVo {
   @ApiProperty({
     description: 'The id of the field.',
     example: 'fldXXXXXXXX',
@@ -23,4 +23,16 @@ export class FieldVo extends CreateFieldRo implements Field {
     example: CellValueType.String,
   })
   cellValueType!: CellValueType;
+
+  @ApiPropertyOptional({
+    description: `true if this field is computed, false otherwise. A field is "computed" if it's value is not set by user input (e.g. autoNumber, formula, etc.).`,
+    example: false,
+  })
+  isComputed?: boolean;
+
+  @ApiProperty({
+    description: `The real field type in database.`,
+    example: false,
+  })
+  dbFieldType!: DbFieldType;
 }
