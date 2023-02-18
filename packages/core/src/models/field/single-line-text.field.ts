@@ -2,7 +2,7 @@ import type { FieldType, DbFieldType } from './constant';
 import type { CellValueType } from './field';
 import { FieldCore } from './field';
 
-export class SingleLineTextField extends FieldCore {
+export class SingleLineTextFieldCore extends FieldCore {
   type!: FieldType.SingleLineText;
 
   dbFieldType!: DbFieldType.Text;

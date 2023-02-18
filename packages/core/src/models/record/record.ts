@@ -1,8 +1,8 @@
 import type { FieldCore } from '../field';
 import type { IRecordFields } from './interface';
 
-export class Record {
-  constructor(private fields: { [fieldId: string]: FieldCore }, private data: IRecordFields) {}
+export class RecordCore {
+  constructor(protected fields: { [fieldId: string]: FieldCore }, protected data: IRecordFields) {}
 
   commentCount!: number;
 

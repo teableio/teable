@@ -308,6 +308,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const dbTableName = await this.recordService.getDbTableName(prisma, collection);
 
+    console.log('update snapshot', ops);
+
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
     // group by op name execute faster
     const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
@@ -379,6 +381,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
+
+    console.log('commit', collection, id, rawOp, snapshot);
+
     try {
       const prisma = this.transactionService.get(collection);
       const opsResult = await prisma.ops.aggregate({

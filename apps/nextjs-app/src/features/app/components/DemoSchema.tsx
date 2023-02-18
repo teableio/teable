@@ -2,10 +2,13 @@ import { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
 import type { GridColumn } from '@glideapps/glide-data-grid';
 import type { IFieldSnapshot } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk';
+import { createFieldInstance } from '@teable-group/sdk';
 import { useEffect, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import '@glideapps/glide-data-grid/dist/index.css';
+
 export interface IDemoGridProps {
   tableId: string;
   children: (
@@ -17,7 +20,7 @@ export interface IDemoGridProps {
 
 export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [fields, setFields] = useState<IFieldSnapshot[]>([]);
+  const [fields, setFields] = useState<IFieldInstance[]>([]);
 
   const [connection] = useState(() => {
     const socket = new ReconnectingWebSocket('ws://' + window.location.host);
@@ -33,11 +36,12 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
 
     fieldsQuery.on('ready', () => {
       console.log('table:ready:', fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => r.data));
+      setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
     });
+
     fieldsQuery.on('changed', () => {
       console.log('table:changed:', fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => r.data));
+      setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
     });
 
     return () => {
@@ -47,8 +51,8 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
 
   const columns: (GridColumn & {
     id: string;
-  })[] = fields.map((fieldSnapshot) => {
-    const field = fieldSnapshot.field;
+  })[] = fields.map((field) => {
+    console.log('fieldInstance', field);
     switch (field.type) {
       case FieldType.SingleLineText:
         return {
@@ -75,13 +79,6 @@ export const DemoGridSchema: React.FC<IDemoGridProps> = ({ tableId, children }) 
           kind: GridCellKind.Text,
         };
     }
-    return {
-      id: field.id,
-      title: field.name,
-      width: 150,
-      icon: GridColumnIcon.HeaderString,
-      kind: GridCellKind.Text,
-    };
   });
 
   return (

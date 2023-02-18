@@ -6,7 +6,7 @@ export class NumberFieldOptions {
   precision!: number;
 }
 
-export class NumberField extends FieldCore {
+export class NumberFieldCore extends FieldCore {
   type!: FieldType.Number;
 
   dbFieldType!: DbFieldType.Real;

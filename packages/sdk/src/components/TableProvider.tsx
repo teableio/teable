@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react';
-import { TableContext } from '@/context/table';
+import { TableContext } from '../context/table';
 
 interface IProps {
   tableId: string;

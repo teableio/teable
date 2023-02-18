@@ -12,7 +12,7 @@ export class SingleSelectFieldOptions {
   choices!: SingleSelectFieldChoices[];
 }
 
-export class SingleSelectField extends FieldCore {
+export class SingleSelectFieldCore extends FieldCore {
   type!: FieldType.SingleSelect;
 
   dbFieldType!: DbFieldType.Text;

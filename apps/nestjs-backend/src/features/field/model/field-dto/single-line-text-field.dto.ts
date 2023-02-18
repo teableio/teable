@@ -1,3 +1,3 @@
-import { SingleLineTextField } from '@teable-group/core';
+import { SingleLineTextFieldCore } from '@teable-group/core';
 
-export class SingleLineTextFieldDto extends SingleLineTextField {}
+export class SingleLineTextFieldDto extends SingleLineTextFieldCore {}

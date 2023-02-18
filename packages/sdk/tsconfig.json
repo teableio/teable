@@ -9,6 +9,8 @@
     "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "noEmit": false,
     "declaration": true,
     "declarationDir": "./dist",
@@ -18,10 +20,10 @@
     "paths": {
       "@/context/*": ["./context/*"],
       "@/config/*": ["./config/*"],
-      "@/component/*": ["./component/*"],
+      "@/components/*": ["./components/*"],
       "@/engine/*": ["./engine/*"],
       "@/hooks/*": ["./hooks/*"],
-      "@/models/*": ["./models/*"]
+      "@/model/*": ["./model/*"]
     }
   },
   "references": [{ "path": "../core" }],

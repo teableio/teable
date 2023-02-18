@@ -38,6 +38,7 @@
     "@belgattitude/http-exception": "^1.4.0",
     "@teable-group/core": "workspace:^",
     "@types/sharedb": "3.2.1",
+    "class-transformer": "0.5.1",
     "dequal": "^2.0.3",
     "sharedb": "3.2.3"
   },

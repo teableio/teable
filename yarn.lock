@@ -6398,6 +6398,7 @@ __metadata:
     "@vitejs/plugin-react": "npm:2.2.0"
     "@vitest/coverage-istanbul": "npm:0.24.3"
     "@vitest/ui": "npm:0.24.3"
+    class-transformer: "npm:0.5.1"
     cross-env: "npm:7.0.3"
     dequal: "npm:^2.0.3"
     eslint: "npm:8.26.0"
