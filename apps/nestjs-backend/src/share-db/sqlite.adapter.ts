@@ -26,7 +26,6 @@ import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from '../features/field/model/factory';
 import type { FieldVo } from '../features/field/model/field.vo';
 import { RecordService } from '../features/record/record.service';
-import { getViewOrderFieldName } from '../utils/view-order-field-name';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -71,17 +70,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
       if (error) {
         return callback(error, []);
       }
-      if (query.type === SnapshotQueryType.RowCount) {
-        return callback(error, [
-          new Snapshot(
-            String(results[0]),
-            1,
-            'json0',
-            results[0],
-            undefined // TODO: metadata
-          ),
-        ]);
-      }
       this.getSnapshotBulk(
         collection,
         results as string[],
@@ -99,7 +87,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     query: IRecordSnapshotQuery | IFieldSnapshotQuery | IRowCountQuery,
     options: any,
-    callback: (error: ShareDb.Error | null, ids: (string | number)[]) => void
+    callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
     try {
       const prisma = this.transactionService.get(collection);
@@ -125,10 +113,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       }
 
       if (query.type === SnapshotQueryType.RowCount) {
-        console.log({ query }, viewId);
-        const count = await this.recordService.getRowCount(prisma, collection, viewId);
-        console.log('count: ', count);
-        callback(null, [count]);
+        callback(null, [`rowCount_${viewId}`]);
       }
     } catch (e) {
       callback(e as any, []);
@@ -173,46 +158,32 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   private async setRecordOrder(
     prisma: Prisma.TransactionClient,
+    version: number,
     recordId: string,
     dbTableName: string,
     contexts: ISetRecordOrderOpContext[]
   ) {
     for (const context of contexts) {
       const { viewId, newOrder } = context;
-      await prisma.$executeRawUnsafe(
-        `UPDATE ${dbTableName} SET ${getViewOrderFieldName(viewId)} = ? WHERE __id = ?`,
-        newOrder,
-        recordId
+      await this.recordService.setRecordOrder(
+        prisma,
+        version,
+        recordId,
+        dbTableName,
+        viewId,
+        newOrder
       );
     }
   }
 
   private async setRecords(
     prisma: Prisma.TransactionClient,
+    version: number,
     recordId: string,
     dbTableName: string,
     contexts: ISetRecordOpContext[]
   ) {
-    const fieldIdsSet = contexts.reduce((acc, cur) => {
-      return acc.add(cur.fieldId);
-    }, new Set<string>());
-    const fields = await prisma.field.findMany({
-      where: { id: { in: Array.from(fieldIdsSet) } },
-      select: { id: true, dbFieldName: true },
-    });
-    const fieldMap = keyBy(fields, 'id');
-
-    const sqlForField = contexts
-      .map((ctx) => {
-        return `${fieldMap[ctx.fieldId].dbFieldName} = ?`;
-      })
-      .join(',');
-
-    await prisma.$executeRawUnsafe(
-      `UPDATE ${dbTableName} SET ${sqlForField} WHERE __id = ?`,
-      ...contexts.map((ctx) => ctx.newValue),
-      recordId
-    );
+    return await this.recordService.setRecord(prisma, version, recordId, dbTableName, contexts);
   }
 
   private async addField(
@@ -238,6 +209,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   private async addColumnMeta(
     prisma: Prisma.TransactionClient,
+    version: number,
     fieldId: string,
     contexts: IAddColumnMetaOpContext[]
   ) {
@@ -257,13 +229,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
       await prisma.field.update({
         where: { id: fieldId },
-        data: { columnMeta: JSON.stringify(columnMeta) },
+        data: { columnMeta: JSON.stringify(columnMeta), version },
       });
     }
   }
 
   private async setColumnMeta(
     prisma: Prisma.TransactionClient,
+    version: number,
     fieldId: string,
     contexts: ISetColumnMetaOpContext[]
   ) {
@@ -281,13 +254,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
       await prisma.field.update({
         where: { id: fieldId },
-        data: { columnMeta: JSON.stringify(columnMeta) },
+        data: { columnMeta: JSON.stringify(columnMeta), version },
       });
     }
   }
 
   private async setFieldName(
     prisma: Prisma.TransactionClient,
+    version: number,
     fieldId: string,
     contexts: ISetFieldNameOpContext[]
   ) {
@@ -295,13 +269,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
       const { newName } = context;
       await prisma.field.update({
         where: { id: fieldId },
-        data: { name: newName },
+        data: { name: newName, version },
       });
     }
   }
 
   private async updateSnapshot(
     prisma: Prisma.TransactionClient,
+    version: number,
     collection: string,
     docId: string,
     ops: IOtOperation[]
@@ -319,22 +294,29 @@ export class SqliteDbAdapter extends ShareDb.DB {
         case OpName.SetRecordOrder:
           await this.setRecordOrder(
             prisma,
+            version,
             docId,
             dbTableName,
             opContexts as ISetRecordOrderOpContext[]
           );
           break;
         case OpName.SetRecord:
-          await this.setRecords(prisma, docId, dbTableName, opContexts as ISetRecordOpContext[]);
+          await this.setRecords(
+            prisma,
+            version,
+            docId,
+            dbTableName,
+            opContexts as ISetRecordOpContext[]
+          );
           break;
         case OpName.SetColumnMeta:
-          await this.setColumnMeta(prisma, docId, opContexts as ISetColumnMetaOpContext[]);
+          await this.setColumnMeta(prisma, version, docId, opContexts as ISetColumnMetaOpContext[]);
           break;
         case OpName.AddColumnMeta:
-          await this.addColumnMeta(prisma, docId, opContexts as IAddColumnMetaOpContext[]);
+          await this.addColumnMeta(prisma, version, docId, opContexts as IAddColumnMetaOpContext[]);
           break;
         case OpName.SetFieldName:
-          await this.setFieldName(prisma, docId, opContexts as ISetFieldNameOpContext[]);
+          await this.setFieldName(prisma, version, docId, opContexts as ISetFieldNameOpContext[]);
           break;
         default:
           throw new Error(`op name ${opName} save method did not implement`);
@@ -382,7 +364,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * snapshot: PostgresSnapshot
      */
 
-    console.log('commit', collection, id, rawOp, snapshot);
+    // console.log('commit', collection, id, rawOp, snapshot);
 
     try {
       const prisma = this.transactionService.get(collection);
@@ -394,7 +376,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
       const maxVersion = opsResult._max.version || 0;
 
       if (snapshot.v !== maxVersion + 1) {
-        return callback(null, false);
+        return callback(
+          new Error(`version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`)
+        );
       }
 
       // 1. save op in db;
@@ -414,7 +398,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
       // update snapshot
       if (rawOp.op) {
-        await this.updateSnapshot(prisma, collection, id, rawOp.op);
+        await this.updateSnapshot(prisma, snapshot.v, collection, id, rawOp.op);
       }
 
       callback(null, true);
@@ -464,6 +448,23 @@ export class SqliteDbAdapter extends ShareDb.DB {
       });
   }
 
+  private async getRowCountBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    rowCountIds: string[]
+  ): Promise<ISnapshotBase<number>[]> {
+    const rowCounts: number[] = [];
+    for (const id of rowCountIds) {
+      const viewId = id.split('_')[1];
+      const count = await this.recordService.getRowCount(prisma, tableId, viewId);
+      rowCounts.push(count);
+    }
+
+    return rowCounts.map((count, i) => {
+      return { id: rowCountIds[i], v: 1, type: 'json0', data: count };
+    });
+  }
+
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
@@ -495,6 +496,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
         case IdPrefix.Field:
           snapshotData = await this.getFieldSnapshotBulk(prisma, collection, ids);
           break;
+        case IdPrefix.Row: {
+          snapshotData = await this.getRowCountBulk(prisma, collection, ids);
+          break;
+        }
         default:
           break;
       }

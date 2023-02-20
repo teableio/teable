@@ -3,6 +3,7 @@ import type { IRecordSnapshotQuery } from '@teable-group/core';
 import { generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
+import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
@@ -237,6 +238,51 @@ export class RecordService {
     );
 
     return result.map((r) => r.__id);
+  }
+
+  async setRecordOrder(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    recordId: string,
+    dbTableName: string,
+    viewId: string,
+    order: number
+  ) {
+    const sqlNative = this.queryBuilder(dbTableName)
+      .update({ [getViewOrderFieldName(viewId)]: order, __version: version })
+      .where({ __id: recordId })
+      .toSQL()
+      .toNative();
+    return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+  }
+
+  async setRecord(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    recordId: string,
+    dbTableName: string,
+    contexts: { fieldId: string; newValue: unknown }[]
+  ) {
+    const fieldIdsSet = contexts.reduce((acc, cur) => {
+      return acc.add(cur.fieldId);
+    }, new Set<string>());
+    const fields = await prisma.field.findMany({
+      where: { id: { in: Array.from(fieldIdsSet) } },
+      select: { id: true, dbFieldName: true },
+    });
+    const fieldMap = keyBy(fields, 'id');
+
+    const fieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>((pre, ctx) => {
+      pre[fieldMap[ctx.fieldId].dbFieldName] = ctx.newValue;
+      return pre;
+    }, {});
+
+    const sqlNative = this.queryBuilder(dbTableName)
+      .update({ ...fieldsByDbFieldName, __version: version })
+      .where({ __id: recordId })
+      .toSQL()
+      .toNative();
+    return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
   async getRowCount(prisma: Prisma.TransactionClient, tableId: string, viewId: string) {

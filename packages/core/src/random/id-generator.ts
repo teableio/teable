@@ -4,6 +4,7 @@ export enum IdPrefix {
   View = 'viw',
   Node = 'nod',
   Record = 'rec',
+  Row = 'row',
 }
 
 function getRandomString(len: number) {
