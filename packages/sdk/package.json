@@ -40,6 +40,7 @@
     "@types/sharedb": "3.2.1",
     "class-transformer": "0.5.1",
     "dequal": "^2.0.3",
+    "reconnecting-websocket": "4.4.0",
     "sharedb": "3.2.3"
   },
   "peerDependencies": {

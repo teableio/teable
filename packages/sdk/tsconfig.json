@@ -18,9 +18,10 @@
     "sourceMap": true,
     "incremental": true,
     "paths": {
-      "@/context/*": ["./context/*"],
-      "@/config/*": ["./config/*"],
+      "@/api/*": ["./api/*"],
       "@/components/*": ["./components/*"],
+      "@/config/*": ["./config/*"],
+      "@/context/*": ["./context/*"],
       "@/engine/*": ["./engine/*"],
       "@/hooks/*": ["./hooks/*"],
       "@/model/*": ["./model/*"]

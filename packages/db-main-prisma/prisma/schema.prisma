@@ -62,7 +62,7 @@ model Field {
 
 model View {
   id                  String    @id
-  name                String?
+  name                String
   description         String?
   table               TableMeta @relation(fields: [tableId], references: [id])
   tableId             String    @map(name: "table_id")
