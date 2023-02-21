@@ -1,4 +1,4 @@
-import { AppContext } from '@/context/app/AppContext';
+import { AppContext } from '../app/AppContext';
 import { useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';

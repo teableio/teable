@@ -1,3 +1,4 @@
+import { AppProvider, FieldProvider, RecordProvider, TableProvider } from '@teable-group/sdk';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
@@ -5,7 +6,6 @@ import type { FC } from 'react';
 import { useLocalstorageState } from 'rooks';
 import { appConfig } from '../app.config';
 import { DemoGrid } from '../components/DemoGrid';
-import { DemoGridSchema } from '../components/DemoSchema';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
@@ -47,20 +47,24 @@ export const AppPage: FC = () => {
         description="Web-app nextjs monorepo example, https://github.com/teable-group/teable"
       />
       <AppLayout>
-        <div className="h-full flex items-start fixed w-full">
-          <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
-            <SideMenu />
-            Teable Technical Preview
-            <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
+        <AppProvider>
+          <div className="h-full flex items-start fixed w-full">
+            <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
+              <SideMenu />
+              Teable Technical Preview
+              <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
+            </div>
+            <TableProvider tableId={tableId} fallback={<h1>loading</h1>}>
+              <FieldProvider fallback={<h1>loading</h1>}>
+                <RecordProvider>
+                  <div className="grow-1 h-screen w-full overflow-y-auto">
+                    <DemoGrid />
+                  </div>
+                </RecordProvider>
+              </FieldProvider>
+            </TableProvider>
           </div>
-          <div className="grow-1 h-screen w-full overflow-y-auto">
-            <DemoGridSchema tableId={tableId}>
-              {(tableId, columns, connection) => (
-                <DemoGrid tableId={tableId} columns={columns} connection={connection} />
-              )}
-            </DemoGridSchema>
-          </div>
-        </div>
+        </AppProvider>
       </AppLayout>
     </>
   );

@@ -1,4 +1,4 @@
-import { AppContext } from '@/context/app/AppContext';
+import { AppContext } from '../app/AppContext';
 import { IFieldSnapshot } from '@teable-group/core';
 import { FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { FieldContext } from './FieldContext';

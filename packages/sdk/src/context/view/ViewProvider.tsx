@@ -1,4 +1,4 @@
-import { View } from '@/model/view';
+import { View } from '../../model/view';
 import { IViewSnapshot, SnapshotQueryType } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import { FC, ReactNode, useContext, useEffect, useState } from 'react';

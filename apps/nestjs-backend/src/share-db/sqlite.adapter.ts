@@ -505,7 +505,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ): Promise<ISnapshotBase<number>[]> {
     const aggregateResults: number[] = [];
     for (const id of rowCountIds) {
-      const [_, aggregateKey, viewId] = id.split('_')[2];
+      const [aggregateKey, viewId] = id.split('_');
       let result: number;
       switch (aggregateKey) {
         case AggregateKey.RowCount: {

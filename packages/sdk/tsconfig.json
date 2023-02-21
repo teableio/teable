@@ -16,16 +16,7 @@
     "declarationDir": "./dist",
     "composite": true,
     "sourceMap": true,
-    "incremental": true,
-    "paths": {
-      "@/api/*": ["./api/*"],
-      "@/components/*": ["./components/*"],
-      "@/config/*": ["./config/*"],
-      "@/context/*": ["./context/*"],
-      "@/engine/*": ["./engine/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/model/*": ["./model/*"]
-    }
+    "incremental": true
   },
   "references": [{ "path": "../core" }],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],

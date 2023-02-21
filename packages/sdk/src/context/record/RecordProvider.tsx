@@ -1,7 +1,6 @@
-import { AppContext } from '@/context/app/AppContext';
+import { AppContext } from '../app/AppContext';
 import { AggregateKey, IAggregateQuery, SnapshotQueryType } from '@teable-group/core';
 import { ReactNode, useContext, useEffect, useState } from 'react';
-import { FieldContext } from '../field/FieldContext';
 import { TableContext } from '../table/TableContext';
 import { RecordContext } from './RecordContext';
 

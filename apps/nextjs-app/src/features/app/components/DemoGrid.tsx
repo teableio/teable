@@ -1,47 +1,52 @@
-import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
+import DataEditor, { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
 import type { GridColumn, Item, DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
-import { AggregateKey, SnapshotQueryType } from '@teable-group/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Connection } from 'sharedb/lib/client';
+import { FieldType, SnapshotQueryType } from '@teable-group/core';
+import { useConnection, useFields, useRowCount, useTableId } from '@teable-group/sdk';
+import { useCallback, useMemo, useRef } from 'react';
 import '@glideapps/glide-data-grid/dist/index.css';
 import { useAsyncData } from './useAsyncData';
 
-export interface IDemoGridProps {
-  tableId: string;
-  columns: (GridColumn & {
-    id: string;
-  })[];
-  connection: Connection;
-}
-
-export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connection }) => {
+export const DemoGrid: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
-  const [rowCount, setRowCount] = useState(0);
+  const connection = useConnection();
+  const rowCount = useRowCount();
+  const fields = useFields();
+  const tableId = useTableId();
 
-  useEffect(() => {
-    const query = connection.createSubscribeQuery<number>(tableId, {
-      type: SnapshotQueryType.Aggregate,
-      aggregateKey: AggregateKey.RowCount,
+  const columns: (GridColumn & {
+    id: string;
+  })[] = useMemo(() => {
+    return fields.map((field) => {
+      console.log('fieldInstance', field);
+      switch (field.type) {
+        case FieldType.SingleLineText:
+          return {
+            id: field.id,
+            title: field.name,
+            width: 400,
+            icon: GridColumnIcon.HeaderString,
+            kind: GridCellKind.Text,
+          };
+        case FieldType.SingleSelect:
+          return {
+            id: field.id,
+            title: field.name,
+            width: 100,
+            icon: GridColumnIcon.HeaderArray,
+            kind: GridCellKind.Text,
+          };
+        case FieldType.Number:
+          return {
+            id: field.id,
+            title: field.name,
+            width: 100,
+            icon: GridColumnIcon.HeaderNumber,
+            kind: GridCellKind.Text,
+          };
+      }
     });
-
-    query.on('ready', () => {
-      console.log('rowCount:ready:', query);
-      const count = query.results[0].data;
-      setRowCount(count);
-    });
-
-    query.on('changed', () => {
-      const count = query.results[0].data;
-
-      console.log('rowCount:changed:', count);
-      setRowCount(count);
-    });
-
-    return () => {
-      query.destroy();
-    };
-  }, [tableId, connection]);
+  }, [fields]);
 
   const getRowData = useCallback(
     async (r: Item) => {

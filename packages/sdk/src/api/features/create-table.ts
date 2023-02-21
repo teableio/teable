@@ -1,4 +1,4 @@
-import { ky } from '@/config/ky';
+import { ky } from '../../config/ky';
 import type { JsonApiResponse } from '../json-api';
 import { isJsonApiSuccessResponse } from '../json-api';
 import type { ITableData } from './table.types';

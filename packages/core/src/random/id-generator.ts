@@ -8,8 +8,8 @@ export enum IdPrefix {
 }
 
 export enum AggregateKey {
-  RowCount = 'agg_rowCount',
-  Average = 'agg_average',
+  RowCount = 'aggRowCount',
+  Average = 'aggAverage',
 }
 
 function getRandomString(len: number) {

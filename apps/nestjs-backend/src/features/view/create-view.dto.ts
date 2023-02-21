@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IViewBase } from '@teable-group/core';
 import { ViewType, IFilter, ISort } from '@teable-group/core';
 
-type IViewDto = Omit<IViewBase, 'id' | 'columns' | 'rows'>;
+type IViewDto = Omit<IViewBase, 'id' | 'columns' | 'rows' | 'order'>;
 
 export class CreateViewDto implements IViewDto {
   @ApiProperty({
