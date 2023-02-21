@@ -137,6 +137,7 @@ export interface IViewBase {
   description?: string;
   filter?: IFilter;
   sort?: ISort;
+  order: number;
   options?: unknown;
 }
 

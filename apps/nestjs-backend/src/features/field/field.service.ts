@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta } from '@teable-group/core';
+import type { IColumnMeta, IFieldSnapshotQuery } from '@teable-group/core';
 import { nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
@@ -244,8 +244,17 @@ export class FieldService {
   async getFieldIds(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    viewId: string
+    query: IFieldSnapshotQuery
   ): Promise<string[]> {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const view = await prisma.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+
     const fieldsPlain = await prisma.field.findMany({
       where: { tableId },
       select: { id: true, columnMeta: true },

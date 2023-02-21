@@ -191,7 +191,7 @@ export class RecordService {
   async buildQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    query: IRecordSnapshotQuery & { idOnly?: boolean }
+    query: IRecordSnapshotQuery & { idOnly?: boolean; viewId: string }
   ) {
     const { viewId, where = {}, orderBy = [], offset = 0, limit = 10, idOnly } = query;
 
@@ -216,7 +216,16 @@ export class RecordService {
     tableId: string,
     query: IRecordSnapshotQuery
   ) {
-    const { limit = 100, viewId } = query;
+    let viewId = query.viewId;
+    if (!viewId) {
+      const view = await prisma.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+
+    const { limit = 100 } = query;
     const idPrefix = tableId.slice(0, 3);
     if (idPrefix !== IdPrefix.Table) {
       throw new Error('query collection must be table id');

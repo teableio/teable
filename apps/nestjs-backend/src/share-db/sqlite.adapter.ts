@@ -12,15 +12,19 @@ import type {
   IAddColumnMetaOpContext,
   IRecordSnapshotQuery,
   IFieldSnapshotQuery,
-  IRowCountQuery,
+  IAggregateQuery,
   ISetFieldNameOpContext,
+  ISnapshotQuery,
+  IViewSnapshot,
+  ViewType,
 } from '@teable-group/core';
-import { SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
+import { AggregateKey, SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import { groupBy, keyBy } from 'lodash';
+import { groupBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
+import { ViewService } from 'src/features/view/view.service';
 import { FieldService } from '../features/field/field.service';
 import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from '../features/field/model/factory';
@@ -51,6 +55,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   constructor(
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
+    private readonly viewService: ViewService,
     private readonly transactionService: TransactionService
   ) {
     super();
@@ -59,7 +64,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   query = async (
     collection: string,
-    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IRowCountQuery,
+    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IAggregateQuery,
     projection: IProjection,
     options: any,
     callback: ShareDb.DBQueryCallback
@@ -83,37 +88,54 @@ export class SqliteDbAdapter extends ShareDb.DB {
     });
   };
 
+  // return a specific id for row count fetch
+  private async getAggregateIds(
+    prisma: Prisma.TransactionClient,
+    collection: string,
+    query: IAggregateQuery
+  ) {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const view = await prisma.view.findFirstOrThrow({
+        where: { tableId: collection },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+    return [`${query.aggregateKey}_${viewId}`];
+  }
+
   async queryPoll(
     collection: string,
-    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IRowCountQuery,
+    query: ISnapshotQuery,
     options: any,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
     try {
       const prisma = this.transactionService.get(collection);
-      let viewId = query.viewId;
-      if (!viewId) {
-        const view = await prisma.view.findFirstOrThrow({
-          where: { tableId: collection },
-          select: { id: true },
-        });
-        viewId = view.id;
-      }
 
       if (query.type === SnapshotQueryType.Field) {
-        const ids = await this.fieldService.getFieldIds(prisma, collection, viewId);
+        const ids = await this.fieldService.getFieldIds(prisma, collection, query);
         callback(null, ids);
         return;
       }
 
       if (query.type === SnapshotQueryType.Record) {
-        const ids = await this.recordService.getRecordIds(prisma, collection, { ...query, viewId });
+        const ids = await this.recordService.getRecordIds(prisma, collection, query);
         callback(null, ids);
         return;
       }
 
-      if (query.type === SnapshotQueryType.RowCount) {
-        callback(null, [`rowCount_${viewId}`]);
+      if (query.type === SnapshotQueryType.View) {
+        const ids = await this.viewService.getViewIds(prisma, collection);
+        callback(null, ids);
+        return;
+      }
+
+      if (query.type === SnapshotQueryType.Aggregate) {
+        const ids = await this.getAggregateIds(prisma, collection, query);
+        callback(null, ids);
+        return;
       }
     } catch (e) {
       callback(e as any, []);
@@ -283,8 +305,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const dbTableName = await this.recordService.getDbTableName(prisma, collection);
 
-    console.log('update snapshot', ops);
-
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
     // group by op name execute faster
     const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
@@ -448,20 +468,62 @@ export class SqliteDbAdapter extends ShareDb.DB {
       });
   }
 
-  private async getRowCountBulk(
+  private async getViewSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    viewIds: string[]
+  ): Promise<ISnapshotBase<IViewSnapshot>[]> {
+    const views = await prisma.view.findMany({
+      where: { tableId, id: { in: viewIds } },
+    });
+
+    return views
+      .sort((a, b) => viewIds.indexOf(a.id) - viewIds.indexOf(b.id))
+      .map((view) => {
+        return {
+          id: view.id,
+          v: view.version,
+          type: 'json0',
+          data: {
+            view: {
+              ...view,
+              type: view.type as ViewType,
+              description: view.description || undefined,
+              filter: JSON.parse(view.filter as string),
+              sort: JSON.parse(view.sort as string),
+              options: JSON.parse(view.options as string),
+            },
+          },
+        };
+      });
+  }
+
+  private async getAggregateBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
     rowCountIds: string[]
   ): Promise<ISnapshotBase<number>[]> {
-    const rowCounts: number[] = [];
+    const aggregateResults: number[] = [];
     for (const id of rowCountIds) {
-      const viewId = id.split('_')[1];
-      const count = await this.recordService.getRowCount(prisma, tableId, viewId);
-      rowCounts.push(count);
+      const [_, aggregateKey, viewId] = id.split('_')[2];
+      let result: number;
+      switch (aggregateKey) {
+        case AggregateKey.RowCount: {
+          result = await this.recordService.getRowCount(prisma, tableId, viewId);
+          break;
+        }
+        case AggregateKey.Average: {
+          throw new Error(`aggregate ${aggregateKey} not implemented`);
+        }
+        default: {
+          throw new Error(`aggregate ${aggregateKey} not implemented`);
+        }
+      }
+      aggregateResults.push(result);
     }
 
-    return rowCounts.map((count, i) => {
-      return { id: rowCountIds[i], v: 1, type: 'json0', data: count };
+    return aggregateResults.map((result, i) => {
+      return { id: rowCountIds[i], v: 1, type: 'json0', data: result };
     });
   }
 
@@ -496,8 +558,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
         case IdPrefix.Field:
           snapshotData = await this.getFieldSnapshotBulk(prisma, collection, ids);
           break;
-        case IdPrefix.Row: {
-          snapshotData = await this.getRowCountBulk(prisma, collection, ids);
+        case IdPrefix.View:
+          snapshotData = await this.getViewSnapshotBulk(prisma, collection, ids);
+          break;
+        case IdPrefix.Aggregate: {
+          snapshotData = await this.getAggregateBulk(prisma, collection, ids);
           break;
         }
         default:

@@ -110,6 +110,16 @@ export class ViewService {
     return viewData;
   }
 
+  async getViewIds(prisma: Prisma.TransactionClient, tableId: string): Promise<string[]> {
+    const views = await prisma.view.findMany({
+      where: { tableId },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    return views.map((v) => v.id);
+  }
+
   async createView(tableId: string, createViewDto: CreateViewDto) {
     return await this.createViewTransaction(this.prisma, tableId, createViewDto);
   }

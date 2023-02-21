@@ -6409,6 +6409,7 @@ __metadata:
     prettier: "npm:2.7.1"
     react: "npm:18.2.0"
     react-dom: "npm:18.2.0"
+    reconnecting-websocket: "npm:4.4.0"
     rimraf: "npm:3.0.2"
     sharedb: "npm:3.2.3"
     ts-jest: "npm:29.0.3"

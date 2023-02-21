@@ -1,21 +1,34 @@
+import type { AggregateKey } from '../random';
+
 export enum SnapshotQueryType {
   Field = 'field',
   Record = 'record',
-  RowCount = 'rowCount',
+  View = 'view',
+  Table = 'table',
+  Aggregate = 'aggregate',
+}
+
+export interface ITableSnapshotQuery {
+  type: SnapshotQueryType.Table;
 }
 
 export interface IFieldSnapshotQuery {
-  viewId: string;
+  viewId?: string;
   type: SnapshotQueryType.Field;
 }
 
-export interface IRowCountQuery {
-  viewId: string;
-  type: SnapshotQueryType.RowCount;
+export interface IAggregateQuery {
+  viewId?: string;
+  type: SnapshotQueryType.Aggregate;
+  aggregateKey: AggregateKey;
+}
+
+export interface IViewSnapshotQuery {
+  type: SnapshotQueryType.View;
 }
 
 export interface IRecordSnapshotQuery {
-  viewId: string;
+  viewId?: string;
   type?: SnapshotQueryType.Record;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   where?: any;
@@ -27,3 +40,10 @@ export interface IRecordSnapshotQuery {
   offset?: number;
   limit?: number;
 }
+
+export type ISnapshotQuery =
+  | IAggregateQuery
+  | IViewSnapshotQuery
+  | IRecordSnapshotQuery
+  | IFieldSnapshotQuery
+  | ITableSnapshotQuery;

@@ -4,7 +4,12 @@ export enum IdPrefix {
   View = 'viw',
   Node = 'nod',
   Record = 'rec',
-  Row = 'row',
+  Aggregate = 'agg',
+}
+
+export enum AggregateKey {
+  RowCount = 'agg_rowCount',
+  Average = 'agg_average',
 }
 
 function getRandomString(len: number) {

@@ -1,7 +1,7 @@
 import DataEditor, { GridCellKind } from '@glideapps/glide-data-grid';
 import type { GridColumn, Item, DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
-import { SnapshotQueryType } from '@teable-group/core';
+import { AggregateKey, SnapshotQueryType } from '@teable-group/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Connection } from 'sharedb/lib/client';
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -21,7 +21,8 @@ export const DemoGrid: React.FC<IDemoGridProps> = ({ tableId, columns, connectio
 
   useEffect(() => {
     const query = connection.createSubscribeQuery<number>(tableId, {
-      type: SnapshotQueryType.RowCount,
+      type: SnapshotQueryType.Aggregate,
+      aggregateKey: AggregateKey.RowCount,
     });
 
     query.on('ready', () => {
