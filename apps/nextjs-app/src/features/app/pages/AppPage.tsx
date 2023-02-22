@@ -48,7 +48,7 @@ export const AppPage: FC = () => {
       />
       <AppLayout>
         <AppProvider>
-          <div className="h-full flex items-start fixed w-full">
+          <div id="portal" className="h-full flex items-start fixed w-full">
             <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
               <SideMenu />
               Teable Technical Preview

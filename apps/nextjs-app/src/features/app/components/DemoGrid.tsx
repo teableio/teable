@@ -54,7 +54,7 @@ export const DemoGrid: React.FC = () => {
       50,
       5,
       useCallback(
-        async (updateRowRef, [offset, limit]) => {
+        async (updateRowRef, updateRow, [offset, limit]) => {
           await new Promise((res) => setTimeout(res, 300));
           const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
             type: SnapshotQueryType.Record,
@@ -71,6 +71,19 @@ export const DemoGrid: React.FC = () => {
             });
             query.on('changed', () => {
               updateRowRef(query.results, offset);
+            });
+            query.on('insert', (docs) => {
+              docs.forEach((doc) => {
+                doc.on('op', (op) => {
+                  console.log('doc on op:', op);
+                  updateRow(doc);
+                });
+              });
+            });
+            query.on('remove', (docs) => {
+              docs.forEach((doc) => {
+                doc.removeAllListeners('op');
+              });
             });
           });
           const rowData = recordDocs.map((rd) =>
@@ -100,9 +113,10 @@ export const DemoGrid: React.FC = () => {
         (cell, newVal, rowData) => {
           const [col] = cell;
           const fieldId = columns[col].id;
+          console.log('endEdit', newVal.data);
           const operation = OpBuilder.editor.setRecord.build({
             fieldId,
-            newCellValue: newVal,
+            newCellValue: newVal.data,
             oldCellValue: rowData.data.record.fields[fieldId],
           });
 

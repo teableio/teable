@@ -24,12 +24,12 @@ import { instanceToPlain } from 'class-transformer';
 import { groupBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
-import { ViewService } from 'src/features/view/view.service';
 import { FieldService } from '../features/field/field.service';
 import type { CreateFieldRo } from '../features/field/model/create-field.ro';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from '../features/field/model/factory';
 import type { FieldVo } from '../features/field/model/field.vo';
 import { RecordService } from '../features/record/record.service';
+import { ViewService } from '../features/view/view.service';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {

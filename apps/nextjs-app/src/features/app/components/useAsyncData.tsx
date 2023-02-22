@@ -14,10 +14,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type RowCallback<T> = (
   updateRowRef: RowRefUpdate<T>,
+  updateRow: RowUpdate<T>,
   startIndex: [offset: number, limit: number]
 ) => Promise<readonly T[]>;
 type RowToCell<T> = (row: T, col: number) => GridCell;
 type RowRefUpdate<T> = (rows: T[], startIndex: number) => void;
+type RowUpdate<T> = (row: T) => void;
 type RowEditedCallback<T> = (cell: Item, newVal: EditableGridCell, rowData: T) => T | undefined;
 export function useAsyncData<TRowType>(
   pageSize: number,
@@ -79,7 +81,29 @@ export function useAsyncData<TRowType>(
             cell: [col, i + startIndex],
           });
         }
+        console.log('update row ref', damageList);
         gridRef.current?.updateCells(damageList);
+      }
+    },
+    [gridRef]
+  );
+
+  const updateRow = useCallback<RowUpdate<TRowType>>(
+    (row) => {
+      const damageList: { cell: [number, number] }[] = [];
+      const data = dataRef.current;
+      const vr = visiblePagesRef.current;
+      for (const [i, element] of data.entries()) {
+        if (element === row) {
+          for (let col = vr.x; col <= vr.x + vr.width; col++) {
+            damageList.push({
+              cell: [col, i],
+            });
+          }
+          console.log('update row', damageList);
+          gridRef.current?.updateCells(damageList);
+          return;
+        }
       }
     },
     [gridRef]
@@ -89,7 +113,7 @@ export function useAsyncData<TRowType>(
     async (page: number) => {
       loadingRef.current = loadingRef.current.add(page);
       const startIndex = page * pageSize;
-      const d = await getRowData(updateRowRef, [startIndex, pageSize]);
+      const d = await getRowData(updateRowRef, updateRow, [startIndex, pageSize]);
 
       const vr = visiblePagesRef.current;
 
@@ -105,7 +129,7 @@ export function useAsyncData<TRowType>(
       }
       gridRef.current?.updateCells(damageList);
     },
-    [getRowData, gridRef, pageSize]
+    [getRowData, gridRef, pageSize, updateRow, updateRowRef]
   );
 
   const getCellsForSelection = useCallback(
