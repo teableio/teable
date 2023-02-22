@@ -11,6 +11,20 @@ export class Record extends RecordCore {
     super(fields, data);
   }
 
+  async clearCell(fieldId: string) {
+    const operation = OpBuilder.editor.setRecord.build({
+      fieldId,
+      newCellValue: null,
+      oldCellValue: this.data[fieldId],
+    });
+
+    return new Promise((resolve, reject) => {
+      this.doc.submitOp([operation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
+
   async updateCell(fieldId: string, cellValue: unknown) {
     const operation = OpBuilder.editor.setRecord.build({
       fieldId,

@@ -3,6 +3,7 @@
     "AUTOINCREMENT",
     "DATETIME",
     "gantt",
+    "glideapps",
     "Localstorage",
     "nextjs",
     "sharedb",

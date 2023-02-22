@@ -12,8 +12,12 @@ import { chunk, range } from 'lodash';
 import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-type RowCallback<T> = (range: [skip: number, take: number]) => Promise<readonly T[]>;
+type RowCallback<T> = (
+  updateRowRef: RowRefUpdate<T>,
+  startIndex: [offset: number, limit: number]
+) => Promise<readonly T[]>;
 type RowToCell<T> = (row: T, col: number) => GridCell;
+type RowRefUpdate<T> = (rows: T[], startIndex: number) => void;
 type RowEditedCallback<T> = (cell: Item, newVal: EditableGridCell, rowData: T) => T | undefined;
 export function useAsyncData<TRowType>(
   pageSize: number,
@@ -63,11 +67,29 @@ export function useAsyncData<TRowType>(
     [toCell]
   );
 
+  const updateRowRef = useCallback<RowRefUpdate<TRowType>>(
+    (rows, startIndex) => {
+      const damageList: { cell: [number, number] }[] = [];
+      const data = dataRef.current;
+      const vr = visiblePagesRef.current;
+      for (const [i, element] of rows.entries()) {
+        data[i + startIndex] = element;
+        for (let col = vr.x; col <= vr.x + vr.width; col++) {
+          damageList.push({
+            cell: [col, i + startIndex],
+          });
+        }
+        gridRef.current?.updateCells(damageList);
+      }
+    },
+    [gridRef]
+  );
+
   const loadPage = useCallback(
     async (page: number) => {
       loadingRef.current = loadingRef.current.add(page);
       const startIndex = page * pageSize;
-      const d = await getRowData([startIndex, pageSize]);
+      const d = await getRowData(updateRowRef, [startIndex, pageSize]);
 
       const vr = visiblePagesRef.current;
 
