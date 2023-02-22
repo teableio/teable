@@ -67,6 +67,12 @@ export const DemoGrid: React.FC = () => {
                 'record:ready:',
                 query.results.map((r) => r.data.record)
               );
+              query.results.forEach((doc) => {
+                doc.on('op', (op) => {
+                  console.log('doc on op:', op);
+                  updateRow(doc);
+                });
+              });
               resolve(query.results);
             });
             query.on('changed', () => {
@@ -121,7 +127,9 @@ export const DemoGrid: React.FC = () => {
           });
 
           rowData.submitOp([operation], undefined, (error) => {
-            console.error(error);
+            if (error) {
+              console.error('row data submit error: ', error);
+            }
           });
           return rowData;
         },
