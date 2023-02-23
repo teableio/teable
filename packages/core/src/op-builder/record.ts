@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash';
 import type { IOtOperation, IRow } from '../models';
 import type { IRecord, IRecordFields } from '../models/record/interface';
-import { generateRecordId } from '../random';
+import { generateRecordId } from '../utils';
 
 export class RecordOpBuilder {
   static newRecord(): Pick<IRecord, 'id' | 'fields'> {

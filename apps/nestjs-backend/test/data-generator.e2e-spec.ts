@@ -3,10 +3,12 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
 import { json, urlencoded } from 'express';
+import { cloneDeep } from 'lodash';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
 import { TableModule } from '../src/features/table/table.module';
+import { FIELD_MOCK_DATA } from './field-mock';
 
 jest.setTimeout(100000000);
 
@@ -60,11 +62,8 @@ describe('Performance test data generator', () => {
     const count = 1_000;
 
     for (let i = 0; i < fieldCount; i++) {
-      const fieldRo: CreateFieldRo = {
-        name: 'New field' + i,
-        description: 'the new field',
-        type: [FieldType.SingleLineText, FieldType.Number, FieldType.SingleSelect][i % 3],
-      };
+      const fieldRo: CreateFieldRo = cloneDeep(FIELD_MOCK_DATA[i % 3]);
+      fieldRo.name = 'field' + i;
 
       await request(app.getHttpServer())
         .post(`/api/table/${tableId}/field`)

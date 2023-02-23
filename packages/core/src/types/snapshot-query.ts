@@ -1,4 +1,4 @@
-import type { AggregateKey } from '../random';
+import type { AggregateKey } from '../utils';
 
 export enum SnapshotQueryType {
   Field = 'field',

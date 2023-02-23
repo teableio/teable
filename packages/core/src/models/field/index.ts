@@ -5,3 +5,4 @@ export * from './number.field';
 export * from './constant';
 export * from './field';
 export * from './colors';
+export * from './color-utils';

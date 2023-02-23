@@ -12,10 +12,10 @@ import { useColumns } from './useColumns';
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
   const connection = useConnection();
+  const tableId = useTableId();
   const rowCount = useRowCount();
   const fields = useFields();
   const { columns, cellValue2GridDisplay } = useColumns(fields);
-  const tableId = useTableId();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection } =
     useAsyncData<Doc<IRecordSnapshot>>(

@@ -1,6 +1,6 @@
 import type { GridCell, GridColumn } from '@glideapps/glide-data-grid';
 import { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
-import { FieldType } from '@teable-group/core';
+import { ColorUtils, FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useCallback, useMemo } from 'react';
 
@@ -9,7 +9,6 @@ export function useColumns(fields: IFieldInstance[]) {
     id: string;
   })[] = useMemo(() => {
     return fields.map((field) => {
-      console.log('fieldInstance', field);
       switch (field.type) {
         case FieldType.SingleLineText:
           return {
@@ -61,10 +60,20 @@ export function useColumns(fields: IFieldInstance[]) {
           };
         }
         case FieldType.SingleSelect: {
+          const color = field.options.choices.find((choice) => choice.name === cellValue)?.color;
+          const bgBubble = ColorUtils.getHexForColor(color as string) || undefined;
+          const textBubble = ColorUtils.shouldUseLightTextOnColor(color as string)
+            ? '#ffffff'
+            : '#000000';
+
           return {
             kind: GridCellKind.Bubble,
-            data: [String(cellValue)],
+            data: cellValue ? [cellValue as string] : [],
             allowOverlay: true,
+            themeOverride: {
+              bgBubble,
+              textBubble,
+            },
           };
         }
       }
