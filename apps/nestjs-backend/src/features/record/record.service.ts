@@ -249,6 +249,25 @@ export class RecordService {
     return result.map((r) => r.__id);
   }
 
+  async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+
+    // TODO: get row count will causes performance issus when insert lot of records
+    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
+    const nativeSql = this.queryBuilder(dbTableName)
+      .insert({
+        __id: recordId,
+        __row_default: rowCount,
+        __created_time: new Date(),
+        __created_by: 'admin',
+        __version: 1,
+      })
+      .toSQL()
+      .toNative();
+
+    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+  }
+
   async setRecordOrder(
     prisma: Prisma.TransactionClient,
     version: number,
@@ -319,7 +338,7 @@ export class RecordService {
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
     const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
-    const columnSql = fields
+    const fieldNames = fields
       .map((f) => f.dbFieldName)
       .concat([
         '__id',
@@ -333,7 +352,7 @@ export class RecordService {
       ]);
 
     const sqlNative = this.queryBuilder(dbTableName)
-      .select(columnSql)
+      .select(fieldNames)
       .whereIn('__id', recordIds)
       .toSQL()
       .toNative();
@@ -396,12 +415,8 @@ export class RecordService {
       sqlNative.sql,
       ...sqlNative.bindings
     );
-    const dbTableName = await this.getDbTableName(this.prismaService, tableId);
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const countQuery = await this.prismaService.$queryRawUnsafe<{ 'COUNT(*)': bigint }[]>(
-      `SELECT COUNT(*) FROM ${dbTableName}`
-    );
-    const total = Number(countQuery[0]['COUNT(*)']);
+
+    const total = await this.getRowCount(this.prismaService, tableId, viewId);
 
     return {
       records,

@@ -165,17 +165,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   }
 
   private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
-    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
-
-    const rowCount = await this.recordService.getAllRecordCount(prisma, dbTableName);
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO ${dbTableName} (__id, __row_default, __created_time, __created_by, __version) VALUES (?, ?, ?, ?, ?)`,
-      recordId,
-      rowCount,
-      new Date(),
-      'admin',
-      1
-    );
+    await this.recordService.addRecord(prisma, tableId, recordId);
   }
 
   private async setRecordOrder(
