@@ -234,8 +234,7 @@ export class FieldService {
     });
 
     const sortedFields = sortBy(fields, (field) => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return field.columnMeta[viewId!].order;
+      return field.columnMeta[viewId as string].order;
     });
 
     return plainToInstance(FieldVo, sortedFields);
@@ -268,8 +267,7 @@ export class FieldService {
     });
 
     return sortBy(fields, (field) => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return field.columnMeta[viewId!].order;
+      return field.columnMeta[viewId as string].order;
     }).map((field) => field.id);
   }
 

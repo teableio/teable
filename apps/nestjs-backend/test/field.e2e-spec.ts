@@ -7,6 +7,21 @@ import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import { TableModule } from '../src/features/table/table.module';
 
+const defaultFields = [
+  {
+    name: 'name',
+    type: FieldType.SingleLineText,
+  },
+  {
+    name: 'number',
+    type: FieldType.Number,
+  },
+  {
+    name: 'status',
+    type: FieldType.SingleSelect,
+  },
+];
+
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
@@ -34,8 +49,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
   it('/api/table/{tableId}/field (GET)', async () => {
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    expect(fieldsResult.body).toHaveLength(3);
-    // console.log('result: ', result.body);
+    expect(fieldsResult.body).toMatchObject(defaultFields);
   });
 
   it('/api/table/{tableId}/field (POST)', async () => {
@@ -58,7 +72,15 @@ describe('OpenAPI FieldController (e2e)', () => {
         take: 1000,
       })
       .expect(200);
-    expect(result.body).toHaveLength(4);
+
+    expect(result.body).toMatchObject([
+      ...defaultFields,
+      {
+        name: 'New field',
+        description: 'the new field',
+        type: FieldType.SingleLineText,
+      },
+    ]);
     // console.log('result: ', result.body);
   });
 });

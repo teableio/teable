@@ -4,6 +4,7 @@ import { FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { FieldContext } from './FieldContext';
 import { createFieldInstance, IFieldInstance } from '../../model';
 import { TableContext } from '../table/TableContext';
+import { Doc } from 'sharedb/lib/client';
 
 interface IFieldProviderProps {
   fallback: React.ReactNode;
@@ -14,24 +15,32 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback }) =
   const { connection } = useContext(AppContext);
   const { tableId } = useContext(TableContext);
   const [fields, setFields] = useState<IFieldInstance[]>([]);
+  const [fieldDocs, setFieldDocs] = useState<Doc<IFieldSnapshot>[]>([]);
 
   useEffect(() => {
     if (!tableId) {
       return;
     }
-    const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(tableId, { type: 'field' });
+    const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(tableId, {
+      type: 'field',
+      fieldDocs,
+    });
 
     fieldsQuery.on('ready', () => {
-      console.log('table:ready:', fieldsQuery.results);
+      console.log('fields:ready:', fieldsQuery.results);
+      setFieldDocs(fieldsQuery.results);
       setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
     });
 
     fieldsQuery.on('changed', () => {
-      console.log('table:changed:', fieldsQuery.results);
+      console.log('fields:changed:', fieldsQuery.results);
+      setFieldDocs(fieldsQuery.results);
       setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
     });
 
     return () => {
+      fieldsQuery.removeAllListeners('ready');
+      fieldsQuery.removeAllListeners('changed');
       fieldsQuery.destroy();
     };
   }, [connection, tableId]);

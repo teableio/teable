@@ -61,19 +61,17 @@ export function useColumns(fields: IFieldInstance[]) {
         }
         case FieldType.SingleSelect: {
           const color = field.options.choices.find((choice) => choice.name === cellValue)?.color;
-          const bgBubble = ColorUtils.getHexForColor(color as string) || undefined;
-          const textBubble = ColorUtils.shouldUseLightTextOnColor(color as string)
-            ? '#ffffff'
-            : '#000000';
-
+          const themeOverride = color
+            ? {
+                bgBubble: ColorUtils.getHexForColor(color),
+                textBubble: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+              }
+            : undefined;
           return {
             kind: GridCellKind.Bubble,
             data: cellValue ? [cellValue as string] : [],
             allowOverlay: true,
-            themeOverride: {
-              bgBubble,
-              textBubble,
-            },
+            themeOverride,
           };
         }
       }

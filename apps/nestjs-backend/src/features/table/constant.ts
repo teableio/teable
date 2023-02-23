@@ -5,7 +5,7 @@ import type { CreateViewDto } from '../view/create-view.dto';
 
 export const DEFAULT_FIELDS: CreateFieldRo[] = [
   { name: 'name', type: FieldType.SingleLineText },
-  { name: 'number', type: FieldType.Number },
+  { name: 'number', type: FieldType.Number, options: { precision: 2 } },
   {
     name: 'status',
     type: FieldType.SingleSelect,
@@ -13,7 +13,15 @@ export const DEFAULT_FIELDS: CreateFieldRo[] = [
       choices: [
         {
           name: 'light',
-          color: Colors.Yellow,
+          color: Colors.GrayBright,
+        },
+        {
+          name: 'medium',
+          color: Colors.YellowBright,
+        },
+        {
+          name: 'heavy',
+          color: Colors.TealBright,
         },
       ],
     },

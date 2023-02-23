@@ -444,7 +444,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const fieldInstances = fields.map((field) => createFieldInstanceByRaw(field));
 
     return fields
-      .sort((a, b) => fieldIds.indexOf(a.id) - fieldIds.indexOf(b.id))
       .map((field, i) => {
         return {
           id: field.id,
@@ -455,7 +454,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
             columnMeta: JSON.parse(field.columnMeta),
           },
         };
-      });
+      })
+      .sort((a, b) => fieldIds.indexOf(a.id) - fieldIds.indexOf(b.id));
   }
 
   private async getViewSnapshotBulk(
@@ -468,7 +468,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     });
 
     return views
-      .sort((a, b) => viewIds.indexOf(a.id) - viewIds.indexOf(b.id))
       .map((view) => {
         return {
           id: view.id,
@@ -485,7 +484,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
             },
           },
         };
-      });
+      })
+      .sort((a, b) => viewIds.indexOf(a.id) - viewIds.indexOf(b.id));
   }
 
   private async getAggregateBulk(
