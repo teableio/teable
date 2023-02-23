@@ -1,53 +1,21 @@
-import DataEditor, { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
-import type { GridColumn, DataEditorRef } from '@glideapps/glide-data-grid';
+import DataEditor from '@glideapps/glide-data-grid';
+import type { DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
-import { OpBuilder, FieldType, SnapshotQueryType } from '@teable-group/core';
+import { OpBuilder, SnapshotQueryType } from '@teable-group/core';
 import { useConnection, useFields, useRowCount, useTableId } from '@teable-group/sdk';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import '@glideapps/glide-data-grid/dist/index.css';
 import type { Doc } from 'sharedb/lib/client';
 import { useAsyncData } from './useAsyncData';
+import { useColumns } from './useColumns';
 
-export const DemoGrid: React.FC = () => {
+export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
   const connection = useConnection();
   const rowCount = useRowCount();
   const fields = useFields();
+  const { columns, cellValue2GridDisplay } = useColumns(fields);
   const tableId = useTableId();
-
-  const columns: (GridColumn & {
-    id: string;
-  })[] = useMemo(() => {
-    return fields.map((field) => {
-      console.log('fieldInstance', field);
-      switch (field.type) {
-        case FieldType.SingleLineText:
-          return {
-            id: field.id,
-            title: field.name,
-            width: 400,
-            icon: GridColumnIcon.HeaderString,
-            kind: GridCellKind.Text,
-          };
-        case FieldType.SingleSelect:
-          return {
-            id: field.id,
-            title: field.name,
-            width: 100,
-            icon: GridColumnIcon.HeaderArray,
-            kind: GridCellKind.Text,
-          };
-        case FieldType.Number:
-          return {
-            id: field.id,
-            title: field.name,
-            width: 100,
-            icon: GridColumnIcon.HeaderNumber,
-            kind: GridCellKind.Text,
-          };
-      }
-    });
-  }, [fields]);
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection } =
     useAsyncData<Doc<IRecordSnapshot>>(
@@ -106,14 +74,10 @@ export const DemoGrid: React.FC = () => {
       useCallback(
         (rowData, col) => {
           const fieldId = columns[col].id;
-          return {
-            kind: GridCellKind.Text,
-            data: String(rowData.data.record.fields[fieldId]) || '',
-            allowOverlay: true,
-            displayData: String(rowData.data.record.fields[fieldId]) || '',
-          };
+          const cellValue = rowData.data.record.fields[fieldId];
+          return cellValue2GridDisplay(cellValue, col);
         },
-        [columns]
+        [cellValue2GridDisplay, columns]
       ),
       useCallback(
         (cell, newVal, rowData) => {

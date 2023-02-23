@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import type { FC } from 'react';
 import { useLocalstorageState } from 'rooks';
 import { appConfig } from '../app.config';
-import { DemoGrid } from '../components/DemoGrid';
+import { GridView } from '../blocks/view/grid/GridView';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
@@ -58,7 +58,7 @@ export const AppPage: FC = () => {
               <FieldProvider fallback={<h1>loading</h1>}>
                 <RecordProvider>
                   <div className="grow-1 h-screen w-full overflow-y-auto">
-                    <DemoGrid />
+                    <GridView />
                   </div>
                 </RecordProvider>
               </FieldProvider>
