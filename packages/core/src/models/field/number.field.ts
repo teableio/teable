@@ -11,7 +11,7 @@ export class NumberFieldCore extends FieldCore {
 
   dbFieldType!: DbFieldType.Real;
 
-  options!: NumberFieldOptions;
+  options: NumberFieldOptions | undefined;
 
   defaultValue?: number;
 
@@ -22,7 +22,11 @@ export class NumberFieldCore extends FieldCore {
   isComputed!: false;
 
   cellValue2String(cellValue: number) {
-    return cellValue.toFixed(this.options.precision);
+    if (cellValue == null) {
+      return '';
+    }
+    const precision = this.options?.precision || 0;
+    return cellValue.toFixed(precision);
   }
 
   convertStringToCellValue(value: string): number | null {

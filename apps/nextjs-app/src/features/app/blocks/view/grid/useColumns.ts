@@ -25,7 +25,7 @@ export function useColumns(fields: IFieldInstance[]) {
             title: field.name,
             width: 100,
             icon: GridColumnIcon.HeaderArray,
-            kind: GridCellKind.Text,
+            kind: GridCellKind.Bubble,
           };
         case FieldType.Number:
           return {
@@ -33,7 +33,7 @@ export function useColumns(fields: IFieldInstance[]) {
             title: field.name,
             width: 100,
             icon: GridColumnIcon.HeaderNumber,
-            kind: GridCellKind.Text,
+            kind: GridCellKind.Number,
           };
       }
     });
@@ -42,12 +42,32 @@ export function useColumns(fields: IFieldInstance[]) {
   const cellValue2GridDisplay = useCallback(
     (cellValue: unknown, col: number): GridCell => {
       const field = fields[col];
-      return {
-        kind: GridCellKind.Text,
-        data: String(cellValue) || '',
-        allowOverlay: true,
-        displayData: String(cellValue) || '',
-      };
+      switch (field.type) {
+        case FieldType.SingleLineText: {
+          return {
+            kind: GridCellKind.Text,
+            data: (cellValue as string) || '',
+            allowOverlay: true,
+            displayData: (cellValue as string) || '',
+          };
+        }
+        case FieldType.Number: {
+          return {
+            kind: GridCellKind.Number,
+            data: (cellValue as number) || undefined,
+            allowOverlay: true,
+            displayData: field.cellValue2String(cellValue as number),
+            contentAlign: 'right',
+          };
+        }
+        case FieldType.SingleSelect: {
+          return {
+            kind: GridCellKind.Bubble,
+            data: [String(cellValue)],
+            allowOverlay: true,
+          };
+        }
+      }
     },
     [fields]
   );
