@@ -51,7 +51,7 @@ export const AppPage: FC = () => {
     <>
       <NextSeo
         title={t('app:page.title')}
-        description="Web-app nextjs monorepo example, https://github.com/teable-group/teable"
+        description="Teable: the database for everyone https://github.com/teable-group/teable"
       />
       <AppLayout>
         <AppProvider>
@@ -62,16 +62,16 @@ export const AppPage: FC = () => {
               <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
             </div>
             <TableProvider tableId={tableId} fallback={<h1>loading</h1>}>
-              <ViewProvider fallback={<h1>loading</h1>}>
-                <ViewList />
-                <FieldProvider fallback={<h1>loading</h1>}>
-                  <RecordProvider>
-                    <div className="grow-1 h-screen w-full overflow-y-auto">
+              <div className="grow flex flex-col h-full">
+                <ViewProvider fallback={<h1>loading</h1>}>
+                  <ViewList />
+                  <FieldProvider fallback={<h1>loading</h1>}>
+                    <RecordProvider>
                       <GridView />
-                    </div>
-                  </RecordProvider>
-                </FieldProvider>
-              </ViewProvider>
+                    </RecordProvider>
+                  </FieldProvider>
+                </ViewProvider>
+              </div>
             </TableProvider>
           </div>
         </AppProvider>

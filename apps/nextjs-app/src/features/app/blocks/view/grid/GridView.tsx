@@ -103,18 +103,20 @@ export const GridView: React.FC = () => {
     );
 
   return (
-    <DataEditor
-      ref={ref}
-      smoothScrollX
-      smoothScrollY
-      getCellContent={getCellContent}
-      onVisibleRegionChanged={onVisibleRegionChanged}
-      onCellEdited={onCellEdited}
-      getCellsForSelection={getCellsForSelection}
-      width={'100%'}
-      columns={columns}
-      rows={rowCount}
-      rowMarkers="both"
-    />
+    <div className="grow w-full overflow-y-auto">
+      <DataEditor
+        ref={ref}
+        smoothScrollX
+        smoothScrollY
+        getCellContent={getCellContent}
+        onVisibleRegionChanged={onVisibleRegionChanged}
+        onCellEdited={onCellEdited}
+        getCellsForSelection={getCellsForSelection}
+        width={'100%'}
+        columns={columns}
+        rows={rowCount}
+        rowMarkers="both"
+      />
+    </div>
   );
 };
