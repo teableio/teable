@@ -1,4 +1,10 @@
-import { AppProvider, FieldProvider, RecordProvider, TableProvider } from '@teable-group/sdk';
+import {
+  AppProvider,
+  FieldProvider,
+  RecordProvider,
+  TableProvider,
+  ViewProvider,
+} from '@teable-group/sdk';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
@@ -6,6 +12,7 @@ import type { FC } from 'react';
 import { useLocalstorageState } from 'rooks';
 import { appConfig } from '../app.config';
 import { GridView } from '../blocks/view/grid/GridView';
+import { ViewList } from '../blocks/view/list/ViewList';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
@@ -55,13 +62,16 @@ export const AppPage: FC = () => {
               <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
             </div>
             <TableProvider tableId={tableId} fallback={<h1>loading</h1>}>
-              <FieldProvider fallback={<h1>loading</h1>}>
-                <RecordProvider>
-                  <div className="grow-1 h-screen w-full overflow-y-auto">
-                    <GridView />
-                  </div>
-                </RecordProvider>
-              </FieldProvider>
+              <ViewProvider fallback={<h1>loading</h1>}>
+                <ViewList />
+                <FieldProvider fallback={<h1>loading</h1>}>
+                  <RecordProvider>
+                    <div className="grow-1 h-screen w-full overflow-y-auto">
+                      <GridView />
+                    </div>
+                  </RecordProvider>
+                </FieldProvider>
+              </ViewProvider>
             </TableProvider>
           </div>
         </AppProvider>

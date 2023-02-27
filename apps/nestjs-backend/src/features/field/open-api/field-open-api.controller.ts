@@ -3,10 +3,10 @@ import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
-  ApiParam,
   ApiOkResponse,
   ApiForbiddenResponse,
   ApiCreatedResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { FieldService } from '../field.service';
 import { CreateFieldRo } from '../model/create-field.ro';
@@ -42,7 +42,7 @@ export class FieldOpenApiController {
     type: FieldVo,
     isArray: true,
   })
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
   getFields(@Param('tableId') tableId: string, @Query() query: GetFieldsRo): Promise<FieldVo[]> {
     return this.fieldService.getFields(tableId, query);
   }
@@ -50,18 +50,11 @@ export class FieldOpenApiController {
   @Post()
   @ApiOperation({ summary: 'Create Field' })
   @ApiCreatedResponse({ description: 'The field has been successfully created.' })
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @ApiParam({
-    name: 'tableId',
-    description: 'The id for table.',
-    example: 'tbla63d4543eb5eded6',
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBody({
+    type: CreateFieldRo,
   })
-  createField(
-    @Param('tableId') tableId: string,
-    @Body() _createFieldDto: CreateFieldRo, // dto for swagger document
-    @Body(FieldPipe) fieldInstance: IFieldInstance
-  ) {
-    console.log('fieldInstance: ', fieldInstance);
+  createField(@Param('tableId') tableId: string, @Body(FieldPipe) fieldInstance: IFieldInstance) {
     return this.fieldOpenApiService.createField(tableId, fieldInstance);
   }
 }

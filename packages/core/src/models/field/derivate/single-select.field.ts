@@ -1,7 +1,7 @@
-import type { Colors } from './colors';
-import type { FieldType, DbFieldType } from './constant';
-import type { CellValueType } from './field';
-import { FieldCore } from './field';
+import type { Colors } from '../colors';
+import type { FieldType, DbFieldType } from '../constant';
+import type { CellValueType } from '../field';
+import { FieldCore } from '../field';
 
 export class SingleSelectFieldChoices {
   name!: string;

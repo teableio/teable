@@ -1,6 +1,6 @@
-import type { DbFieldType, FieldType } from './constant';
-import type { CellValueType } from './field';
-import { FieldCore } from './field';
+import type { DbFieldType, FieldType } from '../constant';
+import type { CellValueType } from '../field';
+import { FieldCore } from '../field';
 
 export class NumberFieldOptions {
   precision!: number;

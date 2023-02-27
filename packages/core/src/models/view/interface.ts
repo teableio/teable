@@ -114,7 +114,9 @@ export interface ISortedField {
   desc: boolean;
 }
 
-export type IGroup = ISortedField[];
+export interface IGroup {
+  rules: ISortedField[];
+}
 
 export type ISort = {
   rules: ISortedField[];
@@ -123,34 +125,25 @@ export type ISort = {
 
 export interface IFilter {
   conjunction: FilterConjunction;
-  conditions: unknown;
+  conditions: unknown[];
 }
 
-export interface IRow {
-  recordId: string;
-}
-
-export interface IViewBase {
-  id: string;
+export interface IViewRo {
   name: string;
   type: ViewType;
   description?: string;
   filter?: IFilter;
   sort?: ISort;
-  order: number;
+  order?: number;
+  group?: IGroup;
   options?: unknown;
 }
 
-export interface IGridView extends IViewBase {
-  type: ViewType.Grid;
+export interface IViewVo extends IViewRo {
+  id: string;
 }
-
-export interface IGalleryView extends IViewBase {
-  type: ViewType.Gallery;
-}
-
-export type IView = IGridView | IGalleryView;
 
 export interface IViewSnapshot {
-  view: IViewBase;
+  view: IViewVo;
+  order: number;
 }

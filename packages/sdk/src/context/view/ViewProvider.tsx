@@ -1,10 +1,11 @@
-import { View } from '../../model/view';
+import { View } from '../../model/view/view';
 import { IViewSnapshot, SnapshotQueryType } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import { FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { AppContext } from '../app';
 import { TableContext } from '../table';
 import { ViewContext } from './ViewContext';
+import { createViewInstance } from '../../model/view/factory';
 
 interface IViewProviderProps {
   fallback: ReactNode;
@@ -26,12 +27,12 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback }) => 
 
     viewsQuery.on('ready', () => {
       console.log('view:ready:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => plainToInstance(View, r.data.view)));
+      setViews(viewsQuery.results.map((r) => createViewInstance(r, r.data.view)));
     });
 
     viewsQuery.on('changed', () => {
       console.log('view:changed:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => plainToInstance(View, r.data.view)));
+      setViews(viewsQuery.results.map((r) => createViewInstance(r, r.data.view)));
     });
 
     return () => {

@@ -1,5 +1,5 @@
 import { SingleSelectFieldCore, IFieldSnapshot } from '@teable-group/core';
-import { Field, FieldExtended } from '../field';
+import { Field, FieldExtended } from './field';
 import { Doc } from 'sharedb/lib/client';
 
 export class SingleSelectField extends SingleSelectFieldCore implements Field {

@@ -1,7 +1,7 @@
 import { Colors, FieldType, ViewType } from '@teable-group/core';
 import type { CreateFieldRo } from '../field/model/create-field.ro';
 import type { CreateRecordsDto } from '../record/create-records.dto';
-import type { CreateViewDto } from '../view/create-view.dto';
+import type { CreateViewRo } from '../view/model/create-view.ro';
 
 export const DEFAULT_FIELDS: CreateFieldRo[] = [
   { name: 'name', type: FieldType.SingleLineText },
@@ -29,7 +29,7 @@ export const DEFAULT_FIELDS: CreateFieldRo[] = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_VIEW: CreateViewDto = {
+export const DEFAULT_VIEW: CreateViewRo = {
   name: 'GridView',
   type: ViewType.Grid,
 };

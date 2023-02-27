@@ -1,20 +1,20 @@
 import type { ViewType } from './constant';
-import type { IFilter, ISort, IViewBase } from './interface';
+import type { IFilter, ISort, IViewVo } from './interface';
 
-export class ViewCore implements IViewBase {
+export abstract class ViewCore implements IViewVo {
   id!: string;
 
   name!: string;
 
-  type!: ViewType;
+  abstract type: ViewType;
 
-  description?: string | undefined;
+  description?: string;
 
-  filter?: IFilter | undefined;
+  filter!: IFilter;
 
-  sort?: ISort | undefined;
+  sort!: ISort;
 
   order!: number;
 
-  options?: unknown;
+  abstract options: unknown;
 }

@@ -1,16 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { ViewController } from './view.controller';
+import { ViewOpenApiController } from './view-open-api.controller';
 
-describe('ViewController', () => {
-  let controller: ViewController;
+describe('ViewOpenApiController', () => {
+  let controller: ViewOpenApiController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ViewController],
+      controllers: [ViewOpenApiController],
     }).compile();
 
-    controller = module.get<ViewController>(ViewController);
+    controller = module.get<ViewOpenApiController>(ViewOpenApiController);
   });
 
   it('should be defined', () => {

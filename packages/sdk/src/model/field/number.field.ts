@@ -1,5 +1,5 @@
 import { IFieldSnapshot, NumberFieldCore } from '@teable-group/core';
-import { Field, FieldExtended } from '../field';
+import { Field, FieldExtended } from './field';
 import { Doc } from 'sharedb/lib/client';
 
 export class NumberField extends NumberFieldCore implements Field {

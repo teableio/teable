@@ -15,6 +15,9 @@ export enum OpName {
   SetFieldNotNull = 'setFieldNotNull',
   SetFieldUnique = 'setFieldUnique',
   SetFieldDefaultValue = 'setFieldDefaultValue',
+
+  AddView = 'addView',
+  SetViewName = 'setViewName',
 }
 
 export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {

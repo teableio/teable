@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta } from '@teable-group/core';
+import type { IColumnMeta, IViewSnapshot } from '@teable-group/core';
 import { generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
-import type { CreateViewDto } from './create-view.dto';
+import type { CreateViewRo } from './model/create-view.ro';
+import { createViewInstanceByRaw } from './model/factory';
+import type { ViewVo } from './model/view.vo';
 
 @Injectable()
 export class ViewService {
@@ -41,16 +43,19 @@ export class ViewService {
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createViewDto: CreateViewDto
+    createViewRo: CreateViewRo,
+    order?: number
   ) {
-    const { name, description, type, options, sort, filter } = createViewDto;
+    const { name, description, type, options, sort, filter, group } = createViewRo;
     const viewId = generateViewId();
 
-    const viewAggregate = await prisma.view.aggregate({
-      where: { tableId },
-      _max: { order: true },
-    });
-    const maxOrder = viewAggregate._max.order || 0;
+    if (!order) {
+      const viewAggregate = await prisma.view.aggregate({
+        where: { tableId },
+        _max: { order: true },
+      });
+      order = (viewAggregate._max.order || 0) + 1;
+    }
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -65,8 +70,9 @@ export class ViewService {
       options: options ? JSON.stringify(options) : undefined,
       sort: sort ? JSON.stringify(sort) : undefined,
       filter: filter ? JSON.stringify(filter) : undefined,
+      group: group ? JSON.stringify(group) : undefined,
       version: 1,
-      order: maxOrder + 1,
+      order,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -120,11 +126,24 @@ export class ViewService {
     return views.map((v) => v.id);
   }
 
-  async createView(tableId: string, createViewDto: CreateViewDto) {
-    return await this.createViewTransaction(this.prisma, tableId, createViewDto);
+  async getViewById(viewId: string): Promise<ViewVo> {
+    const viewRaw = await this.prisma.view.findUniqueOrThrow({
+      where: { id: viewId },
+    });
+
+    return createViewInstanceByRaw(viewRaw) as ViewVo;
   }
 
-  async getView(tableId: string, viewId: string) {
-    return `get tableId: ${tableId} ViewId: ${viewId}`;
+  async getViews(tableId: string): Promise<ViewVo[]> {
+    const viewRaws = await this.prisma.view.findMany({
+      where: { tableId },
+    });
+
+    return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as ViewVo);
+  }
+
+  async addView(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
+    const { view, order } = snapshot;
+    return await this.createViewTransaction(prisma, tableId, view as CreateViewRo, order);
   }
 }

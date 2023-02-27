@@ -201,9 +201,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async addField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    fieldSnapshot: IFieldSnapshot
+    snapshot: IFieldSnapshot
   ) {
-    const fieldInstance = createFieldInstanceByRo(fieldSnapshot.field as CreateFieldRo);
+    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [
@@ -217,6 +217,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
       multiFieldData.map((field) => field.dbFieldName),
       [fieldInstance]
     );
+  }
+
+  private async addView(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    snapshot: IViewSnapshot
+  ) {
+    await this.viewService.addView(prisma, tableId, snapshot);
   }
 
   private async addColumnMeta(
@@ -347,6 +355,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
         break;
       case IdPrefix.Field:
         await this.addField(prisma, collection, snapshot as IFieldSnapshot);
+        break;
+      case IdPrefix.View:
+        await this.addView(prisma, collection, snapshot as IViewSnapshot);
         break;
       default:
         break;
@@ -480,8 +491,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
               description: view.description || undefined,
               filter: JSON.parse(view.filter as string),
               sort: JSON.parse(view.sort as string),
+              group: JSON.parse(view.group as string),
               options: JSON.parse(view.options as string),
             },
+            order: view.order,
           },
         };
       })

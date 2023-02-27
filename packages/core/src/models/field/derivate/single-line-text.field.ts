@@ -1,6 +1,6 @@
-import type { FieldType, DbFieldType } from './constant';
-import type { CellValueType } from './field';
-import { FieldCore } from './field';
+import type { FieldType, DbFieldType } from '../constant';
+import type { CellValueType } from '../field';
+import { FieldCore } from '../field';
 
 export class SingleLineTextFieldCore extends FieldCore {
   type!: FieldType.SingleLineText;

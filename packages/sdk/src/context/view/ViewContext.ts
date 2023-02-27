@@ -1,6 +1,6 @@
-import { ViewCore } from '@teable-group/core';
+import { View } from '../../model';
 import React from 'react';
 
 export const ViewContext = React.createContext<{
-  views: ViewCore[];
+  views: View[];
 }>(null!);

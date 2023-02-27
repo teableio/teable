@@ -1,9 +1,9 @@
 import { assertNever, FieldType, IFieldVo, IFieldSnapshot } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import { Doc } from 'sharedb/lib/client';
-import { NumberField } from './field-model/number';
-import { SingleLineTextField } from './field-model/single-line-text';
-import { SingleSelectField } from './field-model/single-select';
+import { NumberField } from './number.field';
+import { SingleLineTextField } from './single-line-text.field';
+import { SingleSelectField } from './single-select.field';
 
 export function createFieldInstance(doc: Doc<IFieldSnapshot>, field: IFieldVo) {
   const instance = (() => {

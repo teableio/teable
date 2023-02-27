@@ -1,5 +1,5 @@
 import { IFieldSnapshot, SingleLineTextFieldCore } from '@teable-group/core';
-import { Field, FieldExtended } from '../field';
+import { Field, FieldExtended } from './field';
 import { Doc } from 'sharedb/lib/sharedb';
 
 export class SingleLineTextField extends SingleLineTextFieldCore implements Field {

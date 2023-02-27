@@ -42,7 +42,11 @@ export class FieldOpenApiService {
       select: { id: true, columnMeta: true },
     });
 
-    const defaultViewId = Object.keys(JSON.parse(fieldsData[0].columnMeta))[0];
+    const defaultView = await this.prismaService.view.findFirstOrThrow({
+      where: { tableId },
+      select: { id: true },
+    });
+    const defaultViewId = defaultView.id;
 
     const maxFieldOrder = fieldsData.reduce((max, fieldData) => {
       const columnMeta: IColumnMeta = JSON.parse(fieldData.columnMeta);
