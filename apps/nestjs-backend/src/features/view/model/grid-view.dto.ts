@@ -4,7 +4,6 @@ import type { GridViewOptions } from '@teable-group/core';
 
 export class GridViewOptionsDto implements GridViewOptions {
   @ApiProperty({
-    type: RowHeightLevel,
     example: RowHeightLevel.Short,
     default: RowHeightLevel.Short,
     description: 'The row height level of row in view',

@@ -48,5 +48,5 @@ export class CreateViewRo implements IViewRo {
       { $ref: getSchemaPath(KanbanViewOptionsDto) },
     ],
   })
-  options?: GridViewOptionsDto;
+  options?: GridViewOptionsDto | KanbanViewOptionsDto;
 }
