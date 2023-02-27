@@ -5,7 +5,7 @@ import { NumberField } from './number.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
 
-export function createFieldInstance(doc: Doc<IFieldSnapshot>, field: IFieldVo) {
+export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldSnapshot>) {
   const instance = (() => {
     switch (field.type) {
       case FieldType.SingleLineText:

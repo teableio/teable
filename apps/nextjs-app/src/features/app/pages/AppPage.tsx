@@ -1,21 +1,14 @@
-import {
-  AppProvider,
-  FieldProvider,
-  RecordProvider,
-  TableProvider,
-  ViewProvider,
-} from '@teable-group/sdk';
+import { AppProvider } from '@teable-group/sdk';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
 import type { FC } from 'react';
 import { useLocalstorageState } from 'rooks';
 import { appConfig } from '../app.config';
-import { GridView } from '../blocks/view/grid/GridView';
-import { ViewList } from '../blocks/view/list/ViewList';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
+import { Table } from '../layouts/Table';
 import { useAppStore } from '../store';
 
 export const DataGrid = dynamic(
@@ -43,6 +36,7 @@ const AppSwitch: FC<{ path?: string }> = ({ path }) => {
   // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
   return <div onClick={openDirSelector}>open .md or .teable file</div>;
 };
+
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);
   const currentFile = useAppStore((state) => state.currentFile);
@@ -56,23 +50,12 @@ export const AppPage: FC = () => {
       <AppLayout>
         <AppProvider>
           <div id="portal" className="h-full flex items-start fixed w-full">
-            <div className="max-w-xs w-full h-full bg-gray-50 overflow-y-auto">
+            <div className="max-w-xs w-full h-full bg-base-200 overflow-y-auto">
               <SideMenu />
               Teable Technical Preview
               <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
             </div>
-            <TableProvider tableId={tableId} fallback={<h1>loading</h1>}>
-              <div className="grow flex flex-col h-full">
-                <ViewProvider fallback={<h1>loading</h1>}>
-                  <ViewList />
-                  <FieldProvider fallback={<h1>loading</h1>}>
-                    <RecordProvider>
-                      <GridView />
-                    </RecordProvider>
-                  </FieldProvider>
-                </ViewProvider>
-              </div>
-            </TableProvider>
+            <Table tableId={tableId} />
           </div>
         </AppProvider>
       </AppLayout>

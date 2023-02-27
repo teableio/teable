@@ -41,6 +41,7 @@ export async function bootstrap(port: number, dir?: string) {
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);
+    return app;
   } catch (err) {
     console.error(`Failed to initialize, due to ${err}`);
     process.exit(1);

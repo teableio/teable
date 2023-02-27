@@ -1,5 +1,5 @@
 import { gql } from 'apollo-server-micro';
-import { SearchPoemsQuery } from '@/_backend/features/poem/SearchPoems';
+import { SearchPoemsQuery } from '@/backend/features/poem/SearchPoems';
 import type { IGraphqlSdlContext } from './graphql-sdl-context';
 
 const typeDefs = gql`

@@ -20,7 +20,7 @@ export class SetRecordBuilder implements IOpBuilder {
     oldCellValue = oldCellValue ?? null;
 
     if (isEqual(oldCellValue, newCellValue)) {
-      throw new Error('old value and new value are equal');
+      throw new Error(`'old value (${oldCellValue}) and new value (${newCellValue}) are equal'`);
     }
 
     // convert set null to delete key

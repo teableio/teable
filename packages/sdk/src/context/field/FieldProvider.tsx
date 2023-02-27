@@ -1,5 +1,5 @@
 import { AppContext } from '../app/AppContext';
-import { IFieldSnapshot } from '@teable-group/core';
+import { IFieldSnapshot, IFieldVo } from '@teable-group/core';
 import { FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { FieldContext } from './FieldContext';
 import { createFieldInstance, IFieldInstance } from '../../model';
@@ -9,12 +9,19 @@ import { Doc } from 'sharedb/lib/client';
 interface IFieldProviderProps {
   fallback: React.ReactNode;
   children: ReactNode;
+  serverSideData?: IFieldVo[];
 }
 
-export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback }) => {
+export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
   const { connection } = useContext(AppContext);
   const { tableId } = useContext(TableContext);
-  const [fields, setFields] = useState<IFieldInstance[]>([]);
+
+  const [fields, setFields] = useState<IFieldInstance[]>(() => {
+    if (serverSideData) {
+      return serverSideData.map((field) => createFieldInstance(field));
+    }
+    return [];
+  });
   const [fieldDocs, setFieldDocs] = useState<Doc<IFieldSnapshot>[]>([]);
 
   useEffect(() => {
@@ -29,13 +36,13 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback }) =
     fieldsQuery.on('ready', () => {
       console.log('fields:ready:', fieldsQuery.results);
       setFieldDocs(fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
+      setFields(fieldsQuery.results.map((r) => createFieldInstance(r.data.field, r)));
     });
 
     fieldsQuery.on('changed', () => {
       console.log('fields:changed:', fieldsQuery.results);
       setFieldDocs(fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => createFieldInstance(r, r.data.field)));
+      setFields(fieldsQuery.results.map((r) => createFieldInstance(r.data.field, r)));
     });
 
     return () => {

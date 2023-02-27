@@ -83,11 +83,16 @@ export const GridView: React.FC = () => {
         (cell, newVal, rowData) => {
           const [col] = cell;
           const fieldId = columns[col].id;
+          const newCellValue = newVal.data;
+          const oldCellValue = rowData.data.record.fields[fieldId] || null;
+          if (newCellValue === oldCellValue) {
+            return;
+          }
           console.log('endEdit', newVal.data);
           const operation = OpBuilder.editor.setRecord.build({
             fieldId,
-            newCellValue: newVal.data,
-            oldCellValue: rowData.data.record.fields[fieldId],
+            newCellValue,
+            oldCellValue,
           });
 
           rowData.submitOp([operation], undefined, (error) => {

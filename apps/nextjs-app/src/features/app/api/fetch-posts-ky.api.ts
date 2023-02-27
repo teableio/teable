@@ -1,6 +1,6 @@
 import type { JsonApiResponse } from '@teable-group/sdk/api/json-api';
 import { isJsonApiSuccessResponse } from '@teable-group/sdk/api/json-api';
-import type { IGetPosts } from '@/_backend/api/rest/post-repository.ssr';
+import type { IGetPosts } from '@/backend/api/rest/post-repository.ssr';
 import { ky } from '@/config/ky';
 
 export const fetchPostsWithKy = async (): Promise<IGetPosts> => {
