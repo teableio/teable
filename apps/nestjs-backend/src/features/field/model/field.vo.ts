@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IFieldVo } from '@teable-group/core';
 import { CellValueType, FieldType, DbFieldType } from '@teable-group/core';
+import { ApiResponse } from '../../../utils/api-response';
 import { CreateFieldRo } from './create-field.ro';
 
 export class FieldVo extends CreateFieldRo implements IFieldVo {
@@ -35,4 +36,9 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
     example: false,
   })
   dbFieldType!: DbFieldType;
+}
+
+export class FieldResponseVo extends ApiResponse<FieldVo> {
+  @ApiProperty({ type: FieldVo })
+  override data!: FieldVo;
 }

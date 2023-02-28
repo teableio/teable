@@ -3,7 +3,10 @@
   "version": "3.55.0",
   "license": "AGPL-3.0",
   "private": true,
-  "main": "dist/bootstrap.js",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist"
+  },
   "homepage": "https://github.com/teable-group/teable",
   "repository": {
     "type": "git",

@@ -84,7 +84,7 @@ export const GridView: React.FC = () => {
           const [col] = cell;
           const fieldId = columns[col].id;
           const newCellValue = newVal.data;
-          const oldCellValue = rowData.data.record.fields[fieldId] || null;
+          const oldCellValue = rowData.data.record.fields[fieldId] ?? null;
           if (newCellValue === oldCellValue) {
             return;
           }

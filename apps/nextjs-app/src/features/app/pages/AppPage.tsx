@@ -8,7 +8,6 @@ import { appConfig } from '../app.config';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
-import { Table } from '../layouts/Table';
 import { useAppStore } from '../store';
 
 export const DataGrid = dynamic(
@@ -55,7 +54,6 @@ export const AppPage: FC = () => {
               Teable Technical Preview
               <input value={tableId} onChange={(e) => setTableId(e.target.value)} />
             </div>
-            <Table tableId={tableId} />
           </div>
         </AppProvider>
       </AppLayout>

@@ -5,6 +5,7 @@ import type blog from './locales/en/blog.json';
 import type common from './locales/en/common.json';
 import type home from './locales/en/home.json';
 import type navigation from './locales/en/navigation.json';
+import type space from './locales/en/space.json';
 import type system from './locales/en/system.json';
 
 export interface I18nNamespaces {
@@ -14,6 +15,7 @@ export interface I18nNamespaces {
   app: typeof app;
   common: typeof common;
   home: typeof home;
+  space: typeof space;
   navigation: typeof navigation;
   system: typeof system;
 }
