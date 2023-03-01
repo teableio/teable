@@ -1,17 +1,23 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { CreateTableDto } from './create-table.dto';
+import { SSRSnapshotVo } from './ssr-snapshot.vo';
 import { TableService } from './table.service';
+import { responseWrap } from '@/utils/api-response';
 
 @ApiBearerAuth()
 @ApiTags('table')
 @Controller('api/table')
 export class TableController {
   constructor(private readonly tableService: TableService) {}
-
-  @Get(':tableId')
-  getTable(@Param('tableId') tableId: string) {
-    return this.tableService.getTable(tableId);
+  @Get('/:tableId/ssr')
+  @ApiOkResponse({
+    description: 'ssr snapshot',
+    type: SSRSnapshotVo,
+  })
+  async getSSRSnapshot(@Param('tableId') tableId: string): Promise<SSRSnapshotVo> {
+    const snapshot = await this.tableService.getSSRSnapshot(tableId);
+    return responseWrap(snapshot);
   }
 
   @ApiOperation({ summary: 'Create table' })

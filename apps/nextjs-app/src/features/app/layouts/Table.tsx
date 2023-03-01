@@ -1,4 +1,4 @@
-import type { IFieldVo } from '@teable-group/core';
+import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
   TableProvider,
   ViewProvider,
@@ -13,10 +13,17 @@ import { AppLayout } from './AppLayout';
 
 export interface ITableProps {
   tableId: string;
-  fieldServerData?: IFieldVo;
+  fieldServerData: IFieldVo[];
+  viewServerData: IViewVo[];
+  recordServerData: { records: IRecord[]; total: number };
 }
 
-export const Table: React.FC<ITableProps> = ({ tableId }) => {
+export const Table: React.FC<ITableProps> = ({
+  tableId,
+  fieldServerData,
+  viewServerData,
+  recordServerData,
+}) => {
   return (
     <AppLayout>
       <AppProvider>
@@ -25,11 +32,11 @@ export const Table: React.FC<ITableProps> = ({ tableId }) => {
             <div className="max-w-xs w-full h-full bg-base-200 overflow-y-auto">
               Teable Technical Preview
             </div>
-            <ViewProvider fallback={<h1>loading</h1>}>
+            <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
               <div className="grow flex flex-col h-full">
                 <ViewList />
-                <FieldProvider fallback={<h1>loading</h1>}>
-                  <RecordProvider>
+                <FieldProvider fallback={<h1>loading</h1>} serverSideData={fieldServerData}>
+                  <RecordProvider serverData={recordServerData}>
                     <GridView />
                   </RecordProvider>
                 </FieldProvider>

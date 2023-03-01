@@ -22,6 +22,7 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
     }
     return [];
   });
+
   const [fieldDocs, setFieldDocs] = useState<Doc<IFieldSnapshot>[]>([]);
 
   useEffect(() => {

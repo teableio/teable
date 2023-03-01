@@ -4,7 +4,7 @@ import { Doc } from 'sharedb/lib/client';
 import { GridView } from './grid.view';
 import { KanbanView } from './kanban.view';
 
-export function createViewInstance(doc: Doc<IViewSnapshot>, view: IViewVo) {
+export function createViewInstance(view: IViewVo, doc?: Doc<IViewSnapshot>) {
   const instance = (() => {
     switch (view.type) {
       case ViewType.Grid:

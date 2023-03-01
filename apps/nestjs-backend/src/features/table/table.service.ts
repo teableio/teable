@@ -116,4 +116,28 @@ export class TableService {
       await prisma.$executeRawUnsafe(`DROP TABLE ${dbTableName}`);
     });
   }
+
+  async getSSRSnapshot(tableId: string, viewId?: string) {
+    if (!viewId) {
+      const view = await this.prisma.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+
+    const fields = await this.fieldService.getFields(tableId, { viewId });
+    const views = await this.viewService.getViews(tableId);
+    const recordData = await this.recordService.getRecords(tableId, {
+      viewId,
+      skip: 0,
+      take: 50,
+    });
+
+    return {
+      fields,
+      views,
+      recordData,
+    };
+  }
 }

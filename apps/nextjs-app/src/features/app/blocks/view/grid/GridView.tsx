@@ -23,7 +23,6 @@ export const GridView: React.FC = () => {
       5,
       useCallback(
         async (updateRowRef, updateRow, [offset, limit]) => {
-          await new Promise((res) => setTimeout(res, 300));
           const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
             type: SnapshotQueryType.Record,
             offset,

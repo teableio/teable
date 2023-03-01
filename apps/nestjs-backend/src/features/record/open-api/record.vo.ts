@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type { IRecord } from '@teable-group/core';
 
 export class RecordVo {
   @ApiProperty({
@@ -32,12 +33,7 @@ export class RecordsVo {
       },
     ],
   })
-  records!: {
-    id: string;
-    fields: { [fieldIdOrName: string]: unknown };
-    createdTime: string;
-    lastModifiedTime: string;
-  }[];
+  records!: IRecord[];
 
   @ApiProperty({
     description: 'Total number of records in this query.',

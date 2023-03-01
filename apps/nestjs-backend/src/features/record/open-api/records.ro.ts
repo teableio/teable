@@ -71,7 +71,7 @@ export class RecordsRo {
     default: CellFormat.Json,
   })
   @IsEnum(CellFormat, { message: 'Error cellFormate, You should set it to "json" or "text"' })
-  cellFormat: CellFormat = CellFormat.Json;
+  cellFormat?: CellFormat = CellFormat.Json;
 
   @ApiPropertyOptional({
     enum: FieldKeyType,
@@ -79,5 +79,5 @@ export class RecordsRo {
     default: FieldKeyType.Id,
   })
   @IsEnum(FieldKeyType, { message: 'Error fieldKey, You should set it to "name" or "id"' })
-  fieldKey: FieldKeyType = FieldKeyType.Id;
+  fieldKey?: FieldKeyType = FieldKeyType.Id;
 }

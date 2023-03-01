@@ -1,5 +1,5 @@
 import { View } from '../../model/view/view';
-import { IViewSnapshot, SnapshotQueryType } from '@teable-group/core';
+import { IViewSnapshot, IViewVo, SnapshotQueryType } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import { FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { AppContext } from '../app';
@@ -9,13 +9,19 @@ import { createViewInstance } from '../../model/view/factory';
 
 interface IViewProviderProps {
   fallback: ReactNode;
+  serverData?: IViewVo[];
   children: ReactNode;
 }
 
-export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback }) => {
+export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serverData }) => {
   const { connection } = useContext(AppContext);
   const { tableId } = useContext(TableContext);
-  const [views, setViews] = useState<View[]>([]);
+  const [views, setViews] = useState<View[]>(() => {
+    if (serverData) {
+      return serverData.map((view) => createViewInstance(view));
+    }
+    return [];
+  });
 
   useEffect(() => {
     if (!tableId) {
@@ -27,12 +33,12 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback }) => 
 
     viewsQuery.on('ready', () => {
       console.log('view:ready:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => createViewInstance(r, r.data.view)));
+      setViews(viewsQuery.results.map((r) => createViewInstance(r.data.view, r)));
     });
 
     viewsQuery.on('changed', () => {
       console.log('view:changed:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => createViewInstance(r, r.data.view)));
+      setViews(viewsQuery.results.map((r) => createViewInstance(r.data.view, r)));
     });
 
     return () => {

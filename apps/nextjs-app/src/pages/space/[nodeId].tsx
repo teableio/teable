@@ -1,30 +1,34 @@
-import type { IFieldVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { FieldAPI } from '@/backend/api/rest/field.ssr';
+import { SsrApi } from '@/backend/api/rest/table.ssr';
 import type { ITableProps } from '@/features/app/layouts/Table';
 import { Table } from '@/features/app/layouts/Table';
 
-interface INodeProps {
-  fieldServerData?: IFieldVo;
-}
-
-const Node: React.FC<INodeProps> = () => {
+const Node: React.FC<ITableProps> = ({ fieldServerData, viewServerData, recordServerData }) => {
   const router = useRouter();
   const { nodeId } = router.query;
-
-  return <Table tableId={nodeId as string} />;
+  return (
+    <Table
+      tableId={nodeId as string}
+      fieldServerData={fieldServerData}
+      viewServerData={viewServerData}
+      recordServerData={recordServerData}
+    />
+  );
 };
 
 export default Node;
 
 export const getServerSideProps: GetServerSideProps<ITableProps> = async (context) => {
   const { nodeId } = context.query;
-  const fields = await new FieldAPI().getFields(nodeId as string);
+  const snapshot = await new SsrApi().getSnapshot(nodeId as string);
+
   return {
     props: {
       tableId: nodeId as string,
-      fieldServerData: fields,
+      fieldServerData: snapshot.fields,
+      viewServerData: snapshot.views,
+      recordServerData: snapshot.recordData,
     },
   };
 };
