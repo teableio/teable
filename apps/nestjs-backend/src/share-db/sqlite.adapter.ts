@@ -17,6 +17,7 @@ import type {
   ISnapshotQuery,
   IViewSnapshot,
   ViewType,
+  ISnapshotBase,
 } from '@teable-group/core';
 import { AggregateKey, SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -36,14 +37,6 @@ export interface ICollectionSnapshot {
   type: string;
   v: number;
   data: IRecord;
-}
-
-interface ISnapshotBase<T = unknown> {
-  id: string;
-  v: number;
-  type: string | null;
-  data: T;
-  m?: unknown;
 }
 
 type IProjection = { [fieldKey: string]: boolean };

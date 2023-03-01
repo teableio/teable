@@ -2,7 +2,13 @@ import DataEditor from '@glideapps/glide-data-grid';
 import type { DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
 import { OpBuilder, SnapshotQueryType } from '@teable-group/core';
-import { useConnection, useFields, useRowCount, useTableId } from '@teable-group/sdk';
+import {
+  useConnection,
+  useFields,
+  useRowCount,
+  useSSRRecords,
+  useTableId,
+} from '@teable-group/sdk';
 import { useCallback, useRef } from 'react';
 import '@glideapps/glide-data-grid/dist/index.css';
 import type { Doc } from 'sharedb/lib/client';
@@ -15,6 +21,7 @@ export const GridView: React.FC = () => {
   const tableId = useTableId();
   const rowCount = useRowCount();
   const fields = useFields();
+  const ssrRecords = useSSRRecords();
   const { columns, cellValue2GridDisplay } = useColumns(fields);
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection } =
@@ -103,7 +110,10 @@ export const GridView: React.FC = () => {
         },
         [columns]
       ),
-      ref
+      ref,
+      ssrRecords?.map((record) => {
+        return { data: { record } } as Doc;
+      })
     );
 
   return (

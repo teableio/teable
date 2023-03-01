@@ -1,5 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
-import type { IRecordSnapshotQuery } from '@teable-group/core';
+import type { IRecordSnapshot, IRecordSnapshotQuery, ISnapshotBase } from '@teable-group/core';
 import { generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
@@ -7,6 +7,7 @@ import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
+import { FieldKeyType } from './constant';
 import type { CreateRecordsDto } from './create-records.dto';
 import type { RecordsVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
@@ -322,13 +323,14 @@ export class RecordService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
-    projection?: { [fieldKey: string]: boolean }
-  ) {
+    projection?: { [fieldKey: string]: boolean },
+    fieldKeyType?: FieldKeyType
+  ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     const allFields = await prisma.field.findMany({
       where: { tableId },
-      select: { id: true, dbFieldName: true },
+      select: { id: true, name: true, dbFieldName: true },
     });
 
     const allViews = await prisma.view.findMany({
@@ -367,7 +369,8 @@ export class RecordService {
       })
       .map((record) => {
         const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-          acc[field.id] = record[field.dbFieldName];
+          const fieldKey = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
+          acc[fieldKey] = record[field.dbFieldName];
           return acc;
         }, {});
 
@@ -387,6 +390,10 @@ export class RecordService {
             record: {
               fields: fieldsData,
               id: record.__id,
+              createdTime: record.__created_time?.getDate(),
+              lastModifiedTime: record.__last_modified_time?.getDate(),
+              createdBy: record.__created_by,
+              lastModifiedBy: record.__last_modified_by,
             },
             recordOrder,
           },
@@ -404,22 +411,18 @@ export class RecordService {
       viewId = defaultView.id;
     }
 
-    const sqlNative = await this.buildQuery(this.prismaService, tableId, {
+    const ids = await this.getRecordIds(this.prismaService, tableId, {
       viewId,
       offset: query.skip,
       limit: query.take,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const records = await this.prismaService.$queryRawUnsafe<any[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
+    const recordSnapshot = await this.getRecordSnapshotBulk(this.prismaService, tableId, ids);
 
     const total = await this.getRowCount(this.prismaService, tableId, viewId);
 
     return {
-      records,
+      records: recordSnapshot.map((r) => r.data.record),
       total,
     };
   }

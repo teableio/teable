@@ -27,14 +27,15 @@ export function useAsyncData<TRowType>(
   getRowData: RowCallback<TRowType>,
   toCell: RowToCell<TRowType>,
   onEdited: RowEditedCallback<TRowType>,
-  gridRef: MutableRefObject<DataEditorRef | null>
+  gridRef: MutableRefObject<DataEditorRef | null>,
+  initRow: TRowType[] = []
 ): Pick<
   DataEditorProps,
   'getCellContent' | 'onVisibleRegionChanged' | 'onCellEdited' | 'getCellsForSelection'
 > {
   pageSize = Math.max(pageSize, 1);
   const loadingRef = useRef(CompactSelection.empty());
-  const dataRef = useRef<TRowType[]>([]);
+  const dataRef = useRef<TRowType[]>(initRow);
 
   const [visiblePages, setVisiblePages] = useState<Rectangle>({
     x: 0,

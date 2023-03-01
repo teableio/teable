@@ -6,3 +6,4 @@ export * from './use-row-count';
 export * from './use-table-id';
 export * from './use-views';
 export * from './use-active-view-id';
+export * from './use-ssr-records';
