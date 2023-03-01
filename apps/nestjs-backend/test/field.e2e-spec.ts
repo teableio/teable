@@ -49,7 +49,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
   it('/api/table/{tableId}/field (GET)', async () => {
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    expect(fieldsResult.body).toMatchObject(defaultFields);
+    expect(fieldsResult.body.data).toMatchObject(defaultFields);
   });
 
   it('/api/table/{tableId}/field (POST)', async () => {
@@ -63,7 +63,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       .post(`/api/table/${tableId}/field`)
       .send(fieldRo)
       .expect(201)
-      .expect({});
+      .expect({ success: true });
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/field`)
@@ -73,7 +73,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       })
       .expect(200);
 
-    expect(result.body).toMatchObject([
+    expect(result.body.data).toMatchObject([
       ...defaultFields,
       {
         name: 'New field',

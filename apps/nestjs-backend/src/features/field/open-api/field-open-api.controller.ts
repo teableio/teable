@@ -8,13 +8,15 @@ import {
   ApiCreatedResponse,
   ApiBody,
 } from '@nestjs/swagger';
+import { ApiResponse, responseWrap } from '@/utils/api-response';
 import { FieldService } from '../field.service';
 import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';
-import { FieldVo } from '../model/field.vo';
 import { GetFieldsRo } from '../model/get-fields.ro';
 import { FieldOpenApiService } from './field-open-api.service';
+import { FieldResponseVo } from './field-response.vo';
 import { FieldPipe } from './field.pipe';
+import { FieldsResponseVo } from './fields-response.vo';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -29,22 +31,29 @@ export class FieldOpenApiController {
   @ApiOperation({ summary: 'Get a specific field' })
   @ApiOkResponse({
     description: 'Field',
-    type: FieldVo,
+    type: FieldResponseVo,
   })
-  getField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string): Promise<FieldVo> {
-    return this.fieldService.getField(tableId, fieldId);
+  async getField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<FieldResponseVo> {
+    const fieldVo = await this.fieldService.getField(tableId, fieldId);
+    return responseWrap(fieldVo);
   }
 
   @Get()
   @ApiOperation({ summary: 'Batch fetch fields' })
   @ApiOkResponse({
     description: 'Field',
-    type: FieldVo,
-    isArray: true,
+    type: FieldsResponseVo,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
-  getFields(@Param('tableId') tableId: string, @Query() query: GetFieldsRo): Promise<FieldVo[]> {
-    return this.fieldService.getFields(tableId, query);
+  async getFields(
+    @Param('tableId') tableId: string,
+    @Query() query: GetFieldsRo
+  ): Promise<FieldsResponseVo> {
+    const fieldsVo = await this.fieldService.getFields(tableId, query);
+    return responseWrap(fieldsVo);
   }
 
   @Post()
@@ -54,7 +63,16 @@ export class FieldOpenApiController {
   @ApiBody({
     type: CreateFieldRo,
   })
-  createField(@Param('tableId') tableId: string, @Body(FieldPipe) fieldInstance: IFieldInstance) {
-    return this.fieldOpenApiService.createField(tableId, fieldInstance);
+  @ApiOkResponse({
+    description: 'Field',
+    type: ApiResponse<null>,
+    isArray: true,
+  })
+  async createField(
+    @Param('tableId') tableId: string,
+    @Body(FieldPipe) fieldInstance: IFieldInstance
+  ) {
+    await this.fieldOpenApiService.createField(tableId, fieldInstance);
+    return responseWrap(null);
   }
 }

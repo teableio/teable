@@ -9,9 +9,8 @@ export class FieldAPI {
       .json<IJsonApiResponse<IFieldVo>>()
       .then((resp) => {
         if (resp.success) {
-          resp.data;
+          return resp.data;
         }
-        return resp;
       });
   }
 }

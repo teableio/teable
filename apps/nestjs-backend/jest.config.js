@@ -19,7 +19,7 @@ const getTsConfigBasePaths = (tsConfigFile) => {
     throw new Error(`Cannot find tsconfig file: ${tsConfigFile}`);
   }
   const tsPaths = parsedTsConfig.config.compilerOptions?.paths;
-  return tsPaths ? pathsToModuleNameMapper(tsPaths, { prefix: '<rootDir>/src' }) : {};
+  return tsPaths ? pathsToModuleNameMapper(tsPaths, { prefix: '<rootDir>' }) : {};
 };
 
 /** @type {import('ts-jest').JestConfigWithTsJest} */

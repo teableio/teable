@@ -13,7 +13,14 @@
     "sourceMap": true,
     "allowJs": false,
     "baseUrl": "./",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "paths": {
+      "@/features/*": ["./src/features/*"],
+      "@/filter/*": ["./src/filter/*"],
+      "@/share-db/*": ["./src/share-db/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/ws/*": ["./src/ws/*"]
+    }
   },
   "references": [
     { "path": "../../packages/core" },

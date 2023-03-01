@@ -1,4 +1,4 @@
-import { isPlainObject } from '@teable-group/core';
+import { isPlainObject } from '../typeguards';
 import type {
   IJsonApiErrorResponse,
   IJsonApiResponse,

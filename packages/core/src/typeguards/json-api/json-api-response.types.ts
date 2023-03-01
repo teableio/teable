@@ -34,6 +34,4 @@ export type IJsonApiSuccessResponse<T> = {
   data: T;
 } & IJsonApiResponseMeta;
 
-export type IJsonApiResponse<T> =
-  | IJsonApiErrorResponse
-  | IJsonApiSuccessResponse<T>;
+export type IJsonApiResponse<T> = IJsonApiErrorResponse | IJsonApiSuccessResponse<T>;
