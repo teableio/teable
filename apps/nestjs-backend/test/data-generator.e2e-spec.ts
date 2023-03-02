@@ -69,11 +69,11 @@ describe('Performance test data generator', () => {
         .post(`/api/table/${tableId}/field`)
         .send(fieldRo)
         .expect(201)
-        .expect({});
+        .expect({ success: true });
     }
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    fields = fieldsResult.body;
+    fields = fieldsResult.body.data;
 
     console.time(`create ${count} records`);
     for (let i = 0; i < count / 1000; i++) {

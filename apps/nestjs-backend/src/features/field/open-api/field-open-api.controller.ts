@@ -8,7 +8,7 @@ import {
   ApiCreatedResponse,
   ApiBody,
 } from '@nestjs/swagger';
-import { ApiResponse, responseWrap } from '@/utils/api-response';
+import { ApiResponse, responseWrap } from 'src/utils/api-response';
 import { FieldService } from '../field.service';
 import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';

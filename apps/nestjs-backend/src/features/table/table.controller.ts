@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
+import { responseWrap } from 'src/utils/api-response';
 import { CreateTableDto } from './create-table.dto';
 import { SSRSnapshotVo } from './ssr-snapshot.vo';
 import { TableService } from './table.service';
-import { responseWrap } from '@/utils/api-response';
 
 @ApiBearerAuth()
 @ApiTags('table')

@@ -15,11 +15,7 @@
     "baseUrl": "./",
     "outDir": "./dist",
     "paths": {
-      "@/features/*": ["./src/features/*"],
-      "@/filter/*": ["./src/filter/*"],
-      "@/share-db/*": ["./src/share-db/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/ws/*": ["./src/ws/*"]
+      "src/*": ["./src/*"]
     }
   },
   "references": [
