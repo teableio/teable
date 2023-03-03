@@ -1,11 +1,9 @@
-import path from 'path';
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
+import { DevtoolsModule } from '@nestjs/devtools-integration';
 import type { IAppConfig } from './app.interface';
-import { AppService } from './app.service';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
+import { NextModule } from './features/next/next.module';
 import { TableModule } from './features/table/table.module';
 import { WsModule } from './ws/ws.module';
 
@@ -15,17 +13,14 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
-        ConfigModule.forRoot({
-          envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
-            return config.dir ? path.join(config.dir, str) : str;
-          }),
+        DevtoolsModule.register({
+          http: process.env.NODE_ENV !== 'production',
         }),
-        WsModule,
+        NextModule.forRoot(config),
         FileTreeModule,
         TableModule,
+        ...(process.env.NODE_ENV === 'production' ? [WsModule] : []),
       ],
-      controllers: [AppController],
-      providers: [{ provide: 'APP_CONFIG', useValue: config }, AppService],
     };
   }
 }

@@ -1,5 +1,6 @@
 import { parse } from 'url';
 import { Controller, Get, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { FileTree } from './file-tree.class';
 
 @Controller('api')

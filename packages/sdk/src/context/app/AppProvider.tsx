@@ -6,7 +6,7 @@ import type { Socket } from 'sharedb/lib/sharedb';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [connection] = useState(() => {
-    const socket = new ReconnectingWebSocket('ws://' + window.location.host);
+    const socket = new ReconnectingWebSocket(`ws://${window.location.host}/socket`);
     return new Connection(socket as Socket);
   });
 

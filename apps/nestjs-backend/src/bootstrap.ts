@@ -33,10 +33,22 @@ export async function bootstrap(port: number, dir?: string) {
       AppModule.forRoot({
         port,
         dir: dir,
-      })
+      }),
+      {
+        snapshot: true,
+      }
     );
 
     setUpAppMiddleware(app);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+    // app.getHttpServer().on('upgrade', async function (req: Request, socket: any, head: any) {
+    //   if (req.url.startsWith('/_next')) {
+    //     console.log('upgrade: ', req.url);
+    //     const server = app.select(NextModule.DEFAULT).get(NextService).server;
+    //     const result = await server.getUpgradeHandler()(req, socket, head);
+    //     console.log('hmr result', result);
+    //   }
+    // });
 
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);

@@ -24,34 +24,22 @@ const isProd = process.env.NODE_ENV === 'production';
 const isCI = trueEnv.includes(process.env?.CI ?? 'false');
 const enableCSP = true;
 
-const NEXTJS_IGNORE_ESLINT = trueEnv.includes(
-  process.env?.NEXTJS_IGNORE_ESLINT ?? 'false'
-);
-const NEXTJS_IGNORE_TYPECHECK = trueEnv.includes(
-  process.env?.NEXTJS_IGNORE_TYPECHECK ?? 'false'
-);
+const NEXTJS_IGNORE_ESLINT = trueEnv.includes(process.env?.NEXTJS_IGNORE_ESLINT ?? 'false');
+const NEXTJS_IGNORE_TYPECHECK = trueEnv.includes(process.env?.NEXTJS_IGNORE_TYPECHECK ?? 'false');
 const NEXTJS_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
   process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'false'
 );
-const NEXTJS_DISABLE_SENTRY = trueEnv.includes(
-  process.env?.NEXTJS_DISABLE_SENTRY ?? 'false'
-);
+const NEXTJS_DISABLE_SENTRY = trueEnv.includes(process.env?.NEXTJS_DISABLE_SENTRY ?? 'false');
 
-const NEXTJS_SENTRY_DEBUG = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_DEBUG ?? 'false'
-);
-const NEXTJS_SENTRY_TRACING = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_TRACING ?? 'false'
-);
+const NEXTJS_SENTRY_DEBUG = trueEnv.includes(process.env?.NEXTJS_SENTRY_DEBUG ?? 'false');
+const NEXTJS_SENTRY_TRACING = trueEnv.includes(process.env?.NEXTJS_SENTRY_TRACING ?? 'false');
 
 /**
  * A way to allow CI optimization when the build done there is not used
  * to deliver an image or deploy the files.
  * @link https://nextjs.org/docs/advanced-features/source-maps
  */
-const disableSourceMaps = trueEnv.includes(
-  process.env?.NEXT_DISABLE_SOURCEMAPS ?? 'false'
-);
+const disableSourceMaps = trueEnv.includes(process.env?.NEXT_DISABLE_SOURCEMAPS ?? 'false');
 
 if (disableSourceMaps) {
   console.log(
@@ -123,10 +111,7 @@ const secureHeaders = createSecureHeaders({
   },
   ...(enableCSP && process.env.NODE_ENV === 'production'
     ? {
-        forceHTTPSRedirect: [
-          true,
-          { maxAge: 60 * 60 * 24 * 4, includeSubDomains: true },
-        ],
+        forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 4, includeSubDomains: true }],
       }
     : {}),
   referrerPolicy: 'same-origin',
@@ -304,9 +289,7 @@ if (!NEXTJS_DISABLE_SENTRY) {
 }
 
 if (tmModules.length > 0) {
-  console.info(
-    `${pc.green('notice')}- Will transpile [${tmModules.join(',')}]`
-  );
+  console.info(`${pc.green('notice')}- Will transpile [${tmModules.join(',')}]`);
 
   config = withNextTranspileModules(tmModules, {
     resolveSymlinks: true,

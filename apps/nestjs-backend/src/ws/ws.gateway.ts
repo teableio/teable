@@ -4,7 +4,7 @@ import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Server } from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 
-@WebSocketGateway()
+@WebSocketGateway({ path: '/socket' })
 export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly shareDb: ShareDbService) {}
 
