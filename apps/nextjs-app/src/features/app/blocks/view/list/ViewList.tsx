@@ -1,4 +1,5 @@
 import { useActiveViewId, useViews } from '@teable-group/sdk';
+import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import classnames from 'classnames';
 
 export const ViewList: React.FC = () => {
@@ -16,6 +17,12 @@ export const ViewList: React.FC = () => {
           {view.name}
         </a>
       ))}
+      <a className="tab">
+        <button className="btn btn-xs btn-ghost">
+          <AddBoldIcon />
+          <span className="ml-1">View</span>
+        </button>
+      </a>
     </div>
   );
 };
