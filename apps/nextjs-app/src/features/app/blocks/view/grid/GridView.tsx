@@ -14,6 +14,7 @@ import '@glideapps/glide-data-grid/dist/index.css';
 import type { Doc } from 'sharedb/lib/client';
 import { useAsyncData } from './useAsyncData';
 import { useColumns } from './useColumns';
+import { useTheme } from './useTheme';
 
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
@@ -23,6 +24,7 @@ export const GridView: React.FC = () => {
   const fields = useFields();
   const ssrRecords = useSSRRecords();
   const { columns, cellValue2GridDisplay } = useColumns(fields);
+  const [theme] = useTheme();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection } =
     useAsyncData<Doc<IRecordSnapshot>>(
@@ -120,6 +122,7 @@ export const GridView: React.FC = () => {
     <div className="grow w-full overflow-y-auto">
       <DataEditor
         ref={ref}
+        theme={theme}
         smoothScrollX
         smoothScrollY
         getCellContent={getCellContent}

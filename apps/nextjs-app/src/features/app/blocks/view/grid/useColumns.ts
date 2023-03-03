@@ -14,7 +14,7 @@ export function useColumns(fields: IFieldInstance[]) {
           return {
             id: field.id,
             title: field.name,
-            width: 400,
+            width: 200,
             icon: GridColumnIcon.HeaderString,
             kind: GridCellKind.Text,
           };
