@@ -6439,6 +6439,7 @@ __metadata:
     react-dom: "npm:18.2.0"
     reconnecting-websocket: "npm:4.4.0"
     rimraf: "npm:3.0.2"
+    rooks: "npm:7.4.4"
     sharedb: "npm:3.2.3"
     ts-jest: "npm:29.0.3"
     typescript: "npm:4.8.4"
@@ -23596,6 +23597,19 @@ __metadata:
     react: ^16.8.0  || ^17.0.0 || ^18.0.0
     react-dom: ^16.8.0  || ^17.0.0 || ^18.0.0
   checksum: 1c564da43ad1eda47c228c967ec0dbf2216c5fe913a54e97d38b10624615ef0b11732584e15667437810ac4beee15c939dcd74161171c50247c307fefb6d152a
+  languageName: node
+  linkType: hard
+
+"rooks@npm:7.4.4":
+  version: 7.4.4
+  resolution: "rooks@npm:7.4.4"
+  dependencies:
+    lodash.debounce: "npm:^4.0.8"
+    raf: "npm:^3.4.1"
+  peerDependencies:
+    react: ^16.8.0  || ^17.0.0 || ^18.0.0
+    react-dom: ^16.8.0  || ^17.0.0 || ^18.0.0
+  checksum: 92316a2d245e7244208de0f2c87b2622620c761777fb733bcd932f8a0f90186928f43d7cb7e4890a36293d29dc8653787aba4c8a4f5a595002ef042127898ab0
   languageName: node
   linkType: hard
 

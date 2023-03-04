@@ -1,6 +1,6 @@
 import { AppContext } from '../app/AppContext';
 import { IFieldSnapshot, IFieldVo } from '@teable-group/core';
-import { FC, ReactNode, useContext, useEffect, useState } from 'react';
+import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { FieldContext } from './FieldContext';
 import { createFieldInstance, IFieldInstance } from '../../model';
 import { TableContext } from '../table/TableContext';
@@ -57,13 +57,9 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
     return <>{fallback}</>;
   }
 
-  return (
-    <FieldContext.Provider
-      value={{
-        fields,
-      }}
-    >
-      {children}
-    </FieldContext.Provider>
-  );
+  const value = useMemo(() => {
+    return { fields };
+  }, [fields]);
+
+  return <FieldContext.Provider value={value}>{children}</FieldContext.Provider>;
 };

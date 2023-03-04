@@ -41,6 +41,7 @@
     "class-transformer": "0.5.1",
     "dequal": "^2.0.3",
     "reconnecting-websocket": "4.4.0",
+    "rooks": "7.4.4",
     "sharedb": "3.2.3"
   },
   "peerDependencies": {

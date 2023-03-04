@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { ThemeKey, useTheme } from '@teable-group/sdk';
 
 const lightTheme = {};
 
@@ -30,18 +30,8 @@ const darkTheme = {
     'Inter, Roboto, -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Ubuntu, noto, arial, sans-serif',
 };
 
-export function useTheme(): [Record<string, string>, () => void] {
-  const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+export function useGridTheme() {
+  const { theme } = useTheme();
 
-  const [theme, setTheme] = useState<Record<string, string>>(darkMode ? darkTheme : lightTheme);
-
-  const toggle = useCallback(() => {
-    if (theme === darkTheme) {
-      setTheme(lightTheme);
-    } else {
-      setTheme(darkTheme);
-    }
-  }, []);
-
-  return [theme, toggle];
+  return theme === ThemeKey.Dark ? darkTheme : lightTheme;
 }

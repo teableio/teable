@@ -1,6 +1,6 @@
 import { AppContext } from '../app/AppContext';
 import { AggregateKey, IAggregateQuery, IRecord, SnapshotQueryType } from '@teable-group/core';
-import { ReactNode, useContext, useEffect, useState } from 'react';
+import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { TableContext } from '../table/TableContext';
 import { RecordContext } from './RecordContext';
 
@@ -45,9 +45,9 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
     };
   }, [tableId, connection]);
 
-  return (
-    <RecordContext.Provider value={{ rowCount, serverRecords: serverData?.records }}>
-      {children}
-    </RecordContext.Provider>
-  );
+  const value = useMemo(() => {
+    return { rowCount, serverRecords: serverData?.records };
+  }, [rowCount, serverData]);
+
+  return <RecordContext.Provider value={value}>{children}</RecordContext.Provider>;
 };

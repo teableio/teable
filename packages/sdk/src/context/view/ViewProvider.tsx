@@ -1,7 +1,6 @@
 import { View } from '../../model/view/view';
 import { IViewSnapshot, IViewVo, SnapshotQueryType } from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
-import { FC, ReactNode, useContext, useEffect, useState } from 'react';
+import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { AppContext } from '../app';
 import { TableContext } from '../table';
 import { ViewContext } from './ViewContext';
@@ -50,13 +49,9 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serve
     return <>{fallback}</>;
   }
 
-  return (
-    <ViewContext.Provider
-      value={{
-        views,
-      }}
-    >
-      {children}
-    </ViewContext.Provider>
-  );
+  const value = useMemo(() => {
+    return { views };
+  }, [views]);
+
+  return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
 };
