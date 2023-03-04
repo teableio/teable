@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta, IFieldSnapshotQuery } from '@teable-group/core';
+import type { IColumnMeta, IFieldSnapshot, IFieldSnapshotQuery } from '@teable-group/core';
 import { nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
@@ -8,7 +8,9 @@ import { sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { preservedFieldName } from './constant';
+import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
+import { createFieldInstanceByRo } from './model/factory';
 import { FieldVo } from './model/field.vo';
 import type { GetFieldsRo } from './model/get-fields.ro';
 
@@ -277,5 +279,20 @@ export class FieldService {
       select: { dbTableName: true },
     });
     return tableMeta.dbTableName;
+  }
+
+  async addField(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
+    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
+
+    // 1. save field meta in db
+    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
+
+    // 2. alter table with real field in visual table
+    await this.alterVisualTable(
+      prisma,
+      tableId,
+      multiFieldData.map((field) => field.dbFieldName),
+      [fieldInstance]
+    );
   }
 }

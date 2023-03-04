@@ -8,6 +8,7 @@ import { AddRecordBuilder } from './record/add-record';
 import { DeleteRecordBuilder } from './record/delete-record';
 import { SetRecordBuilder } from './record/set-record';
 import { SetRecordOrderBuilder } from './record/set-record-order';
+import { AddTableBuilder } from './table/add-table';
 import { AddViewBuilder } from './view/add-view';
 import { SetViewNameBuilder } from './view/set-view-name';
 
@@ -40,6 +41,7 @@ export class OpBuilder {
     addField: new AddFieldBuilder(),
     addRecord: new AddRecordBuilder(),
     addView: new AddViewBuilder(),
+    addTable: new AddTableBuilder(),
   };
 
   static ops2Contexts(ops: IOtOperation[]) {

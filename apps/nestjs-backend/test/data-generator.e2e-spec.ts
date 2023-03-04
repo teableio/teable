@@ -7,7 +7,7 @@ import { cloneDeep } from 'lodash';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
-import { TableModule } from '../src/features/table/table.module';
+import { TableOpenApiModule } from '../src/features/table/open-api/table.module';
 import { FIELD_MOCK_DATA } from './field-mock';
 
 jest.setTimeout(100000000);
@@ -19,7 +19,7 @@ describe('Performance test data generator', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [TableModule],
+      imports: [TableOpenApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -31,6 +31,7 @@ describe('Performance test data generator', () => {
       name: 'table1',
     });
     tableId = result.body.id;
+    console.log('createTable', result.body);
   });
 
   function addRecords(count: number) {
@@ -59,6 +60,7 @@ describe('Performance test data generator', () => {
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {
     const fieldCount = 20;
+    const batchCount = 500;
     const count = 1_000;
 
     for (let i = 0; i < fieldCount; i++) {
@@ -76,8 +78,8 @@ describe('Performance test data generator', () => {
     fields = fieldsResult.body.data;
 
     console.time(`create ${count} records`);
-    for (let i = 0; i < count / 1000; i++) {
-      await addRecords(1000).expect(201).expect({});
+    for (let i = 0; i < count / batchCount; i++) {
+      await addRecords(batchCount).expect(201).expect({});
     }
     console.timeEnd(`create ${count} records`);
     console.log(`new table: ${tableId} created`);

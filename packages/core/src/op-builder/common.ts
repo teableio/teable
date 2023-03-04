@@ -1,4 +1,6 @@
 export enum OpName {
+  AddTable = 'addTable',
+
   SetRecord = 'setRecord',
   SetRecordOrder = 'setRecordOrder',
   AddRecord = 'addRecord',

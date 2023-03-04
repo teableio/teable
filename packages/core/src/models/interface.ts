@@ -1,4 +1,4 @@
-import type { ITable } from './table/interface';
+import type { ITableVo } from './table/interface';
 
 export interface IFileNode {
   name: string;
@@ -15,7 +15,7 @@ export interface ITeable {
   schemaVersion: string;
   tableList: string[];
   schema: {
-    [tableId: string]: ITable;
+    [tableId: string]: ITableVo;
   };
 }
 

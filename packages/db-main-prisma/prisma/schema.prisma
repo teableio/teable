@@ -10,13 +10,15 @@ datasource db {
 
 model TableMeta {
   id                String    @id
-  name              String?
+  name              String
   description       String?
   icon              String?
   fields            Field[]
   views             View[]
   dbTableName       String    @map(name: "db_table_name")
   version           Int
+  // maintain own order in tableList
+  order             Float
   createdTime       DateTime  @default(now()) @map(name: "created_at")
   lastModifiedTime  DateTime  @updatedAt @map(name: "last_modified_at")
   deletedTime       DateTime? @map(name: "deleted_at")

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import type {
   IOtOperation,
@@ -18,6 +16,7 @@ import type {
   IViewSnapshot,
   ViewType,
   ISnapshotBase,
+  ITableSnapshot,
 } from '@teable-group/core';
 import { AggregateKey, SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -25,11 +24,12 @@ import { instanceToPlain } from 'class-transformer';
 import { groupBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
+import type { SnapshotMeta } from 'sharedb/lib/sharedb';
 import { FieldService } from '../features/field/field.service';
-import type { CreateFieldRo } from '../features/field/model/create-field.ro';
-import { createFieldInstanceByRaw, createFieldInstanceByRo } from '../features/field/model/factory';
+import { createFieldInstanceByRaw } from '../features/field/model/factory';
 import type { FieldVo } from '../features/field/model/field.vo';
 import { RecordService } from '../features/record/record.service';
+import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import { TransactionService } from './transaction.service';
 
@@ -46,6 +46,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   closed: boolean;
 
   constructor(
+    private readonly tableService: TableService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
@@ -59,7 +60,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     query: IRecordSnapshotQuery | IFieldSnapshotQuery | IAggregateQuery,
     projection: IProjection,
-    options: any,
+    options: unknown,
     callback: ShareDb.DBQueryCallback
   ) => {
     console.log(`query: ${collection}`);
@@ -101,7 +102,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   async queryPoll(
     collection: string,
     query: ISnapshotQuery,
-    options: any,
+    options: unknown,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
     try {
@@ -131,6 +132,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
         return;
       }
     } catch (e) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(e as any, []);
     }
   }
@@ -140,10 +142,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   skipPoll(
-    collection: string,
-    id: string,
+    _collection: string,
+    _id: string,
     op: CreateOp | DeleteOp | EditOp,
-    query: IRecordSnapshotQuery
+    _query: IRecordSnapshotQuery
   ): boolean {
     // ShareDB is in charge of doing the validation of ops, so at this point we
     // should be able to assume that the op is structured validly
@@ -155,10 +157,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     this.closed = true;
 
     if (callback) callback();
-  }
-
-  private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
-    await this.recordService.addRecord(prisma, tableId, recordId);
   }
 
   private async setRecordOrder(
@@ -196,20 +194,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     tableId: string,
     snapshot: IFieldSnapshot
   ) {
-    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
-
-    // 1. save field meta in db
-    const multiFieldData = await this.fieldService.dbCreateMultipleField(prisma, tableId, [
-      fieldInstance,
-    ]);
-
-    // 2. alter table with real field in visual table
-    await this.fieldService.alterVisualTable(
-      prisma,
-      tableId,
-      multiFieldData.map((field) => field.dbFieldName),
-      [fieldInstance]
-    );
+    await this.fieldService.addField(prisma, tableId, snapshot);
   }
 
   private async addView(
@@ -218,6 +203,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
     snapshot: IViewSnapshot
   ) {
     await this.viewService.addView(prisma, tableId, snapshot);
+  }
+
+  private async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
+    await this.recordService.addRecord(prisma, tableId, recordId);
+  }
+
+  private async addTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
+    await this.tableService.addTable(prisma, snapshot);
   }
 
   private async addColumnMeta(
@@ -343,6 +336,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     const docType = docId.slice(0, 3);
     switch (docType) {
+      case IdPrefix.Table:
+        await this.addTable(prisma, snapshot as ITableSnapshot);
+        break;
       case IdPrefix.Record:
         await this.addRecord(prisma, collection, docId);
         break;
@@ -364,7 +360,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     rawOp: CreateOp | DeleteOp | EditOp,
     snapshot: ICollectionSnapshot,
-    options: any,
+    options: unknown,
     callback: (err: unknown, succeed?: boolean) => void
   ) {
     /*
@@ -530,7 +526,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
-    options: any,
+    options: unknown,
     callback: (err: ShareDb.Error | null, data?: Snapshot[]) => void
   ) {
     try {
@@ -573,15 +569,16 @@ export class SqliteDbAdapter extends ShareDb.DB {
               snapshot.v,
               snapshot.type,
               snapshot.data,
-              undefined // TODO: metadata
+              null // TODO: metadata
             )
         );
         callback(null, snapshots);
       } else {
-        const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, undefined));
+        const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, null));
         callback(null, snapshots);
       }
     } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(err as any);
     }
   }
@@ -590,7 +587,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: any,
+    options: unknown,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
@@ -617,13 +614,13 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number,
-    options: any,
-    callback: (error: unknown, data?: any) => void
+    options: unknown,
+    callback: (error: unknown, data?: unknown) => void
   ) {
     try {
       const prisma = this.transactionService.get(collection);
       const res = await prisma.$queryRawUnsafe<
-        { collection: string; id: string; from: number; to: number }[]
+        { collection: string; id: string; from: number; to: number; operation: string }[]
       >(
         'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
         collection,
@@ -634,8 +631,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
       callback(
         null,
-        res.map(function (row: any) {
-          return row.operation;
+        res.map(function (row) {
+          return JSON.parse(row.operation);
         })
       );
     } catch (err) {
@@ -649,7 +646,7 @@ class Snapshot implements ShareDb.Snapshot {
     public id: string,
     public v: number,
     public type: string | null,
-    public data: any,
-    public m: any
+    public data: unknown,
+    public m: SnapshotMeta | null
   ) {}
 }

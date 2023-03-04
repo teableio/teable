@@ -1,7 +1,7 @@
-import type { ITable } from './interface';
+import type { ITableVo } from './interface';
 
 export class Table {
-  constructor(private readonly tableData: ITable) {}
+  constructor(private readonly tableData: ITableVo) {}
   get name() {
     return this.tableData.name;
   }

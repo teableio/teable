@@ -4,7 +4,7 @@ import { DevtoolsModule } from '@nestjs/devtools-integration';
 import type { IAppConfig } from './app.interface';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
-import { TableModule } from './features/table/table.module';
+import { TableOpenApiModule } from './features/table/open-api/table.module';
 import { WsModule } from './ws/ws.module';
 
 @Module({})
@@ -18,8 +18,8 @@ export class AppModule {
         }),
         NextModule.forRoot(config),
         FileTreeModule,
-        TableModule,
-        ...(process.env.NODE_ENV === 'production' ? [WsModule] : []),
+        TableOpenApiModule,
+        ...(process.env.NODE_ENV !== 'production' ? [WsModule] : []),
       ],
     };
   }

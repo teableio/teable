@@ -1,4 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import type { ITableSnapshot, ITableVo } from '@teable-group/core';
 import { generateTableId } from '@teable-group/core';
 import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
@@ -6,11 +7,10 @@ import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRo } from '../field/model/factory';
-import { FieldKeyType } from '../record/constant';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORDS, DEFAULT_VIEW } from './constant';
-import type { CreateTableDto } from './create-table.dto';
+import type { CreateTableRo } from './create-table.ro';
 
 const tableNamePrefix = 'visual';
 
@@ -28,17 +28,16 @@ export class TableService {
     return `${tableNamePrefix}_${validInputName}`;
   }
 
-  private async createDBTable(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    createTableDto: CreateTableDto
-  ) {
-    const validDbTableName = this.generateValidDbTableName(createTableDto.name);
+  private async createDBTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
+    const tableId = snapshot.table.id;
+    const validDbTableName = this.generateValidDbTableName(snapshot.table.name);
     const dbTableName = `${validDbTableName}_${tableId}`;
     const data: Prisma.TableMetaCreateInput = {
       id: tableId,
-      name: createTableDto.name,
+      name: snapshot.table.name,
+      description: snapshot.table.description,
       dbTableName,
+      order: snapshot.order,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
       version: 1,
@@ -54,41 +53,29 @@ export class TableService {
     return tableMeta;
   }
 
-  async createTable(createTableDto: CreateTableDto): Promise<TableMeta> {
+  async createTable(createTableDto: CreateTableRo): Promise<TableMeta> {
     const tableId = generateTableId();
 
     return await this.prisma.$transaction(async (prisma) => {
-      // 1. create db table
-      const tableMeta = await this.createDBTable(prisma, tableId, createTableDto);
-
-      // 2. create field for table
-      await this.fieldService.multipleCreateFieldsTransaction(
-        prisma,
-        tableId,
-        DEFAULT_FIELDS.map(createFieldInstanceByRo)
-      );
-
-      // 3. create view for table
-      await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
-
-      // 4. create records for table
-      await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORDS);
-
-      return tableMeta;
+      const count = await prisma.tableMeta.count();
+      return await this.addTable(prisma, {
+        table: { ...createTableDto, id: tableId },
+        order: count,
+      });
     });
   }
 
-  async getTable(tableId: string): Promise<TableMeta> {
-    const table = await this.prisma.tableMeta.findUnique({
+  async getTable(tableId: string): Promise<ITableVo> {
+    const tableMeta = await this.prisma.tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
       },
     });
 
-    if (!table) {
-      throw new HttpException('The table you are looking does not exist', HttpStatus.NOT_FOUND);
-    }
-    return table;
+    return {
+      ...tableMeta,
+      description: tableMeta.description ?? undefined,
+    };
   }
 
   /**
@@ -127,6 +114,7 @@ export class TableService {
       viewId = view.id;
     }
 
+    const table = await this.getTable(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
     const recordData = await this.recordService.getRecords(tableId, {
@@ -136,9 +124,31 @@ export class TableService {
     });
 
     return {
+      table,
       fields,
       views,
       recordData,
     };
+  }
+
+  async addTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
+    const tableId = snapshot.table.id;
+    // 1. create db table
+    const tableMeta = await this.createDBTable(prisma, snapshot);
+
+    // 2. create field for table
+    await this.fieldService.multipleCreateFieldsTransaction(
+      prisma,
+      tableId,
+      DEFAULT_FIELDS.map(createFieldInstanceByRo)
+    );
+
+    // 3. create view for table
+    await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
+
+    // 4. create records for table
+    await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORDS);
+
+    return tableMeta;
   }
 }

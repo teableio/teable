@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { responseWrap } from 'src/utils/api-response';
-import { CreateTableDto } from './create-table.dto';
-import { SSRSnapshotVo } from './ssr-snapshot.vo';
-import { TableService } from './table.service';
+import { CreateTableRo } from '../create-table.ro';
+import { SSRSnapshotVo } from '../ssr-snapshot.vo';
+import { TableService } from '../table.service';
 
 @ApiBearerAuth()
 @ApiTags('table')
@@ -24,7 +24,7 @@ export class TableController {
   @ApiResponse({ status: 201, description: 'The Table has been successfully created.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @Post()
-  createTable(@Body() createTable: CreateTableDto) {
+  createTable(@Body() createTable: CreateTableRo) {
     return this.tableService.createTable(createTable);
   }
 
