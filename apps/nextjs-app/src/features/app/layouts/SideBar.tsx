@@ -1,6 +1,7 @@
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
+import { ThemeSelector } from '../components/ThemeSelector';
 
 export const SideBar: React.FC = () => {
   return (
@@ -15,7 +16,9 @@ export const SideBar: React.FC = () => {
           className="rounded object-cover object-center inline-block"
         />
         <span className="px-1 font-bold">Teable</span>
+        <ThemeSelector />
       </div>
+
       <div className="divide-y divide-solid divide-slate-600">
         <div>
           <div className="m-2">

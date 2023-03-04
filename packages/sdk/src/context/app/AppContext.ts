@@ -6,10 +6,12 @@ export enum ThemeKey {
   Dark = 'dark',
 }
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const AppContext = React.createContext<{
+export interface IAppContext {
   connection: Connection;
   theme: ThemeKey;
   isAutoTheme: boolean;
   setTheme: (theme: ThemeKey | null) => void;
-}>(null!);
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const AppContext = React.createContext<IAppContext>(null!);
