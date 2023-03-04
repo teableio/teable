@@ -1,4 +1,4 @@
-import type { GridCell, GridColumn } from '@glideapps/glide-data-grid';
+import type { GridCell, GridColumn, Theme } from '@glideapps/glide-data-grid';
 import { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
 import { ColorUtils, FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -61,10 +61,11 @@ export function useColumns(fields: IFieldInstance[]) {
         }
         case FieldType.SingleSelect: {
           const color = field.options.choices.find((choice) => choice.name === cellValue)?.color;
-          const themeOverride = color
+          const themeOverride: Partial<Theme> | undefined = color
             ? {
                 bgBubble: ColorUtils.getHexForColor(color),
                 textBubble: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+                bgBubbleSelected: ColorUtils.getHexForColor(color),
               }
             : undefined;
           return {
