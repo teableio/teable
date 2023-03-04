@@ -12,9 +12,14 @@ export const ViewList: React.FC = () => {
       {views.map((view, i) => (
         <a
           key={view.id}
-          className={classnames('tab', 'tab-bordered', {
-            'tab-active': activeViewId ? activeViewId === view.id : i === 0,
-          })}
+          className={classnames(
+            'tab tab-bordered text-ellipsis overflow-hidden whitespace-nowrap inline-block',
+            {
+              'tab-active': activeViewId ? activeViewId === view.id : i === 0,
+            }
+          )}
+          style={{ maxWidth: 200 }}
+          title={view.name}
         >
           {view.name}
         </a>

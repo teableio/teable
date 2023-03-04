@@ -7,22 +7,18 @@ export const ThemeSelector: React.FC = () => {
       className="select select-bordered select-xs max-w-xs py-0"
       onChange={(e) => {
         console.log('select change: ', e.target.value);
-        setTheme(e.target.value === 'auto' ? null : (e.target.value as ThemeKey));
+        setTheme(e.target.value === '' ? null : (e.target.value as ThemeKey));
       }}
+      value={isAutoTheme ? '' : theme}
     >
       {[ThemeKey.Light, ThemeKey.Dark].map((item) => {
-        console.log({ item, theme, isAutoTheme });
         return (
-          <option
-            key={item}
-            disabled={!isAutoTheme && theme === item}
-            selected={!isAutoTheme && theme === item}
-          >
+          <option key={item} disabled={!isAutoTheme && theme === item} value={item}>
             {item}
           </option>
         );
       })}
-      <option key={'auto'} disabled={isAutoTheme} selected={isAutoTheme}>
+      <option disabled={isAutoTheme} value="">
         auto
       </option>
     </select>

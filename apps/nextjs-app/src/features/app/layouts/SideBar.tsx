@@ -5,7 +5,7 @@ import { ThemeSelector } from '../components/ThemeSelector';
 
 export const SideBar: React.FC = () => {
   return (
-    <div className="max-w-xs h-full w-56 overflow-y-auto border-r border-slate-600">
+    <div className="max-w-xs h-full w-56 overflow-y-auto border-r border-base-300">
       <div className="mx-2 my-4">
         <Image
           width={32}
@@ -19,7 +19,7 @@ export const SideBar: React.FC = () => {
         <ThemeSelector />
       </div>
 
-      <div className="divide-y divide-solid divide-slate-600">
+      <div className="divide-y divide-solid divide-base-300">
         <div>
           <div className="m-2">
             <input

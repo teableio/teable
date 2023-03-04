@@ -26,6 +26,11 @@ export function useTheme(): IUseThemeResult {
   const [theme, setTheme] = useLocalstorageState<ThemeKey | null>(LocalStorageKeys.Theme);
 
   const setThemeState = useCallback((themeKey: ThemeKey | null) => {
+    if (themeKey) {
+      document.documentElement.setAttribute('data-theme', themeKey);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
     setTheme(themeKey);
   }, []);
 
@@ -34,6 +39,7 @@ export function useTheme(): IUseThemeResult {
       const darkMode = event.matches;
       setAutoTheme(darkMode ? ThemeKey.Dark : ThemeKey.Light);
     }
+    setThemeState(theme);
     window.matchMedia(darkModeMediaQuery).addEventListener('change', change);
     return () => {
       window.matchMedia(darkModeMediaQuery).removeEventListener('change', change);
