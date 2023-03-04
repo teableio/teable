@@ -8,7 +8,7 @@ export const ViewList: React.FC = () => {
   const activeViewId = useActiveViewId();
   const addView = useAddView();
   return (
-    <div className="tabs h-14 mx-2">
+    <div className="tabs mx-2">
       {views.map((view, i) => (
         <a
           key={view.id}

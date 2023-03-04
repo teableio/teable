@@ -32,7 +32,7 @@ export function useAsyncData<TRowType>(
 ): Pick<
   DataEditorProps,
   'getCellContent' | 'onVisibleRegionChanged' | 'onCellEdited' | 'getCellsForSelection'
-> {
+> & { reset: () => void } {
   pageSize = Math.max(pageSize, 1);
   const loadingRef = useRef(CompactSelection.empty());
   const dataRef = useRef<TRowType[]>(initRow);
@@ -186,10 +186,16 @@ export function useAsyncData<TRowType>(
     [onEdited]
   );
 
+  const reset = useCallback(() => {
+    loadingRef.current = CompactSelection.empty();
+    dataRef.current = [];
+  }, []);
+
   return {
     getCellContent,
     onVisibleRegionChanged,
     onCellEdited,
     getCellsForSelection,
+    reset,
   };
 }

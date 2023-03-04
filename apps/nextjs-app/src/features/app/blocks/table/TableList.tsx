@@ -17,6 +17,7 @@ export const TableList: React.FC = () => {
               query: { tableId: table.id },
             }}
             className="py-1"
+            title={table.name}
           >
             {table.name}
           </Link>

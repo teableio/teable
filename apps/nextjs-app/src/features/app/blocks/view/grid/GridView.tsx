@@ -9,7 +9,8 @@ import {
   useSSRRecords,
   useTableId,
 } from '@teable-group/sdk';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
 import type { Doc } from 'sharedb/lib/client';
 import { useAsyncData } from './useAsyncData';
@@ -19,14 +20,14 @@ import { useGridTheme } from './useGridTheme';
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
   const connection = useConnection();
-  const tableId = useTableId();
+  const tableId = useTableId() as string;
   const rowCount = useRowCount();
   const fields = useFields();
   const ssrRecords = useSSRRecords();
   const { columns, cellValue2GridDisplay } = useColumns(fields);
   const theme = useGridTheme();
 
-  const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection } =
+  const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection, reset } =
     useAsyncData<Doc<IRecordSnapshot>>(
       50,
       5,
@@ -117,6 +118,13 @@ export const GridView: React.FC = () => {
         return { data: { record } } as Doc;
       })
     );
+
+  const preTableId = usePrevious(tableId);
+  useEffect(() => {
+    if (preTableId && preTableId !== tableId) {
+      reset();
+    }
+  }, [reset, tableId, preTableId]);
 
   return (
     <div className="grow w-full overflow-y-auto">
