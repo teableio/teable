@@ -3,7 +3,7 @@ import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import dynamic from 'next/dynamic';
 import type { FC } from 'react';
-import { useLocalstorageState } from 'rooks';
+import { useLocalStorage } from 'react-use';
 import { appConfig } from '../app.config';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
@@ -39,7 +39,7 @@ const AppSwitch: FC<{ path?: string }> = ({ path }) => {
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);
   const currentFile = useAppStore((state) => state.currentFile);
-  const [tableId, setTableId] = useLocalstorageState('teable_table_id', '');
+  const [tableId, setTableId] = useLocalStorage('teable_table_id', '');
   return (
     <>
       <NextSeo

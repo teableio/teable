@@ -9,6 +9,7 @@ import { DeleteRecordBuilder } from './record/delete-record';
 import { SetRecordBuilder } from './record/set-record';
 import { SetRecordOrderBuilder } from './record/set-record-order';
 import { AddTableBuilder } from './table/add-table';
+import { SetTableNameBuilder } from './table/set-table-name';
 import { AddViewBuilder } from './view/add-view';
 import { SetViewNameBuilder } from './view/set-view-name';
 
@@ -20,6 +21,7 @@ export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 export type { IAddColumnMetaOpContext } from './field/add-column-meta';
 export type { ISetFieldNameOpContext } from './field/set-field-name';
 export type { ISetViewNameOpContext } from './view/set-view-name';
+export type { ISetTableNameOpContext } from './table/set-table-name';
 
 export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -34,6 +36,8 @@ export class OpBuilder {
     setFieldName: new SetFieldNameBuilder(),
 
     setViewName: new SetViewNameBuilder(),
+
+    setTableName: new SetTableNameBuilder(),
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention

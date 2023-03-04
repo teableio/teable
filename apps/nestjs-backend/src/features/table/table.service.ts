@@ -78,6 +78,15 @@ export class TableService {
     };
   }
 
+  async getTables(): Promise<ITableVo[]> {
+    const tablesMeta = await this.prisma.tableMeta.findMany();
+
+    return tablesMeta.map((tableMeta) => ({
+      ...tableMeta,
+      description: tableMeta.description ?? undefined,
+    }));
+  }
+
   /**
    * ! dangerous function, table will be dropped, and all data will be lost
    */
@@ -105,6 +114,11 @@ export class TableService {
     });
   }
 
+  async getTableSSRSnapshot() {
+    const tables = await this.getTables();
+    return { tables };
+  }
+
   async getSSRSnapshot(tableId: string, viewId?: string) {
     if (!viewId) {
       const view = await this.prisma.view.findFirstOrThrow({
@@ -114,7 +128,8 @@ export class TableService {
       viewId = view.id;
     }
 
-    const table = await this.getTable(tableId);
+    const tables = await this.getTables();
+
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
     const recordData = await this.recordService.getRecords(tableId, {
@@ -124,7 +139,7 @@ export class TableService {
     });
 
     return {
-      table,
+      tables,
       fields,
       views,
       recordData,

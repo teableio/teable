@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { responseWrap } from 'src/utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
-import { SSRSnapshotVo } from '../ssr-snapshot.vo';
+import { FullSSRSnapshotVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
 
 @ApiBearerAuth()
@@ -10,13 +10,23 @@ import { TableService } from '../table.service';
 @Controller('api/table')
 export class TableController {
   constructor(private readonly tableService: TableService) {}
-  @Get('/:tableId/ssr')
+  @Get('/ssr/:tableId')
   @ApiOkResponse({
     description: 'ssr snapshot',
-    type: SSRSnapshotVo,
+    type: FullSSRSnapshotVo,
   })
-  async getSSRSnapshot(@Param('tableId') tableId: string): Promise<SSRSnapshotVo> {
+  async getFullSSRSnapshot(@Param('tableId') tableId: string): Promise<FullSSRSnapshotVo> {
     const snapshot = await this.tableService.getSSRSnapshot(tableId);
+    return responseWrap(snapshot);
+  }
+
+  @Get('/ssr')
+  @ApiOkResponse({
+    description: 'ssr snapshot',
+    type: TableSSRSnapshotVo,
+  })
+  async getTableSSRSnapshot(): Promise<TableSSRSnapshotVo> {
+    const snapshot = await this.tableService.getTableSSRSnapshot();
     return responseWrap(snapshot);
   }
 

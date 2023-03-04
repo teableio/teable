@@ -1,6 +1,6 @@
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocalstorageState } from 'rooks';
+import { useLocalStorage } from 'react-use';
 import { ThemeKey } from './AppContext';
 
 interface IUseThemeResult {
@@ -23,7 +23,7 @@ export function useTheme(): IUseThemeResult {
       ? ThemeKey.Dark
       : ThemeKey.Light
   );
-  const [theme, setTheme] = useLocalstorageState<ThemeKey | null>(LocalStorageKeys.Theme);
+  const [theme, setTheme] = useLocalStorage<ThemeKey | null>(LocalStorageKeys.Theme);
 
   const setThemeState = useCallback((themeKey: ThemeKey | null) => {
     if (themeKey) {
@@ -39,7 +39,7 @@ export function useTheme(): IUseThemeResult {
       const darkMode = event.matches;
       setAutoTheme(darkMode ? ThemeKey.Dark : ThemeKey.Light);
     }
-    setThemeState(theme);
+    setThemeState(theme ?? null);
     window.matchMedia(darkModeMediaQuery).addEventListener('change', change);
     return () => {
       window.matchMedia(darkModeMediaQuery).removeEventListener('change', change);

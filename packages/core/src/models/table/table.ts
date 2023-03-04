@@ -1,12 +1,9 @@
 import type { ITableVo } from './interface';
 
-export class Table {
-  constructor(private readonly tableData: ITableVo) {}
-  get name() {
-    return this.tableData.name;
-  }
+export class TableCore implements ITableVo {
+  id!: string;
 
-  get id() {
-    return this.tableData.id;
-  }
+  name!: string;
+
+  description?: string;
 }

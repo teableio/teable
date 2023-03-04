@@ -1,6 +1,8 @@
+import type { NextPage } from 'next';
 import { appWithTranslation } from 'next-i18next';
 import type { AppProps as NextAppProps } from 'next/app';
 import Head from 'next/head';
+import type { ReactElement, ReactNode } from 'react';
 import nextI18nextConfig from '../../next-i18next.config';
 import { AppProviders } from '../AppProviders';
 
@@ -25,18 +27,29 @@ export type AppProps = NextAppProps & {
   err?: Error;
 };
 
+export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P, IP> & {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getLayout?: (page: ReactElement, appProps: any) => ReactNode;
+};
+
+type AppPropsWithLayout = AppProps & {
+  Component: NextPageWithLayout;
+};
+
 /**
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
-const MyApp = (appProps: AppProps) => {
+const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, pageProps, err } = appProps;
+  // Use the layout defined at the page level, if available
+  const getLayout = Component.getLayout ?? ((page) => page);
   return (
     <AppProviders>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
       {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-      <Component {...pageProps} err={err} />
+      {getLayout(<Component {...pageProps} err={err} />, pageProps)}
     </AppProviders>
   );
 };

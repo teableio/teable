@@ -32,6 +32,5 @@ const darkTheme = {
 
 export function useGridTheme() {
   const { theme } = useTheme();
-
   return theme === ThemeKey.Dark ? darkTheme : lightTheme;
 }

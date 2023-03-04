@@ -16,13 +16,13 @@ export interface ITableSnapshot {
   order: number;
 }
 
-export interface ITableSSrSnapshot {
-  table: ITableVo;
-
+export interface IFullSsrSnapshot {
   recordData: {
     records: IRecord[];
     total: number;
   };
+
+  tables: ITableVo[];
 
   views: IViewVo[];
 

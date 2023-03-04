@@ -26,6 +26,10 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
       aggregateKey: AggregateKey.RowCount,
     };
 
+    if (!tableId) {
+      return;
+    }
+
     const query = connection.createSubscribeQuery<number>(tableId, param);
 
     query.on('ready', () => {

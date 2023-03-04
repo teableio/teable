@@ -1,6 +1,3 @@
-'use client';
-
-// import { useLocalstorageState } from 'rooks';
 import { FileTree } from '../blocks/FileTree';
 import { useAppStore } from '../store';
 

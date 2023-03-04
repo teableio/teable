@@ -1,7 +1,8 @@
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
-import { ThemeSelector } from '../components/ThemeSelector';
+import { TableList } from '../blocks/table/TableList';
+import { ThemeSelector } from './ThemeSelector';
 
 export const SideBar: React.FC = () => {
   return (
@@ -41,13 +42,7 @@ export const SideBar: React.FC = () => {
             </li>
           </ul>
         </div>
-        <ul className="menu menu-compact py-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <li key={i}>
-              <a className="py-1">Table {i + 1}</a>
-            </li>
-          ))}
-        </ul>
+        <TableList />
       </div>
     </div>
   );
