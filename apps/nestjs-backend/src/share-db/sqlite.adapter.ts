@@ -17,6 +17,7 @@ import type {
   ViewType,
   ISnapshotBase,
   ITableSnapshot,
+  ISetTableNameOpContext,
 } from '@teable-group/core';
 import { AggregateKey, SnapshotQueryType, IdPrefix, OpName, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -122,6 +123,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
       if (query.type === SnapshotQueryType.View) {
         const ids = await this.viewService.getViewIds(prisma, collection);
+        callback(null, ids);
+        return;
+      }
+
+      if (query.type === SnapshotQueryType.Table) {
+        const ids = await this.tableService.getTableIds(prisma);
         callback(null, ids);
         return;
       }
@@ -280,6 +287,21 @@ export class SqliteDbAdapter extends ShareDb.DB {
     }
   }
 
+  private async setTableName(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    tableId: string,
+    contexts: ISetTableNameOpContext[]
+  ) {
+    for (const context of contexts) {
+      const { newName } = context;
+      await prisma.tableMeta.update({
+        where: { id: tableId },
+        data: { name: newName, version },
+      });
+    }
+  }
+
   private async updateSnapshot(
     prisma: Prisma.TransactionClient,
     version: number,
@@ -321,6 +343,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
           break;
         case OpName.SetFieldName:
           await this.setFieldName(prisma, version, docId, opContexts as ISetFieldNameOpContext[]);
+          break;
+        case OpName.SetTableName:
+          await this.setTableName(prisma, version, docId, opContexts as ISetTableNameOpContext[]);
           break;
         default:
           throw new Error(`op name ${opName} save method did not implement`);
@@ -378,6 +403,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
     try {
       const prisma = this.transactionService.get(collection);
+      // TODO: select version from db table
       const opsResult = await prisma.ops.aggregate({
         _max: { version: true },
         where: { collection, docId: id },
@@ -490,6 +516,28 @@ export class SqliteDbAdapter extends ShareDb.DB {
       .sort((a, b) => viewIds.indexOf(a.id) - viewIds.indexOf(b.id));
   }
 
+  private async getTableSnapshotBulk(prisma: Prisma.TransactionClient, tableIds: string[]) {
+    const tables = await prisma.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+    });
+
+    return tables
+      .map((table) => {
+        return {
+          id: table.id,
+          v: table.version,
+          type: 'json0',
+          data: {
+            table: {
+              ...table,
+            },
+            order: table.order,
+          },
+        };
+      })
+      .sort((a, b) => tableIds.indexOf(a.id) - tableIds.indexOf(b.id));
+  }
+
   private async getAggregateBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -531,10 +579,17 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     try {
       const prisma = this.transactionService.get(collection);
-      const docType = ids[0].slice(0, 3);
-      if (ids.find((id) => id.slice(0, 3) !== docType)) {
-        throw new Error('get snapshot bulk ids must be same type');
+      let docType: string;
+      if (collection === 'node') {
+        docType = IdPrefix.Table;
+      } else {
+        docType = ids[0].slice(0, 3);
+        if (ids.find((id) => id.slice(0, 3) !== docType)) {
+          throw new Error('get snapshot bulk ids must be same type');
+        }
       }
+
+      console.log('getSnapshotBulk: ', collection, ids);
 
       let snapshotData: ISnapshotBase[] = [];
       switch (docType) {
@@ -552,6 +607,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
           break;
         case IdPrefix.View:
           snapshotData = await this.getViewSnapshotBulk(prisma, collection, ids);
+          break;
+        case IdPrefix.Table:
+          snapshotData = await this.getTableSnapshotBulk(prisma, ids);
           break;
         case IdPrefix.Aggregate: {
           snapshotData = await this.getAggregateBulk(prisma, collection, ids);

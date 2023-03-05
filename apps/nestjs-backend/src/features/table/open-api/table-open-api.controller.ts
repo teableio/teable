@@ -4,12 +4,16 @@ import { responseWrap } from 'src/utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
 import { FullSSRSnapshotVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
+import { TableOpenApiService } from './table-open-api.service';
 
 @ApiBearerAuth()
 @ApiTags('table')
 @Controller('api/table')
 export class TableController {
-  constructor(private readonly tableService: TableService) {}
+  constructor(
+    private readonly tableService: TableService,
+    private readonly tableOpenApiService: TableOpenApiService
+  ) {}
   @Get('/ssr/:tableId')
   @ApiOkResponse({
     description: 'ssr snapshot',
@@ -35,7 +39,7 @@ export class TableController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @Post()
   createTable(@Body() createTable: CreateTableRo) {
-    return this.tableService.createTable(createTable);
+    return this.tableOpenApiService.createTable(createTable);
   }
 
   @Delete('/arbitrary/:tableId')

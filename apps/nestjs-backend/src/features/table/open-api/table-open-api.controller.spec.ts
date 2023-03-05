@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { TableController } from './table.controller';
+import { TableController } from './table-open-api.controller';
 
 describe('TableController', () => {
   let controller: TableController;

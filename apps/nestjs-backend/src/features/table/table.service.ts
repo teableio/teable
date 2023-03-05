@@ -166,4 +166,12 @@ export class TableService {
 
     return tableMeta;
   }
+
+  async getTableIds(prisma: Prisma.TransactionClient) {
+    const tables = await prisma.tableMeta.findMany({
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+    return tables.map((table) => table.id);
+  }
 }

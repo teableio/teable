@@ -7,7 +7,7 @@ import { cloneDeep } from 'lodash';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
-import { TableOpenApiModule } from '../src/features/table/open-api/table.module';
+import { TableOpenApiModule } from '../src/features/table/open-api/table-open-api.module';
 import { FIELD_MOCK_DATA } from './field-mock';
 
 jest.setTimeout(100000000);
