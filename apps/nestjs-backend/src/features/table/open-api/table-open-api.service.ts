@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { ICreateTableRo } from '@teable-group/core';
 import { generateTableId, OpBuilder } from '@teable-group/core';
-import { PrismaService } from 'src/prisma.service';
-import { ShareDbService } from 'src/share-db/share-db.service';
-import { TransactionService } from 'src/share-db/transaction.service';
+import { PrismaService } from '../../../prisma.service';
+import { ShareDbService } from '../../../share-db/share-db.service';
+import { TransactionService } from '../../../share-db/transaction.service';
 
 @Injectable()
 export class TableOpenApiService {
@@ -18,9 +18,13 @@ export class TableOpenApiService {
     const tableId = result.createSnapshot.table.id;
     await this.prismaService.$transaction(async (prisma) => {
       this.transactionService.set(tableId, prisma);
-      await this.shareDbService.createDocument('node', tableId, result.createSnapshot);
-      this.transactionService.remove(tableId);
+      try {
+        await this.shareDbService.createDocument('node', tableId, result.createSnapshot);
+      } finally {
+        this.transactionService.remove(tableId);
+      }
     });
+    return result.createSnapshot.table;
   }
 
   private async createTable2Ops(tableRo: ICreateTableRo) {

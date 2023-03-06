@@ -19,14 +19,21 @@ export class FieldOpenApiService {
     const fieldId = result.createSnapshot.field.id;
     await this.prismaService.$transaction(async (prisma) => {
       this.transactionService.set(tableId, prisma);
-      const doc = await this.shareDbService.createDocument(tableId, fieldId, result.createSnapshot);
-      await new Promise((resolve, reject) => {
-        doc.submitOp([result.fieldOperation], undefined, (error) => {
-          if (error) return reject(error);
-          resolve(undefined);
+      try {
+        const doc = await this.shareDbService.createDocument(
+          tableId,
+          fieldId,
+          result.createSnapshot
+        );
+        await new Promise((resolve, reject) => {
+          doc.submitOp([result.fieldOperation], undefined, (error) => {
+            if (error) return reject(error);
+            resolve(undefined);
+          });
         });
-      });
-      this.transactionService.remove(tableId);
+      } finally {
+        this.transactionService.remove(tableId);
+      }
     });
   }
 

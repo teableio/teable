@@ -1,11 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
-import { json, urlencoded } from 'express';
 import request from 'supertest';
 import type { FieldVo } from '../src/features/field/model/field.vo';
-import { TableModule } from '../src/features/table/table.module';
+import { initApp } from './init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
@@ -13,14 +10,7 @@ describe('OpenAPI RecordController (e2e)', () => {
   let fields: FieldVo[] = [];
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [TableModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.use(json({ limit: '50mb' }));
-    app.use(urlencoded({ limit: '50mb', extended: true }));
-    await app.init();
+    app = await initApp();
 
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',
@@ -28,7 +18,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     tableId = result.body.id;
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    fields = fieldsResult.body;
+    fields = fieldsResult.body.data;
     console.log('fields: ', fields);
   });
 

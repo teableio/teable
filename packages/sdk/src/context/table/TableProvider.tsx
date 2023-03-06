@@ -21,10 +21,7 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
   });
 
   useEffect(() => {
-    if (!tableId) {
-      return;
-    }
-    const tablesQuery = connection.createSubscribeQuery<ITableSnapshot>(tableId, {
+    const tablesQuery = connection.createSubscribeQuery<ITableSnapshot>('node', {
       type: SnapshotQueryType.Table,
     });
 

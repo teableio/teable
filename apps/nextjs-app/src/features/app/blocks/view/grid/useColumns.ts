@@ -57,6 +57,7 @@ export function useColumns(fields: IFieldInstance[]) {
             allowOverlay: true,
             displayData: field.cellValue2String(cellValue as number),
             contentAlign: 'right',
+            themeOverride: { fontFamily: '"everson mono", courier, consolas, monaco, monospace' },
           };
         }
         case FieldType.SingleSelect: {

@@ -1,11 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
-import { json, urlencoded } from 'express';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
-import { TableModule } from '../src/features/table/table.module';
+import { initApp } from './init-app';
 
 const defaultFields = [
   {
@@ -27,14 +24,7 @@ describe('OpenAPI FieldController (e2e)', () => {
   let tableId = '';
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [TableModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.use(json({ limit: '50mb' }));
-    app.use(urlencoded({ limit: '50mb', extended: true }));
-    await app.init();
+    app = await initApp();
 
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
 import { generateRecordId, OpBuilder } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
@@ -24,39 +23,45 @@ export class RecordOpenApiService {
   ) {}
 
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
+    const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
     await this.prismaService.$transaction(async (prisma) => {
       this.transactionService.set(tableId, prisma);
-      const result = await this.multipleCreateRecords2Ops(prisma, tableId, createRecordsDto);
-      for (const opMeta of result) {
-        const { snapshot, ops } = opMeta;
-        const doc = await this.shareDbService.createDocument(tableId, snapshot.record.id, snapshot);
-        await new Promise((resolve, reject) => {
-          doc.submitOp(ops, undefined, (error) => {
-            if (error) return reject(error);
-            resolve(undefined);
+      try {
+        for (const opMeta of result) {
+          const { snapshot, ops } = opMeta;
+          const doc = await this.shareDbService.createDocument(
+            tableId,
+            snapshot.record.id,
+            snapshot
+          );
+          await new Promise((resolve, reject) => {
+            doc.submitOp(ops, undefined, (error) => {
+              if (error) return reject(error);
+              resolve(undefined);
+            });
           });
-        });
+        }
+      } finally {
+        this.transactionService.remove(tableId);
       }
-      this.transactionService.remove(tableId);
     });
   }
 
   async multipleCreateRecords2Ops(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     createRecordsDto: CreateRecordsDto
   ): Promise<ICreateRecordOpMeta[]> {
-    const defaultView = await prisma.view.findFirstOrThrow({
+    const defaultView = await this.prismaService.view.findFirstOrThrow({
       where: { tableId },
       select: { id: true },
     });
 
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
-    const rowCount = await this.recordService.getAllRecordCount(prisma, dbTableName);
+    const rowCount = await this.recordService.getAllRecordCount(this.prismaService, dbTableName);
 
     return createRecordsDto.records.map((record, index) => {
       const recordId = generateRecordId();

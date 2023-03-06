@@ -169,10 +169,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async setRecordOrder(
     prisma: Prisma.TransactionClient,
     version: number,
+    tableId: string,
     recordId: string,
-    dbTableName: string,
     contexts: ISetRecordOrderOpContext[]
   ) {
+    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
     for (const context of contexts) {
       const { viewId, newOrder } = context;
       await this.recordService.setRecordOrder(
@@ -189,10 +190,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
   private async setRecords(
     prisma: Prisma.TransactionClient,
     version: number,
+    tableId: string,
     recordId: string,
-    dbTableName: string,
     contexts: ISetRecordOpContext[]
   ) {
+    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
     return await this.recordService.setRecord(prisma, version, recordId, dbTableName, contexts);
   }
 
@@ -309,8 +311,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     docId: string,
     ops: IOtOperation[]
   ) {
-    const dbTableName = await this.recordService.getDbTableName(prisma, collection);
-
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
     // group by op name execute faster
     const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
@@ -321,8 +321,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
           await this.setRecordOrder(
             prisma,
             version,
+            collection,
             docId,
-            dbTableName,
             opContexts as ISetRecordOrderOpContext[]
           );
           break;
@@ -330,8 +330,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
           await this.setRecords(
             prisma,
             version,
+            collection,
             docId,
-            dbTableName,
             opContexts as ISetRecordOpContext[]
           );
           break;
@@ -588,8 +588,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
           throw new Error('get snapshot bulk ids must be same type');
         }
       }
-
-      console.log('getSnapshotBulk: ', collection, ids);
 
       let snapshotData: ISnapshotBase[] = [];
       switch (docType) {

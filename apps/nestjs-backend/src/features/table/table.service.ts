@@ -17,7 +17,7 @@ const tableNamePrefix = 'visual';
 @Injectable()
 export class TableService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService
@@ -56,7 +56,7 @@ export class TableService {
   async createTable(createTableDto: CreateTableRo): Promise<TableMeta> {
     const tableId = generateTableId();
 
-    return await this.prisma.$transaction(async (prisma) => {
+    return await this.prismaService.$transaction(async (prisma) => {
       const count = await prisma.tableMeta.count();
       return await this.addTable(prisma, {
         table: { ...createTableDto, id: tableId },
@@ -65,21 +65,8 @@ export class TableService {
     });
   }
 
-  async getTable(tableId: string): Promise<ITableVo> {
-    const tableMeta = await this.prisma.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-    });
-
-    return {
-      ...tableMeta,
-      description: tableMeta.description ?? undefined,
-    };
-  }
-
   async getTables(): Promise<ITableVo[]> {
-    const tablesMeta = await this.prisma.tableMeta.findMany();
+    const tablesMeta = await this.prismaService.tableMeta.findMany();
 
     return tablesMeta.map((tableMeta) => ({
       ...tableMeta,
@@ -91,7 +78,7 @@ export class TableService {
    * ! dangerous function, table will be dropped, and all data will be lost
    */
   async deleteTableArbitrary(tableId: string) {
-    return await this.prisma.$transaction(async (prisma) => {
+    return await this.prismaService.$transaction(async (prisma) => {
       // delete field for table
       await prisma.field.deleteMany({
         where: { tableId },
@@ -121,7 +108,7 @@ export class TableService {
 
   async getSSRSnapshot(tableId: string, viewId?: string) {
     if (!viewId) {
-      const view = await this.prisma.view.findFirstOrThrow({
+      const view = await this.prismaService.view.findFirstOrThrow({
         where: { tableId },
         select: { id: true },
       });

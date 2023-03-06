@@ -1,14 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import { FieldType } from '@teable-group/core';
-import { json, urlencoded } from 'express';
 import { cloneDeep } from 'lodash';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
-import { TableOpenApiModule } from '../src/features/table/open-api/table-open-api.module';
 import { FIELD_MOCK_DATA } from './field-mock';
+import { initApp } from './init-app';
 
 jest.setTimeout(100000000);
 
@@ -18,14 +15,7 @@ describe('Performance test data generator', () => {
   let fields: FieldVo[] = [];
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [TableOpenApiModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.use(json({ limit: '50mb' }));
-    app.use(urlencoded({ limit: '50mb', extended: true }));
-    await app.init();
+    app = await initApp();
 
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',
@@ -76,6 +66,8 @@ describe('Performance test data generator', () => {
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
     fields = fieldsResult.body.data;
+
+    // await addRecords(1).expect(201).expect({});
 
     console.time(`create ${count} records`);
     for (let i = 0; i < count / batchCount; i++) {
