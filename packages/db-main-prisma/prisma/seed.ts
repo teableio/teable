@@ -1,6 +1,5 @@
 import type { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
-import { POEMS_SEED } from './seeds/poem/poems.seed';
 
 const prisma = new PrismaClient();
 
@@ -10,19 +9,6 @@ const userData: Prisma.UserCreateInput[] = [
     lastName: 'artist',
     nickname: 'tea artist',
     email: 'artist@teable.io',
-    Post: {
-      create: [
-        {
-          title: 'Nextjs monorepo example',
-          slug: 'first-post',
-          link: 'https://github.com/teable-group/teable',
-          content: 'Hello world',
-          image:
-            'https://images.unsplash.com/photo-1625904835711-fa25795530e8?ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=1052&q=80',
-          publishedAt: new Date(),
-        },
-      ],
-    },
   },
 ];
 
@@ -37,21 +23,6 @@ async function main() {
     });
     console.log(`Created or updated user with id: ${user.id}`);
   }
-  // poems
-  for (const poem of POEMS_SEED) {
-    const { keywords, ...poemWithoutKeywords } = poem;
-    await prisma.poem.upsert({
-      where: {
-        slug: poem.slug,
-      },
-      update: {
-        ...poemWithoutKeywords,
-      },
-      create: poem,
-    });
-    console.log(`Created or updated poem with slug: ${poem.slug}`);
-  }
-  console.log(`Seeding finished.`);
 }
 
 main()
