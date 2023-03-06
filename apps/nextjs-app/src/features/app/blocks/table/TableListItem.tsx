@@ -10,6 +10,7 @@ interface IProps {
 
 export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
+
   return (
     <li className={classnames({ bordered: isActive })}>
       {!isEditing ? (
@@ -35,12 +36,15 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
         <input
           type="text"
           placeholder="name"
+          defaultValue={table.name}
           className="input input-bordered input-xs w-full max-w-xs"
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus
           onBlur={(e) => {
             if (e.target.value && e.target.value !== table.name) {
               table.updateName(e.target.value);
-              setIsEditing(false);
             }
+            setIsEditing(false);
           }}
         />
       )}

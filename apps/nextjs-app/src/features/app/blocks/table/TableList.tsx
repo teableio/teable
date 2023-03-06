@@ -1,5 +1,5 @@
 import { useTableId, useTables } from '@teable-group/sdk';
-// import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
+import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import { TableListItem } from './TableListItem';
 
 export const TableList: React.FC = () => {
@@ -7,10 +7,18 @@ export const TableList: React.FC = () => {
   const tableId = useTableId();
 
   return (
-    <ul className="menu menu-compact py-2">
-      {tables.map((table) => (
-        <TableListItem key={table.id} table={table} isActive={table.id === tableId} />
-      ))}
-    </ul>
+    <div className="py-2">
+      <div className="mx-2">
+        <button className="btn btn-xs btn-ghost btn-block">
+          <AddBoldIcon />
+          <span className="ml-1">Table</span>
+        </button>
+      </div>
+      <ul className="menu menu-compact">
+        {tables.map((table) => (
+          <TableListItem key={table.id} table={table} isActive={table.id === tableId} />
+        ))}
+      </ul>
+    </div>
   );
 };

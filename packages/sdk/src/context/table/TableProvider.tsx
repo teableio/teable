@@ -1,8 +1,9 @@
 import { IFieldVo, ITableSnapshot, ITableVo, SnapshotQueryType } from '@teable-group/core';
 import { AppContext } from '../../context/app';
 import { Table, createTableInstance } from '../../model';
-import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { FC, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { TableContext } from './TableContext';
+import { Doc } from 'sharedb/lib/client';
 
 interface ITableProviderProps {
   tableId?: string;
@@ -20,23 +21,59 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
     return [];
   });
 
+  const updateTable = useCallback(
+    (doc: Doc<ITableSnapshot>) => {
+      const newTable = createTableInstance(doc.data.table, doc);
+      setTables(
+        tables.map((table) => {
+          if (table.id === newTable.id) {
+            return newTable;
+          }
+          return table;
+        })
+      );
+    },
+    [tables]
+  );
+
   useEffect(() => {
-    const tablesQuery = connection.createSubscribeQuery<ITableSnapshot>('node', {
+    const query = connection.createSubscribeQuery<ITableSnapshot>('node', {
       type: SnapshotQueryType.Table,
     });
 
-    tablesQuery.on('ready', () => {
-      console.log('table:ready:', tablesQuery.results);
-      setTables(tablesQuery.results.map((r) => createTableInstance(r.data.table, r)));
+    query.on('ready', () => {
+      console.log('table:ready:', query.results);
+      setTables(query.results.map((r) => createTableInstance(r.data.table, r)));
+      query.results.forEach((doc) => {
+        doc.on('op', (op) => {
+          console.log('doc on op:', op);
+          updateTable(doc);
+        });
+      });
     });
 
-    tablesQuery.on('changed', () => {
-      console.log('table:changed:', tablesQuery.results);
-      setTables(tablesQuery.results.map((r) => createTableInstance(r.data.table, r)));
+    query.on('changed', () => {
+      console.log('table:changed:', query.results);
+      setTables(query.results.map((r) => createTableInstance(r.data.table, r)));
+    });
+
+    query.on('insert', (docs) => {
+      docs.forEach((doc) => {
+        doc.on('op', (op) => {
+          console.log('doc on op:', op);
+          updateTable(doc);
+        });
+      });
+    });
+
+    query.on('remove', (docs) => {
+      docs.forEach((doc) => {
+        doc.removeAllListeners('op');
+      });
     });
 
     return () => {
-      tablesQuery.destroy();
+      query.destroy();
     };
   }, [connection, tableId]);
 
