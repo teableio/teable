@@ -3,5 +3,5 @@ import { AppContext } from '../context';
 
 export function useConnection() {
   const { connection } = useContext(AppContext);
-  return connection;
+  return connection!;
 }

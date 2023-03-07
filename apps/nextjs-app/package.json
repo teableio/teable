@@ -182,8 +182,7 @@
     "superjson": "1.11.0",
     "type-fest": "3.1.0",
     "unified": "10.1.2",
-    "zod": "3.19.1",
-    "zustand": "4.1.4"
+    "zod": "3.19.1"
   },
   "build": {
     "electronVersion": "20.3.6",

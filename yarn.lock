@@ -6221,7 +6221,6 @@ __metadata:
     vite-tsconfig-paths: "npm:3.5.2"
     vitest: "npm:0.24.3"
     zod: "npm:3.19.1"
-    zustand: "npm:4.1.4"
   languageName: unknown
   linkType: soft
 
@@ -28129,23 +28128,6 @@ __metadata:
   version: 3.19.1
   resolution: "zod@npm:3.19.1"
   checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
-  languageName: node
-  linkType: hard
-
-"zustand@npm:4.1.4":
-  version: 4.1.4
-  resolution: "zustand@npm:4.1.4"
-  dependencies:
-    use-sync-external-store: "npm:1.2.0"
-  peerDependencies:
-    immer: ">=9.0"
-    react: ">=16.8"
-  peerDependenciesMeta:
-    immer:
-      optional: true
-    react:
-      optional: true
-  checksum: 8c937aca95401ad3aad68917aeabe1824ade82fa57ec46f33399230d54f193f3b1079a0284e8eae0a2ab4c6fbf9a582d8b3bfeb69a8a7e3588a6b2ce7fbfe26f
   languageName: node
   linkType: hard
 

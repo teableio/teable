@@ -1,10 +1,13 @@
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
+import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { TableList } from '../blocks/table/TableList';
-import { ThemeSelector } from './ThemeSelector';
+import { ThemePicker } from './ThemePicker';
 
 export const SideBar: React.FC = () => {
+  const isHydrated = useIsHydrated();
+
   return (
     <div className="max-w-xs h-full w-56 overflow-y-auto border-r border-base-300">
       <div className="mx-2 my-4">
@@ -17,7 +20,7 @@ export const SideBar: React.FC = () => {
           className="rounded object-cover object-center inline-block"
         />
         <span className="px-1 font-bold">Teable</span>
-        <ThemeSelector />
+        {isHydrated && <ThemePicker />}
       </div>
 
       <div className="divide-y divide-solid divide-base-300">

@@ -1,6 +1,6 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
 
-export const ThemeSelector: React.FC = () => {
+export const ThemePicker: React.FC = () => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   return (
     <select

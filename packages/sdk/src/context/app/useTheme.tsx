@@ -18,11 +18,7 @@ const darkModeMediaQuery = '(prefers-color-scheme: dark)';
  * user can reset it by pass null in setTheme function
  */
 export function useTheme(): IUseThemeResult {
-  const [autoTheme, setAutoTheme] = useState(
-    window.matchMedia && window.matchMedia(darkModeMediaQuery).matches
-      ? ThemeKey.Dark
-      : ThemeKey.Light
-  );
+  const [autoTheme, setAutoTheme] = useState(ThemeKey.Light);
   const [theme, setTheme] = useLocalStorage<ThemeKey | null>(LocalStorageKeys.Theme);
 
   const setThemeState = useCallback((themeKey: ThemeKey | null) => {
@@ -32,6 +28,17 @@ export function useTheme(): IUseThemeResult {
       document.documentElement.removeAttribute('data-theme');
     }
     setTheme(themeKey);
+  }, []);
+
+  // run in browser environment
+  useEffect(() => {
+    const aTheme =
+      typeof window === 'object' &&
+      window.matchMedia &&
+      window.matchMedia(darkModeMediaQuery).matches
+        ? ThemeKey.Dark
+        : ThemeKey.Light;
+    setAutoTheme(aTheme);
   }, []);
 
   useEffect(() => {

@@ -7,7 +7,7 @@ export enum ThemeKey {
 }
 
 export interface IAppContext {
-  connection: Connection;
+  connection?: Connection;
   theme: ThemeKey;
   isAutoTheme: boolean;
   setTheme: (theme: ThemeKey | null) => void;
