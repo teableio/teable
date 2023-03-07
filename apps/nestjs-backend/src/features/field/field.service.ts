@@ -1,21 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta, IFieldSnapshot, IFieldSnapshotQuery } from '@teable-group/core';
-import { nullsToUndefined } from '@teable-group/core';
+import type {
+  IAddColumnMetaOpContext,
+  IColumnMeta,
+  IFieldSnapshot,
+  IFieldSnapshotQuery,
+  ISetColumnMetaOpContext,
+  ISetFieldNameOpContext,
+  ISnapshotBase,
+} from '@teable-group/core';
+import { OpName, nullsToUndefined } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
-import { plainToInstance } from 'class-transformer';
+import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import { sortBy } from 'lodash';
+import type { AdapterService } from 'src/share-db/adapter-service.abstract';
 import { PrismaService } from '../../prisma.service';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByRo } from './model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
 import { FieldVo } from './model/field.vo';
 import type { GetFieldsRo } from './model/get-fields.ro';
 
 @Injectable()
-export class FieldService {
+export class FieldService implements AdapterService {
   queryBuilder: ReturnType<typeof knex>;
 
   constructor(private readonly prismaService: PrismaService) {
@@ -242,7 +251,114 @@ export class FieldService {
     return plainToInstance(FieldVo, sortedFields);
   }
 
-  async getFieldIds(
+  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
+    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    return tableMeta.dbTableName;
+  }
+
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
+    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
+
+    // 1. save field meta in db
+    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
+
+    // 2. alter table with real field in visual table
+    await this.alterVisualTable(
+      prisma,
+      tableId,
+      multiFieldData.map((field) => field.dbFieldName),
+      [fieldInstance]
+    );
+
+    // TODO: 3. add order in every columnMeta view
+  }
+
+  async update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    _tableId: string,
+    fieldId: string,
+    opContext: ISetColumnMetaOpContext | ISetFieldNameOpContext | IAddColumnMetaOpContext
+  ) {
+    switch (opContext.name) {
+      case OpName.SetFieldName: {
+        const { newName } = opContext;
+        await prisma.field.update({
+          where: { id: fieldId },
+          data: { name: newName, version },
+        });
+        return;
+      }
+      case OpName.SetColumnMeta: {
+        const { metaKey, viewId, newMetaValue } = opContext;
+
+        const fieldData = await prisma.field.findUniqueOrThrow({
+          where: { id: fieldId },
+          select: { columnMeta: true },
+        });
+
+        const columnMeta = JSON.parse(fieldData.columnMeta);
+
+        columnMeta[viewId][metaKey] = newMetaValue;
+
+        await prisma.field.update({
+          where: { id: fieldId },
+          data: { columnMeta: JSON.stringify(columnMeta), version },
+        });
+        return;
+      }
+      case OpName.AddColumnMeta: {
+        const { viewId, newMetaValue } = opContext;
+
+        const fieldData = await prisma.field.findUniqueOrThrow({
+          where: { id: fieldId },
+          select: { columnMeta: true },
+        });
+
+        const columnMeta = JSON.parse(fieldData.columnMeta);
+
+        Object.entries(newMetaValue).forEach(([key, value]) => {
+          columnMeta[viewId][key] = value;
+        });
+
+        await prisma.field.update({
+          where: { id: fieldId },
+          data: { columnMeta: JSON.stringify(columnMeta), version },
+        });
+      }
+    }
+    throw new Error(`Unknown context ${opContext.name} for view update`);
+  }
+
+  async getSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    ids: string[]
+  ): Promise<ISnapshotBase<IFieldSnapshot>[]> {
+    const fields = await prisma.field.findMany({
+      where: { tableId, id: { in: ids } },
+    });
+    const fieldInstances = fields.map((field) => createFieldInstanceByRaw(field));
+
+    return fields
+      .map((field, i) => {
+        return {
+          id: field.id,
+          v: field.version,
+          type: 'json0',
+          data: {
+            field: instanceToPlain(fieldInstances[i]) as FieldVo,
+            columnMeta: JSON.parse(field.columnMeta),
+          },
+        };
+      })
+      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  }
+
+  async getDocIdsByQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IFieldSnapshotQuery
@@ -271,28 +387,5 @@ export class FieldService {
     return sortBy(fields, (field) => {
       return field.columnMeta[viewId as string].order;
     }).map((field) => field.id);
-  }
-
-  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
-    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    return tableMeta.dbTableName;
-  }
-
-  async addField(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
-    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
-
-    // 1. save field meta in db
-    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
-
-    // 2. alter table with real field in visual table
-    await this.alterVisualTable(
-      prisma,
-      tableId,
-      multiFieldData.map((field) => field.dbFieldName),
-      [fieldInstance]
-    );
   }
 }

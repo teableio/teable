@@ -1,15 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import type { IColumnMeta, IViewSnapshot } from '@teable-group/core';
-import { generateViewId } from '@teable-group/core';
+import type {
+  IColumnMeta,
+  ISetViewNameOpContext,
+  ISnapshotBase,
+  IViewSnapshot,
+  IViewSnapshotQuery,
+  ViewType,
+} from '@teable-group/core';
+import { OpName, generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
+import type { AdapterService } from '../../share-db/adapter-service.abstract';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import type { CreateViewRo } from './model/create-view.ro';
 import { createViewInstanceByRaw } from './model/factory';
 import type { ViewVo } from './model/view.vo';
 
 @Injectable()
-export class ViewService {
+export class ViewService implements AdapterService {
   constructor(private readonly prisma: PrismaService) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -116,16 +124,6 @@ export class ViewService {
     return viewData;
   }
 
-  async getViewIds(prisma: Prisma.TransactionClient, tableId: string): Promise<string[]> {
-    const views = await prisma.view.findMany({
-      where: { tableId },
-      select: { id: true },
-      orderBy: { order: 'asc' },
-    });
-
-    return views.map((v) => v.id);
-  }
-
   async getViewById(viewId: string): Promise<ViewVo> {
     const viewRaw = await this.prisma.view.findUniqueOrThrow({
       where: { id: viewId },
@@ -142,8 +140,72 @@ export class ViewService {
     return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as ViewVo);
   }
 
-  async addView(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
     const { view, order } = snapshot;
-    return await this.createViewTransaction(prisma, tableId, view as CreateViewRo, order);
+    await this.createViewTransaction(prisma, tableId, view as CreateViewRo, order);
+  }
+
+  async update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    _tableId: string,
+    viewId: string,
+    opContext: ISetViewNameOpContext
+  ) {
+    if (opContext.name === OpName.SetViewName) {
+      const { newName } = opContext;
+      await prisma.view.update({
+        where: { id: viewId },
+        data: { name: newName, version },
+      });
+      return;
+    }
+    throw new Error(`Unknown context ${opContext.name} for view update`);
+  }
+
+  async getSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    ids: string[]
+  ): Promise<ISnapshotBase<IViewSnapshot>[]> {
+    const views = await prisma.view.findMany({
+      where: { tableId, id: { in: ids } },
+    });
+
+    return views
+      .map((view) => {
+        return {
+          id: view.id,
+          v: view.version,
+          type: 'json0',
+          data: {
+            view: {
+              ...view,
+              type: view.type as ViewType,
+              description: view.description || undefined,
+              filter: JSON.parse(view.filter as string),
+              sort: JSON.parse(view.sort as string),
+              group: JSON.parse(view.group as string),
+              options: JSON.parse(view.options as string),
+            },
+            order: view.order,
+          },
+        };
+      })
+      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  }
+
+  async getDocIdsByQuery(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    _query: IViewSnapshotQuery
+  ) {
+    const views = await prisma.view.findMany({
+      where: { tableId },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    return views.map((v) => v.id);
   }
 }

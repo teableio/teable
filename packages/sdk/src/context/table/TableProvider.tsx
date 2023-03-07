@@ -1,4 +1,4 @@
-import { IFieldVo, ITableSnapshot, ITableVo, SnapshotQueryType } from '@teable-group/core';
+import { ITableSnapshot, ITableVo, IdPrefix } from '@teable-group/core';
 import { AppContext } from '../../context/app';
 import { Table, createTableInstance } from '../../model';
 import { FC, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -37,8 +37,12 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
   );
 
   useEffect(() => {
+    if (!connection) {
+      return;
+    }
+
     const query = connection.createSubscribeQuery<ITableSnapshot>('node', {
-      type: SnapshotQueryType.Table,
+      type: IdPrefix.Table,
     });
 
     query.on('ready', () => {

@@ -1,7 +1,7 @@
 import DataEditor from '@glideapps/glide-data-grid';
 import type { DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
-import { OpBuilder, SnapshotQueryType } from '@teable-group/core';
+import { IdPrefix, OpBuilder } from '@teable-group/core';
 import {
   useConnection,
   useFields,
@@ -34,7 +34,7 @@ export const GridView: React.FC = () => {
       useCallback(
         async (updateRowRef, updateRow, [offset, limit]) => {
           const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
-            type: SnapshotQueryType.Record,
+            type: IdPrefix.Record,
             offset,
             limit,
           });

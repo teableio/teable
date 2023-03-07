@@ -1,5 +1,5 @@
 import { View } from '../../model/view/view';
-import { IViewSnapshot, IViewVo, SnapshotQueryType } from '@teable-group/core';
+import { IdPrefix, IViewSnapshot, IViewVo } from '@teable-group/core';
 import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { AppContext } from '../app';
 import { TableContext } from '../table';
@@ -23,11 +23,11 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serve
   });
 
   useEffect(() => {
-    if (!tableId) {
+    if (!tableId || !connection) {
       return;
     }
     const viewsQuery = connection.createSubscribeQuery<IViewSnapshot>(tableId, {
-      type: SnapshotQueryType.View,
+      type: IdPrefix.View,
     });
 
     viewsQuery.on('ready', () => {

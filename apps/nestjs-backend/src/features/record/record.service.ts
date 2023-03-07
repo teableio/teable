@@ -1,11 +1,18 @@
 import { HttpException, Injectable } from '@nestjs/common';
-import type { IRecordSnapshot, IRecordSnapshotQuery, ISnapshotBase } from '@teable-group/core';
-import { generateRecordId, IdPrefix } from '@teable-group/core';
+import type {
+  IRecordSnapshot,
+  IRecordSnapshotQuery,
+  ISetRecordOpContext,
+  ISetRecordOrderOpContext,
+  ISnapshotBase,
+} from '@teable-group/core';
+import { AggregateKey, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
+import type { AdapterService } from '../../share-db/adapter-service.abstract';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { FieldKeyType } from './constant';
 import type { CreateRecordsDto } from './create-records.dto';
@@ -27,7 +34,7 @@ export interface IVisualTableDefaultField {
 /* eslint-enable @typescript-eslint/naming-convention */
 
 @Injectable()
-export class RecordService {
+export class RecordService implements AdapterService {
   queryBuilder: ReturnType<typeof knex>;
 
   constructor(private readonly prismaService: PrismaService) {
@@ -212,63 +219,6 @@ export class RecordService {
     return sqlNative;
   }
 
-  async getRecordIds(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    query: IRecordSnapshotQuery
-  ) {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
-        where: { tableId },
-        select: { id: true },
-      });
-      viewId = view.id;
-    }
-
-    const { limit = 100 } = query;
-    const idPrefix = tableId.slice(0, 3);
-    if (idPrefix !== IdPrefix.Table) {
-      throw new Error('query collection must be table id');
-    }
-
-    if (limit > 1000) {
-      throw new Error("limit can't be greater than 1000");
-    }
-
-    const sqlNative = await this.buildQuery(prisma, tableId, {
-      ...query,
-      viewId,
-      idOnly: true,
-    });
-
-    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
-
-    return result.map((r) => r.__id);
-  }
-
-  async addRecord(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
-
-    // TODO: get row count will causes performance issus when insert lot of records
-    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
-    const nativeSql = this.queryBuilder(dbTableName)
-      .insert({
-        __id: recordId,
-        __row_default: rowCount,
-        __created_time: new Date(),
-        __created_by: 'admin',
-        __version: 1,
-      })
-      .toSQL()
-      .toNative();
-
-    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
-  }
-
   async setRecordOrder(
     prisma: Prisma.TransactionClient,
     version: number,
@@ -314,12 +264,77 @@ export class RecordService {
     return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
-  async getRowCount(prisma: Prisma.TransactionClient, tableId: string, viewId: string) {
+  async getRowCount(prisma: Prisma.TransactionClient, tableId: string, _viewId: string) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
     return await this.getAllRecordCount(prisma, dbTableName);
   }
 
-  async getRecordSnapshotBulk(
+  async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const defaultView = await this.prismaService.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = defaultView.id;
+    }
+
+    const ids = await this.getDocIdsByQuery(this.prismaService, tableId, {
+      type: IdPrefix.Record,
+      viewId,
+      offset: query.skip,
+      limit: query.take,
+    });
+
+    const recordSnapshot = await this.getSnapshotBulk(this.prismaService, tableId, ids);
+
+    const total = await this.getRowCount(this.prismaService, tableId, viewId);
+
+    return {
+      records: recordSnapshot.map((r) => r.data.record),
+      total,
+    };
+  }
+
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecordSnapshot) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+
+    // TODO: get row count will causes performance issus when insert lot of records
+    // TODO: set record order in every view
+    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
+    const nativeSql = this.queryBuilder(dbTableName)
+      .insert({
+        __id: snapshot.record.id,
+        __row_default: rowCount,
+        __created_time: new Date(),
+        __created_by: 'admin',
+        __version: 1,
+      })
+      .toSQL()
+      .toNative();
+
+    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+  }
+
+  async update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    tableId: string,
+    recordId: string,
+    opContext: ISetRecordOrderOpContext | ISetRecordOpContext
+  ) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+    if (opContext.name === OpName.SetRecordOrder) {
+      const { viewId, newOrder } = opContext;
+      await this.setRecordOrder(prisma, version, recordId, dbTableName, viewId, newOrder);
+      return;
+    }
+    if (opContext.name === OpName.SetRecord) {
+      await this.setRecord(prisma, version, recordId, dbTableName, [opContext]);
+    }
+  }
+
+  async getSnapshotBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
@@ -401,29 +416,70 @@ export class RecordService {
       });
   }
 
-  async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
+  async getDocIdsByQuery(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    query: IRecordSnapshotQuery
+  ) {
     let viewId = query.viewId;
     if (!viewId) {
-      const defaultView = await this.prismaService.view.findFirstOrThrow({
+      const view = await prisma.view.findFirstOrThrow({
         where: { tableId },
         select: { id: true },
       });
-      viewId = defaultView.id;
+      viewId = view.id;
     }
 
-    const ids = await this.getRecordIds(this.prismaService, tableId, {
+    const { limit = 100 } = query;
+    const idPrefix = tableId.slice(0, 3);
+    if (idPrefix !== IdPrefix.Table) {
+      throw new Error('query collection must be table id');
+    }
+
+    if (limit > 1000) {
+      throw new Error("limit can't be greater than 1000");
+    }
+
+    const sqlNative = await this.buildQuery(prisma, tableId, {
+      ...query,
       viewId,
-      offset: query.skip,
-      limit: query.take,
+      idOnly: true,
     });
 
-    const recordSnapshot = await this.getRecordSnapshotBulk(this.prismaService, tableId, ids);
+    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
 
-    const total = await this.getRowCount(this.prismaService, tableId, viewId);
+    return result.map((r) => r.__id);
+  }
 
-    return {
-      records: recordSnapshot.map((r) => r.data.record),
-      total,
-    };
+  async getAggregateBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    rowCountIds: string[]
+  ): Promise<ISnapshotBase<number>[]> {
+    const aggregateResults: number[] = [];
+    for (const id of rowCountIds) {
+      const [aggregateKey, viewId] = id.split('_');
+      let result: number;
+      switch (aggregateKey) {
+        case AggregateKey.RowCount: {
+          result = await this.getRowCount(prisma, tableId, viewId);
+          break;
+        }
+        case AggregateKey.Average: {
+          throw new Error(`aggregate ${aggregateKey} not implemented`);
+        }
+        default: {
+          throw new Error(`aggregate ${aggregateKey} not implemented`);
+        }
+      }
+      aggregateResults.push(result);
+    }
+
+    return aggregateResults.map((result, i) => {
+      return { id: rowCountIds[i], v: 1, type: 'json0', data: result };
+    });
   }
 }

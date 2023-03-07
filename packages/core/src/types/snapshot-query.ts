@@ -1,35 +1,27 @@
-import type { AggregateKey } from '../utils';
-
-export enum SnapshotQueryType {
-  Field = 'field',
-  Record = 'record',
-  View = 'view',
-  Table = 'table',
-  Aggregate = 'aggregate',
-}
+import type { AggregateKey, IdPrefix } from '../utils';
 
 export interface ITableSnapshotQuery {
-  type: SnapshotQueryType.Table;
+  type: IdPrefix.Table;
 }
 
 export interface IFieldSnapshotQuery {
   viewId?: string;
-  type: SnapshotQueryType.Field;
+  type: IdPrefix.Field;
 }
 
 export interface IAggregateQuery {
   viewId?: string;
-  type: SnapshotQueryType.Aggregate;
+  type: IdPrefix.Aggregate;
   aggregateKey: AggregateKey;
 }
 
 export interface IViewSnapshotQuery {
-  type: SnapshotQueryType.View;
+  type: IdPrefix.View;
 }
 
 export interface IRecordSnapshotQuery {
   viewId?: string;
-  type?: SnapshotQueryType.Record;
+  type: IdPrefix.Record;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   where?: any;
   orderBy?: {

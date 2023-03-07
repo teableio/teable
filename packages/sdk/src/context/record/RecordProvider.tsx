@@ -1,5 +1,5 @@
 import { AppContext } from '../app/AppContext';
-import { AggregateKey, IAggregateQuery, IRecord, SnapshotQueryType } from '@teable-group/core';
+import { AggregateKey, IAggregateQuery, IRecord, IdPrefix } from '@teable-group/core';
 import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { TableContext } from '../table/TableContext';
 import { RecordContext } from './RecordContext';
@@ -22,11 +22,11 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
   useEffect(() => {
     const param: IAggregateQuery = {
       viewId,
-      type: SnapshotQueryType.Aggregate,
+      type: IdPrefix.Aggregate,
       aggregateKey: AggregateKey.RowCount,
     };
 
-    if (!tableId) {
+    if (!tableId || !connection) {
       return;
     }
 

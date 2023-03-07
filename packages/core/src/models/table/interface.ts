@@ -5,6 +5,7 @@ import type { IViewVo } from '../view';
 export interface ICreateTableRo {
   name: string;
   description?: string;
+  icon?: string;
 }
 
 export interface ITableVo extends ICreateTableRo {

@@ -1,5 +1,5 @@
 import { AppContext } from '../app/AppContext';
-import { IFieldSnapshot, IFieldVo } from '@teable-group/core';
+import { IdPrefix, IFieldSnapshot, IFieldVo } from '@teable-group/core';
 import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { FieldContext } from './FieldContext';
 import { createFieldInstance, IFieldInstance } from '../../model';
@@ -25,11 +25,11 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
   // const [fieldDocs, setFieldDocs] = useState<Doc<IFieldSnapshot>[]>([]);
 
   useEffect(() => {
-    if (!tableId) {
+    if (!tableId || !connection) {
       return;
     }
     const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(tableId, {
-      type: 'field',
+      type: IdPrefix.Field,
       // fieldDocs,
     });
 

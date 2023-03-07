@@ -1,9 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import type { ITableSnapshot, ITableVo } from '@teable-group/core';
-import { generateTableId } from '@teable-group/core';
+import type {
+  ISetTableNameOpContext,
+  ISnapshotBase,
+  ITableSnapshot,
+  ITableSnapshotQuery,
+  ITableVo,
+} from '@teable-group/core';
+import { OpName, generateTableId } from '@teable-group/core';
 import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
+import type { AdapterService } from '../../share-db/adapter-service.abstract';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRo } from '../field/model/factory';
@@ -15,7 +22,7 @@ import type { CreateTableRo } from './create-table.ro';
 const tableNamePrefix = 'visual';
 
 @Injectable()
-export class TableService {
+export class TableService implements AdapterService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,
@@ -36,6 +43,7 @@ export class TableService {
       id: tableId,
       name: snapshot.table.name,
       description: snapshot.table.description,
+      icon: snapshot.table.icon,
       dbTableName,
       order: snapshot.order,
       createdBy: 'admin',
@@ -53,12 +61,12 @@ export class TableService {
     return tableMeta;
   }
 
-  async createTable(createTableDto: CreateTableRo): Promise<TableMeta> {
+  async createTableByDto(createTableDto: CreateTableRo): Promise<TableMeta> {
     const tableId = generateTableId();
 
     return await this.prismaService.$transaction(async (prisma) => {
       const count = await prisma.tableMeta.count();
-      return await this.addTable(prisma, {
+      return await this.createTable(prisma, {
         table: { ...createTableDto, id: tableId },
         order: count,
       });
@@ -71,6 +79,7 @@ export class TableService {
     return tablesMeta.map((tableMeta) => ({
       ...tableMeta,
       description: tableMeta.description ?? undefined,
+      icon: tableMeta.icon ?? undefined,
     }));
   }
 
@@ -133,7 +142,7 @@ export class TableService {
     };
   }
 
-  async addTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
+  private async createTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
     const tableId = snapshot.table.id;
     // 1. create db table
     const tableMeta = await this.createDBTable(prisma, snapshot);
@@ -154,7 +163,60 @@ export class TableService {
     return tableMeta;
   }
 
-  async getTableIds(prisma: Prisma.TransactionClient) {
+  async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableSnapshot) {
+    await this.createTable(prisma, snapshot);
+  }
+
+  async update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    _collection: string,
+    tableId: string,
+    opContext: ISetTableNameOpContext
+  ) {
+    if (opContext.name === OpName.SetTableName) {
+      const { newName } = opContext;
+      await prisma.tableMeta.update({
+        where: { id: tableId },
+        data: { name: newName, version },
+      });
+    }
+    throw new Error(`Unknown context ${opContext.name} for table update`);
+  }
+
+  async getSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    _collection: string,
+    ids: string[]
+  ): Promise<ISnapshotBase<ITableSnapshot>[]> {
+    const tables = await prisma.tableMeta.findMany({
+      where: { id: { in: ids } },
+    });
+
+    return tables
+      .map((table) => {
+        return {
+          id: table.id,
+          v: table.version,
+          type: 'json0',
+          data: {
+            table: {
+              ...table,
+              description: table.description ?? undefined,
+              icon: table.icon ?? undefined,
+            },
+            order: table.order,
+          },
+        };
+      })
+      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  }
+
+  async getDocIdsByQuery(
+    prisma: Prisma.TransactionClient,
+    _collection: string,
+    _query: ITableSnapshotQuery
+  ) {
     const tables = await prisma.tableMeta.findMany({
       select: { id: true },
       orderBy: { order: 'asc' },
