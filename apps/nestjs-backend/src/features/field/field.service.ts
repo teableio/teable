@@ -92,7 +92,6 @@ export class FieldService implements AdapterService {
       lastModifiedBy: 'admin',
     };
 
-    console.log('createFieldData: ', data);
     return await prisma.field.create({ data });
   }
 
@@ -154,7 +153,7 @@ export class FieldService implements AdapterService {
         columnsMeta[i],
         fieldInstance
       );
-      console.log('createField: ', fieldData);
+
       multiFieldData.push(fieldData);
     }
     return multiFieldData;
@@ -328,9 +327,11 @@ export class FieldService implements AdapterService {
           where: { id: fieldId },
           data: { columnMeta: JSON.stringify(columnMeta), version },
         });
+        return;
       }
+      default:
+        throw new Error(`Unknown context ${opContext} for field update`);
     }
-    throw new Error(`Unknown context ${opContext.name} for view update`);
   }
 
   async getSnapshotBulk(
