@@ -172,16 +172,18 @@ export class TableService implements AdapterService {
     version: number,
     _collection: string,
     tableId: string,
-    opContext: ISetTableNameOpContext
+    opContexts: ISetTableNameOpContext[]
   ) {
-    if (opContext.name === OpName.SetTableName) {
-      const { newName } = opContext;
-      await prisma.tableMeta.update({
-        where: { id: tableId },
-        data: { name: newName, version },
-      });
+    for (const opContext of opContexts) {
+      if (opContext.name === OpName.SetTableName) {
+        const { newName } = opContext;
+        await prisma.tableMeta.update({
+          where: { id: tableId },
+          data: { name: newName, version },
+        });
+      }
+      throw new Error(`Unknown context ${opContext.name} for table update`);
     }
-    throw new Error(`Unknown context ${opContext.name} for table update`);
   }
 
   async getSnapshotBulk(

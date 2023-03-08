@@ -150,17 +150,19 @@ export class ViewService implements AdapterService {
     version: number,
     _tableId: string,
     viewId: string,
-    opContext: ISetViewNameOpContext
+    opContexts: ISetViewNameOpContext[]
   ) {
-    if (opContext.name === OpName.SetViewName) {
-      const { newName } = opContext;
-      await prisma.view.update({
-        where: { id: viewId },
-        data: { name: newName, version },
-      });
-      return;
+    for (const opContext of opContexts) {
+      if (opContext.name === OpName.SetViewName) {
+        const { newName } = opContext;
+        await prisma.view.update({
+          where: { id: viewId },
+          data: { name: newName, version },
+        });
+        return;
+      }
+      throw new Error(`Unknown context ${opContext.name} for view update`);
     }
-    throw new Error(`Unknown context ${opContext.name} for view update`);
   }
 
   async getSnapshotBulk(

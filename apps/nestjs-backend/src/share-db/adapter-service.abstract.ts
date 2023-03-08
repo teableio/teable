@@ -13,7 +13,7 @@ export abstract class AdapterService {
     version: number,
     collection: string,
     docId: string,
-    opContext: unknown
+    opContexts: unknown[]
   ): Promise<void>;
 
   abstract getSnapshotBulk(

@@ -321,16 +321,25 @@ export class RecordService implements AdapterService {
     version: number,
     tableId: string,
     recordId: string,
-    opContext: ISetRecordOrderOpContext | ISetRecordOpContext
+    opContexts: (ISetRecordOrderOpContext | ISetRecordOpContext)[]
   ) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
-    if (opContext.name === OpName.SetRecordOrder) {
-      const { viewId, newOrder } = opContext;
-      await this.setRecordOrder(prisma, version, recordId, dbTableName, viewId, newOrder);
+    if (opContexts[0].name === OpName.SetRecord) {
+      await this.setRecord(
+        prisma,
+        version,
+        recordId,
+        dbTableName,
+        opContexts as ISetRecordOpContext[]
+      );
       return;
     }
-    if (opContext.name === OpName.SetRecord) {
-      await this.setRecord(prisma, version, recordId, dbTableName, [opContext]);
+
+    if (opContexts[0].name === OpName.SetRecordOrder) {
+      for (const opContext of opContexts as ISetRecordOrderOpContext[]) {
+        const { viewId, newOrder } = opContext;
+        await this.setRecordOrder(prisma, version, recordId, dbTableName, viewId, newOrder);
+      }
     }
   }
 

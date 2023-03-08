@@ -280,57 +280,59 @@ export class FieldService implements AdapterService {
     version: number,
     _tableId: string,
     fieldId: string,
-    opContext: ISetColumnMetaOpContext | ISetFieldNameOpContext | IAddColumnMetaOpContext
+    opContexts: (ISetColumnMetaOpContext | ISetFieldNameOpContext | IAddColumnMetaOpContext)[]
   ) {
-    switch (opContext.name) {
-      case OpName.SetFieldName: {
-        const { newName } = opContext;
-        await prisma.field.update({
-          where: { id: fieldId },
-          data: { name: newName, version },
-        });
-        return;
+    for (const opContext of opContexts) {
+      switch (opContext.name) {
+        case OpName.SetFieldName: {
+          const { newName } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetColumnMeta: {
+          const { metaKey, viewId, newMetaValue } = opContext;
+
+          const fieldData = await prisma.field.findUniqueOrThrow({
+            where: { id: fieldId },
+            select: { columnMeta: true },
+          });
+
+          const columnMeta = JSON.parse(fieldData.columnMeta);
+
+          columnMeta[viewId][metaKey] = newMetaValue;
+
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { columnMeta: JSON.stringify(columnMeta), version },
+          });
+          return;
+        }
+        case OpName.AddColumnMeta: {
+          const { viewId, newMetaValue } = opContext;
+
+          const fieldData = await prisma.field.findUniqueOrThrow({
+            where: { id: fieldId },
+            select: { columnMeta: true },
+          });
+
+          const columnMeta = JSON.parse(fieldData.columnMeta);
+
+          Object.entries(newMetaValue).forEach(([key, value]) => {
+            columnMeta[viewId][key] = value;
+          });
+
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { columnMeta: JSON.stringify(columnMeta), version },
+          });
+          return;
+        }
+        default:
+          throw new Error(`Unknown context ${opContext} for field update`);
       }
-      case OpName.SetColumnMeta: {
-        const { metaKey, viewId, newMetaValue } = opContext;
-
-        const fieldData = await prisma.field.findUniqueOrThrow({
-          where: { id: fieldId },
-          select: { columnMeta: true },
-        });
-
-        const columnMeta = JSON.parse(fieldData.columnMeta);
-
-        columnMeta[viewId][metaKey] = newMetaValue;
-
-        await prisma.field.update({
-          where: { id: fieldId },
-          data: { columnMeta: JSON.stringify(columnMeta), version },
-        });
-        return;
-      }
-      case OpName.AddColumnMeta: {
-        const { viewId, newMetaValue } = opContext;
-
-        const fieldData = await prisma.field.findUniqueOrThrow({
-          where: { id: fieldId },
-          select: { columnMeta: true },
-        });
-
-        const columnMeta = JSON.parse(fieldData.columnMeta);
-
-        Object.entries(newMetaValue).forEach(([key, value]) => {
-          columnMeta[viewId][key] = value;
-        });
-
-        await prisma.field.update({
-          where: { id: fieldId },
-          data: { columnMeta: JSON.stringify(columnMeta), version },
-        });
-        return;
-      }
-      default:
-        throw new Error(`Unknown context ${opContext} for field update`);
     }
   }
 

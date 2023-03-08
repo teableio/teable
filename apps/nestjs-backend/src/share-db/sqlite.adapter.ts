@@ -10,6 +10,7 @@ import type {
 } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { groupBy } from 'lodash';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
@@ -157,9 +158,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const docType = docId.slice(0, 3) as IdPrefix;
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
     const service = this.getService(docType);
-    for (const opName in ops2Contexts) {
-      const opContext = ops2Contexts[opName];
-      await service.update(prisma, version, collection, docId, opContext);
+    // group by op name execute faster
+    const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
+    for (const opName in ops2ContextsGrouped) {
+      const opContexts = ops2ContextsGrouped[opName];
+      await service.update(prisma, version, collection, docId, opContexts);
     }
   }
 
