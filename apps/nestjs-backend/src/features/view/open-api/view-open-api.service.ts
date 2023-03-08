@@ -19,8 +19,11 @@ export class ViewOpenApiService {
     const viewId = result.createSnapshot.view.id;
     await this.prismaService.$transaction(async (prisma) => {
       this.transactionService.set(tableId, prisma);
-      await this.shareDbService.createDocument(tableId, viewId, result.createSnapshot);
-      this.transactionService.remove(tableId);
+      try {
+        await this.shareDbService.createDocument(tableId, viewId, result.createSnapshot);
+      } finally {
+        this.transactionService.remove(tableId);
+      }
     });
   }
 

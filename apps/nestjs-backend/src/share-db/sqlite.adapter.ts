@@ -17,6 +17,7 @@ import { FieldService } from '../features/field/field.service';
 import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
+import { PrismaService } from '../prisma.service';
 import type { AdapterService } from './adapter-service.abstract';
 import { TransactionService } from './transaction.service';
 
@@ -37,6 +38,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
+    private readonly prismaService: PrismaService,
     private readonly transactionService: TransactionService
   ) {
     super();
@@ -107,7 +109,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
     try {
-      const prisma = this.transactionService.get(collection);
+      const prisma = this.transactionService.get(collection) || this.prismaService;
 
       if (query.type === IdPrefix.Aggregate) {
         const ids = await this.getAggregateIds(prisma, collection, query);
@@ -194,9 +196,16 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
     // console.log('commit', collection, id, rawOp, snapshot);
 
+    let endTransaction = (_?: unknown): void => undefined;
+    let prisma = this.transactionService.get(collection);
+    if (!prisma) {
+      console.log('new transaction');
+      const newTran = await this.transactionService.newTransaction();
+      prisma = newTran.prisma;
+      endTransaction = newTran.endTransaction;
+    }
+
     try {
-      const prisma = this.transactionService.get(collection);
-      // TODO: select version from db table
       const opsResult = await prisma.ops.aggregate({
         _max: { version: true },
         where: { collection, docId: id },
@@ -205,9 +214,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       const maxVersion = opsResult._max.version || 0;
 
       if (snapshot.v !== maxVersion + 1) {
-        return callback(
-          new Error(`version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`)
-        );
+        throw new Error(`version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`);
       }
 
       // 1. save op in db;
@@ -230,8 +237,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
         await this.updateSnapshot(prisma, snapshot.v, collection, id, rawOp.op);
       }
 
+      endTransaction();
       callback(null, true);
     } catch (err) {
+      endTransaction(err);
       callback(err);
     }
   }
@@ -246,8 +255,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
     options: unknown,
     callback: (err: ShareDb.Error | null, data?: Snapshot[]) => void
   ) {
+    // console.log('getSnapshotBulk:', collection, ids);
     try {
-      const prisma = this.transactionService.get(collection);
+      const prisma = this.transactionService.get(collection) || this.prismaService;
       let docType: IdPrefix;
       if (collection === 'node') {
         docType = IdPrefix.Table;
@@ -327,7 +337,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
-      const prisma = this.transactionService.get(collection);
+      const prisma = this.transactionService.get(collection) || this.prismaService;
       const res = await prisma.$queryRawUnsafe<
         { collection: string; id: string; from: number; to: number; operation: string }[]
       >(
