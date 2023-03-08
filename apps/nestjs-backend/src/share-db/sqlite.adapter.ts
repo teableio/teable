@@ -7,7 +7,6 @@ import type {
   IAggregateQuery,
   ISnapshotQuery,
   ISnapshotBase,
-  OpName,
 } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -158,7 +157,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     const service = this.getService(docType);
     for (const opName in ops2Contexts) {
       const opContext = ops2Contexts[opName];
-      await service.update(prisma, version, collection, opName as OpName, opContext);
+      await service.update(prisma, version, collection, docId, opContext);
     }
   }
 
