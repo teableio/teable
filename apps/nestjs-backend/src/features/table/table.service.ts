@@ -181,6 +181,7 @@ export class TableService implements AdapterService {
           where: { id: tableId },
           data: { name: newName, version },
         });
+        return;
       }
       throw new Error(`Unknown context ${opContext.name} for table update`);
     }
