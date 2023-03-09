@@ -19,7 +19,7 @@ import { useGridTheme } from './useGridTheme';
 
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
-  const connection = useConnection();
+  const { connection } = useConnection();
   const tableId = useTableId() as string;
   const rowCount = useRowCount();
   const fields = useFields();

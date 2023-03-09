@@ -1,3 +1,4 @@
+import { useConnection } from '@teable-group/sdk/hooks';
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
@@ -7,9 +8,10 @@ import { ThemePicker } from './ThemePicker';
 
 export const SideBar: React.FC = () => {
   const isHydrated = useIsHydrated();
+  const { connected } = useConnection();
 
   return (
-    <div className="max-w-xs h-full w-56 overflow-y-auto border-r border-base-300">
+    <div className="max-w-xs h-full overflow-y-auto border-r border-base-300 w-72">
       <div className="mx-2 my-4">
         <Image
           width={32}
@@ -21,6 +23,7 @@ export const SideBar: React.FC = () => {
         />
         <span className="px-1 font-bold">Teable</span>
         {isHydrated && <ThemePicker />}
+        {!connected && <button className="btn btn-xs btn-ghost loading"></button>}
       </div>
 
       <div className="divide-y divide-solid divide-base-300">

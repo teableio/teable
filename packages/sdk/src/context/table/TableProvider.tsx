@@ -23,7 +23,7 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
 
   const updateTable = useCallback(
     (doc: Doc<ITableSnapshot>) => {
-      const newTable = createTableInstance(doc.data.table, doc);
+      const newTable = createTableInstance(doc.data.table, doc, connection);
       setTables(
         tables.map((table) => {
           if (table.id === newTable.id) {
@@ -47,7 +47,7 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
 
     query.on('ready', () => {
       console.log('table:ready:', query.results);
-      setTables(query.results.map((r) => createTableInstance(r.data.table, r)));
+      setTables(query.results.map((r) => createTableInstance(r.data.table, r, connection)));
       query.results.forEach((doc) => {
         doc.on('op', (op) => {
           console.log('doc on op:', op);
@@ -58,7 +58,7 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
 
     query.on('changed', () => {
       console.log('table:changed:', query.results);
-      setTables(query.results.map((r) => createTableInstance(r.data.table, r)));
+      setTables(query.results.map((r) => createTableInstance(r.data.table, r, connection)));
     });
 
     query.on('insert', (docs) => {

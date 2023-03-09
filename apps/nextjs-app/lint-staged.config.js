@@ -7,10 +7,7 @@
  * {@link https://github.com/teable-group/nextjs-monorepo-example/blob/main/docs/about-lint-staged.md}
  */
 
-const {
-  concatFilesForPrettier,
-  getEslintFixCmd,
-} = require('../../lint-staged.common.js');
+const { concatFilesForPrettier, getEslintFixCmd } = require('../../lint-staged.common.js');
 
 /**
  * @type {Record<string, (filenames: string[]) => string | string[] | Promise<string | string[]>>}

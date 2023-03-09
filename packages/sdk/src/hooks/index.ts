@@ -9,3 +9,4 @@ export * from './use-active-view-id';
 export * from './use-ssr-records';
 export * from './use-theme';
 export * from './use-tables';
+export * from './use-table';

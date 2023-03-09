@@ -65,7 +65,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
     query: IRecordSnapshotQuery | IFieldSnapshotQuery | IAggregateQuery,
     projection: IProjection,
     options: unknown,
-    callback: ShareDb.DBQueryCallback
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
     console.log(`query: ${collection}`);
     this.queryPoll(collection, query, options, (error, results) => {
@@ -73,6 +74,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
       if (error) {
         return callback(error, []);
       }
+      if (!results.length) {
+        return callback(undefined, []);
+      }
+
       this.getSnapshotBulk(
         collection,
         results as string[],

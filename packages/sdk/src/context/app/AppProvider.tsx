@@ -12,6 +12,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return new Connection(socket as Socket);
     }
   });
+  const [connected, setConnected] = useState(false);
   const themeProps = useTheme();
 
   useEffect(() => {
@@ -21,9 +22,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [connection]);
 
+  useEffect(() => {
+    if (!connection) {
+      return;
+    }
+    const onConnected = () => setConnected(true);
+    const onDisconnected = () => setConnected(false);
+    connection.on('connected', onConnected);
+    connection.on('disconnected', onDisconnected);
+    connection.on('closed', onDisconnected);
+    return () => {
+      connection.removeListener('connected', onConnected);
+      connection.removeListener('disconnected', onDisconnected);
+      connection.removeListener('closed', onDisconnected);
+    };
+  }, [connection]);
+
   const value = useMemo(() => {
-    return { connection, ...themeProps };
-  }, [connection, themeProps]);
+    return { connection, connected, ...themeProps };
+  }, [connection, connected, themeProps]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
