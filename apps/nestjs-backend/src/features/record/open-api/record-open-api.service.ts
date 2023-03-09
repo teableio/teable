@@ -51,21 +51,12 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsDto: CreateRecordsDto
   ): Promise<ICreateRecordOpMeta[]> {
-    const defaultView = await this.prismaService.view.findFirstOrThrow({
-      where: { tableId },
-      select: { id: true },
-    });
-
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-
-    const rowCount = await this.recordService.getAllRecordCount(this.prismaService, dbTableName);
-
-    return createRecordsDto.records.map((record, index) => {
+    return createRecordsDto.records.map((record) => {
       const recordId = generateRecordId();
-      const snapshot = OpBuilder.creator.addRecord.build(recordId);
+      const snapshot = OpBuilder.creator.addRecord.build({
+        record: { id: recordId, fields: {} },
+        recordOrder: {},
+      });
 
       const setRecordOps = Object.entries(record.fields).map(([fieldId, value]) =>
         OpBuilder.editor.setRecord.build({
@@ -74,15 +65,11 @@ export class RecordOpenApiService {
           newCellValue: value,
         })
       );
-      const setRecordOrderOp = OpBuilder.editor.setRecordOrder.build({
-        viewId: defaultView.id,
-        newOrder: rowCount + index,
-      });
 
       return {
         recordId,
         snapshot,
-        ops: [...setRecordOps, setRecordOrderOp],
+        ops: [...setRecordOps],
       };
     }, []);
   }

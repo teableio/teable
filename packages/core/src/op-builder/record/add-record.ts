@@ -6,10 +6,10 @@ export class AddRecordBuilder implements ICreateOpBuilder {
   name: OpName.AddRecord = OpName.AddRecord;
 
   // you should only build an empty record
-  build(recordId: string): IRecordSnapshot {
+  build(record: IRecordSnapshot): IRecordSnapshot {
     return {
       record: {
-        id: recordId,
+        id: record.record.id,
         fields: {},
       },
       recordOrder: {},

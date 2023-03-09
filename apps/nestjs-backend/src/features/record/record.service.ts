@@ -300,8 +300,22 @@ export class RecordService implements AdapterService {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     // TODO: get row count will causes performance issus when insert lot of records
-    // TODO: set record order in every view
     const rowCount = await this.getAllRecordCount(prisma, dbTableName);
+    const views = await prisma.view.findMany({
+      where: { tableId },
+      select: { id: true },
+    });
+
+    const orders = views.reduce<{ [viewId: string]: number }>((pre, cur) => {
+      const viewOrderFieldName = getViewOrderFieldName(cur.id);
+      if (snapshot.recordOrder[cur.id] !== undefined) {
+        pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
+      } else {
+        pre[viewOrderFieldName] = rowCount;
+      }
+      return pre;
+    }, {});
+
     const nativeSql = this.queryBuilder(dbTableName)
       .insert({
         __id: snapshot.record.id,
@@ -309,6 +323,7 @@ export class RecordService implements AdapterService {
         __created_time: new Date(),
         __created_by: 'admin',
         __version: 1,
+        ...orders,
       })
       .toSQL()
       .toNative();
