@@ -68,7 +68,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
-    console.log(`query: ${collection}`);
+    // console.log(`query: ${collection} ${JSON.stringify(query)}`);
     this.queryPoll(collection, query, options, (error, results) => {
       // console.log('query pull result: ', ids);
       if (error) {
@@ -84,8 +84,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
         projection,
         options,
         (error, snapshots) => {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          callback(error, snapshots!);
+          callback(
+            error,
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            results.map((id) => snapshots![id])
+          );
         }
       );
     });
@@ -114,6 +117,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     _options: unknown,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
+    // console.log('queryPoll:', collection, query);
     try {
       const prisma = this.transactionService.get(collection) || this.prismaService;
 
@@ -124,6 +128,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       }
 
       const ids = await this.getService(query.type).getDocIdsByQuery(prisma, collection, query);
+      // console.log('queryPollResult:', collection, ids);
       callback(null, ids);
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -253,6 +258,13 @@ export class SqliteDbAdapter extends ShareDb.DB {
     }
   }
 
+  private snapshots2Map<T>(snapshots: ({ id: string } & T)[]): Record<string, T> {
+    return snapshots.reduce<Record<string, T>>((pre, cur) => {
+      pre[cur.id] = cur;
+      return pre;
+    }, {});
+  }
+
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
@@ -261,7 +273,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     ids: string[],
     projection: IProjection | undefined,
     options: unknown,
-    callback: (err: ShareDb.Error | null, data?: Snapshot[]) => void
+    callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
   ) {
     // console.log('getSnapshotBulk:', collection, ids);
     try {
@@ -299,10 +311,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
               null // TODO: metadata
             )
         );
-        callback(null, snapshots);
+        callback(null, this.snapshots2Map(snapshots));
       } else {
         const snapshots = ids.map((id) => new Snapshot(id, 0, null, undefined, null));
-        callback(null, snapshots);
+        callback(null, this.snapshots2Map(snapshots));
       }
     } catch (err) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,7 +334,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
         callback(err);
       } else {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        callback(null, data![0]);
+        callback(null, data![id]);
       }
     });
   }
