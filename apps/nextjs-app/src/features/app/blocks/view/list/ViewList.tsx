@@ -1,28 +1,16 @@
-import { useActiveViewId, useViews } from '@teable-group/sdk';
+import { useViewId, useViews } from '@teable-group/sdk';
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
-import classnames from 'classnames';
 import { useAddView } from './useAddView';
+import { ViewListItem } from './ViewListItem';
 
 export const ViewList: React.FC = () => {
   const views = useViews();
-  const activeViewId = useActiveViewId();
+  const activeViewId = useViewId();
   const addView = useAddView();
   return (
     <div className="tabs mx-2">
-      {views.map((view, i) => (
-        <a
-          key={view.id}
-          className={classnames(
-            'tab tab-bordered text-ellipsis overflow-hidden whitespace-nowrap inline-block',
-            {
-              'tab-active': activeViewId ? activeViewId === view.id : i === 0,
-            }
-          )}
-          style={{ maxWidth: 200 }}
-          title={view.name}
-        >
-          {view.name}
-        </a>
+      {views.map((view) => (
+        <ViewListItem key={view.id} view={view} isActive={view.id === activeViewId} />
       ))}
       <a className="tab">
         <button className="btn btn-xs btn-ghost" onClick={addView}>

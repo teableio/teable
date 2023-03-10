@@ -9,12 +9,16 @@ export const SpaceLayout: React.FC<{
   tableServerData: ITableVo[];
 }> = ({ children, tableServerData }) => {
   const router = useRouter();
-  const { nodeId } = router.query;
+  const { nodeId, viewId } = router.query;
 
   return (
     <AppLayout>
       <AppProvider>
-        <TableProvider tableId={nodeId as string} serverData={tableServerData}>
+        <TableProvider
+          tableId={nodeId as string}
+          viewId={viewId as string}
+          serverData={tableServerData}
+        >
           <div id="portal" className="h-screen flex items-start w-full">
             <SideBar />
             {children}

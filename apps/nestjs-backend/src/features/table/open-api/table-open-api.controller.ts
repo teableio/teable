@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { responseWrap } from 'src/utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
-import { FullSSRSnapshotVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
+import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
 
@@ -14,13 +14,27 @@ export class TableController {
     private readonly tableService: TableService,
     private readonly tableOpenApiService: TableOpenApiService
   ) {}
-  @Get('/ssr/:tableId')
+
+  @Get('/ssr/:tableId/view-id')
+  @ApiOkResponse({
+    description: 'default id in table',
+    type: TableSSRDefaultViewIdVo,
+  })
+  async getDefaultViewId(@Param('tableId') tableId: string): Promise<TableSSRDefaultViewIdVo> {
+    const snapshot = await this.tableService.getDefaultViewId(tableId);
+    return responseWrap(snapshot);
+  }
+
+  @Get('/ssr/:tableId/:viewId')
   @ApiOkResponse({
     description: 'ssr snapshot',
     type: FullSSRSnapshotVo,
   })
-  async getFullSSRSnapshot(@Param('tableId') tableId: string): Promise<FullSSRSnapshotVo> {
-    const snapshot = await this.tableService.getSSRSnapshot(tableId);
+  async getFullSSRSnapshot(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<FullSSRSnapshotVo> {
+    const snapshot = await this.tableService.getSSRSnapshot(tableId, viewId);
     return responseWrap(snapshot);
   }
 

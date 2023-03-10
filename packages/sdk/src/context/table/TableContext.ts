@@ -3,6 +3,6 @@ import React from 'react';
 
 export const TableContext = React.createContext<{
   tableId?: string;
-  activeViewId?: string;
+  viewId?: string;
   tables: Table[];
 }>(null!);

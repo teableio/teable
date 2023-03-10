@@ -12,7 +12,12 @@ interface ITableProviderProps {
   children: ReactNode;
 }
 
-export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serverData }) => {
+export const TableProvider: FC<ITableProviderProps> = ({
+  tableId,
+  viewId,
+  children,
+  serverData,
+}) => {
   const { connection } = useContext(AppContext);
   const [tables, setTables] = useState<Table[]>(() => {
     if (serverData) {
@@ -82,8 +87,8 @@ export const TableProvider: FC<ITableProviderProps> = ({ tableId, children, serv
   }, [connection, tableId]);
 
   const value = useMemo(() => {
-    return { tableId, tables };
-  }, [tableId, tables]);
+    return { tableId, viewId, tables };
+  }, [tableId, viewId, tables]);
 
   return <TableContext.Provider value={value}>{children}</TableContext.Provider>;
 };

@@ -142,6 +142,13 @@ export class TableService implements AdapterService {
     };
   }
 
+  async getDefaultViewId(tableId: string) {
+    return this.prismaService.view.findFirstOrThrow({
+      where: { tableId },
+      select: { id: true },
+    });
+  }
+
   private async createTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
     const tableId = snapshot.table.id;
     // 1. create db table

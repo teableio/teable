@@ -5,7 +5,6 @@ import { GridView } from '../view/grid/GridView';
 import { ViewList } from '../view/list/ViewList';
 
 export interface ITableProps {
-  tableId: string;
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordServerData: { records: IRecord[]; total: number };

@@ -34,3 +34,15 @@ export class TableSSRSnapshotVo extends ApiResponse<TableSnapshotVo> {
   @ApiProperty({ type: TableSnapshotVo })
   data!: TableSnapshotVo;
 }
+
+export class DefaultViewVo {
+  @ApiProperty({
+    description: 'default view id in table',
+  })
+  id!: string;
+}
+
+export class TableSSRDefaultViewIdVo extends ApiResponse<DefaultViewVo> {
+  @ApiProperty({ type: DefaultViewVo })
+  data!: DefaultViewVo;
+}
