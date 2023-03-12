@@ -12,7 +12,6 @@ import {
 import clx from 'classnames';
 import React from 'react';
 import { useClickAway } from 'react-use';
-import { useAppStore } from '../store';
 
 interface INavItemProps {
   icon: 'directory' | 'teable' | 'table' | 'file';
@@ -25,7 +24,6 @@ interface INavItemProps {
 
 export const NavItem = (props: INavItemProps) => {
   const [isActived, setIsActived] = React.useState(props.isActive);
-  const setCurrentFile = useAppStore((state) => state.setCurrentFile);
   const ref = React.useRef<HTMLDivElement>(null);
   useClickAway(ref, () => {
     setIsActived(false);
@@ -44,10 +42,6 @@ export const NavItem = (props: INavItemProps) => {
   };
 
   const handleActive = () => {
-    setCurrentFile({
-      name: props.label,
-      path: props.path,
-    });
     setIsActived(true);
   };
 

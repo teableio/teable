@@ -17,7 +17,7 @@ export const SideBar: React.FC = () => {
           width={32}
           height={32}
           loading={'eager'}
-          src={'/shared-assets/images/teable-red.png'}
+          src={'/shared-assets/images/teable-logo.png'}
           alt={'tailwind-ui-logo'}
           className="rounded object-cover object-center inline-block"
         />

@@ -8,7 +8,6 @@ import { appConfig } from '../app.config';
 import Doc from '../components/DocEditor';
 import { SideMenu } from '../components/SideMenu';
 import { AppLayout } from '../layouts';
-import { useAppStore } from '../store';
 
 export const DataGrid = dynamic(
   async () => {
@@ -19,12 +18,12 @@ export const DataGrid = dynamic(
 );
 
 const AppSwitch: FC<{ path?: string }> = ({ path }) => {
-  const setSelectPath = useAppStore((state) => state.setSelectPath);
+  // const setSelectPath = useAppStore((state) => state.setSelectPath);
 
   const openDirSelector = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const path = await (window as any).electronAPI.openFile();
-    setSelectPath(path);
+    // setSelectPath(path);
   };
   if (path?.includes('.teable#')) {
     return <DataGrid path={path} />;
@@ -38,7 +37,6 @@ const AppSwitch: FC<{ path?: string }> = ({ path }) => {
 
 export const AppPage: FC = () => {
   const { t } = useTranslation(appConfig.i18nNamespaces);
-  const currentFile = useAppStore((state) => state.currentFile);
   const [tableId, setTableId] = useLocalStorage('teable_table_id', '');
   return (
     <>
