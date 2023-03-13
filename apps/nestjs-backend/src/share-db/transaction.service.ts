@@ -14,7 +14,7 @@ export class TransactionService {
   async newTransaction() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let tranPromiseCb: { resolve: (value: unknown) => void; reject: (reason?: any) => void };
-    const transactionPromise = new Promise((resolve, reject) => {
+    const tranInnerPromise = new Promise((resolve, reject) => {
       tranPromiseCb = { resolve, reject };
     });
 
@@ -23,10 +23,10 @@ export class TransactionService {
       prismaResolveFn = resolve;
     });
 
-    this.prismaService.$transaction(async (prisma) => {
+    const tranOuterPromise = this.prismaService.$transaction(async (prisma) => {
       console.log('transaction start');
       prismaResolveFn(prisma);
-      await transactionPromise;
+      await tranInnerPromise;
       console.log('transaction done');
     });
 
@@ -34,12 +34,13 @@ export class TransactionService {
     return {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       prisma: prismaClient!,
-      endTransaction: (err?: unknown) => {
+      endTransaction: async (err?: unknown) => {
         if (err) {
           tranPromiseCb.reject(err);
         } else {
           tranPromiseCb.resolve(undefined);
         }
+        await tranOuterPromise;
       },
     };
   }

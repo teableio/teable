@@ -183,7 +183,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
     // console.log('commit', collection, id, rawOp, snapshot);
 
-    let endTransaction = (_?: unknown): void => undefined;
+    let endTransaction = (_?: unknown): Promise<void> => Promise.resolve();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, collectionId] = collection.split('_');
     let prisma = this.transactionService.get(collectionId);
@@ -226,10 +226,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
         await this.updateSnapshot(prisma, snapshot.v, collection, id, rawOp.op);
       }
 
-      endTransaction();
+      await endTransaction();
       callback(null, true);
     } catch (err) {
-      endTransaction(err);
+      await endTransaction(err);
       callback(err);
     }
   }

@@ -66,6 +66,6 @@
       "./packages/eslint-config-bases",
       "./packages/ui-lib"
     ],
-    "cSpell.words": ["Teable"]
+    "cSpell.words": ["sharedb", "Teable"]
   }
 }
