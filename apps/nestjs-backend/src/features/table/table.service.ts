@@ -3,7 +3,6 @@ import type {
   ISetTableNameOpContext,
   ISnapshotBase,
   ITableSnapshot,
-  ITableSnapshotQuery,
   ITableVo,
 } from '@teable-group/core';
 import { OpName, generateTableId } from '@teable-group/core';
@@ -74,7 +73,9 @@ export class TableService implements AdapterService {
   }
 
   async getTables(): Promise<ITableVo[]> {
-    const tablesMeta = await this.prismaService.tableMeta.findMany();
+    const tablesMeta = await this.prismaService.tableMeta.findMany({
+      orderBy: { order: 'asc' },
+    });
 
     return tablesMeta.map((tableMeta) => ({
       ...tableMeta,
@@ -222,11 +223,7 @@ export class TableService implements AdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(
-    prisma: Prisma.TransactionClient,
-    _collection: string,
-    _query: ITableSnapshotQuery
-  ) {
+  async getDocIdsByQuery(prisma: Prisma.TransactionClient, _collection: string, _query: unknown) {
     const tables = await prisma.tableMeta.findMany({
       select: { id: true },
       orderBy: { order: 'asc' },

@@ -1,3 +1,4 @@
+import { Space } from '../../model/space';
 import React from 'react';
 import { Connection } from 'sharedb/lib/client';
 
@@ -10,6 +11,7 @@ export interface IAppContext {
   connection?: Connection;
   connected: boolean;
   theme: ThemeKey;
+  space?: Space;
   isAutoTheme: boolean;
   setTheme: (theme: ThemeKey | null) => void;
 }

@@ -58,7 +58,7 @@
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
     "eslint.workingDirectories": [
       "./apps/nextjs-app",
-      "./apps/nesjs-backend",
+      "./apps/nestjs-backend",
       "./packages/common-i18n",
       "./packages/sdk",
       "./packages/core",

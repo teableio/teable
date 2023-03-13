@@ -4,7 +4,6 @@ import type {
   ISetViewNameOpContext,
   ISnapshotBase,
   IViewSnapshot,
-  IViewSnapshotQuery,
   ViewType,
 } from '@teable-group/core';
 import { OpName, generateViewId } from '@teable-group/core';
@@ -51,11 +50,11 @@ export class ViewService implements AdapterService {
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createViewRo: CreateViewRo,
+    createViewRo: CreateViewRo & { id?: string },
     order?: number
   ) {
-    const { name, description, type, options, sort, filter, group } = createViewRo;
-    const viewId = generateViewId();
+    const { id, name, description, type, options, sort, filter, group } = createViewRo;
+    const viewId = id || generateViewId();
 
     if (!order) {
       const viewAggregate = await prisma.view.aggregate({
@@ -197,11 +196,7 @@ export class ViewService implements AdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    _query: IViewSnapshotQuery
-  ) {
+  async getDocIdsByQuery(prisma: Prisma.TransactionClient, tableId: string, _query: unknown) {
     const views = await prisma.view.findMany({
       where: { tableId },
       select: { id: true },

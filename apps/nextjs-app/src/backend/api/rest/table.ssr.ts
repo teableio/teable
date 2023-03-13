@@ -3,12 +3,13 @@ import { isJsonApiSuccessResponse } from '@teable-group/core';
 import axios from 'axios';
 
 export class SsrApi {
+  axios = axios.create({
+    baseURL: `http://localhost:${process.env.PORT}/api`,
+  });
+
   async getFullSnapshot(tableId: string, viewId = ''): Promise<IFullSsrSnapshot> {
-    console.log(`http://localhost:${process.env.PORT}/api/table/ssr/${tableId}/${viewId}`);
-    return axios
-      .get<IJsonApiResponse<IFullSsrSnapshot>>(
-        `http://localhost:${process.env.PORT}/api/table/ssr/${tableId}/${viewId}`
-      )
+    return this.axios
+      .get<IJsonApiResponse<IFullSsrSnapshot>>(`/table/ssr/${tableId}/${viewId}`)
       .then(({ data: resp }) => {
         if (isJsonApiSuccessResponse(resp)) {
           return resp.data;
@@ -18,10 +19,8 @@ export class SsrApi {
   }
 
   async getTableSnapshot() {
-    return axios
-      .get<IJsonApiResponse<Pick<IFullSsrSnapshot, 'tables'>>>(
-        `http://localhost:${process.env.PORT}/api/table/ssr`
-      )
+    return this.axios
+      .get<IJsonApiResponse<Pick<IFullSsrSnapshot, 'tables'>>>(`/table/ssr`)
       .then(({ data: resp }) => {
         if (isJsonApiSuccessResponse(resp)) {
           return resp.data;
@@ -31,10 +30,8 @@ export class SsrApi {
   }
 
   async getDefaultViewId(tableId: string) {
-    return axios
-      .get<IJsonApiResponse<{ id: string }>>(
-        `http://localhost:${process.env.PORT}/api/table/ssr/${tableId}/view-id`
-      )
+    return this.axios
+      .get<IJsonApiResponse<{ id: string }>>(`/table/ssr/${tableId}/view-id`)
       .then(({ data: resp }) => {
         if (isJsonApiSuccessResponse(resp)) {
           return resp.data;

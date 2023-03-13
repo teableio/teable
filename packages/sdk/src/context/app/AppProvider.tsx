@@ -4,6 +4,7 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
 import { useTheme } from './useTheme';
+import { Space } from '../../model/space';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [connection, setConnection] = useState(() => {
@@ -13,6 +14,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
   const [connected, setConnected] = useState(false);
+  const [space, setSpace] = useState<Space>();
   const themeProps = useTheme();
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!connection) {
       return;
     }
+    setSpace(new Space(connection));
     const onConnected = () => setConnected(true);
     const onDisconnected = () => setConnected(false);
     connection.on('connected', onConnected);
@@ -39,8 +42,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [connection]);
 
   const value = useMemo(() => {
-    return { connection, connected, ...themeProps };
-  }, [connection, connected, themeProps]);
+    return { connection, connected, space, ...themeProps };
+  }, [connection, connected, space, themeProps]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

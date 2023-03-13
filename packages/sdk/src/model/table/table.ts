@@ -2,6 +2,7 @@ import {
   generateViewId,
   IdPrefix,
   ITableSnapshot,
+  IViewSnapshot,
   IViewVo,
   OpBuilder,
   TableCore,
@@ -35,7 +36,7 @@ export class Table extends TableCore {
 
     const createSnapshot = OpBuilder.creator.addView.build(viewData);
     const doc = this.connection.get(`${IdPrefix.View}_${this.id}`, viewData.id);
-    return new Promise<Doc>((resolve, reject) => {
+    return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
         console.log(`create view succeed!`, viewData);
