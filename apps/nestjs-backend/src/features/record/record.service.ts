@@ -1,5 +1,6 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import type {
+  IAggregateQuery,
   IRecordSnapshot,
   IRecordSnapshotQuery,
   ISetRecordOpContext,
@@ -279,14 +280,14 @@ export class RecordService implements AdapterService {
       viewId = defaultView.id;
     }
 
-    const ids = await this.getDocIdsByQuery(this.prismaService, tableId, {
+    const ids = await this.getRecordDocIdsByQuery(this.prismaService, tableId, {
       type: IdPrefix.Record,
       viewId,
       offset: query.skip,
       limit: query.take,
     });
 
-    const recordSnapshot = await this.getSnapshotBulk(this.prismaService, tableId, ids);
+    const recordSnapshot = await this.getRecordSnapshotBulk(this.prismaService, tableId, ids);
 
     const total = await this.getRowCount(this.prismaService, tableId, viewId);
 
@@ -357,8 +358,24 @@ export class RecordService implements AdapterService {
       }
     }
   }
+  // return a specific id for row count fetch
+  private async getAggregateIds(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    query: IAggregateQuery
+  ) {
+    let viewId = query.viewId;
+    if (!viewId) {
+      const view = await prisma.view.findFirstOrThrow({
+        where: { tableId },
+        select: { id: true },
+      });
+      viewId = view.id;
+    }
+    return [`${query.aggregateKey}_${viewId}`];
+  }
 
-  async getSnapshotBulk(
+  async getRecordSnapshotBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
@@ -440,7 +457,22 @@ export class RecordService implements AdapterService {
       });
   }
 
-  async getDocIdsByQuery(
+  async getSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordIds: string[],
+    projection?: { [fieldKey: string]: boolean },
+    fieldKeyType?: FieldKeyType
+  ) {
+    // console.log('recordGetSnapshotBulk:', tableId, recordIds);
+    if (recordIds[0].slice(0, 3) === IdPrefix.Record) {
+      return this.getRecordSnapshotBulk(prisma, tableId, recordIds, projection, fieldKeyType);
+    } else {
+      return this.getAggregateBulk(prisma, tableId, recordIds);
+    }
+  }
+
+  private async getRecordDocIdsByQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery
@@ -476,6 +508,18 @@ export class RecordService implements AdapterService {
     );
 
     return result.map((r) => r.__id);
+  }
+
+  async getDocIdsByQuery(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    query: IAggregateQuery | IRecordSnapshotQuery
+  ): Promise<string[]> {
+    if (query.type === IdPrefix.Aggregate) {
+      return this.getAggregateIds(prisma, collectionId, query);
+    } else {
+      return this.getRecordDocIdsByQuery(prisma, collectionId, query);
+    }
   }
 
   async getAggregateBulk(

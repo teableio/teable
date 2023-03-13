@@ -26,9 +26,10 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serve
     if (!tableId || !connection) {
       return;
     }
-    const viewsQuery = connection.createSubscribeQuery<IViewSnapshot>(tableId, {
-      type: IdPrefix.View,
-    });
+    const viewsQuery = connection.createSubscribeQuery<IViewSnapshot>(
+      `${IdPrefix.View}_${tableId}`,
+      {}
+    );
 
     viewsQuery.on('ready', () => {
       console.log('view:ready:', viewsQuery.results);

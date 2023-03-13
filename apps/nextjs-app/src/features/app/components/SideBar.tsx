@@ -21,7 +21,7 @@ export const SideBar: React.FC = () => {
           alt={'tailwind-ui-logo'}
           className="rounded object-cover object-center inline-block"
         />
-        <span className="px-1 font-bold">Teable</span>
+        <span className="px-1">teable</span>
         {isHydrated && <ThemePicker />}
         {!connected && <button className="btn btn-xs btn-ghost loading"></button>}
       </div>

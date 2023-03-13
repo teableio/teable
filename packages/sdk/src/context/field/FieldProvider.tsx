@@ -28,10 +28,10 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
     if (!tableId || !connection) {
       return;
     }
-    const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(tableId, {
-      type: IdPrefix.Field,
-      // fieldDocs,
-    });
+    const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(
+      `${IdPrefix.Field}_${tableId}`,
+      {}
+    );
 
     fieldsQuery.on('ready', () => {
       console.log('fields:ready:', fieldsQuery.results);

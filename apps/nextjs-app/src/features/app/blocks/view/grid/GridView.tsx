@@ -33,11 +33,13 @@ export const GridView: React.FC = () => {
       5,
       useCallback(
         async (updateRowRef, updateRow, [offset, limit]) => {
-          const query = connection.createSubscribeQuery<IRecordSnapshot>(tableId, {
-            type: IdPrefix.Record,
-            offset,
-            limit,
-          });
+          const query = connection.createSubscribeQuery<IRecordSnapshot>(
+            `${IdPrefix.Record}_${tableId}`,
+            {
+              offset,
+              limit,
+            }
+          );
           const recordDocs = await new Promise<typeof query['results']>((resolve) => {
             query.on('ready', () => {
               console.log(

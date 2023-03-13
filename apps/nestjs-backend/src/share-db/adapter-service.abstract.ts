@@ -1,4 +1,4 @@
-import type { ISnapshotBase, ISnapshotQuery } from '@teable-group/core';
+import type { ISnapshotBase } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 
 export abstract class AdapterService {
@@ -11,14 +11,14 @@ export abstract class AdapterService {
   abstract update(
     prisma: Prisma.TransactionClient,
     version: number,
-    collection: string,
+    collectionId: string,
     docId: string,
     opContexts: unknown[]
   ): Promise<void>;
 
   abstract getSnapshotBulk(
     prisma: Prisma.TransactionClient,
-    collection: string,
+    collectionId: string,
     ids: string[],
     projection?: { [fieldKey: string]: boolean },
     extra?: unknown
@@ -26,7 +26,7 @@ export abstract class AdapterService {
 
   abstract getDocIdsByQuery(
     prisma: Prisma.TransactionClient,
-    collection: string,
-    query: ISnapshotQuery
+    collectionId: string,
+    query: unknown
   ): Promise<string[]>;
 }

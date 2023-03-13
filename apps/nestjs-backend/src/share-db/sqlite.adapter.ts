@@ -1,13 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  IOtOperation,
-  IRecord,
-  IRecordSnapshotQuery,
-  IFieldSnapshotQuery,
-  IAggregateQuery,
-  ISnapshotQuery,
-  ISnapshotBase,
-} from '@teable-group/core';
+import type { IOtOperation, IRecord, IRecordSnapshotQuery } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { groupBy } from 'lodash';
@@ -62,7 +54,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
   query = async (
     collection: string,
-    query: IRecordSnapshotQuery | IFieldSnapshotQuery | IAggregateQuery,
+    query: unknown,
     projection: IProjection,
     options: unknown,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,40 +86,22 @@ export class SqliteDbAdapter extends ShareDb.DB {
     });
   };
 
-  // return a specific id for row count fetch
-  private async getAggregateIds(
-    prisma: Prisma.TransactionClient,
-    collection: string,
-    query: IAggregateQuery
-  ) {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
-        where: { tableId: collection },
-        select: { id: true },
-      });
-      viewId = view.id;
-    }
-    return [`${query.aggregateKey}_${viewId}`];
-  }
-
   async queryPoll(
     collection: string,
-    query: ISnapshotQuery,
+    query: unknown,
     _options: unknown,
     callback: (error: ShareDb.Error | null, ids: string[]) => void
   ) {
     // console.log('queryPoll:', collection, query);
     try {
-      const prisma = this.transactionService.get(collection) || this.prismaService;
+      const [docType, collectionId] = collection.split('_');
+      const prisma = this.transactionService.get(collectionId) || this.prismaService;
 
-      if (query.type === IdPrefix.Aggregate) {
-        const ids = await this.getAggregateIds(prisma, collection, query);
-        callback(null, ids);
-        return;
-      }
-
-      const ids = await this.getService(query.type).getDocIdsByQuery(prisma, collection, query);
+      const ids = await this.getService(docType as IdPrefix).getDocIdsByQuery(
+        prisma,
+        collectionId,
+        query
+      );
       // console.log('queryPollResult:', collection, ids);
       callback(null, ids);
     } catch (e) {
@@ -165,25 +139,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
     docId: string,
     ops: IOtOperation[]
   ) {
-    const docType = docId.slice(0, 3) as IdPrefix;
+    const [docType, collectionId] = collection.split('_');
     const ops2Contexts = OpBuilder.ops2Contexts(ops);
-    const service = this.getService(docType);
+    const service = this.getService(docType as IdPrefix);
     // group by op name execute faster
     const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
     for (const opName in ops2ContextsGrouped) {
       const opContexts = ops2ContextsGrouped[opName];
-      await service.update(prisma, version, collection, docId, opContexts);
+      await service.update(prisma, version, collectionId, docId, opContexts);
     }
   }
 
   private async createSnapshot(
     prisma: Prisma.TransactionClient,
     collection: string,
-    docId: string,
+    _docId: string,
     snapshot: unknown
   ) {
-    const docType = docId.slice(0, 3) as IdPrefix;
-    await this.getService(docType).create(prisma, collection, snapshot);
+    const [docType, collectionId] = collection.split('_');
+    await this.getService(docType as IdPrefix).create(prisma, collectionId, snapshot);
   }
 
   // Persists an op and snapshot if it is for the next version. Calls back with
@@ -210,7 +184,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // console.log('commit', collection, id, rawOp, snapshot);
 
     let endTransaction = (_?: unknown): void => undefined;
-    let prisma = this.transactionService.get(collection);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, collectionId] = collection.split('_');
+    let prisma = this.transactionService.get(collectionId);
     if (!prisma) {
       console.log('new transaction');
       const newTran = await this.transactionService.newTransaction();
@@ -221,7 +197,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     try {
       const opsResult = await prisma.ops.aggregate({
         _max: { version: true },
-        where: { collection, docId: id },
+        where: { collection: collectionId, docId: id },
       });
 
       const maxVersion = opsResult._max.version || 0;
@@ -277,28 +253,15 @@ export class SqliteDbAdapter extends ShareDb.DB {
   ) {
     // console.log('getSnapshotBulk:', collection, ids);
     try {
+      const [docType, collectionId] = collection.split('_');
       const prisma = this.transactionService.get(collection) || this.prismaService;
-      let docType: IdPrefix;
-      if (collection === 'node') {
-        docType = IdPrefix.Table;
-      } else {
-        docType = ids[0].slice(0, 3) as IdPrefix;
-        if (ids.find((id) => id.slice(0, 3) !== docType)) {
-          throw new Error('get snapshot bulk ids must be same type');
-        }
-      }
 
-      let snapshotData: ISnapshotBase[] = [];
-      if (docType === IdPrefix.Aggregate) {
-        snapshotData = await this.recordService.getAggregateBulk(prisma, collection, ids);
-      } else {
-        snapshotData = await this.getService(docType).getSnapshotBulk(
-          prisma,
-          collection,
-          ids,
-          projection && projection['$submit'] ? undefined : projection
-        );
-      }
+      const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
+        prisma,
+        collectionId,
+        ids,
+        projection && projection['$submit'] ? undefined : projection
+      );
 
       if (snapshotData.length) {
         const snapshots = snapshotData.map(
@@ -357,12 +320,14 @@ export class SqliteDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
-      const prisma = this.transactionService.get(collection) || this.prismaService;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const [_, collectionId] = collection.split('_');
+      const prisma = this.transactionService.get(collectionId) || this.prismaService;
       const res = await prisma.$queryRawUnsafe<
         { collection: string; id: string; from: number; to: number; operation: string }[]
       >(
         'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
-        collection,
+        collectionId,
         id,
         from,
         to

@@ -30,7 +30,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
       return;
     }
 
-    const query = connection.createSubscribeQuery<number>(tableId, param);
+    const query = connection.createSubscribeQuery<number>(`${IdPrefix.Record}_${tableId}`, param);
 
     query.on('ready', () => {
       console.log('rowCount:ready:', query);

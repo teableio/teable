@@ -1,22 +1,13 @@
 import type { AggregateKey, IdPrefix } from '../utils';
 
-export interface ITableSnapshotQuery {
-  type: IdPrefix.Table;
-}
-
 export interface IFieldSnapshotQuery {
   viewId?: string;
-  type: IdPrefix.Field;
 }
 
 export interface IAggregateQuery {
   viewId?: string;
   type: IdPrefix.Aggregate;
   aggregateKey: AggregateKey;
-}
-
-export interface IViewSnapshotQuery {
-  type: IdPrefix.View;
 }
 
 export interface IRecordSnapshotQuery {
@@ -32,10 +23,3 @@ export interface IRecordSnapshotQuery {
   offset?: number;
   limit?: number;
 }
-
-export type ISnapshotQuery =
-  | IAggregateQuery
-  | IViewSnapshotQuery
-  | IRecordSnapshotQuery
-  | IFieldSnapshotQuery
-  | ITableSnapshotQuery;

@@ -46,9 +46,7 @@ export const TableProvider: FC<ITableProviderProps> = ({
       return;
     }
 
-    const query = connection.createSubscribeQuery<ITableSnapshot>('node', {
-      type: IdPrefix.Table,
-    });
+    const query = connection.createSubscribeQuery<ITableSnapshot>(`${IdPrefix.Table}_node`, {});
 
     query.on('ready', () => {
       console.log('table:ready:', query.results);
