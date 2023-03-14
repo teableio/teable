@@ -1,15 +1,20 @@
-import { AppContext } from '../app/AppContext';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
-import { useTheme } from './useTheme';
 import { Space } from '../../model/space';
+import { AppContext } from '../app/AppContext';
+import { useTheme } from './useTheme';
+
+function getWsPath() {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${window.location.host}/socket`;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [connection, setConnection] = useState(() => {
     if (typeof window === 'object') {
-      const socket = new ReconnectingWebSocket(`ws://${window.location.host}/socket`);
+      const socket = new ReconnectingWebSocket(getWsPath());
       return new Connection(socket as Socket);
     }
   });
@@ -19,7 +24,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (!connection) {
-      const socket = new ReconnectingWebSocket(`ws://${window.location.host}/socket`);
+      const socket = new ReconnectingWebSocket(getWsPath());
       setConnection(new Connection(socket as Socket));
     }
   }, [connection]);
