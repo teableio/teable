@@ -50,8 +50,8 @@ export class ShareDbService extends ShareDBClass {
   //   next();
   // }
 
-  async submitOps(collectionId: string, id: string, ops: IOtOperation[]) {
-    const doc = this.connect().get(collectionId, id);
+  async submitOps(collection: string, id: string, ops: IOtOperation[]) {
+    const doc = this.connect().get(collection, id);
     return new Promise<undefined>((resolve, reject) => {
       doc.submitOp(ops, undefined, (error) => {
         if (error) return reject(error);
@@ -61,8 +61,8 @@ export class ShareDbService extends ShareDBClass {
     });
   }
 
-  async createDocument(collectionId: string, id: string, snapshot: unknown) {
-    const doc = this.connect().get(collectionId, id);
+  async createDocument(collection: string, id: string, snapshot: unknown) {
+    const doc = this.connect().get(collection, id);
     return new Promise<Doc>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);

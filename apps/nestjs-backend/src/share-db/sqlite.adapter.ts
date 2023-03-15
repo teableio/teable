@@ -210,7 +210,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       await prisma.ops.create({
         data: {
           docId: id,
-          collection,
+          collection: collectionId,
           version: snapshot.v,
           operation: JSON.stringify(rawOp),
         },
@@ -254,7 +254,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // console.log('getSnapshotBulk:', collection, ids);
     try {
       const [docType, collectionId] = collection.split('_');
-      const prisma = this.transactionService.get(collection) || this.prismaService;
+      const prisma = this.transactionService.get(collectionId) || this.prismaService;
 
       const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
         prisma,

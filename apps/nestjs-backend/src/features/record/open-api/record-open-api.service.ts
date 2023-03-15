@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
-import { generateRecordId, OpBuilder } from '@teable-group/core';
+import { IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
@@ -30,7 +30,7 @@ export class RecordOpenApiService {
         for (const opMeta of result) {
           const { snapshot, ops } = opMeta;
           const doc = await this.shareDbService.createDocument(
-            tableId,
+            `${IdPrefix.Record}_${tableId}`,
             snapshot.record.id,
             snapshot
           );

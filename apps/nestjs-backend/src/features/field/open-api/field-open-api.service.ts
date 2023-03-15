@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IFieldSnapshot } from '@teable-group/core';
-import { OpBuilder } from '@teable-group/core';
+import { IdPrefix, OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
@@ -20,7 +20,11 @@ export class FieldOpenApiService {
     await this.prismaService.$transaction(async (prisma) => {
       this.transactionService.set(tableId, prisma);
       try {
-        await this.shareDbService.createDocument(tableId, fieldId, result.createSnapshot);
+        await this.shareDbService.createDocument(
+          `${IdPrefix.Field}_${tableId}`,
+          fieldId,
+          result.createSnapshot
+        );
       } finally {
         this.transactionService.remove(tableId);
       }
