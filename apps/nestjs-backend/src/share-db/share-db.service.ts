@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import type { Doc } from 'sharedb';
-import ShareDBClass from 'sharedb';
+import type { Doc } from '@teable/sharedb';
+import ShareDBClass from '@teable/sharedb';
 import { FieldService } from '../../src/features/field/field.service';
 import { RecordService } from '../../src/features/record/record.service';
 import { SqliteDbAdapter } from './sqlite.adapter';

@@ -37,12 +37,11 @@
   "dependencies": {
     "@belgattitude/http-exception": "^1.4.0",
     "@teable-group/core": "workspace:^",
-    "@types/sharedb": "3.2.1",
+    "@teable/sharedb": "3.3.2",
     "class-transformer": "0.5.1",
     "dequal": "^2.0.3",
     "react-use": "17.4.0",
-    "reconnecting-websocket": "4.4.0",
-    "sharedb": "3.2.3"
+    "reconnecting-websocket": "4.4.0"
   },
   "peerDependencies": {
     "react": "^18.0.0",

@@ -1,6 +1,6 @@
-import { IViewSnapshot, OpBuilder, ViewCore } from '@teable-group/core';
-import { Doc } from 'sharedb/lib/client';
-import { IViewInstance } from './factory';
+import type { IViewSnapshot } from '@teable-group/core';
+import { OpBuilder, ViewCore } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
 
 export class ViewExtended {
   static updateName(doc: Doc<IViewSnapshot>, name: string, oldName: string) {
@@ -18,5 +18,7 @@ export class ViewExtended {
 }
 
 export abstract class View extends ViewCore {
-  async updateName(name: string) {}
+  async updateName(_name: string) {
+    return;
+  }
 }

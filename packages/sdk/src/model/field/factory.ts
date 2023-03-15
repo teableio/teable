@@ -1,6 +1,7 @@
-import { assertNever, FieldType, IFieldVo, IFieldSnapshot } from '@teable-group/core';
+import type { IFieldVo, IFieldSnapshot } from '@teable-group/core';
+import { assertNever, FieldType } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
-import { Doc } from 'sharedb/lib/client';
 import { NumberField } from './number.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
@@ -45,6 +46,7 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldSnapshot>) 
   })();
 
   // force inject object into instance
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;
   temp.doc = doc;
 

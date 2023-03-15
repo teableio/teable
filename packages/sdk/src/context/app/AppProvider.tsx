@@ -1,7 +1,7 @@
+import { Connection } from '@teable/sharedb/lib/client';
+import type { Socket } from '@teable/sharedb/lib/sharedb';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
-import { Connection } from 'sharedb/lib/client';
-import type { Socket } from 'sharedb/lib/sharedb';
 import { Space } from '../../model/space';
 import { AppContext } from '../app/AppContext';
 import { useTheme } from './useTheme';

@@ -1,14 +1,6 @@
-import {
-  generateViewId,
-  IdPrefix,
-  ITableSnapshot,
-  IViewSnapshot,
-  IViewVo,
-  OpBuilder,
-  TableCore,
-  ViewType,
-} from '@teable-group/core';
-import { Connection, Doc } from 'sharedb/lib/client';
+import type { ITableSnapshot, IViewSnapshot, IViewVo, ViewType } from '@teable-group/core';
+import { generateViewId, IdPrefix, OpBuilder, TableCore } from '@teable-group/core';
+import type { Connection, Doc } from '@teable/sharedb/lib/client';
 
 export class Table extends TableCore {
   protected doc!: Doc<ITableSnapshot>;

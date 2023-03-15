@@ -1,6 +1,7 @@
-import { assertNever, ViewType, IViewVo, IViewSnapshot } from '@teable-group/core';
+import type { IViewVo, IViewSnapshot } from '@teable-group/core';
+import { assertNever, ViewType } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
-import { Doc } from 'sharedb/lib/client';
 import { GridView } from './grid.view';
 import { KanbanView } from './kanban.view';
 
@@ -22,6 +23,7 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewSnapshot>) {
   })();
 
   // force inject object into instance
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;
   temp.doc = doc;
 

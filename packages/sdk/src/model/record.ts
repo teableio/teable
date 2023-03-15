@@ -1,6 +1,7 @@
-import { IRecordFields, IRecordSnapshot, OpBuilder, RecordCore } from '@teable-group/core';
-import { Doc } from 'sharedb/lib/client';
-import { IFieldInstance } from './field/factory';
+import type { IRecordFields, IRecordSnapshot } from '@teable-group/core';
+import { OpBuilder, RecordCore } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
+import type { IFieldInstance } from './field/factory';
 
 export class Record extends RecordCore {
   constructor(

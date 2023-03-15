@@ -1,10 +1,12 @@
-import { View } from '../../model/view/view';
-import { IdPrefix, IViewSnapshot, IViewVo } from '@teable-group/core';
-import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import type { IViewSnapshot, IViewVo } from '@teable-group/core';
+import { IdPrefix } from '@teable-group/core';
+import type { FC, ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { createViewInstance } from '../../model/view/factory';
+import type { View } from '../../model/view/view';
 import { AppContext } from '../app';
 import { TableContext } from '../table';
 import { ViewContext } from './ViewContext';
-import { createViewInstance } from '../../model/view/factory';
 
 interface IViewProviderProps {
   fallback: ReactNode;
@@ -46,13 +48,13 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serve
     };
   }, [connection, tableId]);
 
-  if (fallback && !views.length) {
-    return <>{fallback}</>;
-  }
-
   const value = useMemo(() => {
     return { views };
   }, [views]);
+
+  if (fallback && !views.length) {
+    return <>{fallback}</>;
+  }
 
   return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
 };

@@ -1,5 +1,6 @@
-import { ITableSnapshot, ITableVo, IdPrefix, OpBuilder, generateTableId } from '@teable-group/core';
-import { Connection, Doc } from 'sharedb/lib/client';
+import type { ITableSnapshot, ITableVo } from '@teable-group/core';
+import { IdPrefix, OpBuilder, generateTableId } from '@teable-group/core';
+import type { Connection, Doc } from '@teable/sharedb/lib/client';
 
 export class Space {
   constructor(private connection: Connection) {}

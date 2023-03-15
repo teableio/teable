@@ -1,4 +1,4 @@
-import type { DB } from 'sharedb';
+import type { DB } from '@teable/sharedb';
 
 export interface IShareDbConfig {
   db: DB;

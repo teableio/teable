@@ -1,6 +1,6 @@
-import { Space } from '../../model/space';
+import type { Connection } from '@teable/sharedb/lib/client';
 import React from 'react';
-import { Connection } from 'sharedb/lib/client';
+import type { Space } from '../../model/space';
 
 export enum ThemeKey {
   Light = 'light',
@@ -16,5 +16,5 @@ export interface IAppContext {
   setTheme: (theme: ThemeKey | null) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+// eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-non-null-assertion
 export const AppContext = React.createContext<IAppContext>(null!);

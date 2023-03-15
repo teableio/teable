@@ -6128,6 +6128,7 @@ __metadata:
     "@teable-group/core": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/sdk": "workspace:^"
+    "@teable/sharedb": "npm:3.3.2"
     "@testing-library/dom": "npm:8.19.0"
     "@testing-library/jest-dom": "npm:5.16.5"
     "@testing-library/react": "npm:13.4.0"
@@ -6139,7 +6140,6 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
-    "@types/sharedb": "npm:3.2.1"
     "@types/testing-library__jest-dom": "npm:5.14.5"
     "@vitejs/plugin-react": "npm:2.2.0"
     "@vitest/coverage-istanbul": "npm:0.24.3"
@@ -6201,7 +6201,6 @@ __metadata:
     rimraf: "npm:3.0.2"
     rxjs: "npm:7.5.7"
     sass: "npm:1.55.0"
-    sharedb: "npm:3.2.2"
     sharp: "npm:0.31.1"
     size-limit: "npm:8.1.0"
     slate: "npm:0.86.0"
@@ -6244,12 +6243,12 @@ __metadata:
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
     "@teable-group/sdk": "workspace:^"
+    "@teable/sharedb": "npm:3.3.2"
     "@teamwork/websocket-json-stream": "npm:2.0.0"
     "@types/better-sqlite3": "npm:7.6.2"
     "@types/cors": "npm:2.8.12"
     "@types/express": "npm:4.17.14"
     "@types/jest": "npm:29.2.0"
-    "@types/sharedb": "npm:3.2.1"
     "@types/supertest": "npm:2.0.12"
     "@types/ws": "npm:8.5.3"
     axios: "npm:1.1.3"
@@ -6275,7 +6274,6 @@ __metadata:
     reflect-metadata: "npm:0.1.13"
     rimraf: "npm:3.0.2"
     rxjs: "npm:7.5.7"
-    sharedb: "npm:3.2.1"
     supertest: "npm:6.3.3"
     symlink-dir: "npm:5.0.1"
     sync-directory: "npm:5.1.9"
@@ -6424,13 +6422,13 @@ __metadata:
     "@belgattitude/http-exception": "npm:^1.4.0"
     "@teable-group/core": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
+    "@teable/sharedb": "npm:3.3.2"
     "@testing-library/react": "npm:13.4.0"
     "@testing-library/react-hooks": "npm:8.0.1"
     "@types/jest": "npm:29.2.0"
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
-    "@types/sharedb": "npm:3.2.1"
     "@vitejs/plugin-react": "npm:2.2.0"
     "@vitest/coverage-istanbul": "npm:0.24.3"
     "@vitest/ui": "npm:0.24.3"
@@ -6448,7 +6446,6 @@ __metadata:
     react-use: "npm:17.4.0"
     reconnecting-websocket: "npm:4.4.0"
     rimraf: "npm:3.0.2"
-    sharedb: "npm:3.2.3"
     ts-jest: "npm:29.0.3"
     typescript: "npm:4.8.4"
     vite: "npm:3.2.1"
@@ -6549,6 +6546,19 @@ __metadata:
       optional: true
   languageName: unknown
   linkType: soft
+
+"@teable/sharedb@npm:3.3.2":
+  version: 3.3.2
+  resolution: "@teable/sharedb@npm:3.3.2"
+  dependencies:
+    arraydiff: "npm:^0.1.1"
+    async: "npm:^2.6.3"
+    fast-deep-equal: "npm:^2.0.1"
+    hat: "npm:0.0.3"
+    ot-json0: "npm:^1.0.1"
+  checksum: 7d1361fbfd1a8147140fca5fc7d7833b0d8b843f40d5933103def965010d10d6ad84566f1519d286156fab4f51bb72a014bce353668eddd7f547bfca170600d4
+  languageName: node
+  linkType: hard
 
 "@teamwork/websocket-json-stream@npm:2.0.0":
   version: 2.0.0
@@ -7283,13 +7293,6 @@ __metadata:
     "@types/mime": "npm:*"
     "@types/node": "npm:*"
   checksum: 7db8fd127cfdfdb161922fb9a6fcb2022418755c375ae8550b8d53a4fcd686af1b71fb35c81c4e223a16b74bbfadfc810de06172eef7ee3394d94294fc3536f1
-  languageName: node
-  linkType: hard
-
-"@types/sharedb@npm:3.2.1":
-  version: 3.2.1
-  resolution: "@types/sharedb@npm:3.2.1"
-  checksum: a7d4984033c900ea45ec94427253b43441c3c633f9f86b8352ab7419081e2f979057d6509bab6477dfbe797236df2c20c3c05d19ae2f02e736d43a5fcab72550
   languageName: node
   linkType: hard
 
@@ -24178,45 +24181,6 @@ __metadata:
   dependencies:
     kind-of: "npm:^6.0.2"
   checksum: 4b5c12c1cf13c645cdfbc71c1e367bb57106d81313fb5c8de0122029a23fca8ff1ab210007b78d621a430af26d2efea27a68fd927e2976ff7ad905619438b37e
-  languageName: node
-  linkType: hard
-
-"sharedb@npm:3.2.1":
-  version: 3.2.1
-  resolution: "sharedb@npm:3.2.1"
-  dependencies:
-    arraydiff: "npm:^0.1.1"
-    async: "npm:^2.6.3"
-    fast-deep-equal: "npm:^2.0.1"
-    hat: "npm:0.0.3"
-    ot-json0: "npm:^1.0.1"
-  checksum: c899bf7555979f4ff48385acfc7f788c9a02fe8014e3620fbd7d32a82b3043285005b5b1ce3d60e0831405689e48caf17f47218c2fed7af47086d0f7706d233a
-  languageName: node
-  linkType: hard
-
-"sharedb@npm:3.2.2":
-  version: 3.2.2
-  resolution: "sharedb@npm:3.2.2"
-  dependencies:
-    arraydiff: "npm:^0.1.1"
-    async: "npm:^2.6.3"
-    fast-deep-equal: "npm:^2.0.1"
-    hat: "npm:0.0.3"
-    ot-json0: "npm:^1.0.1"
-  checksum: 5aa17adf5e3716b8221fbb09feae4180ba078b495b2c3634646d3ee728e46e77e0c019c3c3e8cdcc70c9b7d1e51f98bb26d3bcd462ea8e438d801e3122232a2b
-  languageName: node
-  linkType: hard
-
-"sharedb@npm:3.2.3":
-  version: 3.2.3
-  resolution: "sharedb@npm:3.2.3"
-  dependencies:
-    arraydiff: "npm:^0.1.1"
-    async: "npm:^2.6.3"
-    fast-deep-equal: "npm:^2.0.1"
-    hat: "npm:0.0.3"
-    ot-json0: "npm:^1.0.1"
-  checksum: c005c7468114f391ef56f23b3dcc7237d3076befb95ec67298fa22fea4f581c256104b6f45d99d5e2ce504eb3b172b9f9734c30f165750f6fdf141715949e3d3
   languageName: node
   linkType: hard
 

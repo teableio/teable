@@ -1,5 +1,6 @@
-import { FieldCore, IFieldSnapshot, OpBuilder } from '@teable-group/core';
-import { Doc } from 'sharedb/lib/client';
+import type { IFieldSnapshot } from '@teable-group/core';
+import { FieldCore, OpBuilder } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
 
 export class FieldExtended {
   static updateName(doc: Doc<IFieldSnapshot>, name: string, oldName: string) {

@@ -9,10 +9,10 @@ import {
   useSSRRecords,
   useTableId,
 } from '@teable-group/sdk';
+import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
-import type { Doc } from 'sharedb/lib/client';
 import { useAsyncData } from './useAsyncData';
 import { useColumns } from './useColumns';
 import { useGridTheme } from './useGridTheme';

@@ -1,6 +1,6 @@
-import { ITableSnapshot, ITableVo } from '@teable-group/core';
+import type { ITableSnapshot, ITableVo } from '@teable-group/core';
+import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
-import { Connection, Doc } from 'sharedb/lib/client';
 import { Table } from './table';
 
 export function createTableInstance(
@@ -10,6 +10,7 @@ export function createTableInstance(
 ) {
   const instance = plainToInstance(Table, table);
   // force inject object into instance
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;
   temp.doc = doc;
   temp.connection = connection;

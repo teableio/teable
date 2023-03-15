@@ -1,6 +1,8 @@
-import { IViewSnapshot, KanbanViewCore } from '@teable-group/core';
-import { View, ViewExtended } from './view';
-import { Doc } from 'sharedb/lib/client';
+import type { IViewSnapshot } from '@teable-group/core';
+import { KanbanViewCore } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
+import type { View } from './view';
+import { ViewExtended } from './view';
 
 export class KanbanView extends KanbanViewCore implements View {
   protected doc!: Doc<IViewSnapshot>;

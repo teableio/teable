@@ -1,9 +1,12 @@
-import { ITableSnapshot, ITableVo, IdPrefix } from '@teable-group/core';
+import type { ITableSnapshot, ITableVo } from '@teable-group/core';
+import { IdPrefix } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb/lib/client';
+import type { FC, ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppContext } from '../../context/app';
-import { Table, createTableInstance } from '../../model';
-import { FC, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { Table } from '../../model';
+import { createTableInstance } from '../../model';
 import { TableContext } from './TableContext';
-import { Doc } from 'sharedb/lib/client';
 
 interface ITableProviderProps {
   tableId?: string;
