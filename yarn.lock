@@ -6128,7 +6128,7 @@ __metadata:
     "@teable-group/core": "workspace:^"
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/sdk": "workspace:^"
-    "@teable/sharedb": "npm:3.3.2"
+    "@teable/sharedb": "npm:3.3.5"
     "@testing-library/dom": "npm:8.19.0"
     "@testing-library/jest-dom": "npm:5.16.5"
     "@testing-library/react": "npm:13.4.0"
@@ -6243,7 +6243,7 @@ __metadata:
     "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
     "@teable-group/sdk": "workspace:^"
-    "@teable/sharedb": "npm:3.3.2"
+    "@teable/sharedb": "npm:3.3.5"
     "@teamwork/websocket-json-stream": "npm:2.0.0"
     "@types/better-sqlite3": "npm:7.6.2"
     "@types/cors": "npm:2.8.12"
@@ -6422,7 +6422,7 @@ __metadata:
     "@belgattitude/http-exception": "npm:^1.4.0"
     "@teable-group/core": "workspace:^"
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@teable/sharedb": "npm:3.3.2"
+    "@teable/sharedb": "npm:3.3.5"
     "@testing-library/react": "npm:13.4.0"
     "@testing-library/react-hooks": "npm:8.0.1"
     "@types/jest": "npm:29.2.0"
@@ -6547,16 +6547,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@teable/sharedb@npm:3.3.2":
-  version: 3.3.2
-  resolution: "@teable/sharedb@npm:3.3.2"
+"@teable/sharedb@npm:3.3.5":
+  version: 3.3.5
+  resolution: "@teable/sharedb@npm:3.3.5"
   dependencies:
     arraydiff: "npm:^0.1.1"
     async: "npm:^2.6.3"
     fast-deep-equal: "npm:^2.0.1"
     hat: "npm:0.0.3"
     ot-json0: "npm:^1.0.1"
-  checksum: 7d1361fbfd1a8147140fca5fc7d7833b0d8b843f40d5933103def965010d10d6ad84566f1519d286156fab4f51bb72a014bce353668eddd7f547bfca170600d4
+  checksum: a3f64768eccd5334f213fe0c8afadb48f1cfc103afae2b2418a70447eb854936e54e5a0c822e697b584ace3a40a6776714b0576d764d9d0a6e8c05f0164d2a3f
   languageName: node
   linkType: hard
 

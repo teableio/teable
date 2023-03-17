@@ -1,4 +1,4 @@
-import type { Connection } from '@teable/sharedb/lib/client';
+import type { Connection, UndoManager } from '@teable/sharedb/lib/client';
 import React from 'react';
 import type { Space } from '../../model/space';
 
@@ -12,6 +12,7 @@ export interface IAppContext {
   connected: boolean;
   theme: ThemeKey;
   space?: Space;
+  undoManager?: UndoManager;
   isAutoTheme: boolean;
   setTheme: (theme: ThemeKey | null) => void;
 }

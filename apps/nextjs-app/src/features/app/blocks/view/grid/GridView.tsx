@@ -106,7 +106,7 @@ export const GridView: React.FC = () => {
             oldCellValue,
           });
 
-          rowData.submitOp([operation], undefined, (error) => {
+          rowData.submitOp([operation], { undoable: true }, (error) => {
             if (error) {
               console.error('row data submit error: ', error);
             }

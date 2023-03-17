@@ -41,7 +41,8 @@ export const TableProvider: FC<ITableProviderProps> = ({
         })
       );
     },
-    [tables]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [connection]
   );
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export const TableProvider: FC<ITableProviderProps> = ({
     return () => {
       query.destroy();
     };
-  }, [connection, tableId]);
+  }, [connection, tableId, updateTable]);
 
   const value = useMemo(() => {
     return { tableId, viewId, tables };
