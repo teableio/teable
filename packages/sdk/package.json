@@ -37,7 +37,7 @@
   "dependencies": {
     "@belgattitude/http-exception": "^1.4.0",
     "@teable-group/core": "workspace:^",
-    "@teable/sharedb": "3.3.5",
+    "@teable/sharedb": "3.3.6",
     "class-transformer": "0.5.1",
     "dequal": "^2.0.3",
     "react-use": "17.4.0",
