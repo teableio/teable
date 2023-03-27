@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
-import { IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
+import { generateTransactionKey, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateRecordsDto } from '../create-records.dto';
 import { RecordService } from '../record.service';
 
@@ -18,33 +17,34 @@ export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
-    private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService
+    private readonly shareDbService: ShareDbService
   ) {}
 
+  // if ops create and sent in a same tick, they will be wrap in a same transaction
+  // and this is important for keep data safe
   async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
     const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
-    await this.prismaService.$transaction(async (prisma) => {
-      this.transactionService.set(tableId, prisma);
-      try {
-        for (const opMeta of result) {
-          const { snapshot, ops } = opMeta;
-          const doc = await this.shareDbService.createDocument(
-            `${IdPrefix.Record}_${tableId}`,
-            snapshot.record.id,
-            snapshot
-          );
-          await new Promise((resolve, reject) => {
-            doc.submitOp(ops, undefined, (error) => {
-              if (error) return reject(error);
-              resolve(undefined);
-            });
-          });
-        }
-      } finally {
-        this.transactionService.remove(tableId);
-      }
-    });
+    const connection = this.shareDbService.connect();
+    const opCount = result.length * 2;
+    const transactionKey = generateTransactionKey();
+    for (const opMeta of result) {
+      const { snapshot, ops } = opMeta;
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      const docId = snapshot.record.id;
+      const doc = connection.get(collection, docId);
+      await new Promise<void>((resolve, reject) => {
+        doc.create(snapshot, undefined, { transactionKey, opCount }, (error) => {
+          if (error) return reject(error);
+          resolve(undefined);
+        });
+      });
+      await new Promise((resolve, reject) => {
+        doc.submitOp(ops, { transactionKey, opCount }, (error) => {
+          if (error) return reject(error);
+          resolve(undefined);
+        });
+      });
+    }
   }
 
   async multipleCreateRecords2Ops(

@@ -34,3 +34,7 @@ export function generateViewId() {
 export function generateRecordId() {
   return IdPrefix.Record + getRandomString(8);
 }
+
+export function generateTransactionKey() {
+  return getRandomString(20);
+}

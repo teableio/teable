@@ -2,20 +2,32 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../src/prisma.service';
 
+export interface ITransactionMeta {
+  transactionKey: string;
+  opCount: number;
+}
+
 @Injectable()
 export class TransactionService {
   constructor(private readonly prismaService: PrismaService) {}
-  transactionClient: Map<string, Prisma.TransactionClient> = new Map();
+  transactionCache: Map<
+    string,
+    {
+      currentCount: number;
+      opCount: number;
+      client?: Prisma.TransactionClient;
+      transactionPromise: Promise<void>;
+      tasksPromiseCb: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
+    }
+  > = new Map();
 
-  get(id: string) {
-    return this.transactionClient.get(id);
-  }
+  private async newTransaction(tsMeta: ITransactionMeta) {
+    let tasksPromiseCb:
+      | { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }
+      | undefined = undefined;
 
-  async newTransaction() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let tranPromiseCb: { resolve: (value: unknown) => void; reject: (reason?: any) => void };
-    const tranInnerPromise = new Promise((resolve, reject) => {
-      tranPromiseCb = { resolve, reject };
+    const tasksPromise = new Promise((resolve, reject) => {
+      tasksPromiseCb = { resolve, reject };
     });
 
     let prismaResolveFn: (value: Prisma.TransactionClient) => void;
@@ -23,40 +35,101 @@ export class TransactionService {
       prismaResolveFn = resolve;
     });
 
-    const tranOuterPromise = this.prismaService.$transaction(async (prisma) => {
-      console.log('transaction start');
+    const transactionPromise = this.prismaService.$transaction(async (prisma) => {
+      console.log('transaction start', tsMeta.transactionKey);
       prismaResolveFn(prisma);
-      await tranInnerPromise;
-      console.log('transaction done');
+      await tasksPromise;
+      console.log('transaction done', tsMeta.transactionKey);
     });
 
-    const prismaClient = await prismaPromise;
-    return {
+    const cacheValue = {
+      currentCount: 0,
+      opCount: tsMeta.opCount,
+      transactionPromise,
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      prisma: prismaClient!,
-      endTransaction: async (err?: unknown) => {
-        if (err) {
-          tranPromiseCb.reject(err);
-        } else {
-          tranPromiseCb.resolve(undefined);
-        }
-        await tranOuterPromise;
-      },
+      tasksPromiseCb: tasksPromiseCb!,
     };
+    this.transactionCache.set(tsMeta.transactionKey, cacheValue);
+
+    const prismaClient = await prismaPromise;
+
+    this.transactionCache.set(tsMeta.transactionKey, { ...cacheValue, client: prismaClient });
+
+    return prismaClient;
   }
 
-  set(id: string, client: Prisma.TransactionClient) {
-    if (this.transactionClient.get(id)) {
-      throw new Error(`Transaction ${id} already exists`);
+  async taskComplete(err: unknown, tsMeta: ITransactionMeta) {
+    const cache = this.transactionCache.get(tsMeta.transactionKey);
+    if (!cache) {
+      throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
     }
-    this.transactionClient.set(id, client);
+    const { opCount, transactionPromise, tasksPromiseCb } = cache;
+
+    if (err) {
+      tasksPromiseCb.reject(err);
+    }
+
+    const currentCount = cache.currentCount + 1;
+    if (opCount === currentCount) {
+      this.transactionCache.delete(tsMeta.transactionKey);
+      tasksPromiseCb.resolve(undefined);
+      await transactionPromise;
+    } else {
+      this.transactionCache.set(tsMeta.transactionKey, {
+        ...cache,
+        currentCount,
+      });
+    }
   }
 
-  remove(id: string) {
-    const client = this.transactionClient.get(id);
-    if (!client) {
-      throw new Error(`Transaction ${id} doesn't exist`);
+  private wait(ms = 0) {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve(undefined);
+      }, ms);
+    });
+  }
+
+  private async waitClient(transactionKey: string) {
+    let ms = 0;
+    // 1250ms total
+    while (ms < 50) {
+      await this.wait(ms++);
+      const cache = this.transactionCache.get(transactionKey);
+      if (!cache) {
+        throw new Error('Can not find transaction: ' + transactionKey);
+      }
+      if (cache.client) {
+        return cache.client;
+      }
     }
-    this.transactionClient.delete(id);
+    throw new Error('max wait time exceed: ' + transactionKey);
+  }
+
+  async getTransaction(tsMeta?: {
+    transactionKey?: string;
+    opCount?: number;
+  }): Promise<Prisma.TransactionClient> {
+    if (!tsMeta || !tsMeta.transactionKey) {
+      return this.prismaService;
+    }
+    const { transactionKey, opCount } = tsMeta;
+    if (!opCount) {
+      throw new Error("opCount can't be empty");
+    }
+
+    const cache = this.transactionCache.get(transactionKey);
+    let prismaClient: Prisma.TransactionClient;
+    if (cache) {
+      if (cache.client) {
+        return cache.client;
+      } else {
+        return await this.waitClient(transactionKey);
+      }
+    } else {
+      prismaClient = await this.newTransaction({ transactionKey, opCount });
+    }
+
+    return prismaClient;
   }
 }

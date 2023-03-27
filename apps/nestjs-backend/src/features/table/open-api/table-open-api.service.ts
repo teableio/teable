@@ -3,31 +3,22 @@ import type { ICreateTableRo } from '@teable-group/core';
 import { IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
 
 @Injectable()
 export class TableOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService
+    private readonly shareDbService: ShareDbService
   ) {}
 
   async createTable(tableRo: ICreateTableRo) {
     const result = await this.createTable2Ops(tableRo);
     const tableId = result.createSnapshot.table.id;
-    await this.prismaService.$transaction(async (prisma) => {
-      this.transactionService.set(tableId, prisma);
-      try {
-        await this.shareDbService.createDocument(
-          `${IdPrefix.Table}_node`,
-          tableId,
-          result.createSnapshot
-        );
-      } finally {
-        this.transactionService.remove(tableId);
-      }
-    });
+    await this.shareDbService.createDocument(
+      `${IdPrefix.Table}_node`,
+      tableId,
+      result.createSnapshot
+    );
     return result.createSnapshot.table;
   }
 

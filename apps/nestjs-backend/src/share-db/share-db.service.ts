@@ -24,7 +24,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
-  //   console.log('ShareDb:SUBMIT:', context.ops, context.snapshot);
+  //   console.log('ShareDb:SUBMIT:', context.extra, context.op);
 
   //   next();
   // }

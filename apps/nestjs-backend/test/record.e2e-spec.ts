@@ -19,7 +19,6 @@ describe('OpenAPI RecordController (e2e)', () => {
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
     fields = fieldsResult.body.data;
-    console.log('fields: ', fields);
   });
 
   // afterAll(async () => {
@@ -63,7 +62,6 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(200);
     expect(result.body.records).toHaveLength(4);
-    // console.log('result: ', result.body);
   });
 
   it('/api/table/{tableId}/record (POST) (1000x)', async () => {
