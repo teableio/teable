@@ -38,7 +38,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSpace(new Space(connection));
     setUndoManager(
       connection.createUndoManager({
-        composeInterval: 30,
+        limit: 10000,
+        composeInterval: 1000,
       })
     );
     const onConnected = () => setConnected(true);

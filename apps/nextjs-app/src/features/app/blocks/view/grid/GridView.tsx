@@ -41,16 +41,20 @@ export const GridView: React.FC = () => {
             }
           );
           const recordDocs = await new Promise<typeof query['results']>((resolve) => {
+            function subscribeUpdate(doc: Doc) {
+              doc.on('op', (op) => {
+                console.log('doc on op:', op);
+                updateRow(doc);
+              });
+            }
+
             query.on('ready', () => {
               console.log(
                 'record:ready:',
                 query.results.map((r) => r.data.record)
               );
               query.results.forEach((doc) => {
-                doc.on('op', (op) => {
-                  console.log('doc on op:', op);
-                  updateRow(doc);
-                });
+                subscribeUpdate(doc);
               });
               resolve(query.results);
             });
@@ -59,10 +63,7 @@ export const GridView: React.FC = () => {
             });
             query.on('insert', (docs) => {
               docs.forEach((doc) => {
-                doc.on('op', (op) => {
-                  console.log('doc on op:', op);
-                  updateRow(doc);
-                });
+                subscribeUpdate(doc);
               });
             });
             query.on('remove', (docs) => {
