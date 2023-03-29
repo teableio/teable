@@ -8,6 +8,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { responseWrap } from 'src/utils/api-response';
 import { CreateViewRo } from '../model/create-view.ro';
 import { IViewInstance } from '../model/factory';
 import { ViewVo } from '../model/view.vo';
@@ -53,7 +54,8 @@ export class ViewOpenApiController {
     type: CreateViewRo,
   })
   @Post()
-  createView(@Param('tableId') tableId: string, @Body(ViewPipe) viewInstance: IViewInstance) {
-    return this.viewOpenApiService.createView(tableId, viewInstance);
+  async createView(@Param('tableId') tableId: string, @Body(ViewPipe) viewInstance: IViewInstance) {
+    await this.viewOpenApiService.createView(tableId, viewInstance);
+    return responseWrap(null);
   }
 }

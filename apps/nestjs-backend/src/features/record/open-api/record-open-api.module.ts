@@ -8,5 +8,6 @@ import { RecordOpenApiService } from './record-open-api.service';
   imports: [RecordModule, ShareDbModule],
   controllers: [RecordOpenApiController],
   providers: [RecordOpenApiService],
+  exports: [RecordOpenApiService],
 })
 export class RecordOpenApiModule {}

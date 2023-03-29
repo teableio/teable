@@ -5,6 +5,7 @@ import { CreateTableRo } from '../create-table.ro';
 import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
+import { TablePipe } from './table.pipe';
 
 @ApiBearerAuth()
 @ApiTags('table')
@@ -52,7 +53,7 @@ export class TableController {
   @ApiResponse({ status: 201, description: 'The Table has been successfully created.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @Post()
-  createTable(@Body() createTable: CreateTableRo) {
+  createTable(@Body(TablePipe) createTable: CreateTableRo) {
     return this.tableOpenApiService.createTable(createTable);
   }
 

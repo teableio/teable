@@ -2,13 +2,13 @@ import type { IFieldVo } from '../field';
 import type { IRecord } from '../record';
 import type { IViewVo } from '../view';
 
-export interface ICreateTableRo {
+export interface ICreateTableMetaRo {
   name: string;
   description?: string;
   icon?: string;
 }
 
-export interface ITableVo extends ICreateTableRo {
+export interface ITableVo extends ICreateTableMetaRo {
   id: string;
 }
 

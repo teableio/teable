@@ -172,7 +172,7 @@ export class TableService implements AdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableSnapshot) {
-    await this.createTable(prisma, snapshot);
+    await this.createDBTable(prisma, snapshot);
   }
 
   async update(

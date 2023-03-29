@@ -8,5 +8,6 @@ import { ViewOpenApiService } from './view-open-api.service';
   imports: [ViewModule, ShareDbModule],
   controllers: [ViewOpenApiController],
   providers: [ViewOpenApiService],
+  exports: [ViewOpenApiService],
 })
 export class ViewOpenApiModule {}

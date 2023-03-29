@@ -64,14 +64,16 @@ describe('Performance test data generator', () => {
         .expect({ success: true });
     }
 
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    const fieldsResult = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/field`)
+      .expect(200);
     fields = fieldsResult.body.data;
 
     // await addRecords(1).expect(201).expect({});
 
     console.time(`create ${count} records`);
     for (let i = 0; i < count / batchCount; i++) {
-      await addRecords(batchCount).expect(201).expect({});
+      await addRecords(batchCount).expect(201).expect({ success: true });
     }
     console.timeEnd(`create ${count} records`);
     console.log(`new table: ${tableId} created`);

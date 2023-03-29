@@ -8,5 +8,6 @@ import { FieldOpenApiService } from './field-open-api.service';
   imports: [FieldModule, ShareDbModule],
   controllers: [FieldOpenApiController],
   providers: [FieldOpenApiService],
+  exports: [FieldOpenApiService],
 })
 export class FieldOpenApiModule {}

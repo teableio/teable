@@ -2,17 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { FieldService } from '../../src/features/field/field.service';
-import { RecordService } from '../../src/features/record/record.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  constructor(
-    readonly sqliteDbAdapter: SqliteDbAdapter,
-    private readonly fieldService: FieldService,
-    private readonly recordService: RecordService
-  ) {
+  constructor(readonly sqliteDbAdapter: SqliteDbAdapter) {
     super({
       db: sqliteDbAdapter,
     });

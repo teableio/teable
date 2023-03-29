@@ -1,44 +1,112 @@
 import { Injectable } from '@nestjs/common';
-import type { ICreateTableRo } from '@teable-group/core';
-import { IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
+import type { ICreateTableMetaRo } from '@teable-group/core';
+import { generateTransactionKey, IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
+import type { Doc } from '@teable/sharedb';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { createFieldInstanceByRo } from '../../field/model/factory';
+import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { createViewInstanceByRo } from '../../view/model/factory';
+import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import type { CreateTableRo } from '../create-table.ro';
 
 @Injectable()
 export class TableOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly shareDbService: ShareDbService
+    private readonly shareDbService: ShareDbService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
-  async createTable(tableRo: ICreateTableRo) {
-    const result = await this.createTable2Ops(tableRo);
-    const tableId = result.createSnapshot.table.id;
-    await this.shareDbService.createDocument(
-      `${IdPrefix.Table}_node`,
-      tableId,
-      result.createSnapshot
-    );
-    return result.createSnapshot.table;
+  private getTransactionMeta(tableRo: CreateTableRo) {
+    const tableCount = 1;
+    const fieldCount = tableRo.fields?.length || 0;
+    const viewCount = tableRo.views?.length || 0;
+    const records = tableRo.recordData?.records;
+    // record ops count is adds up to record length and every record that has fields keys
+    const recordCount = records
+      ? records.length +
+        records.reduce((pre, cur) => {
+          Object.keys(cur.fields).length && pre++;
+          return pre;
+        }, 0)
+      : 0;
+
+    return {
+      transactionKey: generateTransactionKey(),
+      opCount: tableCount + fieldCount + viewCount + recordCount,
+    };
   }
 
-  private async createTable2Ops(tableRo: ICreateTableRo) {
+  async createTable(tableRo: CreateTableRo) {
+    if (!tableRo.fields || !tableRo.views || !tableRo.recordData) {
+      throw new Error('table fields views and recordData are required.');
+    }
+    const transactionMeta = this.getTransactionMeta(tableRo);
+
+    const tableVo = await this.createTableMeta(tableRo, transactionMeta);
+    const tableId = tableVo.id;
+
+    for (const viewRo of tableRo.views) {
+      await this.viewOpenApiService.createView(
+        tableId,
+        createViewInstanceByRo(viewRo),
+        transactionMeta
+      );
+    }
+
+    for (const fieldRo of tableRo.fields) {
+      await this.fieldOpenApiService.createField(
+        tableId,
+        createFieldInstanceByRo(fieldRo),
+        transactionMeta
+      );
+    }
+
+    await this.recordOpenApiService.multipleCreateRecords(
+      tableId,
+      tableRo.recordData,
+      transactionMeta
+    );
+
+    return tableVo;
+  }
+
+  async createTableMeta(
+    tableRo: CreateTableRo,
+    transactionMeta: { transactionKey: string; opCount: number }
+  ) {
+    const snapshot = await this.createTable2Op(tableRo);
+    const tableId = snapshot.table.id;
+    const collection = `${IdPrefix.Table}_node`;
+    const doc = this.shareDbService.connect().get(collection, tableId);
+    await new Promise<Doc>((resolve, reject) => {
+      doc.create(snapshot, undefined, transactionMeta, (error) => {
+        if (error) return reject(error);
+        // console.log(`create document ${collectionId}.${id} succeed!`);
+        resolve(doc);
+      });
+    });
+
+    return snapshot.table;
+  }
+
+  private async createTable2Op(tableRo: ICreateTableMetaRo) {
     const tableAggregate = await this.prismaService.tableMeta.aggregate({
       _max: { order: true },
     });
     const tableId = generateTableId();
     const maxTableOrder = tableAggregate._max.order || 0;
 
-    const createSnapshot = OpBuilder.creator.addTable.build(
+    return OpBuilder.creator.addTable.build(
       {
         ...tableRo,
         id: tableId,
       },
       maxTableOrder + 1
     );
-
-    return {
-      createSnapshot,
-    };
   }
 }

@@ -36,10 +36,10 @@ export class TransactionService {
     });
 
     const transactionPromise = this.prismaService.$transaction(async (prisma) => {
-      console.log('transaction start', tsMeta.transactionKey);
+      console.log('transaction start', tsMeta.transactionKey, tsMeta.opCount);
       prismaResolveFn(prisma);
       await tasksPromise;
-      console.log('transaction done', tsMeta.transactionKey);
+      console.log('transaction done', tsMeta.transactionKey, tsMeta.opCount);
     });
 
     const cacheValue = {

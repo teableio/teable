@@ -81,7 +81,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         records,
       })
       .expect(201)
-      .expect({});
+      .expect({ success: true });
     console.timeEnd(`create ${count} records`);
   });
 });

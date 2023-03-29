@@ -1,45 +1,55 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
 import { generateTransactionKey, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { CreateRecordsDto } from '../create-records.dto';
-import { RecordService } from '../record.service';
 
 interface ICreateRecordOpMeta {
-  recordId: string;
   snapshot: IRecordSnapshot;
-  ops: IOtOperation[];
+  ops?: IOtOperation[];
 }
 
 @Injectable()
 export class RecordOpenApiService {
-  constructor(
-    private readonly prismaService: PrismaService,
-    private readonly recordService: RecordService,
-    private readonly shareDbService: ShareDbService
-  ) {}
+  constructor(private readonly shareDbService: ShareDbService) {}
 
   // if ops create and sent in a same tick, they will be wrap in a same transaction
   // and this is important for keep data safe
-  async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
+  async multipleCreateRecords(
+    tableId: string,
+    createRecordsDto: CreateRecordsDto,
+    transactionMeta?: { transactionKey: string; opCount: number }
+  ) {
     const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
     const connection = this.shareDbService.connect();
-    const opCount = result.length * 2;
-    const transactionKey = generateTransactionKey();
+    transactionMeta = transactionMeta || {
+      transactionKey: generateTransactionKey(),
+      opCount:
+        result.length +
+        result.reduce((pre, cur) => {
+          cur.ops && pre++;
+          return pre;
+        }, 0),
+    };
+
     for (const opMeta of result) {
       const { snapshot, ops } = opMeta;
       const collection = `${IdPrefix.Record}_${tableId}`;
       const docId = snapshot.record.id;
       const doc = connection.get(collection, docId);
       await new Promise<void>((resolve, reject) => {
-        doc.create(snapshot, undefined, { transactionKey, opCount }, (error) => {
+        doc.create(snapshot, undefined, transactionMeta, (error) => {
           if (error) return reject(error);
           resolve(undefined);
         });
       });
+
+      if (!ops) {
+        continue;
+      }
+
       await new Promise((resolve, reject) => {
-        doc.submitOp(ops, { transactionKey, opCount }, (error) => {
+        doc.submitOp(ops, transactionMeta, (error) => {
           if (error) return reject(error);
           resolve(undefined);
         });
@@ -48,7 +58,7 @@ export class RecordOpenApiService {
   }
 
   async multipleCreateRecords2Ops(
-    tableId: string,
+    _tableId: string,
     createRecordsDto: CreateRecordsDto
   ): Promise<ICreateRecordOpMeta[]> {
     return createRecordsDto.records.map((record) => {
@@ -67,9 +77,8 @@ export class RecordOpenApiService {
       );
 
       return {
-        recordId,
         snapshot,
-        ops: [...setRecordOps],
+        ops: setRecordOps.length ? setRecordOps : undefined,
       };
     }, []);
   }

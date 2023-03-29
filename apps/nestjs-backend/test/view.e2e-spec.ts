@@ -45,7 +45,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       .post(`/api/table/${tableId}/view`)
       .send(viewRo)
       .expect(201)
-      .expect({});
+      .expect({ success: true });
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/view`)

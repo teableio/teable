@@ -7,6 +7,7 @@ import {
   ApiTags,
   ApiOkResponse,
 } from '@nestjs/swagger';
+import { responseWrap } from 'src/utils/api-response';
 import { CreateRecordsDto } from '../create-records.dto';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -40,7 +41,11 @@ export class RecordOpenApiController {
     example: 'tbla63d4543eb5eded6',
   })
   @Post()
-  createRecords(@Param('tableId') tableId: string, @Body() createRecordsDto: CreateRecordsDto) {
-    return this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsDto);
+  async createRecords(
+    @Param('tableId') tableId: string,
+    @Body() createRecordsDto: CreateRecordsDto
+  ) {
+    await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsDto);
+    return responseWrap(null);
   }
 }
