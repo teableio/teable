@@ -1,5 +1,5 @@
 <div align="center">
-  <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable"><img height="100px" src="static/assets/images/teable-vertical.png" alt="Teable logo" /></a></h1>
+  <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable"><img height="100px" src="static/assets/images/teable-vertical-linear.png" alt="Teable logo" /></a></h1>
   <h3 align="center"><strong>An AI native visualization database that empowers everyone</strong></h3>
   <p>We believe that databases will become the infrastructure of generative AI in the same way as computing power. By utilizing database capabilities, every enterprise, organization, and even individual can train their own private AI assistant to gain a competitive edge.</p>
 </div>
@@ -32,48 +32,64 @@
 
 # ✨Features
 
-### 🧠 Teable Copilot. Native Integrated AI, Powered by GPT-3.5-turbo
+### 🧠 Teable Copilot
+
+Native Integrated AI, Powered by GPT-3.5-turbo
 
 - Chat 2 App. "create a project management app for me"
 - Chat 2 Chart. "Analyze the data in the order table using a bar chart.
 - Chat 2 View. "I want to see the schedule for the past week and only display participants."
 - Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer."
 
-### 🔒 Privacy-First. You own your data, in spite of the cloud
+### 🔒 Privacy-First
+
+You own your data, in spite of the cloud
 
 - Data storage local first.
 - Offline desktop client support.
-- sync & collaboration to cloud in just one click.
+- Sync & collaboration to cloud in just one click.
 
-### 🚀 Super Fast. Build in minutes scale to millions.
+### 🚀 Super Fast
+
+Build in minutes scale to millions.
 
 - Support for data sets of over one million rows.
 - Support database indexes.
 - Support server side render
 
-### ⚡️ Real-time collaboration. Designed for teams
+### ⚡️ Real-time collaboration
+
+Designed for teams
 
 - Seamless real-time collaboration among multiple people.
 - Thoughtful and detailed permission control ability
 
-### 🧩 Extensions. Expand infinite possibilities
+### 🧩 Extensions
+
+Expand infinite possibilities
 
 - Backend-less programming capability based on React
 - Customize your own application with extremely low cost.
 - Extremely easy-to-use script extensions mode
 
-### 🤖 Automation. Empower data-driven workflows effortlessly and seamlessly.
+### 🤖 Automation
 
-- design your workflow with AI or Visual programming
-- super easy retrieve data from table
+Empower data-driven workflows effortlessly and seamlessly.
 
-### 👨‍💻 Full-featured SQL Support. Seamless integration with the software you are familiar with.
+- Design your workflow with AI or Visual programming
+- Super easy retrieve data from table
+
+### 👨‍💻 Full-featured SQL Support
+
+Seamless integration with the software you are familiar with.
 
 - BI tools like Metabase PowerBi...
-- no-code tools like appsmith...
+- No-code tools like appsmith...
 - Direct retrieve data with native sql
 
-### 🗄️ Support for multiple databases. Choose the database you like
+### 🗄️ Database adapter
+
+Choose the database you like
 
 - Sqlite, PostgreSQL, MySQL, TiDB, Snowflake...
 
@@ -85,7 +101,7 @@
 .
 ├── apps
 │   ├── nextjs-app          (front-end, include web and electron app )
-│   └── nestjs-backend      (backend, running on server or electron app)
+│   └── nestjs-backend      (backend, running on server or inside electron app)
 └── packages
     ├── common-i18n         (locales...)
     ├── core                (share code and interface between app and backend)
@@ -97,13 +113,13 @@
 
 # Run Project
 
-## 1. Install (we use build in yarn version for package management)
+#### 1. Install
 
 ```sh
 yarn install
 ```
 
-## 2. migration
+#### 2. DB migration
 
 ```sh
 cd packages/db-main-prisma
@@ -112,7 +128,7 @@ yarn prisma-db-seed
 yarn prisma-migrate dev
 ```
 
-## 3. dev server
+#### 3. Run dev server
 
 you should only start backend, it will start next server for front-end automatically
 
