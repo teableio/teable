@@ -1,6 +1,6 @@
 <div align="center">
-  <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable">Teable</a></h1>
-  <p align="center"><strong>Teable an AI native visualization database that empowers everyone</strong></p>
+  <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable"><img height="100px" src="static/assets/images/teable-vertical.png" alt="Teable logo" /></a></h1>
+  <h3 align="center"><strong>An AI native visualization database that empowers everyone</strong></h3>
   <p>We believe that databases will become the infrastructure of generative AI in the same way as computing power. By utilizing database capabilities, every enterprise, organization, and even individual can train their own private AI assistant to gain a competitive edge.</p>
 </div>
 <p align="center">
@@ -30,7 +30,54 @@
   </a>
 </p>
 
-## Structure
+# ✨Features
+
+### 🧠 Teable Copilot. Native Integrated AI, Powered by GPT-3.5-turbo
+
+- Chat 2 App. "create a project management app for me"
+- Chat 2 Chart. "Analyze the data in the order table using a bar chart.
+- Chat 2 View. "I want to see the schedule for the past week and only display participants."
+- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer."
+
+### 🔒 Privacy-First. You own your data, in spite of the cloud
+
+- Data storage local first.
+- Offline desktop client support.
+- sync & collaboration to cloud in just one click.
+
+### 🚀 Super Fast. Build in minutes scale to millions.
+
+- Support for data sets of over one million rows.
+- Support database indexes.
+- Support server side render
+
+### ⚡️ Real-time collaboration. Designed for teams
+
+- Seamless real-time collaboration among multiple people.
+- Thoughtful and detailed permission control ability
+
+### 🧩 Extensions. Expand infinite possibilities
+
+- Backend-less programming capability based on React
+- Customize your own application with extremely low cost.
+- Extremely easy-to-use script extensions mode
+
+### 🤖 Automation. Empower data-driven workflows effortlessly and seamlessly.
+
+- design your workflow with AI or Visual programming
+- super easy retrieve data from table
+
+### 👨‍💻 Full-featured SQL Support. Seamless integration with the software you are familiar with.
+
+- BI tools like Metabase PowerBi...
+- no-code tools like appsmith...
+- Direct retrieve data with native sql
+
+### 🗄️ Support for multiple databases. Choose the database you like
+
+- Sqlite, PostgreSQL, MySQL, TiDB, Snowflake...
+
+# Structure
 
 [![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teable-group/teable)
 
@@ -48,15 +95,15 @@
     └── ui-lib              (storybook)
 ```
 
-## Run Project
+# Run Project
 
-### 1. Install (we use build in yarn version for package management)
+## 1. Install (we use build in yarn version for package management)
 
 ```sh
 yarn install
 ```
 
-### 2. migration
+## 2. migration
 
 ```sh
 cd packages/db-main-prisma
@@ -65,7 +112,7 @@ yarn prisma-db-seed
 yarn prisma-migrate dev
 ```
 
-### 3. dev server
+## 3. dev server
 
 you should only start backend, it will start next server for front-end automatically
 
@@ -74,15 +121,15 @@ cd apps/nestjs-backend
 yarn dev
 ```
 
-## Developers
+# Developers
 
-goto [developer readme](./DEVELOPER.md)
+Goto [developer readme](./DEVELOPER.md)
 
 ## Sponsors :heart:
 
 If you are enjoying some this guide in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teable-group), a [coffee](https://ko-fi.com/teable-group) or a dropped star.
 That gives me some more time to improve it to the next level.
 
-## License
+# License
 
 AGPL-3.0
