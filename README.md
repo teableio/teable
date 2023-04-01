@@ -36,32 +36,32 @@
 
 Native Integrated AI, Powered by GPT-3.5-turbo
 
-- Chat 2 App. "create a project management app for me"
-- Chat 2 Chart. "Analyze the data in the order table using a bar chart.
-- Chat 2 View. "I want to see the schedule for the past week and only display participants."
-- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer."
+- Chat 2 App. "Create a project management app for me"
+- Chat 2 Chart. "Analyze the data in the order table using a bar chart"
+- Chat 2 View. "I want to see the schedule for the past week and only display participants"
+- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer"
 
 ### 🔒 Privacy-First
 
 You own your data, in spite of the cloud
 
-- Data storage local first.
-- Offline desktop client support.
-- Sync & collaboration to cloud in just one click.
+- Data storage local first
+- Offline desktop client support
+- Sync & collaboration to cloud in just one click
 
 ### 🚀 Super Fast
 
-Build in minutes scale to millions.
+Build in minutes scale to millions
 
-- Support for data sets of over one million rows.
-- Support database indexes.
+- Support for data sets of over one million rows
+- Support database indexes
 - Support server side render
 
 ### ⚡️ Real-time collaboration
 
 Designed for teams
 
-- Seamless real-time collaboration among multiple people.
+- Seamless real-time collaboration among multiple people
 - Thoughtful and detailed permission control ability
 
 ### 🧩 Extensions
@@ -69,19 +69,19 @@ Designed for teams
 Expand infinite possibilities
 
 - Backend-less programming capability based on React
-- Customize your own application with extremely low cost.
+- Customize your own application with extremely low cost
 - Extremely easy-to-use script extensions mode
 
 ### 🤖 Automation
 
-Empower data-driven workflows effortlessly and seamlessly.
+Empower data-driven workflows effortlessly and seamlessly
 
 - Design your workflow with AI or Visual programming
 - Super easy retrieve data from table
 
 ### 👨‍💻 Full-featured SQL Support
 
-Seamless integration with the software you are familiar with.
+Seamless integration with the software you are familiar with
 
 - BI tools like Metabase PowerBi...
 - No-code tools like appsmith...
@@ -144,7 +144,7 @@ Goto [developer readme](./DEVELOPER.md)
 
 ## Sponsors :heart:
 
-If you are enjoying some this guide in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teable-group), a [coffee](https://ko-fi.com/teable-group) or a dropped star.
+If you are enjoying some this project in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teable-group), a [coffee](https://ko-fi.com/teable-group) or a dropped star.
 That gives me some more time to improve it to the next level.
 
 # License
