@@ -134,6 +134,7 @@ you should only start backend, it will start next server for front-end automatic
 
 ```sh
 cd apps/nestjs-backend
+tsc --build
 yarn dev
 ```
 
