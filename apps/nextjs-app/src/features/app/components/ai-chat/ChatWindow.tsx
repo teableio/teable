@@ -16,7 +16,7 @@ const maxTokens = 4000;
 const getDefaultChat = (): IChat => {
   return {
     id: getRandomString(20),
-    assistantId: 'sql-assistant',
+    assistantId: 'tai-app',
     title: 'New Chart',
     createdAt: Date.now(),
   };
@@ -25,9 +25,9 @@ const getDefaultChat = (): IChat => {
 // Assistant is a special user.
 export const assistantList: IUser[] = [
   {
-    id: 'sql-assistant',
-    name: 'Copilot',
-    description: "🤖️ I'm an expert in SQL. I can answer your questions about databases and SQL.",
+    id: 'tai-app',
+    name: 'Tai',
+    description: "🤖️ I'm your AI assistant Tai, your copilot of work in teable.",
     avatar: '',
   },
 ];
@@ -43,7 +43,7 @@ export const getPromptGeneratorOfAssistant = (assistant: IUser) => {
 1. Set the language to the markdown code block for each code block. For example, \`SELECT * FROM table\` is SQL.
 2. Please be careful to return only key information, and try not to make it too long.
 `;
-  if (assistant.id === 'sql-assistant') {
+  if (assistant.id === 'tai-app') {
     return (schema: string) =>
       `This is my database schema"${schema}". You will see the tables and columns in the database. And please answer the following questions about the database.\n${basicPrompt}`;
   }
@@ -79,7 +79,7 @@ export const ChatWindow = () => {
         chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
       }
     });
-  }, [lastMessage?.status, lastMessage?.content]);
+  }, [lastMessage]);
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const sendMessageToCurrentChat = async () => {
@@ -96,6 +96,7 @@ export const ChatWindow = () => {
     let prompt = '';
     let tokens = 0;
     console.log('sendMessageToCurrentChat:messageList:', messageList);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const promptGenerator = getPromptGeneratorOfAssistant(getAssistantById(chat.assistantId)!);
     prompt = promptGenerator('');
     console.log('sendMessageToCurrentChat:prompt:', prompt);

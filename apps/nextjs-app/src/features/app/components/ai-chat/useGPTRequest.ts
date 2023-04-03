@@ -21,6 +21,7 @@ export const useGPTRequest = () => {
       stream: true,
     };
 
+    console.log('sendMessage:', messages);
     try {
       const response = await fetch('/api/chart/completions', {
         method: 'POST',

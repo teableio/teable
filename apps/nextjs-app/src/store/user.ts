@@ -7,9 +7,9 @@ export interface IUser {
   avatar: string;
 }
 
-const localUser: IUser = {
-  id: 'local-user',
-  name: 'Local user',
+const defaultUser: IUser = {
+  id: 'default-user',
+  name: 'Default user',
   description: '',
   avatar: '',
 };
@@ -19,5 +19,5 @@ interface IUserState {
 }
 
 export const useUserStore = create<IUserState>()(() => ({
-  currentUser: localUser,
+  currentUser: defaultUser,
 }));

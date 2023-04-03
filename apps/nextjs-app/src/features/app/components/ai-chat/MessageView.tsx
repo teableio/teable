@@ -1,11 +1,13 @@
 import UserIcon from '@teable-group/ui-lib/icons/app/user.svg';
 import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
 import type { ReactElement } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { IMessage } from 'store/message';
 import { useUserStore } from 'store/user';
 import { CodeBlock } from './CodeBlock';
+dayjs.extend(localizedFormat);
 
 interface Props {
   message: IMessage;
@@ -58,7 +60,7 @@ export const MessageView: React.FC<Props> = ({ message }) => {
             >
               {message.content}
             </ReactMarkdown>
-            <span className="self-end text-sm text-gray-400 pt-1 pr-1">
+            <span className="self-end text-sm pt-1 pr-1">
               {dayjs(message.createdAt).format('lll')}
             </span>
           </div>
