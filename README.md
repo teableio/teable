@@ -128,7 +128,25 @@ yarn prisma-db-seed
 yarn prisma-migrate dev
 ```
 
-#### 3. Run dev server
+#### 3. Config .env file
+
+config openai ai endpoint and key
+
+```sh
+cd apps/nextjs-app
+copy .env.example .env.development.local
+```
+
+open .env.development.local
+
+> OpenAI is not available in some country. To solve this problem, we recommend using https://api-openai.teable.io as an endpoint. This is an unrestricted proxy deployed on Vercel.
+
+```
+OPENAI_API_KEY=your-api-key
+OPENAI_API_ENDPOINT=openai-endpoint
+```
+
+#### 4. Run dev server
 
 you should only start backend, it will start next server for front-end automatically
 

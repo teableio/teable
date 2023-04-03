@@ -11,7 +11,6 @@ export const AppPage: FC = () => {
         title={t('app:page.title')}
         description="Teable: the database for everyone https://github.com/teable-group/teable"
       />
-      <h1>teable home page</h1>
     </>
   );
 };

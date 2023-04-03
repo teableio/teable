@@ -99,6 +99,7 @@ const secureHeaders = createSecureHeaders({
             "'self'",
             'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
+            'https://*.teable.io',
             // 'wss://ws.pusherapp.com',
             // 'wss://ws-eu.pusher.com',
             // 'https://sockjs.pusher.com',

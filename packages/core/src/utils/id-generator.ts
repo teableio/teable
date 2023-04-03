@@ -12,7 +12,7 @@ export enum AggregateKey {
   Average = 'aggAverage',
 }
 
-function getRandomString(len: number) {
+export function getRandomString(len: number) {
   const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let result = '';
   for (let i = len; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];

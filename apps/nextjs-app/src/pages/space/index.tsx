@@ -2,11 +2,12 @@ import type { ITableVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
+import { ChatWindow } from '@/features/app/components/ai-chat/ChatWindow';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { NextPageWithLayout } from '../_app';
 
 const Space: NextPageWithLayout = () => {
-  return <h1>Welcome</h1>;
+  return <ChatWindow />;
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {

@@ -2,6 +2,7 @@ import { useConnection } from '@teable-group/sdk/hooks';
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { TableList } from '../blocks/table/TableList';
 import { ThemePicker } from './ThemePicker';
@@ -37,9 +38,9 @@ export const SideBar: React.FC = () => {
           </div>
           <ul className="menu py-2">
             <li>
-              <a className="py-1">
+              <Link className="py-1" href="/space">
                 <HomeIcon /> Home
-              </a>
+              </Link>
             </li>
             <li>
               <a className="py-1">

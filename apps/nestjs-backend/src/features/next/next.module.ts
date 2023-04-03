@@ -14,7 +14,9 @@ export class NextModule {
       imports: [
         ConfigModule.forRoot({
           envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
-            return config.dir ? path.join(config.dir, str) : str;
+            const envDir = config.dir ? path.join(process.cwd(), config.dir, str) : str;
+            console.log('envDir:', envDir);
+            return envDir;
           }),
         }),
       ],

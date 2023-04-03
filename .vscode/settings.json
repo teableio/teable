@@ -6,8 +6,10 @@
     "glideapps",
     "Localstorage",
     "nextjs",
+    "OPENAI",
     "sharedb",
-    "teable"
+    "teable",
+    "zustand"
   ],
   "eslint.workingDirectories": [
     {

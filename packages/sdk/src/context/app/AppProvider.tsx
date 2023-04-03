@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Space } from '../../model/space';
 import { AppContext } from '../app/AppContext';
+import { ToastProvider } from '../toast/ToastProvider';
 import { useTheme } from './useTheme';
 
 function getWsPath() {
@@ -58,5 +59,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { connection, connected, space, undoManager, ...themeProps };
   }, [connection, connected, space, undoManager, themeProps]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      <ToastProvider>{children}</ToastProvider>
+    </AppContext.Provider>
+  );
 };
