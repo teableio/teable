@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as https from 'https';
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response, Request } from 'express';
 
@@ -11,8 +11,11 @@ export class ChatService {
     const openAIEndPoint = this.configService.get<string>('OPENAI_API_ENDPOINT');
     const openAiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const [protocol, hostname] = openAIEndPoint!.split('://');
+    if (!openAIEndPoint || openAiKey) {
+      throw new HttpException('OPENAI_API_ENDPOINT or OPENAI_API_KEY should not be undefined', 500);
+    }
+
+    const [protocol, hostname] = openAIEndPoint.split('://');
     const options = {
       method: 'POST',
       hostname,
@@ -23,28 +26,22 @@ export class ChatService {
         Authorization: `Bearer ${openAiKey}`,
       },
     };
-    // 获取请求数据
+
     const { body } = req;
 
-    // 发送请求
     const proxyReq = (protocol === 'https' ? https : http).request(options, (proxyRes) => {
-      // 将响应头传递给客户端
       res.set(proxyRes.headers);
 
-      // 将响应流式传输到客户端
       proxyRes.pipe(res);
     });
 
-    // 监听错误
     proxyReq.on('error', (error) => {
       console.error('Error while proxying request:', error);
       res.status(500).send('Error while proxying request');
     });
 
-    // 将请求体写入代理请求
     proxyReq.write(JSON.stringify(body));
 
-    // 结束代理请求
     proxyReq.end();
   }
 }
