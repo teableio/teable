@@ -3,6 +3,7 @@ import { AppProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
 import { SideBar } from '@/features/app/components/SideBar';
 import { AppLayout } from '@/features/app/layouts';
+import { ChatWindow } from '../components/ai-chat/ChatWindow';
 
 export const SpaceLayout: React.FC<{
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export const SpaceLayout: React.FC<{
           <div id="portal" className="h-screen flex items-start w-full">
             <SideBar />
             {children}
+            <ChatWindow />
           </div>
         </TableProvider>
       </AppProvider>

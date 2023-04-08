@@ -19,15 +19,15 @@ export const MessageView: React.FC<Props> = ({ message }) => {
   return (
     <div
       className={`group w-full max-w-full flex flex-row justify-start items-start my-4 ${
-        isCurrentUser ? 'justify-end pl-8 sm:pl-24' : 'pr-8 sm:pr-24'
+        isCurrentUser && 'justify-end'
       }`}
     >
       {isCurrentUser ? (
         <>
-          <div className="w-auto max-w-full bg-indigo-600 text-white px-4 py-2 rounded-lg whitespace-pre-wrap">
+          <div className="w-auto max-w-full bg-indigo-600 text-white px-2 py-1 rounded-lg whitespace-pre-wrap text-base">
             {message.content}
           </div>
-          <div className="w-10 h-10 p-1 border rounded-full flex justify-center items-center ml-2 shrink-0">
+          <div className="w-8 h-8 p-1 border rounded-full flex justify-center items-center ml-2 shrink-0">
             <UserIcon />
           </div>
         </>
@@ -35,7 +35,7 @@ export const MessageView: React.FC<Props> = ({ message }) => {
         <>
           <div className="w-auto max-w-[calc(100%-4rem)] flex flex-col justify-start items-start">
             <ReactMarkdown
-              className="w-auto max-w-full bg-base-300 px-4 py-2 rounded-lg prose prose-neutral"
+              className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-neutral text-base"
               remarkPlugins={[remarkGfm]}
               components={{
                 pre({ node, className, children, ...props }) {
@@ -60,7 +60,7 @@ export const MessageView: React.FC<Props> = ({ message }) => {
             >
               {message.content}
             </ReactMarkdown>
-            <span className="self-end text-sm pt-1 pr-1">
+            <span className="self-end text-xs pt-1 pr-1">
               {dayjs(message.createdAt).format('lll')}
             </span>
           </div>
