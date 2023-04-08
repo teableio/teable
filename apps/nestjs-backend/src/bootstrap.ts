@@ -1,3 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+import type { RedocOptions } from '@juicyllama/nestjs-redoc';
+import { RedocModule } from '@juicyllama/nestjs-redoc';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -9,7 +13,7 @@ import { NotFoundExceptionFilter } from './filter/not-found.filter';
 
 const host = 'localhost';
 
-export function setUpAppMiddleware(app: INestApplication) {
+export async function setUpAppMiddleware(app: INestApplication) {
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalFilters(new NotFoundExceptionFilter());
   app.use(json({ limit: '50mb' }));
@@ -24,7 +28,19 @@ export function setUpAppMiddleware(app: INestApplication) {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, options);
+  const jsonString = JSON.stringify(document);
+  fs.writeFileSync(path.join(__dirname, '../openapi.json'), jsonString);
   SwaggerModule.setup('/docs', app, document);
+
+  const redocOptions: RedocOptions = {
+    logo: {
+      url: '/shared-assets/images/teable-logo.png',
+      backgroundColor: '#F0F0F0',
+      altText: 'Teable logo',
+    },
+  };
+  // Instead of using SwaggerModule.setup() you call this module
+  await RedocModule.setup('/redocs', app, document, redocOptions);
 }
 
 export async function bootstrap(port: number, dir?: string) {
@@ -39,7 +55,7 @@ export async function bootstrap(port: number, dir?: string) {
       }
     );
 
-    setUpAppMiddleware(app);
+    await setUpAppMiddleware(app);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     // app.getHttpServer().on('upgrade', async function (req: Request, socket: any, head: any) {
     //   if (req.url.startsWith('/_next')) {

@@ -77,6 +77,7 @@
   "dependencies": {
     "@babel/core": "7.19.6",
     "@belgattitude/http-exception": "1.4.0",
+    "@juicyllama/nestjs-redoc": "2.3.10",
     "@nestjs/common": "9.3.9",
     "@nestjs/config": "2.2.0",
     "@nestjs/core": "9.3.9",

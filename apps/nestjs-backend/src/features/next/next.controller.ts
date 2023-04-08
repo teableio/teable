@@ -8,7 +8,16 @@ export class NextController {
   constructor(private nextService: NextService) {}
 
   @ApiExcludeEndpoint()
-  @Get(['/', '_next/*', 'images/*', 'home', '404/*', 'api/((?!table).)*', 'space/?*'])
+  @Get([
+    '/',
+    'favicon.ico',
+    '_next/*',
+    'images/*',
+    'home',
+    '404/*',
+    'api/((?!table).)*',
+    'space/?*',
+  ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.nextService.server.getRequestHandler()(req, res);
   }

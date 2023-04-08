@@ -11,8 +11,8 @@ export class ChatService {
     const openAIEndPoint = this.configService.get<string>('OPENAI_API_ENDPOINT');
     const openAiKey = this.configService.get<string>('OPENAI_API_KEY');
 
-    if (!openAIEndPoint || openAiKey) {
-      throw new HttpException('OPENAI_API_ENDPOINT or OPENAI_API_KEY should not be undefined', 500);
+    if (!openAIEndPoint || !openAiKey) {
+      throw new HttpException('OPENAI_API_ENDPOINT or OPENAI_API_KEY is undefined', 500);
     }
 
     const [protocol, hostname] = openAIEndPoint.split('://');
