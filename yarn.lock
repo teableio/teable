@@ -2850,6 +2850,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hapi/hoek@npm:^9.0.0":
+  version: 9.3.0
+  resolution: "@hapi/hoek@npm:9.3.0"
+  checksum: 9c5baadfabd79e40e747faf0f5dd740f40aef12a123c475787c7834660c6c46c6228770ed9832847bb858b316031104d1fb07df1644424d0c05ccdccccca2a90
+  languageName: node
+  linkType: hard
+
+"@hapi/topo@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "@hapi/topo@npm:5.1.0"
+  dependencies:
+    "@hapi/hoek": "npm:^9.0.0"
+  checksum: ff0deb4249848bf9db5c8dd3489a5d07914adb04983066d68b0395f22f82dbf6058ddac950e53d533c1b74102086199a584d5446c9db15061fb99687edfec19f
+  languageName: node
+  linkType: hard
+
 "@headlessui/react@npm:1.7.3":
   version: 1.7.3
   resolution: "@headlessui/react@npm:1.7.3"
@@ -3253,6 +3269,21 @@ __metadata:
     "@jridgewell/resolve-uri": "npm:^3.0.3"
     "@jridgewell/sourcemap-codec": "npm:^1.4.10"
   checksum: a11b95f877537f116c1a2297ad712df69a8928f33076cfc95702cfbb53854e370a6e62447f12f9c495b40ba92b0c0eed6ab18eaf2e7cae7e62d30ffb7975d30b
+  languageName: node
+  linkType: hard
+
+"@juicyllama/nestjs-redoc@npm:2.3.10":
+  version: 2.3.10
+  resolution: "@juicyllama/nestjs-redoc@npm:2.3.10"
+  dependencies:
+    express-basic-auth: "npm:^1.2.1"
+    express-handlebars: "npm:^6.0.7"
+    joi: "npm:^17.7.0"
+  peerDependencies:
+    "@nestjs/common": ^9.3.1
+    "@nestjs/swagger": ^6.1.4
+    reflect-metadata: ^0.1.13
+  checksum: 4f9dd6f6521106ff9ab67214d282b12698b903b38599d739d3a36806c1778385f8580953694c84eea85027ea1eb55f052ceaa41c6a848ddf5682725fa7d7ce15
   languageName: node
   linkType: hard
 
@@ -4608,6 +4639,29 @@ __metadata:
   dependencies:
     "@sentry/cli": "npm:^1.74.4"
   checksum: c2d02defe7b5593ffe130abf8256cd91af6719d6edf410adaa475913970640b769e4a02ee4577e821f51da8ba77564849cd1dc40f2112c396836857fe5b6910a
+  languageName: node
+  linkType: hard
+
+"@sideway/address@npm:^4.1.3":
+  version: 4.1.4
+  resolution: "@sideway/address@npm:4.1.4"
+  dependencies:
+    "@hapi/hoek": "npm:^9.0.0"
+  checksum: 28d3017397f1598f4343688fcf609dbe1e1c96ac5b4c00c945b29057101f47ecb7d9ecbe039a0e912dd299a1dd876bc4efe37de91fc315e84811ca5a83c2c604
+  languageName: node
+  linkType: hard
+
+"@sideway/formula@npm:^3.0.1":
+  version: 3.0.1
+  resolution: "@sideway/formula@npm:3.0.1"
+  checksum: 9231660aaf01b4b45e73efe299f6613d2a6d191ade9116dd47b6bd99a5a84805bf438a7c6c2343a526c8e7b06dd1c3c39f969dbe9eee2770f54e3e9f0b6d1c8c
+  languageName: node
+  linkType: hard
+
+"@sideway/pinpoint@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "@sideway/pinpoint@npm:2.0.0"
+  checksum: 01038f9f2f36c7181f43e2ea1730949681a5498c412c1c92a3a960532d1312e6a020bcab38368783aa42340a09a9e9fc5c1bff7196b32989f77b173fab42f819
   languageName: node
   linkType: hard
 
@@ -6268,6 +6322,7 @@ __metadata:
     es-check: "npm:7.0.1"
     eslint: "npm:8.26.0"
     eslint-config-next: "npm:13.0.0"
+    eventsource-parser: "npm:1.0.0"
     express: "npm:4.18.2"
     get-tsconfig: "npm:4.2.0"
     graphql: "npm:16.6.0"
@@ -6339,6 +6394,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:7.19.6"
     "@belgattitude/http-exception": "npm:1.4.0"
+    "@juicyllama/nestjs-redoc": "npm:2.3.10"
     "@nestjs/common": "npm:9.3.9"
     "@nestjs/config": "npm:2.2.0"
     "@nestjs/core": "npm:9.3.9"
@@ -6372,7 +6428,6 @@ __metadata:
     es-check: "npm:7.0.1"
     eslint: "npm:8.26.0"
     eslint-config-next: "npm:13.0.0"
-    eventsource-parser: "npm:1.0.0"
     express: "npm:4.18.2"
     get-tsconfig: "npm:4.2.0"
     is-port-reachable: "npm:3.1.0"
@@ -9519,6 +9574,15 @@ __metadata:
     mixin-deep: "npm:^1.2.0"
     pascalcase: "npm:^0.1.1"
   checksum: f474b90436bf31d42a4d7cdb46f7bbe63d89173013003f9a4f7f60c8de5b7a3c0a824aeb46557925aa5b854f9d8367c9f8f443db5a57786f16bdee4259ab5f86
+  languageName: node
+  linkType: hard
+
+"basic-auth@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "basic-auth@npm:2.0.1"
+  dependencies:
+    safe-buffer: "npm:5.1.2"
+  checksum: 8a57024d2e0e1f28c7f6e73b4d07cae17c975580ff9252f6511b23c7a97ced124597170e7093a5b937b0433006dfe030d61c4aeb5d846c43a13432ec76871126
   languageName: node
   linkType: hard
 
@@ -13860,6 +13924,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"express-basic-auth@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "express-basic-auth@npm:1.2.1"
+  dependencies:
+    basic-auth: "npm:^2.0.1"
+  checksum: a71af3005e9d89d82a6763df14db0f336883f80f33272ddea73d241f7adbbd7fe342503fced3c6b999d50d8ed0495ff7a2f1df05633cdf3f82a5965ed28a6895
+  languageName: node
+  linkType: hard
+
+"express-handlebars@npm:^6.0.7":
+  version: 6.0.7
+  resolution: "express-handlebars@npm:6.0.7"
+  dependencies:
+    glob: "npm:^8.1.0"
+    graceful-fs: "npm:^4.2.10"
+    handlebars: "npm:^4.7.7"
+  checksum: 96c4d8f0e70f8d015089eb2a1779e23bdd0f0ce0ab819899e6f75457d2bac2c738261f206152f7f3d001202eaaad2f00e4dbb030031353f9087876eaee34573e
+  languageName: node
+  linkType: hard
+
 "express@npm:4.18.2, express@npm:^4.17.1":
   version: 4.18.2
   resolution: "express@npm:4.18.2"
@@ -15009,6 +15093,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"glob@npm:^8.1.0":
+  version: 8.1.0
+  resolution: "glob@npm:8.1.0"
+  dependencies:
+    fs.realpath: "npm:^1.0.0"
+    inflight: "npm:^1.0.4"
+    inherits: "npm:2"
+    minimatch: "npm:^5.0.1"
+    once: "npm:^1.3.0"
+  checksum: b2d53aa8d54a3e5b3998f52e72140deea385d292a68719144cda70148c335aa956bd03a643f50f6e4f685ee40ae538ee62a96278cc7b797f731a50a3babfcf63
+  languageName: node
+  linkType: hard
+
 "global-agent@npm:^3.0.0":
   version: 3.0.0
   resolution: "global-agent@npm:3.0.0"
@@ -15170,6 +15267,13 @@ __metadata:
   version: 4.2.9
   resolution: "graceful-fs@npm:4.2.9"
   checksum: a690309c012e17c17a3c526eccb3c592fae624c4d916939568a553956d25455c2ae9179765b667c9af32381ec34039c4bdd570844c98e05805c5a3171702f78c
+  languageName: node
+  linkType: hard
+
+"graceful-fs@npm:^4.2.10":
+  version: 4.2.11
+  resolution: "graceful-fs@npm:4.2.11"
+  checksum: 0228fc1080e6cb20d31920aff457e5d44f137b8864220c204b5ba6461d2d46d30361557a4c054373a8c04a03b59c92a42d40230104bb59c5ea737072bc15709c
   languageName: node
   linkType: hard
 
@@ -17500,6 +17604,19 @@ __metadata:
   bin:
     jest: bin/jest.js
   checksum: 659b7edf3b6587abf1bdb520eddaca3a5fc976222dc65831b9e982b62ea227b8bdf60fa117fcffcac1e9d03fe8a79e58f3a6ef27507b63b4e89eaab0c5819c6e
+  languageName: node
+  linkType: hard
+
+"joi@npm:^17.7.0":
+  version: 17.9.1
+  resolution: "joi@npm:17.9.1"
+  dependencies:
+    "@hapi/hoek": "npm:^9.0.0"
+    "@hapi/topo": "npm:^5.0.0"
+    "@sideway/address": "npm:^4.1.3"
+    "@sideway/formula": "npm:^3.0.1"
+    "@sideway/pinpoint": "npm:^2.0.0"
+  checksum: 8d0b9953254d67ce5e669a951ce56bee0588209108783ca679c9685d9c0473eb869629f5ff10ac06adf01f080868c45c699eda826259414f898dc357b73e9b67
   languageName: node
   linkType: hard
 
