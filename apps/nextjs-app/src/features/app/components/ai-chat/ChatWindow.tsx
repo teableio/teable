@@ -147,9 +147,9 @@ export const ChatWindow = () => {
   return (
     <main
       ref={chatWindowRef}
-      className="drawer-content relative w-full h-full max-h-full flex flex-col justify-start items-start overflow-y-auto bg-base-100"
+      className="drawer-content relative w-96 h-full max-h-full flex flex-col justify-start items-start overflow-y-auto bg-base-100 border-l border-base-300"
     >
-      <div className="p-2 w-full h-auto grow max-w-4xl py-1 px-4 sm:px-8 mx-auto">
+      <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
         {messageList.length === 0 ? (
           <p>Empty</p>
         ) : (
@@ -157,7 +157,7 @@ export const ChatWindow = () => {
         )}
         {isLoading && <p>Loading</p>}
       </div>
-      <div className="sticky bottom-0 w-full max-w-4xl py-2 px-4 sm:px-8 mx-auto bg-base-100 backdrop-blur">
+      <div className="sticky bottom-0 w-full max-w-4xl p-2 mx-auto bg-base-100 backdrop-blur">
         <MessageInput disabled={isLoading} sendMessage={sendMessageToCurrentChat} chat={chat} />
       </div>
     </main>

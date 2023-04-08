@@ -34,7 +34,6 @@ export async function setUpAppMiddleware(app: INestApplication) {
 
   const redocOptions: RedocOptions = {
     logo: {
-      url: '/shared-assets/images/teable-logo.png',
       backgroundColor: '#F0F0F0',
       altText: 'Teable logo',
     },
