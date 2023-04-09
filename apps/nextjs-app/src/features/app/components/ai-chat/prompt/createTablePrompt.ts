@@ -7,12 +7,26 @@ info:
   contact: {}
 tags: []
 servers: []
+paths:
+  /api/table:
+    post:
+      operationId: TableController_createTable
+      summary: Create table
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRo'
+      responses:
+        '201':
+          description: The Table has been successfully created.
+        '403':
+          description: Forbidden.
+      tags:
+        - table
 components:
-  securitySchemes:
-    bearer:
-      scheme: bearer
-      bearerFormat: JWT
-      type: http
   schemas:
     SingleSelectOption:
       type: object
@@ -265,23 +279,4 @@ components:
             - $ref: '#/components/schemas/CreateRecordsDto'
       required:
         - name
-paths:
-  /api/table:
-    post:
-      operationId: TableController_createTable
-      summary: Create table
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTableRo'
-      responses:
-        '201':
-          description: The Table has been successfully created.
-        '403':
-          description: Forbidden.
-      tags:
-        - table
 `;

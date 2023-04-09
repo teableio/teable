@@ -21,7 +21,6 @@ yq e \
      "info": .info,
      "tags": .tags,
      "servers": .servers,
-     "components": .components,
      "paths": {"/api/table": .paths."/api/table"}
    }' \
   $input_file > $output_file

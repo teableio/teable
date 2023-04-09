@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicated-branches */
 import {
   DbFieldType,
   assertNever,
@@ -66,7 +67,13 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
     case FieldType.MultipleRecordLinks:
-      throw new Error('did not implement yet');
+      return plainToInstance(SingleLineTextFieldDto, {
+        ...fieldDto,
+        isComputed: false,
+        calculatedType: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      } as SingleLineTextFieldDto);
     default:
       assertNever(createFieldRo.type);
   }
