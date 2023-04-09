@@ -1,24 +1,5 @@
-export const TABLE_PROMPT = `
+export const CREATE_TABLE_PROMPT = `
 openapi: 3.0.0
-paths:
-  /api/table:
-    post:
-      operationId: TableController_createTable
-      summary: Create table
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTableRo'
-      responses:
-        '201':
-          description: The Table has been successfully created.
-        '403':
-          description: Forbidden.
-      tags:
-        - table
 info:
   title: Teable App
   description: Manage Data as easy as drink a cup of tea
@@ -27,6 +8,11 @@ info:
 tags: []
 servers: []
 components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
   schemas:
     SingleSelectOption:
       type: object
@@ -127,6 +113,34 @@ components:
           type: string
           description: The types supported by teable.
           example: singleSelect
+          enum:
+            - singleLineText
+            - longText
+            - user
+            - attachment
+            - checkbox
+            - multipleSelect
+            - singleSelect
+            - date
+            - phoneNumber
+            - email
+            - url
+            - number
+            - currency
+            - percent
+            - duration
+            - rating
+            - formula
+            - rollup
+            - count
+            - multipleRecordLinks
+            - multipleLookupValues
+            - createdTime
+            - lastModifiedTime
+            - createdBy
+            - lastModifiedBy
+            - autoNumber
+            - button
         options:
           description: The configuration options of the field. The structure of the field's options depend on the field's type.
           oneOf:
@@ -208,7 +222,7 @@ components:
       properties:
         fieldKeyType:
           type: string
-          description: Define the field key type when create and return records.
+          description: Define the field key type when create and return records
           example: id
           default: id
         records:
@@ -251,4 +265,23 @@ components:
             - $ref: '#/components/schemas/CreateRecordsDto'
       required:
         - name
+paths:
+  /api/table:
+    post:
+      operationId: TableController_createTable
+      summary: Create table
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRo'
+      responses:
+        '201':
+          description: The Table has been successfully created.
+        '403':
+          description: Forbidden.
+      tags:
+        - table
 `;

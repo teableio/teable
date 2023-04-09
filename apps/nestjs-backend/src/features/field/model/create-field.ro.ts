@@ -22,6 +22,7 @@ export class CreateFieldRo implements IFieldRo {
   @ApiProperty({
     description: 'The types supported by teable.',
     example: FieldType.SingleSelect,
+    enum: FieldType,
   })
   type!: FieldType;
 

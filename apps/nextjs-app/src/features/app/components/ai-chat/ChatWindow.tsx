@@ -6,8 +6,8 @@ import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
+import { CREATE_TABLE_PROMPT } from './prompt/createTablePrompt';
 import { getPromptGeneratorOfAssistant } from './prompt/getPromptGenerator';
-import { TABLE_PROMPT } from './prompt/teablePrompt';
 import type { IChat } from './type';
 import { useGPTRequest } from './useGPTRequest';
 
@@ -21,7 +21,7 @@ const getDefaultChat = (): IChat => {
     assistantId: 'tai-app',
     title: 'New Chart',
     createdAt: Date.now(),
-    promptContext: TABLE_PROMPT,
+    promptContext: CREATE_TABLE_PROMPT,
   };
 };
 
