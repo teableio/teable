@@ -4,8 +4,9 @@ import { FieldKeyType } from './constant';
 export class CreateRecordsDto {
   @ApiPropertyOptional({
     description: 'Define the field key type when create and return records',
-    example: 'id',
-    default: 'id',
+    example: 'name',
+    default: 'name',
+    enum: FieldKeyType,
   })
   fieldKeyType?: FieldKeyType;
 
@@ -15,7 +16,7 @@ export class CreateRecordsDto {
     example: [
       {
         fields: {
-          fldXXXXXXXXXXXXXXX: 'text value',
+          name: 'Bieber',
         },
       },
     ],

@@ -246,6 +246,7 @@ export class RecordService implements AdapterService {
     const fieldIdsSet = contexts.reduce((acc, cur) => {
       return acc.add(cur.fieldId);
     }, new Set<string>());
+
     const fields = await prisma.field.findMany({
       where: { id: { in: Array.from(fieldIdsSet) } },
       select: { id: true, dbFieldName: true },

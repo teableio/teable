@@ -129,7 +129,7 @@ export class TableService implements AdapterService {
 
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
-    const recordData = await this.recordService.getRecords(tableId, {
+    const rows = await this.recordService.getRecords(tableId, {
       viewId,
       skip: 0,
       take: 50,
@@ -139,7 +139,7 @@ export class TableService implements AdapterService {
       tables,
       fields,
       views,
-      recordData,
+      rows,
     };
   }
 

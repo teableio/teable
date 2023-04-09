@@ -9,12 +9,12 @@ export class TablePipe implements PipeTransform {
     return this.appendDefaultRo(value);
   }
 
-  appendDefaultRo(tableRo: CreateTableRo) {
+  appendDefaultRo(tableRo: CreateTableRo): CreateTableRo {
     return {
       ...tableRo,
       fields: tableRo.fields && tableRo.fields.length ? tableRo.fields : DEFAULT_FIELDS,
       views: tableRo.views && tableRo.views.length ? tableRo.views : [DEFAULT_VIEW],
-      recordData: tableRo.rows ? tableRo.rows : DEFAULT_RECORDS,
+      rows: tableRo.rows ? tableRo.rows : DEFAULT_RECORDS,
     };
   }
 }

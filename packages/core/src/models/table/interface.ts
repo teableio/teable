@@ -18,7 +18,7 @@ export interface ITableSnapshot {
 }
 
 export interface IFullSsrSnapshot {
-  recordData: {
+  rows: {
     records: IRecord[];
     total: number;
   };
