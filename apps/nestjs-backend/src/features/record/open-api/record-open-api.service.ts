@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
 import { generateTransactionKey, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { TransactionService } from '../../../share-db/transaction.service';
+import { FieldKeyType } from '../constant';
 import type { CreateRecordsDto } from '../create-records.dto';
 
 interface ICreateRecordOpMeta {
@@ -11,7 +13,10 @@ interface ICreateRecordOpMeta {
 
 @Injectable()
 export class RecordOpenApiService {
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(
+    private readonly shareDbService: ShareDbService,
+    private readonly transactionService: TransactionService
+  ) {}
 
   // if ops create and sent in a same tick, they will be wrap in a same transaction
   // and this is important for keep data safe
@@ -20,7 +25,7 @@ export class RecordOpenApiService {
     createRecordsDto: CreateRecordsDto,
     transactionMeta?: { transactionKey: string; opCount: number }
   ) {
-    const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto);
+    const result = await this.multipleCreateRecords2Ops(tableId, createRecordsDto, transactionMeta);
     const connection = this.shareDbService.connect();
     transactionMeta = transactionMeta || {
       transactionKey: generateTransactionKey(),
@@ -58,9 +63,25 @@ export class RecordOpenApiService {
   }
 
   async multipleCreateRecords2Ops(
-    _tableId: string,
-    createRecordsDto: CreateRecordsDto
+    tableId: string,
+    createRecordsDto: CreateRecordsDto,
+    transactionMeta?: { transactionKey: string; opCount: number }
   ): Promise<ICreateRecordOpMeta[]> {
+    const fieldKey = createRecordsDto.fieldKeyType;
+    const prisma = await this.transactionService.getTransaction(transactionMeta);
+    const allFields = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, name: true },
+    });
+
+    let fieldName2IdMap: { [name: string]: string } = {};
+    if (fieldKey !== FieldKeyType.Id) {
+      fieldName2IdMap = allFields.reduce<{ [name: string]: string }>((pre, cur) => {
+        pre[cur.name] = cur.id;
+        return pre;
+      }, {});
+    }
+
     return createRecordsDto.records.map((record) => {
       const recordId = generateRecordId();
       const snapshot = OpBuilder.creator.addRecord.build({
@@ -68,13 +89,18 @@ export class RecordOpenApiService {
         recordOrder: {},
       });
 
-      const setRecordOps = Object.entries(record.fields).map(([fieldId, value]) =>
-        OpBuilder.editor.setRecord.build({
+      const setRecordOps = Object.entries(record.fields).map(([fieldNameOrId, value]) => {
+        let fieldId = fieldNameOrId;
+        if (fieldKey !== FieldKeyType.Id) {
+          fieldId = fieldName2IdMap[fieldNameOrId];
+        }
+
+        return OpBuilder.editor.setRecord.build({
           fieldId,
           oldCellValue: null,
           newCellValue: value,
-        })
-      );
+        });
+      });
 
       return {
         snapshot,

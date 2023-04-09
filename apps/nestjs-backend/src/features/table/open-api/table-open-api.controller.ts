@@ -52,8 +52,9 @@ export class TableController {
   @ApiResponse({ status: 201, description: 'The Table has been successfully created.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @Post()
-  createTable(@Body(TablePipe) createTable: CreateTableRo) {
-    return this.tableOpenApiService.createTable(createTable);
+  async createTable(@Body(TablePipe) createTable: CreateTableRo) {
+    const result = await this.tableOpenApiService.createTable(createTable);
+    return responseWrap(result);
   }
 
   @Delete('/arbitrary/:tableId')

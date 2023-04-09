@@ -37,7 +37,7 @@ export const getServerSideProps: GetServerSideProps<INodeProps> = async (context
       tableServerData: snapshot.tables,
       fieldServerData: snapshot.fields,
       viewServerData: snapshot.views,
-      recordServerData: snapshot.recordData,
+      recordServerData: snapshot.rows,
     },
   };
 };

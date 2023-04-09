@@ -8,7 +8,7 @@ import { TableVo } from './table.vo';
 
 export class FullSnapshotVo implements IFullSsrSnapshot {
   @ApiProperty({ type: RecordsVo })
-  recordData!: RecordsVo;
+  rows!: RecordsVo;
 
   @ApiProperty({ type: TableVo, isArray: true })
   tables!: TableVo[];
