@@ -145,7 +145,7 @@ export const ChatWindow = () => {
         ) : (
           messageList.map((message) => <MessageView key={message.id} message={message} />)
         )}
-        {isLoading && <p>Loading</p>}
+        {isLoading && <p>...</p>}
       </div>
       <div className="sticky bottom-0 w-full max-w-4xl p-2 mx-auto bg-base-100 backdrop-blur">
         <MessageInput disabled={isLoading} sendMessage={sendMessageToCurrentChat} chat={chat} />
