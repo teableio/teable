@@ -25,7 +25,7 @@ export class TableOpenApiService {
     const tableCount = 1;
     const fieldCount = tableRo.fields?.length || 0;
     const viewCount = tableRo.views?.length || 0;
-    const records = tableRo.recordData?.records;
+    const records = tableRo.rows?.records;
     // record ops count is adds up to record length and every record that has fields keys
     const recordCount = records
       ? records.length +
@@ -42,8 +42,8 @@ export class TableOpenApiService {
   }
 
   async createTable(tableRo: CreateTableRo) {
-    if (!tableRo.fields || !tableRo.views || !tableRo.recordData) {
-      throw new Error('table fields views and recordData are required.');
+    if (!tableRo.fields || !tableRo.views || !tableRo.rows) {
+      throw new Error('table fields views and rows are required.');
     }
     const transactionMeta = this.getTransactionMeta(tableRo);
 
@@ -66,11 +66,7 @@ export class TableOpenApiService {
       );
     }
 
-    await this.recordOpenApiService.multipleCreateRecords(
-      tableId,
-      tableRo.recordData,
-      transactionMeta
-    );
+    await this.recordOpenApiService.multipleCreateRecords(tableId, tableRo.rows, transactionMeta);
 
     return tableVo;
   }

@@ -5,4 +5,5 @@ export interface IChat {
   assistantId: string;
   title: string;
   createdAt: number;
+  promptContext?: string;
 }

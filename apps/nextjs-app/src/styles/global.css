@@ -5,3 +5,6 @@
 :root {
   --btn-text-case: none;
 }
+svg.icon {
+  fill: currentColor;
+}

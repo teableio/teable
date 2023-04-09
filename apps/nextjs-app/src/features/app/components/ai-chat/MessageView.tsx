@@ -24,7 +24,7 @@ export const MessageView: React.FC<Props> = ({ message }) => {
     >
       {isCurrentUser ? (
         <>
-          <div className="w-auto max-w-full bg-indigo-600 text-white px-2 py-1 rounded-lg whitespace-pre-wrap text-base">
+          <div className="w-auto max-w-full bg-indigo-600 text-white px-2 py-1 rounded-lg whitespace-pre-wrap text-sm">
             {message.content}
           </div>
           <div className="w-8 h-8 p-1 border rounded-full flex justify-center items-center ml-2 shrink-0">
@@ -33,9 +33,9 @@ export const MessageView: React.FC<Props> = ({ message }) => {
         </>
       ) : (
         <>
-          <div className="w-auto max-w-[calc(100%-4rem)] flex flex-col justify-start items-start">
+          <div className="w-auto max-w-[calc(100%-1rem)] flex flex-col justify-start items-start">
             <ReactMarkdown
-              className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-neutral text-base"
+              className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-slate text-sm"
               remarkPlugins={[remarkGfm]}
               components={{
                 pre({ node, className, children, ...props }) {
