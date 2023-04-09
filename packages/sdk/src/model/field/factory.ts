@@ -39,7 +39,7 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldSnapshot>) 
       case FieldType.Rollup:
       case FieldType.MultipleLookupValues:
       case FieldType.MultipleRecordLinks:
-        return plainToInstance(SingleLineTextField, field);
+        return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);
     }
