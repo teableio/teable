@@ -1,4 +1,5 @@
 import { useToast } from '@teable-group/sdk';
+import CopyIcon from '@teable-group/ui-lib/icons/app/copy.svg';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
@@ -16,8 +17,9 @@ export const CodeBlock: React.FC<Props> = ({ language, value }) => {
   // * SQL code, and it is a SELECT statement;
   // * Connection setup;
   const toast = useToast();
-  const showExecuteButton = language.toUpperCase() === 'SQL' && checkStatementIsSelect(value);
+  const showExecuteButton = language.toUpperCase() === 'JAVASCRIPT';
   const copyToClipboard = () => {
+    console.log('copy!');
     if (!navigator.clipboard || !navigator.clipboard.writeText) {
       toast.open('Failed to copy to clipboard');
       return;
@@ -28,23 +30,24 @@ export const CodeBlock: React.FC<Props> = ({ language, value }) => {
   };
 
   const handleExecuteQuery = () => {
+    window.eval(value);
     toast.open('Executing');
   };
 
   return (
-    <div className="w-full max-w-full relative font-sans text-[16px]">
+    <div className="w-full max-w-full relative font-sans text-sm">
       <div className="flex items-center justify-between py-2 px-4">
         <span className="text-xs text-white font-mono">{language}</span>
         <div className="flex items-center space-x-2">
           <button
-            className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white bg-gray-500 opacity-70 hover:opacity-100"
+            className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white opacity-70 hover:opacity-100 bg-gray-500"
             onClick={copyToClipboard}
           >
-            📃
+            <CopyIcon />
           </button>
           {showExecuteButton && (
             <button
-              className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white bg-gray-500 opacity-70 hover:opacity-100"
+              className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white opacity-70 hover:opacity-100 bg-gray-500"
               onClick={handleExecuteQuery}
             >
               ▶️
