@@ -14,7 +14,7 @@ export class TablePipe implements PipeTransform {
       ...tableRo,
       fields: tableRo.fields && tableRo.fields.length ? tableRo.fields : DEFAULT_FIELDS,
       views: tableRo.views && tableRo.views.length ? tableRo.views : [DEFAULT_VIEW],
-      recordData: tableRo.recordData ? tableRo.recordData : DEFAULT_RECORDS,
+      recordData: tableRo.rows ? tableRo.rows : DEFAULT_RECORDS,
     };
   }
 }

@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { responseWrap } from 'src/utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
 import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
@@ -7,7 +7,6 @@ import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
-@ApiBearerAuth()
 @ApiTags('table')
 @Controller('api/table')
 export class TableController {

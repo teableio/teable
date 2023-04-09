@@ -1,6 +1,6 @@
 import { getRandomString } from '@teable-group/core';
 import { useToast } from '@teable-group/sdk/hooks';
-import NavigationIcon from '@teable-group/ui-lib/icons/app/navigation.svg';
+import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
@@ -60,10 +60,10 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
   };
 
   return (
-    <div className="w-full h-auto flex flex-row justify-between items-end border rounded-lg mb-2 px-2 py-1 relative shadow bg-base-100">
+    <div className="w-full h-auto flex flex-row justify-between items-end border rounded-lg mb-2 p-1 relative shadow bg-base-100">
       <TextareaAutosize
         ref={textareaRef}
-        className="hide-scrollbar w-full h-full outline-none border-none bg-transparent leading-6 p-2 resize-none"
+        className="hide-scrollbar w-full h-full outline-none border-none bg-transparent leading-6 p-1 mr-1 resize-none text-sm"
         placeholder="Type a message..."
         rows={1}
         minRows={1}
@@ -74,11 +74,11 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
         onKeyDown={handleKeyDown}
       />
       <button
-        className="w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 text-[18px]"
         disabled={disabled}
         onClick={handleSend}
       >
-        <NavigationIcon />
+        <SendIcon />
       </button>
     </div>
   );
