@@ -69,6 +69,7 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
     case FieldType.MultipleRecordLinks:
       return plainToInstance(SingleLineTextFieldDto, {
         ...fieldDto,
+        type: FieldType.SingleLineText,
         isComputed: false,
         calculatedType: FieldType.SingleLineText,
         cellValueType: CellValueType.String,
