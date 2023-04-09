@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
 import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
-import { TABLE_PROMPT } from './create-table-prompt';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
+import { getPromptGeneratorOfAssistant } from './prompt/getPromptGenerator';
+import { TABLE_PROMPT } from './prompt/teablePrompt';
 import type { IChat } from './type';
 import { useGPTRequest } from './useGPTRequest';
 
@@ -38,20 +39,6 @@ export const getAssistantById = (id: string) => {
   const user = assistantList.find((user) => user.id === id);
   return user || (first(assistantList) as IUser);
 };
-
-// getPromptOfAssistant define the special prompt for each assistant.
-export function getPromptGeneratorOfAssistant(
-  assistant: IUser
-): (promptContext?: string) => string {
-  const basicPrompt = `Your name is Tai, and you are an AI assistant for Teable, Please be careful to return only key information, and try not to make it too long.
-Set the language to the markdown code block for each code block. For example, \`let a = 1\` is JavaScript.\n`;
-  if (assistant.id === 'tai-app') {
-    return (doc?: string) =>
-      `${basicPrompt}, This is Table API doc: "${doc}". \n And please use JavaScript and fetch method to generate code to answer the following questions. 
-If the question mentions tables, systems, or databases, you can assume that it is referring to creating a table. \n`;
-  }
-  return () => `\n${basicPrompt}`;
-}
 
 export const ChatWindow = () => {
   const messageStore = useMessageStore();
