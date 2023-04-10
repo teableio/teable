@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ICreateTableMetaRo } from '@teable-group/core';
+import type { ICreateTableRo } from '@teable-group/core';
 import { generateTransactionKey, IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
 import { PrismaService } from '../../../prisma.service';
@@ -90,7 +90,7 @@ export class TableOpenApiService {
     return snapshot.table;
   }
 
-  private async createTable2Op(tableRo: ICreateTableMetaRo) {
+  private async createTable2Op(tableRo: ICreateTableRo) {
     const tableAggregate = await this.prismaService.tableMeta.aggregate({
       _max: { order: true },
     });

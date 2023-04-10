@@ -7,7 +7,7 @@ import type {
   ISetRecordOrderOpContext,
   ISnapshotBase,
 } from '@teable-group/core';
-import { AggregateKey, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
+import { FieldKeyType, AggregateKey, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
@@ -15,7 +15,6 @@ import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name'
 import { PrismaService } from '../../prisma.service';
 import type { AdapterService } from '../../share-db/adapter-service.abstract';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import { FieldKeyType } from './constant';
 import type { CreateRecordsDto } from './create-records.dto';
 import type { RecordsVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';

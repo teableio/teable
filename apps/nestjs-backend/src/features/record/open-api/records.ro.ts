@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { CellFormat, FieldKeyType } from '@teable-group/core';
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsOptional, Max, Min, ValidateIf } from 'class-validator';
-import { CellFormat, FieldKeyType } from '../constant';
 
 const defaultPageSize = 100;
 const maxPageSize = 10000;

@@ -1,3 +1,5 @@
+import type { FieldKeyType } from './record';
+
 export interface IRecord {
   id: string;
   fields: IRecordFields;
@@ -14,4 +16,12 @@ export interface IRecordFields {
 export interface IRecordSnapshot {
   record: IRecord;
   recordOrder: { [viewId: string]: number };
+}
+
+export class ICreateRecordsDto {
+  fieldKeyType?: FieldKeyType;
+
+  records!: {
+    fields: { [fieldIdOrName: string]: unknown };
+  }[];
 }

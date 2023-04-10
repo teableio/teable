@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { ICreateTableMetaRo } from '@teable-group/core';
+import type { ICreateTableRo } from '@teable-group/core';
 import { CreateFieldRo } from '../field/model/create-field.ro';
 import { CreateRecordsDto } from '../record/create-records.dto';
 import { CreateViewRo } from '../view/model/create-view.ro';
 
-export class CreateTableRo implements ICreateTableMetaRo {
+export class CreateTableRo implements ICreateTableRo {
   @ApiProperty({
     description: 'The name of the table.',
     example: 'table1',

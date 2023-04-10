@@ -1,25 +1,17 @@
-import type { ITableSnapshot, ITableVo } from '@teable-group/core';
-import { IdPrefix, OpBuilder, generateTableId } from '@teable-group/core';
-import type { Connection, Doc } from '@teable/sharedb/lib/client';
+import type { ICreateTableRo, IJsonApiSuccessResponse, ITableVo } from '@teable-group/core';
+import type { Connection } from '@teable/sharedb/lib/client';
+import axios from 'axios';
 
 export class Space {
   constructor(private connection: Connection) {}
 
   async createTable(name: string, description?: string) {
-    const tableData: ITableVo = {
-      id: generateTableId(),
+    const tableData: ICreateTableRo = {
       name,
       description,
     };
 
-    const createSnapshot = OpBuilder.creator.addTable.build(tableData);
-    const doc = this.connection.get(`${IdPrefix.Table}_node`, tableData.id);
-    return new Promise<Doc<ITableSnapshot>>((resolve, reject) => {
-      doc.create(createSnapshot, (error) => {
-        if (error) return reject(error);
-        console.log(`create table succeed!`, tableData);
-        resolve(doc);
-      });
-    });
+    const response = await axios.post<IJsonApiSuccessResponse<ITableVo>>('/api/table', tableData);
+    return response.data.data;
   }
 }
