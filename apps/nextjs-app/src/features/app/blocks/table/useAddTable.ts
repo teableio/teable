@@ -9,8 +9,8 @@ export function useAddTable() {
   const router = useRouter();
 
   return useCallback(async () => {
-    const tableDoc = await space.createTable(tableName);
-    const tableId = tableDoc.data.table.id;
+    const tableData = await space.createTable(tableName);
+    const tableId = tableData.id;
     router.push({
       pathname: '/space/[tableId]',
       query: { tableId: tableId },

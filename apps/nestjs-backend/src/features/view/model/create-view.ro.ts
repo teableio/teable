@@ -48,5 +48,6 @@ export class CreateViewRo implements IViewRo {
       { $ref: getSchemaPath(KanbanViewOptionsDto) },
     ],
   })
-  options?: GridViewOptionsDto | KanbanViewOptionsDto;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options?: any;
 }

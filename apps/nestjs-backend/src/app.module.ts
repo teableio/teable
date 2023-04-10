@@ -21,7 +21,7 @@ export class AppModule {
         FileTreeModule,
         TableOpenApiModule,
         ChatModule,
-        ...(process.env.NODE_ENV === 'production' ? [WsModule] : []),
+        ...(process.env.NODE_ENV !== 'production' ? [WsModule] : []),
       ],
     };
   }

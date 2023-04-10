@@ -34,14 +34,22 @@ export class CreateFieldRo implements IFieldRo {
       { $ref: getSchemaPath(NumberOptionsDto) },
     ],
   })
-  options?: SingleSelectOptionsDto | NumberOptionsDto;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options?: any;
 
   @ApiPropertyOptional({
-    description:
-      'The defaultValue of the field. The datatype of the value depends on the field type.',
+    description: `
+The defaultValue of the field. The datatype of the value depends on the field type.
+singleLineText, longText, singleSelect, date, phoneNumber, email, url: string, example: "hello".
+number, currency, percent, duration, rating: number, example: 1.
+checkbox: boolean, example: true.
+multipleSelect: string[], example: ["red", "blue"].
+other fields do not support defaultValue.
+`,
     example: { name: 'light', color: 'yellow' },
   })
-  defaultValue?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultValue?: any;
 
   @ApiPropertyOptional({
     description: 'Set if it is a primary field',

@@ -1,6 +1,16 @@
 import type { FieldCore } from '../field';
 import type { IRecordFields } from './interface';
 
+export enum FieldKeyType {
+  Id = 'id',
+  Name = 'name',
+}
+
+export enum CellFormat {
+  Json = 'json',
+  Text = 'text',
+}
+
 export class RecordCore {
   constructor(protected fields: { [fieldId: string]: FieldCore }, protected data: IRecordFields) {}
 

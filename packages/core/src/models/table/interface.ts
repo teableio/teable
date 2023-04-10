@@ -1,14 +1,17 @@
-import type { IFieldVo } from '../field';
-import type { IRecord } from '../record';
-import type { IViewVo } from '../view';
+import type { IFieldRo, IFieldVo } from '../field';
+import type { ICreateRecordsDto, IRecord } from '../record';
+import type { IViewRo, IViewVo } from '../view';
 
-export interface ICreateTableMetaRo {
+export interface ICreateTableRo {
   name: string;
   description?: string;
   icon?: string;
+  fields?: IFieldRo[];
+  views?: IViewRo[];
+  rows?: ICreateRecordsDto;
 }
 
-export interface ITableVo extends ICreateTableMetaRo {
+export interface ITableVo extends ICreateTableRo {
   id: string;
 }
 

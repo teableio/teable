@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
-import { generateTransactionKey, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
+import {
+  FieldKeyType,
+  generateTransactionKey,
+  IdPrefix,
+  generateRecordId,
+  OpBuilder,
+} from '@teable-group/core';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import { FieldKeyType } from '../constant';
 import type { CreateRecordsDto } from '../create-records.dto';
 
 interface ICreateRecordOpMeta {
