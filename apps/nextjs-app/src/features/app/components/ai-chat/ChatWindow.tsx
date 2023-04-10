@@ -137,7 +137,7 @@ export const ChatWindow = () => {
   return (
     <main
       ref={chatWindowRef}
-      className="drawer-content relative w-96 h-full max-h-full flex flex-col justify-start items-start overflow-y-auto bg-base-100 border-l border-base-300"
+      className="drawer-content relative w-full h-full flex flex-col justify-start items-start overflow-y-auto bg-base-100"
     >
       <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
         {messageList.length === 0 ? (

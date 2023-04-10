@@ -12,7 +12,7 @@ export const SideBar: React.FC = () => {
   const { connected } = useConnection();
 
   return (
-    <div className="max-w-xs h-full overflow-y-auto border-r border-base-300 w-72">
+    <div className="h-full overflow-y-auto w-full">
       <div className="mx-2 my-4">
         <Image
           width={32}
@@ -33,7 +33,7 @@ export const SideBar: React.FC = () => {
             <input
               type="text"
               placeholder="Search"
-              className="input input-bordered input-xs w-full max-w-xs"
+              className="input input-bordered input-xs w-full"
             />
           </div>
           <ul className="menu py-2">

@@ -247,7 +247,7 @@ components:
 
             Array of objects with a fields key mapping fieldId or field name to value for that field.
             singleLineText, type: string, example: "bieber"
-            longText, type: string, example: "lin1
+            longText, type: string, example: "line1
             line2"
             singleLineText, type: string, example: "bieber"
             attachment, type: string, example: "bieber"
