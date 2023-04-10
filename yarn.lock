@@ -6353,6 +6353,7 @@ __metadata:
     react-hook-form: "npm:7.38.0"
     react-i18next: "npm:11.18.6"
     react-markdown: "npm:8.0.6"
+    react-resizable-panels: "npm:0.0.39"
     react-responsive-carousel: "npm:3.2.23"
     react-syntax-highlighter: "npm:15.5.0"
     react-textarea-autosize: "npm:8.4.1"
@@ -23061,6 +23062,16 @@ __metadata:
     "@types/react":
       optional: true
   checksum: b96447113b5d3f7131293534f531ba7d87526df51d887608b5a4a221439e9709cb107d454c07ae201b104b97327fcb5095c44131e0db74b95bcc4676dca4ddc1
+  languageName: node
+  linkType: hard
+
+"react-resizable-panels@npm:0.0.39":
+  version: 0.0.39
+  resolution: "react-resizable-panels@npm:0.0.39"
+  peerDependencies:
+    react: ^16.14.0 || ^17.0.0 || ^18.0.0
+    react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
+  checksum: 87d985d6bc86edb88f292d5335c855b08bc010c0780054bfde95e3ea5b59df885f015248b42e8d760197937895ad18d9ded71d9ac6ba0eab96a21b84b56762ea
   languageName: node
   linkType: hard
 

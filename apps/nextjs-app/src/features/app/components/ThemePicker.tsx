@@ -4,7 +4,7 @@ export const ThemePicker: React.FC = () => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   return (
     <select
-      className="select select-bordered select-xs max-w-xs py-0"
+      className="select select-bordered select-xs py-0"
       onChange={(e) => {
         console.log('select change: ', e.target.value);
         setTheme(e.target.value === '' ? null : (e.target.value as ThemeKey));
