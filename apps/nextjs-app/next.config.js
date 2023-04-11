@@ -22,7 +22,7 @@ const trueEnv = ['true', '1', 'yes'];
 
 const isProd = process.env.NODE_ENV === 'production';
 const isCI = trueEnv.includes(process.env?.CI ?? 'false');
-const enableCSP = true;
+const enableCSP = false;
 
 const NEXTJS_IGNORE_ESLINT = trueEnv.includes(process.env?.NEXTJS_IGNORE_ESLINT ?? 'false');
 const NEXTJS_IGNORE_TYPECHECK = trueEnv.includes(process.env?.NEXTJS_IGNORE_TYPECHECK ?? 'false');

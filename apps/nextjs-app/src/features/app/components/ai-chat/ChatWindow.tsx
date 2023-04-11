@@ -88,7 +88,7 @@ export const ChatWindow = () => {
     console.log('sendMessageToCurrentChat:messageList:', messageList);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const promptGenerator = getPromptGeneratorOfAssistant(getAssistantById(chat.assistantId)!);
-    prompt = promptGenerator(chat.promptContext);
+    prompt = promptGenerator(messageList[messageList.length - 1].content, chat.promptContext);
     console.log('sendMessageToCurrentChat:prompt:', prompt);
     const formatedMessageList = [];
     for (let i = messageList.length - 1; i >= 0; i--) {
@@ -143,7 +143,9 @@ export const ChatWindow = () => {
         {messageList.length === 0 ? (
           <p>Empty</p>
         ) : (
-          messageList.map((message) => <MessageView key={message.id} message={message} />)
+          messageList.map((message) => (
+            <MessageView chat={chat} key={message.id} message={message} />
+          ))
         )}
         {isLoading && <p>...</p>}
       </div>

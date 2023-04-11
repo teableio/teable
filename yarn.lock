@@ -6320,6 +6320,7 @@ __metadata:
     electron-is-dev: "npm:^1.1.0"
     electron-log: "npm:4.4.8"
     es-check: "npm:7.0.1"
+    esbuild-wasm: "npm:0.17.16"
     eslint: "npm:8.26.0"
     eslint-config-next: "npm:13.0.0"
     eventsource-parser: "npm:1.0.0"
@@ -13125,6 +13126,15 @@ __metadata:
   version: 0.15.10
   resolution: "esbuild-sunos-64@npm:0.15.10"
   conditions: os=sunos & cpu=x64
+  languageName: node
+  linkType: hard
+
+"esbuild-wasm@npm:0.17.16":
+  version: 0.17.16
+  resolution: "esbuild-wasm@npm:0.17.16"
+  bin:
+    esbuild: bin/esbuild
+  checksum: 3430ebb27cec2bfb5e6b806b0a9a880bd7c8bed0f9bce4c466295ec7afc35ca3e281d301642436c4780c810420449ee3dc868277778a899a08faf17bc5032056
   languageName: node
   linkType: hard
 
