@@ -21,6 +21,7 @@ export interface IMessage {
   createdAt: number;
   content: string;
   status: MessageStatus;
+  code?: string;
 }
 
 interface IMessageState {

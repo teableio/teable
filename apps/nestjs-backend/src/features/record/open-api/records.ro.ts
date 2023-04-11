@@ -75,7 +75,7 @@ export class RecordsRo {
 
   @ApiPropertyOptional({
     enum: FieldKeyType,
-    description: 'Set the key of record.fields[key], default is `id`',
+    description: 'Set the key of record.fields[key], default is "id"',
     default: FieldKeyType.Id,
   })
   @IsEnum(FieldKeyType, { message: 'Error fieldKey, You should set it to "name" or "id"' })
