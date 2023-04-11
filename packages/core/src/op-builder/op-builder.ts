@@ -52,7 +52,7 @@ export class OpBuilder {
     return ops.map((op) => {
       const result = this.detect(op);
       if (!result) {
-        throw new Error(`can't detect op: ${op}`);
+        throw new Error(`can't detect op: ${JSON.stringify(op)}`);
       }
       return result;
     });

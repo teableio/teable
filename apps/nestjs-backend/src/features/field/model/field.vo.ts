@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IFieldVo } from '@teable-group/core';
-import { CellValueType, FieldType, DbFieldType } from '@teable-group/core';
+import { CellValueType, FieldType, DbFieldType, IColumnMeta } from '@teable-group/core';
 import { CreateFieldRo } from './create-field.ro';
 
 export class FieldVo extends CreateFieldRo implements IFieldVo {
@@ -32,7 +32,13 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
 
   @ApiProperty({
     description: `The real field type in database.`,
-    example: false,
+    enum: DbFieldType,
   })
   dbFieldType!: DbFieldType;
+
+  @ApiProperty({
+    description: `The field meta include width, statistics, hidden, order property for every view.`,
+    example: false,
+  })
+  columnMeta!: IColumnMeta;
 }

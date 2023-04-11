@@ -1,9 +1,12 @@
+import type { IFieldSnapshot, IFieldVo } from '@teable-group/core';
+import { IdPrefix } from '@teable-group/core';
+import type { FC, ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import type { IFieldInstance } from '../../model';
+import { createFieldInstance } from '../../model';
 import { AppContext } from '../app/AppContext';
-import { IdPrefix, IFieldSnapshot, IFieldVo } from '@teable-group/core';
-import { FC, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { FieldContext } from './FieldContext';
-import { createFieldInstance, IFieldInstance } from '../../model';
 import { TableContext } from '../table/TableContext';
+import { FieldContext } from './FieldContext';
 
 interface IFieldProviderProps {
   fallback: React.ReactNode;
@@ -52,13 +55,13 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
     };
   }, [connection, tableId]);
 
+  const value = useMemo(() => {
+    return { fields, setFields };
+  }, [fields]);
+
   if (fallback && !fields.length) {
     return <>{fallback}</>;
   }
-
-  const value = useMemo(() => {
-    return { fields };
-  }, [fields]);
 
   return <FieldContext.Provider value={value}>{children}</FieldContext.Provider>;
 };

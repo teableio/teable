@@ -4,5 +4,4 @@ export type IColumnMeta = { [viewId: string]: Column };
 
 export interface IFieldSnapshot {
   field: IFieldVo;
-  columnMeta: IColumnMeta;
 }
