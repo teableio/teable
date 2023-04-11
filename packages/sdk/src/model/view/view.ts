@@ -18,7 +18,5 @@ export class ViewExtended {
 }
 
 export abstract class View extends ViewCore {
-  async updateName(_name: string) {
-    return;
-  }
+  abstract updateName(_name: string): Promise<void>;
 }
