@@ -2,18 +2,13 @@ import DataEditor from '@glideapps/glide-data-grid';
 import type { DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
-import {
-  useConnection,
-  useFields,
-  useRowCount,
-  useSSRRecords,
-  useTableId,
-} from '@teable-group/sdk';
+import { useConnection, useRowCount, useSSRRecords, useTableId } from '@teable-group/sdk';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
 import { useAsyncData } from './useAsyncData';
+import { useColumnResize } from './useColumnResize';
 import { useColumns } from './useColumns';
 import { useGridTheme } from './useGridTheme';
 
@@ -22,10 +17,10 @@ export const GridView: React.FC = () => {
   const { connection } = useConnection();
   const tableId = useTableId() as string;
   const rowCount = useRowCount();
-  const fields = useFields();
   const ssrRecords = useSSRRecords();
-  const { columns, cellValue2GridDisplay } = useColumns(fields);
+  const { columns, setColumns, cellValue2GridDisplay } = useColumns();
   const theme = useGridTheme();
+  const onColumnResize = useColumnResize(columns, setColumns);
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection, reset } =
     useAsyncData<Doc<IRecordSnapshot>>(
@@ -139,6 +134,7 @@ export const GridView: React.FC = () => {
         getCellContent={getCellContent}
         onVisibleRegionChanged={onVisibleRegionChanged}
         onCellEdited={onCellEdited}
+        onColumnResize={onColumnResize}
         getCellsForSelection={getCellsForSelection}
         width={'100%'}
         columns={columns}
