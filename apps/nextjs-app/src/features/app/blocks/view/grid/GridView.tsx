@@ -14,7 +14,7 @@ import { useGridTheme } from './useGridTheme';
 
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
-  const { connection } = useConnection();
+  const { connected, connection } = useConnection();
   const tableId = useTableId() as string;
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
@@ -126,21 +126,35 @@ export const GridView: React.FC = () => {
 
   return (
     <div className="grow w-full overflow-y-auto">
-      <DataEditor
-        ref={ref}
-        theme={theme}
-        smoothScrollX
-        smoothScrollY
-        getCellContent={getCellContent}
-        onVisibleRegionChanged={onVisibleRegionChanged}
-        onCellEdited={onCellEdited}
-        onColumnResize={onColumnResize}
-        getCellsForSelection={getCellsForSelection}
-        width={'100%'}
-        columns={columns}
-        rows={rowCount}
-        rowMarkers="both"
-      />
+      {connected ? (
+        <DataEditor
+          ref={ref}
+          theme={theme}
+          smoothScrollX
+          smoothScrollY
+          getCellContent={getCellContent}
+          onVisibleRegionChanged={onVisibleRegionChanged}
+          onCellEdited={onCellEdited}
+          onColumnResize={onColumnResize}
+          getCellsForSelection={getCellsForSelection}
+          width={'100%'}
+          columns={columns}
+          rows={rowCount}
+          rowMarkers="both"
+        />
+      ) : (
+        <DataEditor
+          ref={ref}
+          theme={theme}
+          smoothScrollX
+          smoothScrollY
+          getCellContent={getCellContent}
+          width={'100%'}
+          columns={columns}
+          rows={rowCount}
+          rowMarkers="both"
+        />
+      )}
     </div>
   );
 };
