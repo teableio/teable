@@ -26,6 +26,115 @@ paths:
           description: Forbidden.
       tags:
         - table
+  /api/table/{tableId}/record:
+    get:
+      operationId: RecordOpenApiController_getRecords
+      parameters:
+        - name: tableId
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: take
+          required: false
+          in: query
+          example: 100
+          description: The record count you want to take
+          schema:
+            minimum: 1
+            maximum: 10000
+            default: 100
+            type: number
+        - name: skip
+          required: false
+          in: query
+          example: 0
+          description: The records count you want to skip
+          schema:
+            minimum: 0
+            default: 0
+            type: number
+        - name: recordIds
+          required: false
+          in: query
+          example: recXXXXXXX
+          description: Specify the records you want to fetch
+          schema:
+            type: array
+            items:
+              type: string
+        - name: viewId
+          required: false
+          in: query
+          example: viwXXXXXXX
+          description: Set the view you want to fetch, default is first view. result will influent by view options.
+          schema:
+            type: string
+        - name: projection
+          required: false
+          in: query
+          description: Project the fields you want to fetch, default is all fields in view.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: cellFormat
+          required: false
+          in: query
+          description: value formate, you can set it to text if you only need simple string value
+          schema:
+            default: json
+            enum:
+              - json
+              - text
+            type: string
+        - name: fieldKey
+          required: false
+          in: query
+          description: Set the key of record.fields[key], default is 'id'
+          schema:
+            default: id
+            enum:
+              - id
+              - name
+            type: string
+      responses:
+        '200':
+          description: list of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordsVo'
+      tags:
+        - record
+      security:
+        - bearer: []
+    post:
+      operationId: RecordOpenApiController_createRecords
+      summary: Create records
+      parameters:
+        - name: tableId
+          required: true
+          in: path
+          description: The id for table.
+          example: tbla63d4543eb5eded6
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordsDto'
+      responses:
+        '201':
+          description: The record has been successfully created.
+        '403':
+          description: Forbidden.
+      tags:
+        - record
+      security:
+        - bearer: []
 components:
   schemas:
     SingleSelectOption:
@@ -312,4 +421,22 @@ components:
             - $ref: '#/components/schemas/CreateRecordsDto'
       required:
         - name
+    RecordsVo:
+      type: object
+      properties:
+        records:
+          description: Array of objects with a fields key mapping fieldId or field name to value for that field.
+          example:
+            - id: recXXXXXXX
+              fields:
+                fldXXXXXXXXXXXXXXX: text value
+          type: array
+          items:
+            type: string
+        total:
+          type: number
+          description: Total number of records in this query.
+      required:
+        - records
+        - total
 `;

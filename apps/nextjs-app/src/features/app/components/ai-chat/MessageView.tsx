@@ -6,16 +6,21 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { IMessage } from 'store/message';
 import { useUserStore } from 'store/user';
+import { RenderBox } from '../render-box/RenderBox';
 import { CodeBlock } from './CodeBlock';
+import type { IChat } from './type';
 dayjs.extend(localizedFormat);
 
 interface Props {
+  chat: IChat;
   message: IMessage;
 }
 
-export const MessageView: React.FC<Props> = ({ message }) => {
+export const MessageView: React.FC<Props> = ({ message, chat }) => {
   const userStore = useUserStore();
   const isCurrentUser = message.creatorId === userStore.currentUser.id;
+  const isOfficial = message.creatorId === 'teable';
+
   return (
     <div
       className={`group w-full max-w-full flex flex-row justify-start items-start my-4 ${
@@ -33,33 +38,38 @@ export const MessageView: React.FC<Props> = ({ message }) => {
         </>
       ) : (
         <>
-          <div className="w-auto max-w-[calc(100%-1rem)] flex flex-col justify-start items-start">
-            <ReactMarkdown
-              className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-slate text-sm"
-              remarkPlugins={[remarkGfm]}
-              components={{
-                pre({ node, className, children, ...props }) {
-                  const child = children[0] as ReactElement;
-                  const match = /language-(\w+)/.exec(child.props.className || '');
-                  const language = match ? match[1] : 'text';
-                  return (
-                    <pre className={`${className || ''} w-full p-0 my-1`} {...props}>
-                      <CodeBlock
-                        key={Math.random()}
-                        language={language || 'text'}
-                        value={String(child.props.children).replace(/\n$/, '')}
-                        {...props}
-                      />
-                    </pre>
-                  );
-                },
-                code({ children }) {
-                  return <code className="px-0">`{children}`</code>;
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+          <div className="w-full flex flex-col justify-start items-start">
+            {isOfficial && message.code ? (
+              <RenderBox code={message.code} />
+            ) : (
+              <ReactMarkdown
+                className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-slate text-sm"
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  pre({ node, className, children, ...props }) {
+                    const child = children[0] as ReactElement;
+                    const match = /language-(\w+)/.exec(child.props.className || '');
+                    const language = match ? match[1] : 'text';
+                    return (
+                      <pre className={`${className || ''} w-full p-0 my-1`} {...props}>
+                        <CodeBlock
+                          chat={chat}
+                          key={Math.random()}
+                          language={language || 'text'}
+                          value={String(child.props.children).replace(/\n$/, '')}
+                          {...props}
+                        />
+                      </pre>
+                    );
+                  },
+                  code({ children }) {
+                    return <code className="px-0">`{children}`</code>;
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            )}
             <span className="self-end text-xs pt-1 pr-1">
               {dayjs(message.createdAt).format('lll')}
             </span>
