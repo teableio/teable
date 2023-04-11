@@ -30,7 +30,6 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@nem035/gpt-3-encoder": "1.1.7",
     "class-transformer": "0.5.1",
     "lodash": "4.17.21",
     "reflect-metadata": "0.1.13"

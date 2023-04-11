@@ -1,6 +1,11 @@
+import { encode } from '@nem035/gpt-3-encoder';
 import { createParser } from 'eventsource-parser';
 import { useState } from 'react';
 import type { CreatorRole } from 'store/message';
+
+export const countTextTokens = (text: string) => {
+  return encode(text).length;
+};
 
 export const useGPTRequest = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
