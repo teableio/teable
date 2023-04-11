@@ -287,7 +287,13 @@ export class RecordService implements AdapterService {
       limit: query.take,
     });
 
-    const recordSnapshot = await this.getRecordSnapshotBulk(this.prismaService, tableId, ids);
+    const recordSnapshot = await this.getRecordSnapshotBulk(
+      this.prismaService,
+      tableId,
+      ids,
+      undefined,
+      query.fieldKey
+    );
 
     const total = await this.getRowCount(this.prismaService, tableId, viewId);
 
