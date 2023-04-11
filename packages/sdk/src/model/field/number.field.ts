@@ -5,9 +5,14 @@ import type { Field } from './field';
 import { FieldExtended } from './field';
 
 export class NumberField extends NumberFieldCore implements Field {
-  protected doc!: Doc<IFieldSnapshot>;
+  doc!: Doc<IFieldSnapshot>;
 
   async updateName(name: string) {
     return FieldExtended.updateName(this.doc, name, this.name);
+  }
+
+  async updateColumnWidth(viewId: string, width: number): Promise<void> {
+    const oldWidth = this.columnMeta[viewId].width;
+    return FieldExtended.updateColumnWidth(this.doc, viewId, width, oldWidth);
   }
 }

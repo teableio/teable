@@ -1,20 +1,29 @@
 import type { GridCell, GridColumn, Theme } from '@glideapps/glide-data-grid';
 import { GridCellKind, GridColumnIcon } from '@glideapps/glide-data-grid';
 import { ColorUtils, FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
-import { useCallback, useMemo } from 'react';
+import { useFields, useViewId } from '@teable-group/sdk/hooks';
+import { useCallback, useEffect, useState } from 'react';
 
-export function useColumns(fields: IFieldInstance[]) {
-  const columns: (GridColumn & {
+export function useColumns() {
+  const viewId = useViewId();
+  const { fields } = useFields();
+
+  const generateColumns = useCallback((): (GridColumn & {
     id: string;
-  })[] = useMemo(() => {
+  })[] => {
+    if (!viewId) {
+      return [];
+    }
+
     return fields.map((field) => {
+      const columnMeta = field.columnMeta[viewId];
+      const width = columnMeta.width || 200;
       switch (field.type) {
         case FieldType.SingleLineText:
           return {
             id: field.id,
             title: field.name,
-            width: 200,
+            width,
             icon: GridColumnIcon.HeaderString,
             kind: GridCellKind.Text,
           };
@@ -22,7 +31,7 @@ export function useColumns(fields: IFieldInstance[]) {
           return {
             id: field.id,
             title: field.name,
-            width: 100,
+            width,
             icon: GridColumnIcon.HeaderArray,
             kind: GridCellKind.Bubble,
           };
@@ -30,13 +39,19 @@ export function useColumns(fields: IFieldInstance[]) {
           return {
             id: field.id,
             title: field.name,
-            width: 100,
+            width,
             icon: GridColumnIcon.HeaderNumber,
             kind: GridCellKind.Number,
           };
       }
     });
-  }, [fields]);
+  }, [fields, viewId]);
+
+  const [columns, setColumns] = useState(generateColumns);
+
+  useEffect(() => {
+    setColumns(generateColumns());
+  }, [generateColumns]);
 
   const cellValue2GridDisplay = useCallback(
     (cellValue: unknown, col: number): GridCell => {
@@ -80,5 +95,6 @@ export function useColumns(fields: IFieldInstance[]) {
     },
     [fields]
   );
-  return { columns, cellValue2GridDisplay };
+
+  return { columns, setColumns, cellValue2GridDisplay };
 }

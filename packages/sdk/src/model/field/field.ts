@@ -15,8 +15,29 @@ export class FieldExtended {
       });
     });
   }
+
+  static updateColumnWidth(
+    doc: Doc<IFieldSnapshot>,
+    viewId: string,
+    newWidth: number,
+    oldWidth?: number
+  ) {
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'width',
+      oldMetaValue: oldWidth,
+      newMetaValue: newWidth,
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      doc.submitOp([fieldOperation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
 }
 
 export abstract class Field extends FieldCore {
   abstract updateName(name: string): Promise<void>;
+  abstract updateColumnWidth(viewId: string, width: number): Promise<void>;
 }
