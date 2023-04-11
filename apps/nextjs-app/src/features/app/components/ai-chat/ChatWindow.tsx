@@ -1,4 +1,4 @@
-import { countTextTokens, getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable-group/core';
 import { first, last } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
@@ -6,10 +6,10 @@ import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
-import { CREATE_TABLE_PROMPT } from './prompt/createTablePrompt';
+import { CREATE_TABLE_PROMPT } from './prompt/createTableByTextPrompt';
 import { getPromptGeneratorOfAssistant } from './prompt/getPromptGenerator';
 import type { IChat } from './type';
-import { useGPTRequest } from './useGPTRequest';
+import { countTextTokens, useGPTRequest } from './useGPTRequest';
 
 // The maximum number of tokens that can be sent to the OpenAI API.
 // reference: https://platform.openai.com/docs/api-reference/completions/create#completions/create-max_tokens

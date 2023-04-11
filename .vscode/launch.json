@@ -19,6 +19,20 @@
       "internalConsoleOptions": "neverOpen"
     },
     {
+      "name": "Jest next app",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/nextjs-app",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "../../node_modules/.bin/jest",
+        "${relativeFile}",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
       "name": "Debug nest backend",
       "type": "node",
       "request": "launch",
