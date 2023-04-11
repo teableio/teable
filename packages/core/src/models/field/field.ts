@@ -1,5 +1,6 @@
 import type { StatisticsFunc } from '../view';
 import type { DbFieldType, FieldType } from './constant';
+import type { IColumnMeta } from './interface';
 export interface IFieldRo {
   name: string;
   type: FieldType;
@@ -17,6 +18,7 @@ export interface IFieldVo extends IFieldRo {
   calculatedType: unknown;
   cellValueType: CellValueType;
   dbFieldType: DbFieldType;
+  columnMeta: IColumnMeta;
 }
 
 export class Column {
@@ -46,6 +48,8 @@ export abstract class FieldCore implements IFieldVo {
   unique?: boolean;
 
   isPrimary?: boolean;
+
+  columnMeta!: IColumnMeta;
 
   abstract type: FieldType;
 

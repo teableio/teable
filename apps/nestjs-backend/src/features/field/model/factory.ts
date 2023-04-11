@@ -95,6 +95,7 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     calculatedType: fieldRaw.calculatedType as FieldType,
     cellValueType: fieldRaw.cellValueType as CellValueType,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
+    columnMeta: JSON.parse(fieldRaw.columnMeta as string),
   };
 
   switch (field.type) {

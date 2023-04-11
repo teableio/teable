@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  CellValueType,
+  DbFieldType,
+  FieldType,
   IAddColumnMetaOpContext,
   IColumnMeta,
   IFieldSnapshot,
@@ -9,7 +12,7 @@ import type {
   ISnapshotBase,
 } from '@teable-group/core';
 import { OpName, nullsToUndefined } from '@teable-group/core';
-import type { Field, Prisma } from '@teable-group/db-main-prisma';
+import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import { sortBy } from 'lodash';
@@ -134,7 +137,7 @@ export class FieldService implements AdapterService {
     tableId: string,
     fieldInstances: IFieldInstance[]
   ) {
-    const multiFieldData: Field[] = [];
+    const multiFieldData: RawField[] = [];
     const dbFieldNames = await this.multipleGenerateValidDbFieldName(
       prisma,
       tableId,
@@ -212,12 +215,25 @@ export class FieldService implements AdapterService {
     });
   }
 
+  private rawField2FieldObj(field: RawField): FieldVo {
+    return nullsToUndefined({
+      ...field,
+      type: field.type as FieldType,
+      calculatedType: field.calculatedType as FieldType,
+      cellValueType: field.cellValueType as CellValueType,
+      dbFieldType: field.dbFieldType as DbFieldType,
+      options: JSON.parse(field.options as string),
+      defaultValue: JSON.parse(field.defaultValue as string),
+      columnMeta: JSON.parse(field.columnMeta),
+    });
+  }
+
   async getField(tableId: string, fieldId: string): Promise<FieldVo> {
     const field = await this.prismaService.field.findUniqueOrThrow({
       where: { id: fieldId },
     });
 
-    return nullsToUndefined(field) as FieldVo;
+    return this.rawField2FieldObj(field);
   }
 
   async getFields(tableId: string, query: GetFieldsRo): Promise<FieldVo[]> {
@@ -234,14 +250,7 @@ export class FieldService implements AdapterService {
       where: { tableId },
     });
 
-    const fields = fieldsPlain.map((field) => {
-      return {
-        ...field,
-        options: JSON.parse(field.options as string),
-        defaultValue: JSON.parse(field.defaultValue as string),
-        columnMeta: JSON.parse(field.columnMeta),
-      };
-    });
+    const fields = fieldsPlain.map(this.rawField2FieldObj);
 
     const sortedFields = sortBy(fields, (field) => {
       return field.columnMeta[viewId as string].order;
@@ -354,7 +363,6 @@ export class FieldService implements AdapterService {
           type: 'json0',
           data: {
             field: instanceToPlain(fieldInstances[i]) as FieldVo,
-            columnMeta: JSON.parse(field.columnMeta),
           },
         };
       })

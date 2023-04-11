@@ -7,8 +7,7 @@ export class AddFieldBuilder implements ICreateOpBuilder {
 
   build(field: IFieldVo): IFieldSnapshot {
     return {
-      field: field,
-      columnMeta: {},
+      field,
     };
   }
 }

@@ -24,7 +24,7 @@ export class SetColumnMetaBuilder implements IOpBuilder {
     const { viewId, metaKey, newMetaValue, oldMetaValue } = params;
 
     return {
-      p: ['columnMeta', viewId, metaKey],
+      p: ['field', 'columnMeta', viewId, metaKey],
       oi: newMetaValue,
       ...(oldMetaValue ? { od: oldMetaValue } : {}),
     };
@@ -34,6 +34,7 @@ export class SetColumnMetaBuilder implements IOpBuilder {
     const { p, oi, od } = op;
 
     const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, [
+      'field',
       'columnMeta',
       ':viewId',
       ':metaKey',

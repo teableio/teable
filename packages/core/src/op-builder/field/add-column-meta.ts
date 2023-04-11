@@ -22,7 +22,7 @@ export class AddColumnMetaBuilder implements IOpBuilder {
     const { viewId, newMetaValue, oldMetaValue } = params;
 
     return {
-      p: ['columnMeta', viewId],
+      p: ['field', 'columnMeta', viewId],
       oi: newMetaValue,
       ...(oldMetaValue ? { od: oldMetaValue } : {}),
     };
@@ -35,7 +35,11 @@ export class AddColumnMetaBuilder implements IOpBuilder {
       return null;
     }
 
-    const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, ['columnMeta', ':viewId']);
+    const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, [
+      'field',
+      'columnMeta',
+      ':viewId',
+    ]);
 
     if (!result) {
       return null;
