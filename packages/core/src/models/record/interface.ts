@@ -18,10 +18,23 @@ export interface IRecordSnapshot {
   recordOrder: { [viewId: string]: number };
 }
 
-export class ICreateRecordsDto {
+export interface ICreateRecordsRo {
   fieldKeyType?: FieldKeyType;
 
-  records!: {
+  records: {
     fields: { [fieldIdOrName: string]: unknown };
   }[];
+}
+
+export interface IUpdateRecordRo {
+  fieldKeyType?: FieldKeyType;
+
+  record: {
+    fields: { [fieldIdOrName: string]: unknown };
+  };
+}
+
+export interface IUpdateRecordByIndexRo extends IUpdateRecordRo {
+  viewId: string;
+  index: number;
 }

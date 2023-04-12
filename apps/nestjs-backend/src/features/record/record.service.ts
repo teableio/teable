@@ -15,7 +15,7 @@ import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name'
 import { PrismaService } from '../../prisma.service';
 import type { AdapterService } from '../../share-db/adapter-service.abstract';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import type { CreateRecordsDto } from './create-records.dto';
+import type { CreateRecordsRo } from './create-records.ro';
 import type { RecordsVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
 
@@ -59,7 +59,7 @@ export class RecordService implements AdapterService {
   private async getUserFields(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsDto: CreateRecordsDto
+    createRecordsDto: CreateRecordsRo
   ) {
     const fieldIdSet = createRecordsDto.records.reduce<Set<string>>((acc, record) => {
       const fieldIds = Object.keys(record.fields);
@@ -103,7 +103,7 @@ export class RecordService implements AdapterService {
     dbTableName: string,
     userFields: IUserFields,
     rowIndexFieldNames: string[],
-    createRecordsDto: CreateRecordsDto
+    createRecordsDto: CreateRecordsRo
   ) {
     const rowCount = await this.getAllRecordCount(prisma, dbTableName);
     const dbValueMatrix: unknown[][] = [];
@@ -132,7 +132,7 @@ export class RecordService implements AdapterService {
   async multipleCreateRecordTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsDto: CreateRecordsDto
+    createRecordsDto: CreateRecordsRo
   ) {
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: {
@@ -182,7 +182,7 @@ export class RecordService implements AdapterService {
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsDto) {
+  async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsRo) {
     return await this.prismaService.$transaction(async (prisma) => {
       return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsDto);
     });
@@ -301,6 +301,27 @@ export class RecordService implements AdapterService {
       records: recordSnapshot.map((r) => r.data.record),
       total,
     };
+  }
+
+  async getRecordIdByIndex(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    viewId: string,
+    index: number
+  ) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const sqlNative = this.queryBuilder(dbTableName)
+      .select('__id')
+      .orderBy(getViewOrderFieldName(viewId), 'asc')
+      .offset(index)
+      .limit(1)
+      .toSQL()
+      .toNative();
+    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
+    return result[0].__id;
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecordSnapshot) {
@@ -452,8 +473,8 @@ export class RecordService implements AdapterService {
             record: {
               fields: fieldsData,
               id: record.__id,
-              createdTime: record.__created_time?.getDate(),
-              lastModifiedTime: record.__last_modified_time?.getDate(),
+              createdTime: record.__created_time?.getTime(),
+              lastModifiedTime: record.__last_modified_time?.getTime(),
               createdBy: record.__created_by,
               lastModifiedBy: record.__last_modified_by,
             },

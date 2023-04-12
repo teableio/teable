@@ -8,6 +8,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import type { ApiResponse } from 'src/utils/api-response';
 import { responseWrap } from 'src/utils/api-response';
 import { CreateViewRo } from '../model/create-view.ro';
 import { IViewInstance } from '../model/factory';
@@ -31,8 +32,12 @@ export class ViewOpenApiController {
     description: 'View',
     type: ViewVo,
   })
-  getView(@Param('tableId') _tableId: string, @Param('viewId') viewId: string): Promise<ViewVo> {
-    return this.viewService.getViewById(viewId);
+  async getView(
+    @Param('tableId') _tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<ApiResponse<ViewVo>> {
+    const result = await this.viewService.getViewById(viewId);
+    return responseWrap(result);
   }
 
   @Get()
@@ -43,8 +48,9 @@ export class ViewOpenApiController {
     isArray: true,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
-  getViews(@Param('tableId') tableId: string): Promise<ViewVo[]> {
-    return this.viewService.getViews(tableId);
+  async getViews(@Param('tableId') tableId: string): Promise<ApiResponse<ViewVo[]>> {
+    const results = await this.viewService.getViews(tableId);
+    return responseWrap(results);
   }
 
   @ApiOperation({ summary: 'Create view' })

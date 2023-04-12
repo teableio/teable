@@ -1,19 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { ICreateRecordsDto } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
-
-export class CreateRecordsDto implements ICreateRecordsDto {
-  @ApiPropertyOptional({
-    description: 'Define the field key type when create and return records',
-    example: 'name',
-    default: 'name',
-    enum: FieldKeyType,
-  })
-  fieldKeyType?: FieldKeyType;
-
-  @ApiProperty({
-    description: `
-Array of objects with a fields key mapping fieldId or field name to value for that field.
+export const RECORD_DEFINE = `
 singleLineText, type: string, example: "bieber"
 longText, type: string, example: "line1\nline2"
 singleLineText, type: string, example: "bieber"
@@ -41,16 +26,4 @@ createdBy, type: string, example: "bieber"
 lastModifiedBy, type: string, example: "bieber"
 autoNumber, type: number, example: 1
 button, type: string, example: "click"
-`,
-    example: [
-      {
-        fields: {
-          name: 'Bieber',
-        },
-      },
-    ],
-  })
-  records!: {
-    fields: { [fieldIdOrName: string]: unknown };
-  }[];
-}
+`;

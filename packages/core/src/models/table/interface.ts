@@ -1,5 +1,5 @@
 import type { IFieldRo, IFieldVo } from '../field';
-import type { ICreateRecordsDto, IRecord } from '../record';
+import type { ICreateRecordsRo, IRecord } from '../record';
 import type { IViewRo, IViewVo } from '../view';
 
 export interface ICreateTableRo {
@@ -8,7 +8,7 @@ export interface ICreateTableRo {
   icon?: string;
   fields?: IFieldRo[];
   views?: IViewRo[];
-  rows?: ICreateRecordsDto;
+  rows?: ICreateRecordsRo;
 }
 
 export interface ITableVo extends ICreateTableRo {
