@@ -18,12 +18,10 @@ export const checkStatementIsSelect = (statement: string) => {
 };
 
 export const CodeBlock: React.FC<Props> = ({ language, value, chat }) => {
-  // Only show execute button in the following situations:
-  // * SQL code, and it is a SELECT statement;
-  // * Connection setup;
   const toast = useToast();
   const messageStore = useMessageStore();
-  const showExecuteButton = language.toUpperCase() === 'JAVASCRIPT';
+  const showExecuteButton = language.toUpperCase() === 'AI';
+
   const copyToClipboard = () => {
     console.log('copy!');
     if (!navigator.clipboard || !navigator.clipboard.writeText) {

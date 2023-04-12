@@ -1,6 +1,9 @@
 import type {
   IRecordFields,
   IRecordSnapshot,
+  IFieldRo,
+  IFieldVo,
+  IJsonApiSuccessResponse,
   ITableSnapshot,
   IViewSnapshot,
   IViewVo,
@@ -14,6 +17,7 @@ import {
   TableCore,
 } from '@teable-group/core';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
+import axios from 'axios';
 
 export class Table extends TableCore {
   protected doc!: Doc<ITableSnapshot>;
@@ -33,18 +37,18 @@ export class Table extends TableCore {
   }
 
   async createView(name: string, type: ViewType) {
-    const viewData: IViewVo = {
+    const data: IViewVo = {
       id: generateViewId(),
       name,
       type,
     };
 
-    const createSnapshot = OpBuilder.creator.addView.build(viewData);
-    const doc = this.connection.get(`${IdPrefix.View}_${this.id}`, viewData.id);
+    const createSnapshot = OpBuilder.creator.addView.build(data);
+    const doc = this.connection.get(`${IdPrefix.View}_${this.id}`, data.id);
     return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
-        console.log(`create view succeed!`, viewData);
+        console.log(`create view succeed!`, data);
         resolve(doc);
       });
     });
@@ -60,11 +64,42 @@ export class Table extends TableCore {
     };
     const createSnapshot = OpBuilder.creator.addRecord.build(recordSnapshot);
     const doc = this.connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
-    return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
+    return new Promise<Doc<IRecordSnapshot>>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
         resolve(doc);
       });
     });
   }
+
+  async createField(fieldRo: IFieldRo) {
+    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
+      `/api/table/${this.id}/field`,
+      fieldRo
+    );
+    return response.data.data;
+  }
+
+  // async updateRecord({
+  //   fieldId,
+  //   recordId,
+  //   value,
+  // }: {
+  //   fieldId: string;
+  //   recordId: string;
+  //   value: unknown;
+  // }) {
+  //   const operation = OpBuilder.editor.setRecord.build({
+  //     fieldId,
+  //     newCellValue,
+  //     oldCellValue,
+  //   });
+
+  //   rowData.submitOp([operation], { undoable: true }, (error) => {
+  //     if (error) {
+  //       console.error('row data submit error: ', error);
+  //     }
+  //   });
+  //   return rowData;
+  // }
 }
