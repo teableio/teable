@@ -41,7 +41,7 @@ describe('parseLine', () => {
       value: { type: 'LongText', value: '' },
     });
 
-    const input3 = 'create-field|3|singleSelect:light(yellow),dark(blueDark1)';
+    const input3 = 'create-field|3|singleSelect:choices(light:yellow, dark:blueDark1)';
     const parsed3 = new AISyntaxParser().parseLine(input3);
     expect(parsed3).toEqual({
       operation: 'create-field',
