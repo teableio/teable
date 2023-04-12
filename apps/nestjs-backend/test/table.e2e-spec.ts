@@ -102,19 +102,6 @@ const defaultData = {
           'End Date': '2022-08-31',
         },
       },
-      {
-        fields: {
-          'Project Name': 'Project C',
-          'Project Description': 'A project to expand into new markets',
-          'Project Status': {
-            name: 'Completed',
-            color: 'green',
-          },
-          'Project Manager': 'Bob Johnson',
-          'Start Date': '2022-03-01',
-          'End Date': '2022-12-31',
-        },
-      },
     ],
   },
 };
@@ -132,7 +119,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     console.log('clear table: ', result.body);
   });
 
-  it('/api/table/ (POST)', async () => {
+  it('/api/table/ (POST) with defualt data', async () => {
     const result = await request(app.getHttpServer())
       .post('/api/table')
       .send(defaultData)
@@ -140,6 +127,26 @@ describe('OpenAPI FieldController (e2e)', () => {
     expect(result.body).toMatchObject({
       success: true,
     });
-    tableId = result.body.id;
+
+    tableId = result.body.data.id;
+    const recordResult = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .expect(200);
+    expect(recordResult.body.data.records).toHaveLength(2);
+  });
+
+  it('/api/table/ (POST) empty', async () => {
+    const result = await request(app.getHttpServer())
+      .post('/api/table')
+      .send({ name: 'new table' })
+      .expect(201);
+    expect(result.body).toMatchObject({
+      success: true,
+    });
+    tableId = result.body.data.id;
+    const recordResult = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .expect(200);
+    expect(recordResult.body.data.records).toHaveLength(3);
   });
 });
