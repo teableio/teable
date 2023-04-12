@@ -4,6 +4,7 @@ import type { IColumnMeta } from './interface';
 export interface IFieldRo {
   name: string;
   type: FieldType;
+  icon?: string;
   description?: string;
   options?: unknown;
   notNull?: boolean;

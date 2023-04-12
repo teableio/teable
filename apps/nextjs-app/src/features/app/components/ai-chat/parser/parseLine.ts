@@ -18,26 +18,33 @@ export class AISyntaxParser {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parseValue(type: string, value?: string): any {
+  parseFieldOptions(type: string, options?: string): any {
     switch (type) {
       case FieldType.SingleSelect: {
-        if (!value) {
-          throw new Error('Missing value for singleSelect field');
+        if (!options) {
+          throw new Error('Missing options for singleSelect field');
         }
-        const choices = value.split(',').map((choice) => {
-          const [name, color] = choice.split('(');
-          return {
-            name,
-            color: color.slice(0, -1),
-          };
-        });
-        return { choices };
+        const match = options.match(/choices\((.+)\)/);
+        if (match) {
+          const choicesStr = match[1];
+          const choices = choicesStr.split(',').map((choice) => {
+            const [name, color] = choice
+              .trim()
+              .split(':')
+              .map((i) => i.trim());
+            return { name, color };
+          });
+          return { choices };
+        }
+        throw new Error(
+          "Invalid singleSelect field value, it should be 'choices(name1:color1,name2:color2)'"
+        );
       }
-      case 'number': {
-        if (!value) {
+      case FieldType.Number: {
+        if (!options) {
           throw new Error('Missing value for number field');
         }
-        const precisionMatch = value.match(/precision\((\d+)\)/);
+        const precisionMatch = options.match(/precision\((\d+)\)/);
         if (precisionMatch) {
           return { precision: parseInt(precisionMatch[1], 10) };
         } else {
@@ -45,7 +52,7 @@ export class AISyntaxParser {
         }
       }
       default:
-        return value;
+        return options;
     }
   }
 
@@ -63,25 +70,62 @@ export class AISyntaxParser {
       return null;
     }
 
-    if (operation !== 'create-field') {
-      return {
-        operation,
-        index,
-        value: valueStr,
-      };
+    switch (operation) {
+      case 'create-field': {
+        const [type] = valueStr.split(':');
+        const value = valueStr.slice(type.length + 1);
+        const options = this.parseFieldOptions(type, value);
+        return {
+          operation,
+          index,
+          value: {
+            type,
+            options,
+          },
+        };
+      }
+      case 'create-table': {
+        // create-table: Create a table
+        // index: table order
+        // value: {name}:{description}:{emojiIcon}
+        const [name, description, emojiIcon] = valueStr
+          .split(/(?<!\\):/)
+          .map((part) => part.replace(/\\:/g, ':'));
+        return {
+          operation,
+          index,
+          value: {
+            name,
+            description,
+            emojiIcon,
+          },
+        };
+      }
+
+      case 'set-record': {
+        // set-record: set a record value
+        // index: record order
+        // value: {fieldName}:{recordValue}
+        const [fieldName, recordValue] = valueStr
+          .split(/(?<!\\):/)
+          .map((part) => part.replace(/\\:/g, ':'));
+        return {
+          operation,
+          index,
+          value: {
+            fieldName,
+            recordValue,
+          },
+        };
+      }
+
+      default:
+        return {
+          operation,
+          index,
+          value: valueStr,
+        };
     }
-
-    const [type, value] = valueStr.split(':');
-    const parsedValue = this.parseValue(type, value || '');
-
-    return {
-      operation,
-      index,
-      value: {
-        type,
-        value: parsedValue,
-      },
-    };
   }
 
   async processMultilineSyntax(input: string, asyncCallback: IAsyncCallback): Promise<void> {

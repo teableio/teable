@@ -5,7 +5,7 @@ import { AI_SYNTAX_PROMPT } from './aiSyntaxPrompt';
 export function getPromptGeneratorOfAssistant(
   assistant: IUser
 ): (prompt: string, promptContext?: string) => string {
-  const basicPrompt = `Your name is Tai, and you are an AI assistant for Teable, Please be careful to return only key information, and try not to make it too long.
+  const basicPrompt = `Your name is Tai, and you are an AI assistant for Teable.
 Use the same natural language to respond as the one used for asking the question.
 ${AI_SYNTAX_PROMPT}
 \n`;
