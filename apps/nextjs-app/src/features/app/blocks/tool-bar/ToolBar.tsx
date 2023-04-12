@@ -1,4 +1,5 @@
-import { useUndoManager } from '@teable-group/sdk/hooks';
+import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
+import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
 import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
@@ -11,6 +12,7 @@ import { useCallback } from 'react';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
+  const table = useTable();
 
   const undo = useCallback(() => {
     const undo = undoManager?.undo();
@@ -21,6 +23,13 @@ export const ToolBar: React.FC = () => {
     return undoManager?.redo();
   }, [undoManager]);
 
+  const addRecord = useCallback(async () => {
+    if (!table) {
+      return;
+    }
+    await table.createRecord({});
+  }, [table]);
+
   return (
     <div className="flex px-4 py-2 bg-base-100 border-y border-base-300 space-x-2">
       <button className="btn btn-xs btn-ghost" onClick={undo}>
@@ -28,6 +37,10 @@ export const ToolBar: React.FC = () => {
       </button>
       <button className="btn btn-xs btn-ghost" onClick={redo}>
         <ForwardIcon className="text-lg pr-1" />
+      </button>
+      <button className="btn btn-xs btn-ghost font-normal" onClick={addRecord}>
+        <AddIcon className="text-lg pr-1" />
+        Insert record
       </button>
       <button className="btn btn-xs btn-ghost font-normal">
         <EyeCloseIcon className="text-lg pr-1" />
