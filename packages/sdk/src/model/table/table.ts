@@ -1,5 +1,18 @@
-import type { ITableSnapshot, IViewSnapshot, IViewVo, ViewType } from '@teable-group/core';
-import { generateViewId, IdPrefix, OpBuilder, TableCore } from '@teable-group/core';
+import type {
+  IRecordFields,
+  IRecordSnapshot,
+  ITableSnapshot,
+  IViewSnapshot,
+  IViewVo,
+  ViewType,
+} from '@teable-group/core';
+import {
+  generateRecordId,
+  generateViewId,
+  IdPrefix,
+  OpBuilder,
+  TableCore,
+} from '@teable-group/core';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
 
 export class Table extends TableCore {
@@ -32,6 +45,24 @@ export class Table extends TableCore {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
         console.log(`create view succeed!`, viewData);
+        resolve(doc);
+      });
+    });
+  }
+
+  async createRecord(recordFields: IRecordFields) {
+    const recordSnapshot: IRecordSnapshot = {
+      record: {
+        id: generateRecordId(),
+        fields: recordFields,
+      },
+      recordOrder: {},
+    };
+    const createSnapshot = OpBuilder.creator.addRecord.build(recordSnapshot);
+    const doc = this.connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
+    return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
+      doc.create(createSnapshot, (error) => {
+        if (error) return reject(error);
         resolve(doc);
       });
     });
