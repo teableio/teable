@@ -1,6 +1,6 @@
 import { Colors, FieldType, ViewType } from '@teable-group/core';
 import type { CreateFieldRo } from '../field/model/create-field.ro';
-import type { CreateRecordsDto } from '../record/create-records.dto';
+import type { CreateRecordsRo } from '../record/create-records.ro';
 import type { CreateViewRo } from '../view/model/create-view.ro';
 
 export const DEFAULT_FIELDS: CreateFieldRo[] = [
@@ -35,6 +35,6 @@ export const DEFAULT_VIEW: CreateViewRo = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_RECORDS: CreateRecordsDto = {
+export const DEFAULT_RECORDS: CreateRecordsRo = {
   records: [{ fields: {} }, { fields: {} }, { fields: {} }],
 };

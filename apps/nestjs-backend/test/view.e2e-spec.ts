@@ -21,17 +21,17 @@ describe('OpenAPI ViewController (e2e)', () => {
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',
     });
-    tableId = result.body.id;
+    tableId = result.body.data.id;
   });
 
   afterAll(async () => {
     const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
-    console.log('clear table: ', result.body);
+    console.log('clear table: ', result.body.data);
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {
     const viewsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/view`);
-    expect(viewsResult.body).toMatchObject(defaultViews);
+    expect(viewsResult.body.data).toMatchObject(defaultViews);
   });
 
   it('/api/table/{tableId}/view (POST)', async () => {
@@ -55,7 +55,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       })
       .expect(200);
 
-    expect(result.body).toMatchObject([
+    expect(result.body.data).toMatchObject([
       ...defaultViews,
       {
         name: 'New view',
