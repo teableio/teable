@@ -11,8 +11,21 @@ export interface ICreateTableRo {
   rows?: ICreateRecordsRo;
 }
 
-export interface ITableVo extends ICreateTableRo {
+export interface ITableApiVo {
   id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  fieldIds: string[];
+  viewIds: string[];
+  recordIds: string[];
+}
+
+export interface ITableVo {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
 }
 
 export interface ITableSnapshot {
