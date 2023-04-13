@@ -6351,6 +6351,7 @@ __metadata:
     postcss-preset-env: "npm:7.8.2"
     prettier: "npm:2.7.1"
     react: "npm:18.2.0"
+    react-confetti: "npm:6.1.0"
     react-dom: "npm:18.2.0"
     react-hook-form: "npm:7.38.0"
     react-i18next: "npm:11.18.6"
@@ -22852,6 +22853,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-confetti@npm:6.1.0":
+  version: 6.1.0
+  resolution: "react-confetti@npm:6.1.0"
+  dependencies:
+    tween-functions: "npm:^1.2.0"
+  peerDependencies:
+    react: ^16.3.0 || ^17.0.1 || ^18.0.0
+  checksum: dc675cdb23ae47be9835c9001360eac4dc8e36b3d41113220780f37185f77dd4448116b0e14e3266f76cb7d41d5da6372638503d351563425dea7f244bd3b480
+  languageName: node
+  linkType: hard
+
 "react-docgen-typescript@npm:^2.1.1":
   version: 2.2.2
   resolution: "react-docgen-typescript@npm:2.2.2"
@@ -26798,6 +26810,13 @@ __metadata:
   version: 0.0.6
   resolution: "tunnel@npm:0.0.6"
   checksum: 4b6009e1ed9c1857d58462867cd731f4af255c0406fc982dd0a17735c5c991293bc57a8c0957c5f51dfc3778baa280e399d3e05f1ca4aaf7442349c529b7c89d
+  languageName: node
+  linkType: hard
+
+"tween-functions@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "tween-functions@npm:1.2.0"
+  checksum: 4b2297d88f471d0bd41f9a78f80cbc32c8706e520a00176775f78dfdabc5bcefa78471db336f086d30f3768eb8013a25552e0a2e9435ad6c7e2e341c843a3f3e
   languageName: node
   linkType: hard
 
