@@ -228,6 +228,6 @@ export class TableService implements AdapterService {
       select: { id: true },
       orderBy: { order: 'asc' },
     });
-    return tables.map((table) => table.id);
+    return { ids: tables.map((table) => table.id) };
   }
 }

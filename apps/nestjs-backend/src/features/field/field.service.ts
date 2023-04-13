@@ -373,7 +373,7 @@ export class FieldService implements AdapterService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IFieldSnapshotQuery
-  ): Promise<string[]> {
+  ) {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await prisma.view.findFirstOrThrow({
@@ -395,8 +395,10 @@ export class FieldService implements AdapterService {
       };
     });
 
-    return sortBy(fields, (field) => {
-      return field.columnMeta[viewId as string].order;
-    }).map((field) => field.id);
+    return {
+      ids: sortBy(fields, (field) => {
+        return field.columnMeta[viewId as string].order;
+      }).map((field) => field.id),
+    };
   }
 }
