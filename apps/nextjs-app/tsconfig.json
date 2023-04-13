@@ -9,6 +9,7 @@
     "module": "esnext",
     "jsx": "preserve",
     "incremental": true,
+    "strict": true,
     "paths": {
       "@/test-utils": ["../config/tests/test-utils"],
       "@/config/*": ["./config/*"],

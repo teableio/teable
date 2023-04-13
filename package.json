@@ -75,7 +75,13 @@
     "i18next": "^22.0.0"
   },
   "dependencies": {
-    "cross-env": "7.0.3"
+    "@tanstack/react-query": "4.29.1",
+    "@trpc/client": "10.20.0",
+    "@trpc/next": "10.20.0",
+    "@trpc/react-query": "10.20.0",
+    "@trpc/server": "10.20.0",
+    "cross-env": "7.0.3",
+    "zod": "3.21.4"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.4.7",

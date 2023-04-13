@@ -5,6 +5,7 @@ import Head from 'next/head';
 import type { ReactElement, ReactNode } from 'react';
 import nextI18nextConfig from '../../next-i18next.config';
 import { AppProviders } from '../AppProviders';
+import { trpc } from '../lib/trpc';
 
 /**
  * Import global styles, global css or polyfills here
@@ -66,6 +67,8 @@ MyApp.getInitialProps = async appContext => {
 }
 */
 
-export default appWithTranslation(MyApp, {
-  ...nextI18nextConfig,
-});
+export default trpc.withTRPC(
+  appWithTranslation(MyApp, {
+    ...nextI18nextConfig,
+  })
+);
