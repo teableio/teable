@@ -6262,6 +6262,7 @@ __metadata:
     "@graphql-yoga/node": "npm:2.13.13"
     "@headlessui/react": "npm:1.7.3"
     "@hookform/resolvers": "npm:2.9.10"
+    "@nem035/gpt-3-encoder": "npm:1.1.7"
     "@next/bundle-analyzer": "npm:13.0.0"
     "@next/env": "npm:13.0.0"
     "@playwright/test": "npm:1.27.1"
@@ -6475,7 +6476,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/core@workspace:packages/core"
   dependencies:
-    "@nem035/gpt-3-encoder": "npm:1.1.7"
     "@size-limit/file": "npm:8.1.0"
     "@teable-group/eslint-config-bases": "workspace:^"
     "@types/jest": "npm:29.2.0"
