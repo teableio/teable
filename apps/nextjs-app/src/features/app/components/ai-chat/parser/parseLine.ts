@@ -1,6 +1,5 @@
 import { FieldType } from '@teable-group/core';
 
-/* eslint-disable sonarjs/no-small-switch */
 export type IParsedLine = {
   operation: string;
   index: number;
@@ -11,11 +10,11 @@ export type IParsedLine = {
 export type IAsyncCallback = (line: IParsedLine) => Promise<void>;
 
 export class AISyntaxParser {
-  private lastIndex: number;
+  private lastIndex = 0;
+  private processing = false;
+  private pendingInputs: string | undefined;
 
-  constructor() {
-    this.lastIndex = 0;
-  }
+  constructor(private readonly asyncCallback: IAsyncCallback) {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   parseFieldOptions(type: string, options?: string): any {
@@ -37,7 +36,7 @@ export class AISyntaxParser {
           return { choices };
         }
         throw new Error(
-          "Invalid singleSelect field value, it should be 'choices(name1:color1,name2:color2)'"
+          `Invalid singleSelect field value: ${options}, it should be 'choices(name1:color1,name2:color2)'`
         );
       }
       case FieldType.Number: {
@@ -57,8 +56,10 @@ export class AISyntaxParser {
   }
 
   parseLine(line: string): IParsedLine | null {
-    const tokens = line.split(/(?<!\\)\|/).map((part) => part.replace(/\\\|/g, '|'));
+    const trimmedLine = line.endsWith(';') ? line.slice(0, -1) : line;
+    const tokens = trimmedLine.split(/(?<!\\)\|/).map((part) => part.replace(/\\\|/g, '|'));
 
+    console.log(tokens);
     if (tokens.length !== 3) {
       return null;
     }
@@ -72,13 +73,14 @@ export class AISyntaxParser {
 
     switch (operation) {
       case 'create-field': {
-        const [type] = valueStr.split(':');
-        const value = valueStr.slice(type.length + 1);
+        const [name, type] = valueStr.split(':');
+        const value = valueStr.slice((name + type).length + 1);
         const options = this.parseFieldOptions(type, value);
         return {
           operation,
           index,
           value: {
+            name,
             type,
             options,
           },
@@ -128,17 +130,41 @@ export class AISyntaxParser {
     }
   }
 
-  async processMultilineSyntax(input: string, asyncCallback: IAsyncCallback): Promise<void> {
-    const newInput = input.slice(this.lastIndex);
-    const lines = newInput.split('\n');
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async processMultilineSyntax(input: string): Promise<void> {
+    if (this.processing) {
+      this.pendingInputs = input;
+    } else {
+      this.processing = true;
 
-    // 更新 lastIndex 以跳过已解析的部分
-    this.lastIndex = input.length - (lines.pop()?.length || 0);
+      const newInput = input.slice(this.lastIndex);
+      const lines = newInput.split(';');
 
-    for (const line of lines) {
-      const parsedLine = this.parseLine(line);
-      if (parsedLine) {
-        await asyncCallback(parsedLine);
+      const lastLine = lines.pop();
+
+      if (lines.length > 0) {
+        for (const line of lines) {
+          const parsedLine = this.parseLine(line.trim());
+          if (parsedLine) {
+            await this.asyncCallback(parsedLine);
+          }
+        }
+
+        if (lastLine) {
+          this.lastIndex = input.length - lastLine.length;
+        } else {
+          this.lastIndex = input.length;
+        }
+      }
+
+      this.processing = false;
+
+      if (this.pendingInputs) {
+        const pendingInput = this.pendingInputs;
+        this.pendingInputs = undefined;
+        if (pendingInput) {
+          await this.processMultilineSyntax(pendingInput);
+        }
       }
     }
   }
