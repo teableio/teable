@@ -203,6 +203,6 @@ export class ViewService implements AdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return views.map((v) => v.id);
+    return { ids: views.map((v) => v.id) };
   }
 }

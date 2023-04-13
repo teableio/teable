@@ -66,7 +66,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
     // console.log(`query: ${collection} ${JSON.stringify(query)}`);
-    this.queryPoll(collection, query, options, (error, results) => {
+    this.queryPoll(collection, query, options, (error, results, extra) => {
       // console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
@@ -84,7 +84,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
           callback(
             error,
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            results.map((id) => snapshots![id])
+            results.map((id) => snapshots![id]),
+            extra
           );
         }
       );
@@ -95,19 +96,20 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     query: unknown,
     _options: unknown,
-    callback: (error: ShareDb.Error | null, ids: string[]) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
     // console.log('queryPoll:', collection, query);
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const ids = await this.getService(docType as IdPrefix).getDocIdsByQuery(
+      const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
         this.prismaService,
         collectionId,
         query
       );
       // console.log('queryPollResult:', collection, ids);
-      callback(null, ids);
+      callback(null, queryResult.ids, queryResult.extra);
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(e as any, []);

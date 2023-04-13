@@ -149,7 +149,7 @@ export class RecordOpenApiService {
     const recordIds = updateRecordByIdsRo.map((updateRecordByIdRo) => updateRecordByIdRo.recordId);
 
     // get old record value from db
-    const snapshots = await this.recordService.getRecordSnapshotBulk(
+    const snapshots = await this.recordService.getSnapshotBulk(
       prisma,
       tableId,
       recordIds,
