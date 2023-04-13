@@ -35,12 +35,15 @@ export class TransactionService {
       prismaResolveFn = resolve;
     });
 
-    const transactionPromise = this.prismaService.$transaction(async (prisma) => {
-      console.log('transaction start', tsMeta.transactionKey, tsMeta.opCount);
-      prismaResolveFn(prisma);
-      await tasksPromise;
-      console.log('transaction done', tsMeta.transactionKey, tsMeta.opCount);
-    });
+    const transactionPromise = this.prismaService.$transaction(
+      async (prisma) => {
+        console.log('transaction start', tsMeta.transactionKey, tsMeta.opCount);
+        prismaResolveFn(prisma);
+        await tasksPromise;
+        console.log('transaction done', tsMeta.transactionKey, tsMeta.opCount);
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
 
     const cacheValue = {
       currentCount: 0,

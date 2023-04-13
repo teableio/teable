@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb';
+import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { SqliteDbAdapter } from './sqlite.adapter';
+import SubmitContext = ShareDBClass.middleware.SubmitContext;
+import { OpBuilder } from '@teable-group/core';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
+  private logger = new Logger(ShareDbService.name);
+
   constructor(readonly sqliteDbAdapter: SqliteDbAdapter) {
     super({
       db: sqliteDbAdapter,
@@ -15,6 +19,7 @@ export class ShareDbService extends ShareDBClass {
     // this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
+    this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
 
   // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
@@ -43,6 +48,15 @@ export class ShareDbService extends ShareDBClass {
 
   //   next();
   // }
+
+  private onSubmitRequestEnd(error: Error, context: SubmitContext) {
+    if (error) {
+      this.logger.error(error);
+      return;
+    }
+    console.log('ShareDb:SubmitRequestEnd:', JSON.stringify(context.op));
+    // OpBuilder.ops2Contexts([context.op]);
+  }
 
   async submitOps(collection: string, id: string, ops: IOtOperation[]) {
     const doc = this.connect().get(collection, id);
