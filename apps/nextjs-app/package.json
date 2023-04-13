@@ -58,12 +58,12 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
+    "@nem035/gpt-3-encoder": "1.1.7",
     "@next/bundle-analyzer": "13.0.0",
     "@next/env": "13.0.0",
     "@playwright/test": "1.27.1",
     "@size-limit/file": "8.1.0",
     "@svgr/webpack": "6.5.1",
-    "@nem035/gpt-3-encoder": "1.1.7",
     "@tailwindcss/aspect-ratio": "0.4.2",
     "@tailwindcss/forms": "0.5.3",
     "@tailwindcss/line-clamp": "0.4.2",
