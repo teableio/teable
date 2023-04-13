@@ -1,9 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable-group/core';
+import { FieldKeyType, FieldType } from '@teable-group/core';
 import request from 'supertest';
 import type { UpdateRecordRoByIndexRo } from 'src/features/record/update-record-by-index.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
+import type { CreateRecordsRo } from '../src/features/record/create-records.ro';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './init-app';
 
@@ -12,7 +13,7 @@ describe('OpenAPI RecordController (e2e)', () => {
   let tableId = '';
   let fields: FieldVo[] = [];
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     app = await initApp();
 
     const result = await request(app.getHttpServer()).post('/api/table').send({
@@ -24,10 +25,10 @@ describe('OpenAPI RecordController (e2e)', () => {
     fields = fieldsResult.body.data;
   });
 
-  // afterAll(async () => {
-  //   const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
-  //   console.log('clear table: ', result.body);
-  // });
+  afterEach(async () => {
+    const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+    console.log('clear table: ', result.body);
+  });
 
   it('/api/table/{tableId}/record (GET)', async () => {
     const result = await request(app.getHttpServer())
@@ -49,13 +50,15 @@ describe('OpenAPI RecordController (e2e)', () => {
         records: [
           {
             fields: {
-              [firstTextField.id]: 'New Record' + new Date(),
+              [firstTextField.name]: 'New Record' + new Date(),
             },
           },
         ],
       })
       .expect(201)
-      .expect({});
+      .expect({
+        success: true,
+      });
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -65,6 +68,24 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(200);
     expect(result.body.data.records).toHaveLength(4);
+
+    // test fieldKeyType is id
+    await request(app.getHttpServer())
+      .post(`/api/table/${tableId}/record`)
+      .send({
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [firstTextField.id]: 'New Record' + new Date(),
+            },
+          },
+        ],
+      } as CreateRecordsRo)
+      .expect(201)
+      .expect({
+        success: true,
+      });
   });
 
   it('/api/table/{tableId}/record/{recordId} (PUT)', async () => {
@@ -144,9 +165,9 @@ describe('OpenAPI RecordController (e2e)', () => {
     console.time(`create ${count} records`);
     const records = Array.from({ length: count }).map((_, i) => ({
       fields: {
-        [fields[0].id]: 'New Record' + new Date(),
-        [fields[1].id]: i,
-        [fields[2].id]: 'light',
+        [fields[0].name]: 'New Record' + new Date(),
+        [fields[1].name]: i,
+        [fields[2].name]: 'light',
       },
     }));
 
