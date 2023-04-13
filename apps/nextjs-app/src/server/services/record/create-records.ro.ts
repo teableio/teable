@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { ICreateRecordsRo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
-import { RECORD_DEFINE } from '../../constant';
+import { RECORD_DEFINE } from './constant';
 
 export class CreateRecordsRo implements ICreateRecordsRo {
   @ApiPropertyOptional({

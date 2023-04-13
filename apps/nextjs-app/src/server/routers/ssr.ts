@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prismaClient } from '@/backend/config/container.config';
-import { recordService } from 'server/services/record/record';
-import * as fieldService from '../services/field';
+import { fieldService } from 'server/services/field/field.service';
+import { recordService } from 'server/services/record/record.service';
 import { procedure, router } from '../trpc';
 
 const ssr = {
@@ -50,7 +50,7 @@ export const ssrRouter = router({
       }
 
       const tables = await ssr.getTables();
-      const fields = await fieldService.getFields(tableId, viewId);
+      const fields = await fieldService.getFields(tableId, { viewId });
       const views = await prismaClient.view.findMany({
         where: {
           tableId,

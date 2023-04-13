@@ -1,5 +1,3 @@
-export const ROW_ORDER_FIELD_PREFIX = '__row';
-
 export const RECORD_DEFINE = `
 singleLineText, type: string, example: "bieber"
 longText, type: string, example: "line1\nline2"
@@ -29,13 +27,3 @@ lastModifiedBy, type: string, example: "bieber"
 autoNumber, type: number, example: 1
 button, type: string, example: "click"
 `;
-
-export const preservedFieldName = new Set([
-  '__id',
-  '__auto_number',
-  '__row_default',
-  '__created_time',
-  '__last_modified_time',
-  '__created_by',
-  '__last_modified_by',
-]);

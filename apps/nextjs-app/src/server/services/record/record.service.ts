@@ -6,16 +6,17 @@ import type {
   ISetRecordOrderOpContext,
   ISnapshotBase,
 } from '@teable-group/core';
-import { FieldKeyType, AggregateKey, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
+import { AggregateKey, FieldKeyType, generateRecordId, IdPrefix, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { prismaClient } from '@/backend/config/container.config';
-import { ROW_ORDER_FIELD_PREFIX } from 'server/constant';
 import { getViewOrderFieldName } from 'server/helper';
-import type { CreateRecordsRo } from './create.record.ro';
-import type { RecordsRo } from './record.ro';
-import type { RecordsVo } from './record.vo';
+import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
+
+import type { CreateRecordsRo } from './create-records.ro';
+import type { RecordsVo } from './open-api/record.vo';
+import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 

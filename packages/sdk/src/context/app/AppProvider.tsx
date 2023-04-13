@@ -9,6 +9,7 @@ import { ToastProvider } from '../toast/ToastProvider';
 import { useTheme } from './useTheme';
 
 function getWsPath() {
+  return `ws://localhost:3001`;
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${wsProtocol}//${window.location.host}/socket`;
 }

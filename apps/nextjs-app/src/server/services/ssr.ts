@@ -1,6 +1,6 @@
 import { prismaClient } from '@/backend/config/container.config';
-import * as fieldService from './field';
-import { recordService } from './record/record';
+import { fieldService } from './field/field.service';
+import { recordService } from './record/record.service';
 
 export async function getTables() {
   const tablesMeta = await prismaClient.tableMeta.findMany({
@@ -31,7 +31,7 @@ export const getSSRSnapshot = async (tableId: string, _viewId?: string) => {
     viewId = view.id;
   }
   const tables = await getTables();
-  const fields = await fieldService.getFields(tableId, viewId!);
+  const fields = await fieldService.getFields(tableId, { viewId });
   const views = await prismaClient.view.findMany({
     where: {
       tableId,

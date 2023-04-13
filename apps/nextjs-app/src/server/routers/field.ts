@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import * as fieldService from 'server/services/field';
+import { fieldService } from 'server/services/field/field.service';
 import { procedure, router } from '../trpc';
 
 export const fieldRouter = router({
@@ -14,6 +14,6 @@ export const fieldRouter = router({
     )
     .query(async ({ input }) => {
       const { tableId, query } = input;
-      return fieldService.getFields(tableId, query.viewId);
+      return fieldService.getFields(tableId, query);
     }),
 });
