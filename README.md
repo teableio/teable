@@ -124,8 +124,8 @@ yarn install
 ```sh
 cd packages/db-main-prisma
 yarn prisma-db-push
-yarn prisma-db-seed
 yarn prisma-migrate dev
+yarn prisma-db-seed
 ```
 
 #### 3. Config .env file

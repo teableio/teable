@@ -17,7 +17,7 @@ export function useColumns() {
 
     return fields.map((field) => {
       const columnMeta = field.columnMeta[viewId];
-      const width = columnMeta.width || 200;
+      const width = columnMeta?.width || 200;
       switch (field.type) {
         case FieldType.SingleLineText:
           return {
