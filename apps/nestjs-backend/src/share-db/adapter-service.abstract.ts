@@ -28,5 +28,5 @@ export abstract class AdapterService {
     prisma: Prisma.TransactionClient,
     collectionId: string,
     query: unknown
-  ): Promise<string[]>;
+  ): Promise<{ ids: string[]; extra?: unknown }>;
 }

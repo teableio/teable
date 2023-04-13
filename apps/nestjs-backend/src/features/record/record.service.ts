@@ -1,13 +1,13 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type {
-  IAggregateQuery,
+  IAggregateQueryResult,
   IRecordSnapshot,
   IRecordSnapshotQuery,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
 } from '@teable-group/core';
-import { FieldKeyType, AggregateKey, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
+import { FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
@@ -59,9 +59,9 @@ export class RecordService implements AdapterService {
   private async getUserFields(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsDto: CreateRecordsRo
+    createRecordsRo: CreateRecordsRo
   ) {
-    const fieldIdSet = createRecordsDto.records.reduce<Set<string>>((acc, record) => {
+    const fieldIdSet = createRecordsRo.records.reduce<Set<string>>((acc, record) => {
       const fieldIds = Object.keys(record.fields);
       fieldIds.forEach((fieldId) => acc.add(fieldId));
       return acc;
@@ -103,12 +103,12 @@ export class RecordService implements AdapterService {
     dbTableName: string,
     userFields: IUserFields,
     rowIndexFieldNames: string[],
-    createRecordsDto: CreateRecordsRo
+    createRecordsRo: CreateRecordsRo
   ) {
     const rowCount = await this.getAllRecordCount(prisma, dbTableName);
     const dbValueMatrix: unknown[][] = [];
-    for (let i = 0; i < createRecordsDto.records.length; i++) {
-      const recordData = createRecordsDto.records[i].fields;
+    for (let i = 0; i < createRecordsRo.records.length; i++) {
+      const recordData = createRecordsRo.records[i].fields;
       // 1. collect cellValues
       const recordValues = userFields.map<unknown>((field) => {
         const cellValue = recordData[field.id];
@@ -132,7 +132,7 @@ export class RecordService implements AdapterService {
   async multipleCreateRecordTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsDto: CreateRecordsRo
+    createRecordsRo: CreateRecordsRo
   ) {
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: {
@@ -143,7 +143,7 @@ export class RecordService implements AdapterService {
       },
     });
 
-    const userFields = await this.getUserFields(prisma, tableId, createRecordsDto);
+    const userFields = await this.getUserFields(prisma, tableId, createRecordsRo);
     const rowOrderFieldNames = await this.getRowOrderFieldNames(prisma, tableId);
 
     const allDbFieldNames = [
@@ -157,7 +157,7 @@ export class RecordService implements AdapterService {
       dbTableName,
       userFields,
       rowOrderFieldNames,
-      createRecordsDto
+      createRecordsRo
     );
 
     const dbFieldSQL = allDbFieldNames.join(', ');
@@ -182,9 +182,9 @@ export class RecordService implements AdapterService {
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateRecords(tableId: string, createRecordsDto: CreateRecordsRo) {
+  async multipleCreateRecords(tableId: string, createRecordsRo: CreateRecordsRo) {
     return await this.prismaService.$transaction(async (prisma) => {
-      return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsDto);
+      return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsRo);
     });
   }
 
@@ -208,8 +208,8 @@ export class RecordService implements AdapterService {
     const sqlNative = this.queryBuilder(dbTableName)
       .where(where)
       .select(idOnly ? '__id' : '*')
-      .orderBy(orderFieldName, 'asc')
       .orderBy(orderBy)
+      .orderBy(orderFieldName, 'asc')
       .offset(offset)
       .limit(limit)
       .toSQL()
@@ -280,22 +280,29 @@ export class RecordService implements AdapterService {
       viewId = defaultView.id;
     }
 
-    const ids = await this.getRecordDocIdsByQuery(this.prismaService, tableId, {
+    const queryResult = await this.getDocIdsByQuery(this.prismaService, tableId, {
       type: IdPrefix.Record,
       viewId,
       offset: query.skip,
       limit: query.take,
+      aggregate: {
+        rowCount: true,
+      },
     });
 
-    const recordSnapshot = await this.getRecordSnapshotBulk(
+    const recordSnapshot = await this.getSnapshotBulk(
       this.prismaService,
       tableId,
-      ids,
+      queryResult.ids,
       undefined,
       query.fieldKey
     );
 
-    const total = await this.getRowCount(this.prismaService, tableId, viewId);
+    const total = queryResult.extra?.rowCount;
+
+    if (total == undefined) {
+      throw new HttpException('Can not get row count', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 
     return {
       records: recordSnapshot.map((r) => r.data.record),
@@ -348,7 +355,7 @@ export class RecordService implements AdapterService {
       .insert({
         __id: snapshot.record.id,
         __row_default: rowCount,
-        __created_time: new Date(),
+        __created_time: new Date().getTime(),
         __created_by: 'admin',
         __version: 1,
         ...orders,
@@ -385,24 +392,8 @@ export class RecordService implements AdapterService {
       }
     }
   }
-  // return a specific id for row count fetch
-  private async getAggregateIds(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    query: IAggregateQuery
-  ) {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
-        where: { tableId },
-        select: { id: true },
-      });
-      viewId = view.id;
-    }
-    return [`${query.aggregateKey}_${viewId}`];
-  }
 
-  async getRecordSnapshotBulk(
+  async getSnapshotBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
@@ -484,26 +475,11 @@ export class RecordService implements AdapterService {
       });
   }
 
-  async getSnapshotBulk(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    recordIds: string[],
-    projection?: { [fieldKey: string]: boolean },
-    fieldKeyType?: FieldKeyType
-  ) {
-    // console.log('recordGetSnapshotBulk:', tableId, recordIds);
-    if (recordIds[0].slice(0, 3) === IdPrefix.Record) {
-      return this.getRecordSnapshotBulk(prisma, tableId, recordIds, projection, fieldKeyType);
-    } else {
-      return this.getAggregateBulk(prisma, tableId, recordIds);
-    }
-  }
-
-  private async getRecordDocIdsByQuery(
+  async getDocIdsByQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery
-  ) {
+  ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await prisma.view.findFirstOrThrow({
@@ -533,48 +509,13 @@ export class RecordService implements AdapterService {
       sqlNative.sql,
       ...sqlNative.bindings
     );
+    const ids = result.map((r) => r.__id);
 
-    return result.map((r) => r.__id);
-  }
-
-  async getDocIdsByQuery(
-    prisma: Prisma.TransactionClient,
-    collectionId: string,
-    query: IAggregateQuery | IRecordSnapshotQuery
-  ): Promise<string[]> {
-    if (query.type === IdPrefix.Aggregate) {
-      return this.getAggregateIds(prisma, collectionId, query);
-    } else {
-      return this.getRecordDocIdsByQuery(prisma, collectionId, query);
-    }
-  }
-
-  async getAggregateBulk(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    rowCountIds: string[]
-  ): Promise<ISnapshotBase<number>[]> {
-    const aggregateResults: number[] = [];
-    for (const id of rowCountIds) {
-      const [aggregateKey, viewId] = id.split('_');
-      let result: number;
-      switch (aggregateKey) {
-        case AggregateKey.RowCount: {
-          result = await this.getRowCount(prisma, tableId, viewId);
-          break;
-        }
-        case AggregateKey.Average: {
-          throw new Error(`aggregate ${aggregateKey} not implemented`);
-        }
-        default: {
-          throw new Error(`aggregate ${aggregateKey} not implemented`);
-        }
-      }
-      aggregateResults.push(result);
+    if (query.aggregate?.rowCount) {
+      const rowCount = await this.getRowCount(prisma, tableId, viewId);
+      return { ids, extra: { rowCount } };
     }
 
-    return aggregateResults.map((result, i) => {
-      return { id: rowCountIds[i], v: 1, type: 'json0', data: result };
-    });
+    return { ids };
   }
 }
