@@ -1,10 +1,10 @@
 import type { IFieldVo, IRecord, ITableVo, IViewVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { SsrApi } from '@/backend/api/rest/table.ssr';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
+import { getSSRSnapshot } from 'server/services/ssr';
 import type { NextPageWithLayout } from '../../_app';
 
 interface INodeProps {
@@ -30,8 +30,8 @@ const Node: NextPageWithLayout<ITableProps> = ({
 
 export const getServerSideProps: GetServerSideProps<INodeProps> = async (context) => {
   const { nodeId, viewId } = context.query;
-  const snapshot = await new SsrApi().getFullSnapshot(nodeId as string, viewId as string);
 
+  const snapshot = await getSSRSnapshot(nodeId as string, viewId as string);
   return {
     props: {
       tableServerData: snapshot.tables,

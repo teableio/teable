@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 let dbPath = process.env.PRISMA_DATABASE_URL!.split(':')[1];
 
+console.log(process.env.PRISMA_DATABASE_URL);
 dbPath = path.resolve(__dirname, dbPath);
 console.log(`current sqlite file: ${dbPath}`);
 

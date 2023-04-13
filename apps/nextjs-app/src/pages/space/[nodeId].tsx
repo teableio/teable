@@ -1,5 +1,5 @@
 import type { GetServerSideProps } from 'next';
-import { SsrApi } from '@/backend/api/rest/table.ssr';
+import { getDefaultViewId } from 'server/services/ssr';
 import type { NextPageWithLayout } from '../_app';
 
 const Node: NextPageWithLayout = () => {
@@ -8,7 +8,7 @@ const Node: NextPageWithLayout = () => {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { nodeId } = context.query;
-  const result = await new SsrApi().getDefaultViewId(nodeId as string);
+  const result = await getDefaultViewId(nodeId as string);
 
   return {
     redirect: {

@@ -1,8 +1,8 @@
 import type { ITableVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { SsrApi } from '@/backend/api/rest/table.ssr';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
+import { getTables } from 'server/services/ssr';
 import type { NextPageWithLayout } from '../_app';
 
 const Space: NextPageWithLayout = () => {
@@ -14,11 +14,11 @@ const Space: NextPageWithLayout = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const snapshot = await new SsrApi().getTableSnapshot();
+  const tables = await getTables();
 
   return {
     props: {
-      tableServerData: snapshot.tables,
+      tableServerData: tables,
     },
   };
 };
