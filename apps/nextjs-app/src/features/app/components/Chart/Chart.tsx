@@ -15,7 +15,6 @@ export const Chart = (props: { chartInstance: Pie | Bar | Line }) => {
       }
       // eslint-disable-next-line import/namespace
       const myChart = echarts.init(chartContainerRef.current);
-      console.log(chartInstance.getOptions());
       myChart.setOption(chartInstance.getOptions());
       myChart.resize({ width, height });
     },

@@ -4,6 +4,7 @@ import clx from 'classnames';
 import React, { useEffect, useMemo } from 'react';
 import Confetti from 'react-confetti';
 import { useMeasure } from 'react-use';
+import { dashboardCharts } from '../../blocks/dashboard/Dashboard';
 import { Chart } from '../Chart/Chart';
 
 export const ProcessBar: React.FC<{
@@ -33,6 +34,12 @@ export const ProcessBar: React.FC<{
     return <div className="px-2">✨ Performing task for you...</div>;
   }, [isGenerateChart]);
 
+  const sendToDashboard = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    parsedResult && dashboardCharts.addChart(parsedResult);
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
   return (
     <div
       ref={ref}
@@ -50,6 +57,9 @@ export const ProcessBar: React.FC<{
             <div className="w-full overflow-x-scroll">
               {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
               <Chart chartInstance={parsedResult} />
+              <button className="btn-xs btn bg-blue-500 text-white" onClick={sendToDashboard}>
+                send to dashboard
+              </button>
             </div>
           )}
         </div>

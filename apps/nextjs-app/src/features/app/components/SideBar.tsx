@@ -1,4 +1,5 @@
 import { useConnection } from '@teable-group/sdk/hooks';
+import DashboardIcon from '@teable-group/ui-lib/icons/app/dashboard.svg';
 import FavoriteIcon from '@teable-group/ui-lib/icons/app/favorite.svg';
 import HomeIcon from '@teable-group/ui-lib/icons/app/home.svg';
 import Image from 'next/image';
@@ -40,6 +41,11 @@ export const SideBar: React.FC = () => {
             <li>
               <Link className="py-1" href="/space">
                 <HomeIcon /> Home
+              </Link>
+            </li>
+            <li>
+              <Link className="py-1" href="/space/dashboard">
+                <DashboardIcon /> Dashboard
               </Link>
             </li>
             <li>
