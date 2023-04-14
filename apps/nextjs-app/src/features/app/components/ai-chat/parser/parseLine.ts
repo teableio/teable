@@ -58,8 +58,7 @@ export class AISyntaxParser {
   parseLine(line: string): IParsedLine | null {
     const trimmedLine = line.endsWith(';') ? line.slice(0, -1) : line;
     const tokens = trimmedLine.split(/(?<!\\)\|/).map((part) => part.replace(/\\\|/g, '|'));
-
-    console.log(tokens);
+    console.log('line: ', line);
     if (tokens.length !== 3) {
       return null;
     }

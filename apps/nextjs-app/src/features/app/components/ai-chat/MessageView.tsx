@@ -9,7 +9,7 @@ import type { IMessage } from 'store/message';
 import { useUserStore } from 'store/user';
 import { RenderBox } from '../render-box/RenderBox';
 import { CodeBlock } from './CodeBlock';
-import { createAISyntaxParser } from './createAISyntaxParser';
+import type { createAISyntaxParser } from './createAISyntaxParser';
 import { ProcessBar } from './ProcessBar';
 import type { IChat } from './type';
 dayjs.extend(localizedFormat);
@@ -17,13 +17,13 @@ dayjs.extend(localizedFormat);
 interface Props {
   chat: IChat;
   message: IMessage;
+  parser: ReturnType<typeof createAISyntaxParser>;
 }
 
-export const MessageView: React.FC<Props> = ({ message, chat }) => {
+export const MessageView: React.FC<Props> = ({ message, chat, parser }) => {
   const userStore = useUserStore();
   const isCurrentUser = message.creatorId === userStore.currentUser.id;
   const isOfficial = message.creatorId === 'teable';
-  const [parser] = useState(() => createAISyntaxParser());
   const isAiCode = message.content.includes('```ai');
   const [debugAI, setDebugAI] = useState(false);
   const Element = () => {
@@ -55,7 +55,13 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
             const strValue = String(child.props.children);
             return (
               <pre className={`${className || ''} w-full p-0 my-1`} {...props}>
-                <CodeBlock chat={chat} language={language || 'text'} value={strValue} {...props} />
+                <CodeBlock
+                  chat={chat}
+                  language={language || 'text'}
+                  value={strValue}
+                  onExecute={() => setDebugAI(false)}
+                  {...props}
+                />
               </pre>
             );
           },

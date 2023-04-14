@@ -1,8 +1,8 @@
-import { Table } from '@teable-group/sdk/model';
 import router from 'next/router';
 import type { IUser } from 'store/user';
 import type { IPromptContext } from '../type';
 import { AI_SYNTAX_PROMPT } from './aiSyntaxPrompt';
+import { tableContext2Prompt } from './tableContext2Prompt';
 
 // getPromptOfAssistant define the special prompt for each assistant.
 export function getPromptGeneratorOfAssistant(
@@ -14,20 +14,21 @@ ${AI_SYNTAX_PROMPT}
 \n`;
   if (assistant.id === 'tai-app') {
     return async (prompt: string, promptContext?: IPromptContext) => {
+      const { nodeId, viewId } = router.query as { nodeId: string; viewId: string };
+      const tableContextPrompt = await tableContext2Prompt(nodeId, viewId);
       if (!promptContext) {
         return '';
       }
-      if (prompt.includes('chart')) {
-        const { nodeId, viewId } = router.query;
-        const _fields = await Table.getFields(nodeId as string, viewId as string);
-        const field = _fields.map((field) => field.name);
-        return `${basicPrompt}, This is create table method syntax define: "${
-          promptContext.GENERATE_CHART_PROMPT
-        }".
-        Here is my table header data: "| ${field.join(' | ')} |". \n 
-        Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.\n`;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      const { GENERATE_CHART_PROMPT, CREATE_TABLE_PROMPT } = promptContext;
+      if (prompt.match(/chart|图/gi)) {
+        return `${basicPrompt}, This is create chart method syntax define: "${GENERATE_CHART_PROMPT}".
+Here is my table structure data: ${tableContextPrompt}\n 
+Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
+`;
       }
-      return `${basicPrompt}, This is create table method syntax define: "${promptContext.CREATE_TABLE_PROMPT}".
+      return `${basicPrompt}, Here is my table structure data: ${tableContextPrompt}
+This is create table method syntax define: "${CREATE_TABLE_PROMPT}".
 Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
 If the question mentions tables, systems, or databases, you can assume that it is referring to creating a table. 
       \n`;

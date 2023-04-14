@@ -29,15 +29,15 @@ export const ProcessBar: React.FC<{
 
   const loadingText = useMemo(() => {
     if (isGenerateChart) {
-      return '✨ Generating a chart for you...';
+      return <div className="px-2">✨ Generating a chart for you...</div>;
     }
-    return '✨ Creating a new table for you...';
+    return <div className="px-2">✨ Performing task for you...</div>;
   }, [isGenerateChart]);
 
   return (
     <div
       ref={ref}
-      className={clx('relative max-w-full bg-base-300 p-2 rounded-lg prose prose-slate text-sm', {
+      className={clx('relative max-w-full bg-base-300 p-1 rounded-lg prose prose-slate text-sm', {
         'w-full': isGenerateChart,
       })}
       onClick={onClick}
