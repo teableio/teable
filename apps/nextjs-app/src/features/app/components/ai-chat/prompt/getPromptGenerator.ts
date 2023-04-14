@@ -21,16 +21,12 @@ ${AI_SYNTAX_PROMPT}
       }
       // eslint-disable-next-line @typescript-eslint/naming-convention
       const { GENERATE_CHART_PROMPT, CREATE_TABLE_PROMPT } = promptContext;
-      if (prompt.match(/chart|图/gi)) {
-        return `${basicPrompt}, This is create chart method syntax define: "${GENERATE_CHART_PROMPT}".
-Here is my table structure data: ${tableContextPrompt}\n 
-Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
-`;
-      }
       return `${basicPrompt}, Here is my table structure data: ${tableContextPrompt}
 This is create table method syntax define: "${CREATE_TABLE_PROMPT}".
+This is create chart method syntax define: "${GENERATE_CHART_PROMPT}".
 Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
 If the question mentions tables, systems, or databases, you can assume that it is referring to creating a table. 
+If the question mentions Analysis, reports or summary, you can assume that it is referring to creating a chart. 
       \n`;
     };
   }
