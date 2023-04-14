@@ -121,6 +121,14 @@ export class AISyntaxParser {
         };
       }
 
+      case 'generate-chart': {
+        return {
+          operation,
+          index,
+          value: JSON.parse(valueStr.replaceAll('\n', '')),
+        };
+      }
+
       default:
         return {
           operation,

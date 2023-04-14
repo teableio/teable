@@ -148,6 +148,7 @@
     "cors": "2.8.5",
     "daisyui": "2.51.1",
     "dayjs": "1.11.7",
+    "echarts": "5.4.2",
     "electron-is-dev": "^1.1.0",
     "electron-log": "4.4.8",
     "esbuild-wasm": "0.17.16",
