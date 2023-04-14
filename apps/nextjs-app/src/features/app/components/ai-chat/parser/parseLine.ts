@@ -106,17 +106,20 @@ export class AISyntaxParser {
       case 'set-record': {
         // set-record: set a record value
         // index: record order
-        // value: {fieldName}:{recordValue}
-        const [fieldName, recordValue] = valueStr
-          .split(/(?<!\\):/)
-          .map((part) => part.replace(/\\:/g, ':'));
+        // value: {fieldName}:{recordValue},{fieldName}:{recordValue}
+        const cells = valueStr.split(/(?<!\\),/).map((l) => l.trim());
+        const value = cells.reduce<{ [name: string]: string }>((pre, valueStr) => {
+          const [fieldName, recordValue] = valueStr
+            .split(/(?<!\\):/)
+            .map((part) => part.replace(/\\:/g, ':'));
+          pre[fieldName] = recordValue;
+          return pre;
+        }, {});
+
         return {
           operation,
           index,
-          value: {
-            fieldName,
-            recordValue,
-          },
+          value,
         };
       }
 

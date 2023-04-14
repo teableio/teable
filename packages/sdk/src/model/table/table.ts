@@ -11,6 +11,7 @@ import type {
   ICreateRecordsRo,
   IRecordsVo,
   IRecordsRo,
+  IUpdateRecordByIndexRo,
 } from '@teable-group/core';
 import {
   generateRecordId,
@@ -23,30 +24,11 @@ import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
 export class Table extends TableCore {
-  static async updateRecord({
-    tableId,
-    viewId,
-    index,
-    fieldName,
-    value,
-  }: {
-    tableId: string;
-    viewId: string;
-    index: number;
-    fieldName: string;
-    value: unknown;
-  }) {
+  static async updateRecordByIndex(params: IUpdateRecordByIndexRo & { tableId: string }) {
+    const { tableId, ...recordRo } = params;
     const response = await axios.put<IJsonApiSuccessResponse<void>>(
       `/api/table/${tableId}/record`,
-      {
-        viewId,
-        index,
-        record: {
-          fields: {
-            [fieldName]: value,
-          },
-        },
-      }
+      recordRo
     );
     return response.data.data;
   }
@@ -146,12 +128,5 @@ export class Table extends TableCore {
 
   async createField(fieldRo: IFieldRo) {
     return Table.createField({ ...fieldRo, tableId: this.id });
-  }
-
-  async updateRecord(params: { fieldName: string; viewId: string; index: number; value: unknown }) {
-    return Table.updateRecord({
-      ...params,
-      tableId: this.id,
-    });
   }
 }
