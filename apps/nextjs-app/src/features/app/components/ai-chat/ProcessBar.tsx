@@ -1,22 +1,21 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import clx from 'classnames';
-import { has } from 'lodash';
 import React, { useEffect, useMemo } from 'react';
 import Confetti from 'react-confetti';
 import { useMeasure } from 'react-use';
-import type { IMessage } from 'store/message';
 import { Chart } from '../Chart/Chart';
-import { generateChartMap } from './createAISyntaxParser';
 
 export const ProcessBar: React.FC<{
   onClick: () => void;
   done: boolean;
-  message: IMessage;
-}> = ({ onClick, done, message }) => {
+  type?: 'chart' | 'table';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  parsedResult?: any;
+}> = ({ onClick, done, type, parsedResult }) => {
   const [ref, { width, height }] = useMeasure<HTMLDivElement>();
   const [taskDone, setTaskDone] = React.useState(false);
-  const isGenerateChart = has(generateChartMap, message.id);
+  const isGenerateChart = type === 'chart';
 
   useEffect(() => {
     setTaskDone(done);
@@ -47,10 +46,10 @@ export const ProcessBar: React.FC<{
       {done ? (
         <div className="px-6 py-3">
           Successfully created! 🎉
-          {isGenerateChart && generateChartMap[message.id] && (
+          {isGenerateChart && parsedResult && (
             <div className="w-full overflow-x-scroll">
               {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-              <Chart chartInstance={generateChartMap[message.id]!} />
+              <Chart chartInstance={parsedResult} />
             </div>
           )}
         </div>

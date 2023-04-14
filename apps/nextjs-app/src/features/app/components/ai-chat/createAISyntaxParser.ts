@@ -2,17 +2,11 @@
 import { FieldKeyType } from '@teable-group/core';
 import { Table, View } from '@teable-group/sdk/model';
 import { Space } from '@teable-group/sdk/model/space';
-import { has } from 'lodash';
 import router from 'next/router';
-import type { Bar } from '../Chart/bar';
 import { createChart } from '../Chart/createChart';
-import type { Line } from '../Chart/line';
-import type { Pie } from '../Chart/pie';
 import { ChartType } from '../Chart/type';
 import type { IParsedLine } from './parser/parseLine';
 import { AISyntaxParser } from './parser/parseLine';
-
-export const generateChartMap: { [messageId: string]: Bar | Pie | Line | undefined } = {};
 
 export function createAISyntaxParser() {
   let tableId: string | undefined;
@@ -97,12 +91,7 @@ export function createAISyntaxParser() {
           result.records.map((v) => v.fields),
           parsedLine.value
         );
-        Object.keys(generateChartMap).forEach((k) => {
-          if (has(generateChartMap, k) && generateChartMap[k] == undefined) {
-            generateChartMap[k] = chartInstance;
-          }
-        });
-        return;
+        return chartInstance;
       }
       default: {
         console.error('unknown command:', parsedLine);
@@ -112,7 +101,7 @@ export function createAISyntaxParser() {
 
   const parser = new AISyntaxParser(executeCommand);
 
-  return async (input: string) => {
-    await parser.processMultilineSyntax(input);
+  return async (input: string, callBack: (parsedResult: unknown) => void) => {
+    await parser.processMultilineSyntax(input, callBack);
   };
 }
