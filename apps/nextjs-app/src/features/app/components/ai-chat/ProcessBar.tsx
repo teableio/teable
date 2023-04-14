@@ -37,7 +37,7 @@ export const ProcessBar: React.FC<{
     <div
       ref={ref}
       className={clx('relative max-w-full bg-base-300 p-1 rounded-lg prose prose-slate text-sm', {
-        'w-full': isGenerateChart,
+        'w-full': parsedResult && isGenerateChart,
       })}
       onClick={onClick}
     >
@@ -45,7 +45,7 @@ export const ProcessBar: React.FC<{
 
       {done ? (
         <div className="px-6 py-3">
-          Successfully created! 🎉
+          {isGenerateChart ? 'Chart created! 📊' : 'Successfully generated! 🎉'}
           {isGenerateChart && parsedResult && (
             <div className="w-full overflow-x-scroll">
               {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}

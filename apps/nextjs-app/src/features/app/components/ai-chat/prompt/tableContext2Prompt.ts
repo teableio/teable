@@ -1,6 +1,10 @@
 import { Table } from '@teable-group/sdk/model';
 
-export async function tableContext2Prompt(tableId: string, viewId: string) {
+export async function tableContext2Prompt(tableId: string | undefined, viewId: string | undefined) {
+  if (!tableId || !viewId) {
+    return '';
+  }
+
   const fields = await Table.getFields(tableId, viewId);
   const result = await Table.getRecords({ tableId, viewId, take: 1, skip: 0 });
   const fieldDefine = fields

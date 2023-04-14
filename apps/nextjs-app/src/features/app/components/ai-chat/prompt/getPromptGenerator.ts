@@ -15,11 +15,11 @@ ${AI_SYNTAX_PROMPT}
 \n`;
   if (assistant.id === 'tai-app') {
     return async (prompt: string, type?: 'chart' | 'table') => {
-      const { nodeId, viewId } = router.query as { nodeId: string; viewId: string };
+      const { nodeId, viewId } = router.query as { nodeId?: string; viewId?: string };
       const tableContextPrompt = await tableContext2Prompt(nodeId, viewId);
       if (type === 'chart') {
         return `${basicPrompt}, This is create chart method syntax define: "${GENERATE_CHART_PROMPT}".
-Here is my table structure data: ${tableContextPrompt}\n 
+${tableContextPrompt}
 Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
 If the question mentions Analysis, reports or summary, you can assume that it is referring to creating a chart. 
 If you output code block, do not add any others words, just a clean code block.
