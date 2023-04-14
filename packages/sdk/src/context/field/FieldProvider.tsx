@@ -59,7 +59,7 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
     return { fields, setFields };
   }, [fields]);
 
-  if (fallback && !fields) {
+  if (fallback && !fields.length) {
     return <>{fallback}</>;
   }
 

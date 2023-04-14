@@ -72,8 +72,12 @@ export function createAISyntaxParser() {
           throw new Error("Can't find viewId");
         }
         const index = parsedLine.index;
-        const { fieldName, recordValue } = parsedLine.value;
-        await Table.updateRecord({ tableId, fieldName, viewId, index, value: recordValue });
+        await Table.updateRecordByIndex({
+          tableId,
+          viewId,
+          index,
+          record: { fields: parsedLine.value },
+        });
         return;
       }
       case 'generate-chart': {

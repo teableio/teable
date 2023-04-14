@@ -25,7 +25,7 @@ export const Table: React.FC<ITableProps> = ({
       <div className="grow flex flex-col h-full">
         <ViewList />
         <ToolBar />
-        <FieldProvider fallback={<h1>loading</h1>} serverSideData={fieldServerData}>
+        <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
           <RecordProvider serverData={recordServerData}>
             {isHydrated && <GridView />}
           </RecordProvider>
