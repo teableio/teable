@@ -1,25 +1,22 @@
-import { getRandomString } from '@teable-group/core';
 import { useToast } from '@teable-group/sdk';
 import CopyIcon from '@teable-group/ui-lib/icons/app/copy.svg';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import type { IMessage } from 'store/message';
-import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
 import type { IChat } from './type';
 
 interface Props {
   chat: IChat;
   language: string;
   value: string;
+  onExecute(text?: string): void;
 }
 
 export const checkStatementIsSelect = (statement: string) => {
   return statement.toUpperCase().trim().startsWith('SELECT');
 };
 
-export const CodeBlock: React.FC<Props> = ({ language, value, chat }) => {
+export const CodeBlock: React.FC<Props> = ({ language, value, chat, onExecute }) => {
   const toast = useToast();
-  const messageStore = useMessageStore();
   const showExecuteButton = language.toUpperCase() === 'AI';
 
   const copyToClipboard = () => {
@@ -34,22 +31,7 @@ export const CodeBlock: React.FC<Props> = ({ language, value, chat }) => {
   };
 
   const handleExecuteQuery = () => {
-    if (value.includes('nivo')) {
-      const message: IMessage = {
-        id: getRandomString(20),
-        chatId: chat.id,
-        creatorId: 'teable',
-        creatorRole: CreatorRole.Assistant,
-        createdAt: Date.now(),
-        content: 'Here is a chart: \n',
-        status: MessageStatus.Done,
-        code: value,
-      };
-      messageStore.addMessage(message);
-      return;
-    }
-    window.eval(value);
-    toast.open('Executing');
+    onExecute(value);
   };
 
   return (

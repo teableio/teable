@@ -1,4 +1,4 @@
-import type { FieldKeyType } from './record';
+import type { CellFormat, FieldKeyType } from './record';
 
 export interface IRecord {
   id: string;
@@ -37,4 +37,30 @@ export interface IUpdateRecordRo {
 export interface IUpdateRecordByIndexRo extends IUpdateRecordRo {
   viewId: string;
   index: number;
+}
+
+export interface IRecordVo {
+  record: IRecord;
+}
+
+export interface IRecordsVo {
+  records: IRecord[];
+
+  total: number;
+}
+
+export interface IRecordsRo {
+  take?: number;
+
+  skip?: number;
+
+  recordIds?: string[];
+
+  viewId?: string;
+
+  projection?: string[];
+
+  cellFormat?: CellFormat;
+
+  fieldKey?: FieldKeyType;
 }

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { FieldKeyType } from '@teable-group/core';
 import { Table, View } from '@teable-group/sdk/model';
 import { Space } from '@teable-group/sdk/model/space';
 import { has } from 'lodash';
@@ -18,6 +19,14 @@ export function createAISyntaxParser() {
   let viewId: string | undefined;
 
   const executeCommand = async (parsedLine: IParsedLine) => {
+    if (!tableId) {
+      tableId = router.query.nodeId as string;
+    }
+    if (!viewId) {
+      viewId = router.query.viewId as string;
+    }
+    console.log(`${tableId}:${viewId}`);
+    console.log('execute: ', parsedLine.operation);
     switch (parsedLine.operation) {
       case 'create-table': {
         const { name, description, emojiIcon } = parsedLine.value;
@@ -70,16 +79,18 @@ export function createAISyntaxParser() {
       case 'generate-chart': {
         const chartTypeArray = Object.values(ChartType);
         const { nodeId, viewId } = router.query;
-        const records = await Table.selectRecords(nodeId as string, viewId as string, {
-          fieldKey: 'name',
+        const result = await Table.getRecords({
+          tableId: nodeId as string,
+          viewId: viewId as string,
+          fieldKey: FieldKeyType.Name,
         });
         const chartInstance = createChart(chartTypeArray[parsedLine.index], {
           options: parsedLine.value,
-          data: records.map((v) => v.fields),
+          data: result.records.map((v) => v.fields),
         });
         console.log(
           'records',
-          records.map((v) => v.fields),
+          result.records.map((v) => v.fields),
           parsedLine.value
         );
         Object.keys(generateChartMap).forEach((k) => {
