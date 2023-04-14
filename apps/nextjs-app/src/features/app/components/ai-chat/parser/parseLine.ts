@@ -7,7 +7,7 @@ export type IParsedLine = {
   value: any;
 };
 
-export type IAsyncCallback = (line: IParsedLine) => Promise<void>;
+export type IAsyncCallback = (line: IParsedLine) => Promise<unknown>;
 
 export class AISyntaxParser {
   private lastIndex = 0;
@@ -141,7 +141,7 @@ export class AISyntaxParser {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async processMultilineSyntax(input: string): Promise<void> {
+  async processMultilineSyntax(input: string, callBack: (result: unknown) => void): Promise<void> {
     if (this.processing) {
       this.pendingInputs = input;
     } else {
@@ -156,7 +156,7 @@ export class AISyntaxParser {
         for (const line of lines) {
           const parsedLine = this.parseLine(line.trim());
           if (parsedLine) {
-            await this.asyncCallback(parsedLine);
+            callBack(await this.asyncCallback(parsedLine));
           }
         }
 
@@ -173,7 +173,7 @@ export class AISyntaxParser {
         const pendingInput = this.pendingInputs;
         this.pendingInputs = undefined;
         if (pendingInput) {
-          await this.processMultilineSyntax(pendingInput);
+          await this.processMultilineSyntax(pendingInput, callBack);
         }
       }
     }

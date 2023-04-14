@@ -7,7 +7,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { IMessage } from 'store/message';
 import { useUserStore } from 'store/user';
-import { RenderBox } from '../render-box/RenderBox';
 import { CodeBlock } from './CodeBlock';
 import { createAISyntaxParser } from './createAISyntaxParser';
 import { ProcessBar } from './ProcessBar';
@@ -22,16 +21,21 @@ interface Props {
 export const MessageView: React.FC<Props> = ({ message, chat }) => {
   const userStore = useUserStore();
   const isCurrentUser = message.creatorId === userStore.currentUser.id;
-  const isOfficial = message.creatorId === 'teable';
   const isAiCode = message.content.includes('```ai');
   const [debugAI, setDebugAI] = useState(false);
   const regex = /```ai\n([\s\S]*?)(?:(```)|$)/;
   const match = message.content.match(regex);
   const [parser] = useState(() => createAISyntaxParser());
-
+  const [parsedResult, setParsedResult] = useState<unknown>();
   if (match) {
     const content = match[1];
-    parser(content);
+    parser(content, (result) => {
+      if (!result) {
+        return;
+      }
+      console.log('parseResult： ', result);
+      setParsedResult(result);
+    });
   }
 
   const Element = () => {
@@ -40,11 +44,14 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
       if (match) {
         done = Boolean(match[2]);
       }
-      return <ProcessBar message={message} done={done} onClick={() => setDebugAI(true)} />;
-    }
-
-    if (isOfficial && message.code) {
-      return <RenderBox code={message.code} />;
+      return (
+        <ProcessBar
+          type={message.type}
+          done={done}
+          onClick={() => setDebugAI(true)}
+          parsedResult={parsedResult}
+        />
+      );
     }
 
     return (
