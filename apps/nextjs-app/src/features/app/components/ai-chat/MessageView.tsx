@@ -9,7 +9,7 @@ import type { IMessage } from 'store/message';
 import { useUserStore } from 'store/user';
 import { RenderBox } from '../render-box/RenderBox';
 import { CodeBlock } from './CodeBlock';
-import type { createAISyntaxParser } from './createAISyntaxParser';
+import { createAISyntaxParser } from './createAISyntaxParser';
 import { ProcessBar } from './ProcessBar';
 import type { IChat } from './type';
 dayjs.extend(localizedFormat);
@@ -17,24 +17,28 @@ dayjs.extend(localizedFormat);
 interface Props {
   chat: IChat;
   message: IMessage;
-  parser: ReturnType<typeof createAISyntaxParser>;
 }
 
-export const MessageView: React.FC<Props> = ({ message, chat, parser }) => {
+export const MessageView: React.FC<Props> = ({ message, chat }) => {
   const userStore = useUserStore();
   const isCurrentUser = message.creatorId === userStore.currentUser.id;
   const isOfficial = message.creatorId === 'teable';
   const isAiCode = message.content.includes('```ai');
   const [debugAI, setDebugAI] = useState(false);
+  const regex = /```ai\n([\s\S]*?)(?:(```)|$)/;
+  const match = message.content.match(regex);
+  const [parser] = useState(() => createAISyntaxParser());
+
+  if (match) {
+    const content = match[1];
+    parser(content);
+  }
+
   const Element = () => {
     if (isAiCode && !debugAI) {
-      const regex = /```ai\n([\s\S]*?)(?:(```)|$)/;
-      const match = message.content.match(regex);
       let done = false;
       if (match) {
-        const content = match[1];
         done = Boolean(match[2]);
-        parser(content);
       }
       return <ProcessBar message={message} done={done} onClick={() => setDebugAI(true)} />;
     }

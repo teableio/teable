@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
 import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
-import { generateChartMap, createAISyntaxParser } from './createAISyntaxParser';
+import { generateChartMap } from './createAISyntaxParser';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
 import { CREATE_TABLE_PROMPT } from './prompt/createTableByTextPrompt';
@@ -52,7 +52,6 @@ export const ChatWindow = () => {
   const messageList = messageStore.messageList.filter((message) => message.chatId === chat?.id);
   const lastMessage = last(messageList);
   const { isLoading, fetchChatGPTResponse } = useGPTRequest();
-  const [parser] = useState(() => createAISyntaxParser());
 
   useEffect(() => {
     setTimeout(() => {
@@ -155,7 +154,7 @@ export const ChatWindow = () => {
           <p>Empty</p>
         ) : (
           messageList.map((message) => (
-            <MessageView chat={chat} key={message.id} message={message} parser={parser} />
+            <MessageView chat={chat} key={message.id} message={message} />
           ))
         )}
         {isLoading && <p>...</p>}

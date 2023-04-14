@@ -36,4 +36,14 @@ export class NumberFieldCore extends FieldCore {
     }
     return num;
   }
+
+  repair(value: unknown) {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return this.convertStringToCellValue(value);
+    }
+    throw new Error(`invalid value: ${value} for field: ${this.name}`);
+  }
 }

@@ -5,11 +5,12 @@ export async function tableContext2Prompt(tableId: string, viewId: string) {
   const result = await Table.getRecords({ tableId, viewId, take: 1, skip: 0 });
   const fieldDefine = fields
     .map((field) => {
-      return `${field.name}:${field.type}:${JSON.stringify(field.options)}`;
+      return `${field.name}|${field.type}|${JSON.stringify(field.options)};`;
     })
     .join('\n');
-  const preDefine = `Current table has ${fields.length} fields, and ${result.total} records.
-Fields for current table is defined by following structure: {name}:{fieldType}:{options}, options is JSON string.
+  return `
+Current table has ${fields.length} fields, and ${result.total} records.
+Fields for current table is defined by following structure: {name}|{fieldType}|{options};
+${fieldDefine}
 `;
-  return `\n${preDefine}\n${fieldDefine}\n`;
 }

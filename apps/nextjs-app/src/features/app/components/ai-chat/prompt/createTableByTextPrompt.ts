@@ -4,15 +4,15 @@ Operation definition:
 
 create-table: Create a table
 index: table order
-value: {name}:{description}:{emojiIcon}
+value: {name}:{description}:{emojiIcon};
 
 create-field: Create a field
 index: field order
-value: {name}:{fieldType}:{options}
+value: {name}:{fieldType}:{options};
 
 options definition:
-singleSelect: comma-separated choices, choices({name}:{color}, ...), example: singleSelect:choices(High:red,Low:Green)
-number: contains precision(N) configuration, N is an integer.
+singleSelect: comma-separated choices, choices({name}:{color}, ...), example: singleSelect:choices(High:red,Low:Green);
+number: contains precision(N) configuration, N is an integer. example: number:precision(2);
 other field types: no special handling
 
 fieldType definition:

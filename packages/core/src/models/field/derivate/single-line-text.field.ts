@@ -28,4 +28,11 @@ export class SingleLineTextFieldCore extends FieldCore {
 
     return value;
   }
+
+  repair(value: unknown) {
+    if (typeof value === 'string') {
+      return this.convertStringToCellValue(value);
+    }
+    return String(value);
+  }
 }
