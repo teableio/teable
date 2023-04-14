@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
 import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
+import { generateChartMap } from './createAISyntaxParser';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
 import { CREATE_TABLE_PROMPT } from './prompt/createTableByTextPrompt';
+import { GENERATE_CHART_PROMPT } from './prompt/generateChartByTextPrompt';
 import { getPromptGeneratorOfAssistant } from './prompt/getPromptGenerator';
 import type { IChat } from './type';
 import { countTextTokens, useGPTRequest } from './useGPTRequest';
@@ -21,7 +23,10 @@ const getDefaultChat = (): IChat => {
     assistantId: 'tai-app',
     title: 'New Chart',
     createdAt: Date.now(),
-    promptContext: CREATE_TABLE_PROMPT,
+    promptContext: {
+      CREATE_TABLE_PROMPT,
+      GENERATE_CHART_PROMPT,
+    },
   };
 };
 
@@ -88,7 +93,7 @@ export const ChatWindow = () => {
     console.log('sendMessageToCurrentChat:messageList:', messageList);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const promptGenerator = getPromptGeneratorOfAssistant(getAssistantById(chat.assistantId)!);
-    prompt = promptGenerator(messageList[messageList.length - 1].content, chat.promptContext);
+    prompt = await promptGenerator(messageList[messageList.length - 1].content, chat.promptContext);
     console.log('sendMessageToCurrentChat:prompt:', prompt);
     const formatedMessageList = [];
     for (let i = messageList.length - 1; i >= 0; i--) {
@@ -106,8 +111,9 @@ export const ChatWindow = () => {
       content: prompt,
     });
 
+    const messageId = getRandomString(20);
     const message: IMessage = {
-      id: getRandomString(20),
+      id: messageId,
       chatId: chat.id,
       creatorId: chat.assistantId,
       creatorRole: CreatorRole.Assistant,
@@ -115,6 +121,9 @@ export const ChatWindow = () => {
       content: '',
       status: MessageStatus.Loading,
     };
+    if (messageList[messageList.length - 1].content.includes('chart')) {
+      generateChartMap[messageId] = undefined;
+    }
     messageStore.addMessage(message);
 
     fetchChatGPTResponse(formatedMessageList, (content, done, err) => {

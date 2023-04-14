@@ -37,7 +37,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
         done = Boolean(match[2]);
         parser(content);
       }
-      return <ProcessBar done={done} onClick={() => setDebugAI(true)} />;
+      return <ProcessBar message={message} done={done} onClick={() => setDebugAI(true)} />;
     }
 
     if (isOfficial && message.code) {

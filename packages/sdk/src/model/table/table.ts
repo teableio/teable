@@ -9,6 +9,7 @@ import type {
   IViewVo,
   ViewType,
   ICreateRecordsRo,
+  IRecord,
 } from '@teable-group/core';
 import {
   generateRecordId,
@@ -58,6 +59,18 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
+  static async getFields(tableId: string, viewId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
+      `/api/table/${tableId}/field`,
+      {
+        params: {
+          viewId,
+        },
+      }
+    );
+    return response.data.data;
+  }
+
   static async createRecords(params: ICreateRecordsRo & { tableId: string }) {
     const { tableId, ...recordRo } = params;
     const response = await axios.post<IJsonApiSuccessResponse<void>>(
@@ -65,6 +78,20 @@ export class Table extends TableCore {
       recordRo
     );
     return response.data.data;
+  }
+
+  static async selectRecords(tableId: string, viewId: string, query?: { fieldKey: string }) {
+    const { fieldKey } = query || {};
+    const response = await axios.get<IJsonApiSuccessResponse<{ records: IRecord[] }>>(
+      `/api/table/${tableId}/record`,
+      {
+        params: {
+          viewId,
+          fieldKey,
+        },
+      }
+    );
+    return response.data.data.records;
   }
 
   protected doc!: Doc<ITableSnapshot>;
