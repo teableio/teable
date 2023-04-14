@@ -33,7 +33,6 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
       let done = false;
       if (match) {
         const content = match[1];
-        console.log(match);
         done = Boolean(match[2]);
         parser(content);
       }

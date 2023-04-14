@@ -26,7 +26,6 @@ export function createAISyntaxParser() {
           description,
           icon: emojiIcon,
           fields: [],
-          rows: { records: [] },
         });
         tableId = tableData.id;
         const views = await View.getViews(tableId);

@@ -52,7 +52,7 @@ create-record: Create a record
 index: record order
 value: None
 
-set-record: set a record value (always create a record before set record, only set 1 field at a time)
+set-record: set a record value (only set 1 field at a time, set a record in at non-existent index will cause error)
 index: record order
 value: {fieldName}:{recordValue}, Only one pair of data is allowed, : in value should be escape with \\: .
 recordValue should math the field they belongs to, definition:
