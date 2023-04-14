@@ -23,7 +23,7 @@ export const ProcessBar: React.FC<{
     if (done) {
       setTimeout(() => {
         setTaskDone(false);
-      }, 2000);
+      }, 3000);
     }
   }, [done]);
 
@@ -37,7 +37,7 @@ export const ProcessBar: React.FC<{
   return (
     <div
       ref={ref}
-      className={clx('relative max-w-full bg-base-300 px-2 rounded-lg prose prose-slate text-sm', {
+      className={clx('relative max-w-full bg-base-300 p-2 rounded-lg prose prose-slate text-sm', {
         'w-full': isGenerateChart,
       })}
       onClick={onClick}
