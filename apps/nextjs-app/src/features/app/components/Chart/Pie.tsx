@@ -16,8 +16,12 @@ export class Pie extends Base {
       tooltip: {
         trigger: 'item',
       },
+      legend: {
+        left: 'center',
+      },
       series: {
         type: ChartType.Pie,
+        radius: '60%',
         data: seriesData,
       },
     };
