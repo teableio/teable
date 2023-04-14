@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 // parser.test.ts
 import type { IParsedLine } from './parseLine';
@@ -59,6 +60,23 @@ describe('parseLine', () => {
             { name: 'dark', color: 'blueDark1' },
           ],
         },
+      },
+    });
+  });
+
+  it('parses simplified set-record value syntax', () => {
+    const input1 =
+      'set-record|0|Project Name:Project A,Start Date:2022/01/01,End Date:2022/06/30,Assigned To:@user1,Status:In Progress;';
+    const parsed1 = new AISyntaxParser(asyncCallback).parseLine(input1);
+    expect(parsed1).toEqual({
+      operation: 'set-record',
+      index: 0,
+      value: {
+        'Project Name': 'Project A',
+        'Start Date': '2022/01/01',
+        'End Date': '2022/06/30',
+        'Assigned To': '@user1',
+        Status: 'In Progress',
       },
     });
   });

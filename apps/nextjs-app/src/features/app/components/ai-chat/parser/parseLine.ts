@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
 import { FieldType } from '@teable-group/core';
 
 export type IParsedLine = {
@@ -141,7 +142,10 @@ export class AISyntaxParser {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  async processMultilineSyntax(input: string, callBack: (result: unknown) => void): Promise<void> {
+  async processMultilineSyntax(
+    input: string,
+    callBack: (result: unknown) => void = () => {}
+  ): Promise<void> {
     if (this.processing) {
       this.pendingInputs = input;
     } else {

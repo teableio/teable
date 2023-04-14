@@ -48,13 +48,12 @@ required:
 - name
 - color
 
-create-record: Create a record
+create-record: Create a record, has no value option
 index: record order
-value: None
 
-set-record: set a record value (only set 1 field at a time, set a record in at non-existent index will cause error)
+set-record: set a record value (always set 1 fieldName at a time, create a record if not exist)
 index: record order
-value: {fieldName}:{recordValue}, Only one pair of data is allowed, : in value should be escape with \\: .
+value: {fieldName}:{recordValue},{fieldName}:{recordValue},... ':' should be escape with '\\:' .
 recordValue should math the field they belongs to, definition:
 singleLineText, type: string, example: "bieber"
 longText, type: string, example: "line1\nline2"
