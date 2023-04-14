@@ -6316,6 +6316,7 @@ __metadata:
     dayjs: "npm:1.11.7"
     dotenv-flow: "npm:3.2.0"
     dotenv-flow-cli: "npm:1.0.0"
+    echarts: "npm:5.4.2"
     electron: "npm:20.3.6"
     electron-builder: "npm:23.6.0"
     electron-is-dev: "npm:^1.1.0"
@@ -12594,6 +12595,16 @@ __metadata:
     readable-stream: "npm:^2.0.0"
     stream-shift: "npm:^1.0.0"
   checksum: a1e739c4fc538295b22f118440be19484a0bd109983324fcb5d74e3448a41d3b0656270a30430494826acec8254171d57e3f2b51118f66d8f39d0f8e68192835
+  languageName: node
+  linkType: hard
+
+"echarts@npm:5.4.2":
+  version: 5.4.2
+  resolution: "echarts@npm:5.4.2"
+  dependencies:
+    tslib: "npm:2.3.0"
+    zrender: "npm:5.4.3"
+  checksum: 137a97999adb0b759a5e9670bcc6abc1fdcfadca626304904d131071844e3124bd60e5274bf3ebe1440b7df5360ba8bb9031d4b6552fe1c4cd2a08dbccad837b
   languageName: node
   linkType: hard
 
@@ -26717,6 +26728,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tslib@npm:2.3.0":
+  version: 2.3.0
+  resolution: "tslib@npm:2.3.0"
+  checksum: fc16cbc15e3a1c0e38b2714d0f56c378b744d7edeb44645352b8cc03b435dfa73ed0efc39d3e6d2ff13db7b0145589089fc8f0338554710e909784fbe90a5b32
+  languageName: node
+  linkType: hard
+
 "tslib@npm:2.4.0":
   version: 2.4.0
   resolution: "tslib@npm:2.4.0"
@@ -28559,6 +28577,15 @@ __metadata:
   version: 3.19.1
   resolution: "zod@npm:3.19.1"
   checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
+  languageName: node
+  linkType: hard
+
+"zrender@npm:5.4.3":
+  version: 5.4.3
+  resolution: "zrender@npm:5.4.3"
+  dependencies:
+    tslib: "npm:2.3.0"
+  checksum: e86c86ff8cbeebf874faa2153aa29bcdd460f3fbec2972d2566ae84f42f4cc8c3cfa8e328cd913e74decffaf2934156e7136776a83b7d5647091cefd77421bee
   languageName: node
   linkType: hard
 
