@@ -19,15 +19,14 @@ export function createAISyntaxParser() {
     if (!viewId) {
       viewId = router.query.viewId as string;
     }
-    console.log(`${tableId}:${viewId}`);
-    console.log('execute: ', parsedLine.operation);
+    console.log('execute: ', parsedLine);
     switch (parsedLine.operation) {
       case 'create-table': {
-        const { name, description, emojiIcon } = parsedLine.value;
+        const { name, description, icon } = parsedLine.value;
         const tableData = await Space.createTable({
           name,
           description,
-          icon: emojiIcon,
+          icon: icon,
           fields: [],
         });
         tableId = tableData.id;
@@ -51,10 +50,9 @@ export function createAISyntaxParser() {
         if (!tableId) {
           throw new Error("Can't create record without table");
         }
-        const { fieldName, recordValue } = parsedLine.value;
         await Table.createRecords({
           tableId,
-          records: [{ fields: { [fieldName]: recordValue } }],
+          records: [{ fields: {} }],
         });
         return;
       }
@@ -66,12 +64,18 @@ export function createAISyntaxParser() {
           throw new Error("Can't find viewId");
         }
         const index = parsedLine.index;
-        await Table.updateRecordByIndex({
-          tableId,
-          viewId,
-          index,
-          record: { fields: parsedLine.value },
-        });
+        const cell = parsedLine.value;
+        try {
+          await Table.updateRecordByIndex({
+            tableId,
+            viewId,
+            index,
+            record: { fields: { [cell.name]: cell.value } },
+          });
+        } catch (e) {
+          console.error(e);
+          console.log(parsedLine);
+        }
         return;
       }
       case 'generate-chart': {

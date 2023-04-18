@@ -1,5 +1,6 @@
 import { getRandomString } from '@teable-group/core';
 import { first, last } from 'lodash';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
 import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
@@ -145,7 +146,16 @@ export const ChatWindow = () => {
     >
       <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
         {messageList.length === 0 ? (
-          <p>Empty</p>
+          <div className="flex justify-center flex-col items-center">
+            <Image
+              width={100}
+              height={550}
+              loading={'eager'}
+              src={'/shared-assets/images/tai-logo.png'}
+              alt={'tailwind-ui-logo'}
+            />
+            <p>What can I do for you?</p>
+          </div>
         ) : (
           messageList.map((message) => (
             <MessageView chat={chat} key={message.id} message={message} />
