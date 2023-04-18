@@ -6,11 +6,11 @@ import type {
 } from '@teable-group/db-main-prisma';
 import _ from 'lodash';
 import type { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enum';
-import { PrismaService } from '../../prisma.service';
-import type { CreateWorkflowRo } from './model/create-workflow.ro';
-import { WorkflowVo } from './model/workflow.vo';
-import { WorkflowActionService } from './workflow-action.service';
-import { WorkflowTriggerService } from './workflow-trigger.service';
+import { PrismaService } from '../../../prisma.service';
+import type { CreateWorkflowRo } from '../model/create-workflow.ro';
+import { WorkflowVo } from '../model/workflow.vo';
+import { WorkflowActionService } from '../workflow-action/workflow-action.service';
+import { WorkflowTriggerService } from '../workflow-trigger/workflow-trigger.service';
 
 @Injectable()
 export class WorkflowService {

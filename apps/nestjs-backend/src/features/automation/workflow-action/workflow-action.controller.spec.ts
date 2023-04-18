@@ -6,9 +6,9 @@ import {
   generateWorkflowTriggerId,
 } from '@teable-group/core';
 import type { AutomationWorkflowAction as AutomationWorkflowActionModel } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
-import { ActionTypeEnums } from './enums/action-type.enum';
-import type { CreateWorkflowActionRo } from './model/create-workflow-action.ro';
+import { PrismaService } from '../../../prisma.service';
+import { ActionTypeEnums } from '../enums/action-type.enum';
+import type { CreateWorkflowActionRo } from '../model/create-workflow-action.ro';
 import { WorkflowActionController } from './workflow-action.controller';
 import { WorkflowActionService } from './workflow-action.service';
 

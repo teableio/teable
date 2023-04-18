@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ActionTypeEnums } from 'src/features/automation/enums/action-type.enum';
+import { ActionTypeEnums } from '../enums/action-type.enum';
 
 export class CreateWorkflowActionRo {
   @ApiPropertyOptional({

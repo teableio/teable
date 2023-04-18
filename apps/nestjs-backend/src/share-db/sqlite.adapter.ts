@@ -43,7 +43,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     this.closed = false;
   }
 
-  getService(type: IdPrefix): AdapterService {
+  private getService(type: IdPrefix): AdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;

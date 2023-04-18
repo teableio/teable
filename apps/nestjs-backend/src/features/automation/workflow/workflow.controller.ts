@@ -7,9 +7,9 @@ import {
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
-import { ApiResponse, responseWrap } from '../../utils/api-response';
-import { CreateWorkflowRo } from './model/create-workflow.ro';
-import { WorkflowVo } from './model/workflow.vo';
+import { ApiResponse, responseWrap } from '../../../utils/api-response';
+import { CreateWorkflowRo } from '../model/create-workflow.ro';
+import { WorkflowVo } from '../model/workflow.vo';
 import { WorkflowService } from './workflow.service';
 
 @ApiBearerAuth()
@@ -46,7 +46,7 @@ export class WorkflowController {
     return responseWrap(null);
   }
 
-  @Put('')
+  @Put()
   @ApiOperation({ summary: 'Update workflow by id' })
   @ApiParam({
     name: 'workflowId',

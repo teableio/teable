@@ -5,11 +5,11 @@ import {
   generateWorkflowTriggerId,
 } from '@teable-group/core';
 import request from 'supertest';
-import { ActionTypeEnums } from 'src/features/automation/enums/action-type.enum';
-import { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enum';
-import type { CreateWorkflowActionRo } from 'src/features/automation/model/create-workflow-action.ro';
-import type { CreateWorkflowTriggerRo } from 'src/features/automation/model/create-workflow-trigger.ro';
-import type { CreateWorkflowRo } from 'src/features/automation/model/create-workflow.ro';
+import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
+import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
+import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
+import type { CreateWorkflowTriggerRo } from '../src/features/automation/model/create-workflow-trigger.ro';
+import type { CreateWorkflowRo } from '../src/features/automation/model/create-workflow.ro';
 import { initApp } from './init-app';
 
 describe('AutomationController (e2e)', () => {

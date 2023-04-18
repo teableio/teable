@@ -4,7 +4,7 @@ import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { RecordCreatedEvent } from 'src/share-db/events';
+import { RecordCreatedEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()

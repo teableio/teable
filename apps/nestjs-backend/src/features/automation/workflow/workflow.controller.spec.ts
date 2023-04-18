@@ -2,10 +2,10 @@ import { ConsoleLogger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { generateWorkflowId } from '@teable-group/core';
 import type { AutomationWorkflow as AutomationWorkflowModel } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
-import type { CreateWorkflowRo } from './model/create-workflow.ro';
-import { WorkflowActionService } from './workflow-action.service';
-import { WorkflowTriggerService } from './workflow-trigger.service';
+import { PrismaService } from '../../../prisma.service';
+import type { CreateWorkflowRo } from '../model/create-workflow.ro';
+import { WorkflowActionService } from '../workflow-action/workflow-action.service';
+import { WorkflowTriggerService } from '../workflow-trigger/workflow-trigger.service';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
 

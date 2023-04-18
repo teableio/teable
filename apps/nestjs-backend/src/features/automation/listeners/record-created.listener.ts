@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import _ from 'lodash';
-import engine from 'src/features/automation/engine/json-rules-engine';
 import { RecordCreatedEvent } from 'src/share-db/events';
 import { Webhook, MailSender } from '../actions';
 import type { IWebhookRequest, IMailSenderRequest } from '../actions';
+import engine from '../engine/json-rules-engine';
 import { TriggerTypeEnums } from '../enums/trigger-type.enum';
-import { WorkflowService } from '../workflow.service';
+import { WorkflowService } from '../workflow/workflow.service';
 
 @Injectable()
 export class RecordCreatedListener {

@@ -2,17 +2,16 @@ import type { AutomationWorkflowAction as AutomationWorkflowActionModel } from '
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import _ from 'lodash';
-import { PrismaService } from '../../prisma.service';
-import type { ActionTypeEnums } from './enums/action-type.enum';
-import type { CreateWorkflowActionRo } from './model/create-workflow-action.ro';
-import { WorkflowActionVo } from './model/workflow-action.vo';
+import { PrismaService } from '../../../prisma.service';
+import type { ActionTypeEnums } from '../enums/action-type.enum';
+import type { CreateWorkflowActionRo } from '../model/create-workflow-action.ro';
+import { WorkflowActionVo } from '../model/workflow-action.vo';
 
 @Injectable()
 export class WorkflowActionService {
   private logger = new Logger(WorkflowActionService.name);
 
-  constructor(private readonly prisma: PrismaService) {
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getWorkflowActions(
     workflowId: string,
