@@ -2,11 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Transporter, SendMailOptions } from 'nodemailer';
 import { createTransport } from 'nodemailer';
-import type { IMailConfig } from 'src/configs/config.interface';
+import type { IMailConfig } from '../../configs/config.interface';
 
 @Injectable()
 export class MailSenderService {
-  private logger = new Logger('MailSenderService');
+  private logger = new Logger(MailSenderService.name);
   private transporter: Transporter;
 
   private mailConfig: IMailConfig;

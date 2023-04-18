@@ -4,12 +4,10 @@ export enum IdPrefix {
   View = 'viw',
   Node = 'nod',
   Record = 'rec',
-  Aggregate = 'agg',
-}
 
-export enum AggregateKey {
-  RowCount = 'aggRowCount',
-  Average = 'aggAverage',
+  Workflow = 'wfl',
+  WorkflowTrigger = 'wtr',
+  WorkflowAction = 'wac',
 }
 
 export function getRandomString(len: number) {
@@ -37,4 +35,16 @@ export function generateRecordId() {
 
 export function generateTransactionKey() {
   return getRandomString(20);
+}
+
+export function generateWorkflowId() {
+  return IdPrefix.Workflow + getRandomString(16);
+}
+
+export function generateWorkflowTriggerId() {
+  return IdPrefix.WorkflowTrigger + getRandomString(16);
+}
+
+export function generateWorkflowActionId() {
+  return IdPrefix.WorkflowAction + getRandomString(16);
 }

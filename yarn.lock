@@ -3495,6 +3495,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nestjs/event-emitter@npm:1.4.1":
+  version: 1.4.1
+  resolution: "@nestjs/event-emitter@npm:1.4.1"
+  dependencies:
+    eventemitter2: "npm:6.4.9"
+  peerDependencies:
+    "@nestjs/common": ^7.0.0 || ^8.0.0 || ^9.0.0
+    "@nestjs/core": ^7.0.0 || ^8.0.0 || ^9.0.0
+    reflect-metadata: ^0.1.12
+  checksum: 124e52f0da37d8e111d0c6f807cdde5a7d172787ef6db3f8ea5423838eb351c2e882846de0e086fde7fa5248d77978c6ca0b07ae57dfef2a7131fe581576b492
+  languageName: node
+  linkType: hard
+
 "@nestjs/mapped-types@npm:1.2.2":
   version: 1.2.2
   resolution: "@nestjs/mapped-types@npm:1.2.2"
@@ -6262,6 +6275,7 @@ __metadata:
     "@graphql-yoga/node": "npm:2.13.13"
     "@headlessui/react": "npm:1.7.3"
     "@hookform/resolvers": "npm:2.9.10"
+    "@nem035/gpt-3-encoder": "npm:1.1.7"
     "@next/bundle-analyzer": "npm:13.0.0"
     "@next/env": "npm:13.0.0"
     "@playwright/test": "npm:1.27.1"
@@ -6401,6 +6415,7 @@ __metadata:
     "@nestjs/config": "npm:2.2.0"
     "@nestjs/core": "npm:9.3.9"
     "@nestjs/devtools-integration": "npm:0.1.3"
+    "@nestjs/event-emitter": "npm:1.4.1"
     "@nestjs/platform-express": "npm:9.3.9"
     "@nestjs/platform-ws": "npm:9.3.9"
     "@nestjs/swagger": "npm:6.2.1"
@@ -6478,7 +6493,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/core@workspace:packages/core"
   dependencies:
-    "@nem035/gpt-3-encoder": "npm:1.1.7"
     "@size-limit/file": "npm:8.1.0"
     "@teable-group/eslint-config-bases": "workspace:^"
     "@types/jest": "npm:29.2.0"
@@ -13824,7 +13838,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eventemitter2@npm:^6.4.4":
+"eventemitter2@npm:6.4.9, eventemitter2@npm:^6.4.4":
   version: 6.4.9
   resolution: "eventemitter2@npm:6.4.9"
   checksum: c180cc0012389f2cd564cdfba949807175dd309b1d7f0900cfdfc5a97436a867a30964b94f86613ab237d960d52f7e4c85098c9c8ef6dc8ed29bbf4e79465d8b

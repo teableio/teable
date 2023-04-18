@@ -11,8 +11,8 @@ describe('Mail-Sender Action Test', () => {
   const mockData = {
     workflow: {
       actionsById: {
-        webhook_abc_1: {
-          actionId: 'webhook_abc_1',
+        wac3lzmmwSKWmtYoOF6: {
+          actionId: 'wac3lzmmwSKWmtYoOF6',
           actionType: 'WEBHOOK',
           description: null,
           inputExpressions: {
@@ -56,10 +56,10 @@ describe('Mail-Sender Action Test', () => {
             ],
           },
           testResult: null,
-          nextActionId: 'webhook_abc_2',
+          nextActionId: 'wac3lzmmwSKWmtYoOF7',
         },
-        mail_sender_abc_1: {
-          actionId: 'mail_sender_abc_1',
+        wac3lzmmwSKWmtYoOF7: {
+          actionId: 'wac3lzmmwSKWmtYoOF7',
           actionType: 'MAIL_SENDER',
           description: null,
           inputExpressions: {
@@ -89,15 +89,15 @@ describe('Mail-Sender Action Test', () => {
 
   it('a single unrelated Action', async () => {
     const webhookAction = new Webhook(
-      mockData.workflow.actionsById.webhook_abc_1.actionId,
-      mockData.workflow.actionsById.webhook_abc_1.inputExpressions as IWebhookRequest,
+      mockData.workflow.actionsById.wac3lzmmwSKWmtYoOF6.actionId,
+      mockData.workflow.actionsById.wac3lzmmwSKWmtYoOF6.inputExpressions as IWebhookRequest,
       2
     );
     jsonNg.addRule(webhookAction);
 
     const mailSenderAction = new MailSender(
-      mockData.workflow.actionsById.mail_sender_abc_1.actionId,
-      mockData.workflow.actionsById.mail_sender_abc_1.inputExpressions as IMailSenderRequest,
+      mockData.workflow.actionsById.wac3lzmmwSKWmtYoOF7.actionId,
+      mockData.workflow.actionsById.wac3lzmmwSKWmtYoOF7.inputExpressions as IMailSenderRequest,
       1
     );
     jsonNg.addRule(mailSenderAction);
