@@ -6312,6 +6312,7 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
+    "@types/react-grid-layout": "npm:1.3.2"
     "@types/react-syntax-highlighter": "npm:15.5.6"
     "@types/testing-library__jest-dom": "npm:5.14.5"
     "@vitejs/plugin-react": "npm:2.2.0"
@@ -6329,6 +6330,7 @@ __metadata:
     dayjs: "npm:1.11.7"
     dotenv-flow: "npm:3.2.0"
     dotenv-flow-cli: "npm:1.0.0"
+    echarts: "npm:5.4.2"
     electron: "npm:20.3.6"
     electron-builder: "npm:23.6.0"
     electron-is-dev: "npm:^1.1.0"
@@ -6364,7 +6366,9 @@ __metadata:
     postcss-preset-env: "npm:7.8.2"
     prettier: "npm:2.7.1"
     react: "npm:18.2.0"
+    react-confetti: "npm:6.1.0"
     react-dom: "npm:18.2.0"
+    react-grid-layout: "npm:1.3.4"
     react-hook-form: "npm:7.38.0"
     react-i18next: "npm:11.18.6"
     react-markdown: "npm:8.0.6"
@@ -7430,6 +7434,15 @@ __metadata:
   dependencies:
     "@types/react": "npm:*"
   checksum: c599b8493cd04d4fa6e138657f0f6a73d6022c1cc159e732ea6d29d41f1b20edfb39980804806b397e15bdeb779ab60535521472838cea177f4b9b24b3bf0520
+  languageName: node
+  linkType: hard
+
+"@types/react-grid-layout@npm:1.3.2":
+  version: 1.3.2
+  resolution: "@types/react-grid-layout@npm:1.3.2"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: a0f5353fdd3e72149adbeedac78c31ff575134838c4bccfee8d1feb095c09f2bfd360377ae400d739cafd6b203a60a65fe718c125ec67bc5af16216cd3b2d8fa
   languageName: node
   linkType: hard
 
@@ -10786,7 +10799,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"clsx@npm:1.2.1":
+"clsx@npm:1.2.1, clsx@npm:^1.1.1":
   version: 1.2.1
   resolution: "clsx@npm:1.2.1"
   checksum: cae17fd0fd5ea449d000c681169a8a6f7add4929b369cae3e2d5b604fba2798b39334121e467dbf6ac752562c28a6894a443f30761b004317c0668eb031af52d
@@ -12626,6 +12639,16 @@ __metadata:
     readable-stream: "npm:^2.0.0"
     stream-shift: "npm:^1.0.0"
   checksum: a1e739c4fc538295b22f118440be19484a0bd109983324fcb5d74e3448a41d3b0656270a30430494826acec8254171d57e3f2b51118f66d8f39d0f8e68192835
+  languageName: node
+  linkType: hard
+
+"echarts@npm:5.4.2":
+  version: 5.4.2
+  resolution: "echarts@npm:5.4.2"
+  dependencies:
+    tslib: "npm:2.3.0"
+    zrender: "npm:5.4.3"
+  checksum: 137a97999adb0b759a5e9670bcc6abc1fdcfadca626304904d131071844e3124bd60e5274bf3ebe1440b7df5360ba8bb9031d4b6552fe1c4cd2a08dbccad837b
   languageName: node
   linkType: hard
 
@@ -18400,6 +18423,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lodash.isequal@npm:^4.0.0":
+  version: 4.5.0
+  resolution: "lodash.isequal@npm:4.5.0"
+  checksum: d413585fd1dbcb6ebed6d9d98a7fe5e10cc6f653b6676a61a69185aa1f6ae5b4aac1367a632db0ee46197ee1ab6aa5b7428c1721f9b5459a3623e0cc930b9b77
+  languageName: node
+  linkType: hard
+
 "lodash.isobjectlike@npm:^4.0.0":
   version: 4.0.0
   resolution: "lodash.isobjectlike@npm:4.0.0"
@@ -22638,7 +22668,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15.0.0, prop-types@npm:^15.5.8, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
+"prop-types@npm:15.x, prop-types@npm:^15.0.0, prop-types@npm:^15.5.8, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
@@ -22933,6 +22963,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-confetti@npm:6.1.0":
+  version: 6.1.0
+  resolution: "react-confetti@npm:6.1.0"
+  dependencies:
+    tween-functions: "npm:^1.2.0"
+  peerDependencies:
+    react: ^16.3.0 || ^17.0.1 || ^18.0.0
+  checksum: dc675cdb23ae47be9835c9001360eac4dc8e36b3d41113220780f37185f77dd4448116b0e14e3266f76cb7d41d5da6372638503d351563425dea7f244bd3b480
+  languageName: node
+  linkType: hard
+
 "react-docgen-typescript@npm:^2.1.1":
   version: 2.2.2
   resolution: "react-docgen-typescript@npm:2.2.2"
@@ -22974,6 +23015,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-draggable@npm:^4.0.0, react-draggable@npm:^4.0.3":
+  version: 4.4.5
+  resolution: "react-draggable@npm:4.4.5"
+  dependencies:
+    clsx: "npm:^1.1.1"
+    prop-types: "npm:^15.8.1"
+  peerDependencies:
+    react: ">= 16.3.0"
+    react-dom: ">= 16.3.0"
+  checksum: f07106415ef635e93011af2d047311fbacb1dec05b030929c4a3f846436454deaebf5e023fa6930326bb58a361cf3ad3a100510e19505dd1b7a9cca00f668f01
+  languageName: node
+  linkType: hard
+
 "react-easy-swipe@npm:^0.0.21":
   version: 0.0.21
   resolution: "react-easy-swipe@npm:0.0.21"
@@ -23005,6 +23059,22 @@ __metadata:
   peerDependencies:
     react: ">=16.13.1"
   checksum: 5cba2ccd474e15a54b970700653c157c58f0da8e9067510d91ea8bbb6dbc06c8e1e76f9e3601eea0f278ff0280fc0dbfd970ed1c0b0400256b4fc6e57ca923b8
+  languageName: node
+  linkType: hard
+
+"react-grid-layout@npm:1.3.4":
+  version: 1.3.4
+  resolution: "react-grid-layout@npm:1.3.4"
+  dependencies:
+    clsx: "npm:^1.1.1"
+    lodash.isequal: "npm:^4.0.0"
+    prop-types: "npm:^15.8.1"
+    react-draggable: "npm:^4.0.0"
+    react-resizable: "npm:^3.0.4"
+  peerDependencies:
+    react: ">= 16.3.0"
+    react-dom: ">= 16.3.0"
+  checksum: f7ab47e81ac429c2339553735a8cca5cdb920ec4fd2e05cec6b381dff526c16fdbc7ae7007ddc640cee183fc2867cb248ab91bbabe2ff574ce532653701eb0d3
   languageName: node
   linkType: hard
 
@@ -23163,6 +23233,18 @@ __metadata:
     react: ^16.14.0 || ^17.0.0 || ^18.0.0
     react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
   checksum: 87d985d6bc86edb88f292d5335c855b08bc010c0780054bfde95e3ea5b59df885f015248b42e8d760197937895ad18d9ded71d9ac6ba0eab96a21b84b56762ea
+  languageName: node
+  linkType: hard
+
+"react-resizable@npm:^3.0.4":
+  version: 3.0.5
+  resolution: "react-resizable@npm:3.0.5"
+  dependencies:
+    prop-types: "npm:15.x"
+    react-draggable: "npm:^4.0.3"
+  peerDependencies:
+    react: ">= 16.3"
+  checksum: 80383dcf174f3fb775cc3b846c12240fed9a92661e0e0ea153eaf6594ffdceaac8ecc16731bd4463bbdc59f569d1780b24b9dff4358babe787c07e3c9c9f3440
   languageName: node
   linkType: hard
 
@@ -26786,6 +26868,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tslib@npm:2.3.0":
+  version: 2.3.0
+  resolution: "tslib@npm:2.3.0"
+  checksum: fc16cbc15e3a1c0e38b2714d0f56c378b744d7edeb44645352b8cc03b435dfa73ed0efc39d3e6d2ff13db7b0145589089fc8f0338554710e909784fbe90a5b32
+  languageName: node
+  linkType: hard
+
 "tslib@npm:2.4.0":
   version: 2.4.0
   resolution: "tslib@npm:2.4.0"
@@ -26879,6 +26968,13 @@ __metadata:
   version: 0.0.6
   resolution: "tunnel@npm:0.0.6"
   checksum: 4b6009e1ed9c1857d58462867cd731f4af255c0406fc982dd0a17735c5c991293bc57a8c0957c5f51dfc3778baa280e399d3e05f1ca4aaf7442349c529b7c89d
+  languageName: node
+  linkType: hard
+
+"tween-functions@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "tween-functions@npm:1.2.0"
+  checksum: 4b2297d88f471d0bd41f9a78f80cbc32c8706e520a00176775f78dfdabc5bcefa78471db336f086d30f3768eb8013a25552e0a2e9435ad6c7e2e341c843a3f3e
   languageName: node
   linkType: hard
 
@@ -28621,6 +28717,15 @@ __metadata:
   version: 3.19.1
   resolution: "zod@npm:3.19.1"
   checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
+  languageName: node
+  linkType: hard
+
+"zrender@npm:5.4.3":
+  version: 5.4.3
+  resolution: "zrender@npm:5.4.3"
+  dependencies:
+    tslib: "npm:2.3.0"
+  checksum: e86c86ff8cbeebf874faa2153aa29bcdd460f3fbec2972d2566ae84f42f4cc8c3cfa8e328cd913e74decffaf2934156e7136776a83b7d5647091cefd77421bee
   languageName: node
   linkType: hard
 

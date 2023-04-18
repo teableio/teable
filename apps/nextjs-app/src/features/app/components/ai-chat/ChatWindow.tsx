@@ -1,12 +1,12 @@
 import { getRandomString } from '@teable-group/core';
 import { first, last } from 'lodash';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';
 import { MessageStatus, CreatorRole, useMessageStore } from 'store/message';
 import type { IUser } from 'store/user';
 import { MessageInput } from './MessageInput';
 import { MessageView } from './MessageView';
-import { CREATE_TABLE_PROMPT } from './prompt/createTableByTextPrompt';
 import { getPromptGeneratorOfAssistant } from './prompt/getPromptGenerator';
 import type { IChat } from './type';
 import { countTextTokens, useGPTRequest } from './useGPTRequest';
@@ -21,7 +21,6 @@ const getDefaultChat = (): IChat => {
     assistantId: 'tai-app',
     title: 'New Chart',
     createdAt: Date.now(),
-    promptContext: CREATE_TABLE_PROMPT,
   };
 };
 
@@ -47,6 +46,7 @@ export const ChatWindow = () => {
   const messageList = messageStore.messageList.filter((message) => message.chatId === chat?.id);
   const lastMessage = last(messageList);
   const { isLoading, fetchChatGPTResponse } = useGPTRequest();
+
   useEffect(() => {
     setTimeout(() => {
       if (!chatWindowRef.current) {
@@ -83,12 +83,14 @@ export const ChatWindow = () => {
     const messageList = messageStore
       .getState()
       .messageList.filter((message) => message.chatId === chat.id);
-    let prompt = '';
     let tokens = 0;
     console.log('sendMessageToCurrentChat:messageList:', messageList);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const promptGenerator = getPromptGeneratorOfAssistant(getAssistantById(chat.assistantId)!);
-    prompt = promptGenerator(messageList[messageList.length - 1].content, chat.promptContext);
+    const messageType = messageList[messageList.length - 1].content.match(/chart|图/gi)
+      ? 'chart'
+      : 'table';
+    const prompt = await promptGenerator(messageList[messageList.length - 1].content, messageType);
     console.log('sendMessageToCurrentChat:prompt:', prompt);
     const formatedMessageList = [];
     for (let i = messageList.length - 1; i >= 0; i--) {
@@ -106,15 +108,18 @@ export const ChatWindow = () => {
       content: prompt,
     });
 
+    const messageId = getRandomString(20);
     const message: IMessage = {
-      id: getRandomString(20),
+      id: messageId,
       chatId: chat.id,
       creatorId: chat.assistantId,
       creatorRole: CreatorRole.Assistant,
       createdAt: Date.now(),
       content: '',
       status: MessageStatus.Loading,
+      type: messageType,
     };
+
     messageStore.addMessage(message);
 
     fetchChatGPTResponse(formatedMessageList, (content, done, err) => {
@@ -141,7 +146,16 @@ export const ChatWindow = () => {
     >
       <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
         {messageList.length === 0 ? (
-          <p>Empty</p>
+          <div className="flex justify-center flex-col items-center">
+            <Image
+              width={100}
+              height={550}
+              loading={'eager'}
+              src={'/shared-assets/images/tai-logo.png'}
+              alt={'tailwind-ui-logo'}
+            />
+            <p>What can I do for you?</p>
+          </div>
         ) : (
           messageList.map((message) => (
             <MessageView chat={chat} key={message.id} message={message} />

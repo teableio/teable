@@ -17,8 +17,8 @@ Start the database with `docker-compose up database` then run
 ```bash
 cd packages/db-main-prisma
 yarn prisma-db-push
-yarn prisma-db-seed
 yarn prisma-migrate dev
+yarn prisma-db-seed
 yarn prisma-migrate-reset
 ```
 

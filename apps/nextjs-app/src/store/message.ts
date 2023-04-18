@@ -21,7 +21,7 @@ export interface IMessage {
   createdAt: number;
   content: string;
   status: MessageStatus;
-  code?: string;
+  type?: 'table' | 'chart';
 }
 
 interface IMessageState {

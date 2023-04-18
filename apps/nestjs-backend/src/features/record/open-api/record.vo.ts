@@ -1,26 +1,41 @@
-import { ApiProperty } from '@nestjs/swagger';
-import type { IRecord } from '@teable-group/core';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IRecordFields } from '@teable-group/core';
+import type { IRecord, IRecordsVo, IRecordVo } from '@teable-group/core';
 
-export class RecordVo {
+export class Record implements IRecord {
   @ApiProperty({
-    description:
-      'Array of objects with a fields key mapping fieldId or field name to value for that field.',
-    example: [
-      {
-        id: 'recXXXXXXX',
-        fields: {
-          fldXXXXXXXXXXXXXXX: 'text value',
-        },
-      },
-    ],
+    description: 'The record id.',
   })
-  record!: {
-    id: string;
-    fields: { [fieldIdOrName: string]: unknown };
-  };
+  id!: string;
+
+  @ApiProperty({
+    description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
+    type: Object,
+  })
+  fields!: IRecordFields;
+
+  @ApiPropertyOptional({
+    description: 'Created time, milliseconds timestamp.',
+  })
+  createdTime?: number;
+
+  @ApiPropertyOptional({
+    description: 'Last modified time, milliseconds timestamp.',
+  })
+  lastModifiedTime?: number;
+
+  @ApiPropertyOptional({
+    description: 'Created by, user name',
+  })
+  createdBy?: string;
+
+  @ApiPropertyOptional({
+    description: 'Last modified by, user name',
+  })
+  lastModifiedBy?: string;
 }
 
-export class RecordsVo {
+export class RecordVo implements IRecordVo {
   @ApiProperty({
     description:
       'Array of objects with a fields key mapping fieldId or field name to value for that field.',
@@ -32,8 +47,27 @@ export class RecordsVo {
         },
       },
     ],
+    type: Record,
   })
-  records!: IRecord[];
+  record!: Record;
+}
+
+export class RecordsVo implements IRecordsVo {
+  @ApiProperty({
+    description:
+      'Array of objects with a fields key mapping fieldId or field name to value for that field.',
+    example: [
+      {
+        id: 'recXXXXXXX',
+        fields: {
+          fldXXXXXXXXXXXXXXX: 'text value',
+        },
+      },
+    ],
+    isArray: true,
+    type: Record,
+  })
+  records!: Record[];
 
   @ApiProperty({
     description: 'Total number of records in this query.',

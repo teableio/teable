@@ -1,60 +1,39 @@
 export const CREATE_TABLE_PROMPT = `
 Operation definition:
 {} means it is a variable, should not output the {} character.
+value is json. out put json no need for indentation.
 
 create-table: Create a table
 index: table order
-value: {name}:{description}:{emojiIcon}
+value:
+  name: string
+  icon: string (emoji)
 
 create-field: Create a field
 index: field order
-value: {name}:{fieldType}:{options}
+value:
+  name: string
+  type: singleLineText, longText, user, attachment, checkbox, multipleSelect, singleSelect, date, phoneNumber, email, url, number, currency, percent, duration, rating, formula, rollup, count, multipleRecordLinks, multipleLookupValues, createdTime, lastModifiedTime, createdBy, lastModifiedBy, autoNumber, button
+  options: SingleSelectOptionsDto | NumberOptionsDto
 
-options definition:
-singleSelect: comma-separated choices, choices({name}:{color}, ...), example: singleSelect:choices(High:red,Low:Green)
-number: contains precision(N) configuration, N is an integer.
-other field types: no special handling
+number
+value: NumberOptionsDto
+  precision: number
 
-fieldType definition:
-singleLineText, longText, user, attachment, checkbox, multipleSelect, singleSelect, date, phoneNumber, email, url, currency, percent, duration, rating, formula, rollup, count, multipleRecordLinks, multipleLookupValues, createdTime, lastModifiedTime, createdBy, lastModifiedBy, autoNumber, button
+singleSelect
+value: SingleSelectOptionsDto
+  choices: SingleSelectOption[]
+    name: string
+    color: blueBright,blueDark1,blueLight1,blueLight2,blue,cyanBright,cyanDark1,cyanLight1,cyanLight2,cyan,grayBright,grayDark1,grayLight1,grayLight2,gray,greenBright,greenDark1,greenLight1,greenLight2,green,orangeBright,orangeDark1,orangeLight1,orangeLight2,orange,pinkBright,pinkDark1,pinkLight1,pinkLight2,pink,purpleBright,purpleDark1,purpleLight1,purpleLight2,purple,redBright,redDark1,redLight1,redLight2,red,tealBright,tealDark1,tealLight1,tealLight2,teal,yellowBright,yellowDark1,yellowLight1,yellowLight2,yellow
 
-number value: NumberOptionsDto
-type: object
-properties:
-precision:
-type: number
-required:
-- precision
-
-singleSelect value: SingleSelectOptionsDto
-SingleSelectOptionsDto:
-type: object
-properties:
-choices:
-type: array
-items:
-SingleSelectOption
-required:
-- choices
-SingleSelectOption:
-type: object
-properties:
-name:
-type: string
-color:
-type: string
-enum: blueBright,blueDark1,blueLight1,blueLight2,blue,cyanBright,cyanDark1,cyanLight1,cyanLight2,cyan,grayBright,grayDark1,grayLight1,grayLight2,gray,greenBright,greenDark1,greenLight1,greenLight2,green,orangeBright,orangeDark1,orangeLight1,orangeLight2,orange,pinkBright,pinkDark1,pinkLight1,pinkLight2,pink,purpleBright,purpleDark1,purpleLight1,purpleLight2,purple,redBright,redDark1,redLight1,redLight2,red,tealBright,tealDark1,tealLight1,tealLight2,teal,yellowBright,yellowDark1,yellowLight1,yellowLight2,yellow
-required:
-- name
-- color
-
-create-record: Create a record
+create-record: Create a record, has no value option
 index: record order
-value: None
+value: undefined
 
-set-record: set a record value
-index: record order
-value: {fieldName}:{recordValue}, Only one pair of data is allowed, : in value should be escape with \\: .
+set-record: set a record value (create a record if not exist)
+index: number (record order)
+value:
+{ "name": string, "value": string }, example: { "name": "user name": "value": "bieber" }
 recordValue should math the field they belongs to, definition:
 singleLineText, type: string, example: "bieber"
 longText, type: string, example: "line1\nline2"

@@ -42,4 +42,12 @@ export class SingleSelectFieldCore extends FieldCore {
 
     return null;
   }
+
+  repair(value: unknown) {
+    if (typeof value === 'string') {
+      return this.convertStringToCellValue(value);
+    }
+
+    throw new Error(`invalid value: ${value} for field: ${this.name}`);
+  }
 }

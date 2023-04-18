@@ -8,6 +8,8 @@ import {
   OpBuilder,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { IFieldInstance } from '../../../features/field/model/factory';
+import { createFieldInstanceByRaw } from '../../../features/field/model/factory';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateRecordsRo } from '../create-records.ro';
@@ -72,14 +74,22 @@ export class RecordOpenApiService {
     }
   }
 
-  private async getFieldName2IdMap(prisma: Prisma.TransactionClient, tableId: string) {
+  private async getFieldInstanceMap(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    fieldKeyType: FieldKeyType | undefined
+  ) {
     const allFields = await prisma.field.findMany({
       where: { tableId },
-      select: { id: true, name: true },
     });
 
-    return allFields.reduce<{ [name: string]: string }>((pre, cur) => {
-      pre[cur.name] = cur.id;
+    return allFields.reduce<{ [name: string]: IFieldInstance }>((pre, cur) => {
+      const field = createFieldInstanceByRaw(cur);
+      if (fieldKeyType !== FieldKeyType.Id) {
+        pre[cur.name] = field;
+      } else {
+        pre[cur.id] = field;
+      }
       return pre;
     }, {});
   }
@@ -92,10 +102,7 @@ export class RecordOpenApiService {
     const fieldKey = createRecordsDto.fieldKeyType;
     const prisma = await this.transactionService.getTransaction(transactionMeta);
 
-    let fieldName2IdMap: Record<string, string> = {};
-    if (fieldKey !== FieldKeyType.Id) {
-      fieldName2IdMap = await this.getFieldName2IdMap(prisma, tableId);
-    }
+    const fieldName2IdMap = await this.getFieldInstanceMap(prisma, tableId, fieldKey);
 
     return createRecordsDto.records.map((record) => {
       const recordId = generateRecordId();
@@ -105,15 +112,13 @@ export class RecordOpenApiService {
       });
 
       const setRecordOps = Object.entries(record.fields).map(([fieldNameOrId, value]) => {
-        let fieldId = fieldNameOrId;
-        if (fieldKey !== FieldKeyType.Id) {
-          fieldId = fieldName2IdMap[fieldNameOrId];
-        }
+        const field = fieldName2IdMap[fieldNameOrId];
+        const newCellValue = field.repair(value);
 
         return OpBuilder.editor.setRecord.build({
-          fieldId,
+          fieldId: field.id,
           oldCellValue: null,
-          newCellValue: value,
+          newCellValue,
         });
       });
 
@@ -133,10 +138,7 @@ export class RecordOpenApiService {
     const prisma = await this.transactionService.getTransaction(transactionMeta);
     const dbFieldNameSet = new Set<string>();
 
-    let fieldName2IdMap: Record<string, string> = {};
-    if (fieldKeyType !== FieldKeyType.Id) {
-      fieldName2IdMap = await this.getFieldName2IdMap(prisma, tableId);
-    }
+    const fieldName2IdMap = await this.getFieldInstanceMap(prisma, tableId, fieldKeyType);
 
     updateRecordByIdsRo.forEach((updateRecordByIdRo) => {
       Object.keys(updateRecordByIdRo.record.fields).forEach((k) => dbFieldNameSet.add(k));
@@ -149,7 +151,7 @@ export class RecordOpenApiService {
     const recordIds = updateRecordByIdsRo.map((updateRecordByIdRo) => updateRecordByIdRo.recordId);
 
     // get old record value from db
-    const snapshots = await this.recordService.getRecordSnapshotBulk(
+    const snapshots = await this.recordService.getSnapshotBulk(
       prisma,
       tableId,
       recordIds,
@@ -163,17 +165,14 @@ export class RecordOpenApiService {
         record: { fields },
       } = updateRecordByIdRo;
 
-      const setRecordOps = Object.entries(fields).map(([fieldIdOrName, value]) => {
-        const oldCellValue = snapshot.fields[fieldIdOrName];
-
-        let fieldId = fieldIdOrName;
-        if (fieldKeyType !== FieldKeyType.Id) {
-          fieldId = fieldName2IdMap[fieldIdOrName];
-        }
+      const setRecordOps = Object.entries(fields).map(([fieldNameOrId, value]) => {
+        const field = fieldName2IdMap[fieldNameOrId];
+        const oldCellValue = snapshot.fields[fieldNameOrId];
+        const newCellValue = field.repair(value);
         return OpBuilder.editor.setRecord.build({
-          fieldId,
+          fieldId: field.id,
           oldCellValue,
-          newCellValue: value,
+          newCellValue,
         });
       });
 

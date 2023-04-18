@@ -8,6 +8,10 @@ import type {
   IViewSnapshot,
   IViewVo,
   ViewType,
+  ICreateRecordsRo,
+  IRecordsVo,
+  IRecordsRo,
+  IUpdateRecordByIndexRo,
 } from '@teable-group/core';
 import {
   generateRecordId,
@@ -20,6 +24,56 @@ import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
 export class Table extends TableCore {
+  static async updateRecordByIndex(params: IUpdateRecordByIndexRo & { tableId: string }) {
+    const { tableId, ...recordRo } = params;
+    const response = await axios.put<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/record`,
+      recordRo
+    );
+    return response.data.data;
+  }
+
+  static async createField(params: IFieldRo & { tableId: string }) {
+    const { tableId, ...fieldRo } = params;
+    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
+      `/api/table/${tableId}/field`,
+      fieldRo
+    );
+    return response.data.data;
+  }
+
+  static async getFields(tableId: string, viewId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
+      `/api/table/${tableId}/field`,
+      {
+        params: {
+          viewId,
+        },
+      }
+    );
+    return response.data.data;
+  }
+
+  static async createRecords(params: ICreateRecordsRo & { tableId: string }) {
+    const { tableId, ...recordRo } = params;
+    const response = await axios.post<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/record`,
+      recordRo
+    );
+    return response.data.data;
+  }
+
+  static async getRecords(params: IRecordsRo & { tableId: string }) {
+    const { tableId, ...recordsRo } = params;
+    const response = await axios.get<IJsonApiSuccessResponse<IRecordsVo>>(
+      `/api/table/${tableId}/record`,
+      {
+        params: recordsRo,
+      }
+    );
+    return response.data.data;
+  }
+
   protected doc!: Doc<ITableSnapshot>;
   protected connection!: Connection;
 
@@ -73,33 +127,6 @@ export class Table extends TableCore {
   }
 
   async createField(fieldRo: IFieldRo) {
-    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
-      `/api/table/${this.id}/field`,
-      fieldRo
-    );
-    return response.data.data;
+    return Table.createField({ ...fieldRo, tableId: this.id });
   }
-
-  // async updateRecord({
-  //   fieldId,
-  //   recordId,
-  //   value,
-  // }: {
-  //   fieldId: string;
-  //   recordId: string;
-  //   value: unknown;
-  // }) {
-  //   const operation = OpBuilder.editor.setRecord.build({
-  //     fieldId,
-  //     newCellValue,
-  //     oldCellValue,
-  //   });
-
-  //   rowData.submitOp([operation], { undoable: true }, (error) => {
-  //     if (error) {
-  //       console.error('row data submit error: ', error);
-  //     }
-  //   });
-  //   return rowData;
-  // }
 }

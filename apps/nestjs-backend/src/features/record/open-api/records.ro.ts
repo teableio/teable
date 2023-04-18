@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import type { IRecordsRo } from '@teable-group/core';
 import { CellFormat, FieldKeyType } from '@teable-group/core';
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsOptional, Max, Min, ValidateIf } from 'class-validator';
@@ -6,7 +7,7 @@ import { IsEnum, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
-export class RecordsRo {
+export class RecordsRo implements IRecordsRo {
   @ApiPropertyOptional({
     type: Number,
     example: defaultPageSize,
