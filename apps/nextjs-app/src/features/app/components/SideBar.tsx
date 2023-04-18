@@ -13,7 +13,7 @@ export const SideBar: React.FC = () => {
   const { connected } = useConnection();
 
   return (
-    <div className="h-full overflow-y-auto w-full">
+    <div className="h-full w-full flex flex-col overflow-hidden">
       <div className="mx-2 my-4">
         <Image
           width={32}
@@ -28,7 +28,7 @@ export const SideBar: React.FC = () => {
         {!connected && <button className="btn btn-xs btn-ghost loading"></button>}
       </div>
 
-      <div className="divide-y divide-solid divide-base-300">
+      <div className="divide-y divide-solid divide-base-300 flex flex-col overflow-hidden">
         <div>
           <div className="m-2">
             <input
