@@ -26,6 +26,7 @@ If you output code block, do not add any others words, just a clean code block.
 `;
       }
       return `${basicPrompt}, This is create table method syntax define: "${CREATE_TABLE_PROMPT}".
+${tableContextPrompt}
 Please use markdown code block to output syntax, please use "\`\`\`ai" to create the code block.
 If the question mentions tables, systems, or databases, you can assume that it is referring to creating a table. 
 If you output code block, do not add any others words, just a clean code block.

@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import { FieldType } from '@teable-group/core';
-
 export type IParsedLine = {
   operation: string;
   index: number;
@@ -17,45 +15,6 @@ export class AISyntaxParser {
 
   constructor(private readonly asyncCallback: IAsyncCallback) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parseFieldOptions(type: string, options?: string): any {
-    switch (type) {
-      case FieldType.SingleSelect: {
-        if (!options) {
-          throw new Error('Missing options for singleSelect field');
-        }
-        const match = options.match(/choices\((.+)\)/);
-        if (match) {
-          const choicesStr = match[1];
-          const choices = choicesStr.split(',').map((choice) => {
-            const [name, color] = choice
-              .trim()
-              .split(':')
-              .map((i) => i.trim());
-            return { name, color };
-          });
-          return { choices };
-        }
-        throw new Error(
-          `Invalid singleSelect field value: ${options}, it should be 'choices(name1:color1,name2:color2)'`
-        );
-      }
-      case FieldType.Number: {
-        if (!options) {
-          throw new Error('Missing value for number field');
-        }
-        const precisionMatch = options.match(/precision\((\d+)\)/);
-        if (precisionMatch) {
-          return { precision: parseInt(precisionMatch[1], 10) };
-        } else {
-          throw new Error('Invalid number field value');
-        }
-      }
-      default:
-        return options;
-    }
-  }
-
   parseLine(line: string): IParsedLine | null {
     const trimmedLine = line.endsWith(';') ? line.slice(0, -1) : line;
     const tokens = trimmedLine.split(/(?<!\\)\|/).map((part) => part.replace(/\\\|/g, '|'));
@@ -64,66 +23,16 @@ export class AISyntaxParser {
       return null;
     }
 
-    const [operation, indexStr, valueStr] = tokens;
+    // eslint-disable-next-line prefer-const
+    let [operation, indexStr, valueStr] = tokens;
     const index = parseInt(indexStr, 10);
 
     if (isNaN(index)) {
       return null;
     }
 
+    // eslint-disable-next-line sonarjs/no-small-switch
     switch (operation) {
-      case 'create-field': {
-        const [name, type] = valueStr.split(':');
-        const value = valueStr.slice((name + type).length + 1);
-        const options = this.parseFieldOptions(type, value);
-        return {
-          operation,
-          index,
-          value: {
-            name,
-            type,
-            options,
-          },
-        };
-      }
-      case 'create-table': {
-        // create-table: Create a table
-        // index: table order
-        // value: {name}:{description}:{emojiIcon}
-        const [name, description, emojiIcon] = valueStr
-          .split(/(?<!\\):/)
-          .map((part) => part.replace(/\\:/g, ':'));
-        return {
-          operation,
-          index,
-          value: {
-            name,
-            description,
-            emojiIcon,
-          },
-        };
-      }
-
-      case 'set-record': {
-        // set-record: set a record value
-        // index: record order
-        // value: {fieldName}:{recordValue},{fieldName}:{recordValue}
-        const cells = valueStr.split(/(?<!\\),/).map((l) => l.trim());
-        const value = cells.reduce<{ [name: string]: string }>((pre, valueStr) => {
-          const [fieldName, recordValue] = valueStr
-            .split(/(?<!\\):/)
-            .map((part) => part.replace(/\\:/g, ':'));
-          pre[fieldName] = recordValue;
-          return pre;
-        }, {});
-
-        return {
-          operation,
-          index,
-          value,
-        };
-      }
-
       case 'generate-chart': {
         return {
           operation,
@@ -132,12 +41,32 @@ export class AISyntaxParser {
         };
       }
 
-      default:
+      case 'create-record': {
         return {
           operation,
           index,
-          value: valueStr,
+          value: undefined,
         };
+      }
+
+      default: {
+        let valueJson;
+        if (valueStr === 'undefined') {
+          valueStr = '';
+        }
+        try {
+          valueJson = valueStr ? JSON.parse(valueStr) : undefined;
+        } catch (e) {
+          console.error(valueStr);
+          throw e;
+        }
+
+        return {
+          operation,
+          index,
+          value: valueJson,
+        };
+      }
     }
   }
 
