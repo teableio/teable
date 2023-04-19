@@ -4,8 +4,14 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 export abstract class AdapterService {
   abstract create(
     prisma: Prisma.TransactionClient,
-    collection: string,
+    collectionId: string,
     snapshot: unknown
+  ): Promise<void>;
+
+  abstract del(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    docId: string
   ): Promise<void>;
 
   abstract update(

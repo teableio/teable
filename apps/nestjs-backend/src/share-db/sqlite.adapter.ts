@@ -166,6 +166,15 @@ export class SqliteDbAdapter extends ShareDb.DB {
     await this.getService(docType as IdPrefix).create(prisma, collectionId, snapshot);
   }
 
+  private async deleteSnapshot(
+    prisma: Prisma.TransactionClient,
+    collection: string,
+    docId: string
+  ) {
+    const [docType, collectionId] = collection.split('_');
+    await this.getService(docType as IdPrefix).del(prisma, collectionId, docId);
+  }
+
   // Persists an op and snapshot if it is for the next version. Calls back with
   // callback(err, succeeded)
   async commit(
@@ -223,6 +232,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
       // update snapshot
       if (rawOp.op) {
         await this.updateSnapshot(prisma, snapshot.v, collection, id, rawOp.op);
+      }
+
+      // delete snapshot
+      if (rawOp.del) {
+        await this.deleteSnapshot(prisma, collection, id);
       }
 
       await this.transactionService.taskComplete(undefined, options);

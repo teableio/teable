@@ -34,7 +34,7 @@ export class ViewOpenApiService {
 
   async createView2Ops(tableId: string, viewInstance: IViewInstance) {
     const viewAggregate = await this.prismaService.view.aggregate({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       _max: { order: true },
     });
 
