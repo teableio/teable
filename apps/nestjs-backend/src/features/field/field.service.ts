@@ -48,6 +48,7 @@ export class FieldService implements AdapterService {
       const exist = await prisma.field.count({
         where: {
           tableId,
+          deletedTime: null,
           dbFieldName: { in: newValidNames },
         },
       });
@@ -104,12 +105,12 @@ export class FieldService implements AdapterService {
     fieldInstances: IFieldInstance[]
   ): Promise<IColumnMeta[]> {
     const views = await prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
 
     const fieldsData = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
 
@@ -240,14 +241,14 @@ export class FieldService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
     }
 
     const fieldsPlain = await this.prismaService.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
     });
 
     const fields = fieldsPlain.map(this.rawField2FieldObj);
@@ -282,6 +283,13 @@ export class FieldService implements AdapterService {
     );
 
     // TODO: 3. add order in every columnMeta view
+  }
+
+  async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+    await prisma.field.update({
+      where: { id: fieldId },
+      data: { deletedTime: new Date() },
+    });
   }
 
   async update(
@@ -377,14 +385,14 @@ export class FieldService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await prisma.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
     }
 
     const fieldsPlain = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
 

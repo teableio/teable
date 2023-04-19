@@ -15,9 +15,9 @@ model TableMeta {
   dbTableName      String    @map("db_table_name")
   version          Int
   order            Float
-  createdTime      DateTime  @default(now()) @map("created_at")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_at")
-  deletedTime      DateTime? @map("deleted_at")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
   lastModifiedBy   String    @map("last_modified_by")
   fields           Field[]

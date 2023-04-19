@@ -46,6 +46,7 @@ export class RecordService implements AdapterService {
     const views = await prisma.view.findMany({
       where: {
         tableId,
+        deletedTime: null,
       },
       select: {
         id: true,
@@ -274,7 +275,7 @@ export class RecordService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const defaultView = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = defaultView.id;
@@ -337,7 +338,7 @@ export class RecordService implements AdapterService {
     // TODO: get row count will causes performance issus when insert lot of records
     const rowCount = await this.getAllRecordCount(prisma, dbTableName);
     const views = await prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
 
@@ -360,6 +361,20 @@ export class RecordService implements AdapterService {
         __version: 1,
         ...orders,
       })
+      .toSQL()
+      .toNative();
+
+    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+  }
+
+  async del(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+
+    const nativeSql = this.queryBuilder(dbTableName)
+      .where({
+        __id: recordId,
+      })
+      .del()
       .toSQL()
       .toNative();
 
@@ -403,12 +418,12 @@ export class RecordService implements AdapterService {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     const allFields = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, name: true, dbFieldName: true },
     });
 
     const allViews = await prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
@@ -483,7 +498,7 @@ export class RecordService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await prisma.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;

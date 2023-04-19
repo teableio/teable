@@ -21,7 +21,7 @@ export class TableOpenApiService {
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
-  private getTransactionMeta(tableRo: CreateTableRo) {
+  private getCreateTableTransactionMeta(tableRo: CreateTableRo) {
     const tableCount = 1;
     const fieldCount = tableRo.fields?.length || 0;
     const viewCount = tableRo.views?.length || 0;
@@ -45,7 +45,7 @@ export class TableOpenApiService {
     if (!tableRo.fields || !tableRo.views || !tableRo.rows) {
       throw new Error('table fields views and rows are required.');
     }
-    const transactionMeta = this.getTransactionMeta(tableRo);
+    const transactionMeta = this.getCreateTableTransactionMeta(tableRo);
 
     const tableVo = await this.createTableMeta(tableRo, transactionMeta);
     const tableId = tableVo.id;
@@ -104,5 +104,23 @@ export class TableOpenApiService {
       },
       maxTableOrder + 1
     );
+  }
+
+  async archiveTable(tableId: string) {
+    const collection = `${IdPrefix.Table}_node`;
+    const doc = this.shareDbService.connect().get(collection, tableId);
+    await new Promise<Doc>((resolve, reject) => {
+      doc.del(
+        {
+          transactionKey: generateTransactionKey(),
+          opCount: 1,
+        },
+        (error) => {
+          if (error) return reject(error);
+          console.log(`delete document ${collection}.${tableId} succeed!`);
+          resolve(doc);
+        }
+      );
+    });
   }
 }

@@ -80,7 +80,7 @@ export class RecordOpenApiService {
     fieldKeyType: FieldKeyType | undefined
   ) {
     const allFields = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
     });
 
     return allFields.reduce<{ [name: string]: IFieldInstance }>((pre, cur) => {

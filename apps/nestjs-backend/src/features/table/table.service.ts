@@ -75,6 +75,7 @@ export class TableService implements AdapterService {
   async getTables(): Promise<ITableVo[]> {
     const tablesMeta = await this.prismaService.tableMeta.findMany({
       orderBy: { order: 'asc' },
+      where: { deletedTime: null },
     });
 
     return tablesMeta.map((tableMeta) => ({
@@ -119,7 +120,7 @@ export class TableService implements AdapterService {
   async getSSRSnapshot(tableId: string, viewId?: string) {
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
@@ -145,7 +146,7 @@ export class TableService implements AdapterService {
 
   async getDefaultViewId(tableId: string) {
     return this.prismaService.view.findFirstOrThrow({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
   }
@@ -173,6 +174,13 @@ export class TableService implements AdapterService {
 
   async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableSnapshot) {
     await this.createDBTable(prisma, snapshot);
+  }
+
+  async del(prisma: Prisma.TransactionClient, _collection: string, tableId: string) {
+    await prisma.tableMeta.update({
+      where: { id: tableId },
+      data: { deletedTime: new Date() },
+    });
   }
 
   async update(
