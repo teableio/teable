@@ -32,16 +32,15 @@ export const TableProvider: FC<ITableProviderProps> = ({
   const updateTable = useCallback(
     (doc: Doc<ITableSnapshot>) => {
       const newTable = createTableInstance(doc.data.table, doc, connection);
-      setTables(
-        tables.map((table) => {
+      setTables((tables) => {
+        return tables.map((table) => {
           if (table.id === newTable.id) {
             return newTable;
           }
           return table;
-        })
-      );
+        });
+      });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [connection]
   );
 
@@ -86,7 +85,7 @@ export const TableProvider: FC<ITableProviderProps> = ({
     return () => {
       query.destroy();
     };
-  }, [connection, tableId, updateTable]);
+  }, [connection, updateTable]);
 
   const value = useMemo(() => {
     return { tableId, viewId, tables };
