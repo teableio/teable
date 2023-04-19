@@ -233,6 +233,7 @@ export class TableService implements AdapterService {
 
   async getDocIdsByQuery(prisma: Prisma.TransactionClient, _collection: string, _query: unknown) {
     const tables = await prisma.tableMeta.findMany({
+      where: { deletedTime: null },
       select: { id: true },
       orderBy: { order: 'asc' },
     });
