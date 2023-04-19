@@ -92,6 +92,7 @@ export class TableOpenApiService {
 
   private async createTable2Op(tableRo: ICreateTableRo) {
     const tableAggregate = await this.prismaService.tableMeta.aggregate({
+      where: { deletedTime: null },
       _max: { order: true },
     });
     const tableId = generateTableId();
@@ -110,17 +111,19 @@ export class TableOpenApiService {
     const collection = `${IdPrefix.Table}_node`;
     const doc = this.shareDbService.connect().get(collection, tableId);
     await new Promise<Doc>((resolve, reject) => {
-      doc.del(
-        {
-          transactionKey: generateTransactionKey(),
-          opCount: 1,
-        },
-        (error) => {
-          if (error) return reject(error);
-          console.log(`delete document ${collection}.${tableId} succeed!`);
-          resolve(doc);
-        }
-      );
+      doc.fetch(() => {
+        doc.del(
+          {
+            transactionKey: generateTransactionKey(),
+            opCount: 1,
+          },
+          (error) => {
+            if (error) return reject(error);
+            console.log(`delete document ${collection}.${tableId} succeed!`);
+            resolve(doc);
+          }
+        );
+      });
     });
   }
 }
