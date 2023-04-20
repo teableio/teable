@@ -80,13 +80,17 @@ export function useColumns() {
           const themeOverride: Partial<Theme> | undefined = color
             ? {
                 bgBubble: ColorUtils.getHexForColor(color),
-                textBubble: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-                bgBubbleSelected: ColorUtils.getHexForColor(color),
+                textDark: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
               }
             : undefined;
           return {
-            kind: GridCellKind.Bubble,
-            data: cellValue ? [cellValue as string] : [],
+            kind: GridCellKind.Custom,
+            data: {
+              type: FieldType.SingleSelect,
+              options: field.options,
+              value: cellValue ? [cellValue as string] : [],
+            },
+            copyData: `${col}`,
             allowOverlay: true,
             themeOverride,
           };
