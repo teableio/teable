@@ -1,4 +1,4 @@
-import DataEditor from '@glideapps/glide-data-grid';
+import DataEditor, { GridCellKind, useCustomCells } from '@glideapps/glide-data-grid';
 import type { DataEditorRef } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
@@ -7,6 +7,9 @@ import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
+import { SelectCell } from '@/features/app/components/gird-cells';
+import type { IGridCell } from '@/features/app/components/gird-cells/type';
+import { girdCellToCellValue } from '@/features/app/components/gird-cells/utils';
 import { useAsyncData } from './useAsyncData';
 import { useColumnResize } from './useColumnResize';
 import { useColumns } from './useColumns';
@@ -21,6 +24,7 @@ export const GridView: React.FC = () => {
   const { columns, setColumns, cellValue2GridDisplay } = useColumns();
   const theme = useGridTheme();
   const onColumnResize = useColumnResize(columns, setColumns);
+  const customRendererArgs = useCustomCells([SelectCell]);
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, getCellsForSelection, reset } =
     useAsyncData<Doc<IRecordSnapshot>>(
@@ -90,7 +94,11 @@ export const GridView: React.FC = () => {
         (cell, newVal, rowData) => {
           const [col] = cell;
           const fieldId = columns[col].id;
-          const newCellValue = newVal.data;
+          let newCellValue = newVal.data;
+          // custom cell value format
+          if (newVal.kind === GridCellKind.Custom) {
+            newCellValue = girdCellToCellValue(newVal.data as IGridCell);
+          }
           const oldCellValue = rowData.data.record.fields[fieldId] ?? null;
           if (newCellValue == oldCellValue) {
             return;
@@ -128,6 +136,7 @@ export const GridView: React.FC = () => {
     <div className="grow w-full overflow-y-auto">
       {connected ? (
         <DataEditor
+          {...customRendererArgs}
           ref={ref}
           theme={theme}
           smoothScrollX
