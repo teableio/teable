@@ -153,6 +153,7 @@ export const GridView: React.FC = () => {
         />
       ) : (
         <DataEditor
+          {...customRendererArgs}
           ref={ref}
           theme={theme}
           smoothScrollX
