@@ -24,7 +24,7 @@ export function useColumnResize<T extends { id: string }>(
       fields[index].updateColumnWidth(viewId, newSize);
     },
     200,
-    [index, fields, newSize]
+    [index, newSize]
   );
 
   return useCallback(

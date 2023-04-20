@@ -40,11 +40,9 @@ export class ViewOpenApiService {
 
     const maxViewOrder = viewAggregate._max.order || 0;
 
-    return OpBuilder.creator.addView.build(
-      {
-        ...viewInstance,
-      },
-      maxViewOrder + 1
-    );
+    return OpBuilder.creator.addView.build({
+      ...viewInstance,
+      order: maxViewOrder + 1,
+    });
   }
 }

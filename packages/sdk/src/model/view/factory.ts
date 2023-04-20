@@ -1,11 +1,12 @@
-import type { IViewVo, IViewSnapshot } from '@teable-group/core';
+import type { IViewSnapshot } from '@teable-group/core';
 import { assertNever, ViewType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
 import { GridView } from './grid.view';
 import { KanbanView } from './kanban.view';
 
-export function createViewInstance(view: IViewVo, doc?: Doc<IViewSnapshot>) {
+export function createViewInstance(viewSnapshot: IViewSnapshot, doc?: Doc<IViewSnapshot>) {
+  const view = viewSnapshot.view;
   const instance = (() => {
     switch (view.type) {
       case ViewType.Grid:

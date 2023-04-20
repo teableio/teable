@@ -44,7 +44,7 @@ export class TableService implements AdapterService {
       description: snapshot.table.description,
       icon: snapshot.table.icon,
       dbTableName,
-      order: snapshot.order,
+      order: snapshot.table.order,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
       version: 1,
@@ -66,8 +66,7 @@ export class TableService implements AdapterService {
     return await this.prismaService.$transaction(async (prisma) => {
       const count = await prisma.tableMeta.count();
       return await this.createTable(prisma, {
-        table: { ...createTableDto, id: tableId },
-        order: count,
+        table: { ...createTableDto, id: tableId, order: count },
       });
     });
   }

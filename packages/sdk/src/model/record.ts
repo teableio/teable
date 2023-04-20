@@ -1,4 +1,4 @@
-import type { IRecordFields, IRecordSnapshot } from '@teable-group/core';
+import type { IRecordSnapshot } from '@teable-group/core';
 import { OpBuilder, RecordCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import type { IFieldInstance } from './field/factory';
@@ -6,17 +6,16 @@ import type { IFieldInstance } from './field/factory';
 export class Record extends RecordCore {
   constructor(
     protected doc: Doc<IRecordSnapshot>,
-    protected fields: { [fieldId: string]: IFieldInstance },
-    protected data: IRecordFields
+    protected fieldMap: { [fieldId: string]: IFieldInstance }
   ) {
-    super(fields, data);
+    super(fieldMap);
   }
 
   async clearCell(fieldId: string) {
     const operation = OpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: null,
-      oldCellValue: this.data[fieldId],
+      oldCellValue: this.fields[fieldId],
     });
 
     return new Promise((resolve, reject) => {
@@ -30,7 +29,7 @@ export class Record extends RecordCore {
     const operation = OpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: cellValue,
-      oldCellValue: this.data[fieldId],
+      oldCellValue: this.fields[fieldId],
     });
 
     return new Promise((resolve, reject) => {

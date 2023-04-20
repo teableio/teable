@@ -8,4 +8,6 @@ export class TableCore implements ITableVo {
   icon?: string;
 
   description?: string;
+
+  order!: number;
 }

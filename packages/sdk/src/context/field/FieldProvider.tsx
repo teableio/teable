@@ -1,11 +1,10 @@
-import type { IFieldSnapshot, IFieldVo } from '@teable-group/core';
+import type { IFieldVo } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useMemo, useState } from 'react';
-import type { IFieldInstance } from '../../model';
+import { useContext, useMemo } from 'react';
 import { createFieldInstance } from '../../model';
-import { AppContext } from '../app/AppContext';
 import { TableContext } from '../table/TableContext';
+import { useInstances } from '../use-instances';
 import { FieldContext } from './FieldContext';
 
 interface IFieldProviderProps {
@@ -15,48 +14,17 @@ interface IFieldProviderProps {
 }
 
 export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
-  const { connection } = useContext(AppContext);
   const { tableId } = useContext(TableContext);
 
-  const [fields, setFields] = useState<IFieldInstance[]>(() => {
-    if (serverSideData) {
-      return serverSideData.map((field) => createFieldInstance(field));
-    }
-    return [];
+  const fields = useInstances({
+    collection: `${IdPrefix.Field}_${tableId}`,
+    factory: createFieldInstance,
+    initData: serverSideData ? serverSideData.map((d) => ({ field: d })) : undefined,
+    queryParams: {},
   });
 
-  // const [fieldDocs, setFieldDocs] = useState<Doc<IFieldSnapshot>[]>([]);
-
-  useEffect(() => {
-    if (!tableId || !connection) {
-      return;
-    }
-    const fieldsQuery = connection.createSubscribeQuery<IFieldSnapshot>(
-      `${IdPrefix.Field}_${tableId}`,
-      {}
-    );
-
-    fieldsQuery.on('ready', () => {
-      console.log('fields:ready:', fieldsQuery.results);
-      // setFieldDocs(fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => createFieldInstance(r.data.field, r)));
-    });
-
-    fieldsQuery.on('changed', () => {
-      console.log('fields:changed:', fieldsQuery.results);
-      // setFieldDocs(fieldsQuery.results);
-      setFields(fieldsQuery.results.map((r) => createFieldInstance(r.data.field, r)));
-    });
-
-    return () => {
-      fieldsQuery.removeAllListeners('ready');
-      fieldsQuery.removeAllListeners('changed');
-      fieldsQuery.destroy();
-    };
-  }, [connection, tableId]);
-
   const value = useMemo(() => {
-    return { fields, setFields };
+    return { fields };
   }, [fields]);
 
   if (fallback && !fields.length) {

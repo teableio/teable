@@ -1,11 +1,10 @@
-import type { IViewSnapshot, IViewVo } from '@teable-group/core';
+import type { IViewVo } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useMemo } from 'react';
 import { createViewInstance } from '../../model/view/factory';
-import type { View } from '../../model/view/view';
-import { AppContext } from '../app';
 import { TableContext } from '../table';
+import { useInstances } from '../use-instances';
 import { ViewContext } from './ViewContext';
 
 interface IViewProviderProps {
@@ -15,38 +14,13 @@ interface IViewProviderProps {
 }
 
 export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serverData }) => {
-  const { connection } = useContext(AppContext);
   const { tableId } = useContext(TableContext);
-  const [views, setViews] = useState<View[]>(() => {
-    if (serverData) {
-      return serverData.map((view) => createViewInstance(view));
-    }
-    return [];
+  const views = useInstances({
+    collection: `${IdPrefix.View}_${tableId}`,
+    factory: createViewInstance,
+    initData: serverData ? serverData.map((d) => ({ view: d })) : undefined,
+    queryParams: {},
   });
-
-  useEffect(() => {
-    if (!tableId || !connection) {
-      return;
-    }
-    const viewsQuery = connection.createSubscribeQuery<IViewSnapshot>(
-      `${IdPrefix.View}_${tableId}`,
-      {}
-    );
-
-    viewsQuery.on('ready', () => {
-      console.log('view:ready:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => createViewInstance(r.data.view, r)));
-    });
-
-    viewsQuery.on('changed', () => {
-      console.log('view:changed:', viewsQuery.results);
-      setViews(viewsQuery.results.map((r) => createViewInstance(r.data.view, r)));
-    });
-
-    return () => {
-      viewsQuery.destroy();
-    };
-  }, [connection, tableId]);
 
   const value = useMemo(() => {
     return { views };
