@@ -26,11 +26,11 @@ export interface ITableVo {
   name: string;
   description?: string;
   icon?: string;
+  order: number;
 }
 
 export interface ITableSnapshot {
   table: ITableVo;
-  order: number;
 }
 
 export interface IFullSsrSnapshot {

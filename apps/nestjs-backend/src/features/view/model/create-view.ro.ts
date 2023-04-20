@@ -50,4 +50,9 @@ export class CreateViewRo implements IViewRo {
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: any;
+
+  @ApiPropertyOptional({
+    description: 'The order config of the view.',
+  })
+  order?: number;
 }

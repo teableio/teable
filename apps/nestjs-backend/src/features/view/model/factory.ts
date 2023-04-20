@@ -16,6 +16,7 @@ export function createViewInstanceByRaw(viewRaw: View) {
     filter: JSON.parse(viewRaw.filter as string),
     sort: JSON.parse(viewRaw.sort as string),
     group: JSON.parse(viewRaw.group as string),
+    order: viewRaw.order,
   };
 
   switch (view.type) {

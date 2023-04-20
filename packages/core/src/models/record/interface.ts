@@ -7,6 +7,7 @@ export interface IRecord {
   lastModifiedTime?: number;
   createdBy?: string;
   lastModifiedBy?: string;
+  recordOrder: { [viewId: string]: number };
 }
 
 export interface IRecordFields {
@@ -15,7 +16,6 @@ export interface IRecordFields {
 
 export interface IRecordSnapshot {
   record: IRecord;
-  recordOrder: { [viewId: string]: number };
 }
 
 export interface ICreateRecordsRo {

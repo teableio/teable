@@ -50,10 +50,10 @@ export class ViewService implements AdapterService {
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createViewRo: CreateViewRo & { id?: string },
-    order?: number
+    createViewRo: CreateViewRo & { id?: string }
   ) {
     const { id, name, description, type, options, sort, filter, group } = createViewRo;
+    let order = createViewRo.order;
     const viewId = id || generateViewId();
 
     if (!order) {
@@ -140,8 +140,8 @@ export class ViewService implements AdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
-    const { view, order } = snapshot;
-    await this.createViewTransaction(prisma, tableId, view as CreateViewRo, order);
+    const { view } = snapshot;
+    await this.createViewTransaction(prisma, tableId, view as CreateViewRo);
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {

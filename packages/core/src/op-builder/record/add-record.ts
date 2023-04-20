@@ -11,8 +11,8 @@ export class AddRecordBuilder implements ICreateOpBuilder {
       record: {
         id: record.record.id,
         fields: {},
+        recordOrder: {},
       },
-      recordOrder: {},
     };
   }
 }

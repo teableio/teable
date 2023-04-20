@@ -141,9 +141,9 @@ export interface IViewRo {
 
 export interface IViewVo extends IViewRo {
   id: string;
+  order: number;
 }
 
 export interface IViewSnapshot {
   view: IViewVo;
-  order: number;
 }

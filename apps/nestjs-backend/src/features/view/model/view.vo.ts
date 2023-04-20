@@ -8,4 +8,9 @@ export class ViewVo extends CreateViewRo implements IViewVo {
     example: 'viwXXXXXXXX',
   })
   id!: string;
+
+  @ApiProperty({
+    description: 'The order config of the view.',
+  })
+  order!: number;
 }

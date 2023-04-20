@@ -344,8 +344,8 @@ export class RecordService implements AdapterService {
 
     const orders = views.reduce<{ [viewId: string]: number }>((pre, cur) => {
       const viewOrderFieldName = getViewOrderFieldName(cur.id);
-      if (snapshot.recordOrder[cur.id] !== undefined) {
-        pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
+      if (snapshot.record.recordOrder[cur.id] !== undefined) {
+        pre[viewOrderFieldName] = snapshot.record.recordOrder[cur.id];
       } else {
         pre[viewOrderFieldName] = rowCount;
       }
@@ -483,8 +483,8 @@ export class RecordService implements AdapterService {
               lastModifiedTime: record.__last_modified_time?.getTime(),
               createdBy: record.__created_by,
               lastModifiedBy: record.__last_modified_by,
+              recordOrder,
             },
-            recordOrder,
           },
         };
       });

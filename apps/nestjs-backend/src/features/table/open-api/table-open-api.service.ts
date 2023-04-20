@@ -98,13 +98,11 @@ export class TableOpenApiService {
     const tableId = generateTableId();
     const maxTableOrder = tableAggregate._max.order || 0;
 
-    return OpBuilder.creator.addTable.build(
-      {
-        ...tableRo,
-        id: tableId,
-      },
-      maxTableOrder + 1
-    );
+    return OpBuilder.creator.addTable.build({
+      ...tableRo,
+      id: tableId,
+      order: maxTableOrder + 1,
+    });
   }
 
   async archiveTable(tableId: string) {
