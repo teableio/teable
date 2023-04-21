@@ -258,17 +258,22 @@ export abstract class AdapterService {
 ### 协同数据模型
 
 这是为了方便进行数据修改和计算的封装层。在这里我们可以定义数据的结构和计算逻辑。
+模型分类：
 
 - Table
 - View
 - Field
 - Record
-  core
-- SDK
-- BackEnd
-  在 core 中，我们会进行数据类型的定义，以及通用纯计算方法的实现
-  在 SDK 中，我们会封装方法方便进行数据的变更，方便 app 蹭调用。
-  在 BackEnd 中，我们会实现一些服务端特有数据的补全和计算。
+
+实现位置：
+
+- core
+  - sdk
+  - nestjs-backend
+
+* 在 core 中，我们会进行数据类型的定义，以及通用纯计算方法的实现
+* 在 SDK 中，我们会封装方法方便进行数据的变更，方便 app 蹭调用。
+* 在 nestjs-backend 中，我们会实现一些服务端特有数据的补全和计算。
 
 ### opBuilder
 
