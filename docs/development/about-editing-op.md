@@ -108,7 +108,7 @@ export function useColumnResize<T extends { id: string }>(
       fields[index].updateColumnWidth(viewId, newSize);
     },
     200,
-    [index, fields, newSize]
+    [index, newSize]
   );
 
   return useCallback(
@@ -145,6 +145,135 @@ export function useColumnResize<T extends { id: string }>(
 }
 ```
 
-## opBuilder 和 dbAdapter
+## opBuilder
 
-因为 opBuilder 和 dbAdapter 中已经提前实现了 columnMeta 的数据修改和存储逻辑，所以这个章节我们并不算从头实现了一个支持协作的数据编辑能力。下一章节我们会具体介绍 opBuilder 和 dbAdapter
+我们在前面使用 `OpBuilder.editor.setColumnMeta.build` 来创建了一个 op。对于每个不同的 op，我们都需要通过创建一个独立的 opBuilder 来对其进行封装
+
+```ts
+export interface IOpBuilder {
+  name: OpName;
+  // Create an atomic operation
+  build(...params: unknown[]): IOtOperation;
+  // Detect an operation if it is belongs to a specific purpose
+  detect(op: IOtOperation): IOpContextBase | null;
+}
+```
+
+opBuilder 除了独立的 name 之外，要实现一对 build & detect 方法，和 decoder & encode 概念类似，build 通过参数生成 op, detect 通过 op 来解析出原始参数，用作后续的入库动作。
+当我们实现一个 op 之后，需要在 `op-builder.ts` 文件中对其进行注册和导出。
+
+```ts
+import { SetColumnMetaBuilder } from './field/set-column-meta';
+export type { ISetColumnMetaOpContext } from './field/set-column-meta';
+export class OpBuilder {
+  static editor = {
+      ...
+      setColumnMeta: new SetColumnMetaBuilder(),
+      ...
+  }
+  ...
+}
+```
+
+## DbAdapter
+
+现在我们已经知道了 op 的生成、op 发送的过程，那么变更是如何入库的呢？
+当 op 通过 `doc.submitOp` 协同到服务端之后，shareDb 会调用 `dbAdapter` 的 `commit` 方法，我们可以在这里对 op 进行解析，然后进行入库操作。
+
+如果是编辑类的操作，opAdapter 会先调用 `const ops2Contexts = OpBuilder.ops2Contexts(ops);` 的到 opContexts，从 context 之中，我们就有了完整的入库信息上下文，接下来就是调用对应的 service 来进行入库操作了。
+
+```ts
+// share-db/sqlite.adapter.ts:144
+async updateSnapshot(
+  prisma: Prisma.TransactionClient,
+  version: number,
+  collection: string,
+  docId: string,
+  ops: IOtOperation[]
+) {
+  // 通过 collection 字符串，获取对应的 docType 和 collectionId
+  const [docType, collectionId] = collection.split('_');
+  const ops2Contexts = OpBuilder.ops2Contexts(ops);
+  const service = this.getService(docType as IdPrefix);
+  // group by op name execute faster
+  const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
+  for (const opName in ops2ContextsGrouped) {
+    const opContexts = ops2ContextsGrouped[opName];
+    // 调用对应的 Service
+    await service.update(prisma, version, collectionId, docId, opContexts);
+  }
+}
+```
+
+可能这里你会产生一些疑问，collection 参数在这里被 split 之后，为什么可以得到 docType 和 collectionId。
+这是因为，ShareDb 在设计 collection 的时候，目标是支持完全通用的数据结构，但我们将其分类为了不同的 docType， 也就是 table、view、field、record。 所以我们通过扩展 id 的形式，帮助我们实现了对不同的数据结构的区分。
+这个不分，在后面的数据获取、订阅章节也会再次提到。
+
+假设以后还会有新的业务数据需要协同，那么我们就会去扩展一个新的 docType 和对应的 Service
+
+每一个具体的 Service 都要去实现以下的接口，实现完毕之后，就可以支持数据的完整增删改查。
+
+```ts
+export abstract class AdapterService {
+  abstract create(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    snapshot: unknown
+  ): Promise<void>;
+
+  abstract del(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    docId: string
+  ): Promise<void>;
+
+  abstract update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    collectionId: string,
+    docId: string,
+    opContexts: unknown[]
+  ): Promise<void>;
+
+  abstract getSnapshotBulk(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    ids: string[],
+    projection?: { [fieldKey: string]: boolean },
+    extra?: unknown
+  ): Promise<ISnapshotBase<unknown>[]>;
+
+  abstract getDocIdsByQuery(
+    prisma: Prisma.TransactionClient,
+    collectionId: string,
+    query: unknown
+  ): Promise<{ ids: string[]; extra?: unknown }>;
+}
+```
+
+## 总结
+
+回顾一下我们接触了哪些概念
+
+### 协同数据模型
+
+这是为了方便进行数据修改和计算的封装层。在这里我们可以定义数据的结构和计算逻辑。
+
+- Table
+- View
+- Field
+- Record
+  core
+- SDK
+- BackEnd
+  在 core 中，我们会进行数据类型的定义，以及通用纯计算方法的实现
+  在 SDK 中，我们会封装方法方便进行数据的变更，方便 app 蹭调用。
+  在 BackEnd 中，我们会实现一些服务端特有数据的补全和计算。
+
+### opBuilder
+
+用来解析和生成 op 的工具类。每一个新的数据修改方式，都需要实现一个新的 opBuilder。
+
+### dbAdapter
+
+用来将 op 解析成为入库的数据（增删改）和实现查询能力。每一个新的 Collection（要支持协作的表），都需要实现一个新的 dbAdapter。
