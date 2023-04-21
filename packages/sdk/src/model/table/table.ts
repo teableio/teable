@@ -131,4 +131,17 @@ export class Table extends TableCore {
   async createField(fieldRo: IFieldRo) {
     return Table.createField({ ...fieldRo, tableId: this.id });
   }
+
+  async updateOrder(order: number) {
+    const fieldOperation = OpBuilder.editor.setTableOrder.build({
+      newOrder: order,
+      oldOrder: this.order,
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      this.doc.submitOp([fieldOperation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
 }
