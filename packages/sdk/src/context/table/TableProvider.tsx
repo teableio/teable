@@ -19,12 +19,6 @@ export const TableProvider: FC<ITableProviderProps> = ({
   children,
   serverData,
 }) => {
-  console.log({
-    tableId,
-    viewId,
-    children,
-    serverData,
-  });
   const tables = useInstances({
     collection: `${IdPrefix.Table}_node`,
     factory: createTableInstance,

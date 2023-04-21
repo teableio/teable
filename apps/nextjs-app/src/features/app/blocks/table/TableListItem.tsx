@@ -1,5 +1,4 @@
 import type { Table } from '@teable-group/sdk/model';
-import classnames from 'classnames';
 import Link from 'next/link';
 import { useState } from 'react';
 import { DeleteTable } from './DeleteTable';
@@ -13,7 +12,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
 
   return (
-    <li className={classnames('group relative', { bordered: isActive })}>
+    <>
       <DeleteTable
         className="hidden group-hover:inline-block absolute right-0 px-2 border-l"
         tableId={table.id}
@@ -61,6 +60,6 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
           }}
         />
       )}
-    </li>
+    </>
   );
 };

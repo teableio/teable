@@ -35,7 +35,7 @@ export function useInstances<T, R extends { id: string }>({
   initData,
 }: IUseInstancesProps<T, R>): R[] {
   const { connection } = useContext(AppContext);
-  const [instance, setInstances] = useState<R[]>(() => {
+  const [instances, setInstances] = useState<R[]>(() => {
     if (initData) {
       return initData.map((data) => factory(data));
     }
@@ -70,29 +70,55 @@ export function useInstances<T, R extends { id: string }>({
       setInstances(query.results.map((r) => factory(r.data, r)));
       query.results.forEach((doc) => {
         doc.on('op', (op) => {
-          console.log('doc on op:', op);
-          updateInstance(doc);
-        });
-      });
-    });
-
-    query.on('changed', () => {
-      console.log(`${collection}:changed:`, query.results);
-      setInstances(query.results.map((doc) => factory(doc.data, doc)));
-    });
-
-    query.on('insert', (docs) => {
-      docs.forEach((doc) => {
-        doc.on('op', (op) => {
           console.log(`${collection} on op:`, op);
           updateInstance(doc);
         });
       });
     });
 
-    query.on('remove', (docs) => {
-      docs.forEach((doc) => {
-        doc.removeAllListeners('op');
+    query.on('changed', (docs) => {
+      console.log(`${collection}:changed:`, docs);
+    });
+
+    query.on('insert', (docs, index) => {
+      console.log(`${collection}:insert:`, docs, index);
+      setInstances((instances) => {
+        const newInstances = [...instances];
+        docs.forEach((doc) => {
+          doc.on('op', (op) => {
+            console.log(`${collection} on op:`, op);
+            updateInstance(doc);
+          });
+
+          newInstances.splice(index, 0, factory(doc.data, doc));
+          index++;
+        });
+        return newInstances;
+      });
+    });
+
+    query.on('remove', (docs, index) => {
+      console.log(`${collection}:remove:`, docs, index);
+      setInstances((instances) => {
+        const newInstances = [...instances];
+        docs.forEach((doc) => {
+          doc.removeAllListeners('op');
+          newInstances.splice(index, 1);
+        });
+        return newInstances;
+      });
+    });
+
+    query.on('move', (docs, from, to) => {
+      console.log(`${collection}:move:`, docs, from, to);
+      setInstances((instances) => {
+        return query.results.map((doc) => {
+          const instance = instances.find((item) => item.id === doc.id);
+          if (!instance) {
+            throw new Error('Cannot find moved item');
+          }
+          return instance;
+        });
       });
     });
 
@@ -105,5 +131,5 @@ export function useInstances<T, R extends { id: string }>({
     };
   }, [connection, collection, updateInstance, queryParams, factory]);
 
-  return instance;
+  return instances;
 }

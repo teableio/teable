@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ISetTableNameOpContext,
+  ISetTableOrderOpContext,
   ISnapshotBase,
   ITableSnapshot,
   ITableVo,
@@ -187,18 +188,28 @@ export class TableService implements AdapterService {
     version: number,
     _collection: string,
     tableId: string,
-    opContexts: ISetTableNameOpContext[]
+    opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext)[]
   ) {
     for (const opContext of opContexts) {
-      if (opContext.name === OpName.SetTableName) {
-        const { newName } = opContext;
-        await prisma.tableMeta.update({
-          where: { id: tableId },
-          data: { name: newName, version },
-        });
-        return;
+      switch (opContext.name) {
+        case OpName.SetTableName: {
+          const { newName } = opContext;
+          await prisma.tableMeta.update({
+            where: { id: tableId },
+            data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetTableOrder: {
+          const { newOrder } = opContext;
+          await prisma.tableMeta.update({
+            where: { id: tableId },
+            data: { order: newOrder, version },
+          });
+          return;
+        }
       }
-      throw new Error(`Unknown context ${opContext.name} for table update`);
+      throw new Error(`Unknown context ${opContext} for table update`);
     }
   }
 
