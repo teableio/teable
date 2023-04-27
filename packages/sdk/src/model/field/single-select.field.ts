@@ -15,4 +15,8 @@ export class SingleSelectField extends SingleSelectFieldCore implements Field {
     const oldWidth = this.columnMeta[viewId].width;
     return FieldExtended.updateColumnWidth(this.doc, viewId, width, oldWidth);
   }
+
+  async delete(): Promise<void> {
+    return FieldExtended.delete(this.doc);
+  }
 }
