@@ -6488,6 +6488,8 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@vitest/coverage-istanbul": "npm:0.24.3"
     "@vitest/ui": "npm:0.24.3"
+    antlr4ts: "npm:0.5.0-alpha.4"
+    antlr4ts-cli: "npm:0.5.0-alpha.4"
     class-transformer: "npm:0.5.1"
     cross-env: "npm:7.0.3"
     es-check: "npm:7.0.1"
@@ -8666,6 +8668,22 @@ __metadata:
   bin:
     ansi-to-html: bin/ansi-to-html
   checksum: e1664b47ace47f1071426e3fb125ba4d4e582214cb4d0430fda6c08c2facc44d09c7b6c6532115e5ac9879ac7e6d6e1ab1bc47a210bb474a679c0f4312a87e86
+  languageName: node
+  linkType: hard
+
+"antlr4ts-cli@npm:0.5.0-alpha.4":
+  version: 0.5.0-alpha.4
+  resolution: "antlr4ts-cli@npm:0.5.0-alpha.4"
+  bin:
+    antlr4ts: ./antlr4ts
+  checksum: bbf654d6e3b12bc0ee919841f28dcad685b0b95eb8acf49d9465ada6cb24da7d033d7de43fac8ea52952404d4eec4a220501a03fe8b8aeba09c739366f579ae1
+  languageName: node
+  linkType: hard
+
+"antlr4ts@npm:0.5.0-alpha.4":
+  version: 0.5.0-alpha.4
+  resolution: "antlr4ts@npm:0.5.0-alpha.4"
+  checksum: 2283eba1b169a3c34b50ca79cc7ed7e37a98bf7fdd3f491b4784fcf650cc5a9cd2fc4fb9697c3950f553fdf09055c6891f83e4ed02d347be598cc8784eb57f8c
   languageName: node
   linkType: hard
 
