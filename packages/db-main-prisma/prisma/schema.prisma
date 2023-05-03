@@ -97,6 +97,23 @@ model Snapshots {
   @@map("snapshots")
 }
 
+model Reference {
+  id          String @id @default(cuid())
+  fromFieldId String @map("from_field_id")
+  toFieldId   String @map("to_field_id")
+
+  @@index([fromFieldId])
+  @@index([toFieldId])
+  @@map("reference")
+}
+
+model NodeValue {
+  id    String  @id
+  value Int
+
+  @@map("node_value")
+}
+
 model User {
   id            Int       @id @default(autoincrement())
   firstName     String?   @map("first_name")
