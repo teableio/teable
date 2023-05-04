@@ -37,9 +37,11 @@ export class FieldService implements AdapterService {
   async multipleGenerateValidDbFieldName(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    names: string[]
+    field: IFieldInstance[]
   ): Promise<string[]> {
-    const validNames = names.map((name) => convertNameToValidCharacter(name, 50));
+    const validNames = field.map(
+      ({ id, name }) => `${convertNameToValidCharacter(name, 50)}_${id}`
+    );
     let newValidNames = [...validNames];
     let index = 1;
 
@@ -48,7 +50,6 @@ export class FieldService implements AdapterService {
       const exist = await prisma.field.count({
         where: {
           tableId,
-          deletedTime: null,
           dbFieldName: { in: newValidNames },
         },
       });
@@ -142,7 +143,7 @@ export class FieldService implements AdapterService {
     const dbFieldNames = await this.multipleGenerateValidDbFieldName(
       prisma,
       tableId,
-      fieldInstances.map((dto) => dto.name)
+      fieldInstances
     );
 
     // maintain columnsMeta by view
