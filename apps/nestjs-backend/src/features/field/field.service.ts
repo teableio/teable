@@ -50,7 +50,6 @@ export class FieldService implements AdapterService {
       const exist = await prisma.field.count({
         where: {
           tableId,
-          deletedTime: null,
           dbFieldName: { in: newValidNames },
         },
       });

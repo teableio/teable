@@ -3,7 +3,7 @@ import type { IFieldInstance } from '@teable-group/sdk/model';
 import classNames from 'classnames';
 import { useEffect, useRef, useState } from 'react';
 import { useClickAway, useToggle } from 'react-use';
-import { FieldMenu as _FieldMenu } from '@/features/app/components/field-menu/FieldMenu';
+import { FieldMenu as FieldMenuComp } from '@/features/app/components/field-menu/FieldMenu';
 import { FieldSetting } from '@/features/app/components/field-setting/FieldSetting';
 
 interface IFieldMenuProps {
@@ -57,7 +57,7 @@ export const FieldMenu: React.FC<IFieldMenuProps> = (props) => {
           hidden: !visible,
         })}
       >
-        <_FieldMenu
+        <FieldMenuComp
           operations={{
             openFieldSetting: toOpenFieldSetting,
             deleteField,
