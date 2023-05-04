@@ -33,7 +33,7 @@ export enum CellValueType {
   String = 'string',
   Number = 'number',
   Boolean = 'boolean',
-  Datetime = 'datetime',
+  DateTime = 'dateTime',
   Array = 'array',
 }
 
@@ -63,14 +63,18 @@ export abstract class FieldCore implements IFieldVo {
   abstract defaultValue?: unknown;
 
   // for lookup field, it is a dynamic value
-  abstract calculatedType: unknown;
+  abstract calculatedType: FieldType;
 
   // cellValue type enum (string, number, boolean, datetime, array)
   abstract cellValueType: CellValueType;
+
+  // cellValue array element type enum (string, number, boolean, datetime)
+  cellValueElementType?: CellValueType;
 
   abstract cellValue2String(value: unknown): string;
 
   abstract convertStringToCellValue(str: string): unknown;
 
+  // try parse cellValue and fix it
   abstract repair(value: unknown): unknown;
 }

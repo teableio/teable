@@ -37,10 +37,13 @@ export class ReferenceService {
         continue;
       }
 
+      /** calculation start */
       let sum = 0;
       for (const dependency of item.dependencies) {
         sum += values[dependency];
       }
+      /** calculation end */
+
       values[item.id] = sum;
 
       // Update the node value in the database
