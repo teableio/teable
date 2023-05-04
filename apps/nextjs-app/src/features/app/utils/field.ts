@@ -1,7 +1,7 @@
 import { FieldType } from '@teable-group/core';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
+import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
-import FieldSelectIcon from '@teable-group/ui-lib/icons/app/success.svg';
 
 export const FIELD_CONSTANT = [
   {
