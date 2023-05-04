@@ -4,7 +4,7 @@ import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { FIELD_CONSTANT } from '../../utils/field';
-import { Select, SelectItem } from '../common/select/Select';
+import { Select, SelectItem } from '../common/select';
 import { NumberOptions } from './NumberOptions';
 import { SelectOptions } from './SelectOptions';
 

@@ -1,6 +1,6 @@
 import type { NumberFieldOptions as NumberFieldOptionsType } from '@teable-group/core';
 import { NUMBER_FIELD_PRECISION } from '../../utils/field';
-import { Select, SelectItem } from '../common/select/Select';
+import { Select, SelectItem } from '../common/select';
 
 export const NumberOptions = (props: {
   options: NumberFieldOptionsType;
