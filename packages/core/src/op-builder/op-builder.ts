@@ -1,7 +1,6 @@
 import type { IOtOperation } from '../models';
 import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
-import { DeleteFieldBuilder } from './field/delete-field';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
 import { SetFieldNameBuilder } from './field/set-field-name';
 import { AddRecordBuilder } from './record/add-record';
@@ -14,7 +13,6 @@ import { SetTableOrderBuilder } from './table/set-table-order';
 import { AddViewBuilder } from './view/add-view';
 import { SetViewNameBuilder } from './view/set-view-name';
 
-export type { IDeleteFieldOpContext } from './field/delete-field';
 export type { ISetRecordOrderOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
@@ -32,7 +30,6 @@ export class OpBuilder {
     deleteRecord: new DeleteRecordBuilder(),
     setRecordOrder: new SetRecordOrderBuilder(),
 
-    deleteField: new DeleteFieldBuilder(),
     addColumnMeta: new AddColumnMetaBuilder(),
     setColumnMeta: new SetColumnMetaBuilder(),
     setFieldName: new SetFieldNameBuilder(),

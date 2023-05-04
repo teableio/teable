@@ -129,6 +129,8 @@
     "@radix-ui/react-collapsible": "1.0.1",
     "@radix-ui/react-dialog": "1.0.2",
     "@radix-ui/react-icons": "1.1.1",
+    "@radix-ui/react-portal": "1.0.2",
+    "@radix-ui/react-select": "1.2.1",
     "@radix-ui/react-toast": "1.1.3",
     "@sentry/nextjs": "7.17.2",
     "@sentry/react": "7.17.2",

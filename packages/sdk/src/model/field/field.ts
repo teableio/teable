@@ -35,6 +35,14 @@ export class FieldExtended {
       });
     });
   }
+
+  static delete(doc: Doc<IFieldSnapshot>) {
+    return new Promise<void>((resolve, reject) => {
+      doc.del({}, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
 }
 
 export abstract class Field extends FieldCore {
