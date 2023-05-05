@@ -10,16 +10,14 @@ import type {
   BooleanLiteralContext,
   BracketsContext,
   DecimalLiteralContext,
-  ExprContext,
   FunctionCallContext,
   IntegerLiteralContext,
   LeftWhitespaceOrCommentsContext,
-  LookupFieldReferenceContext,
   RightWhitespaceOrCommentsContext,
   RootContext,
   StringLiteralContext,
+  FieldReferenceCurlyContext,
 } from './parser/Formula';
-import { FieldReferenceContext } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 import type { ITypedValue } from './typed-value';
 import { ArrayTypedValue, FlatTypedValue } from './typed-value';
@@ -114,28 +112,13 @@ export class EvalVisitor
     }
   }
 
-  private getFieldFromCtx(ctx: FieldReferenceContext): FieldCore {
-    const fieldId = ctx.field_reference().text.slice(1, -1);
-    const field = this.dependencies[fieldId];
-    if (!field) {
-      throw new Error(`FieldId ${fieldId} is not found from dependencies`);
-    }
-
-    return field;
-  }
-
-  private transformNodeValue(node: ExprContext, ctx: BinaryOpContext, value: any) {
+  private transformNodeValue(typedValue: ITypedValue, ctx: BinaryOpContext) {
     // A Node with a field value type requires dedicated string conversion logic to be executed.
-    if (
-      !node.children ||
-      !node.children[0] ||
-      !(node.children[0] instanceof FieldReferenceContext)
-    ) {
-      return value;
+    if (!typedValue.field) {
+      return typedValue;
     }
 
-    const fieldCtx = node.children[0];
-    const field = this.getFieldFromCtx(fieldCtx);
+    const field = typedValue.field;
     const isComparisonOperator = [
       ctx.EQUAL(),
       ctx.BANG_EQUAL(),
@@ -146,7 +129,7 @@ export class EvalVisitor
     ].some((op) => Boolean(op));
 
     if (field.cellValueType === CellValueType.DateTime && isComparisonOperator) {
-      return value;
+      return typedValue;
     }
 
     if (
@@ -154,23 +137,23 @@ export class EvalVisitor
         field.cellValueType
       )
     ) {
-      return value;
+      return typedValue;
     }
 
     if (
       field.cellValueType === CellValueType.Array &&
       field.cellValueElementType === CellValueType.Number
     ) {
-      if (!value?.length) return null;
-      if (value.length > 1) {
+      if (!typedValue.value?.length) return null;
+      if (typedValue.value.length > 1) {
         throw new TypeError(
           'Cannot perform mathematical calculations on an array with more than one numeric element.'
         );
       }
-      return Number(value[0]);
+      return new FlatTypedValue(Number(typedValue.value[0]), CellValueType.Number);
     }
 
-    return field.cellValue2String(value);
+    return new FlatTypedValue(field.cellValue2String(typedValue.value), CellValueType.String);
   }
 
   visitBinaryOp(ctx: BinaryOpContext) {
@@ -178,8 +161,8 @@ export class EvalVisitor
     const rightNode = ctx.expr(1);
     const left = this.visit(leftNode)!;
     const right = this.visit(rightNode)!;
-    const lv = this.transformNodeValue(leftNode, ctx, left.value);
-    const rv = this.transformNodeValue(rightNode, ctx, right.value);
+    const lv = this.transformNodeValue(left, ctx)?.value;
+    const rv = this.transformNodeValue(right, ctx)?.value;
 
     const valueType = this.getBinaryOpValueType(ctx, left, right);
     let value: any;
@@ -246,11 +229,8 @@ export class EvalVisitor
     return new FlatTypedValue(value, valueType);
   }
 
-  visitFieldReference(ctx: FieldReferenceContext) {
-    const field = this.getFieldFromCtx(ctx);
+  private createTypedValueByField(field: FieldCore) {
     const value = this.record ? this.record.fields[field.id] : null;
-
-    console.log('visitFieldReference:value:', value);
 
     if (field.cellValueType === CellValueType.Array) {
       if (!field.cellValueElementType) {
@@ -261,16 +241,13 @@ export class EvalVisitor
     return new FlatTypedValue(value, field.cellValueType, field);
   }
 
-  visitLookupFieldReference(ctx: LookupFieldReferenceContext): any {
-    console.log('visitLookupFieldReference', ctx.text);
-    console.log(
-      'visitLookupFieldReferenceFieldName',
-      ctx
-        .field_reference()
-        .map((x) => x.text)
-        .join()
-    );
-    // Here you would implement lookup field reference logic based on your specific data model
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
+    const fieldId = ctx.field_reference_curly().text;
+    const field = this.dependencies[fieldId];
+    if (!field) {
+      throw new Error(`FieldId ${fieldId} is not found from dependencies`);
+    }
+    return this.createTypedValueByField(field);
   }
 
   private transformTypedValue(typedValue: ITypedValue, func: FormulaFunc): ITypedValue {
@@ -303,7 +280,6 @@ export class EvalVisitor
   }
 
   visitFunctionCall(ctx: FunctionCallContext) {
-    console.log('visitFunctionCall', ctx.func_name().text);
     const fnName = ctx.func_name().text.toUpperCase() as FunctionName;
     const func = FUNCTIONS[fnName];
     if (!func) {

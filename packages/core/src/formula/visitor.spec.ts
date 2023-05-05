@@ -134,11 +134,11 @@ describe('EvalVisitor', () => {
   });
 
   it('field reference', () => {
-    expect(evalFormula('field("fldTest")', fieldContext, record)).toBe(8);
-    expect(evalFormula('field("fldTest") + 1', fieldContext, record)).toBe(9);
+    expect(evalFormula('{fldTest}', fieldContext, record)).toBe(8);
+    expect(evalFormula('{fldTest} + 1', fieldContext, record)).toBe(9);
   });
 
   it('function call', () => {
-    expect(evalFormula('sum(field("fldTest"), 1, 2, 3)', fieldContext, record)).toBe(14);
+    expect(evalFormula('sum({fldTest}, 1, 2, 3)', fieldContext, record)).toBe(14);
   });
 });
