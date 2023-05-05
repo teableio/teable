@@ -17,6 +17,10 @@ export class SingleLineTextFieldCore extends FieldCore {
 
   isComputed!: false;
 
+  static defaultOptions() {
+    return undefined;
+  }
+
   cellValue2String(cellValue: string) {
     return cellValue;
   }

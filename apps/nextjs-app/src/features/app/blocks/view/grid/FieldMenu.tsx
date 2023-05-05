@@ -1,10 +1,10 @@
 import { useField } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import classNames from 'classnames';
-import { useEffect, useRef, useState } from 'react';
-import { useClickAway, useToggle } from 'react-use';
+import { useRef } from 'react';
+import { useClickAway } from 'react-use';
 import { FieldMenu as FieldMenuComp } from '@/features/app/components/field-menu/FieldMenu';
-import { FieldSetting } from '@/features/app/components/field-setting/FieldSetting';
+import { useFieldSettingStore } from '@/features/app/components/field-setting/store';
+import { FieldOperator } from '@/features/app/components/field-setting/type';
 
 interface IFieldMenuProps {
   style?: React.CSSProperties;
@@ -17,31 +17,22 @@ export const FieldMenu: React.FC<IFieldMenuProps> = (props) => {
   const { visible, fieldId, onClose, style } = props;
 
   const field = useField(fieldId);
-  const [currentField, setCurrentField] = useState<IFieldInstance>();
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const [openFieldSetting, toggleOpenFieldSetting] = useToggle(false);
-
-  useEffect(() => {
-    if (visible) {
-      setCurrentField(field);
-    }
-    if (!visible && !openFieldSetting) {
-      setCurrentField(undefined);
-    }
-  }, [field, openFieldSetting, visible]);
+  const fieldSettingStore = useFieldSettingStore();
 
   useClickAway(fieldSettingRef, () => {
     onClose();
   });
 
   const toOpenFieldSetting = () => {
+    if (!field) {
+      return;
+    }
+    fieldSettingStore.open({
+      field,
+      operator: FieldOperator.Edit,
+    });
     onClose();
-    toggleOpenFieldSetting();
-  };
-
-  const onSettingConfirm = () => {
-    onClose();
-    toggleOpenFieldSetting();
   };
 
   const deleteField = () => {
@@ -64,12 +55,6 @@ export const FieldMenu: React.FC<IFieldMenuProps> = (props) => {
           }}
         />
       </div>
-      <FieldSetting
-        visible={openFieldSetting}
-        field={currentField}
-        onCancel={() => toggleOpenFieldSetting()}
-        onConfirm={onSettingConfirm}
-      />
     </div>
   );
 };

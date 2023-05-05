@@ -1,44 +1,27 @@
-import type { NumberFieldOptions, SingleSelectFieldOptions } from '@teable-group/core';
+import type { IFieldRo, NumberFieldOptions, SingleSelectFieldOptions } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
-import { FIELD_CONSTANT } from '../../utils/field';
+import { FIELD_CONSTANT, fieldDefaultOptionMap } from '../../utils/field';
 import { Select, SelectItem } from '../common/select';
 import { NumberOptions } from './NumberOptions';
 import { SelectOptions } from './SelectOptions';
 
-export interface IFieldSetting {
-  name: string;
-  type: FieldType.SingleLineText | FieldType.SingleSelect | FieldType.Number;
-  description: string | undefined;
-  options: NumberFieldOptions | SingleSelectFieldOptions | undefined;
-}
-
 export const FieldEditor = (props: {
-  field: IFieldInstance;
-  onChange?: (field: IFieldSetting, updateCount?: number) => void;
+  field: IFieldRo;
+  onChange?: (field: IFieldRo, updateCount?: number) => void;
 }) => {
   const { field: currentField, onChange } = props;
-  const [field, setField] = useState<IFieldSetting>({
+  const [field, setField] = useState<IFieldRo>({
     name: currentField.name,
+    description: currentField.description || '',
     type: currentField.type,
-    description: currentField.description,
     options: currentField.options,
   });
   const [updateCount, { inc: incUpdateCount }] = useCounter(0);
 
-  useEffect(() => {
-    setField({
-      name: currentField.name,
-      type: currentField.type,
-      description: currentField.description,
-      options: currentField.options,
-    });
-  }, [currentField.description, currentField.name, currentField.options, currentField.type]);
-
   const setFieldFn = useCallback(
-    (field: IFieldSetting) => {
+    (field: IFieldRo) => {
       incUpdateCount();
       setField(field);
       onChange?.(field, updateCount);
@@ -60,11 +43,11 @@ export const FieldEditor = (props: {
     });
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateFieldType = (type: any) => {
+  const updateFieldType = (type: FieldType) => {
     setFieldFn({
       ...field,
       type,
+      options: fieldDefaultOptionMap[type],
     });
   };
 
@@ -116,7 +99,7 @@ export const FieldEditor = (props: {
             <input
               type="text"
               className="input input-bordered w-full input-sm"
-              value={field?.name}
+              value={field['name']}
               onChange={updateFieldName}
             />
           </div>
@@ -127,7 +110,7 @@ export const FieldEditor = (props: {
             <input
               type="text"
               className="input input-bordered w-full input-sm"
-              value={field?.description}
+              value={field['description']}
               onChange={updateFieldDesc}
             />
           </div>

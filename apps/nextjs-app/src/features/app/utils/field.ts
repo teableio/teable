@@ -1,4 +1,9 @@
-import { FieldType } from '@teable-group/core';
+import {
+  FieldType,
+  NumberFieldCore,
+  SingleLineTextFieldCore,
+  SingleSelectFieldCore,
+} from '@teable-group/core';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
@@ -43,3 +48,9 @@ export const NUMBER_FIELD_PRECISION = [
     value: 4,
   },
 ];
+
+export const fieldDefaultOptionMap: Record<string, unknown> = {
+  [FieldType.SingleLineText]: SingleLineTextFieldCore.defaultOptions(),
+  [FieldType.SingleSelect]: SingleSelectFieldCore.defaultOptions(),
+  [FieldType.Number]: NumberFieldCore.defaultOptions(),
+};
