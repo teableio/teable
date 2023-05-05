@@ -21,6 +21,12 @@ export class NumberFieldCore extends FieldCore {
 
   isComputed!: false;
 
+  static defaultOptions(): NumberFieldOptions {
+    return {
+      precision: 0,
+    };
+  }
+
   cellValue2String(cellValue: number) {
     if (cellValue == null) {
       return '';

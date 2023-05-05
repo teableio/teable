@@ -2,7 +2,7 @@ import DataEditor, { GridCellKind, useCustomCells } from '@glideapps/glide-data-
 import type { DataEditorRef, Rectangle } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot } from '@teable-group/core';
 import { IdPrefix, OpBuilder } from '@teable-group/core';
-import { useConnection, useRowCount, useSSRRecords, useTableId } from '@teable-group/sdk';
+import { useConnection, useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious } from 'react-use';
@@ -10,6 +10,7 @@ import '@glideapps/glide-data-grid/dist/index.css';
 import { SelectCell } from '@/features/app/components/gird-cells';
 import type { IGridCell } from '@/features/app/components/gird-cells/type';
 import { girdCellToCellValue } from '@/features/app/components/gird-cells/utils';
+import { AddField } from './AddField';
 import { FieldMenu } from './FieldMenu';
 import { getHeaderIcons } from './getHeaderIcons';
 import { useAsyncData } from './useAsyncData';
@@ -26,6 +27,7 @@ export const GridView: React.FC = () => {
 
   const { connected, connection } = useConnection();
   const tableId = useTableId() as string;
+  const table = useTable();
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
@@ -160,6 +162,10 @@ export const GridView: React.FC = () => {
     setMenu(undefined);
   };
 
+  const onRowAppended = () => {
+    table?.createRecord({});
+  };
+
   return (
     <div ref={container} className="relative grow w-full overflow-y-auto overflow-x-hidden">
       {connected ? (
@@ -183,6 +189,16 @@ export const GridView: React.FC = () => {
           freezeColumns={1}
           onFinishedEditing={onFinishedEditing}
           headerIcons={headerIcons}
+          onRowAppended={onRowAppended}
+          trailingRowOptions={{
+            tint: true,
+            hint: 'New record',
+          }}
+          rightElement={<AddField />}
+          rightElementProps={{
+            fill: true,
+            sticky: false,
+          }}
         />
       ) : (
         <DataEditor
@@ -198,6 +214,11 @@ export const GridView: React.FC = () => {
           rowMarkers="both"
           freezeColumns={1}
           headerIcons={headerIcons}
+          rightElement={<AddField disabled />}
+          rightElementProps={{
+            fill: true,
+            sticky: false,
+          }}
         />
       )}
       {
@@ -207,7 +228,7 @@ export const GridView: React.FC = () => {
             top: fieldMenuPosition.y,
           }}
           visible={Boolean(menu)}
-          fieldId={menu?.col ? columns[menu.col]?.id : undefined}
+          fieldId={menu?.col != undefined ? columns[menu.col]?.id : undefined}
           onClose={() => setMenu(undefined)}
         />
       }

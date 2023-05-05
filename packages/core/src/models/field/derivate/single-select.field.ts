@@ -27,6 +27,12 @@ export class SingleSelectFieldCore extends FieldCore {
 
   isComputed!: false;
 
+  static defaultOptions(): SingleSelectFieldOptions {
+    return {
+      choices: [],
+    };
+  }
+
   cellValue2String(cellValue: string) {
     return cellValue;
   }
