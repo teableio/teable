@@ -11,7 +11,7 @@ export const SelectItem = React.forwardRef((props: ISelectItem, ref: React.Ref<H
   return (
     <SelectPrimitive.Item
       className={classNames(
-        'flex items-center hover:bg-base-200 cursor-pointer rounded-sm relative h-8 pl-3 pr-8 text-sm',
+        'flex items-center hover:bg-base-200 cursor-pointer rounded-sm relative h-8 pl-3 pr-8 text-sm focus-visible:outline-none',
         className
       )}
       {...rest}

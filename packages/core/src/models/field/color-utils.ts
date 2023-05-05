@@ -105,3 +105,28 @@ export const ColorUtils: IColorUtils = {
     return !shouldUseDarkText;
   },
 };
+
+/**
+ * Random color string.
+ * @param exists Filter existed color
+ * @param num Number of random color
+ * @returns color string array
+ */
+export const randomColor = (exists?: string[], num = 1) => {
+  let colors = Object.values(Colors);
+  if (exists) {
+    colors = colors.filter((color) => !exists.includes(color));
+  }
+  if (num === 1) {
+    const randomIndex = Math.floor(Math.random() * colors.length);
+    return [colors[randomIndex]];
+  } else {
+    const result: string[] = [];
+    for (let i = 0; i < num; i++) {
+      const randomIndex = Math.floor(Math.random() * colors.length);
+      result.push(colors[randomIndex]);
+      colors.splice(randomIndex, 1);
+    }
+    return result;
+  }
+};
