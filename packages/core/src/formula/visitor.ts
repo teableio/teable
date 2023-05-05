@@ -32,7 +32,6 @@ export class EvalVisitor
     super();
   }
 
-  // Implement visit methods for each rule
   visitRoot(ctx: RootContext) {
     return ctx.expr().accept(this);
   }
@@ -57,7 +56,7 @@ export class EvalVisitor
 
   visitBooleanLiteral(ctx: BooleanLiteralContext): any {
     // Parse and return the boolean value
-    const value = ctx.text === 'TRUE';
+    const value = ctx.text.toUpperCase() === 'TRUE';
     return new FlatTypedValue(value, CellValueType.Boolean);
   }
 
@@ -230,7 +229,15 @@ export class EvalVisitor
         break;
       }
       case Boolean(ctx.AMP()): {
-        value = String(left == null ? '' : left) + String(right == null ? '' : right);
+        value = String(lv == null ? '' : lv) + String(rv == null ? '' : rv);
+        break;
+      }
+      case Boolean(ctx.AMP_AMP()): {
+        value = lv && rv;
+        break;
+      }
+      case Boolean(ctx.PIPE_PIPE()): {
+        value = lv || rv;
         break;
       }
       default:
@@ -240,7 +247,6 @@ export class EvalVisitor
   }
 
   visitFieldReference(ctx: FieldReferenceContext) {
-    // Here you would implement field reference logic based on your specific data model
     const field = this.getFieldFromCtx(ctx);
     const value = this.record ? this.record.fields[field.id] : null;
 
@@ -297,8 +303,8 @@ export class EvalVisitor
   }
 
   visitFunctionCall(ctx: FunctionCallContext) {
-    console.log('visitFunctionCall', ctx.text);
-    const fnName = ctx.text.toUpperCase() as FunctionName;
+    console.log('visitFunctionCall', ctx.func_name().text);
+    const fnName = ctx.func_name().text.toUpperCase() as FunctionName;
     const func = FUNCTIONS[fnName];
     if (!func) {
       throw new TypeError(`Function name ${func} is not found`);

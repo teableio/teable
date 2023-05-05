@@ -54,7 +54,7 @@ describe('EvalVisitor', () => {
     const parser = new Formula(tokenStream);
     const tree = parser.root();
     const visitor = new EvalVisitor(context, record);
-    return visitor.visit(tree);
+    return visitor.visit(tree).value;
   };
 
   it('integer literal', () => {
@@ -97,6 +97,24 @@ describe('EvalVisitor', () => {
     expect(evalFormula('12 / 4')).toBe(3);
   });
 
+  it('mode', () => {
+    expect(evalFormula('8 % 3')).toBe(2);
+  });
+
+  it('concat', () => {
+    expect(evalFormula('"x" & "Y"')).toBe('xY');
+  });
+
+  it('and', () => {
+    expect(evalFormula('true && true')).toBe(true);
+    expect(evalFormula('false && true')).toBe(false);
+  });
+
+  it('or', () => {
+    expect(evalFormula('true || false')).toBe(true);
+    expect(evalFormula('false && false')).toBe(false);
+  });
+
   it('comparison', () => {
     expect(evalFormula('1 < 2')).toBe(true);
     expect(evalFormula('1 > 2')).toBe(false);
@@ -115,11 +133,12 @@ describe('EvalVisitor', () => {
     expect(evalFormula('/* block comment */1 + 2')).toBe(3);
   });
 
-  it.only('field reference', () => {
-    expect(evalFormula('field("fldTest")', fieldContext, record)?.value).toBe(8);
-    expect(evalFormula('field("fldTest") + 1', fieldContext, record)?.value).toBe(9);
+  it('field reference', () => {
+    expect(evalFormula('field("fldTest")', fieldContext, record)).toBe(8);
+    expect(evalFormula('field("fldTest") + 1', fieldContext, record)).toBe(9);
   });
 
-  // Add tests for field references, lookup field references, and function calls
-  // based on your specific data model and available functions.
+  it('function call', () => {
+    expect(evalFormula('sum(field("fldTest"), 1, 2, 3)', fieldContext, record)).toBe(14);
+  });
 });

@@ -6,6 +6,8 @@ import { ReferenceService } from './reference.service';
 describe('ReferenceService', () => {
   let service: ReferenceService;
   let prisma: PrismaService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let initialReferences: any;
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,12 +32,13 @@ describe('ReferenceService', () => {
       { id: 'f6', value: 0 },
       { id: 'f7', value: 0 },
     ];
-    const initialReferences = [
+    initialReferences = [
       { fromFieldId: 'f1', toFieldId: 'f2' },
       { fromFieldId: 'f2', toFieldId: 'f3' },
       { fromFieldId: 'f2', toFieldId: 'f4' },
       { fromFieldId: 'f3', toFieldId: 'f6' },
       { fromFieldId: 'f5', toFieldId: 'f4' },
+      { fromFieldId: 'f7', toFieldId: 'f8' },
     ];
 
     for (const node of initialNodes) {
@@ -87,5 +90,13 @@ describe('ReferenceService', () => {
     expect(values.find((v) => v.id === 'f2')?.value).toBe(10);
     expect(values.find((v) => v.id === 'f3')?.value).toBe(10);
     expect(values.find((v) => v.id === 'f4')?.value).toBe(12);
+  });
+
+  it('getDependentNodesCTE should return all dependent nodes', async () => {
+    const result = await service.getDependentNodesCTE('f2');
+    console.log('result:', result);
+    const resultData = [...initialReferences];
+    resultData.pop();
+    expect(result).toEqual(expect.arrayContaining(resultData));
   });
 });
