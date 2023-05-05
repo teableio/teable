@@ -3,6 +3,8 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import type { FieldCore, IRecord } from '../models';
 import { CellValueType } from '../models';
+import type { FormulaFunc, FunctionName } from './functions/common';
+import { FUNCTIONS } from './functions/factory';
 import type {
   BinaryOpContext,
   BooleanLiteralContext,
@@ -19,11 +21,12 @@ import type {
 } from './parser/Formula';
 import { FieldReferenceContext } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
-import { ArrayTypedValue, TypedValue } from './typed-value';
+import type { ITypedValue } from './typed-value';
+import { ArrayTypedValue, FlatTypedValue } from './typed-value';
 
 export class EvalVisitor
-  extends AbstractParseTreeVisitor<TypedValue | null>
-  implements FormulaVisitor<TypedValue | null>
+  extends AbstractParseTreeVisitor<ITypedValue>
+  implements FormulaVisitor<ITypedValue>
 {
   constructor(private dependencies: { [fieldId: string]: FieldCore }, private record?: IRecord) {
     super();
@@ -37,25 +40,25 @@ export class EvalVisitor
   visitStringLiteral(ctx: StringLiteralContext): any {
     // Extract and return the string value without quotes
     const value = ctx.text.slice(1, -1);
-    return new TypedValue(value, CellValueType.String);
+    return new FlatTypedValue(value, CellValueType.String);
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): any {
     // Parse and return the integer value
     const value = parseInt(ctx.text, 10);
-    return new TypedValue(value, CellValueType.Number);
+    return new FlatTypedValue(value, CellValueType.Number);
   }
 
   visitDecimalLiteral(ctx: DecimalLiteralContext): any {
     // Parse and return the decimal value
     const value = parseFloat(ctx.text);
-    return new TypedValue(value, CellValueType.Number);
+    return new FlatTypedValue(value, CellValueType.Number);
   }
 
   visitBooleanLiteral(ctx: BooleanLiteralContext): any {
     // Parse and return the boolean value
     const value = ctx.text === 'TRUE';
-    return new TypedValue(value, CellValueType.Boolean);
+    return new FlatTypedValue(value, CellValueType.Boolean);
   }
 
   visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): any {
@@ -72,8 +75,8 @@ export class EvalVisitor
 
   private getBinaryOpValueType(
     ctx: BinaryOpContext,
-    left: TypedValue,
-    right: TypedValue
+    left: ITypedValue,
+    right: ITypedValue
   ): CellValueType {
     switch (true) {
       case Boolean(ctx.PLUS()): {
@@ -233,7 +236,7 @@ export class EvalVisitor
       default:
         throw new Error(`Unsupported binary operation: ${ctx.text}`);
     }
-    return new TypedValue(value, valueType);
+    return new FlatTypedValue(value, valueType);
   }
 
   visitFieldReference(ctx: FieldReferenceContext) {
@@ -247,12 +250,9 @@ export class EvalVisitor
       if (!field.cellValueElementType) {
         throw new Error('field.cellValueElementType is not define for a array value');
       }
-      return new ArrayTypedValue(
-        Array.isArray(value) ? value.map((v) => new TypedValue(v, field.cellValueType)) : null,
-        field.cellValueElementType
-      );
+      return new ArrayTypedValue(value, field.cellValueElementType, field);
     }
-    return new TypedValue(value, field.cellValueType);
+    return new FlatTypedValue(value, field.cellValueType, field);
   }
 
   visitLookupFieldReference(ctx: LookupFieldReferenceContext): any {
@@ -267,13 +267,62 @@ export class EvalVisitor
     // Here you would implement lookup field reference logic based on your specific data model
   }
 
+  private transformTypedValue(typedValue: ITypedValue, func: FormulaFunc): ITypedValue {
+    const { value, type, field } = typedValue;
+
+    if (
+      type === CellValueType.Array &&
+      !func.acceptCellValueType.has(CellValueType.Array) &&
+      'elementType' in typedValue &&
+      typedValue.elementType === CellValueType.Number
+    ) {
+      if (value?.length > 1) {
+        throw new TypeError(`function ${func.name} is not accept array value: ${value}`);
+      }
+      const transValue = value && value[0];
+      return new FlatTypedValue(transValue, CellValueType.Number);
+    }
+
+    if (!func.acceptCellValueType.has(type)) {
+      const transValue = field ? field.cellValue2String(value) : String(value);
+      return new FlatTypedValue(transValue, CellValueType.String);
+    }
+
+    if (!func.acceptCellValueType.has(type) && type === CellValueType.DateTime) {
+      const transValue = value == null ? value : new Date(value).toISOString();
+      return new FlatTypedValue(transValue, CellValueType.DateTime);
+    }
+
+    return typedValue;
+  }
+
   visitFunctionCall(ctx: FunctionCallContext) {
     console.log('visitFunctionCall', ctx.text);
-    // Here you would implement function call logic based on your specific functions available
-    return null;
+    const fnName = ctx.text.toUpperCase() as FunctionName;
+    const func = FUNCTIONS[fnName];
+    if (!func) {
+      throw new TypeError(`Function name ${func} is not found`);
+    }
+
+    const params = ctx.expr().map((exprCtx) => {
+      const typedValue = this.visit(exprCtx);
+      return this.transformTypedValue(typedValue, func);
+    });
+
+    const { type, elementType } = func.getReturnType(params);
+
+    if (!this.record) {
+      return new FlatTypedValue(null, type);
+    }
+
+    const value = func.eval(params, { record: this.record, dependencies: this.dependencies });
+    if (type === CellValueType.Array && elementType) {
+      return new ArrayTypedValue(value, elementType);
+    }
+    return new FlatTypedValue(value, type);
   }
 
   protected defaultResult() {
-    return null;
+    return new FlatTypedValue(null, CellValueType.String);
   }
 }
