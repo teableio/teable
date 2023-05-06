@@ -282,8 +282,6 @@ export class FieldService implements AdapterService {
       multiFieldData.map((field) => field.dbFieldName),
       [fieldInstance]
     );
-
-    // TODO: 3. add order in every columnMeta view
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {

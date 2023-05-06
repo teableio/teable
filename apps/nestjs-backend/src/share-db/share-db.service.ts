@@ -2,11 +2,15 @@ import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
+import { FieldSupplementService } from '../features/field/field-supplement.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
-  constructor(readonly sqliteDbAdapter: SqliteDbAdapter) {
+  constructor(
+    readonly sqliteDbAdapter: SqliteDbAdapter,
+    private readonly fieldSupplementService: FieldSupplementService
+  ) {
     super({
       db: sqliteDbAdapter,
     });
@@ -23,11 +27,11 @@ export class ShareDbService extends ShareDBClass {
   //   next();
   // }
 
-  // private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
-  //   console.log('ShareDb:apply:', context.ops, context.snapshot);
+  private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
+    console.log('ShareDb:apply:', context.ops, context.snapshot);
 
-  //   next();
-  // }
+    next();
+  }
 
   // private onCommit(context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) {
   //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
