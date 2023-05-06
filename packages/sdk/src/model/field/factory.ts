@@ -2,6 +2,7 @@ import type { IFieldSnapshot } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import { LinkField } from './link.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
 import { SingleLineTextField } from './single-line-text.field';
@@ -25,6 +26,8 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.LongText:
       case FieldType.MultipleSelect:
         return plainToInstance(MultipleSelectField, field);
+      case FieldType.Link:
+        return plainToInstance(LinkField, field);
       case FieldType.PhoneNumber:
       case FieldType.URL:
       case FieldType.User:
@@ -41,7 +44,6 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Formula:
       case FieldType.Rollup:
       case FieldType.MultipleLookupValues:
-      case FieldType.MultipleRecordLinks:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);

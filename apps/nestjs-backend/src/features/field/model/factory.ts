@@ -1,14 +1,17 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
+import type { LinkFieldOptions } from '@teable-group/core';
 import {
   DbFieldType,
   assertNever,
   CellValueType,
   FieldType,
   generateFieldId,
+  Relationship,
 } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from './create-field.ro';
+import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
@@ -44,12 +47,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
       } as SingleSelectFieldDto);
-    case FieldType.Attachment:
-    case FieldType.Button:
-    case FieldType.CreatedBy:
-    case FieldType.Email:
-    case FieldType.LastModifiedBy:
-    case FieldType.LongText:
     case FieldType.MultipleSelect:
       return plainToInstance(MultipleSelectFieldDto, {
         ...fieldDto,
@@ -59,6 +56,28 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
         cellValueElementType: CellValueType.String,
         dbFieldType: DbFieldType.Json,
       } as MultipleSelectFieldDto);
+    case FieldType.Link: {
+      const options = fieldDto.options as LinkFieldOptions;
+
+      return plainToInstance(LinkFieldDto, {
+        ...fieldDto,
+        isComputed: true,
+        calculatedType: FieldType.Link,
+        cellValueType:
+          options.relationship === Relationship.OneMany
+            ? CellValueType.String
+            : CellValueType.Array,
+        cellValueElementType:
+          options.relationship === Relationship.OneMany ? undefined : CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+      } as LinkFieldDto);
+    }
+    case FieldType.Attachment:
+    case FieldType.Button:
+    case FieldType.CreatedBy:
+    case FieldType.Email:
+    case FieldType.LastModifiedBy:
+    case FieldType.LongText:
     case FieldType.PhoneNumber:
     case FieldType.URL:
     case FieldType.User:
@@ -75,7 +94,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
     case FieldType.Formula:
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
-    case FieldType.MultipleRecordLinks:
       return plainToInstance(SingleLineTextFieldDto, {
         ...fieldDto,
         type: FieldType.SingleLineText,
@@ -137,7 +155,7 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     case FieldType.Formula:
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
-    case FieldType.MultipleRecordLinks:
+    case FieldType.Link:
       throw new Error('did not implement yet');
     default:
       assertNever(field.type);

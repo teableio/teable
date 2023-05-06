@@ -18,7 +18,7 @@ export enum FieldType {
   Formula = 'formula',
   Rollup = 'rollup',
   Count = 'count',
-  MultipleRecordLinks = 'multipleRecordLinks',
+  Link = 'link',
   MultipleLookupValues = 'multipleLookupValues',
   CreatedTime = 'createdTime',
   LastModifiedTime = 'lastModifiedTime',
