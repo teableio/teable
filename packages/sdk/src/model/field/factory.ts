@@ -2,6 +2,7 @@ import type { IFieldSnapshot } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
@@ -23,6 +24,7 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.LastModifiedBy:
       case FieldType.LongText:
       case FieldType.MultipleSelect:
+        return plainToInstance(MultipleSelectField, field);
       case FieldType.PhoneNumber:
       case FieldType.URL:
       case FieldType.User:

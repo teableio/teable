@@ -1,9 +1,11 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import { MultipleSelectOptionsDto } from './field-dto/multiple-select-field.dto';
 import { NumberOptionsDto } from './field-dto/number-field.dto';
 import { SingleSelectOptionsDto } from './field-dto/single-select-field.dto';
 
+@ApiExtraModels(MultipleSelectOptionsDto)
 @ApiExtraModels(SingleSelectOptionsDto)
 @ApiExtraModels(NumberOptionsDto)
 export class CreateFieldRo implements IFieldRo {
@@ -30,6 +32,7 @@ export class CreateFieldRo implements IFieldRo {
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
     oneOf: [
+      { $ref: getSchemaPath(MultipleSelectOptionsDto) },
       { $ref: getSchemaPath(SingleSelectOptionsDto) },
       { $ref: getSchemaPath(NumberOptionsDto) },
     ],

@@ -9,6 +9,7 @@ import {
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from './create-field.ro';
+import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
@@ -50,6 +51,14 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
     case FieldType.LastModifiedBy:
     case FieldType.LongText:
     case FieldType.MultipleSelect:
+      return plainToInstance(MultipleSelectFieldDto, {
+        ...fieldDto,
+        isComputed: false,
+        calculatedType: FieldType.MultipleSelect,
+        cellValueType: CellValueType.Array,
+        cellValueElementType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+      } as MultipleSelectFieldDto);
     case FieldType.PhoneNumber:
     case FieldType.URL:
     case FieldType.User:

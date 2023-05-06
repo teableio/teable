@@ -33,4 +33,5 @@ export enum DbFieldType {
   Integer = 'INTEGER',
   Real = 'REAL',
   Blob = 'BLOB',
+  Json = 'JSON',
 }
