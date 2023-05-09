@@ -98,6 +98,10 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     columnMeta: JSON.parse(fieldRaw.columnMeta as string),
   };
 
+  return createFieldInstanceByVo(field);
+}
+
+export function createFieldInstanceByVo(field: FieldVo) {
   switch (field.type) {
     case FieldType.SingleLineText:
       return plainToInstance(SingleLineTextFieldDto, field);
@@ -135,4 +139,4 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
   }
 }
 
-export type IFieldInstance = ReturnType<typeof createFieldInstanceByRo>;
+export type IFieldInstance = ReturnType<typeof createFieldInstanceByVo>;
