@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { DbFieldType, FieldType } from '../constant';
 import type { CellValueType } from '../field';
 import { FieldCore } from '../field';
@@ -11,9 +12,9 @@ export class NumberFieldCore extends FieldCore {
 
   dbFieldType!: DbFieldType.Real;
 
-  options: NumberFieldOptions | undefined;
+  options!: NumberFieldOptions;
 
-  defaultValue?: number;
+  defaultValue: number | null = null;
 
   calculatedType!: FieldType.Number;
 
@@ -51,5 +52,18 @@ export class NumberFieldCore extends FieldCore {
       return this.convertStringToCellValue(value);
     }
     throw new Error(`invalid value: ${value} for field: ${this.name}`);
+  }
+
+  validateOptions() {
+    return z
+      .object({
+        precision: z.number().max(5).min(0),
+      })
+      .optional()
+      .safeParse(this.options);
+  }
+
+  validateDefaultValue() {
+    return z.number().optional().nullable().safeParse(this.defaultValue);
   }
 }

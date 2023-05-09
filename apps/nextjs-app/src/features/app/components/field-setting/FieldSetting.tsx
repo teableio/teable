@@ -1,6 +1,7 @@
 import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
+import { Table } from '@teable-group/sdk/model';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Drawer } from './Drawer';
@@ -41,6 +42,20 @@ export const FieldSettingStorage = () => {
     close();
     if (fieldSetting.operator === FieldOperator.Add) {
       table?.createField(field);
+      return;
+    }
+
+    if (fieldSetting.operator === FieldOperator.Edit) {
+      const tableId = table?.id;
+      const fieldId = fieldSetting.field?.id;
+
+      tableId &&
+        fieldId &&
+        Table.updateFieldById({
+          ...field,
+          id: fieldId,
+          tableId,
+        });
     }
   };
 

@@ -74,6 +74,15 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
+  static async updateFieldById(params: IFieldRo & { id: string; tableId: string }): Promise<void> {
+    const { id, tableId, ...fieldRo } = params;
+    const response = await axios.put<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/field/${id}`,
+      fieldRo
+    );
+    return response.data.data;
+  }
+
   protected doc!: Doc<ITableSnapshot>;
 
   async updateName(name: string) {
