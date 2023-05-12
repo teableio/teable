@@ -9,14 +9,14 @@ import type {
 import { OpName, generateViewId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import type { AdapterService } from '../../share-db/adapter-service.abstract';
+import type { IAdapterService } from '../../share-db/interface';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import type { CreateViewRo } from './model/create-view.ro';
 import { createViewInstanceByRaw } from './model/factory';
 import type { ViewVo } from './model/view.vo';
 
 @Injectable()
-export class ViewService implements AdapterService {
+export class ViewService implements IAdapterService {
   constructor(private readonly prisma: PrismaService) {}
 
   getRowIndexFieldName(viewId: string) {

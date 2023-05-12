@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
+import { IdPrefix } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { FieldSupplementService } from '../features/field/field-supplement.service';
+import type { ISupplementService } from './interface';
 import { SqliteDbAdapter } from './sqlite.adapter';
 
 @Injectable()
@@ -16,9 +18,18 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
-    // this.use('apply', this.onApply);
+    this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
+  }
+
+  getService(type: IdPrefix): ISupplementService {
+    // eslint-disable-next-line sonarjs/no-small-switch
+    switch (type) {
+      case IdPrefix.Field:
+        return this.fieldSupplementService;
+    }
+    throw new Error(`QueryType: ${type} has no service implementation`);
   }
 
   // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
@@ -28,8 +39,10 @@ export class ShareDbService extends ShareDBClass {
   // }
 
   private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
-    console.log('ShareDb:apply:', context.ops, context.snapshot);
+    console.log('ShareDb:apply:', context.collection, context.op, context.ops, context.snapshot);
+    const [docType, collectionId] = context.collection.split('_');
 
+    docType as IdPrefix;
     next();
   }
 

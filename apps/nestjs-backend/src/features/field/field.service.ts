@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
   CellValueType,
-  DbFieldType,
   FieldType,
   IAddColumnMetaOpContext,
   IColumnMeta,
@@ -10,14 +9,15 @@ import type {
   ISetColumnMetaOpContext,
   ISetFieldNameOpContext,
   ISnapshotBase,
+  DbFieldType,
 } from '@teable-group/core';
 import { OpName, nullsToUndefined } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import { sortBy } from 'lodash';
-import type { AdapterService } from 'src/share-db/adapter-service.abstract';
 import { PrismaService } from '../../prisma.service';
+import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
@@ -25,13 +25,14 @@ import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
 import { FieldVo } from './model/field.vo';
 import type { GetFieldsRo } from './model/get-fields.ro';
+import { dbType2knexFormat } from './util';
 
 @Injectable()
-export class FieldService implements AdapterService {
-  queryBuilder: ReturnType<typeof knex>;
+export class FieldService implements IAdapterService {
+  knex: ReturnType<typeof knex>;
 
   constructor(private readonly prismaService: PrismaService) {
-    this.queryBuilder = knex({ client: 'sqlite3' });
+    this.knex = knex({ client: 'sqlite3' });
   }
 
   async multipleGenerateValidDbFieldName(
@@ -170,20 +171,18 @@ export class FieldService implements AdapterService {
     dbFieldNames: string[],
     fieldInstances: IFieldInstance[]
   ) {
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
+    const dbTableName = await this.getDbTableName(prisma, tableId);
 
     for (let i = 0; i < dbFieldNames.length; i++) {
       const dbFieldName = dbFieldNames[i];
-      await prisma.$executeRawUnsafe(
-        `ALTER TABLE ${dbTableName} ADD ${dbFieldName} ${fieldInstances[i].dbFieldType};`
-      );
+
+      const alterTableQuery = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          const typeKey = dbType2knexFormat(fieldInstances[i].dbFieldType);
+          table[typeKey](dbFieldName);
+        })
+        .toQuery();
+      await prisma.$executeRawUnsafe(alterTableQuery);
     }
   }
 

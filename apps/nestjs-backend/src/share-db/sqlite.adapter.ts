@@ -11,7 +11,7 @@ import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import { PrismaService } from '../prisma.service';
-import type { AdapterService } from './adapter-service.abstract';
+import type { IAdapterService } from './interface';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -43,7 +43,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     this.closed = false;
   }
 
-  getService(type: IdPrefix): AdapterService {
+  getService(type: IdPrefix): IAdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;

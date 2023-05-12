@@ -10,6 +10,7 @@
     "openapi",
     "sharedb",
     "teable",
+    "topo",
     "zustand"
   ],
   "eslint.workingDirectories": [

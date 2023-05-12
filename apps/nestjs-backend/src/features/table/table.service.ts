@@ -10,7 +10,7 @@ import { OpName, generateTableId } from '@teable-group/core';
 import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
-import type { AdapterService } from '../../share-db/adapter-service.abstract';
+import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRo } from '../field/model/factory';
@@ -22,7 +22,7 @@ import type { CreateTableRo } from './create-table.ro';
 const tableNamePrefix = 'visual';
 
 @Injectable()
-export class TableService implements AdapterService {
+export class TableService implements IAdapterService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,

@@ -3,10 +3,17 @@ import type { CellValueType } from '../field';
 import { FieldCore } from '../field';
 
 export enum Relationship {
-  Many = 'many',
+  ManyMany = 'manyMany',
   OneMany = 'oneMany',
   ManyOne = 'manyOne',
 }
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const RelationshipRevert = {
+  [Relationship.OneMany]: Relationship.ManyOne,
+  [Relationship.ManyOne]: Relationship.OneMany,
+  [Relationship.ManyMany]: Relationship.ManyMany,
+};
 
 export interface ILinkCellValue {
   title?: string;

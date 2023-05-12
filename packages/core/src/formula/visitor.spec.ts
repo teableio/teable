@@ -1,11 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ANTLRInputStream, CommonTokenStream } from 'antlr4ts';
 import { plainToInstance } from 'class-transformer';
-import type { IRecord } from '../models';
+import type { FieldCore, IRecord } from '../models';
 import { FieldType, DbFieldType, CellValueType, NumberFieldCore } from '../models';
-import { Formula } from './parser/Formula';
-import { FormulaLexer } from './parser/FormulaLexer';
-import { EvalVisitor } from './visitor';
+import { evaluate } from './evaluate';
 
 describe('EvalVisitor', () => {
   let fieldContext = {};
@@ -47,14 +44,12 @@ describe('EvalVisitor', () => {
     };
   });
 
-  const evalFormula = (input: string, context?: any, record?: IRecord) => {
-    const inputStream = new ANTLRInputStream(input);
-    const lexer = new FormulaLexer(inputStream);
-    const tokenStream = new CommonTokenStream(lexer);
-    const parser = new Formula(tokenStream);
-    const tree = parser.root();
-    const visitor = new EvalVisitor(context, record);
-    return visitor.visit(tree).value;
+  const evalFormula = (
+    input: string,
+    fieldMap: { [fieldId: string]: FieldCore } = {},
+    record?: IRecord
+  ) => {
+    return evaluate(input, fieldMap, record).value;
   };
 
   it('integer literal', () => {

@@ -1,95 +1,357 @@
 import { Injectable } from '@nestjs/common';
+import type { IRecord } from '@teable-group/core';
+import { FieldType, evaluate } from '@teable-group/core';
+import type { Field } from '@teable-group/db-main-prisma';
 import { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
+import type { Knex } from 'knex';
+import knex from 'knex';
+import { groupBy } from 'lodash';
+import type { IVisualTableDefaultField } from '../field/constant';
+import { preservedFieldName } from '../field/constant';
+import type { IFieldInstance } from '../field/model/factory';
+import { createFieldInstanceByRaw } from '../field/model/factory';
+
+interface ITopoItem {
+  id: string;
+  dependencies: string[];
+}
+
+interface ITopoItemWithRecords extends ITopoItem {
+  records: IRecord[];
+}
+
+interface ITopoLinkOrder {
+  dbTableName: string;
+  fieldName: string; // for debug only
+  targetLinkField?: string;
+  linkedTable?: string;
+  dependencies?: string[];
+}
 
 @Injectable()
 export class ReferenceService {
-  constructor(private readonly prisma: PrismaService) {}
+  knex: ReturnType<typeof knex>;
 
-  async updateNodeValues(changedFieldId: string, newValue: number): Promise<void> {
-    // Get topological order
-    const dependentNodes = await this.getDependentNodesCTE(changedFieldId);
-    const order = this.getTopologicalOrderRecursive(dependentNodes);
-    const initialFieldIds = this.getInitialNodes(dependentNodes);
-    const initialNodes = await this.prisma.nodeValue.findMany({
-      where: {
-        id: {
-          in: initialFieldIds,
-        },
-      },
-    });
+  constructor() {
+    this.knex = knex({ client: 'sqlite3' });
+  }
 
-    // Calculate new values
-    const values: Record<string, number> = {};
-    for (const node of initialNodes) {
-      values[node.id] = node.value;
+  calculate(
+    field: IFieldInstance,
+    dependenceFieldMap: { [fieldId: string]: IFieldInstance },
+    record: IRecord
+  ): unknown {
+    if (!field.isComputed) {
+      return;
     }
+    const formula = `{${field.id}}`;
 
-    values[changedFieldId] = newValue;
+    return evaluate(formula, dependenceFieldMap, record).value;
+  }
 
-    await this.prisma.nodeValue.update({
-      where: { id: changedFieldId },
-      data: { value: newValue },
+  private async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
+    const fieldRaws = await prisma.field.findMany({
+      where: { id: { in: allFieldIds } },
     });
 
+    const fieldId2TableId = fieldRaws.reduce<{ [fieldId: string]: string }>((pre, f) => {
+      pre[f.id] = f.tableId;
+      return pre;
+    }, {});
+
+    const tableIds = Array.from(new Set(Object.values(fieldId2TableId)));
+    const tableMeta = await prisma.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { id: true, dbTableName: true },
+    });
+
+    const tableId2DbTableName = tableMeta.reduce<{ [tableId: string]: string }>((pre, t) => {
+      pre[t.id] = t.dbTableName;
+      return pre;
+    }, {});
+
+    const fieldMap = fieldRaws.reduce<{ [fieldId: string]: IFieldInstance }>((pre, f) => {
+      pre[f.id] = createFieldInstanceByRaw(f);
+      return pre;
+    }, {});
+
+    const dbTableName2fieldRaws = fieldRaws.reduce<{ [fieldId: string]: Field[] }>((pre, f) => {
+      const dbTableName = tableId2DbTableName[f.tableId];
+      if (pre[dbTableName]) {
+        pre[dbTableName].push(f);
+      } else {
+        pre[dbTableName] = [f];
+      }
+      return pre;
+    }, {});
+
+    return {
+      fieldMap,
+      fieldId2TableId,
+      dbTableName2fieldRaws,
+      tableId2DbTableName,
+    };
+  }
+
+  collectChanges(
+    orders: ITopoItemWithRecords[],
+    fieldMap: { [fieldId: string]: IFieldInstance },
+    fieldId2TableId: { [fieldId: string]: string }
+  ) {
+    // detail changes
+    const changes: {
+      tableId: string;
+      recordId: string;
+      fieldId: string;
+      oldValue: unknown;
+      newValue: unknown;
+    }[] = [];
+
+    orders.forEach((item) =>
+      item.records.forEach((record) => {
+        const field = fieldMap[item.id];
+        const value = field.isComputed
+          ? this.calculate(field, fieldMap, record)
+          : record.fields[item.id];
+
+        const oldValue = record.fields[item.id];
+        record.fields[item.id] = value;
+
+        if (oldValue !== value) {
+          changes.push({
+            tableId: fieldId2TableId[item.id],
+            fieldId: item.id,
+            recordId: record.id,
+            oldValue,
+            newValue: value,
+          });
+        }
+      })
+    );
+    return changes;
+  }
+
+  async updateNodeValues(prisma: Prisma.TransactionClient, fieldId: string, recordIds: string[]) {
+    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
+    const order = this.getTopologicalOrderRecursive(fieldId, undirectedGraph);
+    const allFieldIds = this.flatGraph(undirectedGraph);
+    const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
+      await this.createAuxiliaryData(prisma, allFieldIds);
+
+    const linkOrder = this.getLinkOrderFromOrder({
+      tableId2DbTableName,
+      order,
+      fieldMap,
+      fieldId2TableId,
+    });
+
+    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrder);
+
+    const orderWithRecords = await this.getTopoItemWithRecords(prisma, {
+      order,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+      dbTableName2fieldRaws,
+      recordItems: affectedRecordItems,
+    });
+
+    return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
+  }
+
+  private recordRaw2Record(
+    fieldRaws: Field[],
+    raw: { [dbFieldName: string]: unknown } & IVisualTableDefaultField
+  ) {
+    const fieldsData = fieldRaws.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
+      acc[field.id] = raw[field.dbFieldName];
+      return acc;
+    }, {});
+
+    return {
+      fields: fieldsData,
+      id: raw.__id,
+      createdTime: raw.__created_time?.getTime(),
+      lastModifiedTime: raw.__last_modified_time?.getTime(),
+      createdBy: raw.__created_by,
+      lastModifiedBy: raw.__last_modified_by,
+      recordOrder: {},
+    };
+  }
+
+  getLinkOrderFromOrder(params: {
+    fieldId2TableId: { [fieldId: string]: string };
+    tableId2DbTableName: { [tableId: string]: string };
+    order: ITopoItem[];
+    fieldMap: { [fieldId: string]: IFieldInstance };
+  }): ITopoLinkOrder[] {
+    const newOrder: ITopoLinkOrder[] = [];
+    const { tableId2DbTableName, fieldId2TableId, order, fieldMap } = params;
     for (const item of order) {
-      if (!item.dependencies.length) {
-        continue;
+      const field = fieldMap[item.id];
+      const tableId = fieldId2TableId[field.id];
+      const dbTableName = tableId2DbTableName[tableId];
+      if (field.type === FieldType.Link) {
+        const foreignKeyFieldName = field.options.dbForeignKeyName;
+        const linkedTable = tableId2DbTableName[field.options.foreignTableId];
+
+        newOrder.push({
+          dbTableName,
+          fieldName: field.name,
+          targetLinkField: foreignKeyFieldName,
+          linkedTable,
+        });
       }
-
-      /** calculation start */
-      let sum = 0;
-      for (const dependency of item.dependencies) {
-        sum += values[dependency];
-      }
-      /** calculation end */
-
-      values[item.id] = sum;
-
-      // Update the node value in the database
-      await this.prisma.nodeValue.update({
-        where: { id: item.id },
-        data: { value: sum },
-      });
     }
+    return newOrder;
+  }
+
+  async getTopoItemWithRecords(
+    prisma: Prisma.TransactionClient,
+    params: {
+      order: ITopoItem[];
+      tableId2DbTableName: { [tableId: string]: string };
+      fieldId2TableId: { [fieldId: string]: string };
+      fieldMap: { [fieldId: string]: IFieldInstance };
+      dbTableName2fieldRaws: { [tableId: string]: Field[] };
+      recordItems: { id: string; dbTableName: string }[];
+    }
+  ): Promise<ITopoItemWithRecords[]> {
+    const {
+      order,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+      dbTableName2fieldRaws,
+      recordItems,
+    } = params;
+    const recordIdsByTableName = groupBy(recordItems, 'dbTableName');
+
+    let query: Knex.QueryBuilder | undefined;
+    for (const dbTableName in recordIdsByTableName) {
+      const recordIds = recordIdsByTableName[dbTableName].map((r) => r.id);
+      const fieldNames = dbTableName2fieldRaws[dbTableName].map((f) => f.dbFieldName);
+      const aliasedFieldNames = [...fieldNames, ...preservedFieldName].map(
+        (fieldName) => `${dbTableName}.${fieldName} as '${dbTableName}#${fieldName}'`
+      );
+      const subQuery = knex(dbTableName).select(aliasedFieldNames).whereIn('id', recordIds);
+      query = query ? query.union(subQuery) : subQuery;
+    }
+    if (!query) {
+      throw new Error("recordItems shouldn't be empty");
+    }
+    const nativeSql = query.toSQL().toNative();
+    console.log('getRecordSQL:', nativeSql.sql);
+    const result = await prisma.$queryRawUnsafe<{ [fieldName: string]: unknown }[]>(
+      nativeSql.sql,
+      ...nativeSql.bindings
+    );
+    const formattedResults = this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+
+    return order.map((order) => {
+      const field = fieldMap[order.id];
+
+      // linkField use records from link table as context
+      if (field.type === FieldType.Link) {
+        const foreignTableName = tableId2DbTableName[field.options.foreignTableId];
+        const records = formattedResults[foreignTableName];
+        return {
+          ...order,
+          records,
+        };
+      }
+
+      const tableId = fieldId2TableId[order.id];
+      const dbTableName = tableId2DbTableName[tableId];
+      const records = formattedResults[dbTableName];
+
+      return {
+        ...order,
+        records,
+      };
+    });
+  }
+
+  private formatRecordQueryResult(
+    result: { [fieldName: string]: unknown }[],
+    dbTableName2fieldRaws: { [tableId: string]: Field[] }
+  ): {
+    [tableName: string]: IRecord[];
+  } {
+    const formattedResults: {
+      [tableName: string]: { [fieldKey: string]: unknown }[];
+    } = {};
+    result.forEach((record) => {
+      for (const key in record) {
+        const value = record[key];
+        const recordData: { [k: string]: unknown } = {};
+        if (value == null) {
+          continue;
+        }
+
+        const [tableName, fieldName] = key.split('#');
+        recordData[fieldName] = value;
+
+        if (!formattedResults[tableName]) {
+          formattedResults[tableName] = [];
+        }
+
+        const existingRecord = formattedResults[tableName].find(
+          (r) => r.__id === record[`${tableName}__id`]
+        );
+
+        if (existingRecord) {
+          existingRecord[fieldName] = record[key];
+        } else {
+          formattedResults[tableName].push({ [fieldName]: record[key] });
+        }
+      }
+    });
+
+    return Object.entries(formattedResults).reduce<{ [tableName: string]: IRecord[] }>((acc, e) => {
+      const [dbTableName, records] = e;
+      const fieldRaws = dbTableName2fieldRaws[dbTableName];
+      acc[dbTableName] = records.map((r) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return this.recordRaw2Record(fieldRaws, r as any);
+      });
+      return acc;
+    }, {});
   }
 
   getTopologicalOrderRecursive(
+    startNodeId: string,
     graph: { toFieldId: string; fromFieldId: string }[]
-  ): Array<{ id: string; dependencies: string[] }> {
+  ): ITopoItem[] {
     const visitedNodes = new Set<string>();
-    const sortedNodes: Array<{ id: string; dependencies: string[] }> = [];
+    const sortedNodes: ITopoItem[] = [];
 
     function visit(node: string) {
       if (!visitedNodes.has(node)) {
         visitedNodes.add(node);
 
         const incomingEdges = graph.filter((edge) => edge.toFieldId === node);
+        const outgoingEdges = graph.filter((edge) => edge.fromFieldId === node);
         const dependencies: string[] = [];
 
         for (const edge of incomingEdges) {
           dependencies.push(edge.fromFieldId);
-          visit(edge.fromFieldId);
+        }
+
+        for (const edge of outgoingEdges) {
+          visit(edge.toFieldId);
         }
 
         sortedNodes.push({ id: node, dependencies });
       }
     }
 
-    const allNodes = new Set<string>();
-    for (const edge of graph) {
-      allNodes.add(edge.fromFieldId);
-      allNodes.add(edge.toFieldId);
-    }
+    visit(startNodeId);
 
-    for (const node of allNodes) {
-      visit(node);
-    }
-
-    return sortedNodes;
+    return sortedNodes.reverse();
   }
 
-  async getDependentNodesCTE(startFieldId: string) {
+  async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldId: string) {
     const dependentNodesQuery = Prisma.sql`
       WITH RECURSIVE connected_reference(from_field_id, to_field_id) AS (
         SELECT from_field_id, to_field_id FROM reference WHERE from_field_id = ${startFieldId} OR to_field_id = ${startFieldId}
@@ -105,32 +367,56 @@ export class ReferenceService {
       SELECT DISTINCT from_field_id, to_field_id FROM connected_reference;
     `;
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    const result = await this.prisma.$queryRaw<{ from_field_id: string; to_field_id: string }[]>(
+    const result = await prisma.$queryRaw<{ from_field_id: string; to_field_id: string }[]>(
       dependentNodesQuery
     );
     return result.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }));
   }
 
-  getInitialNodes(graph: { toFieldId: string; fromFieldId: string }[]): string[] {
-    const nodesWithIncomingEdges = new Set<string>();
+  async getAffectedRecordItems(
+    prisma: Prisma.TransactionClient,
+    startIds: string[],
+    topoOrder: ITopoLinkOrder[]
+  ): Promise<{ id: string; dbTableName: string }[]> {
+    // Initialize the base case for the recursive CTE
+    let cteQuery = `SELECT id, '${topoOrder[0].dbTableName}' as dbTableName FROM ${
+      topoOrder[0].dbTableName
+    } WHERE id IN (${startIds.map((id) => `'${id}'`).join(',')})`;
 
-    for (const edge of graph) {
-      nodesWithIncomingEdges.add(edge.toFieldId);
+    // Iterate over the nodes in topological order
+    for (let i = 1; i < topoOrder.length; i++) {
+      // Get the current and previous nodes
+      const prevNode = topoOrder[i - 1];
+      const currentNode = topoOrder[i];
+
+      // Append the current node to the recursive CTE
+      cteQuery += `
+      UNION ALL
+      SELECT ${currentNode.dbTableName}.id, '${currentNode.dbTableName}' as dbTableName
+      FROM ${currentNode.dbTableName}
+      JOIN affected_records
+      ON ${currentNode.dbTableName}.${currentNode.targetLinkField} = affected_records.id
+      WHERE affected_records.dbTableName = '${prevNode.dbTableName}'`;
     }
 
+    // Construct the final query using the recursive CTE
+    const finalQuery = `
+    WITH RECURSIVE affected_records AS (${cteQuery})
+    SELECT * FROM affected_records`;
+
+    console.log('nativeSql:', finalQuery);
+
+    const results = await prisma.$queryRawUnsafe<{ id: string; dbTableName: string }[]>(finalQuery);
+
+    return results.map((record) => ({ id: record.id, dbTableName: record.dbTableName }));
+  }
+
+  private flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {
     const allNodes = new Set<string>();
     for (const edge of graph) {
       allNodes.add(edge.fromFieldId);
       allNodes.add(edge.toFieldId);
     }
-
-    const initialNodes: string[] = [];
-    for (const node of allNodes) {
-      if (!nodesWithIncomingEdges.has(node)) {
-        initialNodes.push(node);
-      }
-    }
-
-    return initialNodes;
+    return Array.from(allNodes);
   }
 }

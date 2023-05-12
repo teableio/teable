@@ -1,0 +1,18 @@
+import { assertNever, DbFieldType } from '@teable-group/core';
+
+export function dbType2knexFormat(dbFieldType: DbFieldType) {
+  switch (dbFieldType) {
+    case DbFieldType.Blob:
+      return 'binary';
+    case DbFieldType.Integer:
+      return 'integer';
+    case DbFieldType.Json:
+      return 'json';
+    case DbFieldType.Real:
+      return 'float';
+    case DbFieldType.Text:
+      return 'text';
+    default:
+      assertNever(dbFieldType);
+  }
+}

@@ -132,13 +132,16 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
       return plainToInstance(NumberFieldDto, field);
     case FieldType.SingleSelect:
       return plainToInstance(SingleSelectFieldDto, field);
+    case FieldType.MultipleSelect:
+      return plainToInstance(MultipleSelectFieldDto, field);
+    case FieldType.Link:
+      return plainToInstance(LinkFieldDto, field);
     case FieldType.Attachment:
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
     case FieldType.LastModifiedBy:
     case FieldType.LongText:
-    case FieldType.MultipleSelect:
     case FieldType.PhoneNumber:
     case FieldType.URL:
     case FieldType.User:
@@ -155,7 +158,6 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     case FieldType.Formula:
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
-    case FieldType.Link:
       throw new Error('did not implement yet');
     default:
       assertNever(field.type);
