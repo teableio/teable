@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IRecord } from '@teable-group/core';
-import { FieldType, evaluate } from '@teable-group/core';
+import { Relationship, FieldType, evaluate } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { Prisma } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
@@ -23,9 +23,9 @@ interface ITopoItemWithRecords extends ITopoItem {
 interface ITopoLinkOrder {
   dbTableName: string;
   fieldName: string; // for debug only
-  targetLinkField?: string;
-  linkedTable?: string;
-  dependencies?: string[];
+  foreignKeyField: string;
+  relationship: Relationship;
+  linkedTable: string;
 }
 
 @Injectable()
@@ -198,8 +198,9 @@ export class ReferenceService {
         newOrder.push({
           dbTableName,
           fieldName: field.name,
-          targetLinkField: foreignKeyFieldName,
+          foreignKeyField: foreignKeyFieldName,
           linkedTable,
+          relationship: field.options.relationship,
         });
       }
     }
@@ -373,30 +374,67 @@ export class ReferenceService {
     return result.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }));
   }
 
+  private getLink2Table(order: ITopoLinkOrder) {
+    switch (order.relationship) {
+      case Relationship.ManyOne:
+        return order.linkedTable;
+      case Relationship.OneMany:
+        return order.dbTableName;
+      case Relationship.ManyMany:
+        return '__ManyMany__';
+    }
+  }
+
+  private getCurrentTable(order: ITopoLinkOrder) {
+    switch (order.relationship) {
+      case Relationship.ManyOne:
+        return order.dbTableName;
+      case Relationship.OneMany:
+        return order.linkedTable;
+      case Relationship.ManyMany:
+        return '__ManyMany__';
+    }
+  }
+
   async getAffectedRecordItems(
     prisma: Prisma.TransactionClient,
     startIds: string[],
     topoOrder: ITopoLinkOrder[]
   ): Promise<{ id: string; dbTableName: string }[]> {
-    // Initialize the base case for the recursive CTE
-    let cteQuery = `SELECT id, '${topoOrder[0].dbTableName}' as dbTableName FROM ${
-      topoOrder[0].dbTableName
-    } WHERE id IN (${startIds.map((id) => `'${id}'`).join(',')})`;
+    // Initialize the base case for the recursive CTE)
+    const initTableName = this.getLink2Table(topoOrder[0]);
+    let cteQuery = `SELECT __id, '${initTableName}' as dbTableName FROM ${initTableName} WHERE __id IN (${startIds
+      .map((id) => `'${id}'`)
+      .join(',')})`;
 
     // Iterate over the nodes in topological order
-    for (let i = 1; i < topoOrder.length; i++) {
-      // Get the current and previous nodes
-      const prevNode = topoOrder[i - 1];
-      const currentNode = topoOrder[i];
+    for (let i = 0; i < topoOrder.length; i++) {
+      const currentOrder = topoOrder[i];
+      const dbTableName = this.getCurrentTable(currentOrder);
+      const foreignKeyField = currentOrder.foreignKeyField;
 
       // Append the current node to the recursive CTE
-      cteQuery += `
-      UNION ALL
-      SELECT ${currentNode.dbTableName}.id, '${currentNode.dbTableName}' as dbTableName
-      FROM ${currentNode.dbTableName}
-      JOIN affected_records
-      ON ${currentNode.dbTableName}.${currentNode.targetLinkField} = affected_records.id
-      WHERE affected_records.dbTableName = '${prevNode.dbTableName}'`;
+      if (currentOrder.relationship === Relationship.OneMany) {
+        cteQuery += `
+        UNION ALL
+        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName
+        FROM ${dbTableName}
+        JOIN (
+            SELECT ${foreignKeyField}
+            FROM ${dbTableName}
+            WHERE __id IN (SELECT __id FROM affected_records)
+        ) AS related_records
+        ON ${dbTableName}.${foreignKeyField} = related_records.${foreignKeyField}
+        WHERE ${dbTableName}.__id NOT IN (SELECT __id FROM affected_records)`;
+      } else {
+        cteQuery += `
+        UNION ALL
+        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName
+        FROM ${dbTableName}
+        JOIN affected_records
+        ON ${dbTableName}.${foreignKeyField} = affected_records.__id
+        WHERE affected_records.dbTableName = '${currentOrder.linkedTable}'`;
+      }
     }
 
     // Construct the final query using the recursive CTE
@@ -406,9 +444,11 @@ export class ReferenceService {
 
     console.log('nativeSql:', finalQuery);
 
-    const results = await prisma.$queryRawUnsafe<{ id: string; dbTableName: string }[]>(finalQuery);
+    const results = await prisma.$queryRawUnsafe<{ __id: string; dbTableName: string }[]>(
+      finalQuery
+    );
 
-    return results.map((record) => ({ id: record.id, dbTableName: record.dbTableName }));
+    return results.map((record) => ({ id: record.__id, dbTableName: record.dbTableName }));
   }
 
   private flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {
