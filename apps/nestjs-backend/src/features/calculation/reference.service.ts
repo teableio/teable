@@ -28,7 +28,7 @@ interface ITopoItemWithRecords extends ITopoItem {
 
 interface ITopoLinkOrder {
   dbTableName: string;
-  fieldName: string; // for debug only
+  fieldId: string;
   foreignKeyField: string;
   relationship: Relationship;
   linkedTable: string;
@@ -37,13 +37,9 @@ interface ITopoLinkOrder {
 interface IRecordRefItem {
   id: string;
   dbTableName: string;
+  fieldId?: string;
   selectIn?: string;
-}
-
-interface IExtraRecordRefItem {
-  id: string;
-  dbTableName: string;
-  belongsTo: string;
+  belongsTo?: string;
 }
 
 @Injectable()
@@ -73,10 +69,9 @@ export class ReferenceService {
     // TODO: lookup and rollup field have the same logical
     if (field.type === FieldType.Link) {
       if (!recordItem.dependencies) {
-        throw new Error(`dependency should not be undefined when contains a ${field.type} field`);
+        throw new Error(`Dependency should not be undefined when contains a ${field.type} field`);
       }
-      const lookupFieldId = field.options.lookupFieldId;
-      const lookupField = fieldMap[lookupFieldId];
+      const lookupField = fieldMap[field.options.lookupFieldId];
 
       return this.calculateRollup(field, lookupField, record, recordItem.dependencies);
     }
@@ -109,10 +104,10 @@ export class ReferenceService {
       cellValueType === CellValueType.Array ? lookupField.cellValueType : undefined;
 
     const virtualField = createFieldInstanceByRaw({
+      ...plain,
       id: '__values__',
       cellValueType,
       cellValueElementType,
-      ...plain,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -206,35 +201,39 @@ export class ReferenceService {
 
   async updateNodeValues(prisma: Prisma.TransactionClient, fieldId: string, recordIds: string[]) {
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
-    const order = this.getTopologicalOrderRecursive(fieldId, undirectedGraph);
+    const topoOrders = this.getTopologicalOrder(fieldId, undirectedGraph);
     const allFieldIds = this.flatGraph(undirectedGraph);
     const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
-    const linkOrder = this.getLinkOrderFromOrder({
+    const linkOrders = this.getLinkOrderFromTopoOrders({
       tableId2DbTableName,
-      order,
+      topoOrders,
       fieldMap,
       fieldId2TableId,
     });
 
     // only affected records included
-    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrder);
+    const recordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
 
     // extra dependent records for link field
-    const extraDependentRecordItems = await this.getExtraDependentRecordItems(
-      prisma,
-      affectedRecordItems
-    );
+    const extraRecordItems = await this.getExtraDependentRecordItems(prisma, recordItems);
 
-    const orderWithRecords = await this.getTopoItemWithRecords(prisma, {
-      order,
+    // record data source
+    const dbTableName2records = await this.getRecordsBatch(prisma, {
+      recordItems,
+      extraRecordItems,
+      dbTableName2fieldRaws,
+    });
+
+    const orderWithRecords = this.createTopoItemWithRecords({
+      order: topoOrders,
       fieldMap,
       tableId2DbTableName,
       fieldId2TableId,
-      dbTableName2fieldRaws,
-      recordItems: affectedRecordItems,
-      extraRecordItems: extraDependentRecordItems,
+      dbTableName2records,
+      recordRefItems: recordItems,
+      extraRecordRefItems: extraRecordItems,
     });
 
     return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
@@ -260,15 +259,15 @@ export class ReferenceService {
     };
   }
 
-  getLinkOrderFromOrder(params: {
+  getLinkOrderFromTopoOrders(params: {
     fieldId2TableId: { [fieldId: string]: string };
     tableId2DbTableName: { [tableId: string]: string };
-    order: ITopoItem[];
+    topoOrders: ITopoItem[];
     fieldMap: { [fieldId: string]: IFieldInstance };
   }): ITopoLinkOrder[] {
     const newOrder: ITopoLinkOrder[] = [];
-    const { tableId2DbTableName, fieldId2TableId, order, fieldMap } = params;
-    for (const item of order) {
+    const { tableId2DbTableName, fieldId2TableId, topoOrders, fieldMap } = params;
+    for (const item of topoOrders) {
       const field = fieldMap[item.id];
       const tableId = fieldId2TableId[field.id];
       const dbTableName = tableId2DbTableName[tableId];
@@ -278,7 +277,7 @@ export class ReferenceService {
 
         newOrder.push({
           dbTableName,
-          fieldName: field.name,
+          fieldId: field.name,
           foreignKeyField: foreignKeyFieldName,
           linkedTable,
           relationship: field.options.relationship,
@@ -288,27 +287,15 @@ export class ReferenceService {
     return newOrder;
   }
 
-  async getTopoItemWithRecords(
+  async getRecordsBatch(
     prisma: Prisma.TransactionClient,
     params: {
-      order: ITopoItem[];
-      tableId2DbTableName: { [tableId: string]: string };
-      fieldId2TableId: { [fieldId: string]: string };
-      fieldMap: { [fieldId: string]: IFieldInstance };
       dbTableName2fieldRaws: { [tableId: string]: Field[] };
       recordItems: IRecordRefItem[];
-      extraRecordItems: IExtraRecordRefItem[];
+      extraRecordItems: IRecordRefItem[];
     }
-  ): Promise<ITopoItemWithRecords[]> {
-    const {
-      order,
-      fieldMap,
-      tableId2DbTableName,
-      fieldId2TableId,
-      dbTableName2fieldRaws,
-      recordItems,
-      extraRecordItems,
-    } = params;
+  ) {
+    const { recordItems, extraRecordItems, dbTableName2fieldRaws } = params;
     const recordIdsByTableName = groupBy([...recordItems, ...extraRecordItems], 'dbTableName');
 
     let query: Knex.QueryBuilder | undefined;
@@ -320,6 +307,7 @@ export class ReferenceService {
         (fieldName) => `${dbTableName}.${fieldName} as '${dbTableName}#${fieldName}'`
       );
       const subQuery = knex(dbTableName).select(aliasedFieldNames).whereIn('id', recordIds);
+      // TODO: can i change it to union all for performance
       query = query ? query.union(subQuery) : subQuery;
     }
     if (!query) {
@@ -331,33 +319,109 @@ export class ReferenceService {
       nativeSql.sql,
       ...nativeSql.bindings
     );
+    return this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+  }
 
-    // record data source
-    const formattedResults = this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+  private getOneManyDependencies(params: {
+    field: LinkFieldCore;
+    record: IRecord;
+    foreignTableRecords: IRecord[];
+    extraRecordRefItems: IRecordRefItem[];
+  }): IRecord[] {
+    const { field, extraRecordRefItems, record, foreignTableRecords } = params;
 
+    if (field.options.relationship !== Relationship.OneMany) {
+      throw new Error("field's relationship should be OneMany");
+    }
+    return extraRecordRefItems
+      .filter((item) => item.belongsTo === record.id && item.fieldId === field.id)
+      .map((item) => {
+        const record = foreignTableRecords.find((r) => r.id === item.id);
+        if (!record) {
+          throw new Error('Can not find link record');
+        }
+        return record;
+      });
+  }
+
+  private getMany2OneDependency(params: {
+    field: LinkFieldCore;
+    record: IRecord;
+    foreignTableRecords: IRecord[];
+    recordRefItems: IRecordRefItem[];
+  }): IRecord {
+    const { field, record, recordRefItems, foreignTableRecords } = params;
+
+    if (field.options.relationship !== Relationship.ManyOne) {
+      throw new Error("field's relationship should be ManyOne");
+    }
+
+    const linkRecordRef = recordRefItems.find((item) => item.belongsTo === record.id);
+    if (!linkRecordRef) {
+      throw new Error('Can not find link record ref');
+    }
+
+    const linkRecord = foreignTableRecords.find((r) => r.id === linkRecordRef.belongsTo);
+    if (!linkRecord) {
+      throw new Error('Can not find link record');
+    }
+    return linkRecord;
+  }
+
+  createTopoItemWithRecords(params: {
+    order: ITopoItem[];
+    tableId2DbTableName: { [tableId: string]: string };
+    fieldId2TableId: { [fieldId: string]: string };
+    fieldMap: { [fieldId: string]: IFieldInstance };
+    dbTableName2records: { [tableName: string]: IRecord[] };
+    recordRefItems: IRecordRefItem[];
+    extraRecordRefItems: IRecordRefItem[];
+  }): ITopoItemWithRecords[] {
+    const {
+      order,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+      dbTableName2records,
+      recordRefItems,
+      extraRecordRefItems,
+    } = params;
+    const recordRefItemIndexed = groupBy(recordRefItems, 'dbTableName');
     return order.map((order) => {
       const field = fieldMap[order.id];
 
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
-      const records = formattedResults[dbTableName];
+      const records = dbTableName2records[dbTableName];
 
-      // update link field value
-      if (field.type === FieldType.Link && field.options.relationship === Relationship.OneMany) {
+      // update link field dependency
+      if (field.type === FieldType.Link) {
         const foreignTableName = tableId2DbTableName[field.options.foreignTableId];
-        const lookupFieldId = field.options.lookupFieldId;
-        records.forEach((record) => {
-          const linkFieldValue = extraRecordItems
-            .filter((item) => item.belongsTo === record.id)
-            .map((item) => {
-              const foreignTableRecords = formattedResults[foreignTableName];
-              const record = foreignTableRecords.find((r) => r.id === item.id);
-              return record?.fields?.[lookupFieldId];
+        const foreignTableRecords = dbTableName2records[foreignTableName];
+        const recordRefItems = recordRefItemIndexed[dbTableName];
+        const dependenciesArr = records.map((record) => {
+          if (field.options.relationship === Relationship.OneMany) {
+            return this.getOneManyDependencies({
+              record,
+              field,
+              foreignTableRecords,
+              extraRecordRefItems,
             });
-          console.log('linkFieldValue:', linkFieldValue);
-          console.log('oldLinkFieldValue:', record.fields[field.id]);
-          record.fields[field.id] = linkFieldValue;
+          }
+          if (field.options.relationship === Relationship.ManyOne) {
+            return this.getMany2OneDependency({
+              record,
+              field,
+              recordRefItems,
+              foreignTableRecords,
+            });
+          }
+          throw new Error('Unsupported relationship');
         });
+        return {
+          ...order,
+          recordItems: records.map((record, i) => ({ record, dependencies: dependenciesArr[i] })),
+        };
       }
 
       return {
@@ -414,7 +478,7 @@ export class ReferenceService {
     }, {});
   }
 
-  getTopologicalOrderRecursive(
+  getTopologicalOrder(
     startNodeId: string,
     graph: { toFieldId: string; fromFieldId: string }[]
   ): ITopoItem[] {
@@ -471,18 +535,19 @@ export class ReferenceService {
   async getExtraDependentRecordItems(
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
-  ): Promise<IExtraRecordRefItem[]> {
+  ): Promise<IRecordRefItem[]> {
     const queries = recordItems
       .filter((item) => item.selectIn)
       .map((item) => {
-        const { id, selectIn } = item;
+        const { id, fieldId, selectIn } = item;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const [dbTableName, selectField] = selectIn!.split('.');
         return this.knex
           .select([
             `${dbTableName}.__id as id`,
-            this.knex.raw(`'${dbTableName}' as dbTableName`),
             `${dbTableName}.${selectField} as belongsTo`,
+            this.knex.raw(`'${dbTableName}' as dbTableName`),
+            this.knex.raw(`'${fieldId}' as fieldId`),
           ])
           .from(dbTableName)
           .where(selectField, id);
@@ -491,10 +556,7 @@ export class ReferenceService {
     const [firstQuery, ...restQueries] = queries;
     const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
 
-    return await prisma.$queryRawUnsafe<IExtraRecordRefItem[]>(
-      nativeSql.sql,
-      ...nativeSql.bindings
-    );
+    return await prisma.$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
   }
 
   async getAffectedRecordItems(
@@ -504,20 +566,20 @@ export class ReferenceService {
   ): Promise<IRecordRefItem[]> {
     // Initialize the base case for the recursive CTE)
     const initTableName = topoOrder[0].linkedTable;
-    let cteQuery = `SELECT __id, '${initTableName}' as dbTableName, null as selectIn FROM ${initTableName} WHERE __id IN (${startIds
-      .map((id) => `'${id}'`)
-      .join(',')})`;
+    let cteQuery = `
+    SELECT __id, '${initTableName}' as dbTableName, null as selectIn, null as belongsTo, null as fieldId
+    FROM ${initTableName} WHERE __id IN (${startIds.map((id) => `'${id}'`).join(',')})`;
 
     // Iterate over the nodes in topological order
     for (let i = 0; i < topoOrder.length; i++) {
       const currentOrder = topoOrder[i];
-      const { foreignKeyField, dbTableName, linkedTable } = currentOrder;
+      const { fieldId, foreignKeyField, dbTableName, linkedTable } = currentOrder;
 
       // Append the current node to the recursive CTE
       if (currentOrder.relationship === Relationship.OneMany) {
         cteQuery += `
         UNION
-        SELECT ${linkedTable}.${foreignKeyField} as __id, '${dbTableName}' as dbTableName, '${linkedTable}.${foreignKeyField}' as selectIn 
+        SELECT ${linkedTable}.${foreignKeyField} as __id, '${dbTableName}' as dbTableName, '${linkedTable}.${foreignKeyField}' as selectIn , null as belongsTo, '${fieldId}' as fieldId
         FROM ${linkedTable}
         JOIN affected_records
         ON ${linkedTable}.__id = affected_records.__id
@@ -525,7 +587,7 @@ export class ReferenceService {
       } else {
         cteQuery += `
         UNION
-        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName, null as selectIn
+        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName, null as selectIn, affected_records.__id as belongsTo, '${fieldId}' as fieldId
         FROM ${dbTableName}
         JOIN affected_records
         ON ${dbTableName}.${foreignKeyField} = affected_records.__id
@@ -541,12 +603,20 @@ export class ReferenceService {
     console.log('nativeSql:', finalQuery);
 
     const results = await prisma.$queryRawUnsafe<
-      { __id: string; dbTableName: string; selectIn?: string }[]
+      {
+        __id: string;
+        dbTableName: string;
+        selectIn?: string;
+        fieldId?: string;
+        belongsTo?: string;
+      }[]
     >(finalQuery);
 
     return results.map((record) => ({
       id: record.__id,
       dbTableName: record.dbTableName,
+      ...(record.belongsTo ? { belongsTo: record.belongsTo } : {}),
+      ...(record.fieldId ? { fieldId: record.fieldId } : {}),
       ...(record.selectIn ? { selectIn: record.selectIn } : {}),
     }));
   }

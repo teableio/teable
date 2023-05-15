@@ -109,7 +109,7 @@ describe('ReferenceService', () => {
       { fromFieldId: 'c', toFieldId: 'd' },
     ];
 
-    const sortedNodes = service.getTopologicalOrderRecursive('a', graph);
+    const sortedNodes = service.getTopologicalOrder('a', graph);
 
     expect(sortedNodes).toEqual([
       { id: 'a', dependencies: [] },
@@ -166,7 +166,7 @@ describe('ReferenceService', () => {
     const topoOrder = [
       {
         dbTableName: 'B',
-        fieldName: 'manyToOneA',
+        fieldId: 'manyToOneA',
         foreignKeyField: '__fk_manyToOneA',
         relationship: Relationship.ManyOne,
         linkedTable: 'A',
@@ -174,7 +174,7 @@ describe('ReferenceService', () => {
       },
       {
         dbTableName: 'C',
-        fieldName: 'manyToOneB',
+        fieldId: 'manyToOneB',
         foreignKeyField: '__fk_manyToOneB',
         relationship: Relationship.ManyOne,
         linkedTable: 'B',
@@ -186,11 +186,11 @@ describe('ReferenceService', () => {
 
     expect(records).toEqual([
       { id: 'idA1', dbTableName: 'A' },
-      { id: 'idB1', dbTableName: 'B' },
-      { id: 'idB2', dbTableName: 'B' },
-      { id: 'idC1', dbTableName: 'C' },
-      { id: 'idC2', dbTableName: 'C' },
-      { id: 'idC3', dbTableName: 'C' },
+      { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', belongsTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', fieldId: 'manyToOneA', belongsTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
+      { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB2' },
     ]);
 
     const recordsWithMultiInput = await service.getAffectedRecordItems(
@@ -202,13 +202,13 @@ describe('ReferenceService', () => {
     expect(recordsWithMultiInput).toEqual([
       { id: 'idA1', dbTableName: 'A' },
       { id: 'idA2', dbTableName: 'A' },
-      { id: 'idB1', dbTableName: 'B' },
-      { id: 'idB2', dbTableName: 'B' },
-      { id: 'idB3', dbTableName: 'B' },
-      { id: 'idC1', dbTableName: 'C' },
-      { id: 'idC2', dbTableName: 'C' },
-      { id: 'idC3', dbTableName: 'C' },
-      { id: 'idC4', dbTableName: 'C' },
+      { id: 'idB1', dbTableName: 'B', belongsTo: 'idA1', fieldId: 'manyToOneA' },
+      { id: 'idB2', dbTableName: 'B', belongsTo: 'idA1', fieldId: 'manyToOneA' },
+      { id: 'idB3', dbTableName: 'B', belongsTo: 'idA2', fieldId: 'manyToOneA' },
+      { id: 'idC1', dbTableName: 'C', belongsTo: 'idB1', fieldId: 'manyToOneB' },
+      { id: 'idC2', dbTableName: 'C', belongsTo: 'idB1', fieldId: 'manyToOneB' },
+      { id: 'idC3', dbTableName: 'C', belongsTo: 'idB2', fieldId: 'manyToOneB' },
+      { id: 'idC4', dbTableName: 'C', belongsTo: 'idB3', fieldId: 'manyToOneB' },
     ]);
   });
 
@@ -249,21 +249,21 @@ describe('ReferenceService', () => {
     const topoOrder = [
       {
         dbTableName: 'B',
-        fieldName: 'oneToManyC',
+        fieldId: 'oneToManyC',
         foreignKeyField: '__fk_manyToOneB',
         relationship: Relationship.OneMany,
         linkedTable: 'C',
       },
       {
         dbTableName: 'A',
-        fieldName: 'oneToManyB',
+        fieldId: 'oneToManyB',
         foreignKeyField: '__fk_manyToOneA',
         relationship: Relationship.OneMany,
         linkedTable: 'B',
       },
       {
         dbTableName: 'C',
-        fieldName: 'manyToOneB',
+        fieldId: 'manyToOneB',
         foreignKeyField: '__fk_manyToOneB',
         relationship: Relationship.ManyOne,
         linkedTable: 'B',
@@ -275,18 +275,19 @@ describe('ReferenceService', () => {
     // manyToOneB: ['B1', 'B2']
     expect(records).toEqual([
       { id: 'idC1', dbTableName: 'C' },
-      { id: 'idB1', dbTableName: 'B', selectIn: 'C.__fk_manyToOneB' },
-      { id: 'idA1', dbTableName: 'A', selectIn: 'B.__fk_manyToOneA' },
-      { id: 'idC2', dbTableName: 'C' },
+      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyC', selectIn: 'C.__fk_manyToOneB' },
+      { id: 'idA1', dbTableName: 'A', fieldId: 'oneToManyB', selectIn: 'B.__fk_manyToOneA' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
     ]);
 
     const extraRecords = await service.getExtraDependentRecordItems(prisma, records);
 
     expect(extraRecords).toEqual([
-      { id: 'idB1', dbTableName: 'B', belongsTo: 'idA1' },
-      { id: 'idB2', dbTableName: 'B', belongsTo: 'idA1' },
-      { id: 'idC1', dbTableName: 'C', belongsTo: 'idB1' },
-      { id: 'idC2', dbTableName: 'C', belongsTo: 'idB1' },
+      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', belongsTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', belongsTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'oneToManyC', belongsTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', belongsTo: 'idB1' },
     ]);
   });
 
