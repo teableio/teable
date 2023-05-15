@@ -125,3 +125,74 @@ C 表
 根据上述表述，如果 'idA1' 中的 fieldA 发生了变化，既可以推导出 ['idB1', 'idB2'] 和 ['idC1', 'idC2', 'idC3'] 都会受到关联关系的影响发生变化
 
 我如何通过 SQL 一次性查找出这些 recordId 呢？ 为了实现动态的查询需求，我会将 idA1 和 topologicalOrder 作为参数传入
+
+## 一对多关系，反向引用计算链
+
+A 表
+
+```ts
+{ __id: 'idA1', fieldA: 'A1', oneToManyB: ['C1,C2', 'C3'] }
+```
+
+B 表
+
+```ts
+{ __id: 'idB1', fieldB: 'C1,C2', manyToOneA: 'A1', __fk_manyToOneA: 'idA1', oneToManyC: ['C1', 'C2'] }
+{ __id: 'idB2', fieldB: 'C3', manyToOneA: 'A1', __fk_manyToOneA: 'idA1', oneToManyC: ['C3'] }
+```
+
+C 表
+
+```ts
+{ __id: 'idC1', fieldC: 'C1', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
+{ __id: 'idC2', fieldC: 'C2', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
+{ __id: 'idC3', fieldC: 'C3', manyToOneB: 'C3', __fk_manyToOneB: 'idB2' },
+```
+
+引用关系拓扑排序
+
+```ts
+const topoOrder = [
+  {
+    dbTableName: "B",
+    fieldName: "oneToManyC",
+    foreignKeyField: "__fk_manyToOneB",
+    relationship: Relationship.OneMany,
+    linkedTable: "C",
+  },
+  {
+    dbTableName: "A",
+    fieldName: "oneToManyB",
+    foreignKeyField: "__fk_manyToOneA",
+    relationship: Relationship.OneMany,
+    linkedTable: "B",
+  },
+  {
+    dbTableName: "C",
+    fieldName: "manyToOneB",
+    foreignKeyField: "__fk_manyToOneB",
+    relationship: Relationship.ManyOne,
+    linkedTable: "B",
+  },
+];
+```
+
+我们看到。
+A 表中的 idA1.oneToManyB: ['C1,C2', 'C3'] 的值，是从 C 表中**id 为 'idB1', 'idB2' 对应的 fieldB 字段中得到，并形成数组的。
+同理：
+B 表中
+idB1.oneToManyC: ['C1', 'C2'] 的值，是从 C 表中**id 为 'idC1', 'idC2' 对应的 fieldC 字段中得到，并形成数组的。
+idB2.oneToManyC: ['C3'] 的值，是从 C 表中**id 为 'idC3' 对应的 fieldC 字段中得到，并形成数组的。
+C 表中
+idC1.manyToOneB: 'C1,C2' 的值，是从 B 表中**id 为 'idB1' 对应的 fieldB 字段中引用得到。
+idC2.manyToOneB: 'C1,C2' 的值，是从 B 表中\_\_id 为 'idB1' 对应的 fieldB 字段中引用得到。
+
+### 问题 1
+
+C.idC1.fieldC 的值发生了变化，从 C1 变成了 C11, 怎么更新 A 表和 B 表的对应值？
+首先我们用循环遍历的代码来实现，先定义一下最终的输出结构，者个结构由后续参与计算的时候，如何进行多值 lookup 合并来决定。
+什么是多值 lookup 呢？ 比如 B.oneToManyC 的值是 ['C1', 'C2']，那么我们需要从 C 表中找到 \_\_id 为 'idC1', 'idC2' 的记录，然后将他们的 fieldC 字段的值合并成一个数组，最终得到 ['C1', 'C2']。
+
+### 问题 2
+
+假设，我们现在 A.oneToManyB 以及 B.oneToManyC 中的值都为空。我们怎么通过 topoOrder 中给出的关系，利用 SQL 查询加上 ts 计算，得到他们的值呢？

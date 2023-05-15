@@ -15,6 +15,7 @@ describe('ReferenceService', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let initialReferences: any;
   let db: ReturnType<typeof knex>;
+  const s = JSON.stringify;
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -45,75 +46,30 @@ describe('ReferenceService', () => {
   }
 
   beforeEach(async () => {
-    const s = JSON.stringify;
     // create tables
     await executeKnex(
       db.schema.createTable('A', (table) => {
         table.string('__id').primary();
         table.string('fieldA');
-        table.string('fieldLinkB');
+        table.string('oneToManyB');
       })
     );
     await executeKnex(
       db.schema.createTable('B', (table) => {
         table.string('__id').primary();
         table.string('fieldB');
-        table.string('fieldLinkA');
-        table.string('__fk_fieldLinkA');
-        table.string('fieldLinkC');
+        table.string('manyToOneA');
+        table.string('__fk_manyToOneA');
+        table.string('oneToManyC');
       })
     );
     await executeKnex(
       db.schema.createTable('C', (table) => {
         table.string('__id').primary();
         table.string('fieldC');
-        table.string('fieldLinkB');
-        table.string('__fk_fieldLinkB');
+        table.string('manyToOneB');
+        table.string('__fk_manyToOneB');
       })
-    );
-
-    // fill data
-    await executeKnex(
-      db('A').insert([
-        { __id: 'idA1', fieldA: 'A1', fieldLinkB: s(['B1', 'B2']) },
-        { __id: 'idA2', fieldA: 'A2', fieldLinkB: s(['B3']) },
-      ])
-    );
-    await executeKnex(
-      db('B').insert([
-        /* eslint-disable prettier/prettier */
-        {
-          __id: 'idB1',
-          fieldB: 'B1',
-          fieldLinkA: 'A1',
-          __fk_fieldLinkA: 'idA1',
-          fieldLinkC: s(['C1', 'C2']),
-        },
-        {
-          __id: 'idB2',
-          fieldB: 'B2',
-          fieldLinkA: 'A1',
-          __fk_fieldLinkA: 'idA1',
-          fieldLinkC: s(['C3']),
-        },
-        {
-          __id: 'idB3',
-          fieldB: 'B3',
-          fieldLinkA: 'A2',
-          __fk_fieldLinkA: 'idA2',
-          fieldLinkC: s(['C4']),
-        },
-        { __id: 'idB4', fieldB: 'B4', fieldLinkA: null, __fk_fieldLinkA: null, fieldLinkC: null },
-        /* eslint-enable prettier/prettier */
-      ])
-    );
-    await executeKnex(
-      db('C').insert([
-        { __id: 'idC1', fieldC: 'C1', fieldLinkB: 'A1', __fk_fieldLinkB: 'idB1' },
-        { __id: 'idC2', fieldC: 'C2', fieldLinkB: 'A1', __fk_fieldLinkB: 'idB1' },
-        { __id: 'idC3', fieldC: 'C3', fieldLinkB: 'A1', __fk_fieldLinkB: 'idB2' },
-        { __id: 'idC4', fieldC: 'C4', fieldLinkB: 'A2', __fk_fieldLinkB: 'idB3' },
-      ])
     );
 
     initialReferences = [
@@ -162,23 +118,67 @@ describe('ReferenceService', () => {
     ]);
   });
 
-  it.only('getAffectedRecords should return all affected records for a given id and topological order', async () => {
+  it('many to one link relationship order for getAffectedRecords', async () => {
+    // fill data
+    await executeKnex(
+      db('A').insert([
+        { __id: 'idA1', fieldA: 'A1', oneToManyB: s(['B1', 'B2']) },
+        { __id: 'idA2', fieldA: 'A2', oneToManyB: s(['B3']) },
+      ])
+    );
+    await executeKnex(
+      db('B').insert([
+        /* eslint-disable prettier/prettier */
+        {
+          __id: 'idB1',
+          fieldB: 'A1',
+          manyToOneA: 'A1',
+          __fk_manyToOneA: 'idA1',
+          oneToManyC: s(['C1', 'C2']),
+        },
+        {
+          __id: 'idB2',
+          fieldB: 'A1',
+          manyToOneA: 'A1',
+          __fk_manyToOneA: 'idA1',
+          oneToManyC: s(['C3']),
+        },
+        {
+          __id: 'idB3',
+          fieldB: 'A2',
+          manyToOneA: 'A2',
+          __fk_manyToOneA: 'idA2',
+          oneToManyC: s(['C4']),
+        },
+        { __id: 'idB4', fieldB: null, manyToOneA: null, __fk_manyToOneA: null, oneToManyC: null },
+        /* eslint-enable prettier/prettier */
+      ])
+    );
+    await executeKnex(
+      db('C').insert([
+        { __id: 'idC1', fieldC: 'C1', manyToOneB: 'A1', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC2', fieldC: 'C2', manyToOneB: 'A1', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC3', fieldC: 'C3', manyToOneB: 'A1', __fk_manyToOneB: 'idB2' },
+        { __id: 'idC4', fieldC: 'C4', manyToOneB: 'A2', __fk_manyToOneB: 'idB3' },
+      ])
+    );
+
     const topoOrder = [
       {
         dbTableName: 'B',
-        fieldName: 'fieldLinkA',
-        foreignKeyField: '__fk_fieldLinkA',
+        fieldName: 'manyToOneA',
+        foreignKeyField: '__fk_manyToOneA',
         relationship: Relationship.ManyOne,
         linkedTable: 'A',
         dependencies: ['fieldA'],
       },
       {
         dbTableName: 'C',
-        fieldName: 'fieldLinkB',
-        foreignKeyField: '__fk_fieldLinkB',
+        fieldName: 'manyToOneB',
+        foreignKeyField: '__fk_manyToOneB',
         relationship: Relationship.ManyOne,
         linkedTable: 'B',
-        dependencies: ['fieldLinkA'],
+        dependencies: ['fieldB'],
       },
     ];
 
@@ -212,23 +212,81 @@ describe('ReferenceService', () => {
     ]);
   });
 
-  it('getAffectedRecords should many to one link relationship order', async () => {
+  it('one to many link relationship order for getAffectedRecords', async () => {
+    await executeKnex(
+      db('A').insert([{ __id: 'idA1', fieldA: 'A1', oneToManyB: s(['C1,C2', 'C3']) }])
+    );
+    await executeKnex(
+      db('B').insert([
+        /* eslint-disable prettier/prettier */
+        {
+          __id: 'idB1',
+          fieldB: 'C1,C2',
+          manyToOneA: 'A1',
+          __fk_manyToOneA: 'idA1',
+          oneToManyC: s(['C1', 'C2']),
+        },
+        {
+          __id: 'idB2',
+          fieldB: 'C3',
+          manyToOneA: 'A1',
+          __fk_manyToOneA: 'idA1',
+          oneToManyC: s(['C3']),
+        },
+        /* eslint-enable prettier/prettier */
+      ])
+    );
+    await executeKnex(
+      db('C').insert([
+        { __id: 'idC1', fieldC: 'C1', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC2', fieldC: 'C2', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC3', fieldC: 'C3', manyToOneB: 'C3', __fk_manyToOneB: 'idB2' },
+      ])
+    );
+    // topoOrder Graph:
+    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
+    //                                      -> C.manyToOneB
     const topoOrder = [
       {
-        dbTableName: 'A',
-        fieldName: 'fieldLinkB',
-        foreignKeyField: '__fk_fieldLinkA',
+        dbTableName: 'B',
+        fieldName: 'oneToManyC',
+        foreignKeyField: '__fk_manyToOneB',
         relationship: Relationship.OneMany,
+        linkedTable: 'C',
+      },
+      {
+        dbTableName: 'A',
+        fieldName: 'oneToManyB',
+        foreignKeyField: '__fk_manyToOneA',
+        relationship: Relationship.OneMany,
+        linkedTable: 'B',
+      },
+      {
+        dbTableName: 'C',
+        fieldName: 'manyToOneB',
+        foreignKeyField: '__fk_manyToOneB',
+        relationship: Relationship.ManyOne,
         linkedTable: 'B',
       },
     ];
 
-    const records = await service.getAffectedRecordItems(prisma, ['idB1'], topoOrder);
+    const records = await service.getAffectedRecordItems(prisma, ['idC1'], topoOrder);
 
-    // fieldLinkB: ['B1', 'B2']
+    // manyToOneB: ['B1', 'B2']
     expect(records).toEqual([
-      { id: 'idB1', dbTableName: 'B' },
-      { id: 'idB2', dbTableName: 'B' },
+      { id: 'idC1', dbTableName: 'C' },
+      { id: 'idB1', dbTableName: 'B', selectIn: 'C.__fk_manyToOneB' },
+      { id: 'idA1', dbTableName: 'A', selectIn: 'B.__fk_manyToOneA' },
+      { id: 'idC2', dbTableName: 'C' },
+    ]);
+
+    const extraRecords = await service.getExtraDependentRecordItems(prisma, records);
+
+    expect(extraRecords).toEqual([
+      { id: 'idB1', dbTableName: 'B', belongsTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', belongsTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', belongsTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', belongsTo: 'idB1' },
     ]);
   });
 
@@ -246,21 +304,21 @@ describe('ReferenceService', () => {
       {
         id: 'field1',
         dependencies: [],
-        records: [
-          { id: 'record1', fields: { field1: 'oldValue1' }, recordOrder: {} },
-          { id: 'record2', fields: { field1: 'oldValue2' }, recordOrder: {} },
+        recordItems: [
+          { record: { id: 'record1', fields: { field1: 'oldValue1' }, recordOrder: {} } },
+          { record: { id: 'record2', fields: { field1: 'oldValue2' }, recordOrder: {} } },
         ],
       },
       {
         id: 'field2',
         dependencies: ['field1'],
-        records: [
-          { id: 'record1', fields: { field2: 'oldValue3' }, recordOrder: {} },
-          { id: 'record2', fields: { field2: 'oldValue4' }, recordOrder: {} },
+        recordItems: [
+          { record: { id: 'record1', fields: { field2: 'oldValue3' }, recordOrder: {} } },
+          { record: { id: 'record2', fields: { field2: 'oldValue4' }, recordOrder: {} } },
         ],
       },
     ];
-    const fieldMap: { [fieldId: string]: IFieldInstance } = {
+    const fieldMap: { [oneToManyd: string]: IFieldInstance } = {
       field1: createFieldInstanceByRo({
         id: 'field1',
         name: 'field1',
