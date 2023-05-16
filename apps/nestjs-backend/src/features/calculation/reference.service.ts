@@ -39,7 +39,7 @@ interface IRecordRefItem {
   dbTableName: string;
   fieldId?: string;
   selectIn?: string;
-  belongsTo?: string;
+  relationTo?: string;
 }
 
 @Injectable()
@@ -220,10 +220,7 @@ export class ReferenceService {
     const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
 
     // extra dependent records for link field
-    const dependentRecordItems = await this.getExtraDependentRecordItems(
-      prisma,
-      affectedRecordItems
-    );
+    const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
 
     // record data source
     const dbTableName2records = await this.getRecordsBatch(prisma, {
@@ -335,15 +332,15 @@ export class ReferenceService {
     field: LinkFieldCore;
     record: IRecord;
     foreignTableRecords: IRecord[];
-    extraRecordRefItems: IRecordRefItem[];
+    dependentRecordItems: IRecordRefItem[];
   }): IRecord[] {
-    const { field, extraRecordRefItems, record, foreignTableRecords } = params;
+    const { field, dependentRecordItems, record, foreignTableRecords } = params;
 
     if (field.options.relationship !== Relationship.OneMany) {
       throw new Error("field's relationship should be OneMany");
     }
-    return extraRecordRefItems
-      .filter((item) => item.belongsTo === record.id && item.fieldId === field.id)
+    return dependentRecordItems
+      .filter((item) => item.relationTo === record.id && item.fieldId === field.id)
       .map((item) => {
         const record = foreignTableRecords.find((r) => r.id === item.id);
         if (!record) {
@@ -357,20 +354,20 @@ export class ReferenceService {
     field: LinkFieldCore;
     record: IRecord;
     foreignTableRecords: IRecord[];
-    recordRefItems: IRecordRefItem[];
+    affectedRecordItems: IRecordRefItem[];
   }): IRecord {
-    const { field, record, recordRefItems, foreignTableRecords } = params;
+    const { field, record, affectedRecordItems, foreignTableRecords } = params;
 
     if (field.options.relationship !== Relationship.ManyOne) {
       throw new Error("field's relationship should be ManyOne");
     }
 
-    const linkRecordRef = recordRefItems.find((item) => item.belongsTo === record.id);
+    const linkRecordRef = affectedRecordItems.find((item) => item.id === record.id);
     if (!linkRecordRef) {
       throw new Error('Can not find link record ref');
     }
 
-    const linkRecord = foreignTableRecords.find((r) => r.id === linkRecordRef.belongsTo);
+    const linkRecord = foreignTableRecords.find((r) => r.id === linkRecordRef.relationTo);
     if (!linkRecord) {
       throw new Error('Can not find link record');
     }
@@ -397,29 +394,28 @@ export class ReferenceService {
     } = params;
     const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
     const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
-    console.log('recordRefItems:', affectedRecordItems);
     return topoOrders.map((order) => {
       const field = fieldMap[order.id];
 
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
       const allRecords = dbTableName2records[dbTableName];
-      const recordRefItems = affectedRecordItemIndexed[dbTableName];
-      const records = intersectionBy(allRecords, recordRefItems, 'id');
+      const affectedRecordItems = affectedRecordItemIndexed[dbTableName];
+      // only affected record need to be calculated
+      const records = intersectionBy(allRecords, affectedRecordItems, 'id');
 
       // update link field dependency
       if (field.type === FieldType.Link) {
         const foreignTableName = tableId2DbTableName[field.options.foreignTableId];
         const foreignTableRecords = dbTableName2records[foreignTableName];
-        const recordRefItems = affectedRecordItemIndexed[foreignTableName];
-        const extraRecordRefItems = dependentRecordItemIndexed[foreignTableName];
+        const dependentRecordItems = dependentRecordItemIndexed[foreignTableName];
         const dependenciesArr = records.map((record) => {
           if (field.options.relationship === Relationship.OneMany) {
             return this.getOneManyDependencies({
               record,
               field,
               foreignTableRecords,
-              extraRecordRefItems,
+              dependentRecordItems,
             });
           }
           if (field.options.relationship === Relationship.ManyOne) {
@@ -427,7 +423,7 @@ export class ReferenceService {
               record,
               field,
               foreignTableRecords,
-              recordRefItems,
+              affectedRecordItems,
             });
           }
           throw new Error('Unsupported relationship');
@@ -546,7 +542,7 @@ export class ReferenceService {
     return result.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }));
   }
 
-  async getExtraDependentRecordItems(
+  async getDependentRecordItems(
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
   ): Promise<IRecordRefItem[]> {
@@ -559,7 +555,7 @@ export class ReferenceService {
         return this.knex
           .select([
             `${dbTableName}.__id as id`,
-            `${dbTableName}.${selectField} as belongsTo`,
+            `${dbTableName}.${selectField} as relationTo`,
             this.knex.raw(`'${dbTableName}' as dbTableName`),
             this.knex.raw(`'${fieldId}' as fieldId`),
           ])
@@ -581,7 +577,7 @@ export class ReferenceService {
     // Initialize the base case for the recursive CTE)
     const initTableName = topoOrder[0].linkedTable;
     let cteQuery = `
-    SELECT __id, '${initTableName}' as dbTableName, null as selectIn, null as belongsTo, null as fieldId
+    SELECT __id, '${initTableName}' as dbTableName, null as selectIn, null as relationTo, null as fieldId
     FROM ${initTableName} WHERE __id IN (${startIds.map((id) => `'${id}'`).join(',')})`;
 
     // Iterate over the nodes in topological order
@@ -593,7 +589,7 @@ export class ReferenceService {
       if (currentOrder.relationship === Relationship.OneMany) {
         cteQuery += `
         UNION
-        SELECT ${linkedTable}.${foreignKeyField} as __id, '${dbTableName}' as dbTableName, '${linkedTable}.${foreignKeyField}' as selectIn , null as belongsTo, '${fieldId}' as fieldId
+        SELECT ${linkedTable}.${foreignKeyField} as __id, '${dbTableName}' as dbTableName, '${linkedTable}.${foreignKeyField}' as selectIn , null as relationTo, '${fieldId}' as fieldId
         FROM ${linkedTable}
         JOIN affected_records
         ON ${linkedTable}.__id = affected_records.__id
@@ -601,7 +597,7 @@ export class ReferenceService {
       } else {
         cteQuery += `
         UNION
-        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName, null as selectIn, affected_records.__id as belongsTo, '${fieldId}' as fieldId
+        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName, null as selectIn, affected_records.__id as relationTo, '${fieldId}' as fieldId
         FROM ${dbTableName}
         JOIN affected_records
         ON ${dbTableName}.${foreignKeyField} = affected_records.__id
@@ -622,14 +618,15 @@ export class ReferenceService {
         dbTableName: string;
         selectIn?: string;
         fieldId?: string;
-        belongsTo?: string;
+        relationTo?: string;
       }[]
     >(finalQuery);
 
-    return results.map((record) => ({
+    // startIds are always the first records in the result set, so we can just slice them off
+    return results.splice(startIds.length).map((record) => ({
       id: record.__id,
       dbTableName: record.dbTableName,
-      ...(record.belongsTo ? { belongsTo: record.belongsTo } : {}),
+      ...(record.relationTo ? { relationTo: record.relationTo } : {}),
       ...(record.fieldId ? { fieldId: record.fieldId } : {}),
       ...(record.selectIn ? { selectIn: record.selectIn } : {}),
     }));

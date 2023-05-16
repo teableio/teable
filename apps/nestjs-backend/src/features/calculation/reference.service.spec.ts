@@ -187,12 +187,11 @@ describe('ReferenceService', () => {
     const records = await service.getAffectedRecordItems(prisma, ['idA1'], topoOrder);
 
     expect(records).toEqual([
-      { id: 'idA1', dbTableName: 'A' },
-      { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', belongsTo: 'idA1' },
-      { id: 'idB2', dbTableName: 'B', fieldId: 'manyToOneA', belongsTo: 'idA1' },
-      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
-      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
-      { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB2' },
+      { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
+      { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB2' },
     ]);
 
     const recordsWithMultiInput = await service.getAffectedRecordItems(
@@ -202,15 +201,13 @@ describe('ReferenceService', () => {
     );
 
     expect(recordsWithMultiInput).toEqual([
-      { id: 'idA1', dbTableName: 'A' },
-      { id: 'idA2', dbTableName: 'A' },
-      { id: 'idB1', dbTableName: 'B', belongsTo: 'idA1', fieldId: 'manyToOneA' },
-      { id: 'idB2', dbTableName: 'B', belongsTo: 'idA1', fieldId: 'manyToOneA' },
-      { id: 'idB3', dbTableName: 'B', belongsTo: 'idA2', fieldId: 'manyToOneA' },
-      { id: 'idC1', dbTableName: 'C', belongsTo: 'idB1', fieldId: 'manyToOneB' },
-      { id: 'idC2', dbTableName: 'C', belongsTo: 'idB1', fieldId: 'manyToOneB' },
-      { id: 'idC3', dbTableName: 'C', belongsTo: 'idB2', fieldId: 'manyToOneB' },
-      { id: 'idC4', dbTableName: 'C', belongsTo: 'idB3', fieldId: 'manyToOneB' },
+      { id: 'idB1', dbTableName: 'B', relationTo: 'idA1', fieldId: 'manyToOneA' },
+      { id: 'idB2', dbTableName: 'B', relationTo: 'idA1', fieldId: 'manyToOneA' },
+      { id: 'idB3', dbTableName: 'B', relationTo: 'idA2', fieldId: 'manyToOneA' },
+      { id: 'idC1', dbTableName: 'C', relationTo: 'idB1', fieldId: 'manyToOneB' },
+      { id: 'idC2', dbTableName: 'C', relationTo: 'idB1', fieldId: 'manyToOneB' },
+      { id: 'idC3', dbTableName: 'C', relationTo: 'idB2', fieldId: 'manyToOneB' },
+      { id: 'idC4', dbTableName: 'C', relationTo: 'idB3', fieldId: 'manyToOneB' },
     ]);
   });
 
@@ -276,121 +273,47 @@ describe('ReferenceService', () => {
 
     // manyToOneB: ['B1', 'B2']
     expect(records).toEqual([
-      { id: 'idC1', dbTableName: 'C' },
       { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyC', selectIn: 'C.__fk_manyToOneB' },
       { id: 'idA1', dbTableName: 'A', fieldId: 'oneToManyB', selectIn: 'B.__fk_manyToOneA' },
-      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
-      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', belongsTo: 'idB1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
     ]);
 
-    const extraRecords = await service.getExtraDependentRecordItems(prisma, records);
+    const extraRecords = await service.getDependentRecordItems(prisma, records);
 
     expect(extraRecords).toEqual([
-      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', belongsTo: 'idA1' },
-      { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', belongsTo: 'idA1' },
-      { id: 'idC1', dbTableName: 'C', fieldId: 'oneToManyC', belongsTo: 'idB1' },
-      { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', belongsTo: 'idB1' },
+      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
     ]);
   });
 
   it('getDependentNodesCTE should return all dependent nodes', async () => {
     const result = await service.getDependentNodesCTE(prisma, 'f2');
-    console.log('result:', result);
     const resultData = [...initialReferences];
     resultData.pop();
     expect(result).toEqual(expect.arrayContaining(resultData));
   });
+});
 
-  it.only('should correctly collect changes for Link and Computed fields', () => {
-    // topoOrder Graph:
-    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
-    //                                      -> C.manyToOneB
-    const recordMap: { [recordId: string]: IRecord } = {
-      // use new value fieldC: 'CX' here
-      idC1: { id: 'idC1', fields: { fieldC: 'CX', manyToOneB: 'C1, C2' }, recordOrder: {} },
-      idC2: { id: 'idC2', fields: { fieldC: 'C2', manyToOneB: 'C1, C2' }, recordOrder: {} },
-      idB1: {
-        id: 'idB1',
-        fields: { fieldB: 'C1, C2', manyToOneA: 'A1', oneToManyC: ['C1', 'C2'] },
-        recordOrder: {},
-      },
-      idB2: {
-        id: 'idB2',
-        fields: { fieldB: 'C3', manyToOneA: 'A1', oneToManyC: ['C3'] },
-        recordOrder: {},
-      },
-      idC3: {
-        id: 'idC3',
-        fields: { fieldC: 'C3', manyToOneB: 'C3' },
-        recordOrder: {},
-      },
-      idA1: { id: 'idA1', fields: { fieldA: 'A1', oneToManyB: ['C1, C2', 'C3'] }, recordOrder: {} },
-    };
-    const orders: ITopoItemWithRecords[] = [
-      {
-        id: 'fieldC',
-        dependencies: [],
-        recordItems: [
-          {
-            record: recordMap['idC1'],
-          },
-          {
-            record: recordMap['idC2'],
-          },
-        ],
-      },
-      {
-        id: 'oneToManyC',
-        dependencies: ['fieldC'],
-        recordItems: [
-          {
-            record: recordMap['idB1'],
-            dependencies: [recordMap['idC1'], recordMap['idC2']],
-          },
-          // {
-          //   record: recordMap['idB2'],
-          //   dependencies: [recordMap['idC3']],
-          // },
-        ],
-      },
-      {
-        id: 'fieldB',
-        dependencies: ['oneToManyC'],
-        recordItems: [
-          {
-            record: recordMap['idB1'],
-          },
-          // {
-          //   record: recordMap['idB2'],
-          // },
-        ],
-      },
-      {
-        id: 'oneToManyB',
-        dependencies: ['fieldB'],
-        recordItems: [
-          {
-            record: recordMap['idA1'],
-            dependencies: [recordMap['idB1'], recordMap['idB2']],
-          },
-        ],
-      },
-      {
-        id: 'manyToOneB',
-        dependencies: ['fieldB'],
-        recordItems: [
-          {
-            record: recordMap['idC1'],
-            dependencies: recordMap['idB1'],
-          },
-          {
-            record: recordMap['idC2'],
-            dependencies: recordMap['idB1'],
-          },
-        ],
-      },
-    ];
-    const fieldMap: { [oneToMany: string]: IFieldInstance } = {
+describe('calculation', () => {
+  let service: ReferenceService;
+  let fieldMap: { [oneToMany: string]: IFieldInstance };
+  let fieldId2TableId: { [fieldId: string]: string };
+  let recordMap: { [recordId: string]: IRecord };
+  let ordersWithRecords: ITopoItemWithRecords[];
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [ReferenceService, PrismaService],
+    }).compile();
+
+    service = module.get<ReferenceService>(ReferenceService);
+  });
+
+  beforeEach(() => {
+    fieldMap = {
       fieldA: createFieldInstanceByRo({
         id: 'fieldA',
         name: 'fieldA',
@@ -488,7 +411,7 @@ describe('ReferenceService', () => {
       }),
     };
 
-    const fieldId2TableId = {
+    fieldId2TableId = {
       fieldA: 'A',
       oneToManyB: 'A',
       fieldB: 'B',
@@ -498,9 +421,81 @@ describe('ReferenceService', () => {
       manyToOneB: 'C',
     };
 
+    recordMap = {
+      // use new value fieldC: 'CX' here
+      idC1: { id: 'idC1', fields: { fieldC: 'CX', manyToOneB: 'C1, C2' }, recordOrder: {} },
+      idC2: { id: 'idC2', fields: { fieldC: 'C2', manyToOneB: 'C1, C2' }, recordOrder: {} },
+      idB1: {
+        id: 'idB1',
+        fields: { fieldB: 'C1, C2', manyToOneA: 'A1', oneToManyC: ['C1', 'C2'] },
+        recordOrder: {},
+      },
+      idB2: {
+        id: 'idB2',
+        fields: { fieldB: 'C3', manyToOneA: 'A1', oneToManyC: ['C3'] },
+        recordOrder: {},
+      },
+      idC3: {
+        id: 'idC3',
+        fields: { fieldC: 'C3', manyToOneB: 'C3' },
+        recordOrder: {},
+      },
+      idA1: { id: 'idA1', fields: { fieldA: 'A1', oneToManyB: ['C1, C2', 'C3'] }, recordOrder: {} },
+    };
+
+    // topoOrder Graph:
+    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
+    //                                      -> C.manyToOneB
+    ordersWithRecords = [
+      {
+        id: 'oneToManyC',
+        dependencies: ['fieldC'],
+        recordItems: [
+          {
+            record: recordMap['idB1'],
+            dependencies: [recordMap['idC1'], recordMap['idC2']],
+          },
+        ],
+      },
+      {
+        id: 'fieldB',
+        dependencies: ['oneToManyC'],
+        recordItems: [
+          {
+            record: recordMap['idB1'],
+          },
+        ],
+      },
+      {
+        id: 'oneToManyB',
+        dependencies: ['fieldB'],
+        recordItems: [
+          {
+            record: recordMap['idA1'],
+            dependencies: [recordMap['idB1'], recordMap['idB2']],
+          },
+        ],
+      },
+      {
+        id: 'manyToOneB',
+        dependencies: ['fieldB'],
+        recordItems: [
+          {
+            record: recordMap['idC1'],
+            dependencies: recordMap['idB1'],
+          },
+          {
+            record: recordMap['idC2'],
+            dependencies: recordMap['idB1'],
+          },
+        ],
+      },
+    ];
+  });
+
+  it('should correctly collect changes for Link and Computed fields', () => {
     // 2. Act
-    const changes = service.collectChanges(orders, fieldMap, fieldId2TableId);
-    console.log('changes:', changes);
+    const changes = service.collectChanges(ordersWithRecords, fieldMap, fieldId2TableId);
     // 3. Assert
     // topoOrder Graph:
     // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
@@ -549,5 +544,65 @@ describe('ReferenceService', () => {
         newValue: 'CX, C2',
       },
     ]);
+  });
+
+  it('should createTopoItemWithRecords from prepared context', () => {
+    const tableId2DbTableName = {
+      A: 'A',
+      B: 'B',
+      C: 'C',
+    };
+    const dbTableName2records = {
+      A: [recordMap['idA1']],
+      B: [recordMap['idB1'], recordMap['idB2']],
+      C: [recordMap['idC1'], recordMap['idC2'], recordMap['idC3']],
+    };
+    const affectedRecordItems = [
+      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyC', selectIn: 'C.__fk_manyToOneB' },
+      { id: 'idA1', dbTableName: 'A', fieldId: 'oneToManyB', selectIn: 'B.__fk_manyToOneA' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
+    ];
+
+    const dependentRecordItems = [
+      { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
+      { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
+      { id: 'idC1', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
+      { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
+    ];
+
+    // topoOrder Graph:
+    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
+    //                                      -> C.manyToOneB
+    const topoOrders = [
+      {
+        id: 'oneToManyC',
+        dependencies: ['fieldC'],
+      },
+      {
+        id: 'fieldB',
+        dependencies: ['oneToManyC'],
+      },
+      {
+        id: 'oneToManyB',
+        dependencies: ['fieldB'],
+      },
+      {
+        id: 'manyToOneB',
+        dependencies: ['fieldB'],
+      },
+    ];
+
+    const topoItems = service.createTopoItemWithRecords({
+      tableId2DbTableName,
+      dbTableName2records,
+      affectedRecordItems,
+      dependentRecordItems,
+      fieldMap,
+      fieldId2TableId,
+      topoOrders,
+    });
+
+    expect(topoItems).toEqual(ordersWithRecords);
   });
 });
