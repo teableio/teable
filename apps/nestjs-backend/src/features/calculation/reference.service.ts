@@ -6,7 +6,7 @@ import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { groupBy } from 'lodash';
+import { groupBy, intersectionBy } from 'lodash';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -22,7 +22,7 @@ interface IRecordItem {
   dependencies?: IRecord | IRecord[];
 }
 
-interface ITopoItemWithRecords extends ITopoItem {
+export interface ITopoItemWithRecords extends ITopoItem {
   recordItems: IRecordItem[];
 }
 
@@ -50,16 +50,6 @@ export class ReferenceService {
     this.knex = knex({ client: 'sqlite3' });
   }
 
-  calculateFormula(
-    field: IFieldInstance,
-    dependenceFieldMap: { [fieldId: string]: IFieldInstance },
-    record: IRecord
-  ): unknown {
-    const formula = `{${field.id}}`;
-
-    return evaluate(formula, dependenceFieldMap, record).value;
-  }
-
   calculate(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
@@ -76,9 +66,15 @@ export class ReferenceService {
       return this.calculateRollup(field, lookupField, record, recordItem.dependencies);
     }
 
-    return field.isComputed
-      ? this.calculateFormula(field, fieldMap, record)
-      : record.fields[field.id];
+    if (field.type === FieldType.Formula) {
+      const typedValue = evaluate(field.options.expression, fieldMap, record);
+      if (typedValue.type === CellValueType.Array) {
+        return field.cellValue2String(typedValue.toPlain());
+      }
+      return typedValue.toPlain();
+    }
+
+    throw new Error('Unsupported field type');
   }
 
   calculateRollup(
@@ -87,16 +83,17 @@ export class ReferenceService {
     record: IRecord,
     dependencies: IRecord | IRecord[]
   ): unknown {
-    const formula = `{__values__}`;
+    const formula = '{values}';
 
     const plain = instanceToPlain(lookupField);
 
+    // TODO: array value flatten
     const lookupValues = Array.isArray(dependencies)
       ? dependencies.map((depRecord) => depRecord.fields[lookupField.id])
       : dependencies.fields[lookupField.id];
 
     const cellValueType =
-      field.options.relationship === Relationship.ManyOne
+      field.options.relationship === Relationship.OneMany
         ? CellValueType.Array
         : lookupField.cellValueType;
 
@@ -105,17 +102,22 @@ export class ReferenceService {
 
     const virtualField = createFieldInstanceByRaw({
       ...plain,
-      id: '__values__',
+      id: 'values',
       cellValueType,
       cellValueElementType,
+      options: JSON.stringify(plain.options),
+      defaultValue: JSON.stringify(plain.defaultValue),
+      columnMeta: JSON.stringify(plain.columnMeta),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
+    console.log('lookupValues:', lookupValues);
+
     return evaluate(
       formula,
-      { __values__: virtualField },
-      { ...record, fields: { ...record.fields, __values__: lookupValues } }
-    ).value;
+      { values: virtualField },
+      { ...record, fields: { ...record.fields, values: lookupValues } }
+    ).toPlain();
   }
 
   private async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
@@ -179,21 +181,22 @@ export class ReferenceService {
     orders.forEach((item) => {
       item.recordItems.forEach((recordItem) => {
         const field = fieldMap[item.id];
+        if (!field.isComputed) {
+          return;
+        }
         const record = recordItem.record;
+        console.log(`calculate: ${field.id}.${record.id}`);
         const value = this.calculate(field, fieldMap, recordItem);
-
+        console.log(`calculated: ${field.id}.${record.id}`, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
-
-        if (oldValue !== value) {
-          changes.push({
-            tableId: fieldId2TableId[field.id],
-            fieldId: field.id,
-            recordId: record.id,
-            oldValue,
-            newValue: value,
-          });
-        }
+        changes.push({
+          tableId: fieldId2TableId[field.id],
+          fieldId: field.id,
+          recordId: record.id,
+          oldValue,
+          newValue: value,
+        });
       });
     });
     return changes;
@@ -214,26 +217,29 @@ export class ReferenceService {
     });
 
     // only affected records included
-    const recordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
+    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
 
     // extra dependent records for link field
-    const extraRecordItems = await this.getExtraDependentRecordItems(prisma, recordItems);
+    const dependentRecordItems = await this.getExtraDependentRecordItems(
+      prisma,
+      affectedRecordItems
+    );
 
     // record data source
     const dbTableName2records = await this.getRecordsBatch(prisma, {
-      recordItems,
-      extraRecordItems,
+      affectedRecordItems,
+      dependentRecordItems,
       dbTableName2fieldRaws,
     });
 
     const orderWithRecords = this.createTopoItemWithRecords({
-      order: topoOrders,
+      topoOrders,
       fieldMap,
       tableId2DbTableName,
       fieldId2TableId,
       dbTableName2records,
-      recordRefItems: recordItems,
-      extraRecordRefItems: extraRecordItems,
+      affectedRecordItems,
+      dependentRecordItems,
     });
 
     return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
@@ -291,12 +297,15 @@ export class ReferenceService {
     prisma: Prisma.TransactionClient,
     params: {
       dbTableName2fieldRaws: { [tableId: string]: Field[] };
-      recordItems: IRecordRefItem[];
-      extraRecordItems: IRecordRefItem[];
+      affectedRecordItems: IRecordRefItem[];
+      dependentRecordItems: IRecordRefItem[];
     }
   ) {
-    const { recordItems, extraRecordItems, dbTableName2fieldRaws } = params;
-    const recordIdsByTableName = groupBy([...recordItems, ...extraRecordItems], 'dbTableName');
+    const { affectedRecordItems, dependentRecordItems, dbTableName2fieldRaws } = params;
+    const recordIdsByTableName = groupBy(
+      [...affectedRecordItems, ...dependentRecordItems],
+      'dbTableName'
+    );
 
     let query: Knex.QueryBuilder | undefined;
     for (const dbTableName in recordIdsByTableName) {
@@ -369,36 +378,41 @@ export class ReferenceService {
   }
 
   createTopoItemWithRecords(params: {
-    order: ITopoItem[];
+    topoOrders: ITopoItem[];
     tableId2DbTableName: { [tableId: string]: string };
     fieldId2TableId: { [fieldId: string]: string };
     fieldMap: { [fieldId: string]: IFieldInstance };
     dbTableName2records: { [tableName: string]: IRecord[] };
-    recordRefItems: IRecordRefItem[];
-    extraRecordRefItems: IRecordRefItem[];
+    affectedRecordItems: IRecordRefItem[];
+    dependentRecordItems: IRecordRefItem[];
   }): ITopoItemWithRecords[] {
     const {
-      order,
+      topoOrders,
       fieldMap,
       tableId2DbTableName,
       fieldId2TableId,
       dbTableName2records,
-      recordRefItems,
-      extraRecordRefItems,
+      affectedRecordItems,
+      dependentRecordItems,
     } = params;
-    const recordRefItemIndexed = groupBy(recordRefItems, 'dbTableName');
-    return order.map((order) => {
+    const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
+    const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
+    console.log('recordRefItems:', affectedRecordItems);
+    return topoOrders.map((order) => {
       const field = fieldMap[order.id];
 
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
-      const records = dbTableName2records[dbTableName];
+      const allRecords = dbTableName2records[dbTableName];
+      const recordRefItems = affectedRecordItemIndexed[dbTableName];
+      const records = intersectionBy(allRecords, recordRefItems, 'id');
 
       // update link field dependency
       if (field.type === FieldType.Link) {
         const foreignTableName = tableId2DbTableName[field.options.foreignTableId];
         const foreignTableRecords = dbTableName2records[foreignTableName];
-        const recordRefItems = recordRefItemIndexed[dbTableName];
+        const recordRefItems = affectedRecordItemIndexed[foreignTableName];
+        const extraRecordRefItems = dependentRecordItemIndexed[foreignTableName];
         const dependenciesArr = records.map((record) => {
           if (field.options.relationship === Relationship.OneMany) {
             return this.getOneManyDependencies({
@@ -412,8 +426,8 @@ export class ReferenceService {
             return this.getMany2OneDependency({
               record,
               field,
-              recordRefItems,
               foreignTableRecords,
+              recordRefItems,
             });
           }
           throw new Error('Unsupported relationship');

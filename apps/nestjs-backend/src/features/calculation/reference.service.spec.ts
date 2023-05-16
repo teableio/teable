@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { IRecord } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo } from '../field/model/factory';
+import type { ITopoItemWithRecords } from './reference.service';
 import { ReferenceService } from './reference.service';
 
 describe('ReferenceService', () => {
@@ -214,14 +216,14 @@ describe('ReferenceService', () => {
 
   it('one to many link relationship order for getAffectedRecords', async () => {
     await executeKnex(
-      db('A').insert([{ __id: 'idA1', fieldA: 'A1', oneToManyB: s(['C1,C2', 'C3']) }])
+      db('A').insert([{ __id: 'idA1', fieldA: 'A1', oneToManyB: s(['C1, C2', 'C3']) }])
     );
     await executeKnex(
       db('B').insert([
         /* eslint-disable prettier/prettier */
         {
           __id: 'idB1',
-          fieldB: 'C1,C2',
+          fieldB: 'C1, C2',
           manyToOneA: 'A1',
           __fk_manyToOneA: 'idA1',
           oneToManyC: s(['C1', 'C2']),
@@ -238,8 +240,8 @@ describe('ReferenceService', () => {
     );
     await executeKnex(
       db('C').insert([
-        { __id: 'idC1', fieldC: 'C1', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
-        { __id: 'idC2', fieldC: 'C2', manyToOneB: 'C1,C2', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC1', fieldC: 'C1', manyToOneB: 'C1, C2', __fk_manyToOneB: 'idB1' },
+        { __id: 'idC2', fieldC: 'C2', manyToOneB: 'C1, C2', __fk_manyToOneB: 'idB1' },
         { __id: 'idC3', fieldC: 'C3', manyToOneB: 'C3', __fk_manyToOneB: 'idB2' },
       ])
     );
@@ -299,31 +301,100 @@ describe('ReferenceService', () => {
     expect(result).toEqual(expect.arrayContaining(resultData));
   });
 
-  it.skip('should correctly collect changes for Link and Computed fields', () => {
-    // 1. Arrange
-    const orders = [
+  it.only('should correctly collect changes for Link and Computed fields', () => {
+    // topoOrder Graph:
+    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
+    //                                      -> C.manyToOneB
+    const recordMap: { [recordId: string]: IRecord } = {
+      // use new value fieldC: 'CX' here
+      idC1: { id: 'idC1', fields: { fieldC: 'CX', manyToOneB: 'C1, C2' }, recordOrder: {} },
+      idC2: { id: 'idC2', fields: { fieldC: 'C2', manyToOneB: 'C1, C2' }, recordOrder: {} },
+      idB1: {
+        id: 'idB1',
+        fields: { fieldB: 'C1, C2', manyToOneA: 'A1', oneToManyC: ['C1', 'C2'] },
+        recordOrder: {},
+      },
+      idB2: {
+        id: 'idB2',
+        fields: { fieldB: 'C3', manyToOneA: 'A1', oneToManyC: ['C3'] },
+        recordOrder: {},
+      },
+      idC3: {
+        id: 'idC3',
+        fields: { fieldC: 'C3', manyToOneB: 'C3' },
+        recordOrder: {},
+      },
+      idA1: { id: 'idA1', fields: { fieldA: 'A1', oneToManyB: ['C1, C2', 'C3'] }, recordOrder: {} },
+    };
+    const orders: ITopoItemWithRecords[] = [
       {
-        id: 'field1',
+        id: 'fieldC',
         dependencies: [],
         recordItems: [
-          { record: { id: 'record1', fields: { field1: 'oldValue1' }, recordOrder: {} } },
-          { record: { id: 'record2', fields: { field1: 'oldValue2' }, recordOrder: {} } },
+          {
+            record: recordMap['idC1'],
+          },
+          {
+            record: recordMap['idC2'],
+          },
         ],
       },
       {
-        id: 'field2',
-        dependencies: ['field1'],
+        id: 'oneToManyC',
+        dependencies: ['fieldC'],
         recordItems: [
-          { record: { id: 'record1', fields: { field2: 'oldValue3' }, recordOrder: {} } },
-          { record: { id: 'record2', fields: { field2: 'oldValue4' }, recordOrder: {} } },
+          {
+            record: recordMap['idB1'],
+            dependencies: [recordMap['idC1'], recordMap['idC2']],
+          },
+          // {
+          //   record: recordMap['idB2'],
+          //   dependencies: [recordMap['idC3']],
+          // },
+        ],
+      },
+      {
+        id: 'fieldB',
+        dependencies: ['oneToManyC'],
+        recordItems: [
+          {
+            record: recordMap['idB1'],
+          },
+          // {
+          //   record: recordMap['idB2'],
+          // },
+        ],
+      },
+      {
+        id: 'oneToManyB',
+        dependencies: ['fieldB'],
+        recordItems: [
+          {
+            record: recordMap['idA1'],
+            dependencies: [recordMap['idB1'], recordMap['idB2']],
+          },
+        ],
+      },
+      {
+        id: 'manyToOneB',
+        dependencies: ['fieldB'],
+        recordItems: [
+          {
+            record: recordMap['idC1'],
+            dependencies: recordMap['idB1'],
+          },
+          {
+            record: recordMap['idC2'],
+            dependencies: recordMap['idB1'],
+          },
         ],
       },
     ];
-    const fieldMap: { [oneToManyd: string]: IFieldInstance } = {
-      field1: createFieldInstanceByRo({
-        id: 'field1',
-        name: 'field1',
-        type: FieldType.Link,
+    const fieldMap: { [oneToMany: string]: IFieldInstance } = {
+      fieldA: createFieldInstanceByRo({
+        id: 'fieldA',
+        name: 'fieldA',
+        type: FieldType.LongText,
         options: {
           relationship: Relationship.OneMany,
           foreignTableId: 'foreignTable1',
@@ -332,32 +403,151 @@ describe('ReferenceService', () => {
           symmetricFieldId: 'symmetricField1',
         },
       }),
+      // {
+      //   dbTableName: 'A',
+      //   fieldId: 'oneToManyB',
+      //   foreignKeyField: '__fk_manyToOneA',
+      //   relationship: Relationship.OneMany,
+      //   linkedTable: 'B',
+      // },
+      oneToManyB: createFieldInstanceByRo({
+        id: 'oneToManyB',
+        name: 'oneToManyB',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: 'B',
+          lookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_manyToOneA',
+          symmetricFieldId: 'manyToOneA',
+        },
+      }),
+      // fieldB is a special field depend on oneToManyC, may be convert it to formula field
+      fieldB: createFieldInstanceByRo({
+        id: 'fieldB',
+        name: 'fieldB',
+        type: FieldType.Formula,
+        options: {
+          expression: '{oneToManyC}',
+        },
+      }),
+      manyToOneA: createFieldInstanceByRo({
+        id: 'manyToOneA',
+        name: 'manyToOneA',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: 'A',
+          lookupFieldId: 'fieldA',
+          dbForeignKeyName: '__fk_manyToOneA',
+          symmetricFieldId: 'oneToManyB',
+        },
+      }),
+      // {
+      //   dbTableName: 'B',
+      //   fieldId: 'oneToManyC',
+      //   foreignKeyField: '__fk_manyToOneB',
+      //   relationship: Relationship.OneMany,
+      //   linkedTable: 'C',
+      // },
+      oneToManyC: createFieldInstanceByRo({
+        id: 'oneToManyC',
+        name: 'oneToManyC',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: 'C',
+          lookupFieldId: 'fieldC',
+          dbForeignKeyName: '__fk_manyToOneB',
+          symmetricFieldId: 'manyToOneB',
+        },
+      }),
+      fieldC: createFieldInstanceByRo({
+        id: 'fieldC',
+        name: 'fieldC',
+        type: FieldType.SingleLineText,
+      }),
+      // {
+      //   dbTableName: 'C',
+      //   fieldId: 'manyToOneB',
+      //   foreignKeyField: '__fk_manyToOneB',
+      //   relationship: Relationship.ManyOne,
+      //   linkedTable: 'B',
+      // },
+      manyToOneB: createFieldInstanceByRo({
+        id: 'manyToOneB',
+        name: 'manyToOneB',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: 'B',
+          lookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_manyToOneB',
+          symmetricFieldId: 'oneToManyC',
+        },
+      }),
     };
+
     const fieldId2TableId = {
-      field1: 'table1',
-      field2: 'table2',
+      fieldA: 'A',
+      oneToManyB: 'A',
+      fieldB: 'B',
+      manyToOneA: 'B',
+      oneToManyC: 'B',
+      fieldC: 'C',
+      manyToOneB: 'C',
     };
 
     // 2. Act
     const changes = service.collectChanges(orders, fieldMap, fieldId2TableId);
-
+    console.log('changes:', changes);
     // 3. Assert
+    // topoOrder Graph:
+    // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
+    //                                      -> C.manyToOneB
+    // change from: idC1.fieldC      = 'C1' -> 'CX'
+    // change affected:
+    // idB1.oneToManyC  = ['C1', 'C2'] -> ['CX', 'C2']
+    // idB1.fieldB      = 'C1, C2' -> 'CX, C2'
+    // idA1.oneToManyB  = ['C1, C2', 'C3'] -> ['CX, C2', 'C3']
+    // idC1.manyToOneB  = 'C1, C2' -> 'CX, C2'
+    // idC2.manyToOneB  = 'C1, C2' -> 'CX, C2'
     expect(changes).toEqual([
-      // Expect no changes for field1 since it's not computed
       {
-        tableId: 'table2',
-        recordId: 'record1',
-        fieldId: 'field2',
-        oldValue: 'oldValue3',
-        newValue: 'oldValue1',
-      }, // Assuming the computation is {field1}
+        tableId: 'B',
+        recordId: 'idB1',
+        fieldId: 'oneToManyC',
+        oldValue: ['C1', 'C2'],
+        newValue: ['CX', 'C2'],
+      },
       {
-        tableId: 'table2',
-        recordId: 'record2',
-        fieldId: 'field2',
-        oldValue: 'oldValue4',
-        newValue: 'oldValue2',
-      }, // Assuming the computation is {field1}
+        tableId: 'B',
+        recordId: 'idB1',
+        fieldId: 'fieldB',
+        oldValue: 'C1, C2',
+        newValue: 'CX, C2',
+      },
+      {
+        tableId: 'A',
+        recordId: 'idA1',
+        fieldId: 'oneToManyB',
+        oldValue: ['C1, C2', 'C3'],
+        newValue: ['CX, C2', 'C3'],
+      },
+      {
+        tableId: 'C',
+        recordId: 'idC1',
+        fieldId: 'manyToOneB',
+        oldValue: 'C1, C2',
+        newValue: 'CX, C2',
+      },
+      {
+        tableId: 'C',
+        recordId: 'idC2',
+        fieldId: 'manyToOneB',
+        oldValue: 'C1, C2',
+        newValue: 'CX, C2',
+      },
     ]);
   });
 });
