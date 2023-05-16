@@ -2,6 +2,7 @@ import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
 import type { IAppConfig } from './app.interface';
+import { AttachmentsModule } from './features/attachments/attachments.module';
 import { ChatModule } from './features/chat/chat.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
@@ -21,6 +22,7 @@ export class AppModule {
         FileTreeModule,
         TableOpenApiModule,
         ChatModule,
+        AttachmentsModule,
         ...(process.env.NODE_ENV !== 'production' ? [WsModule] : []),
       ],
     };
