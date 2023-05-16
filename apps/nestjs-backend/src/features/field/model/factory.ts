@@ -11,6 +11,7 @@ import {
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from './create-field.ro';
+import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
@@ -64,13 +65,22 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
         isComputed: true,
         calculatedType: FieldType.Link,
         cellValueType:
-          options.relationship === Relationship.OneMany
+          options.relationship === Relationship.ManyOne
             ? CellValueType.String
             : CellValueType.Array,
         cellValueElementType:
-          options.relationship === Relationship.OneMany ? undefined : CellValueType.String,
+          options.relationship === Relationship.ManyOne ? undefined : CellValueType.String,
         dbFieldType: DbFieldType.Json,
       } as LinkFieldDto);
+    }
+    case FieldType.Formula: {
+      return plainToInstance(FormulaFieldDto, {
+        ...fieldDto,
+        isComputed: true,
+        calculatedType: FieldType.Formula,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      } as FormulaFieldDto);
     }
     case FieldType.Attachment:
     case FieldType.Button:
@@ -91,7 +101,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
     case FieldType.Currency:
     case FieldType.Percent:
     case FieldType.Checkbox:
-    case FieldType.Formula:
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
       return plainToInstance(SingleLineTextFieldDto, {
@@ -113,16 +122,17 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     name: fieldRaw.name,
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
-    options: JSON.parse(fieldRaw.options as string) || undefined,
+    options: fieldRaw.options && JSON.parse(fieldRaw.options as string),
     notNull: fieldRaw.notNull || undefined,
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
-    defaultValue: JSON.parse(fieldRaw.defaultValue as string) || undefined,
+    defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     calculatedType: fieldRaw.calculatedType as FieldType,
     cellValueType: fieldRaw.cellValueType as CellValueType,
+    cellValueElementType: fieldRaw.cellValueElementType as CellValueType,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
-    columnMeta: JSON.parse(fieldRaw.columnMeta as string),
+    columnMeta: fieldRaw.columnMeta && JSON.parse(fieldRaw.columnMeta as string),
   };
 
   switch (field.type) {
@@ -136,6 +146,8 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
       return plainToInstance(MultipleSelectFieldDto, field);
     case FieldType.Link:
       return plainToInstance(LinkFieldDto, field);
+    case FieldType.Formula:
+      return plainToInstance(FormulaFieldDto, field);
     case FieldType.Attachment:
     case FieldType.Button:
     case FieldType.CreatedBy:
@@ -155,7 +167,6 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     case FieldType.Currency:
     case FieldType.Percent:
     case FieldType.Checkbox:
-    case FieldType.Formula:
     case FieldType.Rollup:
     case FieldType.MultipleLookupValues:
       throw new Error('did not implement yet');

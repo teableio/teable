@@ -2,6 +2,7 @@ import type { IFieldSnapshot } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
@@ -18,16 +19,18 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
         return plainToInstance(NumberField, field);
       case FieldType.SingleSelect:
         return plainToInstance(SingleSelectField, field);
+      case FieldType.MultipleSelect:
+        return plainToInstance(MultipleSelectField, field);
+      case FieldType.Link:
+        return plainToInstance(LinkField, field);
+      case FieldType.Formula:
+        return plainToInstance(FormulaField, field);
       case FieldType.Attachment:
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
       case FieldType.LastModifiedBy:
       case FieldType.LongText:
-      case FieldType.MultipleSelect:
-        return plainToInstance(MultipleSelectField, field);
-      case FieldType.Link:
-        return plainToInstance(LinkField, field);
       case FieldType.PhoneNumber:
       case FieldType.URL:
       case FieldType.User:
@@ -41,7 +44,6 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Currency:
       case FieldType.Percent:
       case FieldType.Checkbox:
-      case FieldType.Formula:
       case FieldType.Rollup:
       case FieldType.MultipleLookupValues:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

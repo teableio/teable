@@ -25,6 +25,13 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
   cellValueType!: CellValueType;
 
   @ApiPropertyOptional({
+    description: 'The inner element data type of a array type cellValue.',
+    enum: CellValueType,
+    example: CellValueType.String,
+  })
+  cellValueElementType!: CellValueType;
+
+  @ApiPropertyOptional({
     description: `true if this field is computed, false otherwise. A field is "computed" if it's value is not set by user input (e.g. autoNumber, formula, etc.).`,
     example: false,
   })

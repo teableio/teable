@@ -5,7 +5,7 @@ import { FieldType, DbFieldType, CellValueType, NumberFieldCore } from '../model
 import { evaluate } from './evaluate';
 
 describe('EvalVisitor', () => {
-  let fieldContext = {};
+  let fieldContext: { [fieldId: string]: FieldCore } = {};
   const record: IRecord = {
     id: 'recTest',
     fields: {
