@@ -11,7 +11,7 @@ import { createFieldInstanceByRo } from '../field/model/factory';
 import type { ITopoItemWithRecords } from './reference.service';
 import { ReferenceService } from './reference.service';
 
-describe('ReferenceService', () => {
+describe('ReferenceService data retrieval', () => {
   let service: ReferenceService;
   let prisma: PrismaService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -297,7 +297,7 @@ describe('ReferenceService', () => {
   });
 });
 
-describe('calculation', () => {
+describe('ReferenceService calculation', () => {
   let service: ReferenceService;
   let fieldMap: { [oneToMany: string]: IFieldInstance };
   let fieldId2TableId: { [fieldId: string]: string };

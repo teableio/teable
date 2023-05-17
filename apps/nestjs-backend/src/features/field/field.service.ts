@@ -222,6 +222,7 @@ export class FieldService implements IAdapterService {
       type: field.type as FieldType,
       calculatedType: field.calculatedType as FieldType,
       cellValueType: field.cellValueType as CellValueType,
+      cellValueElementType: field.cellValueElementType as CellValueType,
       dbFieldType: field.dbFieldType as DbFieldType,
       options: JSON.parse(field.options as string),
       defaultValue: JSON.parse(field.defaultValue as string),
