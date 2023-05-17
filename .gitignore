@@ -72,3 +72,7 @@ yarn-error.log*
 # Deployment platforms
 
 .vercel
+
+# LocalStorage assets
+
+**/.assets

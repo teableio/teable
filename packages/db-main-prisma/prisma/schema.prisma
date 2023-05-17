@@ -150,3 +150,15 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("auth_verification_tokens")
 }
+
+model Attachments {
+  id          String  @id @default(cuid())
+  token       String  @unique
+  size        Int
+  mimetype    String
+  path        String
+  deletedTime DateTime? @map("deleted_time")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("attachments")
+}
