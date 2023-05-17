@@ -6712,6 +6712,7 @@ __metadata:
     vite: "npm:3.2.1"
     vite-tsconfig-paths: "npm:3.5.2"
     vitest: "npm:0.24.3"
+    zod: "npm:3.21.4"
   languageName: unknown
   linkType: soft
 
@@ -28970,6 +28971,13 @@ __metadata:
   version: 3.19.1
   resolution: "zod@npm:3.19.1"
   checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
+  languageName: node
+  linkType: hard
+
+"zod@npm:3.21.4":
+  version: 3.21.4
+  resolution: "zod@npm:3.21.4"
+  checksum: f25f384f380c49d05a11541093a8d26f07688aa39f6a8adbd6dc338b43f63617bf138734fb1b79800ba374523f6a1bb561f7d401b3cc051fed2715eae5577d0a
   languageName: node
   linkType: hard
 

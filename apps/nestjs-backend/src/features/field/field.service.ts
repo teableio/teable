@@ -12,6 +12,10 @@ import type {
   DbFieldType,
 } from '@teable-group/core';
 import { OpName, nullsToUndefined } from '@teable-group/core';
+import type { ISetFieldDefaultValueOpContext } from '@teable-group/core/src/op-builder/field/set-field-default-value';
+import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
+import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
+import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
@@ -296,7 +300,15 @@ export class FieldService implements IAdapterService {
     version: number,
     _tableId: string,
     fieldId: string,
-    opContexts: (ISetColumnMetaOpContext | ISetFieldNameOpContext | IAddColumnMetaOpContext)[]
+    opContexts: (
+      | ISetColumnMetaOpContext
+      | ISetFieldNameOpContext
+      | IAddColumnMetaOpContext
+      | ISetFieldDescriptionOpContext
+      | ISetFieldTypeOpContext
+      | ISetFieldOptionsOpContext
+      | ISetFieldDefaultValueOpContext
+    )[]
   ) {
     for (const opContext of opContexts) {
       switch (opContext.name) {
@@ -305,6 +317,38 @@ export class FieldService implements IAdapterService {
           await prisma.field.update({
             where: { id: fieldId },
             data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetFieldDescription: {
+          const { newDescription } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { description: newDescription, version },
+          });
+          return;
+        }
+        case OpName.SetFieldType: {
+          const { newType } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { type: newType, version },
+          });
+          return;
+        }
+        case OpName.SetFieldOptions: {
+          const { newOptions } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { options: JSON.stringify(newOptions), version },
+          });
+          return;
+        }
+        case OpName.SetFieldDefaultValue: {
+          const { newDefaultValue } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { defaultValue: JSON.stringify(newDefaultValue), version },
           });
           return;
         }

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { FieldType, DbFieldType } from '../constant';
 import type { CellValueType } from '../field';
 import { FieldCore } from '../field';
@@ -7,9 +8,9 @@ export class SingleLineTextFieldCore extends FieldCore {
 
   dbFieldType!: DbFieldType.Text;
 
-  options?: undefined;
+  options = null;
 
-  defaultValue?: string;
+  defaultValue: string | null = null;
 
   calculatedType!: FieldType.SingleLineText;
 
@@ -18,7 +19,7 @@ export class SingleLineTextFieldCore extends FieldCore {
   isComputed!: false;
 
   static defaultOptions() {
-    return undefined;
+    return null;
   }
 
   cellValue2String(cellValue: string) {
@@ -38,5 +39,13 @@ export class SingleLineTextFieldCore extends FieldCore {
       return this.convertStringToCellValue(value);
     }
     return String(value);
+  }
+
+  validateOptions() {
+    return z.undefined().nullable().safeParse(this.options);
+  }
+
+  validateDefaultValue() {
+    return z.string().optional().nullable().safeParse(this.defaultValue);
   }
 }

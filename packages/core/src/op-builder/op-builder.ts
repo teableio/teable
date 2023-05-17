@@ -2,7 +2,11 @@ import type { IOtOperation } from '../models';
 import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
+import { SetFieldDefaultValueBuilder } from './field/set-field-default-value';
+import { SetFieldDescriptionBuilder } from './field/set-field-description';
 import { SetFieldNameBuilder } from './field/set-field-name';
+import { SetFieldOptionsBuilder } from './field/set-field-options';
+import { SetFieldTypeBuilder } from './field/set-field-type';
 import { AddRecordBuilder } from './record/add-record';
 import { DeleteRecordBuilder } from './record/delete-record';
 import { SetRecordBuilder } from './record/set-record';
@@ -33,6 +37,10 @@ export class OpBuilder {
     addColumnMeta: new AddColumnMetaBuilder(),
     setColumnMeta: new SetColumnMetaBuilder(),
     setFieldName: new SetFieldNameBuilder(),
+    setFieldDescription: new SetFieldDescriptionBuilder(),
+    setFieldOptions: new SetFieldOptionsBuilder(),
+    setFieldDefaultValue: new SetFieldDefaultValueBuilder(),
+    setFieldType: new SetFieldTypeBuilder(),
 
     setViewName: new SetViewNameBuilder(),
 

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -13,6 +14,7 @@ import { FieldService } from '../field.service';
 import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';
 import { GetFieldsRo } from '../model/get-fields.ro';
+import { UpdateFieldRo } from '../model/update-field.ro';
 import { FieldOpenApiService } from './field-open-api.service';
 import { FieldResponseVo } from './field-response.vo';
 import { FieldPipe } from './field.pipe';
@@ -74,5 +76,21 @@ export class FieldOpenApiController {
   ) {
     await this.fieldOpenApiService.createField(tableId, fieldInstance);
     return responseWrap(null);
+  }
+
+  @Put(':fieldId')
+  @ApiOperation({ summary: 'Update field by id' })
+  @ApiOkResponse({ description: 'The field has been successfully updated.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBody({
+    type: UpdateFieldRo,
+  })
+  async updateFieldById(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body() updateFieldRo: UpdateFieldRo
+  ) {
+    const res = await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
+    return responseWrap(res);
   }
 }

@@ -1,6 +1,8 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
 
-const lightTheme = {};
+const lightTheme = {
+  bgHeader: '#F7F7F8',
+};
 
 const darkTheme = {
   accentColor: '#8c96ff',
