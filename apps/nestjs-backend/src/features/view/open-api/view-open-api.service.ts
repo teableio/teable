@@ -34,17 +34,15 @@ export class ViewOpenApiService {
 
   async createView2Ops(tableId: string, viewInstance: IViewInstance) {
     const viewAggregate = await this.prismaService.view.aggregate({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       _max: { order: true },
     });
 
     const maxViewOrder = viewAggregate._max.order || 0;
 
-    return OpBuilder.creator.addView.build(
-      {
-        ...viewInstance,
-      },
-      maxViewOrder + 1
-    );
+    return OpBuilder.creator.addView.build({
+      ...viewInstance,
+      order: maxViewOrder + 1,
+    });
   }
 }

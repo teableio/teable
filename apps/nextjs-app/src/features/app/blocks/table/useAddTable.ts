@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 export function useAddTable() {
   const space = useSpace();
   const tables = useTables();
-  const tableName = tables[tables.length - 1]?.name + ' ' + tables.length;
+  const tableName = 'new table ' + tables.length;
   const router = useRouter();
 
   return useCallback(async () => {

@@ -12,6 +12,10 @@ import type {
   ISnapshotBase,
 } from '@teable-group/core';
 import { OpName, nullsToUndefined } from '@teable-group/core';
+import type { ISetFieldDefaultValueOpContext } from '@teable-group/core/src/op-builder/field/set-field-default-value';
+import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
+import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
+import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
@@ -37,9 +41,11 @@ export class FieldService implements AdapterService {
   async multipleGenerateValidDbFieldName(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    names: string[]
+    field: IFieldInstance[]
   ): Promise<string[]> {
-    const validNames = names.map((name) => convertNameToValidCharacter(name, 50));
+    const validNames = field.map(
+      ({ id, name }) => `${convertNameToValidCharacter(name, 50)}_${id}`
+    );
     let newValidNames = [...validNames];
     let index = 1;
 
@@ -104,12 +110,12 @@ export class FieldService implements AdapterService {
     fieldInstances: IFieldInstance[]
   ): Promise<IColumnMeta[]> {
     const views = await prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
 
     const fieldsData = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
 
@@ -141,7 +147,7 @@ export class FieldService implements AdapterService {
     const dbFieldNames = await this.multipleGenerateValidDbFieldName(
       prisma,
       tableId,
-      fieldInstances.map((dto) => dto.name)
+      fieldInstances
     );
 
     // maintain columnsMeta by view
@@ -240,14 +246,14 @@ export class FieldService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
     }
 
     const fieldsPlain = await this.prismaService.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
     });
 
     const fields = fieldsPlain.map(this.rawField2FieldObj);
@@ -284,12 +290,27 @@ export class FieldService implements AdapterService {
     // TODO: 3. add order in every columnMeta view
   }
 
+  async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+    await prisma.field.update({
+      where: { id: fieldId },
+      data: { deletedTime: new Date() },
+    });
+  }
+
   async update(
     prisma: Prisma.TransactionClient,
     version: number,
     _tableId: string,
     fieldId: string,
-    opContexts: (ISetColumnMetaOpContext | ISetFieldNameOpContext | IAddColumnMetaOpContext)[]
+    opContexts: (
+      | ISetColumnMetaOpContext
+      | ISetFieldNameOpContext
+      | IAddColumnMetaOpContext
+      | ISetFieldDescriptionOpContext
+      | ISetFieldTypeOpContext
+      | ISetFieldOptionsOpContext
+      | ISetFieldDefaultValueOpContext
+    )[]
   ) {
     for (const opContext of opContexts) {
       switch (opContext.name) {
@@ -298,6 +319,38 @@ export class FieldService implements AdapterService {
           await prisma.field.update({
             where: { id: fieldId },
             data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetFieldDescription: {
+          const { newDescription } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { description: newDescription, version },
+          });
+          return;
+        }
+        case OpName.SetFieldType: {
+          const { newType } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { type: newType, version },
+          });
+          return;
+        }
+        case OpName.SetFieldOptions: {
+          const { newOptions } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { options: JSON.stringify(newOptions), version },
+          });
+          return;
+        }
+        case OpName.SetFieldDefaultValue: {
+          const { newDefaultValue } = opContext;
+          await prisma.field.update({
+            where: { id: fieldId },
+            data: { defaultValue: JSON.stringify(newDefaultValue), version },
           });
           return;
         }
@@ -377,14 +430,14 @@ export class FieldService implements AdapterService {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await prisma.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
     }
 
     const fieldsPlain = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
 

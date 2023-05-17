@@ -80,7 +80,7 @@ export class RecordOpenApiService {
     fieldKeyType: FieldKeyType | undefined
   ) {
     const allFields = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
     });
 
     return allFields.reduce<{ [name: string]: IFieldInstance }>((pre, cur) => {
@@ -107,8 +107,7 @@ export class RecordOpenApiService {
     return createRecordsDto.records.map((record) => {
       const recordId = generateRecordId();
       const snapshot = OpBuilder.creator.addRecord.build({
-        record: { id: recordId, fields: {} },
-        recordOrder: {},
+        record: { id: recordId, fields: {}, recordOrder: {} },
       });
 
       const setRecordOps = Object.entries(record.fields).map(([fieldNameOrId, value]) => {

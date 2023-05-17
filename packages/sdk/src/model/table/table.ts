@@ -20,7 +20,7 @@ import {
   OpBuilder,
   TableCore,
 } from '@teable-group/core';
-import type { Connection, Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
 export class Table extends TableCore {
@@ -74,8 +74,16 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
+  static async updateFieldById(params: IFieldRo & { id: string; tableId: string }): Promise<void> {
+    const { id, tableId, ...fieldRo } = params;
+    const response = await axios.put<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/field/${id}`,
+      fieldRo
+    );
+    return response.data.data;
+  }
+
   protected doc!: Doc<ITableSnapshot>;
-  protected connection!: Connection;
 
   async updateName(name: string) {
     const fieldOperation = OpBuilder.editor.setTableName.build({
@@ -90,15 +98,17 @@ export class Table extends TableCore {
     });
   }
 
-  async createView(name: string, type: ViewType) {
+  async createView(name: string, type: ViewType, order: number) {
     const data: IViewVo = {
       id: generateViewId(),
       name,
       type,
+      order,
     };
 
     const createSnapshot = OpBuilder.creator.addView.build(data);
-    const doc = this.connection.get(`${IdPrefix.View}_${this.id}`, data.id);
+    const connection = this.doc.connection;
+    const doc = connection.get(`${IdPrefix.View}_${this.id}`, data.id);
     return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
@@ -113,11 +123,12 @@ export class Table extends TableCore {
       record: {
         id: generateRecordId(),
         fields: recordFields,
+        recordOrder: {},
       },
-      recordOrder: {},
     };
     const createSnapshot = OpBuilder.creator.addRecord.build(recordSnapshot);
-    const doc = this.connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
+    const connection = this.doc.connection;
+    const doc = connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
     return new Promise<Doc<IRecordSnapshot>>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
@@ -128,5 +139,18 @@ export class Table extends TableCore {
 
   async createField(fieldRo: IFieldRo) {
     return Table.createField({ ...fieldRo, tableId: this.id });
+  }
+
+  async updateOrder(order: number) {
+    const fieldOperation = OpBuilder.editor.setTableOrder.build({
+      newOrder: order,
+      oldOrder: this.order,
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      this.doc.submitOp([fieldOperation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
   }
 }

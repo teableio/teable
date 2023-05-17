@@ -29,7 +29,7 @@ export class ViewService implements AdapterService {
     viewId: string
   ) {
     const fields = await prisma.field.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
 
@@ -50,15 +50,15 @@ export class ViewService implements AdapterService {
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createViewRo: CreateViewRo & { id?: string },
-    order?: number
+    createViewRo: CreateViewRo & { id?: string }
   ) {
     const { id, name, description, type, options, sort, filter, group } = createViewRo;
+    let order = createViewRo.order;
     const viewId = id || generateViewId();
 
     if (!order) {
       const viewAggregate = await prisma.view.aggregate({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         _max: { order: true },
       });
       order = (viewAggregate._max.order || 0) + 1;
@@ -133,15 +133,22 @@ export class ViewService implements AdapterService {
 
   async getViews(tableId: string): Promise<ViewVo[]> {
     const viewRaws = await this.prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
     });
 
     return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as ViewVo);
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
-    const { view, order } = snapshot;
-    await this.createViewTransaction(prisma, tableId, view as CreateViewRo, order);
+    const { view } = snapshot;
+    await this.createViewTransaction(prisma, tableId, view as CreateViewRo);
+  }
+
+  async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {
+    await prisma.view.update({
+      where: { id: viewId },
+      data: { deletedTime: new Date() },
+    });
   }
 
   async update(
@@ -198,7 +205,7 @@ export class ViewService implements AdapterService {
 
   async getDocIdsByQuery(prisma: Prisma.TransactionClient, tableId: string, _query: unknown) {
     const views = await prisma.view.findMany({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
       orderBy: { order: 'asc' },
     });

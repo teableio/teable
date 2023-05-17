@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ISetTableNameOpContext,
+  ISetTableOrderOpContext,
   ISnapshotBase,
   ITableSnapshot,
   ITableVo,
@@ -44,7 +45,7 @@ export class TableService implements AdapterService {
       description: snapshot.table.description,
       icon: snapshot.table.icon,
       dbTableName,
-      order: snapshot.order,
+      order: snapshot.table.order,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
       version: 1,
@@ -66,8 +67,7 @@ export class TableService implements AdapterService {
     return await this.prismaService.$transaction(async (prisma) => {
       const count = await prisma.tableMeta.count();
       return await this.createTable(prisma, {
-        table: { ...createTableDto, id: tableId },
-        order: count,
+        table: { ...createTableDto, id: tableId, order: count },
       });
     });
   }
@@ -75,6 +75,7 @@ export class TableService implements AdapterService {
   async getTables(): Promise<ITableVo[]> {
     const tablesMeta = await this.prismaService.tableMeta.findMany({
       orderBy: { order: 'asc' },
+      where: { deletedTime: null },
     });
 
     return tablesMeta.map((tableMeta) => ({
@@ -119,7 +120,7 @@ export class TableService implements AdapterService {
   async getSSRSnapshot(tableId: string, viewId?: string) {
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId },
+        where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
@@ -145,7 +146,7 @@ export class TableService implements AdapterService {
 
   async getDefaultViewId(tableId: string) {
     return this.prismaService.view.findFirstOrThrow({
-      where: { tableId },
+      where: { tableId, deletedTime: null },
       select: { id: true },
     });
   }
@@ -175,23 +176,40 @@ export class TableService implements AdapterService {
     await this.createDBTable(prisma, snapshot);
   }
 
+  async del(prisma: Prisma.TransactionClient, _collection: string, tableId: string) {
+    await prisma.tableMeta.update({
+      where: { id: tableId },
+      data: { deletedTime: new Date() },
+    });
+  }
+
   async update(
     prisma: Prisma.TransactionClient,
     version: number,
     _collection: string,
     tableId: string,
-    opContexts: ISetTableNameOpContext[]
+    opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext)[]
   ) {
     for (const opContext of opContexts) {
-      if (opContext.name === OpName.SetTableName) {
-        const { newName } = opContext;
-        await prisma.tableMeta.update({
-          where: { id: tableId },
-          data: { name: newName, version },
-        });
-        return;
+      switch (opContext.name) {
+        case OpName.SetTableName: {
+          const { newName } = opContext;
+          await prisma.tableMeta.update({
+            where: { id: tableId },
+            data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetTableOrder: {
+          const { newOrder } = opContext;
+          await prisma.tableMeta.update({
+            where: { id: tableId },
+            data: { order: newOrder, version },
+          });
+          return;
+        }
       }
-      throw new Error(`Unknown context ${opContext.name} for table update`);
+      throw new Error(`Unknown context ${opContext} for table update`);
     }
   }
 
@@ -225,6 +243,7 @@ export class TableService implements AdapterService {
 
   async getDocIdsByQuery(prisma: Prisma.TransactionClient, _collection: string, _query: unknown) {
     const tables = await prisma.tableMeta.findMany({
+      where: { deletedTime: null },
       select: { id: true },
       orderBy: { order: 'asc' },
     });

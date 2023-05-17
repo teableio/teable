@@ -20,6 +20,7 @@
     "dev": "tsc --watch",
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
+    "antlr4ts": "antlr4ts -visitor -no-listener src/formula/parser/*.g4",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
     "check-size": "size-limit",
@@ -30,9 +31,11 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
+    "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
     "lodash": "4.17.21",
-    "reflect-metadata": "0.1.13"
+    "reflect-metadata": "0.1.13",
+    "zod": "3.21.4"
   },
   "devDependencies": {
     "@size-limit/file": "8.1.0",
@@ -41,6 +44,7 @@
     "@types/node": "18.11.7",
     "@vitest/coverage-istanbul": "0.24.3",
     "@vitest/ui": "0.24.3",
+    "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.0.1",
     "eslint": "8.26.0",

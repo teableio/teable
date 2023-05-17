@@ -1,6 +1,7 @@
 export enum OpName {
   AddTable = 'addTable',
   SetTableName = 'setTableName',
+  SetTableOrder = 'setTableOrder',
 
   SetRecord = 'setRecord',
   SetRecordOrder = 'setRecordOrder',
@@ -18,6 +19,7 @@ export enum OpName {
   SetFieldNotNull = 'setFieldNotNull',
   SetFieldUnique = 'setFieldUnique',
   SetFieldDefaultValue = 'setFieldDefaultValue',
+  SetFieldType = 'setFieldType',
 
   AddView = 'addView',
   SetViewName = 'setViewName',

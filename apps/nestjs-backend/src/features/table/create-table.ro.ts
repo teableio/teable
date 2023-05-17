@@ -44,4 +44,9 @@ export class CreateTableRo implements ICreateTableRo {
     type: CreateRecordsRo,
   })
   rows?: CreateRecordsRo;
+
+  @ApiPropertyOptional({
+    description: 'The order of the table. If it is empty, table will be put to the last one.',
+  })
+  order?: number;
 }

@@ -12,7 +12,7 @@ export enum CellFormat {
 }
 
 export class RecordCore {
-  constructor(protected fields: { [fieldId: string]: FieldCore }, protected data: IRecordFields) {}
+  constructor(protected fieldMap: { [fieldId: string]: FieldCore }) {}
 
   commentCount!: number;
 
@@ -24,11 +24,13 @@ export class RecordCore {
 
   name!: string;
 
+  fields!: IRecordFields;
+
   getCellValue(fieldId: string): unknown {
-    return this.data[fieldId];
+    return this.fields[fieldId];
   }
 
   getCellValueAsString(fieldId: string) {
-    this.fields[fieldId].cellValue2String(this.data[fieldId]);
+    this.fieldMap[fieldId].cellValue2String(this.fields[fieldId]);
   }
 }

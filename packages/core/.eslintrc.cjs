@@ -11,7 +11,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns()],
+  ignorePatterns: [...getDefaultIgnorePatterns(), 'src/formula/parser'],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/sonar',

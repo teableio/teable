@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiHideProperty, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IRecordFields } from '@teable-group/core';
 import type { IRecord, IRecordsVo, IRecordVo } from '@teable-group/core';
 
@@ -33,6 +33,9 @@ export class Record implements IRecord {
     description: 'Last modified by, user name',
   })
   lastModifiedBy?: string;
+
+  @ApiHideProperty()
+  recordOrder!: { [viewId: string]: number };
 }
 
 export class RecordVo implements IRecordVo {

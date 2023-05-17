@@ -9,7 +9,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { ApiResponse } from 'src/utils/api-response';
-import { responseWrap } from '../../../utils/api-response';
+import { responseWrap } from 'src/utils/api-response';
 import { CreateViewRo } from '../model/create-view.ro';
 import { IViewInstance } from '../model/factory';
 import { ViewVo } from '../model/view.vo';

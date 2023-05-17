@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { IAppConfig } from './app.interface';
+import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { ChatModule } from './features/chat/chat.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
@@ -23,6 +24,7 @@ export class AppModule {
         FileTreeModule,
         TableOpenApiModule,
         ChatModule,
+        AttachmentsModule,
         AutomationModule,
         EventEmitterModule.forRoot({
           // set this to `true` to use wildcards

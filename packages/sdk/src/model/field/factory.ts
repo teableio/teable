@@ -1,4 +1,4 @@
-import type { IFieldVo, IFieldSnapshot } from '@teable-group/core';
+import type { IFieldSnapshot } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
@@ -6,7 +6,8 @@ import { NumberField } from './number.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
 
-export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldSnapshot>) {
+export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFieldSnapshot>) {
+  const field = fieldSnapshot.field;
   const instance = (() => {
     switch (field.type) {
       case FieldType.SingleLineText:
