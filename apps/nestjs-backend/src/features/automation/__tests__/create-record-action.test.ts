@@ -2,16 +2,16 @@ import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { NextModule } from '../../next/next.module';
-import type { IMailSenderSchema } from '../actions';
-import { MailSender } from '../actions';
+import type { ICreateRecordSchema } from '../actions';
+import { CreateRecord } from '../actions';
 import { AutomationModule } from '../automation.module';
 import { JsonRulesEngine } from '../engine/json-rules-engine.class';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 jest.setTimeout(100000000);
-describe('Mail-Sender Action Test', () => {
+describe('Create-Record Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
-  let mailSender: MailSender;
+  let createRecord: CreateRecord;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -21,55 +21,53 @@ describe('Mail-Sender Action Test', () => {
     moduleRef.useLogger(new ConsoleLogger());
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
-    mailSender = await moduleRef.resolve<MailSender>(MailSender);
+    createRecord = await moduleRef.resolve<CreateRecord>(CreateRecord);
   });
 
   it('should call onSuccess and create records', async () => {
-    jsonRulesEngine.addRule(ActionTypeEnums.MailSender, {
+    jsonRulesEngine.addRule(ActionTypeEnums.CreateRecord, {
       id: 'wac3lzmmwSKWmtYoOF6',
       params: {
-        to: {
-          type: 'array',
-          elements: [
+        tableId: {
+          type: 'text',
+          value: 'tbluD1SibWWuWFza6YL',
+        },
+        fields: {
+          type: 'object',
+          properties: [
             {
-              type: 'template',
-              elements: [
-                {
-                  type: 'text',
-                  value: 'penganpingprivte@gmail.com',
-                },
-              ],
+              key: {
+                type: 'text',
+                value: 'fldkTOW9IsLtIHWKrDE',
+              },
+              value: {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'text',
+                    value: 'ABC',
+                  },
+                ],
+              },
             },
             {
-              type: 'template',
-              elements: [
-                {
-                  type: 'text',
-                  value: 'penganpingprivte@gmail.com',
-                },
-              ],
+              key: {
+                type: 'text',
+                value: 'fld9KPv3xCowINhn3Oy',
+              },
+              value: {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'text',
+                    value: '123',
+                  },
+                ],
+              },
             },
           ],
         },
-        subject: {
-          type: 'template',
-          elements: [
-            {
-              type: 'text',
-              value: 'A test email from `table`',
-            },
-          ],
-        },
-        message: {
-          type: 'template',
-          elements: [
-            {
-              type: 'text',
-              value: 'first row\n1 <br>br\nsss',
-            },
-          ],
-        },
-      } as IMailSenderSchema,
+      } as ICreateRecordSchema,
     });
 
     const { results } = await jsonRulesEngine.fire();

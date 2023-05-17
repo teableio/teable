@@ -14,7 +14,7 @@ import { initApp } from './init-app';
 
 describe('AutomationController (e2e)', () => {
   let app: INestApplication;
-  let tableId = 'tblDkDsnRxTPnagVpYB';
+  let tableId = 'tbluD1SibWWuWFza6YL';
 
   beforeAll(async () => {
     app = await initApp();
@@ -85,8 +85,6 @@ describe('AutomationController (e2e)', () => {
       .get(`/api/workflow/${workflowId}`)
       .send(actionRo)
       .expect(200);
-
-    console.log(result.body.data);
 
     expect(result.body.data).toMatchObject({
       id: workflowId,

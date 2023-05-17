@@ -6439,6 +6439,7 @@ __metadata:
     "@types/nodemailer": "npm:6.4.7"
     "@types/supertest": "npm:2.0.12"
     "@types/ws": "npm:8.5.3"
+    ajv: "npm:8.12.0"
     axios: "npm:1.1.3"
     better-sqlite3: "npm:8.0.1"
     class-transformer: "npm:0.5.1"
@@ -8519,6 +8520,18 @@ __metadata:
   peerDependencies:
     ajv: ^8.8.2
   checksum: 02ccd59aef930407a1aa60a422d5baf892a53f98f02d39d93a09c1e3aaa4f47e475765f0d8a942a251c7ddf2db4aca9754717cb9eb2650b986a21c2a97ea3bed
+  languageName: node
+  linkType: hard
+
+"ajv@npm:8.12.0":
+  version: 8.12.0
+  resolution: "ajv@npm:8.12.0"
+  dependencies:
+    fast-deep-equal: "npm:^3.1.1"
+    json-schema-traverse: "npm:^1.0.0"
+    require-from-string: "npm:^2.0.2"
+    uri-js: "npm:^4.2.2"
+  checksum: adab5a15cfce05aa97767b5f01da510f79f351021c643b5593b001dc5063aac3822d9265da94f7e39fd32cc4054277e43728aa522f83d82daca50858a5c29361
   languageName: node
   linkType: hard
 

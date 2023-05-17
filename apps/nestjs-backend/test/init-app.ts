@@ -1,14 +1,12 @@
 import { ConsoleLogger } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { json, urlencoded } from 'express';
-import { AutomationModule } from 'src/features/automation/automation.module';
 import { TableOpenApiModule } from 'src/features/table/open-api/table-open-api.module';
 
 export async function initApp() {
   const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [TableOpenApiModule, AutomationModule, EventEmitterModule.forRoot()],
+    imports: [TableOpenApiModule],
   }).compile();
 
   const app = moduleFixture.createNestApplication();

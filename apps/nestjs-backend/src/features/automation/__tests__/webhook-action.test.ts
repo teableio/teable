@@ -1,135 +1,112 @@
-import type { IWebhookRequest } from '../actions/webhook';
-import { Webhook } from '../actions/webhook';
-import engine from '../engine/json-rules-engine';
+import { ConsoleLogger } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { Test } from '@nestjs/testing';
+import { NextModule } from '../../next/next.module';
+import type { IWebhookSchema } from '../actions';
+import { Webhook } from '../actions';
+import { AutomationModule } from '../automation.module';
+import { JsonRulesEngine } from '../engine/json-rules-engine.class';
+import { ActionTypeEnums } from '../enums/action-type.enum';
 
 jest.setTimeout(100000000);
 describe('Webhook Action Test', () => {
-  const jsonNg = engine();
+  let jsonRulesEngine: JsonRulesEngine;
+  let webhook: Webhook;
 
-  const mockData = {
-    id: 'wflRKLYPWS1Hrp0MD',
-    name: 'Automation 1',
-    description: null,
-    deploymentStatus: 'deployed',
-    trigger: {
-      id: 'wtrdS3OIXzjyRyvnP',
-      triggerType: 'ADD_RECORD',
-      description: null,
-      inputExpressions: {
-        tableId: 'tblwEp45tdvwTxiUl',
-      },
-    },
-    actions: {
-      wacUjOrjDfSALAaZCL8: {
-        id: 'wacUjOrjDfSALAaZCL8',
-        actionType: 'WEBHOOK',
-        description: null,
-        inputExpressions: {
-          url: ['https://127.0.0.1:3000/api/table/tabASK1p8CHBPKYdu/record'],
-          body: [
-            '{\n',
-            '  "records": [\n',
-            '  {\n',
-            '    "fields": {\n',
-            '      "name": "tom"\n',
-            '    }\n',
-            '  }\n',
-            ']\n',
-            '}',
-          ],
-          method: 'POST',
-          headers: [
-            {
-              key: 'Authorization',
-              value: [' Bearer usk4vL5J4iGQW3qYV9SlVYH'],
-            },
-            {
-              key: 'Content-Type',
-              value: ['application/json'],
-            },
-          ],
-          responseParams: [
-            {
-              name: 'computeResult1',
-              path: 'data.records[0].fields.name',
-            },
-          ],
-        },
-        testResult: null,
-        nextActionId: 'wacUjOrjDfSALAaZCL9',
-      },
-      wacUjOrjDfSALAaZCL9: {
-        id: 'wacUjOrjDfSALAaZCL9',
-        actionType: 'WEBHOOK',
-        description: null,
-        inputExpressions: {
-          url: [
-            'https://api.vika.cn/fusion/v1/datasheets/dst1ASK1p8CHBPKYdu/records?viewId=viwVJPHoGioW7&fieldKey=name',
-          ],
-          body: [
-            '{\n',
-            '  "records": [\n',
-            '  {\n',
-            '    "fields": {\n',
-            '      "数字A": $.webhook_abc_1_output.data.computeResult1,\n',
-            // '      "数字A": $.webhook_abc_1_output.data.data.records[0].fields.结果1,\n',
-            '      "数字B": 1\n',
-            '    }\n',
-            '  }\n',
-            '],\n',
-            '  "fieldKey": "name"\n',
-            '}',
-          ],
-          method: 'POST',
-          headers: [
-            {
-              key: 'Authorization',
-              value: [' Bearer usk4vL5J4iGQW3qYV9SlVYH'],
-            },
-            {
-              key: 'Content-Type',
-              value: ['application/json'],
-            },
-            {
-              key: 'demo',
-              value: [
-                '"$.webhook_abc_1_output.data.computeResult1"',
-                '$.webhook_abc_1_output.data.computeResult1',
-              ],
-            },
-          ],
-          responseParams: [],
-        },
-        testResult: null,
-        nextActionId: null,
-      },
-    },
-  };
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AutomationModule, NextModule.forRoot({ port: 3000 }), EventEmitterModule.forRoot()],
+    }).compile();
 
-  it('a single unrelated Action', async () => {
-    const webhookAction = new Webhook(
-      mockData.actions.wacUjOrjDfSALAaZCL8.id,
-      mockData.actions.wacUjOrjDfSALAaZCL8.inputExpressions as IWebhookRequest,
-      1
-    );
-    jsonNg.addRule(webhookAction);
+    moduleRef.useLogger(new ConsoleLogger());
 
-    await jsonNg.run();
+    jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
+    webhook = await moduleRef.resolve<Webhook>(Webhook);
   });
 
-  it('Context-dependent Actions', async () => {
-    const length = Object.entries(mockData.actions).length;
-    Object.entries(mockData.actions).forEach(([key, value], index) => {
-      let action: any = undefined;
-      if ('WEBHOOK' === value.actionType) {
-        action = new Webhook(key, value.inputExpressions as IWebhookRequest, length - index);
-      }
-
-      jsonNg.addRule(action!);
+  it('should call onSuccess and create records', async () => {
+    jsonRulesEngine.addRule(ActionTypeEnums.Webhook, {
+      id: 'wac3lzmmwSKWmtYoOF6',
+      params: {
+        url: {
+          type: 'template',
+          elements: [
+            {
+              type: 'text',
+              value: 'http://www.weather.com.cn/data/cityinfo/101010100.html',
+            },
+          ],
+        },
+        method: {
+          type: 'text',
+          value: 'GET',
+        },
+        headers: {
+          type: 'object',
+          properties: [
+            {
+              key: {
+                type: 'text',
+                value: 'User-Agent',
+              },
+              value: {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'text',
+                    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        // body: {
+        //   type: 'template',
+        //   elements: [
+        //     {
+        //       type: 'text',
+        //       value: '{',
+        //     },
+        //     {
+        //       type: 'text',
+        //       value: '"name":"abc"',
+        //     },
+        //     {
+        //       type: 'text',
+        //       value: '}',
+        //     },
+        //   ],
+        // },
+        responseParams: {
+          type: 'object',
+          properties: [
+            {
+              key: {
+                type: 'text',
+                value: 'city',
+              },
+              value: {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'text',
+                    value: 'weatherinfo.city',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      } as IWebhookSchema,
     });
 
-    const { events } = await jsonNg.run();
+    const { results } = await jsonRulesEngine.fire();
 
-    // events.forEach((event) => console.log(event.params?.data));
+    expect(results).toBeDefined();
+
+    const [result] = results;
+
+    expect(result.result).toBeTruthy();
   });
 });

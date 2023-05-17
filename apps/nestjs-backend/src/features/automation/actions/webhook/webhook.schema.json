@@ -1,0 +1,143 @@
+{
+  "$id": "https://teable.io/json-schema/actions/webhook.json",
+  "type": "object",
+  "definitions": {
+    "typeValueType": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text"]
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "objectPathValueType": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["objectPathValue"]
+        },
+        "object": {
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string"
+            },
+            "nodeType": {
+              "type": "string",
+              "enum": ["trigger"]
+            }
+          },
+          "required": ["nodeId", "nodeType"],
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "elements": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/typeValueType"
+              }
+            }
+          },
+          "required": ["type", "elements"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["type", "object", "path"],
+      "additionalProperties": false
+    },
+    "templateType": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["template"]
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/typeValueType"
+              },
+              {
+                "$ref": "#/definitions/objectPathValueType"
+              }
+            ]
+          }
+        }
+      },
+      "required": ["type", "elements"],
+      "additionalProperties": false
+    },
+    "propsByKeyValueType": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"]
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "$ref": "#/definitions/typeValueType"
+              },
+              "value": {
+                "$ref": "#/definitions/templateType"
+              }
+            },
+            "required": ["key", "value"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["type", "properties"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "url": {
+      "$ref": "#/definitions/templateType"
+    },
+    "method": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["text"]
+        },
+        "value": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        }
+      },
+      "required": ["type", "value"],
+      "additionalProperties": false
+    },
+    "headers": {
+      "$ref": "#/definitions/propsByKeyValueType"
+    },
+    "body": {
+      "$ref": "#/definitions/templateType"
+    },
+    "responseParams": {
+      "$ref": "#/definitions/propsByKeyValueType"
+    }
+  },
+  "required": ["url", "method"],
+  "additionalProperties": false
+}

@@ -16,6 +16,8 @@ export class MailSenderService {
 
     this.transporter = createTransport({
       service: this.mailConfig.service,
+      host: this.mailConfig.host,
+      secure: this.mailConfig.secure,
       auth: {
         user: this.mailConfig.auth.user,
         pass: this.mailConfig.auth.pass,
