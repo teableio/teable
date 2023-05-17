@@ -11,10 +11,18 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { responseWrap } from '../../../src/utils';
 import { AttachmentsService } from './attachments.service';
+import { AttachmentUploadRo } from './modal/attachment-upload.ro';
 import { AttachmentUploadVo } from './modal/attachment-upload.vo';
 
 @ApiBearerAuth()
@@ -30,6 +38,10 @@ export class AttachmentsController {
     description: 'upload attachment',
     type: AttachmentUploadVo,
   })
+  @ApiOkResponse({
+    description: 'attachment',
+    type: AttachmentUploadRo,
+  })
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     const res = await this.attachmentsService.upload(file);
     return responseWrap(res);
@@ -41,7 +53,7 @@ export class AttachmentsController {
     @Res({ passthrough: true }) res: Response,
     @Param('token') token: string,
     @Query('filename') filename?: string
-  ): Promise<StreamableFile> {
+  ) {
     const { fileStream, headers } = await this.attachmentsService.readLocalFile(token, filename);
     res.set(headers);
     return new StreamableFile(fileStream);

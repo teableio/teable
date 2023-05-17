@@ -10,7 +10,7 @@ export class AttachmentUploadRo {
 
   @ApiPropertyOptional({
     type: Number,
-    example: '1024',
+    example: 1024,
     description: 'File size in bytes',
   })
   size!: number;
@@ -24,7 +24,7 @@ export class AttachmentUploadRo {
 
   @ApiPropertyOptional({
     type: String,
-    example: '/attachments/file.mp4',
+    example: '/attachments',
     description: 'URL of the uploaded file',
   })
   path!: string;
