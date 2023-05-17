@@ -67,15 +67,14 @@ export class FieldSupplementService implements ISupplementService {
     tableId: string, // tableId for current field belongs to
     field: LinkFieldDto
   ) {
-    if (field.options.relationship !== Relationship.OneMany) {
-      throw new Error('only one-many relationShip should create foreign key field');
+    if (field.options.relationship !== Relationship.ManyOne) {
+      throw new Error('only many-one relationship should create foreign key field');
     }
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
-    const fieldName = this.getForeignKeyFieldName(field.id);
     const alterTableQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        table.string(fieldName).unique().nullable();
+        table.string(field.options.dbForeignKeyName).unique().nullable();
       })
       .toQuery();
     await prisma.$executeRawUnsafe(alterTableQuery);
@@ -94,14 +93,29 @@ export class FieldSupplementService implements ISupplementService {
       field
     );
 
-    if (symmetricField.options.relationship === Relationship.OneMany) {
+    if (symmetricField.options.relationship === Relationship.ManyOne) {
       await this.createForeignKeyField(prisma, foreignTableId, symmetricField);
     }
 
-    if (field.options.relationship === Relationship.OneMany) {
+    if (field.options.relationship === Relationship.ManyOne) {
       await this.createForeignKeyField(prisma, tableId, field);
     }
 
+    await this.createLinkReference(prisma, field);
+    await this.createLinkReference(prisma, symmetricField);
+
     return symmetricField;
+  }
+
+  async createLinkReference(prisma: Prisma.TransactionClient, field: LinkFieldDto) {
+    const toFieldId = field.id;
+    const fromFieldId = field.options.lookupFieldId;
+
+    await prisma.reference.create({
+      data: {
+        fromFieldId,
+        toFieldId,
+      },
+    });
   }
 }

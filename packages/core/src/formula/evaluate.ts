@@ -1,4 +1,4 @@
-import { ANTLRInputStream, CommonTokenStream } from 'antlr4ts';
+import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import type { FieldCore, IRecord } from '../models';
 import { Formula } from './parser/Formula';
 import { FormulaLexer } from './parser/FormulaLexer';
@@ -10,7 +10,7 @@ export const evaluate = (
   dependFieldMap: { [fieldId: string]: FieldCore },
   record?: IRecord
 ): ITypedValue => {
-  const inputStream = new ANTLRInputStream(input);
+  const inputStream = CharStreams.fromString(input);
   const lexer = new FormulaLexer(inputStream);
   const tokenStream = new CommonTokenStream(lexer);
   const parser = new Formula(tokenStream);
