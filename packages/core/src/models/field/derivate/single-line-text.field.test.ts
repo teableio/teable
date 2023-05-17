@@ -1,4 +1,4 @@
-import { SingleLineTextFieldCore } from '../single-line-text.field';
+import { SingleLineTextFieldCore } from './single-line-text.field';
 
 describe('SingleLineTextFieldCore', () => {
   describe('validateOptions', () => {

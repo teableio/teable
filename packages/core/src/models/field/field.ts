@@ -1,3 +1,4 @@
+import type { SafeParseReturnType } from 'zod';
 import type { StatisticsFunc } from '../view';
 import type { DbFieldType, FieldType } from './constant';
 import type { IColumnMeta } from './interface';
@@ -77,4 +78,8 @@ export abstract class FieldCore implements IFieldVo {
 
   // try parse cellValue and fix it
   abstract repair(value: unknown): unknown;
+
+  abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
+
+  abstract validateDefaultValue(): SafeParseReturnType<unknown, unknown> | undefined;
 }

@@ -1,4 +1,4 @@
-import type { IFieldRo, NumberFieldOptions, SingleSelectFieldOptions } from '@teable-group/core';
+import type { IFieldRo, NumberFieldOptions, SelectFieldOptions } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
@@ -52,7 +52,7 @@ export const FieldEditor = (props: {
   };
 
   const updateFieldOptions = useCallback(
-    (options: NumberFieldOptions | SingleSelectFieldOptions) => {
+    (options: NumberFieldOptions | SelectFieldOptions) => {
       setFieldFn({
         ...field,
         options,
@@ -70,7 +70,7 @@ export const FieldEditor = (props: {
       case FieldType.SingleSelect:
         return (
           <SelectOptions
-            options={field.options as SingleSelectFieldOptions}
+            options={field.options as SelectFieldOptions}
             onChange={updateFieldOptions}
           />
         );

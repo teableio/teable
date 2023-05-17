@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { FieldType, DbFieldType } from '../constant';
 import type { CellValueType } from '../field';
 import { FieldCore } from '../field';
@@ -77,5 +78,21 @@ export class LinkFieldCore extends FieldCore {
 
   repair(value: unknown) {
     return value;
+  }
+
+  validateOptions() {
+    return z
+      .object({
+        relationship: z.nativeEnum(Relationship),
+        foreignTableId: z.string(),
+        lookupFieldId: z.string(),
+        dbForeignKeyName: z.string(),
+        symmetricFieldId: z.string(),
+      })
+      .safeParse(this.options);
+  }
+
+  validateDefaultValue() {
+    return z.null().safeParse(this.defaultValue);
   }
 }

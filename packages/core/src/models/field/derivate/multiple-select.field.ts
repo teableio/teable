@@ -1,33 +1,20 @@
-import type { Colors } from '../colors';
+import { z } from 'zod';
 import type { FieldType, DbFieldType } from '../constant';
 import type { CellValueType } from '../field';
-import { FieldCore } from '../field';
+import { SelectFieldCore } from './select.field.abstract';
 
-export class MultipleSelectFieldChoices {
-  name!: string;
-  color!: Colors;
-}
-
-export class MultipleSelectFieldOptions {
-  choices!: MultipleSelectFieldChoices[];
-}
-
-export class MultipleSelectFieldCore extends FieldCore {
+export class MultipleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.MultipleSelect;
 
   dbFieldType!: DbFieldType.Json;
 
-  options!: MultipleSelectFieldOptions;
-
-  defaultValue!: string[];
+  defaultValue!: string[] | null;
 
   calculatedType!: FieldType.MultipleSelect;
 
   cellValueType!: CellValueType.Array;
 
   declare cellValueElementType: CellValueType.String;
-
-  isComputed!: false;
 
   cellValue2String(cellValue: string[]) {
     return cellValue.join(', ');
@@ -63,5 +50,20 @@ export class MultipleSelectFieldCore extends FieldCore {
     }
 
     throw new Error(`invalid value: ${value} for field: ${this.name}`);
+  }
+
+  validateDefaultValue() {
+    const choiceNames = this.options.choices.map((v) => v.name);
+    return z
+      .string()
+      .nullable()
+      .optional()
+      .refine(
+        (value) => {
+          return value == null || choiceNames.includes(value);
+        },
+        { message: `${this.defaultValue} is not one of the choice names` }
+      )
+      .safeParse(this.defaultValue);
   }
 }

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { FieldType, DbFieldType } from '../constant';
 import type { CellValueType } from '../field';
 import { FieldCore } from '../field';
@@ -40,5 +41,22 @@ export class FormulaFieldCore extends FieldCore {
 
   repair(value: unknown) {
     return value;
+  }
+
+  validateOptions() {
+    return z
+      .object({
+        expression: z.string(),
+        formatting: z
+          .object({
+            precision: z.number().max(5).min(0),
+          })
+          .optional(),
+      })
+      .safeParse(this.options);
+  }
+
+  validateDefaultValue() {
+    return z.null().safeParse(this.defaultValue);
   }
 }

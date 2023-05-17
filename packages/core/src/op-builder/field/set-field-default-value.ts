@@ -4,17 +4,14 @@ import type { IOpBuilder } from '../interface';
 
 export interface ISetFieldDefaultValueOpContext {
   name: OpName.SetFieldDefaultValue;
-  newDefaultValue: string | number | null;
-  oldDefaultValue: string | number | null;
+  newDefaultValue: unknown;
+  oldDefaultValue: unknown;
 }
 
 export class SetFieldDefaultValueBuilder implements IOpBuilder {
   name: OpName.SetFieldDefaultValue = OpName.SetFieldDefaultValue;
 
-  build(params: {
-    newDefaultValue: string | number | null;
-    oldDefaultValue: string | number | null;
-  }): IOtOperation {
+  build(params: { newDefaultValue: unknown; oldDefaultValue: unknown }): IOtOperation {
     const { newDefaultValue, oldDefaultValue } = params;
 
     return {
