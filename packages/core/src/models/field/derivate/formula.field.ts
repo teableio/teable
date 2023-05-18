@@ -32,13 +32,13 @@ export class FormulaFieldCore extends FieldCore {
     const typedValue = visitor.visit(tree);
     return {
       cellValueType: typedValue.type,
-      cellValueElementType: 'elementType' in typedValue && typedValue.elementType,
+      cellValueElementType: 'elementType' in typedValue ? typedValue.elementType : undefined,
     };
   }
 
   static convertExpressionIdToName(
     expression: string,
-    dependFieldMap: { [fieldId: string]: FieldCore }
+    dependFieldMap: { [fieldId: string]: Pick<FieldCore, 'name'> }
   ) {
     const tree = this.parse(expression);
     const idToName = Object.entries(dependFieldMap).reduce<{ [fieldId: string]: string }>(
@@ -55,7 +55,7 @@ export class FormulaFieldCore extends FieldCore {
 
   static convertExpressionNameToId(
     expression: string,
-    dependFieldMap: { [fieldId: string]: FieldCore }
+    dependFieldMap: { [fieldId: string]: Pick<FieldCore, 'name'> }
   ) {
     const tree = this.parse(expression);
     const idToName = Object.entries(dependFieldMap).reduce<{ [fieldName: string]: string }>(
