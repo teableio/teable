@@ -12,6 +12,7 @@ export interface IVisualTableDefaultField {
 
 export const preservedFieldName = new Set([
   '__id',
+  '__version',
   '__auto_number',
   '__row_default',
   '__created_time',

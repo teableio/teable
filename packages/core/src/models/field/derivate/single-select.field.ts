@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType } from '../constant';
-import type { CellValueType } from '../field';
+import type { FieldType, DbFieldType, CellValueType } from '../constant';
 import type { SelectFieldOptions } from './select.field.abstract';
 import { SelectFieldCore } from './select.field.abstract';
 

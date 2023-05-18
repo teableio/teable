@@ -1,5 +1,5 @@
 import type { FieldCore, IRecord } from '../../models';
-import { CellValueType } from '../../models';
+import { CellValueType } from '../../models/field/constant';
 import type { FlatTypedValue } from '../typed-value';
 
 export enum FormulaFuncType {

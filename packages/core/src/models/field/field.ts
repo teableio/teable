@@ -1,6 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import type { StatisticsFunc } from '../view';
-import type { DbFieldType, FieldType } from './constant';
+import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { IColumnMeta } from './interface';
 export interface IFieldRo {
   name: string;
@@ -28,14 +28,6 @@ export class Column {
   width?: number;
   hidden?: boolean;
   statisticFunc?: StatisticsFunc;
-}
-
-export enum CellValueType {
-  String = 'string',
-  Number = 'number',
-  Boolean = 'boolean',
-  DateTime = 'dateTime',
-  Array = 'array',
 }
 
 export abstract class FieldCore implements IFieldVo {

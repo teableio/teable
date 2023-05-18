@@ -6,8 +6,7 @@ import type { RootContext } from '../../../formula/parser/Formula';
 import { Formula } from '../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../formula/parser/FormulaLexer';
 import type { IRecord } from '../../record';
-import type { FieldType, DbFieldType } from '../constant';
-import type { CellValueType } from '../field';
+import type { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { NumberFieldOptions } from './number.field';
 

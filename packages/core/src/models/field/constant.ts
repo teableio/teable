@@ -35,3 +35,11 @@ export enum DbFieldType {
   Blob = 'BLOB',
   Json = 'JSON',
 }
+
+export enum CellValueType {
+  String = 'string',
+  Number = 'number',
+  Boolean = 'boolean',
+  DateTime = 'dateTime',
+  Array = 'array',
+}

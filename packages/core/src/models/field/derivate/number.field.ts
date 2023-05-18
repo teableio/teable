@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { DbFieldType, FieldType } from '../constant';
-import type { CellValueType } from '../field';
+import type { DbFieldType, FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
 export class NumberFieldOptions {

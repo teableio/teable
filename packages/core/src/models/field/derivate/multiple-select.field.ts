@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType } from '../constant';
-import type { CellValueType } from '../field';
+import type { FieldType, DbFieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './select.field.abstract';
 
 export class MultipleSelectFieldCore extends SelectFieldCore {

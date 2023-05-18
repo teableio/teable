@@ -1,4 +1,4 @@
-import { CellValueType } from '../../models';
+import { CellValueType } from '../../models/field/constant';
 import type { ITypedValue } from '../typed-value';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
 

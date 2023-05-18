@@ -1,6 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { DbFieldType, FieldType } from '../constant';
-import { CellValueType } from '../field';
+import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { FormulaFieldCore } from './formula.field';
 import { NumberFieldCore } from './number.field';
 
