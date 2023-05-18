@@ -3,7 +3,9 @@ import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@t
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import type { ISupplementService } from '../../share-db/interface';
+import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRo } from './model/factory';
+import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 
 @Injectable()
@@ -13,7 +15,7 @@ export class FieldSupplementService implements ISupplementService {
     this.knex = knex({ client: 'sqlite3' });
   }
 
-  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
+  private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
     const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -21,7 +23,7 @@ export class FieldSupplementService implements ISupplementService {
     return tableMeta.dbTableName;
   }
 
-  getForeignKeyFieldName(fieldId: string) {
+  private getForeignKeyFieldName(fieldId: string) {
     return `__fk_${fieldId}`;
   }
 
@@ -107,7 +109,22 @@ export class FieldSupplementService implements ISupplementService {
     return symmetricField;
   }
 
-  async createLinkReference(prisma: Prisma.TransactionClient, field: LinkFieldDto) {
+  async createReference(prisma: Prisma.TransactionClient, fields: IFieldInstance[]) {
+    for (const field of fields) {
+      switch (field.type) {
+        case FieldType.Formula:
+          await this.createFormulaReference(prisma, field);
+          break;
+        case FieldType.Link:
+          await this.createLinkReference(prisma, field);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  private async createLinkReference(prisma: Prisma.TransactionClient, field: LinkFieldDto) {
     const toFieldId = field.id;
     const fromFieldId = field.options.lookupFieldId;
 
@@ -117,5 +134,19 @@ export class FieldSupplementService implements ISupplementService {
         toFieldId,
       },
     });
+  }
+
+  private async createFormulaReference(prisma: Prisma.TransactionClient, field: FormulaFieldDto) {
+    const fieldIds = field.getReferenceFieldIds();
+    const toFieldId = field.id;
+
+    for (const fromFieldId in fieldIds) {
+      await prisma.reference.create({
+        data: {
+          fromFieldId,
+          toFieldId,
+        },
+      });
+    }
   }
 }

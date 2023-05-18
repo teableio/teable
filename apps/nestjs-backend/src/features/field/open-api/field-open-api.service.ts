@@ -47,6 +47,9 @@ export class FieldOpenApiService {
       fields.push(symmetricField);
     }
 
+    const prisma = await this.transactionService.getTransaction(transactionMeta);
+    await this.fieldSupplementService.createReference(prisma, fields);
+
     for (const field of fields) {
       const snapshot = this.createField2Ops(tableId, field);
       const id = snapshot.field.id;
