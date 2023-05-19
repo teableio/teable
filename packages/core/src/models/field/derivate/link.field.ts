@@ -47,10 +47,16 @@ export class LinkFieldOptions {
   symmetricFieldId!: string;
 }
 
+export type ILinkFieldOptionsRo = Pick<LinkFieldOptions, 'relationship' | 'foreignTableId'>;
+
 export class LinkFieldCore extends FieldCore {
+  static defaultOptions(): Partial<LinkFieldOptions> {
+    return {};
+  }
+
   type!: FieldType.Link;
 
-  dbFieldType!: DbFieldType.Json;
+  dbFieldType!: DbFieldType.Text;
 
   options!: LinkFieldOptions;
 
@@ -92,6 +98,6 @@ export class LinkFieldCore extends FieldCore {
   }
 
   validateDefaultValue() {
-    return z.null().safeParse(this.defaultValue);
+    return z.null().optional().safeParse(this.defaultValue);
   }
 }

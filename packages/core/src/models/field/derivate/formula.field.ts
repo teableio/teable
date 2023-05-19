@@ -17,6 +17,12 @@ export class FormulaFieldOptions {
 }
 
 export class FormulaFieldCore extends FieldCore {
+  static defaultOptions(): Partial<FormulaFieldOptions> {
+    return {
+      expression: '',
+    };
+  }
+
   static parse(expression: string) {
     const inputStream = CharStreams.fromString(expression);
     const lexer = new FormulaLexer(inputStream);

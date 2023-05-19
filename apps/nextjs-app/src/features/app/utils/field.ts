@@ -1,9 +1,12 @@
+import { FieldType } from '@teable-group/core';
 import {
-  FieldType,
-  NumberFieldCore,
-  SingleLineTextFieldCore,
-  SingleSelectFieldCore,
-} from '@teable-group/core';
+  MultipleSelectField,
+  NumberField,
+  SingleLineTextField,
+  SingleSelectField,
+  LinkField,
+  FormulaField,
+} from '@teable-group/sdk/model';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
@@ -23,6 +26,21 @@ export const FIELD_CONSTANT = [
     text: 'Number',
     type: FieldType.Number,
     IconComponent: FieldNumberIcon,
+  },
+  {
+    text: 'Multiple select',
+    type: FieldType.MultipleSelect,
+    IconComponent: FieldSelectIcon,
+  },
+  {
+    text: 'Link',
+    type: FieldType.Link,
+    IconComponent: FieldSelectIcon,
+  },
+  {
+    text: 'Formula',
+    type: FieldType.Formula,
+    IconComponent: FieldTextIcon,
   },
 ];
 
@@ -50,7 +68,10 @@ export const NUMBER_FIELD_PRECISION = [
 ];
 
 export const fieldDefaultOptionMap: Record<string, unknown> = {
-  [FieldType.SingleLineText]: SingleLineTextFieldCore.defaultOptions(),
-  [FieldType.SingleSelect]: SingleSelectFieldCore.defaultOptions(),
-  [FieldType.Number]: NumberFieldCore.defaultOptions(),
+  [FieldType.SingleLineText]: SingleLineTextField.defaultOptions(),
+  [FieldType.SingleSelect]: SingleSelectField.defaultOptions(),
+  [FieldType.Number]: NumberField.defaultOptions(),
+  [FieldType.MultipleSelect]: MultipleSelectField.defaultOptions(),
+  [FieldType.Link]: LinkField.defaultOptions(),
+  [FieldType.Formula]: FormulaField.defaultOptions(),
 };

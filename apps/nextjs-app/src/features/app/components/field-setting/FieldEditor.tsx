@@ -1,9 +1,16 @@
-import type { IFieldRo, NumberFieldOptions, SelectFieldOptions } from '@teable-group/core';
+import type {
+  IFieldRo,
+  ILinkFieldOptionsRo,
+  LinkFieldOptions,
+  NumberFieldOptions,
+  SelectFieldOptions,
+} from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { FIELD_CONSTANT, fieldDefaultOptionMap } from '../../utils/field';
 import { Select, SelectItem } from '../common/select';
+import { LinkOptions } from './LinkOptions';
 import { NumberOptions } from './NumberOptions';
 import { SelectOptions } from './SelectOptions';
 
@@ -52,7 +59,7 @@ export const FieldEditor = (props: {
   };
 
   const updateFieldOptions = useCallback(
-    (options: NumberFieldOptions | SelectFieldOptions) => {
+    (options: NumberFieldOptions | SelectFieldOptions | ILinkFieldOptionsRo) => {
       setFieldFn({
         ...field,
         options,
@@ -65,9 +72,9 @@ export const FieldEditor = (props: {
     if (!field.options) {
       return;
     }
-    // eslint-disable-next-line sonarjs/no-small-switch
     switch (field.type) {
       case FieldType.SingleSelect:
+      case FieldType.MultipleSelect:
         return (
           <SelectOptions
             options={field.options as SelectFieldOptions}
@@ -80,6 +87,10 @@ export const FieldEditor = (props: {
             options={field.options as NumberFieldOptions}
             onChange={updateFieldOptions}
           />
+        );
+      case FieldType.Link:
+        return (
+          <LinkOptions options={field.options as LinkFieldOptions} onChange={updateFieldOptions} />
         );
       default:
         return;

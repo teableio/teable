@@ -1,21 +1,15 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import {
-  FieldType,
-  formatFieldErrorMessage,
-  generateTransactionKey,
-  IdPrefix,
-  OpBuilder,
-} from '@teable-group/core';
+import { FieldType, generateTransactionKey, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
-import { isEmpty, isString } from 'lodash';
+import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
-import { createFieldInstanceByVo } from '../model/factory';
+import { createFieldInstanceByRo, createFieldInstanceByVo } from '../model/factory';
 import type { UpdateFieldRo } from '../model/update-field.ro';
 
 @Injectable()
@@ -32,7 +26,7 @@ export class FieldOpenApiService {
     fieldInstance: IFieldInstance,
     transactionMeta?: { transactionKey: string; opCount: number }
   ) {
-    const fields = [fieldInstance];
+    const fieldsWithTableId = [{ tableId, field: fieldInstance }];
     if (fieldInstance.type === FieldType.Link) {
       transactionMeta = transactionMeta ?? {
         transactionKey: generateTransactionKey(),
@@ -44,13 +38,20 @@ export class FieldOpenApiService {
         tableId,
         fieldInstance
       );
-      fields.push(symmetricField);
+      fieldsWithTableId.push({
+        tableId: fieldInstance.options.foreignTableId,
+        field: symmetricField,
+      });
     }
 
     const prisma = await this.transactionService.getTransaction(transactionMeta);
-    await this.fieldSupplementService.createReference(prisma, fields);
+    await this.fieldSupplementService.createReference(
+      prisma,
+      fieldsWithTableId.map((f) => f.field)
+    );
 
-    for (const field of fields) {
+    for (const item of fieldsWithTableId) {
+      const { tableId, field } = item;
       const snapshot = this.createField2Ops(tableId, field);
       const id = snapshot.field.id;
       const collection = `${IdPrefix.Field}_${tableId}`;
@@ -79,25 +80,20 @@ export class FieldOpenApiService {
 
     const oldFieldInstance = createFieldInstanceByVo(fieldVo);
 
-    const newFieldInstance = createFieldInstanceByVo({
-      ...fieldVo,
-      ...updateFieldRo,
-    });
-
-    const validateKeys = ['name', 'description', 'type', 'options', 'defaultValue'];
+    let newFieldInstance: IFieldInstance;
+    try {
+      newFieldInstance = createFieldInstanceByRo({
+        ...fieldVo,
+        ...updateFieldRo,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+    }
 
     const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
       (key) => oldFieldInstance[key] !== newFieldInstance[key]
     );
-
-    const validateErrors = validateKeys
-      .map((key) => this.validateUpdateField(key, newFieldInstance))
-      .map((res) => res.error)
-      .filter(isString);
-
-    if (validateErrors.length > 0) {
-      throw new HttpException(validateErrors[0], HttpStatus.BAD_REQUEST);
-    }
 
     const ops = this.updateField2Ops(updateKeys, newFieldInstance, oldFieldInstance);
     const collection = `${IdPrefix.Field}_${tableId}`;
@@ -111,34 +107,6 @@ export class FieldOpenApiService {
         });
       });
     });
-  }
-
-  private validateUpdateField(key: string, fieldInstance: IFieldInstance) {
-    switch (key) {
-      case 'name':
-      case 'description':
-      case 'type':
-        return { success: true };
-      case 'defaultValue': {
-        const res = fieldInstance.validateDefaultValue();
-        return {
-          success: res.success,
-          error: res.success ? null : formatFieldErrorMessage(res.error),
-        };
-      }
-      case 'options': {
-        const res = fieldInstance.validateOptions();
-        return {
-          success: res.success,
-          error: res.success ? null : formatFieldErrorMessage(res.error),
-        };
-      }
-      default:
-        return {
-          success: false,
-          error: 'The name field in the field does not support checksum',
-        };
-    }
   }
 
   updateField2Ops(

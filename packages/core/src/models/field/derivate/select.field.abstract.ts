@@ -12,6 +12,12 @@ export class SelectFieldOptions {
 }
 
 export abstract class SelectFieldCore extends FieldCore {
+  static defaultOptions(): SelectFieldOptions {
+    return {
+      choices: [],
+    };
+  }
+
   options!: SelectFieldOptions;
 
   isComputed!: false;

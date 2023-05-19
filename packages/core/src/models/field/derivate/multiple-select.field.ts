@@ -5,7 +5,7 @@ import { SelectFieldCore } from './select.field.abstract';
 export class MultipleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.MultipleSelect;
 
-  dbFieldType!: DbFieldType.Json;
+  dbFieldType!: DbFieldType.Text;
 
   defaultValue!: string[] | null;
 

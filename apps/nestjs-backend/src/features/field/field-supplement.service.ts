@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import type { LinkFieldOptions } from '@teable-group/core';
 import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
+import { PrismaService } from '../../prisma.service';
 import type { ISupplementService } from '../../share-db/interface';
+import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRo } from './model/factory';
 import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
@@ -11,7 +14,7 @@ import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
   knex: ReturnType<typeof knex>;
-  constructor() {
+  constructor(private readonly prismaService: PrismaService) {
     this.knex = knex({ client: 'sqlite3' });
   }
 
@@ -25,6 +28,37 @@ export class FieldSupplementService implements ISupplementService {
 
   private getForeignKeyFieldName(fieldId: string) {
     return `__fk_${fieldId}`;
+  }
+
+  async prepareFieldOptions(field: CreateFieldRo): Promise<CreateFieldRo & { id?: string }> {
+    if (field.type !== FieldType.Link) {
+      return field;
+    }
+    const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
+    const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
+      where: { tableId: foreignTableId, isPrimary: true },
+      select: { id: true },
+    });
+    const fieldId = generateFieldId();
+    const symmetricFieldId = generateFieldId();
+    let dbForeignKeyName = '';
+    if (relationship === Relationship.ManyOne) {
+      dbForeignKeyName = this.getForeignKeyFieldName(fieldId);
+    }
+    if (relationship === Relationship.OneMany) {
+      dbForeignKeyName = this.getForeignKeyFieldName(symmetricFieldId);
+    }
+    return {
+      ...field,
+      id: fieldId,
+      options: {
+        relationship,
+        foreignTableId,
+        lookupFieldId,
+        dbForeignKeyName,
+        symmetricFieldId,
+      } as LinkFieldOptions,
+    };
   }
 
   async generateSymmetricField(
@@ -52,13 +86,9 @@ export class FieldSupplementService implements ISupplementService {
       type: FieldType.Link,
       options: {
         relationship,
-        foreignTableId: foreignTableId,
+        foreignTableId: tableId,
         lookupFieldId,
-        dbForeignKeyName:
-          // only OneMany relationShip should generate new foreign key field
-          relationship === Relationship.OneMany
-            ? this.getForeignKeyFieldName(fieldId)
-            : field.options.dbForeignKeyName,
+        dbForeignKeyName: field.options.dbForeignKeyName,
         symmetricFieldId: field.id,
       },
     }) as LinkFieldDto;

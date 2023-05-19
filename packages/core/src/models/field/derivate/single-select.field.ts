@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { FieldType, DbFieldType, CellValueType } from '../constant';
-import type { SelectFieldOptions } from './select.field.abstract';
 import { SelectFieldCore } from './select.field.abstract';
 
 export class SingleSelectFieldCore extends SelectFieldCore {
@@ -13,12 +12,6 @@ export class SingleSelectFieldCore extends SelectFieldCore {
   calculatedType!: FieldType.SingleSelect;
 
   cellValueType!: CellValueType.String;
-
-  static defaultOptions(): SelectFieldOptions {
-    return {
-      choices: [],
-    };
-  }
 
   cellValue2String(cellValue: string) {
     return cellValue;

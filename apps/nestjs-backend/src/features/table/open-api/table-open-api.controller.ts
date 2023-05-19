@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
-import { responseWrap } from 'src/utils/api-response';
+import { responseWrap } from '../../../utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
 import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
