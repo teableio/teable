@@ -85,7 +85,7 @@ export class ReferenceService {
   ): unknown {
     const formula = '{values}';
 
-    const plain = instanceToPlain(lookupField);
+    const plain = instanceToPlain(lookupField, { excludePrefixes: ['_'] });
 
     // TODO: array value flatten
     const lookupValues = Array.isArray(dependencies)

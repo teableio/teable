@@ -10,10 +10,12 @@ import type { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { NumberFieldOptions } from './number.field';
 
+export type IFormulaFormatting = NumberFieldOptions;
+
 export class FormulaFieldOptions {
   expression!: string;
 
-  formatting?: NumberFieldOptions;
+  formatting?: IFormulaFormatting;
 }
 
 export class FormulaFieldCore extends FieldCore {
@@ -44,7 +46,7 @@ export class FormulaFieldCore extends FieldCore {
   static convertExpressionIdToName(
     expression: string,
     dependFieldMap: { [fieldId: string]: Pick<FieldCore, 'name'> }
-  ) {
+  ): string {
     const tree = this.parse(expression);
     const idToName = Object.entries(dependFieldMap).reduce<{ [fieldId: string]: string }>(
       (acc, [fieldId, field]) => {
@@ -61,7 +63,7 @@ export class FormulaFieldCore extends FieldCore {
   static convertExpressionNameToId(
     expression: string,
     dependFieldMap: { [fieldId: string]: Pick<FieldCore, 'name'> }
-  ) {
+  ): string {
     const tree = this.parse(expression);
     const idToName = Object.entries(dependFieldMap).reduce<{ [fieldName: string]: string }>(
       (acc, [fieldId, field]) => {
@@ -131,7 +133,7 @@ export class FormulaFieldCore extends FieldCore {
   }
 
   validateDefaultValue() {
-    return z.null().safeParse(this.defaultValue);
+    return z.null().optional().safeParse(this.defaultValue);
   }
 
   getReferenceFieldIds() {

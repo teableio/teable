@@ -3,6 +3,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { FieldType, generateTransactionKey, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
+import { instanceToPlain } from 'class-transformer';
 import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
@@ -10,6 +11,7 @@ import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRo, createFieldInstanceByVo } from '../model/factory';
+import type { FieldVo } from '../model/field.vo';
 import type { UpdateFieldRo } from '../model/update-field.ro';
 
 @Injectable()
@@ -67,9 +69,9 @@ export class FieldOpenApiService {
   }
 
   createField2Ops(_tableId: string, fieldInstance: IFieldInstance) {
-    return OpBuilder.creator.addField.build({
-      ...fieldInstance,
-    });
+    return OpBuilder.creator.addField.build(
+      instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as FieldVo
+    );
   }
 
   async updateFieldById(tableId: string, fieldId: string, updateFieldRo: UpdateFieldRo) {

@@ -1,4 +1,5 @@
 import type {
+  FormulaFieldOptions,
   IFieldRo,
   ILinkFieldOptionsRo,
   LinkFieldOptions,
@@ -10,6 +11,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { FIELD_CONSTANT, fieldDefaultOptionMap } from '../../utils/field';
 import { Select, SelectItem } from '../common/select';
+import { FormulaOptions } from './FormulaOptions';
 import { LinkOptions } from './LinkOptions';
 import { NumberOptions } from './NumberOptions';
 import { SelectOptions } from './SelectOptions';
@@ -59,7 +61,9 @@ export const FieldEditor = (props: {
   };
 
   const updateFieldOptions = useCallback(
-    (options: NumberFieldOptions | SelectFieldOptions | ILinkFieldOptionsRo) => {
+    (
+      options: NumberFieldOptions | SelectFieldOptions | ILinkFieldOptionsRo | FormulaFieldOptions
+    ) => {
       setFieldFn({
         ...field,
         options,
@@ -91,6 +95,13 @@ export const FieldEditor = (props: {
       case FieldType.Link:
         return (
           <LinkOptions options={field.options as LinkFieldOptions} onChange={updateFieldOptions} />
+        );
+      case FieldType.Formula:
+        return (
+          <FormulaOptions
+            options={field.options as FormulaFieldOptions}
+            onChange={updateFieldOptions}
+          />
         );
       default:
         return;

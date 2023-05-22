@@ -413,7 +413,7 @@ export class FieldService implements IAdapterService {
           v: field.version,
           type: 'json0',
           data: {
-            field: instanceToPlain(fieldInstances[i]) as FieldVo,
+            field: instanceToPlain(fieldInstances[i], { excludePrefixes: ['_'] }) as FieldVo,
           },
         };
       })

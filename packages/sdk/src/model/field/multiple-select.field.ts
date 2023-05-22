@@ -15,4 +15,8 @@ export class MultipleSelectField extends MultipleSelectFieldCore implements Fiel
     const oldWidth = this.columnMeta[viewId].width;
     return FieldExtended.updateColumnWidth(this.doc, viewId, width, oldWidth);
   }
+
+  async delete(): Promise<void> {
+    return FieldExtended.delete(this.doc);
+  }
 }
