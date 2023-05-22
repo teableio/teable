@@ -58,7 +58,8 @@ export class TransactionService {
     return prismaClient;
   }
 
-  async taskComplete(err: unknown, tsMeta: ITransactionMeta) {
+  async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
+    console.error(err);
     const cache = this.transactionCache.get(tsMeta.transactionKey);
     if (!cache) {
       throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
@@ -74,12 +75,13 @@ export class TransactionService {
       this.transactionCache.delete(tsMeta.transactionKey);
       tasksPromiseCb.resolve(undefined);
       await transactionPromise;
-    } else {
-      this.transactionCache.set(tsMeta.transactionKey, {
-        ...cache,
-        currentCount,
-      });
+      return true;
     }
+    this.transactionCache.set(tsMeta.transactionKey, {
+      ...cache,
+      currentCount,
+    });
+    return false;
   }
 
   private wait(ms = 0) {
