@@ -59,7 +59,7 @@ export class TransactionService {
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
-    console.error(err);
+    err && console.error(err);
     const cache = this.transactionCache.get(tsMeta.transactionKey);
     if (!cache) {
       throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
@@ -85,7 +85,7 @@ export class TransactionService {
   }
 
   private wait(ms = 0) {
-    return new Promise<void>((resolve) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         resolve(undefined);
       }, ms);
@@ -96,7 +96,7 @@ export class TransactionService {
     let ms = 0;
     // 1250ms total
     while (ms < 50) {
-      await this.wait(ms++);
+      await this.wait(++ms);
       const cache = this.transactionCache.get(transactionKey);
       if (!cache) {
         throw new Error('Can not find transaction: ' + transactionKey);
