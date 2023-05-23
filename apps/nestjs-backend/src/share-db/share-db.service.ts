@@ -18,7 +18,7 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
-    this.use('apply', this.onApply);
+    // this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
   }
@@ -38,13 +38,13 @@ export class ShareDbService extends ShareDBClass {
   //   next();
   // }
 
-  private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
-    console.log('ShareDb:apply:', context.collection, context.op, context.ops, context.snapshot);
-    const [docType, collectionId] = context.collection.split('_');
+  // private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
+  //   console.log('ShareDb:apply:', context.collection, context.op, context.ops, context.snapshot);
+  //   const [docType, collectionId] = context.collection.split('_');
 
-    docType as IdPrefix;
-    next();
-  }
+  //   docType as IdPrefix;
+  //   next();
+  // }
 
   // private onCommit(context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) {
   //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);

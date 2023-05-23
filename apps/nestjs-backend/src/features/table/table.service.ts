@@ -53,11 +53,9 @@ export class TableService implements IAdapterService {
     const tableMeta = await prisma.tableMeta.create({
       data,
     });
-    console.log('table meta create succeed: ', tableMeta);
 
     // create a real db table
-    const dbTable = await prisma.$executeRawUnsafe(visualTableSql(dbTableName));
-    console.log('dbTable create succeed: ', dbTable);
+    await prisma.$executeRawUnsafe(visualTableSql(dbTableName));
     return tableMeta;
   }
 

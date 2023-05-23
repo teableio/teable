@@ -79,9 +79,8 @@ export class FieldSupplementService implements ISupplementService {
     });
 
     const relationship = RelationshipRevert[field.options.relationship];
-    const fieldId = generateFieldId();
     return createFieldInstanceByRo({
-      id: fieldId,
+      id: field.options.symmetricFieldId,
       name: tableName,
       type: FieldType.Link,
       options: {

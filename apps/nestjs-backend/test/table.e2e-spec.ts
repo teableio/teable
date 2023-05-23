@@ -80,10 +80,7 @@ const defaultData = {
         fields: {
           'Project Name': 'Project A',
           'Project Description': 'A project to develop a new product',
-          'Project Status': {
-            name: 'Not Started',
-            color: 'gray',
-          },
+          'Project Status': 'Not Started',
           'Project Manager': 'John Doe',
           'Start Date': '2022-01-01',
           'End Date': '2022-06-30',
@@ -93,10 +90,7 @@ const defaultData = {
         fields: {
           'Project Name': 'Project B',
           'Project Description': 'A project to improve customer service',
-          'Project Status': {
-            name: 'In Progress',
-            color: 'blue',
-          },
+          'Project Status': 'In Progress',
           'Project Manager': 'Jane Smith',
           'Start Date': '2022-02-01',
           'End Date': '2022-08-31',

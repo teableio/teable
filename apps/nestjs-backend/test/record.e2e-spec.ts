@@ -2,9 +2,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import request from 'supertest';
-import type { UpdateRecordRoByIndexRo } from 'src/features/record/update-record-by-index.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
 import type { CreateRecordsRo } from '../src/features/record/create-records.ro';
+import type { UpdateRecordRoByIndexRo } from '../src/features/record/update-record-by-index.ro';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './init-app';
 

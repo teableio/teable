@@ -95,7 +95,7 @@ export class FormulaFieldCore extends FieldCore {
 
   private _tree?: RootContext;
 
-  get tree() {
+  private get tree() {
     if (this._tree) {
       return this._tree;
     }
@@ -141,7 +141,7 @@ export class FormulaFieldCore extends FieldCore {
     return Array.from(new Set(visitor.visit(this.tree)));
   }
 
-  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record?: IRecord) {
+  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: IRecord) {
     const visitor = new EvalVisitor(dependFieldMap, record);
     return visitor.visit(this.tree);
   }

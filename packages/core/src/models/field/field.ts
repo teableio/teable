@@ -17,8 +17,9 @@ export interface IFieldRo {
 export interface IFieldVo extends IFieldRo {
   id: string;
   isComputed?: boolean;
-  calculatedType: unknown;
+  calculatedType: FieldType;
   cellValueType: CellValueType;
+  cellValueElementType?: CellValueType;
   dbFieldType: DbFieldType;
   columnMeta: IColumnMeta;
 }

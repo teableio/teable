@@ -29,11 +29,12 @@ export class FieldOpenApiService {
     transactionMeta?: { transactionKey: string; opCount: number }
   ) {
     const fieldsWithTableId = [{ tableId, field: fieldInstance }];
+    transactionMeta = transactionMeta ?? {
+      transactionKey: generateTransactionKey(),
+      opCount: 1,
+    };
     if (fieldInstance.type === FieldType.Link) {
-      transactionMeta = transactionMeta ?? {
-        transactionKey: generateTransactionKey(),
-        opCount: 2,
-      };
+      transactionMeta = { ...transactionMeta, opCount: transactionMeta.opCount + 1 };
       const prisma = await this.transactionService.getTransaction(transactionMeta);
       const symmetricField = await this.fieldSupplementService.supplementByCreate(
         prisma,
@@ -52,11 +53,14 @@ export class FieldOpenApiService {
       fieldsWithTableId.map((f) => f.field)
     );
 
+    let fieldVo: FieldVo | undefined;
     for (const item of fieldsWithTableId) {
-      const { tableId, field } = item;
-      const snapshot = this.createField2Ops(tableId, field);
+      const snapshot = this.createField2Ops(item.tableId, item.field);
+      if (item.tableId === tableId) {
+        fieldVo = snapshot.field;
+      }
       const id = snapshot.field.id;
-      const collection = `${IdPrefix.Field}_${tableId}`;
+      const collection = `${IdPrefix.Field}_${item.tableId}`;
       const doc = this.shareDbService.connect().get(collection, id);
       await new Promise<Doc>((resolve, reject) => {
         doc.create(snapshot, undefined, transactionMeta, (error) => {
@@ -66,6 +70,8 @@ export class FieldOpenApiService {
         });
       });
     }
+
+    return fieldVo!;
   }
 
   createField2Ops(_tableId: string, fieldInstance: IFieldInstance) {
