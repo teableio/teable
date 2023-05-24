@@ -47,7 +47,6 @@ export class SingleSelectFieldCore extends SelectFieldCore {
         },
         { message: `${this.defaultValue} is not one of the choice names` }
       )
-      .array()
       .nullable()
       .optional()
       .safeParse(this.defaultValue);

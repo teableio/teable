@@ -54,9 +54,9 @@ export class Formula extends Parser {
 	public static readonly DOT = 25;
 	public static readonly SINGLEQ_STRING_LITERAL = 26;
 	public static readonly DOUBLEQ_STRING_LITERAL = 27;
-	public static readonly IDENTIFIER = 28;
+	public static readonly IDENTIFIER_UNICODE = 28;
 	public static readonly IDENTIFIER_UNICODE_BLANK = 29;
-	public static readonly IDENTIFIER_UNICODE = 30;
+	public static readonly IDENTIFIER = 30;
 	public static readonly AMP = 31;
 	public static readonly AMP_AMP = 32;
 	public static readonly AMP_LT = 33;
@@ -143,16 +143,16 @@ export class Formula extends Parser {
 		"STAR", "OPEN_PAREN", "CLOSE_PAREN", "OPEN_BRACKET", "CLOSE_BRACKET", 
 		"L_CURLY", "R_CURLY", "BIT_STRING", "REGEX_STRING", "NUMERIC_LITERAL", 
 		"INTEGER_LITERAL", "HEX_INTEGER_LITERAL", "DOT", "SINGLEQ_STRING_LITERAL", 
-		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER", "IDENTIFIER_UNICODE_BLANK", "IDENTIFIER_UNICODE", 
-		"AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", "BANG", "BANG_BANG", 
-		"BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", "GTE", "GT_GT", "HASH", 
-		"HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", "HYPHEN_GT", "HYPHEN_GT_GT", 
-		"HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", "LT_CARET", "LT_GT", "LT_HYPHEN_GT", 
-		"LT_LT", "LT_LT_EQ", "LT_QMARK_GT", "MINUS", "PERCENT", "PIPE", "PIPE_PIPE", 
-		"PIPE_PIPE_SLASH", "PIPE_SLASH", "PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", 
-		"QMARK_HYPHEN", "QMARK_PIPE", "SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", 
-		"TIL_GT_TIL", "TIL_LTE_TIL", "TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", 
-		"ErrorCharacter",
+		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER_UNICODE", "IDENTIFIER_UNICODE_BLANK", 
+		"IDENTIFIER", "AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", 
+		"BANG", "BANG_BANG", "BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", 
+		"GTE", "GT_GT", "HASH", "HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", 
+		"HYPHEN_GT", "HYPHEN_GT_GT", "HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", 
+		"LT_CARET", "LT_GT", "LT_HYPHEN_GT", "LT_LT", "LT_LT_EQ", "LT_QMARK_GT", 
+		"MINUS", "PERCENT", "PIPE", "PIPE_PIPE", "PIPE_PIPE_SLASH", "PIPE_SLASH", 
+		"PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", "QMARK_HYPHEN", "QMARK_PIPE", 
+		"SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", "TIL_GT_TIL", "TIL_LTE_TIL", 
+		"TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", "ErrorCharacter",
 	];
 	public static readonly VOCABULARY: Vocabulary = new VocabularyImpl(Formula._LITERAL_NAMES, Formula._SYMBOLIC_NAMES, []);
 
@@ -326,8 +326,8 @@ export class Formula extends Parser {
 				this.match(Formula.R_CURLY);
 				}
 				break;
-			case Formula.IDENTIFIER:
 			case Formula.IDENTIFIER_UNICODE:
+			case Formula.IDENTIFIER:
 				{
 				_localctx = new FunctionCallContext(_localctx);
 				this._ctx = _localctx;
@@ -339,7 +339,7 @@ export class Formula extends Parser {
 				this.state = 44;
 				this._errHandler.sync(this);
 				_la = this._input.LA(1);
-				if ((((_la) & ~0x1F) === 0 && ((1 << _la) & ((1 << Formula.BLOCK_COMMENT) | (1 << Formula.LINE_COMMENT) | (1 << Formula.WHITESPACE) | (1 << Formula.TRUE) | (1 << Formula.FALSE) | (1 << Formula.OPEN_PAREN) | (1 << Formula.L_CURLY) | (1 << Formula.NUMERIC_LITERAL) | (1 << Formula.INTEGER_LITERAL) | (1 << Formula.SINGLEQ_STRING_LITERAL) | (1 << Formula.DOUBLEQ_STRING_LITERAL) | (1 << Formula.IDENTIFIER) | (1 << Formula.IDENTIFIER_UNICODE))) !== 0)) {
+				if ((((_la) & ~0x1F) === 0 && ((1 << _la) & ((1 << Formula.BLOCK_COMMENT) | (1 << Formula.LINE_COMMENT) | (1 << Formula.WHITESPACE) | (1 << Formula.TRUE) | (1 << Formula.FALSE) | (1 << Formula.OPEN_PAREN) | (1 << Formula.L_CURLY) | (1 << Formula.NUMERIC_LITERAL) | (1 << Formula.INTEGER_LITERAL) | (1 << Formula.SINGLEQ_STRING_LITERAL) | (1 << Formula.DOUBLEQ_STRING_LITERAL) | (1 << Formula.IDENTIFIER_UNICODE) | (1 << Formula.IDENTIFIER))) !== 0)) {
 					{
 					this.state = 36;
 					this.expr(0);
@@ -638,7 +638,7 @@ export class Formula extends Parser {
 			{
 			this.state = 82;
 			_la = this._input.LA(1);
-			if (!(_la === Formula.IDENTIFIER_UNICODE_BLANK || _la === Formula.IDENTIFIER_UNICODE)) {
+			if (!(_la === Formula.IDENTIFIER_UNICODE || _la === Formula.IDENTIFIER_UNICODE_BLANK)) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
@@ -699,7 +699,7 @@ export class Formula extends Parser {
 			{
 			this.state = 86;
 			_la = this._input.LA(1);
-			if (!(_la === Formula.IDENTIFIER || _la === Formula.IDENTIFIER_UNICODE)) {
+			if (!(_la === Formula.IDENTIFIER_UNICODE || _la === Formula.IDENTIFIER)) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
@@ -775,7 +775,7 @@ export class Formula extends Parser {
 		"\x0E\x03O\v\x03\x03\x04\x03\x04\x03\x05\x03\x05\x03\x06\x03\x06\x03\x07" +
 		"\x03\x07\x03\b\x03\b\x03\b\x02\x02\x03\x04\t\x02\x02\x04\x02\x06\x02\b" +
 		"\x02\n\x02\f\x02\x0E\x02\x02\n\x03\x02\x06\x07\x05\x02\x0F\x0FBBMM\x04" +
-		"\x02AAGG\x04\x02-.89\x04\x02))++\x03\x02\x03\x05\x03\x02\x1F \x04\x02" +
+		"\x02AAGG\x04\x02-.89\x04\x02))++\x03\x02\x03\x05\x03\x02\x1E\x1F\x04\x02" +
 		"\x1E\x1E  \x02e\x02\x10\x03\x02\x02\x02\x042\x03\x02\x02\x02\x06P\x03" +
 		"\x02\x02\x02\bR\x03\x02\x02\x02\nT\x03\x02\x02\x02\fV\x03\x02\x02\x02" +
 		"\x0EX\x03\x02\x02\x02\x10\x11\x05\x04\x03\x02\x11\x12\x07\x02\x02\x03" +
@@ -800,9 +800,9 @@ export class Formula extends Parser {
 		"\x02\x02\x02K=\x03\x02\x02\x02K@\x03\x02\x02\x02KC\x03\x02\x02\x02KF\x03" +
 		"\x02\x02\x02KI\x03\x02\x02\x02LO\x03\x02\x02\x02MK\x03\x02\x02\x02MN\x03" +
 		"\x02\x02\x02N\x05\x03\x02\x02\x02OM\x03\x02\x02\x02PQ\t\x07\x02\x02Q\x07" +
-		"\x03\x02\x02\x02RS\x07 \x02\x02S\t\x03\x02\x02\x02TU\t\b\x02\x02U\v\x03" +
-		"\x02\x02\x02VW\x05\x0E\b\x02W\r\x03\x02\x02\x02XY\t\t\x02\x02Y\x0F\x03" +
-		"\x02\x02\x02\x07+.2KM";
+		"\x03\x02\x02\x02RS\x07\x1E\x02\x02S\t\x03\x02\x02\x02TU\t\b\x02\x02U\v" +
+		"\x03\x02\x02\x02VW\x05\x0E\b\x02W\r\x03\x02\x02\x02XY\t\t\x02\x02Y\x0F" +
+		"\x03\x02\x02\x02\x07+.2KM";
 	public static __ATN: ATN;
 	public static get _ATN(): ATN {
 		if (!Formula.__ATN) {

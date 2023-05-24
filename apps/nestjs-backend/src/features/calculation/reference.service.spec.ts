@@ -317,7 +317,7 @@ describe('ReferenceService calculation', () => {
       fieldA: createFieldInstanceByRo({
         id: 'fieldA',
         name: 'fieldA',
-        type: FieldType.LongText,
+        type: FieldType.Link,
         options: {
           relationship: Relationship.OneMany,
           foreignTableId: 'foreignTable1',

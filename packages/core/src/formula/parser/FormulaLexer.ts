@@ -43,9 +43,9 @@ export class FormulaLexer extends Lexer {
 	public static readonly DOT = 25;
 	public static readonly SINGLEQ_STRING_LITERAL = 26;
 	public static readonly DOUBLEQ_STRING_LITERAL = 27;
-	public static readonly IDENTIFIER = 28;
+	public static readonly IDENTIFIER_UNICODE = 28;
 	public static readonly IDENTIFIER_UNICODE_BLANK = 29;
-	public static readonly IDENTIFIER_UNICODE = 30;
+	public static readonly IDENTIFIER = 30;
 	public static readonly AMP = 31;
 	public static readonly AMP_AMP = 32;
 	public static readonly AMP_LT = 33;
@@ -121,16 +121,16 @@ export class FormulaLexer extends Lexer {
 		"STAR", "OPEN_PAREN", "CLOSE_PAREN", "OPEN_BRACKET", "CLOSE_BRACKET", 
 		"L_CURLY", "R_CURLY", "BIT_STRING", "REGEX_STRING", "NUMERIC_LITERAL", 
 		"INTEGER_LITERAL", "HEX_INTEGER_LITERAL", "DOT", "SINGLEQ_STRING_LITERAL", 
-		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER", "IDENTIFIER_UNICODE_BLANK", "IDENTIFIER_UNICODE", 
-		"AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", "BANG", "BANG_BANG", 
-		"BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", "GTE", "GT_GT", "HASH", 
-		"HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", "HYPHEN_GT", "HYPHEN_GT_GT", 
-		"HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", "LT_CARET", "LT_GT", "LT_HYPHEN_GT", 
-		"LT_LT", "LT_LT_EQ", "LT_QMARK_GT", "MINUS", "PERCENT", "PIPE", "PIPE_PIPE", 
-		"PIPE_PIPE_SLASH", "PIPE_SLASH", "PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", 
-		"QMARK_HYPHEN", "QMARK_PIPE", "SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", 
-		"TIL_GT_TIL", "TIL_LTE_TIL", "TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", 
-		"ErrorCharacter",
+		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER_UNICODE", "IDENTIFIER_UNICODE_BLANK", 
+		"IDENTIFIER", "AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", 
+		"BANG", "BANG_BANG", "BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", 
+		"GTE", "GT_GT", "HASH", "HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", 
+		"HYPHEN_GT", "HYPHEN_GT_GT", "HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", 
+		"LT_CARET", "LT_GT", "LT_HYPHEN_GT", "LT_LT", "LT_LT_EQ", "LT_QMARK_GT", 
+		"MINUS", "PERCENT", "PIPE", "PIPE_PIPE", "PIPE_PIPE_SLASH", "PIPE_SLASH", 
+		"PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", "QMARK_HYPHEN", "QMARK_PIPE", 
+		"SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", "TIL_GT_TIL", "TIL_LTE_TIL", 
+		"TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", "ErrorCharacter",
 	];
 
 	private static readonly _LITERAL_NAMES: Array<string | undefined> = [
@@ -151,16 +151,16 @@ export class FormulaLexer extends Lexer {
 		"STAR", "OPEN_PAREN", "CLOSE_PAREN", "OPEN_BRACKET", "CLOSE_BRACKET", 
 		"L_CURLY", "R_CURLY", "BIT_STRING", "REGEX_STRING", "NUMERIC_LITERAL", 
 		"INTEGER_LITERAL", "HEX_INTEGER_LITERAL", "DOT", "SINGLEQ_STRING_LITERAL", 
-		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER", "IDENTIFIER_UNICODE_BLANK", "IDENTIFIER_UNICODE", 
-		"AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", "BANG", "BANG_BANG", 
-		"BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", "GTE", "GT_GT", "HASH", 
-		"HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", "HYPHEN_GT", "HYPHEN_GT_GT", 
-		"HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", "LT_CARET", "LT_GT", "LT_HYPHEN_GT", 
-		"LT_LT", "LT_LT_EQ", "LT_QMARK_GT", "MINUS", "PERCENT", "PIPE", "PIPE_PIPE", 
-		"PIPE_PIPE_SLASH", "PIPE_SLASH", "PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", 
-		"QMARK_HYPHEN", "QMARK_PIPE", "SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", 
-		"TIL_GT_TIL", "TIL_LTE_TIL", "TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", 
-		"ErrorCharacter",
+		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER_UNICODE", "IDENTIFIER_UNICODE_BLANK", 
+		"IDENTIFIER", "AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", 
+		"BANG", "BANG_BANG", "BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", 
+		"GTE", "GT_GT", "HASH", "HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", 
+		"HYPHEN_GT", "HYPHEN_GT_GT", "HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", 
+		"LT_CARET", "LT_GT", "LT_HYPHEN_GT", "LT_LT", "LT_LT_EQ", "LT_QMARK_GT", 
+		"MINUS", "PERCENT", "PIPE", "PIPE_PIPE", "PIPE_PIPE_SLASH", "PIPE_SLASH", 
+		"PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", "QMARK_HYPHEN", "QMARK_PIPE", 
+		"SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", "TIL_GT_TIL", "TIL_LTE_TIL", 
+		"TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", "ErrorCharacter",
 	];
 	public static readonly VOCABULARY: Vocabulary = new VocabularyImpl(FormulaLexer._LITERAL_NAMES, FormulaLexer._SYMBOLIC_NAMES, []);
 
@@ -266,9 +266,9 @@ export class FormulaLexer extends Lexer {
 		"\x02NNnn\x04\x02OOoo\x04\x02PPpp\x04\x02QQqq\x04\x02RRrr\x04\x02SSss\x04" +
 		"\x02TTtt\x04\x02UUuu\x04\x02VVvv\x04\x02WWww\x04\x02XXxx\x04\x02YYyy\x04" +
 		"\x02ZZzz\x04\x02[[{{\x04\x02\\\\||\x04\x022;CH\x03\x022;\x04\x02$$^^\x04" +
-		"\x02))^^\x04\x02^^bb\x04\x02\f\f\x0F\x0F\x05\x02\v\f\x0F\x0F\"\"\x05\x02" +
-		"C\\aac|\x06\x022;C\\aac|\x06\x02C\\aac|\xA3\x01\x07\x022;C\\aac|\xA3\x01" +
-		"\x02\u0292\x02C\x03\x02\x02\x02\x02E\x03\x02\x02\x02\x02G\x03\x02\x02" +
+		"\x02))^^\x04\x02^^bb\x04\x02\f\f\x0F\x0F\x05\x02\v\f\x0F\x0F\"\"\x06\x02" +
+		"C\\aac|\xA3\x01\x07\x022;C\\aac|\xA3\x01\x05\x02C\\aac|\x06\x022;C\\a" +
+		"ac|\x02\u0292\x02C\x03\x02\x02\x02\x02E\x03\x02\x02\x02\x02G\x03\x02\x02" +
 		"\x02\x02I\x03\x02\x02\x02\x02K\x03\x02\x02\x02\x02M\x03\x02\x02\x02\x02" +
 		"O\x03\x02\x02\x02\x02Q\x03\x02\x02\x02\x02S\x03\x02\x02\x02\x02U\x03\x02" +
 		"\x02\x02\x02W\x03\x02\x02\x02\x02Y\x03\x02\x02\x02\x02[\x03\x02\x02\x02" +
@@ -431,10 +431,10 @@ export class FormulaLexer extends Lexer {
 		"\x02\u01D8\u01DC\t#\x02\x02\u01D9\u01DB\t$\x02\x02\u01DA\u01D9\x03\x02" +
 		"\x02\x02\u01DB\u01DE\x03\x02\x02\x02\u01DC\u01DA\x03\x02\x02\x02\u01DC" +
 		"\u01DD\x03\x02\x02\x02\u01DDz\x03\x02\x02\x02\u01DE\u01DC\x03\x02\x02" +
-		"\x02\u01DF\u01E3\t%\x02\x02\u01E0\u01E2\t&\x02\x02\u01E1\u01E0\x03\x02" +
+		"\x02\u01DF\u01E3\t#\x02\x02\u01E0\u01E2\t$\x02\x02\u01E1\u01E0\x03\x02" +
 		"\x02\x02\u01E2\u01E5\x03\x02\x02\x02\u01E3\u01E1\x03\x02\x02\x02\u01E3" +
 		"\u01E4\x03\x02\x02\x02\u01E4\u01EE\x03\x02\x02\x02\u01E5\u01E3\x03\x02" +
-		"\x02\x02\u01E6\u01E8\x07\"\x02\x02\u01E7\u01E9\t&\x02\x02\u01E8\u01E7" +
+		"\x02\x02\u01E6\u01E8\x07\"\x02\x02\u01E7\u01E9\t$\x02\x02\u01E8\u01E7" +
 		"\x03\x02\x02\x02\u01E9\u01EA\x03\x02\x02\x02\u01EA\u01E8\x03\x02\x02\x02" +
 		"\u01EA\u01EB\x03\x02\x02\x02\u01EB\u01ED\x03\x02\x02\x02\u01EC\u01E6\x03" +
 		"\x02\x02\x02\u01ED\u01F0\x03\x02\x02\x02\u01EE\u01EC\x03\x02\x02\x02\u01EE" +

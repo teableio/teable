@@ -91,9 +91,9 @@ HEX_INTEGER_LITERAL                  : 'x' SQUOTA_STRING;
 DOT                                  : '.';
 SINGLEQ_STRING_LITERAL               : SQUOTA_STRING;
 DOUBLEQ_STRING_LITERAL               : DQUOTA_STRING;
-IDENTIFIER                           : [a-zA-Z_][a-zA-Z_0-9]*;
-IDENTIFIER_UNICODE_BLANK             : [a-zA-Z_\u00A1-\uFFFF][a-zA-Z_\u00A1-\uFFFF0-9]* (' ' [a-zA-Z_\u00A1-\uFFFF0-9]+)*;
 IDENTIFIER_UNICODE                   : [a-zA-Z_\u00A1-\uFFFF][a-zA-Z_\u00A1-\uFFFF0-9]*;
+IDENTIFIER_UNICODE_BLANK             : [a-zA-Z_\u00A1-\uFFFF][a-zA-Z_\u00A1-\uFFFF0-9]* (' ' [a-zA-Z_\u00A1-\uFFFF0-9]+)*;
+IDENTIFIER                           : [a-zA-Z_][a-zA-Z_0-9]*;
 
 // operator tokens
 AMP                                  : '&';
