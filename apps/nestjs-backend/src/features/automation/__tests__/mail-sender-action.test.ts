@@ -5,7 +5,7 @@ import { NextModule } from '../../next/next.module';
 import type { IMailSenderSchema } from '../actions';
 import { MailSender } from '../actions';
 import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine.class';
+import { JsonRulesEngine } from '../engine/json-rules-engine';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 jest.setTimeout(100000000);
@@ -24,10 +24,10 @@ describe('Mail-Sender Action Test', () => {
     mailSender = await moduleRef.resolve<MailSender>(MailSender);
   });
 
-  it('should call onSuccess and create records', async () => {
+  it('should call onSuccess and send mail', async () => {
     jsonRulesEngine.addRule(ActionTypeEnums.MailSender, {
       id: 'wac3lzmmwSKWmtYoOF6',
-      params: {
+      inputSchema: {
         to: {
           type: 'array',
           elements: [
@@ -35,7 +35,7 @@ describe('Mail-Sender Action Test', () => {
               type: 'template',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'penganpingprivte@gmail.com',
                 },
               ],
@@ -44,7 +44,7 @@ describe('Mail-Sender Action Test', () => {
               type: 'template',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'penganpingprivte@gmail.com',
                 },
               ],
@@ -55,7 +55,7 @@ describe('Mail-Sender Action Test', () => {
           type: 'template',
           elements: [
             {
-              type: 'text',
+              type: 'const',
               value: 'A test email from `table`',
             },
           ],
@@ -64,7 +64,7 @@ describe('Mail-Sender Action Test', () => {
           type: 'template',
           elements: [
             {
-              type: 'text',
+              type: 'const',
               value: 'first row\n1 <br>br\nsss',
             },
           ],

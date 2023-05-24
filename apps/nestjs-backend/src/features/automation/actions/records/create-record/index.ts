@@ -1,9 +1,8 @@
-import { Injectable, Scope } from '@nestjs/common';
+import { Injectable, Logger, Scope } from '@nestjs/common';
 import { FieldKeyType } from '@teable-group/core';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import type { CreateRecordsRo } from '../../../../record/create-records.ro';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
-import { JsonSchemaParser } from '../../../engine/json-schema-parser.class';
 import type { IActionResponse, ITypeValueSchema, ITypePropertiesSchema } from '../../action-core';
 import { actionConst, ActionCore, ActionResponseStatus } from '../../action-core';
 
@@ -14,27 +13,21 @@ export interface ICreateRecordSchema extends Record<string, unknown> {
 
 @Injectable({ scope: Scope.REQUEST })
 export class CreateRecord extends ActionCore {
+  private logger = new Logger(CreateRecord.name);
+
   constructor(private readonly recordOpenApiService: RecordOpenApiService) {
     super();
   }
 
   bindParams(id: string, params: ICreateRecordSchema, priority?: number): this {
-    return this.setName(id)
-      .setEvent({ type: id, params: params })
-      .setPriority(priority ? priority : 1);
+    return this.setName(id).setEvent({ type: id, params: params }).setPriority(priority);
   }
 
   onSuccess = async (event: Event, almanac: Almanac, _ruleResult: RuleResult): Promise<void> => {
-    const jsonSchemaParser = new JsonSchemaParser(event.params as ICreateRecordSchema, {
-      pathResolver: async (_, path) => {
-        const [id, p] = path;
-        return await almanac.factValue(id, undefined, p);
-      },
-    });
-    const { tableId, fields } = (await jsonSchemaParser.parse()) as {
+    const { tableId, fields } = await this.parseInputSchema<{
       tableId: string;
       fields: { [fieldIdOrName: string]: unknown };
-    };
+    }>(event.params as ICreateRecordSchema, almanac);
 
     const createData: CreateRecordsRo = {
       fieldKeyType: FieldKeyType.Id,
@@ -45,14 +38,16 @@ export class CreateRecord extends ActionCore {
 
     await this.recordOpenApiService
       .multipleCreateRecords(tableId, createData)
-      .then(() => {
-        outPut = { msg: 'ok', data: undefined, code: ActionResponseStatus.Success };
+      .then((records) => {
+        const [record] = records;
+        outPut = { msg: 'ok', data: record, code: ActionResponseStatus.Success };
       })
       .catch((error) => {
+        this.logger.error(error);
         outPut = { msg: 'error', data: undefined, code: ActionResponseStatus.ServerError };
       })
       .finally(() => {
-        almanac.addRuntimeFact(`${this.name}${actionConst.OutPutFlag}`, outPut);
+        almanac.addRuntimeFact(`${actionConst.OutPutFlag}${this.name}`, outPut);
       });
   };
 }

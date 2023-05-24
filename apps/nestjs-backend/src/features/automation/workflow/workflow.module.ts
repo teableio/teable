@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { WorkflowActionService } from 'src/features/automation/workflow-action/workflow-action.service';
-import { WorkflowTriggerService } from 'src/features/automation/workflow-trigger/workflow-trigger.service';
 import { PrismaService } from '../../../prisma.service';
+import { WorkflowActionService } from './action/workflow-action.service';
+import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
 

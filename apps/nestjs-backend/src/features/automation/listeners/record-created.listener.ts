@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import _ from 'lodash';
 import { RecordCreatedEvent } from 'src/share-db/events';
-import type { IActionRequest } from '../actions/action-core';
-import { JsonRulesEngine } from '../engine/json-rules-engine.class';
+import type { IActionInputSchema } from '../actions/action-core';
+import { JsonRulesEngine } from '../engine/json-rules-engine';
+import { ActionTypeEnums } from '../enums/action-type.enum';
 import { TriggerTypeEnums } from '../enums/trigger-type.enum';
 import { WorkflowService } from '../workflow/workflow.service';
 
@@ -36,21 +37,27 @@ export class RecordCreatedListener {
           return;
         }
 
+        let parentNodeId: string;
         const actionTotal = _.size(workflow.actions);
-        Object.entries(workflow.actions).forEach(([key, value], index) => {
-          const options = {
-            id: key,
-            params: value.inputExpressions as IActionRequest,
-            priority: actionTotal - index,
-          };
-          this.jsonRulesEngine.addRule(value.actionType!.toString(), options);
+        Object.entries(workflow.actions).forEach(([id, value], index) => {
+          if (value.actionType !== ActionTypeEnums.Decision) {
+            const options = {
+              id,
+              parentNodeId,
+              inputSchema: value.inputExpressions as IActionInputSchema,
+              priority: actionTotal - index,
+            };
+            this.jsonRulesEngine.addRule(value.actionType!.toString(), options);
+
+            parentNodeId = id;
+          }
         });
 
         const trigger = {
-          [workflow.trigger.id]: context.snapshot?.data,
+          [`trigger.${workflow.trigger.id}`]: context.snapshot?.data,
         };
 
-        this.jsonRulesEngine.fire({ trigger });
+        this.jsonRulesEngine.fire(trigger);
       });
     }
   }

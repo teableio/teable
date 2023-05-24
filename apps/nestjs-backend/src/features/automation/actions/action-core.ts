@@ -5,11 +5,8 @@ import type {
   TopLevelCondition,
   RuleProperties,
 } from 'json-rules-engine';
-import type {
-  IWebhookSchema,
-  IMailSenderSchema,
-  ICreateRecordSchema,
-} from 'src/features/automation/actions';
+import type { IWebhookSchema, IMailSenderSchema, ICreateRecordSchema } from '../actions';
+import { JsonSchemaParser } from '../engine/json-schema/parser';
 
 export enum ActionResponseStatus {
   Unknown = -1,
@@ -23,7 +20,7 @@ export type IActionResponse<T> = {
   code: ActionResponseStatus;
 };
 
-export type IActionRequest = IWebhookSchema | IMailSenderSchema | ICreateRecordSchema;
+export type IActionInputSchema = IWebhookSchema | IMailSenderSchema | ICreateRecordSchema;
 export type ITypeValueSchema = { type: string; value: string };
 
 export type ITypePropertiesSchema = {
@@ -48,17 +45,17 @@ export type IElementArraySchema = {
 };
 
 export const actionConst = {
-  OutPutFlag: '_output',
+  OutPutFlag: 'action.',
 };
 
 export abstract class ActionCore implements RuleProperties {
   name?: string;
-  conditions: TopLevelCondition;
-  event: Event;
+  conditions!: TopLevelCondition;
+  event!: Event;
   priority?: number;
 
   protected constructor() {
-    this.conditions = {
+    this.setConditions({
       any: [
         {
           fact: '__fact_always__',
@@ -66,14 +63,25 @@ export abstract class ActionCore implements RuleProperties {
           value: undefined,
         },
       ],
-    };
+    });
 
-    this.event = { type: '__unknown__' };
+    this.setEvent({ type: '__unknown__' });
   }
 
-  abstract bindParams(id: string, params: IActionRequest, priority?: number): this;
+  abstract bindParams(id: string, inputSchema: IActionInputSchema, priority?: number): this;
 
-  setName(name: string) {
+  protected async parseInputSchema<T>(schema: IActionInputSchema, almanac: Almanac): Promise<T> {
+    const jsonSchemaParser = new JsonSchemaParser(schema, {
+      pathResolver: async (_, path) => {
+        const [id, p] = path;
+        return await almanac.factValue(id, undefined, p);
+      },
+    });
+
+    return (await jsonSchemaParser.parse()) as T;
+  }
+
+  protected setName(name: string): this {
     if (!name) {
       throw new Error('Rule "name" must be defined');
     }
@@ -81,7 +89,7 @@ export abstract class ActionCore implements RuleProperties {
     return this;
   }
 
-  setEvent(event: Event) {
+  protected setEvent(event: Event): this {
     if (!event) throw new Error('Rule: setEvent() requires event object');
     if (!Object.prototype.hasOwnProperty.call(event, 'type'))
       throw new Error('Rule: setEvent() requires event object with "type" property');
@@ -89,9 +97,21 @@ export abstract class ActionCore implements RuleProperties {
     return this;
   }
 
-  setPriority(priority: number) {
+  protected setPriority(priority?: number): this {
+    priority = priority ?? 1;
     if (priority <= 0) throw new Error('Priority must be greater than zero');
     this.priority = priority;
+    return this;
+  }
+
+  setConditions(conditions: TopLevelCondition): this {
+    if (
+      !Object.prototype.hasOwnProperty.call(conditions, 'all') &&
+      !Object.prototype.hasOwnProperty.call(conditions, 'any')
+    ) {
+      throw new Error('"conditions" root must contain a single instance of "all" or "any"');
+    }
+    this.conditions = conditions;
     return this;
   }
 

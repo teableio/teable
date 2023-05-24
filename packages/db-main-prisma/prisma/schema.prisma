@@ -152,8 +152,8 @@ model VerificationToken {
 }
 
 model Attachments {
-  id          String  @id @default(cuid())
-  token       String  @unique
+  id          String    @id @default(cuid())
+  token       String    @unique
   size        Int
   mimetype    String
   path        String
@@ -198,7 +198,6 @@ model AutomationWorkflowAction {
   id               String    @id @default(cuid())
   actionId         String    @unique @map("action_id")
   workflowId       String    @map("workflow_id")
-  triggerId        String    @map("trigger_id")
   description      String?   @map("description")
   actionType       String?   @map("action_type")
   inputExpressions String?   @map("input_expressions")

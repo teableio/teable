@@ -1,28 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
+  AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
   Prisma,
   AutomationWorkflow as AutomationWorkflowModel,
-  AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
 } from '@teable-group/db-main-prisma';
 import _ from 'lodash';
-import type { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enum';
 import { PrismaService } from '../../../prisma.service';
+import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
 import type { CreateWorkflowRo } from '../model/create-workflow.ro';
 import { WorkflowVo } from '../model/workflow.vo';
-import { WorkflowActionService } from '../workflow-action/workflow-action.service';
-import { WorkflowTriggerService } from '../workflow-trigger/workflow-trigger.service';
+import { WorkflowActionService } from './action/workflow-action.service';
+import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
 
 @Injectable()
 export class WorkflowService {
   private logger = new Logger(WorkflowService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly triggerService: WorkflowTriggerService,
     private readonly actionService: WorkflowActionService
   ) {}
 
-  public async getWorkflow(workflowId: string): Promise<WorkflowVo | null> {
+  async getWorkflow(workflowId: string): Promise<WorkflowVo | null> {
     const workflow = await this.prisma.automationWorkflow.findFirst({
       where: { workflowId: workflowId },
     });
@@ -40,13 +39,14 @@ export class WorkflowService {
     const trigger = await this.triggerService.getWorkflowTrigger(workflowId);
     if (trigger) {
       result.trigger = trigger;
-      const actions = await this.actionService.getWorkflowActions(workflowId, trigger.id);
+
+      const actions = await this.actionService.getWorkflowActions(workflowId);
       result.actions = _.keyBy(actions, (item) => item.id);
     }
     return result;
   }
 
-  public async getWorkflowsByTrigger(
+  async getWorkflowsByTrigger(
     nodeId: string,
     trigger: TriggerTypeEnums
   ): Promise<WorkflowVo[] | null> {
@@ -54,7 +54,7 @@ export class WorkflowService {
       .$queryRaw`SELECT workflow_id as workflowId
                  FROM automation_workflow_trigger
                  WHERE trigger_type = ${trigger}
-                   AND json_extract(input_expressions, '$.tableId') = ${nodeId}`;
+                   AND JSON_EXTRACT(input_expressions, '$.tableId') = ${nodeId}`;
 
     if (_.isEmpty(queryResult)) {
       return null;
@@ -72,7 +72,7 @@ export class WorkflowService {
     return result;
   }
 
-  public async createWorkflow(
+  async createWorkflow(
     workflowId: string,
     createWorkflowRo: CreateWorkflowRo
   ): Promise<AutomationWorkflowModel> {
@@ -87,7 +87,7 @@ export class WorkflowService {
     return this.prisma.automationWorkflow.create({ data });
   }
 
-  public async updateWorkflow(
+  async updateWorkflow(
     workflowId: string,
     updateWorkflowRo: CreateWorkflowRo
   ): Promise<AutomationWorkflowModel> {

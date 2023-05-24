@@ -1,20 +1,160 @@
 import type { ICreateRecordSchema, IMailSenderSchema, IWebhookSchema } from '../../actions';
-import ajv from '../../engine/ajv';
+import ajv from '../../engine/json-schema/ajv';
 
 describe('Ajv Compile Test', () => {
+  describe('Validate `Action Meta`s', () => {
+    const objectPathValue = {
+      type: 'objectPathValue',
+      object: {
+        nodeId: 'string',
+        nodeType: 'trigger',
+      },
+      path: {
+        type: 'array',
+        elements: [
+          {
+            type: 'const',
+            value: 'string',
+          },
+        ],
+      },
+    };
+
+    const template = {
+      type: 'template',
+      elements: [
+        {
+          type: 'const',
+          value: 'abc',
+        },
+        objectPathValue,
+      ],
+    };
+
+    const object = {
+      type: 'object',
+      properties: [
+        {
+          key: {
+            type: 'const',
+            value: 'key',
+          },
+          value: {
+            type: 'const',
+            value: 'value',
+          },
+        },
+      ],
+    };
+
+    it('type=`null`, need to return true', async () => {
+      const validate = ajv.compile({
+        $ref: 'ActionMeta#/definitions/null',
+      });
+
+      expect(validate({ type: 'null' })).toBeTruthy();
+      expect(validate({ type: 'null', value: '' })).toBeFalsy();
+      expect(validate({ type: 'null1', value: '' })).toBeFalsy();
+    });
+
+    it('type=`const`, need to return true', async () => {
+      const validate = ajv.compile({
+        $ref: 'ActionMeta#/definitions/const',
+      });
+
+      expect(validate({ type: 'const', value: 'abc' })).toBeTruthy();
+      expect(validate({ type: 'const', value: 1 })).toBeTruthy();
+      expect(validate({ type: 'const', value: 1.1 })).toBeTruthy();
+      expect(validate({ type: 'const', value: -1 })).toBeTruthy();
+      expect(validate({ type: 'const', value: false })).toBeTruthy();
+      expect(validate({ type: 'const', value: {} })).toBeFalsy();
+      expect(validate({ type: 'const', value: [] })).toBeFalsy();
+      expect(validate({ type: 'const1', value: '' })).toBeFalsy();
+    });
+
+    it('type=`objectPathValue`, need to return true', async () => {
+      const validate = ajv.compile({
+        $ref: 'ActionMeta#/definitions/objectPathValue',
+      });
+
+      expect(validate(objectPathValue)).toBeTruthy();
+      expect(
+        validate({
+          ...objectPathValue,
+          object: { ...objectPathValue.object, nodeType: '__system__' },
+        })
+      ).toBeTruthy();
+      expect(
+        validate({ ...objectPathValue, object: { ...objectPathValue.object, nodeType: 'action' } })
+      ).toBeTruthy();
+      expect(
+        validate({ ...objectPathValue, object: { ...objectPathValue.object, nodeType: 'type' } })
+      ).toBeFalsy();
+      expect(
+        validate({ ...objectPathValue, object: { ...objectPathValue.object, a: 'a' } })
+      ).toBeFalsy();
+
+      expect(
+        validate({ ...objectPathValue, path: { ...objectPathValue.path, elements: [] } })
+      ).toBeFalsy();
+      expect(
+        validate({
+          ...objectPathValue,
+          path: { ...objectPathValue.path, elements: [{ type: 'null' }] },
+        })
+      ).toBeFalsy();
+    });
+
+    it('type=`template`, need to return true', async () => {
+      const validate = ajv.compile({
+        $ref: 'ActionMeta#/definitions/template',
+      });
+
+      expect(validate(template)).toBeTruthy();
+      expect(validate({ ...template, elements: [] })).toBeTruthy();
+    });
+
+    it('type=`object`, need to return true', async () => {
+      const validate = ajv.compile({
+        $ref: 'ActionMeta#/definitions/object',
+      });
+
+      const dynamicValue = (value: any) => {
+        return {
+          ...object,
+          properties: [
+            {
+              ...object.properties[0],
+              value,
+            },
+          ],
+        };
+      };
+
+      expect(validate(object)).toBeTruthy();
+      expect(validate(dynamicValue({ type: 'null' }))).toBeTruthy();
+      expect(validate(dynamicValue(objectPathValue))).toBeTruthy();
+      expect(validate(dynamicValue(template))).toBeTruthy();
+      expect(validate(dynamicValue(object))).toBeTruthy();
+      expect(validate(dynamicValue({ type: 'array', elements: [object] }))).toBeTruthy();
+
+      expect(validate(dynamicValue({ type: 'null1' }))).toBeFalsy();
+    });
+  });
+
   describe('Validate `Webhook`', () => {
     const data = {
       url: {
         type: 'template',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: 'https://google.com',
           },
         ],
       },
       method: {
-        type: 'text',
+        type: 'const',
         value: 'GET',
       },
       headers: {
@@ -22,14 +162,14 @@ describe('Ajv Compile Test', () => {
         properties: [
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'User-Agent',
             },
             value: {
               type: 'template',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
                 },
               ],
@@ -41,15 +181,15 @@ describe('Ajv Compile Test', () => {
         type: 'template',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: '{',
           },
           {
-            type: 'text',
+            type: 'const',
             value: '"name":"abc"',
           },
           {
-            type: 'text',
+            type: 'const',
             value: '}',
           },
         ],
@@ -59,14 +199,14 @@ describe('Ajv Compile Test', () => {
         properties: [
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'customizeKey',
             },
             value: {
               type: 'template',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'data.data',
                 },
               ],
@@ -79,7 +219,7 @@ describe('Ajv Compile Test', () => {
     it('need to return true', async () => {
       const validate = ajv.getSchema<IWebhookSchema>('WebhookSchema')!;
 
-      expect(validate).not.toBeUndefined();
+      expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
       expect(validate({ ...data, method: { value: 'GET_1' } })).toBeFalsy();
     });
@@ -94,7 +234,7 @@ describe('Ajv Compile Test', () => {
             type: 'template',
             elements: [
               {
-                type: 'text',
+                type: 'const',
                 value: 'penganpingprivte@gmail.com',
               },
             ],
@@ -103,7 +243,7 @@ describe('Ajv Compile Test', () => {
             type: 'template',
             elements: [
               {
-                type: 'text',
+                type: 'const',
                 value: 'penganpingprivte@gmail.com',
               },
             ],
@@ -114,7 +254,7 @@ describe('Ajv Compile Test', () => {
         type: 'template',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: 'A test email from `table`',
           },
         ],
@@ -123,7 +263,7 @@ describe('Ajv Compile Test', () => {
         type: 'template',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: 'first row\n1 <br>br\nsss',
           },
         ],
@@ -133,16 +273,16 @@ describe('Ajv Compile Test', () => {
     it('need to return true', async () => {
       const validate = ajv.getSchema<IMailSenderSchema>('MailSenderSchema')!;
 
-      expect(validate).not.toBeUndefined();
+      expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
-      expect(validate({ ...data, subject: { type: 'text' } })).toBeFalsy();
+      expect(validate({ ...data, subject: { type: 'const' } })).toBeFalsy();
     });
   });
 
   describe('Validate `CreateRecordSchema`', () => {
     const data = {
       tableId: {
-        type: 'text',
+        type: 'const',
         value: 'tblwEp45tdvwTxiUl',
       },
       fields: {
@@ -150,14 +290,14 @@ describe('Ajv Compile Test', () => {
         properties: [
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'fldELAd4ssqjk5CBg',
             },
             value: {
               type: 'template',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'fields.name',
                 },
                 {
@@ -170,11 +310,11 @@ describe('Ajv Compile Test', () => {
                     type: 'array',
                     elements: [
                       {
-                        type: 'text',
+                        type: 'const',
                         value: 'cellValuesByFieldId',
                       },
                       {
-                        type: 'text',
+                        type: 'const',
                         value: 'fldXPZs9lFMvAIo2E',
                       },
                     ],
@@ -190,9 +330,166 @@ describe('Ajv Compile Test', () => {
     it('need to return true', async () => {
       const validate = ajv.getSchema<ICreateRecordSchema>('CreateRecordSchema')!;
 
-      expect(validate).not.toBeUndefined();
+      expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
       expect(validate({ ...data, table: 'table' })).toBeFalsy();
+    });
+  });
+
+  describe('Validate `Decision`', () => {
+    const data = {
+      inputExpressions: {
+        groups: {
+          type: 'array',
+          elements: [
+            {
+              type: 'object',
+              properties: [
+                {
+                  key: {
+                    type: 'const',
+                    value: 'hasCondition',
+                  },
+                  value: {
+                    type: 'const',
+                    value: true,
+                  },
+                },
+                {
+                  key: {
+                    type: 'const',
+                    value: 'entryNodeId',
+                  },
+                  value: {
+                    type: 'null',
+                  },
+                },
+                {
+                  key: {
+                    type: 'const',
+                    value: 'condition',
+                  },
+                  value: {
+                    type: 'object',
+                    properties: [
+                      {
+                        key: {
+                          type: 'const',
+                          value: 'conjunction',
+                        },
+                        value: {
+                          type: 'const',
+                          value: 'and',
+                        },
+                      },
+                      {
+                        key: {
+                          type: 'const',
+                          value: 'conditions',
+                        },
+                        value: {
+                          type: 'array',
+                          elements: [
+                            {
+                              type: 'object',
+                              properties: [
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'right',
+                                  },
+                                  value: {
+                                    type: 'array',
+                                    elements: [
+                                      {
+                                        type: 'const',
+                                        value: 'selSqHdcsGCCDOa0y',
+                                      },
+                                      {
+                                        type: 'const',
+                                        value: 'selukpRoWvJ5bMu6C',
+                                      },
+                                    ],
+                                  },
+                                },
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'dataType',
+                                  },
+                                  value: {
+                                    type: 'const',
+                                    value: 'text',
+                                  },
+                                },
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'valueType',
+                                  },
+                                  value: {
+                                    type: 'const',
+                                    value: 'select',
+                                  },
+                                },
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'operator',
+                                  },
+                                  value: {
+                                    type: 'const',
+                                    value: 'isNoneOf',
+                                  },
+                                },
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'operatorOptions',
+                                  },
+                                  value: {
+                                    type: 'null',
+                                  },
+                                },
+                                {
+                                  key: {
+                                    type: 'const',
+                                    value: 'left',
+                                  },
+                                  value: {
+                                    type: 'array',
+                                    elements: [
+                                      {
+                                        type: 'const',
+                                        value: 'trigger.wtrdS3OIXzjyRyvnP',
+                                      },
+                                      {
+                                        type: 'const',
+                                        value: 'data',
+                                      },
+                                    ],
+                                  },
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+
+    it('need to return true', async () => {
+      const validate = ajv.getSchema<ICreateRecordSchema>('ActionMeta')!;
+
+      expect(validate).toBeDefined();
+      expect(validate(data)).toBeTruthy();
     });
   });
 });

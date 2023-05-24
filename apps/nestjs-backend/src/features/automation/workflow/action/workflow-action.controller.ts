@@ -8,7 +8,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiResponse, responseWrap } from 'src/utils';
-import { CreateWorkflowActionRo } from '../model/create-workflow-action.ro';
+import { CreateWorkflowActionRo } from '../../model/create-workflow-action.ro';
 import { WorkflowActionService } from './workflow-action.service';
 
 @ApiBearerAuth()

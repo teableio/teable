@@ -1,10 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import {
+  FieldType,
   generateWorkflowActionId,
   generateWorkflowId,
   generateWorkflowTriggerId,
 } from '@teable-group/core';
 import request from 'supertest';
+import type { FieldVo } from 'src/features/field/model/field.vo';
 import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
 import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
 import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
@@ -14,16 +16,13 @@ import { initApp } from './init-app';
 
 describe('AutomationController (e2e)', () => {
   let app: INestApplication;
-  let tableId = 'tbluD1SibWWuWFza6YL';
+  let tableId = 'tblyPjTHHtKmGOw25if';
 
   beforeAll(async () => {
     app = await initApp();
 
     if (tableId === '') {
-      const result = await request(app.getHttpServer()).post('/api/table').send({
-        name: 'table1-automation-add',
-      });
-      tableId = result.body.data.id;
+      tableId = await newTable();
     }
   });
 
@@ -31,6 +30,7 @@ describe('AutomationController (e2e)', () => {
     const workflowId = generateWorkflowId();
     const triggerId = generateWorkflowTriggerId();
     const actionId = generateWorkflowActionId();
+    const actionId1 = generateWorkflowActionId();
 
     // Step.1
     const workflowRo: CreateWorkflowRo = {
@@ -55,28 +55,142 @@ describe('AutomationController (e2e)', () => {
       .expect({ success: true });
 
     // Step.3
+    const newTableId = await newTable();
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
+    const fields: FieldVo[] = fieldsResult.body.data;
+    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     const actionRo: CreateWorkflowActionRo = {
       workflowId: workflowId,
-      triggerId: triggerId,
-      actionType: ActionTypeEnums.MailSender,
+      actionType: ActionTypeEnums.CreateRecord,
       description: 'description',
       inputExpressions: {
-        to: ['penganpingprivte@gmail.com'],
-        subject: ['New Record【Teable】', ' + ', '$.__system__.execution_time'],
-        message: [
-          '<h1>New Record<h1>',
-          '<h3>',
-          'Coming Teable: ',
-          '$.__system__.execution_time',
-          '<h3>',
-        ],
+        tableId: {
+          type: 'const',
+          value: `${newTableId}`,
+        },
+        fields: {
+          type: 'object',
+          properties: [
+            {
+              key: {
+                type: 'const',
+                value: firstTextField.id,
+              },
+              value: {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'const',
+                    value: 'firstTextField - ' + new Date(),
+                  },
+                ],
+              },
+            },
+          ],
+        },
       },
-      nextNodeId: null,
-      parentNodeId: null,
+      // nextNodeId: null,
+      // parentNodeId: null,
     };
     await request(app.getHttpServer())
       .post(`/api/workflowAction/${actionId}`)
       .send(actionRo)
+      .expect(201)
+      .expect({ success: true });
+
+    // Step.4
+    const actionRo1: CreateWorkflowActionRo = {
+      workflowId: workflowId,
+      actionType: ActionTypeEnums.MailSender,
+      description: 'description',
+      inputExpressions: {
+        to: {
+          type: 'array',
+          elements: [
+            {
+              type: 'template',
+              elements: [
+                {
+                  type: 'const',
+                  value: 'penganpingprivte@gmail.com',
+                },
+              ],
+            },
+          ],
+        },
+        subject: {
+          type: 'template',
+          elements: [
+            {
+              type: 'const',
+              value: 'A test email from `table`',
+            },
+          ],
+        },
+        message: {
+          type: 'template',
+          elements: [
+            {
+              type: 'const',
+              value: '<h1>New Record By Trigger RecordId: <h1>',
+            },
+            {
+              type: 'objectPathValue',
+              object: {
+                nodeId: `${triggerId}`,
+                nodeType: 'trigger',
+              },
+              path: {
+                type: 'array',
+                elements: [
+                  {
+                    type: 'const',
+                    value: 'record',
+                  },
+                  {
+                    type: 'const',
+                    value: 'id',
+                  },
+                ],
+              },
+            },
+            {
+              type: 'const',
+              value: '<br/>New Record: 【',
+            },
+            {
+              type: 'objectPathValue',
+              object: {
+                nodeId: `${actionId}`,
+                nodeType: 'action',
+              },
+              path: {
+                type: 'array',
+                elements: [
+                  {
+                    type: 'const',
+                    value: 'data',
+                  },
+                  {
+                    type: 'const',
+                    value: 'fields',
+                  },
+                  {
+                    type: 'const',
+                    value: `${firstTextField.id}`,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      parentNodeId: actionId,
+      // nextNodeId: null,
+    };
+    await request(app.getHttpServer())
+      .post(`/api/workflowAction/${actionId1}`)
+      .send(actionRo1)
       .expect(201)
       .expect({ success: true });
 
@@ -101,4 +215,11 @@ describe('AutomationController (e2e)', () => {
       },
     });
   });
+
+  const newTable = async (): Promise<string> => {
+    const result = await request(app.getHttpServer()).post('/api/table').send({
+      name: 'table1-automation-add',
+    });
+    return result.body.data.id;
+  };
 });

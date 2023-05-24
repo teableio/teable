@@ -4,7 +4,7 @@ import type { EngineResult } from 'json-rules-engine';
 import { Engine } from 'json-rules-engine';
 import { UnreachableCaseError } from '../../../errors/unreachable-case-error';
 import { Webhook, MailSender, CreateRecord } from '../actions';
-import type { ActionCore, IActionRequest } from '../actions/action-core';
+import type { ActionCore, IActionInputSchema } from '../actions/action-core';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 @Injectable({ scope: Scope.REQUEST })
@@ -35,9 +35,9 @@ export class JsonRulesEngine {
     /*
      * initialize built in system variables
      */
-    this.engine.addFact<{ [key: string]: unknown }>('__system__', () => {
+    this.engine.addFact<{ [key: string]: unknown }>('__system__.runEnv', () => {
       return {
-        execution_time: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+        executionTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
       };
     });
   }
@@ -57,14 +57,36 @@ export class JsonRulesEngine {
 
   addRule(
     actionType: string,
-    options: { id: string; params: IActionRequest; priority?: number }
+    options: {
+      id: string;
+      parentNodeId?: string;
+      inputSchema: IActionInputSchema;
+      priority?: number;
+    }
   ): void {
-    const { id, params, priority } = options;
-    const actionRule = this.getAction(actionType).bindParams(id, params, priority);
+    const { id, parentNodeId, inputSchema, priority } = options;
+
+    const actionRule = this.getAction(actionType).bindParams(id, inputSchema, priority);
+
+    let conditions = actionRule.conditions;
+    if (parentNodeId) {
+      conditions = {
+        all: [
+          {
+            fact: `action.${parentNodeId}`,
+            operator: 'equal',
+            value: 200,
+            path: '$.code',
+          },
+        ],
+      };
+    }
+    actionRule.setConditions(conditions);
+
     this.engine.addRule(actionRule);
   }
 
   async fire(facts?: Record<string, unknown>): Promise<EngineResult> {
-    return this.engine.run(facts);
+    return await this.engine.run(facts);
   }
 }

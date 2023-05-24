@@ -9,12 +9,6 @@ export class CreateWorkflowActionRo {
   workflowId!: string;
 
   @ApiPropertyOptional({
-    description: 'Id of the workflow trigger to be associated',
-    example: 'wtrdS3OIXzjyRyvnP',
-  })
-  triggerId!: string;
-
-  @ApiPropertyOptional({
     description: 'description of the action',
     enum: ActionTypeEnums,
     example: 'action description',

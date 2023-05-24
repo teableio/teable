@@ -129,7 +129,7 @@ export class ShareDbService extends ShareDBClass {
   ): Promise<void> {
     const getType = (types: IEventType[]): IEventType | undefined => {
       const typeFrequencies = _.countBy(types);
-      if (typeFrequencies.Create && typeFrequencies.Edit) {
+      if (typeFrequencies.Create) {
         return 'Create';
       }
       if (typeFrequencies.Edit && !typeFrequencies.Create && !typeFrequencies.Delete) {

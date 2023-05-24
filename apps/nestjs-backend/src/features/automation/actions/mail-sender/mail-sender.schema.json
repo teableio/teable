@@ -2,91 +2,7 @@
   "$id": "https://teable.io/json-schema/actions/mail-sender.json",
   "type": "object",
   "definitions": {
-    "templateType": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["template"]
-        },
-        "elements": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["text"]
-                  },
-                  "value": {
-                    "type": "string"
-                  }
-                },
-                "required": ["type", "value"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["objectPathValue"]
-                  },
-                  "object": {
-                    "type": "object",
-                    "properties": {
-                      "nodeId": {
-                        "type": "string"
-                      },
-                      "nodeType": {
-                        "type": "string",
-                        "enum": ["trigger"]
-                      }
-                    },
-                    "required": ["nodeId", "nodeType"],
-                    "additionalProperties": false
-                  },
-                  "path": {
-                    "type": "object",
-                    "properties": {
-                      "type": {
-                        "type": "string"
-                      },
-                      "elements": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "type": {
-                              "type": "string",
-                              "enum": ["text"]
-                            },
-                            "value": {
-                              "type": "string"
-                            }
-                          },
-                          "required": ["type", "value"],
-                          "additionalProperties": false
-                        }
-                      }
-                    },
-                    "required": ["type", "elements"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["type", "object", "path"],
-                "additionalProperties": false
-              }
-            ]
-          }
-        }
-      },
-      "required": ["type", "elements"],
-      "additionalProperties": false
-    },
-    "elementArray": {
+    "templateArray": {
       "type": "object",
       "properties": {
         "type": {
@@ -96,7 +12,7 @@
         "elements": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/templateType"
+            "$ref": "meta.json#/definitions/template"
           }
         }
       },
@@ -106,22 +22,22 @@
   },
   "properties": {
     "to": {
-      "$ref": "#/definitions/elementArray"
+      "$ref": "#/definitions/templateArray"
     },
     "cc": {
-      "$ref": "#/definitions/elementArray"
+      "$ref": "#/definitions/templateArray"
     },
     "bcc": {
-      "$ref": "#/definitions/elementArray"
+      "$ref": "#/definitions/templateArray"
     },
     "replyTo": {
-      "$ref": "#/definitions/elementArray"
+      "$ref": "#/definitions/templateArray"
     },
     "subject": {
-      "$ref": "#/definitions/templateType"
+      "$ref": "meta.json#/definitions/template"
     },
     "message": {
-      "$ref": "#/definitions/templateType"
+      "$ref": "meta.json#/definitions/template"
     }
   },
   "required": ["to", "subject", "message"],

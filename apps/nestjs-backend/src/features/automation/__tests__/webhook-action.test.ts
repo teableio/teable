@@ -3,15 +3,14 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { NextModule } from '../../next/next.module';
 import type { IWebhookSchema } from '../actions';
-import { Webhook } from '../actions';
 import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine.class';
+import { JsonRulesEngine } from '../engine/json-rules-engine';
+import ajv from '../engine/json-schema/ajv';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 jest.setTimeout(100000000);
 describe('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
-  let webhook: Webhook;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -21,92 +20,84 @@ describe('Webhook Action Test', () => {
     moduleRef.useLogger(new ConsoleLogger());
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
-    webhook = await moduleRef.resolve<Webhook>(Webhook);
   });
 
-  it('should call onSuccess and create records', async () => {
-    jsonRulesEngine.addRule(ActionTypeEnums.Webhook, {
-      id: 'wac3lzmmwSKWmtYoOF6',
-      params: {
-        url: {
-          type: 'template',
-          elements: [
-            {
-              type: 'text',
-              value: 'http://www.weather.com.cn/data/cityinfo/101010100.html',
+  const webhookData = {
+    id: 'wac3lzmmwSKWmtYoOF6',
+    priority: 2,
+    inputSchema: {
+      url: {
+        type: 'template',
+        elements: [
+          {
+            type: 'const',
+            value: 'https://tenapi.cn/v2/douyinhot',
+          },
+        ],
+      },
+      method: {
+        type: 'const',
+        value: 'GET',
+      },
+      headers: {
+        type: 'object',
+        properties: [
+          {
+            key: {
+              type: 'const',
+              value: 'User-Agent',
             },
-          ],
-        },
-        method: {
-          type: 'text',
-          value: 'GET',
-        },
-        headers: {
-          type: 'object',
-          properties: [
-            {
-              key: {
-                type: 'text',
-                value: 'User-Agent',
-              },
-              value: {
-                type: 'template',
-                elements: [
-                  {
-                    type: 'text',
-                    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-                  },
-                ],
-              },
+            value: {
+              type: 'template',
+              elements: [
+                {
+                  type: 'const',
+                  value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                },
+              ],
             },
-          ],
-        },
-        // body: {
-        //   type: 'template',
-        //   elements: [
-        //     {
-        //       type: 'text',
-        //       value: '{',
-        //     },
-        //     {
-        //       type: 'text',
-        //       value: '"name":"abc"',
-        //     },
-        //     {
-        //       type: 'text',
-        //       value: '}',
-        //     },
-        //   ],
-        // },
-        responseParams: {
-          type: 'object',
-          properties: [
-            {
-              key: {
-                type: 'text',
-                value: 'city',
-              },
-              value: {
-                type: 'template',
-                elements: [
-                  {
-                    type: 'text',
-                    value: 'weatherinfo.city',
-                  },
-                ],
-              },
+          },
+        ],
+      },
+      responseParams: {
+        type: 'object',
+        properties: [
+          {
+            key: {
+              type: 'const',
+              value: 'topData',
             },
-          ],
-        },
-      } as IWebhookSchema,
-    });
+            value: {
+              type: 'template',
+              elements: [
+                {
+                  type: 'const',
+                  value: 'data[0].name',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    } as IWebhookSchema,
+  };
 
-    const { results } = await jsonRulesEngine.fire();
+  it('should call onSuccess and send request', async () => {
+    expect(ajv.validate('WebhookSchema', webhookData.inputSchema)).toBeTruthy();
 
+    jsonRulesEngine.addRule(ActionTypeEnums.Webhook, webhookData);
+
+    const { results, almanac } = await jsonRulesEngine.fire();
     expect(results).toBeDefined();
 
     const [result] = results;
-
     expect(result.result).toBeTruthy();
+
+    const topData = await almanac.factValue(
+      'action.wac3lzmmwSKWmtYoOF6',
+      undefined,
+      'data.topData'
+    );
+    expect(topData).toBeDefined();
   });
 });

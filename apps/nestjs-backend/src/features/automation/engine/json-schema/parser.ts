@@ -1,9 +1,9 @@
-import { JSONPath } from 'jsonpath-plus';
+import _ from 'lodash';
 
 type IPathResolver<T = unknown> = (value: object, path: string | string[]) => T;
 
 function defaultPathResolver(value: object, path: string | string[]) {
-  return JSONPath({ path, json: value, wrap: false });
+  return _.get(value, path);
 }
 
 export class JsonSchemaParser {
@@ -45,7 +45,7 @@ export class JsonSchemaParser {
   }
 }
 
-type IParserType = 'text' | 'array' | 'object' | 'template' | 'objectPathValue';
+type IParserType = 'null' | 'const' | 'array' | 'object' | 'template' | 'objectPathValue';
 
 interface IOptions {
   schema: { [key: string]: unknown };
@@ -55,23 +55,31 @@ interface IOptions {
 }
 
 interface IParser {
-  parse(options: IOptions): Promise<string | string[] | Record<string, unknown> | undefined>;
+  parse(options: IOptions): Promise<string | string[] | Record<string, unknown> | null | undefined>;
+}
+
+class NullParser implements IParser {
+  private parserType: IParserType = 'null';
+
+  async parse(options: IOptions): Promise<null> {
+    return null;
+  }
 }
 
 /**
- * text parser：
+ * const parser：
  * Import:
  * ```
  * {
- *    type: 'text',
+ *    type: 'const',
  *    value: 'tblwEp45tdvwTxiUl',
  *  }
  * ```
  * Export:
  * 'tblwEp45tdvwTxiUl'
  */
-class TextParser implements IParser {
-  private parserType: IParserType = 'text';
+class ConstParser implements IParser {
+  private parserType: IParserType = 'const';
 
   async parse(options: IOptions): Promise<string | undefined> {
     const { schema } = options;
@@ -169,7 +177,7 @@ class ObjectPathValueParser implements IParser {
       parentNodeType: this.parserType,
     })) as string;
 
-    return pathResolver(schema, [`${nodeType}_${nodeId}`, path]) as
+    return pathResolver(schema, [`${nodeType}.${nodeId}`, path]) as
       | string
       | Record<string, unknown>
       | undefined;
@@ -178,7 +186,8 @@ class ObjectPathValueParser implements IParser {
 
 class ParserFactory {
   private static _parsers: { [type: string]: IParser } = {
-    text: new TextParser(),
+    null: new NullParser(),
+    const: new ConstParser(),
     array: new ArrayParser(),
     object: new ObjectParser(),
     template: new TemplateParser(),

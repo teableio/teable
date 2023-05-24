@@ -3,139 +3,15 @@
   "type": "object",
   "properties": {
     "tableId": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["text"]
-        },
-        "value": {
-          "type": "string"
-        }
-      },
-      "required": ["type", "value"],
-      "additionalProperties": false
+      "$ref": "meta.json#/definitions/const"
     },
     "fields": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["object"]
-        },
-        "properties": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "key": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["text"]
-                  },
-                  "value": {
-                    "type": "string"
-                  }
-                },
-                "required": ["type", "value"],
-                "additionalProperties": false
-              },
-              "value": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["template"]
-                  },
-                  "elements": {
-                    "type": "array",
-                    "items": {
-                      "oneOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "type": {
-                              "type": "string",
-                              "enum": ["text"]
-                            },
-                            "value": {
-                              "type": "string"
-                            }
-                          },
-                          "required": ["type", "value"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "type": {
-                              "type": "string",
-                              "enum": ["objectPathValue"]
-                            },
-                            "object": {
-                              "type": "object",
-                              "properties": {
-                                "nodeId": {
-                                  "type": "string"
-                                },
-                                "nodeType": {
-                                  "type": "string",
-                                  "enum": ["trigger"]
-                                }
-                              },
-                              "required": ["nodeId", "nodeType"],
-                              "additionalProperties": false
-                            },
-                            "path": {
-                              "type": "object",
-                              "properties": {
-                                "type": {
-                                  "type": "string"
-                                },
-                                "elements": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "type": {
-                                        "type": "string",
-                                        "enum": ["text"]
-                                      },
-                                      "value": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": ["type", "value"],
-                                    "additionalProperties": false
-                                  }
-                                }
-                              },
-                              "required": ["type", "elements"],
-                              "additionalProperties": false
-                            }
-                          },
-                          "required": ["type", "object", "path"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    }
-                  }
-                },
-                "required": ["type", "elements"],
-                "additionalProperties": false
-              }
-            },
-            "required": ["key", "value"],
-            "additionalProperties": false
-          }
-        }
-      },
-      "required": ["type", "properties"],
-      "additionalProperties": false
+      "$ref": "meta.json#/definitions/object"
     }
   },
-  "required": ["tableId", "fields"],
+  "required": [
+    "tableId",
+    "fields"
+  ],
   "additionalProperties": false
 }

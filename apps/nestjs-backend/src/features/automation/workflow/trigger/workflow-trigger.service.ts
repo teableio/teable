@@ -1,10 +1,10 @@
 import type { AutomationWorkflowTrigger as AutomationWorkflowTriggerModel } from '.prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enum';
-import { PrismaService } from '../../../prisma.service';
-import type { CreateWorkflowTriggerRo } from '../model/create-workflow-trigger.ro';
-import { WorkflowTriggerVo } from '../model/workflow-trigger.vo';
+import { PrismaService } from '../../../../prisma.service';
+import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
+import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
+import { WorkflowTriggerVo } from '../../model/workflow-trigger.vo';
 
 @Injectable()
 export class WorkflowTriggerService {

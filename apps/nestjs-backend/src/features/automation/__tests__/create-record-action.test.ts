@@ -5,7 +5,7 @@ import { NextModule } from '../../next/next.module';
 import type { ICreateRecordSchema } from '../actions';
 import { CreateRecord } from '../actions';
 import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine.class';
+import { JsonRulesEngine } from '../engine/json-rules-engine';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 jest.setTimeout(100000000);
@@ -27,40 +27,25 @@ describe('Create-Record Action Test', () => {
   it('should call onSuccess and create records', async () => {
     jsonRulesEngine.addRule(ActionTypeEnums.CreateRecord, {
       id: 'wac3lzmmwSKWmtYoOF6',
-      params: {
+      inputSchema: {
         tableId: {
-          type: 'text',
-          value: 'tbluD1SibWWuWFza6YL',
+          type: 'const',
+          value: 'tblyPjTHHtKmGOw25if',
         },
         fields: {
           type: 'object',
           properties: [
             {
               key: {
-                type: 'text',
-                value: 'fldkTOW9IsLtIHWKrDE',
+                type: 'const',
+                value: 'fld5ZzA4lDzXTYwfLtE',
               },
               value: {
                 type: 'template',
                 elements: [
                   {
-                    type: 'text',
-                    value: 'ABC',
-                  },
-                ],
-              },
-            },
-            {
-              key: {
-                type: 'text',
-                value: 'fld9KPv3xCowINhn3Oy',
-              },
-              value: {
-                type: 'template',
-                elements: [
-                  {
-                    type: 'text',
-                    value: '123',
+                    type: 'const',
+                    value: 'name: ' + new Date(),
                   },
                 ],
               },

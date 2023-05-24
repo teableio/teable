@@ -16,6 +16,8 @@ import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import type { UpdateRecordRo } from '../update-record.ro';
+import type { Record } from './record.vo';
+import { RecordsVo } from './record.vo';
 
 interface ICreateRecordOpMeta {
   snapshot: IRecordSnapshot;
@@ -36,7 +38,7 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: CreateRecordsRo,
     transactionMeta?: { transactionKey: string; opCount: number }
-  ) {
+  ): Promise<Record[]> {
     const result = await this.multipleCreateRecords2Ops(tableId, createRecordsRo, transactionMeta);
     const connection = this.shareDbService.connect();
     transactionMeta = transactionMeta || {
@@ -48,6 +50,8 @@ export class RecordOpenApiService {
           return pre;
         }, 0),
     };
+
+    const createRecordResult: Record[] = [];
 
     for (const opMeta of result) {
       const { snapshot, ops } = opMeta;
@@ -65,13 +69,16 @@ export class RecordOpenApiService {
         continue;
       }
 
-      await new Promise((resolve, reject) => {
+      const recordSnapshot = await new Promise<Record>((resolve, reject) => {
         doc.submitOp(ops, transactionMeta, (error) => {
           if (error) return reject(error);
-          resolve(undefined);
+          resolve(doc.data.record);
         });
       });
+      createRecordResult.push(recordSnapshot);
     }
+
+    return createRecordResult;
   }
 
   private async getFieldInstanceMap(
@@ -142,7 +149,7 @@ export class RecordOpenApiService {
     updateRecordByIdsRo.forEach((updateRecordByIdRo) => {
       Object.keys(updateRecordByIdRo.record.fields).forEach((k) => dbFieldNameSet.add(k));
     });
-    const projection = Array.from(dbFieldNameSet).reduce<Record<string, boolean>>((pre, cur) => {
+    const projection = Array.from(dbFieldNameSet).reduce<{ [key: string]: boolean }>((pre, cur) => {
       pre[cur] = true;
       return pre;
     }, {});

@@ -8,6 +8,7 @@ export enum IdPrefix {
   Workflow = 'wfl',
   WorkflowTrigger = 'wtr',
   WorkflowAction = 'wac',
+  WorkflowDecision = 'wde',
 }
 
 export function getRandomString(len: number) {
@@ -47,4 +48,8 @@ export function generateWorkflowTriggerId() {
 
 export function generateWorkflowActionId() {
   return IdPrefix.WorkflowAction + getRandomString(16);
+}
+
+export function generateWorkflowDecisionId() {
+  return IdPrefix.WorkflowDecision + getRandomString(16);
 }

@@ -1,6 +1,6 @@
 import { Engine } from 'json-rules-engine';
 import type { Almanac } from 'json-rules-engine';
-import { JsonSchemaParser } from '../../engine/json-schema-parser.class';
+import { JsonSchemaParser } from '../../engine/json-schema/parser';
 
 describe('Json Schema Parser Test', () => {
   it('should parse a type text', async () => {
@@ -293,7 +293,7 @@ describe('Json Schema Parser Test', () => {
   async function almanacTest(): Promise<Almanac> {
     const engine = new Engine();
     const facts = {
-      trigger_wtrdS3OIXzjyRyvnP: {
+      'trigger.wtrdS3OIXzjyRyvnP': {
         record: {
           fields: {
             fldkTOW9IsLtIHWKrDE: 'New Record',

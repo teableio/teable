@@ -1,0 +1,11 @@
+{
+  "$id": "https://teable.io/json-schema/actions/decision.json",
+  "type": "object",
+  "properties": {
+    "groups": {
+      "$ref": "meta.json#/definitions/objectArray"
+    }
+  },
+  "required": ["groups"],
+  "additionalProperties": false
+}
