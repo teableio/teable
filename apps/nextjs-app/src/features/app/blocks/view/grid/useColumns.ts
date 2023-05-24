@@ -162,9 +162,10 @@ const createCellValue2GridDisplay =
       case FieldType.Formula: {
         return {
           kind: GridCellKind.Text,
-          data: (String(cellValue) as string) || '',
+          data: cellValue ? (String(cellValue) as string) : '',
           allowOverlay: true,
-          displayData: (String(cellValue) as string) || '',
+          displayData: cellValue ? (String(cellValue) as string) : '',
+          readonly: true,
         };
       }
     }
