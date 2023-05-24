@@ -169,7 +169,7 @@ export class FieldSupplementService implements ISupplementService {
     const fieldIds = field.getReferenceFieldIds();
     const toFieldId = field.id;
 
-    for (const fromFieldId in fieldIds) {
+    for (const fromFieldId of fieldIds) {
       await prisma.reference.create({
         data: {
           fromFieldId,

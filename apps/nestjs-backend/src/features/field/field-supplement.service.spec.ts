@@ -5,6 +5,7 @@ import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '../../prisma.service';
 import { FieldSupplementService } from './field-supplement.service';
 import type { CreateFieldRo } from './model/create-field.ro';
+import { createFieldInstanceByRo } from './model/factory';
 
 describe('FieldSupplementService', () => {
   let service: FieldSupplementService;
@@ -90,6 +91,66 @@ describe('FieldSupplementService', () => {
       expect(service.generateSymmetricField).toHaveBeenCalled();
       expect(service.createForeignKeyField).toHaveBeenCalled();
       expect(service['createLinkReference']).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('createReference', () => {
+    it('should create reference by link field', async () => {
+      // setup mocks
+      const linkField = {
+        id: 'linkFieldId',
+        name: 'link',
+        type: FieldType.Link,
+        options: {
+          foreignTableId: 'tableId',
+          relationship: Relationship.ManyOne,
+          lookupFieldId: 'lookupFieldId',
+          dbForeignKeyName: '__fk_linkFieldId',
+          symmetricFieldId: 'symmetricFieldId',
+        },
+      };
+      (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
+      await service.createReference(prismaService, [createFieldInstanceByRo(linkField)]);
+
+      expect(prismaService.reference.create).toBeCalledWith({
+        data: {
+          fromFieldId: 'lookupFieldId',
+          toFieldId: 'linkFieldId',
+        },
+      });
+    });
+
+    it('should create reference by formula field', async () => {
+      // setup mocks
+      const formulaField = {
+        id: 'formulaFieldId',
+        name: 'formula',
+        type: FieldType.Formula,
+        options: {
+          expression: 'concat({field1Id} + {field2Id}, {field3Id})',
+        },
+      };
+      (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
+      await service.createReference(prismaService, [createFieldInstanceByRo(formulaField)]);
+
+      expect(prismaService.reference.create).toHaveBeenNthCalledWith(1, {
+        data: {
+          fromFieldId: 'field1Id',
+          toFieldId: 'formulaFieldId',
+        },
+      });
+      expect(prismaService.reference.create).toHaveBeenNthCalledWith(2, {
+        data: {
+          fromFieldId: 'field2Id',
+          toFieldId: 'formulaFieldId',
+        },
+      });
+      expect(prismaService.reference.create).toHaveBeenNthCalledWith(3, {
+        data: {
+          fromFieldId: 'field3Id',
+          toFieldId: 'formulaFieldId',
+        },
+      });
     });
   });
 });
