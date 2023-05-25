@@ -211,10 +211,9 @@ export class RecordOpenApiService {
     }
 
     const doc = connection.get(collection, recordId);
-    doc.fetch();
 
     await new Promise((resolve, reject) => {
-      doc.on('load', () => {
+      doc.fetch(() => {
         doc.submitOp(ops, transactionMeta, (error) => {
           if (error) return reject(error);
           resolve(undefined);

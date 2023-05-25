@@ -22,6 +22,14 @@ interface IRecordItem {
   dependencies?: IRecord | IRecord[];
 }
 
+export interface ICellChange {
+  tableId: string;
+  recordId: string;
+  fieldId: string;
+  oldValue: unknown;
+  newValue: unknown;
+}
+
 export interface ITopoItemWithRecords extends ITopoItem {
   recordItems: IRecordItem[];
 }
@@ -44,13 +52,61 @@ interface IRecordRefItem {
 
 @Injectable()
 export class ReferenceService {
-  knex: ReturnType<typeof knex>;
+  private readonly knex: ReturnType<typeof knex>;
 
   constructor() {
     this.knex = knex({ client: 'sqlite3' });
   }
 
-  calculate(
+  async updateNodeValues(
+    prisma: Prisma.TransactionClient,
+    fieldId: string,
+    recordIds: string[]
+  ): Promise<ICellChange[]> {
+    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
+    if (!undirectedGraph.length) {
+      return [];
+    }
+
+    const topoOrders = this.getTopologicalOrder(fieldId, undirectedGraph);
+    const allFieldIds = this.flatGraph(undirectedGraph);
+    const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
+      await this.createAuxiliaryData(prisma, allFieldIds);
+
+    const linkOrders = this.getLinkOrderFromTopoOrders({
+      tableId2DbTableName,
+      topoOrders,
+      fieldMap,
+      fieldId2TableId,
+    });
+
+    // only affected records included
+    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
+
+    // extra dependent records for link field
+    const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
+
+    // record data source
+    const dbTableName2records = await this.getRecordsBatch(prisma, {
+      affectedRecordItems,
+      dependentRecordItems,
+      dbTableName2fieldRaws,
+    });
+
+    const orderWithRecords = this.createTopoItemWithRecords({
+      topoOrders,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+      dbTableName2records,
+      affectedRecordItems,
+      dependentRecordItems,
+    });
+
+    return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
+  }
+
+  private calculate(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
     recordItem: IRecordItem
@@ -77,7 +133,7 @@ export class ReferenceService {
     throw new Error('Unsupported field type');
   }
 
-  calculateRollup(
+  private calculateRollup(
     field: LinkFieldCore,
     lookupField: IFieldInstance,
     record: IRecord,
@@ -164,19 +220,13 @@ export class ReferenceService {
     };
   }
 
-  collectChanges(
+  private collectChanges(
     orders: ITopoItemWithRecords[],
     fieldMap: { [fieldId: string]: IFieldInstance },
     fieldId2TableId: { [fieldId: string]: string }
   ) {
     // detail changes
-    const changes: {
-      tableId: string;
-      recordId: string;
-      fieldId: string;
-      oldValue: unknown;
-      newValue: unknown;
-    }[] = [];
+    const changes: ICellChange[] = [];
 
     orders.forEach((item) => {
       item.recordItems.forEach((recordItem) => {
@@ -202,46 +252,6 @@ export class ReferenceService {
     return changes;
   }
 
-  async updateNodeValues(prisma: Prisma.TransactionClient, fieldId: string, recordIds: string[]) {
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
-    const topoOrders = this.getTopologicalOrder(fieldId, undirectedGraph);
-    const allFieldIds = this.flatGraph(undirectedGraph);
-    const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
-      await this.createAuxiliaryData(prisma, allFieldIds);
-
-    const linkOrders = this.getLinkOrderFromTopoOrders({
-      tableId2DbTableName,
-      topoOrders,
-      fieldMap,
-      fieldId2TableId,
-    });
-
-    // only affected records included
-    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
-
-    // extra dependent records for link field
-    const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
-
-    // record data source
-    const dbTableName2records = await this.getRecordsBatch(prisma, {
-      affectedRecordItems,
-      dependentRecordItems,
-      dbTableName2fieldRaws,
-    });
-
-    const orderWithRecords = this.createTopoItemWithRecords({
-      topoOrders,
-      fieldMap,
-      tableId2DbTableName,
-      fieldId2TableId,
-      dbTableName2records,
-      affectedRecordItems,
-      dependentRecordItems,
-    });
-
-    return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
-  }
-
   private recordRaw2Record(
     fieldRaws: Field[],
     raw: { [dbFieldName: string]: unknown } & IVisualTableDefaultField
@@ -262,7 +272,7 @@ export class ReferenceService {
     };
   }
 
-  getLinkOrderFromTopoOrders(params: {
+  private getLinkOrderFromTopoOrders(params: {
     fieldId2TableId: { [fieldId: string]: string };
     tableId2DbTableName: { [tableId: string]: string };
     topoOrders: ITopoItem[];
@@ -290,7 +300,7 @@ export class ReferenceService {
     return newOrder;
   }
 
-  async getRecordsBatch(
+  private async getRecordsBatch(
     prisma: Prisma.TransactionClient,
     params: {
       dbTableName2fieldRaws: { [tableId: string]: Field[] };
@@ -374,7 +384,7 @@ export class ReferenceService {
     return linkRecord;
   }
 
-  createTopoItemWithRecords(params: {
+  private createTopoItemWithRecords(params: {
     topoOrders: ITopoItem[];
     tableId2DbTableName: { [tableId: string]: string };
     fieldId2TableId: { [fieldId: string]: string };
@@ -488,7 +498,7 @@ export class ReferenceService {
     }, {});
   }
 
-  getTopologicalOrder(
+  private getTopologicalOrder(
     startNodeId: string,
     graph: { toFieldId: string; fromFieldId: string }[]
   ): ITopoItem[] {
@@ -520,7 +530,7 @@ export class ReferenceService {
     return sortedNodes.reverse();
   }
 
-  async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldId: string) {
+  private async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldId: string) {
     const dependentNodesQuery = Prisma.sql`
       WITH RECURSIVE connected_reference(from_field_id, to_field_id) AS (
         SELECT from_field_id, to_field_id FROM reference WHERE from_field_id = ${startFieldId} OR to_field_id = ${startFieldId}
@@ -542,7 +552,7 @@ export class ReferenceService {
     return result.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }));
   }
 
-  async getDependentRecordItems(
+  private async getDependentRecordItems(
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
   ): Promise<IRecordRefItem[]> {
@@ -569,7 +579,7 @@ export class ReferenceService {
     return await prisma.$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async getAffectedRecordItems(
+  private async getAffectedRecordItems(
     prisma: Prisma.TransactionClient,
     startIds: string[],
     topoOrder: ITopoLinkOrder[]

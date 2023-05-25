@@ -111,7 +111,7 @@ describe('ReferenceService data retrieval', () => {
       { fromFieldId: 'c', toFieldId: 'd' },
     ];
 
-    const sortedNodes = service.getTopologicalOrder('a', graph);
+    const sortedNodes = service['getTopologicalOrder']('a', graph);
 
     expect(sortedNodes).toEqual([
       { id: 'a', dependencies: [] },
@@ -184,7 +184,7 @@ describe('ReferenceService data retrieval', () => {
       },
     ];
 
-    const records = await service.getAffectedRecordItems(prisma, ['idA1'], topoOrder);
+    const records = await service['getAffectedRecordItems'](prisma, ['idA1'], topoOrder);
 
     expect(records).toEqual([
       { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
@@ -194,7 +194,7 @@ describe('ReferenceService data retrieval', () => {
       { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB2' },
     ]);
 
-    const recordsWithMultiInput = await service.getAffectedRecordItems(
+    const recordsWithMultiInput = await service['getAffectedRecordItems'](
       prisma,
       ['idA1', 'idA2'],
       topoOrder
@@ -269,7 +269,7 @@ describe('ReferenceService data retrieval', () => {
       },
     ];
 
-    const records = await service.getAffectedRecordItems(prisma, ['idC1'], topoOrder);
+    const records = await service['getAffectedRecordItems'](prisma, ['idC1'], topoOrder);
 
     // manyToOneB: ['B1', 'B2']
     expect(records).toEqual([
@@ -279,7 +279,7 @@ describe('ReferenceService data retrieval', () => {
       { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
     ]);
 
-    const extraRecords = await service.getDependentRecordItems(prisma, records);
+    const extraRecords = await service['getDependentRecordItems'](prisma, records);
 
     expect(extraRecords).toEqual([
       { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
@@ -290,7 +290,7 @@ describe('ReferenceService data retrieval', () => {
   });
 
   it('getDependentNodesCTE should return all dependent nodes', async () => {
-    const result = await service.getDependentNodesCTE(prisma, 'f2');
+    const result = await service['getDependentNodesCTE'](prisma, 'f2');
     const resultData = [...initialReferences];
     resultData.pop();
     expect(result).toEqual(expect.arrayContaining(resultData));
@@ -495,7 +495,7 @@ describe('ReferenceService calculation', () => {
 
   it('should correctly collect changes for Link and Computed fields', () => {
     // 2. Act
-    const changes = service.collectChanges(ordersWithRecords, fieldMap, fieldId2TableId);
+    const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
     // 3. Assert
     // topoOrder Graph:
     // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
@@ -593,7 +593,7 @@ describe('ReferenceService calculation', () => {
       },
     ];
 
-    const topoItems = service.createTopoItemWithRecords({
+    const topoItems = service['createTopoItemWithRecords']({
       tableId2DbTableName,
       dbTableName2records,
       affectedRecordItems,

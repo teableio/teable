@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../src/prisma.service';
@@ -56,6 +57,18 @@ export class TransactionService {
     this.transactionCache.set(tsMeta.transactionKey, { ...cacheValue, client: prismaClient });
 
     return prismaClient;
+  }
+
+  updateTransaction(tsMeta: ITransactionMeta) {
+    const cache = this.transactionCache.get(tsMeta.transactionKey);
+    if (!cache) {
+      throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
+    }
+
+    this.transactionCache.set(tsMeta.transactionKey, {
+      ...cache,
+      opCount: tsMeta.opCount,
+    });
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
