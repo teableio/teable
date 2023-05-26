@@ -87,8 +87,9 @@ export class DerivateChangeService {
     const prisma = await this.transactionService.getTransaction(tsMeta);
     let derivateChanges: ICellChange[] = [];
     for (const opContext of opContexts) {
-      const changes = await this.referenceService.updateNodeValues(prisma, opContext.fieldId, [
-        recordId,
+      const { fieldId, newValue } = opContext;
+      const changes = await this.referenceService.updateNodeValues(prisma, tableId, fieldId, [
+        { id: recordId, newValue },
       ]);
       if (!changes.length) {
         continue;

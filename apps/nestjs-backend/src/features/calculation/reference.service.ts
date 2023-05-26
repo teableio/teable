@@ -60,8 +60,9 @@ export class ReferenceService {
 
   async updateNodeValues(
     prisma: Prisma.TransactionClient,
+    tableId: string,
     fieldId: string,
-    recordIds: string[]
+    recordData: { id: string; newValue: unknown }[]
   ): Promise<ICellChange[]> {
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
     if (!undirectedGraph.length) {
@@ -73,6 +74,13 @@ export class ReferenceService {
     const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
+    const originRecordItems = recordData.map((record) => ({
+      dbTableName: tableId2DbTableName[tableId],
+      fieldId,
+      newValue: record.newValue,
+      id: record.id,
+    }));
+
     const linkOrders = this.getLinkOrderFromTopoOrders({
       tableId2DbTableName,
       topoOrders,
@@ -81,18 +89,22 @@ export class ReferenceService {
     });
 
     // only affected records included
-    const affectedRecordItems = await this.getAffectedRecordItems(prisma, recordIds, linkOrders);
+    const affectedRecordItems = await this.getAffectedRecordItems(
+      prisma,
+      originRecordItems,
+      linkOrders
+    );
 
     // extra dependent records for link field
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
 
     // record data source
     const dbTableName2records = await this.getRecordsBatch(prisma, {
+      originRecordItems,
       affectedRecordItems,
       dependentRecordItems,
       dbTableName2fieldRaws,
     });
-
     const orderWithRecords = this.createTopoItemWithRecords({
       topoOrders,
       fieldMap,
@@ -303,14 +315,16 @@ export class ReferenceService {
   private async getRecordsBatch(
     prisma: Prisma.TransactionClient,
     params: {
+      originRecordItems: { dbTableName: string; id: string; fieldId: string; newValue: unknown }[];
       dbTableName2fieldRaws: { [tableId: string]: Field[] };
       affectedRecordItems: IRecordRefItem[];
       dependentRecordItems: IRecordRefItem[];
     }
   ) {
-    const { affectedRecordItems, dependentRecordItems, dbTableName2fieldRaws } = params;
+    const { originRecordItems, affectedRecordItems, dependentRecordItems, dbTableName2fieldRaws } =
+      params;
     const recordIdsByTableName = groupBy(
-      [...affectedRecordItems, ...dependentRecordItems],
+      [...affectedRecordItems, ...dependentRecordItems, ...originRecordItems],
       'dbTableName'
     );
 
@@ -320,9 +334,9 @@ export class ReferenceService {
       const recordIds = Array.from(new Set(recordIdsByTableName[dbTableName].map((r) => r.id)));
       const fieldNames = dbTableName2fieldRaws[dbTableName].map((f) => f.dbFieldName);
       const aliasedFieldNames = [...fieldNames, ...preservedFieldName].map(
-        (fieldName) => `${dbTableName}.${fieldName} as '${dbTableName}#${fieldName}'`
+        (fieldName) => `${dbTableName}.${fieldName} as ${dbTableName}#${fieldName}`
       );
-      const subQuery = knex(dbTableName).select(aliasedFieldNames).whereIn('id', recordIds);
+      const subQuery = this.knex(dbTableName).select(aliasedFieldNames).whereIn('__id', recordIds);
       // TODO: can i change it to union all for performance
       query = query ? query.union(subQuery) : subQuery;
     }
@@ -335,7 +349,11 @@ export class ReferenceService {
       nativeSql.sql,
       ...nativeSql.bindings
     );
-    return this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+    const formattedResults = this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+
+    this.coverRecordData(originRecordItems, formattedResults);
+
+    return formattedResults;
   }
 
   private getOneManyDependencies(params: {
@@ -468,26 +486,28 @@ export class ReferenceService {
           continue;
         }
 
-        const [tableName, fieldName] = key.split('#');
+        const [dbTableName, fieldName] = key.split('#');
         recordData[fieldName] = value;
 
-        if (!formattedResults[tableName]) {
-          formattedResults[tableName] = [];
+        if (!formattedResults[dbTableName]) {
+          formattedResults[dbTableName] = [];
         }
 
-        const existingRecord = formattedResults[tableName].find(
-          (r) => r.__id === record[`${tableName}__id`]
+        const existingRecord = formattedResults[dbTableName].find(
+          (r) => r.__id === record[`${dbTableName}#__id`]
         );
 
         if (existingRecord) {
           existingRecord[fieldName] = record[key];
         } else {
-          formattedResults[tableName].push({ [fieldName]: record[key] });
+          formattedResults[dbTableName].push({ [fieldName]: record[key] });
         }
       }
     });
 
-    return Object.entries(formattedResults).reduce<{ [tableName: string]: IRecord[] }>((acc, e) => {
+    return Object.entries(formattedResults).reduce<{
+      [dbTableName: string]: IRecord[];
+    }>((acc, e) => {
       const [dbTableName, records] = e;
       const fieldRaws = dbTableName2fieldRaws[dbTableName];
       acc[dbTableName] = records.map((r) => {
@@ -496,6 +516,19 @@ export class ReferenceService {
       });
       return acc;
     }, {});
+  }
+
+  // use modified record data to cover the record data from db
+  private coverRecordData(
+    newRecordData: { id: string; dbTableName: string; fieldId: string; newValue: unknown }[],
+    allRecordByDbTableName: { [tableName: string]: IRecord[] }
+  ) {
+    newRecordData.forEach((cover) => {
+      const records = allRecordByDbTableName[cover.dbTableName];
+      records.forEach((record) => {
+        record.fields[cover.fieldId] = cover.newValue;
+      });
+    });
   }
 
   private getTopologicalOrder(
@@ -556,6 +589,10 @@ export class ReferenceService {
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
   ): Promise<IRecordRefItem[]> {
+    if (!recordItems.length) {
+      return [];
+    }
+
     const queries = recordItems
       .filter((item) => item.selectIn)
       .map((item) => {
@@ -572,6 +609,9 @@ export class ReferenceService {
           .from(dbTableName)
           .where(selectField, id);
       });
+    if (!queries.length) {
+      return [];
+    }
 
     const [firstQuery, ...restQueries] = queries;
     const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
@@ -581,14 +621,17 @@ export class ReferenceService {
 
   private async getAffectedRecordItems(
     prisma: Prisma.TransactionClient,
-    startIds: string[],
+    originRecordItems: { dbTableName: string; id: string }[],
     topoOrder: ITopoLinkOrder[]
   ): Promise<IRecordRefItem[]> {
+    if (!topoOrder.length) {
+      return originRecordItems;
+    }
     // Initialize the base case for the recursive CTE)
     const initTableName = topoOrder[0].linkedTable;
     let cteQuery = `
     SELECT __id, '${initTableName}' as dbTableName, null as selectIn, null as relationTo, null as fieldId
-    FROM ${initTableName} WHERE __id IN (${startIds.map((id) => `'${id}'`).join(',')})`;
+    FROM ${initTableName} WHERE __id IN (${originRecordItems.map((r) => `'${r.id}'`).join(',')})`;
 
     // Iterate over the nodes in topological order
     for (let i = 0; i < topoOrder.length; i++) {
@@ -633,7 +676,7 @@ export class ReferenceService {
     >(finalQuery);
 
     // startIds are always the first records in the result set, so we can just slice them off
-    return results.splice(startIds.length).map((record) => ({
+    return results.splice(originRecordItems.length).map((record) => ({
       id: record.__id,
       dbTableName: record.dbTableName,
       ...(record.relationTo ? { relationTo: record.relationTo } : {}),

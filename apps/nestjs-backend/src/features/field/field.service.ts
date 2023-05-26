@@ -74,8 +74,22 @@ export class FieldService implements IAdapterService {
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
-    const { id, name, description, type, options, defaultValue, notNull, unique, isPrimary } =
-      fieldInstance;
+    const {
+      id,
+      name,
+      description,
+      type,
+      options,
+      defaultValue,
+      notNull,
+      unique,
+      isPrimary,
+      isComputed,
+      dbFieldType,
+      calculatedType,
+      cellValueType,
+      cellValueElementType,
+    } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
       id,
@@ -94,10 +108,12 @@ export class FieldService implements IAdapterService {
       version: 1,
       defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
+      isComputed,
       dbFieldName,
-      dbFieldType: fieldInstance.dbFieldType,
-      calculatedType: fieldInstance.calculatedType,
-      cellValueType: fieldInstance.cellValueType,
+      dbFieldType,
+      calculatedType,
+      cellValueType,
+      cellValueElementType,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };

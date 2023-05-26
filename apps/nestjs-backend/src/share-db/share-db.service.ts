@@ -33,13 +33,13 @@ export class ShareDbService extends ShareDBClass {
     next: (err?: unknown) => void
   ) => {
     const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
+    const tsMeta = context.extra as (ITransactionMeta & { skipCalculate?: boolean }) | undefined;
     const recordId = context.id;
-    if (docType !== IdPrefix.Record || !context.op.op || context.options?.skipCalculate) {
+    if (docType !== IdPrefix.Record || !context.op.op || !tsMeta || tsMeta.skipCalculate) {
       return next();
     }
 
-    console.log('ShareDb:apply:', context.id, context.op.op, context.options);
-
+    console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
     const opContexts = context.op.op.reduce<ISetRecordOpContext[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
@@ -60,19 +60,15 @@ export class ShareDbService extends ShareDBClass {
         }
       | undefined = undefined;
     try {
-      fixUps = await this.derivateChangeService.getFixupOps(
-        context.options,
-        tableId,
-        recordId,
-        opContexts
-      );
+      fixUps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, opContexts);
 
       if (!fixUps) {
         return next();
       }
 
+      console.log('fixUps:', fixUps);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      fixUps.currentSnapshotOps.length && (context as any).$fixup(fixUps.currentSnapshotOps);
+      fixUps.currentSnapshotOps.length && context.$fixup(fixUps.currentSnapshotOps);
     } catch (e) {
       return next(e);
     }
