@@ -75,7 +75,7 @@ export class RecordOpenApiService {
       recordSnapshots.push(record);
     }
 
-    return recordSnapshots;
+    return { records: recordSnapshots.map((s) => s.record) };
   }
 
   private async getFieldInstanceMap(

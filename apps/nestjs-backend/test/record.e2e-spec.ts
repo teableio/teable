@@ -82,7 +82,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       } as CreateRecordsRo)
       .expect(201);
 
-    expect(response.body.data[0].record.fields[firstTextField.id]).toEqual(newValue);
+    expect(response.body.data.records[0].fields[firstTextField.id]).toEqual(newValue);
   });
 
   it('/api/table/{tableId}/record/{recordId} (PUT)', async () => {

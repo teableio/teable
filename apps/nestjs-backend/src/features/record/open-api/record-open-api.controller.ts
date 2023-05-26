@@ -9,14 +9,13 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { ApiResponse } from '../../../utils/api-response';
-import { responseWrap } from '../../../utils/api-response';
+import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import { UpdateRecordRo } from '../update-record.ro';
 import { RecordOpenApiService } from './record-open-api.service';
-import { RecordsVo, RecordVo } from './record.vo';
+import type { CreateRecordsVo, RecordsVo, RecordVo } from './record.vo';
 import { RecordsRo } from './records.ro';
 
 @ApiBearerAuth()
@@ -30,7 +29,7 @@ export class RecordOpenApiController {
 
   @ApiOkResponse({
     description: 'list of records',
-    type: RecordsVo,
+    type: ApiResponse<RecordsVo>,
   })
   @Get()
   async getRecords(
@@ -43,7 +42,7 @@ export class RecordOpenApiController {
 
   @ApiOkResponse({
     description: 'Get record by id.',
-    type: RecordsVo,
+    type: ApiResponse<RecordsVo>,
   })
   @Get(':recordId')
   async getRecord(
@@ -57,7 +56,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Update records by id.' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: RecordVo,
+    type: ApiResponse<RecordVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -82,7 +81,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Update records by row index' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: RecordVo,
+    type: ApiResponse<RecordVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -105,8 +104,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Create records' })
   @ApiCreatedResponse({
     description: 'The record has been successfully created.',
-    isArray: true,
-    type: RecordVo,
+    type: ApiResponse<CreateRecordsVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -118,7 +116,7 @@ export class RecordOpenApiController {
   async createRecords(
     @Param('tableId') tableId: string,
     @Body() createRecordsDto: CreateRecordsRo
-  ): Promise<ApiResponse<RecordVo[]>> {
+  ): Promise<ApiResponse<CreateRecordsVo>> {
     const records = await this.recordOpenApiService.multipleCreateRecords(
       tableId,
       createRecordsDto
