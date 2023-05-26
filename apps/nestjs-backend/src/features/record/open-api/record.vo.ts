@@ -55,7 +55,7 @@ export class RecordVo implements IRecordVo {
   record!: Record;
 }
 
-export class RecordsVo implements IRecordsVo {
+export class CreateRecordsVo implements Omit<IRecordsVo, 'total'> {
   @ApiProperty({
     description:
       'Array of objects with a fields key mapping fieldId or field name to value for that field.',
@@ -71,7 +71,9 @@ export class RecordsVo implements IRecordsVo {
     type: Record,
   })
   records!: Record[];
+}
 
+export class RecordsVo extends CreateRecordsVo implements IRecordsVo {
   @ApiProperty({
     description: 'Total number of records in this query.',
   })

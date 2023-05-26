@@ -9,7 +9,9 @@
     "OPENAI",
     "openapi",
     "sharedb",
+    "sonarjs",
     "teable",
+    "topo",
     "zustand"
   ],
   "eslint.workingDirectories": [

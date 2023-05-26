@@ -1,4 +1,4 @@
-import type { SingleSelectFieldChoices, SingleSelectFieldOptions } from '@teable-group/core';
+import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core';
 import { randomColor, ColorUtils, Colors } from '@teable-group/core';
 import AddCircleIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
@@ -7,8 +7,8 @@ import { useRef, useState } from 'react';
 import { Popover } from '../common/popover';
 
 export const SelectOptions = (props: {
-  options: SingleSelectFieldOptions;
-  onChange?: (options: SingleSelectFieldOptions) => void;
+  options: SelectFieldOptions;
+  onChange?: (options: SelectFieldOptions) => void;
 }) => {
   const { options, onChange } = props;
   const choices = options.choices || [];
@@ -21,7 +21,7 @@ export const SelectOptions = (props: {
     setNames(namesArr);
   };
 
-  const updateOptionChange = (index: number, choice: Partial<SingleSelectFieldChoices>) => {
+  const updateOptionChange = (index: number, choice: Partial<SelectFieldChoices>) => {
     const newChoice = choices.map((v, i) => {
       if (i === index) {
         return {
@@ -45,7 +45,7 @@ export const SelectOptions = (props: {
     const choice = {
       name: '',
       color: randomColor(existColors)[0],
-    } as SingleSelectFieldChoices;
+    } as SelectFieldChoices;
 
     const newChoices = [...choices, choice];
     onChange?.({ choices: newChoices });

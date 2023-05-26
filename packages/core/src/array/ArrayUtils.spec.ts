@@ -1,4 +1,4 @@
-import { ArrayUtils } from '../ArrayUtils';
+import { ArrayUtils } from './ArrayUtils';
 
 describe('ArrayUtils', () => {
   describe('removeItem', () => {

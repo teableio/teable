@@ -11,14 +11,14 @@ import { LeftWhitespaceOrCommentsContext } from "./Formula";
 import { RightWhitespaceOrCommentsContext } from "./Formula";
 import { BracketsContext } from "./Formula";
 import { BinaryOpContext } from "./Formula";
-import { FieldReferenceContext } from "./Formula";
-import { LookupFieldReferenceContext } from "./Formula";
+import { FieldReferenceCurlyContext } from "./Formula";
 import { FunctionCallContext } from "./Formula";
 import { RootContext } from "./Formula";
 import { ExprContext } from "./Formula";
 import { Ws_or_commentContext } from "./Formula";
-import { Func_nameContext } from "./Formula";
 import { Field_referenceContext } from "./Formula";
+import { Field_reference_curlyContext } from "./Formula";
+import { Func_nameContext } from "./Formula";
 import { IdentifierContext } from "./Formula";
 
 
@@ -95,20 +95,12 @@ export interface FormulaVisitor<Result> extends ParseTreeVisitor<Result> {
 	visitBinaryOp?: (ctx: BinaryOpContext) => Result;
 
 	/**
-	 * Visit a parse tree produced by the `FieldReference`
+	 * Visit a parse tree produced by the `FieldReferenceCurly`
 	 * labeled alternative in `Formula.expr`.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	visitFieldReference?: (ctx: FieldReferenceContext) => Result;
-
-	/**
-	 * Visit a parse tree produced by the `LookupFieldReference`
-	 * labeled alternative in `Formula.expr`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitLookupFieldReference?: (ctx: LookupFieldReferenceContext) => Result;
+	visitFieldReferenceCurly?: (ctx: FieldReferenceCurlyContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by the `FunctionCall`
@@ -140,18 +132,25 @@ export interface FormulaVisitor<Result> extends ParseTreeVisitor<Result> {
 	visitWs_or_comment?: (ctx: Ws_or_commentContext) => Result;
 
 	/**
-	 * Visit a parse tree produced by `Formula.func_name`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitFunc_name?: (ctx: Func_nameContext) => Result;
-
-	/**
 	 * Visit a parse tree produced by `Formula.field_reference`.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
 	visitField_reference?: (ctx: Field_referenceContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `Formula.field_reference_curly`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitField_reference_curly?: (ctx: Field_reference_curlyContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `Formula.func_name`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitFunc_name?: (ctx: Func_nameContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by `Formula.identifier`.

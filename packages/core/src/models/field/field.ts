@@ -1,5 +1,6 @@
+import type { SafeParseReturnType } from 'zod';
 import type { StatisticsFunc } from '../view';
-import type { DbFieldType, FieldType } from './constant';
+import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { IColumnMeta } from './interface';
 export interface IFieldRo {
   name: string;
@@ -16,8 +17,9 @@ export interface IFieldRo {
 export interface IFieldVo extends IFieldRo {
   id: string;
   isComputed?: boolean;
-  calculatedType: unknown;
+  calculatedType: FieldType;
   cellValueType: CellValueType;
+  cellValueElementType?: CellValueType;
   dbFieldType: DbFieldType;
   columnMeta: IColumnMeta;
 }
@@ -27,14 +29,6 @@ export class Column {
   width?: number;
   hidden?: boolean;
   statisticFunc?: StatisticsFunc;
-}
-
-export enum CellValueType {
-  String = 'string',
-  Number = 'number',
-  Boolean = 'boolean',
-  Datetime = 'datetime',
-  Array = 'array',
 }
 
 export abstract class FieldCore implements IFieldVo {
@@ -63,14 +57,22 @@ export abstract class FieldCore implements IFieldVo {
   abstract defaultValue?: unknown;
 
   // for lookup field, it is a dynamic value
-  abstract calculatedType: unknown;
+  abstract calculatedType: FieldType;
 
   // cellValue type enum (string, number, boolean, datetime, array)
   abstract cellValueType: CellValueType;
+
+  // cellValue array element type enum (string, number, boolean, datetime)
+  cellValueElementType?: CellValueType;
 
   abstract cellValue2String(value: unknown): string;
 
   abstract convertStringToCellValue(str: string): unknown;
 
+  // try parse cellValue and fix it
   abstract repair(value: unknown): unknown;
+
+  abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
+
+  abstract validateDefaultValue(): SafeParseReturnType<unknown, unknown> | undefined;
 }

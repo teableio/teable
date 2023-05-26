@@ -49,6 +49,7 @@ export class RecordOpenApiService {
         }, 0),
     };
 
+    const recordSnapshots: IRecordSnapshot[] = [];
     for (const opMeta of result) {
       const { snapshot, ops } = opMeta;
       const collection = `${IdPrefix.Record}_${tableId}`;
@@ -65,13 +66,16 @@ export class RecordOpenApiService {
         continue;
       }
 
-      await new Promise((resolve, reject) => {
+      const record = await new Promise<IRecordSnapshot>((resolve, reject) => {
         doc.submitOp(ops, transactionMeta, (error) => {
           if (error) return reject(error);
-          resolve(undefined);
+          resolve(doc.data);
         });
       });
+      recordSnapshots.push(record);
     }
+
+    return { records: recordSnapshots.map((s) => s.record) };
   }
 
   private async getFieldInstanceMap(
@@ -186,7 +190,7 @@ export class RecordOpenApiService {
     recordId: string,
     updateRecordRo: UpdateRecordRo,
     transactionMeta?: { transactionKey: string; opCount: number }
-  ) {
+  ): Promise<IRecordSnapshot> {
     const result = await this.multipleUpdateRecords2Ops(
       tableId,
       [{ ...updateRecordRo, recordId }],
@@ -211,13 +215,12 @@ export class RecordOpenApiService {
     }
 
     const doc = connection.get(collection, recordId);
-    doc.fetch();
 
-    await new Promise((resolve, reject) => {
-      doc.on('load', () => {
-        doc.submitOp(ops, transactionMeta, (error) => {
+    return await new Promise((resolve, reject) => {
+      doc.fetch(() => {
+        doc.submitOp(ops, transactionMeta, (error: unknown) => {
           if (error) return reject(error);
-          resolve(undefined);
+          resolve(doc.data);
         });
       });
     });

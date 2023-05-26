@@ -81,6 +81,8 @@ OPEN_PAREN                           : '(';
 CLOSE_PAREN                          : ')';
 OPEN_BRACKET                         : '[';
 CLOSE_BRACKET                        : ']';
+L_CURLY                              : '{';
+R_CURLY                              : '}';
 BIT_STRING                           : B '\'' ('0'|'1')* '\'';
 REGEX_STRING                         : E SQUOTA_STRING;
 NUMERIC_LITERAL                      : '-'? DEC_DIGIT+ '.' DEC_DIGIT+ (E ('-')* DEC_DIGIT+)?;
@@ -89,8 +91,9 @@ HEX_INTEGER_LITERAL                  : 'x' SQUOTA_STRING;
 DOT                                  : '.';
 SINGLEQ_STRING_LITERAL               : SQUOTA_STRING;
 DOUBLEQ_STRING_LITERAL               : DQUOTA_STRING;
-IDENTIFIER                           : [a-zA-Z_][a-zA-Z_0-9]*;
 IDENTIFIER_UNICODE                   : [a-zA-Z_\u00A1-\uFFFF][a-zA-Z_\u00A1-\uFFFF0-9]*;
+IDENTIFIER_UNICODE_BLANK             : [a-zA-Z_\u00A1-\uFFFF][a-zA-Z_\u00A1-\uFFFF0-9]* (' ' [a-zA-Z_\u00A1-\uFFFF0-9]+)*;
+IDENTIFIER                           : [a-zA-Z_][a-zA-Z_0-9]*;
 
 // operator tokens
 AMP                                  : '&';

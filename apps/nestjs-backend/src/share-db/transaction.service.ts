@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../src/prisma.service';
@@ -58,7 +59,20 @@ export class TransactionService {
     return prismaClient;
   }
 
-  async taskComplete(err: unknown, tsMeta: ITransactionMeta) {
+  updateTransaction(tsMeta: ITransactionMeta) {
+    const cache = this.transactionCache.get(tsMeta.transactionKey);
+    if (!cache) {
+      throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
+    }
+
+    this.transactionCache.set(tsMeta.transactionKey, {
+      ...cache,
+      opCount: tsMeta.opCount,
+    });
+  }
+
+  async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
+    err && console.error(err);
     const cache = this.transactionCache.get(tsMeta.transactionKey);
     if (!cache) {
       throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
@@ -74,16 +88,17 @@ export class TransactionService {
       this.transactionCache.delete(tsMeta.transactionKey);
       tasksPromiseCb.resolve(undefined);
       await transactionPromise;
-    } else {
-      this.transactionCache.set(tsMeta.transactionKey, {
-        ...cache,
-        currentCount,
-      });
+      return true;
     }
+    this.transactionCache.set(tsMeta.transactionKey, {
+      ...cache,
+      currentCount,
+    });
+    return false;
   }
 
   private wait(ms = 0) {
-    return new Promise<void>((resolve) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         resolve(undefined);
       }, ms);
@@ -94,7 +109,7 @@ export class TransactionService {
     let ms = 0;
     // 1250ms total
     while (ms < 50) {
-      await this.wait(ms++);
+      await this.wait(++ms);
       const cache = this.transactionCache.get(transactionKey);
       if (!cache) {
         throw new Error('Can not find transaction: ' + transactionKey);

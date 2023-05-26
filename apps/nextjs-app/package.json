@@ -143,7 +143,7 @@
     "@teable-group/core": "workspace:^",
     "@teable-group/db-main-prisma": "workspace:^",
     "@teable-group/sdk": "workspace:^",
-    "@teable/sharedb": "3.3.6",
+    "@teable/sharedb": "3.3.9",
     "@types/react-beautiful-dnd": "13.1.4",
     "@types/react-syntax-highlighter": "15.5.6",
     "apollo-server-core": "3.10.3",

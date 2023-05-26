@@ -34,6 +34,7 @@ model Field {
   type             String
   calculatedType   String    @map("calculated_type")
   cellValueType    String    @map("cell_value_type")
+  cellValueElementType String? @map("cell_value_element_type")
   dbFieldType      String    @map("db_field_type")
   dbFieldName      String    @map("db_field_name")
   defaultValue     String?   @map("default_value")
@@ -95,6 +96,24 @@ model Snapshots {
 
   @@unique([collection, docId])
   @@map("snapshots")
+}
+
+model Reference {
+  id          String @id @default(cuid())
+  fromFieldId String @map("from_field_id")
+  toFieldId   String @map("to_field_id")
+
+  @@index([fromFieldId])
+  @@index([toFieldId])
+  @@index([toFieldId, fromFieldId])
+  @@map("reference")
+}
+
+model NodeValue {
+  id    String  @id
+  value Int
+
+  @@map("node_value")
 }
 
 model User {
