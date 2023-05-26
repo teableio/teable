@@ -123,8 +123,11 @@ yarn install
 
 ```sh
 cd packages/db-main-prisma
+# generate ts interface
+yarn prisma generate
+# create db schema
 yarn prisma-db-push
-yarn prisma-migrate dev
+# fill seed data
 yarn prisma-db-seed
 ```
 
@@ -148,11 +151,12 @@ OPENAI_API_ENDPOINT=openai-endpoint
 
 #### 4. Run dev server
 
-you should only start backend, it will start next server for front-end automatically
+you should only start backend, it will start next server for front-end automatically, file change will be auto reload
 
 ```sh
 cd apps/nestjs-backend
-tsc --build
+tsc --build --watch
+# run in a new terminal
 yarn dev
 ```
 
