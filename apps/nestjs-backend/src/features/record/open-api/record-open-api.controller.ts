@@ -9,14 +9,14 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { ApiResponse } from 'src/utils/api-response';
-import { responseWrap } from 'src/utils/api-response';
+import type { ApiResponse } from '../../../utils/api-response';
+import { responseWrap } from '../../../utils/api-response';
 import { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import { UpdateRecordRo } from '../update-record.ro';
 import { RecordOpenApiService } from './record-open-api.service';
-import { RecordsVo } from './record.vo';
+import { RecordsVo, RecordVo } from './record.vo';
 import { RecordsRo } from './records.ro';
 
 @ApiBearerAuth()
@@ -41,8 +41,24 @@ export class RecordOpenApiController {
     return responseWrap(records);
   }
 
-  @ApiOperation({ summary: 'Update records by id' })
-  @ApiOkResponse({ description: 'The record has been successfully updated.' })
+  @ApiOkResponse({
+    description: 'Get record by id.',
+    type: RecordsVo,
+  })
+  @Get(':recordId')
+  async getRecord(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string
+  ): Promise<ApiResponse<RecordVo>> {
+    const record = await this.recordService.getRecord(tableId, recordId);
+    return responseWrap(record);
+  }
+
+  @ApiOperation({ summary: 'Update records by id.' })
+  @ApiOkResponse({
+    description: 'The record has been successfully updated.',
+    type: RecordVo,
+  })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
     name: 'tableId',
@@ -54,13 +70,20 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body() updateRecordRo: UpdateRecordRo
-  ) {
-    await this.recordOpenApiService.updateRecordById(tableId, recordId, updateRecordRo);
-    return responseWrap(null);
+  ): Promise<ApiResponse<RecordVo>> {
+    const record = await this.recordOpenApiService.updateRecordById(
+      tableId,
+      recordId,
+      updateRecordRo
+    );
+    return responseWrap(record);
   }
 
   @ApiOperation({ summary: 'Update records by row index' })
-  @ApiOkResponse({ description: 'The record has been successfully updated.' })
+  @ApiOkResponse({
+    description: 'The record has been successfully updated.',
+    type: RecordVo,
+  })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
     name: 'tableId',
@@ -71,13 +94,20 @@ export class RecordOpenApiController {
   async updateRecordByIndex(
     @Param('tableId') tableId: string,
     @Body() updateRecordRoByIndexRo: UpdateRecordRoByIndexRo
-  ) {
-    await this.recordOpenApiService.updateRecordByIndex(tableId, updateRecordRoByIndexRo);
-    return responseWrap(null);
+  ): Promise<ApiResponse<RecordVo>> {
+    const record = await this.recordOpenApiService.updateRecordByIndex(
+      tableId,
+      updateRecordRoByIndexRo
+    );
+    return responseWrap(record);
   }
 
   @ApiOperation({ summary: 'Create records' })
-  @ApiCreatedResponse({ description: 'The record has been successfully created.' })
+  @ApiCreatedResponse({
+    description: 'The record has been successfully created.',
+    isArray: true,
+    type: RecordVo,
+  })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
     name: 'tableId',
@@ -88,8 +118,11 @@ export class RecordOpenApiController {
   async createRecords(
     @Param('tableId') tableId: string,
     @Body() createRecordsDto: CreateRecordsRo
-  ) {
-    await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsDto);
-    return responseWrap(null);
+  ): Promise<ApiResponse<RecordVo[]>> {
+    const records = await this.recordOpenApiService.multipleCreateRecords(
+      tableId,
+      createRecordsDto
+    );
+    return responseWrap(records);
   }
 }

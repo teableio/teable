@@ -18,7 +18,7 @@ import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
-import type { RecordsVo } from './open-api/record.vo';
+import type { RecordsVo, RecordVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
@@ -299,6 +299,26 @@ export class RecordService implements IAdapterService {
       records: recordSnapshot.map((r) => r.data.record),
       total,
     };
+  }
+
+  async getRecord(
+    tableId: string,
+    recordId: string,
+    fieldKey = FieldKeyType.Id
+  ): Promise<RecordVo> {
+    const recordSnapshot = await this.getSnapshotBulk(
+      this.prismaService,
+      tableId,
+      [recordId],
+      undefined,
+      fieldKey
+    );
+
+    if (!recordSnapshot.length) {
+      throw new HttpException('Can not get record', HttpStatus.NOT_FOUND);
+    }
+
+    return recordSnapshot[0].data;
   }
 
   async getRecordIdByIndex(
