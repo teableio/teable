@@ -85,20 +85,20 @@ export class DerivateChangeService {
     opContexts: ISetRecordOpContext[]
   ) {
     const prisma = await this.transactionService.getTransaction(tsMeta);
-    let derivateChanges: ICellChange[] = [];
-    for (const opContext of opContexts) {
-      const { fieldId, newValue } = opContext;
-      const changes = await this.referenceService.updateNodeValues(prisma, tableId, fieldId, [
-        { id: recordId, newValue },
-      ]);
-      if (!changes.length) {
-        continue;
-      }
-      derivateChanges = derivateChanges.concat(changes);
-    }
+    const derivateChanges = await this.referenceService.updateNodeValues(
+      prisma,
+      tableId,
+      opContexts.map((ctx) => ({
+        id: recordId,
+        fieldId: ctx.fieldId,
+        newValue: ctx.newValue,
+      }))
+    );
+
     if (!derivateChanges.length) {
       return;
     }
+    console.log('derivateChanges:', derivateChanges);
 
     const { currentSnapshotOps, otherSnapshotOps } = this.getOpsByChanges(
       tableId,

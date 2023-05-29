@@ -308,7 +308,7 @@ describe('ReferenceService', () => {
     });
 
     it('getDependentNodesCTE should return all dependent nodes', async () => {
-      const result = await service['getDependentNodesCTE'](prisma, 'f2');
+      const result = await service['getDependentNodesCTE'](prisma, ['f2']);
       const resultData = [...initialReferences];
       resultData.pop();
       expect(result).toEqual(expect.arrayContaining(resultData));
@@ -631,10 +631,6 @@ describe('ReferenceService', () => {
 
   describe('ReferenceService simple formula calculation', () => {
     let service: ReferenceService;
-    let fieldMap: { [oneToMany: string]: IFieldInstance };
-    let fieldId2TableId: { [fieldId: string]: string };
-    let recordMap: { [recordId: string]: IRecord };
-    let ordersWithRecords: ITopoItemWithRecords[];
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
@@ -644,8 +640,8 @@ describe('ReferenceService', () => {
       service = module.get<ReferenceService>(ReferenceService);
     });
 
-    beforeEach(() => {
-      fieldMap = {
+    it('should correctly collect changes for Computed fields', () => {
+      const fieldMap = {
         fieldA: createFieldInstanceByRo({
           id: 'fieldA',
           name: 'fieldA',
@@ -659,27 +655,33 @@ describe('ReferenceService', () => {
           name: 'fieldB',
           type: FieldType.Formula,
           options: {
-            expression: '{fieldA}',
+            expression: '{fieldA} & {fieldC}',
           },
+        }),
+        fieldC: createFieldInstanceByRo({
+          id: 'fieldC',
+          name: 'fieldC',
+          type: FieldType.SingleLineText,
         }),
       };
 
-      fieldId2TableId = {
+      const fieldId2TableId = {
         fieldA: 'A',
         fieldB: 'A',
+        fieldC: 'A',
       };
 
-      recordMap = {
+      const recordMap = {
         // use new value fieldA: 1 here
-        idA1: { id: 'idA1', fields: { fieldA: 1, fieldB: null }, recordOrder: {} },
+        idA1: { id: 'idA1', fields: { fieldA: 1, fieldB: null, fieldC: 'X' }, recordOrder: {} },
       };
 
       // topoOrder Graph:
       // A.fieldA -> A.fieldB
-      ordersWithRecords = [
+      const ordersWithRecords = [
         {
           id: 'fieldB',
-          dependencies: ['fieldA'],
+          dependencies: ['fieldA', 'fieldC'],
           recordItems: [
             {
               record: recordMap['idA1'],
@@ -687,9 +689,6 @@ describe('ReferenceService', () => {
           ],
         },
       ];
-    });
-
-    it('should correctly collect changes for Computed fields', () => {
       const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
       expect(changes).toEqual([
         {
@@ -697,7 +696,7 @@ describe('ReferenceService', () => {
           recordId: 'idA1',
           fieldId: 'fieldB',
           oldValue: null,
-          newValue: 1,
+          newValue: '1X',
         },
       ]);
     });
