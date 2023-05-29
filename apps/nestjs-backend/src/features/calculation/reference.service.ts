@@ -6,7 +6,7 @@ import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { groupBy, intersectionBy } from 'lodash';
+import { groupBy, intersectionBy, uniqBy } from 'lodash';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -19,6 +19,7 @@ interface ITopoItem {
 
 interface IRecordItem {
   record: IRecord;
+  calculated?: { [fieldId: string]: boolean };
   dependencies?: IRecord | IRecord[];
 }
 
@@ -61,39 +62,44 @@ export class ReferenceService {
   async updateNodeValues(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    fieldId: string,
-    recordData: { id: string; newValue: unknown }[]
+    recordData: { id: string; fieldId: string; newValue: unknown }[]
   ): Promise<ICellChange[]> {
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldId);
+    const fieldIds = recordData.map((ctx) => ctx.fieldId);
+    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
     if (!undirectedGraph.length) {
       return [];
     }
-
-    const topoOrders = this.getTopologicalOrder(fieldId, undirectedGraph);
     const allFieldIds = this.flatGraph(undirectedGraph);
     const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
+    const topoOrdersByFieldId = uniqBy(recordData, 'fieldId').reduce<{
+      [fieldId: string]: ITopoItem[];
+    }>((pre, { fieldId }) => {
+      pre[fieldId] = this.getTopologicalOrder(fieldId, undirectedGraph);
+      return pre;
+    }, {});
+
     const originRecordItems = recordData.map((record) => ({
       dbTableName: tableId2DbTableName[tableId],
-      fieldId,
+      fieldId: record.fieldId,
       newValue: record.newValue,
       id: record.id,
     }));
 
-    const linkOrders = this.getLinkOrderFromTopoOrders({
-      tableId2DbTableName,
-      topoOrders,
-      fieldMap,
-      fieldId2TableId,
-    });
-
-    // only affected records included
-    const affectedRecordItems = await this.getAffectedRecordItems(
-      prisma,
-      originRecordItems,
-      linkOrders
-    );
+    let affectedRecordItems: IRecordRefItem[] = [];
+    for (const fieldId in topoOrdersByFieldId) {
+      const topoOrders = topoOrdersByFieldId[fieldId];
+      const linkOrders = this.getLinkOrderFromTopoOrders({
+        tableId2DbTableName,
+        topoOrders,
+        fieldMap,
+        fieldId2TableId,
+      });
+      // only affected records included
+      const items = await this.getAffectedRecordItems(prisma, originRecordItems, linkOrders);
+      affectedRecordItems = affectedRecordItems.concat(items);
+    }
 
     // extra dependent records for link field
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
@@ -105,17 +111,22 @@ export class ReferenceService {
       dependentRecordItems,
       dbTableName2fieldRaws,
     });
-    const orderWithRecords = this.createTopoItemWithRecords({
-      topoOrders,
-      fieldMap,
-      tableId2DbTableName,
-      fieldId2TableId,
-      dbTableName2records,
-      affectedRecordItems,
-      dependentRecordItems,
-    });
 
-    return this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId);
+    const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
+      const orderWithRecords = this.createTopoItemWithRecords({
+        topoOrders,
+        fieldMap,
+        tableId2DbTableName,
+        fieldId2TableId,
+        dbTableName2records,
+        affectedRecordItems,
+        dependentRecordItems,
+      });
+
+      return pre.concat(this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId));
+    }, []);
+
+    return this.mergeDuplicateChange(changes);
   }
 
   private calculate(
@@ -563,26 +574,63 @@ export class ReferenceService {
     return sortedNodes.reverse();
   }
 
-  private async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldId: string) {
-    const dependentNodesQuery = Prisma.sql`
-      WITH RECURSIVE connected_reference(from_field_id, to_field_id) AS (
-        SELECT from_field_id, to_field_id FROM reference WHERE from_field_id = ${startFieldId} OR to_field_id = ${startFieldId}
-        UNION
-        SELECT deps.from_field_id, deps.to_field_id
-        FROM reference deps
-        JOIN connected_reference cd
-          ON (deps.from_field_id = cd.from_field_id AND deps.to_field_id != cd.to_field_id) 
-          OR (deps.from_field_id = cd.to_field_id AND deps.to_field_id != cd.from_field_id) 
-          OR (deps.to_field_id = cd.from_field_id AND deps.from_field_id != cd.to_field_id) 
-          OR (deps.to_field_id = cd.to_field_id AND deps.from_field_id != cd.from_field_id)
-      )
-      SELECT DISTINCT from_field_id, to_field_id FROM connected_reference;
-    `;
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const result = await prisma.$queryRaw<{ from_field_id: string; to_field_id: string }[]>(
-      dependentNodesQuery
-    );
-    return result.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }));
+  private async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldIds: string[]) {
+    let result: { fromFieldId: string; toFieldId: string }[] = [];
+    const getResult = async (startFieldId: string) => {
+      const dependentNodesQuery = Prisma.sql`
+        WITH RECURSIVE connected_reference(from_field_id, to_field_id) AS (
+          SELECT from_field_id, to_field_id FROM reference WHERE from_field_id = ${startFieldId} OR to_field_id = ${startFieldId}
+          UNION
+          SELECT deps.from_field_id, deps.to_field_id
+          FROM reference deps
+          JOIN connected_reference cd
+            ON (deps.from_field_id = cd.from_field_id AND deps.to_field_id != cd.to_field_id) 
+            OR (deps.from_field_id = cd.to_field_id AND deps.to_field_id != cd.from_field_id) 
+            OR (deps.to_field_id = cd.from_field_id AND deps.from_field_id != cd.to_field_id) 
+            OR (deps.to_field_id = cd.to_field_id AND deps.from_field_id != cd.from_field_id)
+        )
+        SELECT DISTINCT from_field_id, to_field_id FROM connected_reference;
+      `;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      return await prisma.$queryRaw<{ from_field_id: string; to_field_id: string }[]>(
+        dependentNodesQuery
+      );
+    };
+
+    for (const fieldId of startFieldIds) {
+      const queryResult = await getResult(fieldId);
+      result = result.concat(
+        queryResult.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }))
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * when update multi field in a record, there may be duplicate change.
+   * see this case, A and B update at the same time
+   * A -> C -> E
+   * A -> D -> E
+   * B -> D -> E
+   * D will be calculated twice
+   * E will be calculated twice
+   * so we need to merge duplicate change to reduce update times
+   */
+  private mergeDuplicateChange(changes: ICellChange[]) {
+    const indexCache: { [key: string]: number } = {};
+    const mergedChanges: ICellChange[] = [];
+
+    for (const change of changes) {
+      const key = `${change.tableId}#${change.fieldId}#${change.recordId}`;
+      if (indexCache[key] !== undefined) {
+        mergedChanges[indexCache[key]].newValue = change.newValue;
+      } else {
+        indexCache[key] = mergedChanges.length;
+        mergedChanges.push(change);
+      }
+    }
+    return mergedChanges;
   }
 
   private async getDependentRecordItems(

@@ -21,7 +21,7 @@ describe('OpenAPI formula (e2e)', () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`);
   });
 
-  it('/api/table/{tableId}/field (POST)', async () => {
+  it('should response calculate record after create', async () => {
     const numberFieldRo: CreateFieldRo & { id: string } = {
       id: 'fldNumber' + generateFieldId(),
       name: 'Number field',
@@ -32,28 +32,37 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
+    const textFieldRo: CreateFieldRo & { id: string } = {
+      id: 'fldText' + generateFieldId(),
+      name: 'text field',
+      description: 'the text field',
+      type: FieldType.SingleLineText,
+    };
+
     const formulaFieldRo: CreateFieldRo & { id: string } = {
       id: 'fldFormula' + generateFieldId(),
       name: 'New field',
       description: 'the new field',
       type: FieldType.Formula,
       options: {
-        expression: `{${numberFieldRo.id}}`,
+        expression: `{${numberFieldRo.id}} & {${textFieldRo.id}}`,
       },
     };
 
-    const result1 = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/table/${table1Id}/field`)
       .send(numberFieldRo)
       .expect(201);
-    const field1 = result1.body.data;
 
-    const result2 = await request(app.getHttpServer())
+    await request(app.getHttpServer())
+      .post(`/api/table/${table1Id}/field`)
+      .send(textFieldRo)
+      .expect(201);
+
+    await request(app.getHttpServer())
       .post(`/api/table/${table1Id}/field`)
       .send(formulaFieldRo)
       .expect(201);
-
-    const field2 = result2.body.data;
 
     const recordResult = await request(app.getHttpServer())
       .post(`/api/table/${table1Id}/record`)
@@ -61,15 +70,17 @@ describe('OpenAPI formula (e2e)', () => {
         records: [
           {
             fields: {
-              [field1.name]: 1,
+              [numberFieldRo.name]: 1,
+              [textFieldRo.name]: 'x',
             },
           },
         ],
       })
       .expect(201);
 
-    const record = recordResult.body.data[0].record;
-    expect(record.fields[field1.id]).toEqual(1);
-    expect(record.fields[field2.id]).toEqual(1);
+    const record = recordResult.body.data.records[0];
+    expect(record.fields[numberFieldRo.id]).toEqual(1);
+    expect(record.fields[textFieldRo.id]).toEqual('x');
+    expect(record.fields[formulaFieldRo.id]).toEqual('1x');
   });
 });
