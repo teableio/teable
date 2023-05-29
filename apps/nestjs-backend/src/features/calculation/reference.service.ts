@@ -355,7 +355,7 @@ export class ReferenceService {
       throw new Error("recordItems shouldn't be empty");
     }
     const nativeSql = query.toSQL().toNative();
-    console.log('getRecordSQL:', nativeSql.sql);
+
     const result = await prisma.$queryRawUnsafe<{ [fieldName: string]: unknown }[]>(
       nativeSql.sql,
       ...nativeSql.bindings
@@ -487,31 +487,34 @@ export class ReferenceService {
     [tableName: string]: IRecord[];
   } {
     const formattedResults: {
-      [tableName: string]: { [fieldKey: string]: unknown }[];
+      [tableName: string]: { [recordId: string]: { [fieldKey: string]: unknown } };
     } = {};
     result.forEach((record) => {
+      let dbTableName: string | undefined = undefined;
+      let recordId: string | undefined = undefined;
       for (const key in record) {
-        const value = record[key];
-        const recordData: { [k: string]: unknown } = {};
-        if (value == null) {
+        const [_dbTableName, fieldName] = key.split('#');
+        if (fieldName === '__id') {
+          dbTableName = _dbTableName;
+          recordId = record[key] as string;
+          formattedResults[dbTableName] = {};
+          formattedResults[dbTableName][recordId] = {};
+          break;
+        }
+      }
+
+      if (!dbTableName || !recordId) {
+        throw new Error('Invalid record query result');
+      }
+
+      for (const key in record) {
+        const [_dbTableName, fieldName] = key.split('#');
+        if (dbTableName !== _dbTableName) {
           continue;
         }
-
-        const [dbTableName, fieldName] = key.split('#');
-        recordData[fieldName] = value;
-
-        if (!formattedResults[dbTableName]) {
-          formattedResults[dbTableName] = [];
-        }
-
-        const existingRecord = formattedResults[dbTableName].find(
-          (r) => r.__id === record[`${dbTableName}#__id`]
-        );
-
-        if (existingRecord) {
-          existingRecord[fieldName] = record[key];
-        } else {
-          formattedResults[dbTableName].push({ [fieldName]: record[key] });
+        const value = record[key];
+        if (value) {
+          formattedResults[dbTableName][recordId][fieldName] = value;
         }
       }
     });
@@ -519,9 +522,9 @@ export class ReferenceService {
     return Object.entries(formattedResults).reduce<{
       [dbTableName: string]: IRecord[];
     }>((acc, e) => {
-      const [dbTableName, records] = e;
+      const [dbTableName, recordMap] = e;
       const fieldRaws = dbTableName2fieldRaws[dbTableName];
-      acc[dbTableName] = records.map((r) => {
+      acc[dbTableName] = Object.values(recordMap).map((r) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return this.recordRaw2Record(fieldRaws, r as any);
       });
@@ -711,7 +714,7 @@ export class ReferenceService {
     WITH affected_records AS (${cteQuery})
     SELECT * FROM affected_records`;
 
-    console.log('nativeSql:', finalQuery);
+    console.log('getAffectedRecordItems:', finalQuery);
 
     const results = await prisma.$queryRawUnsafe<
       {
