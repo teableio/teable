@@ -4,15 +4,15 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "target": "esnext",
+    "outDir": "./dist",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "react-jsx",
     // "jsxImportSource": "@emotion/react",
     "noEmit": false,
     "incremental": true,
-    "paths": {
-      "@teable-group/core": ["../../../packages/core/src/index"]
-    }
+    "composite": true
   },
-  "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
+  "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
+  "include": ["src"]
 }
