@@ -1,6 +1,8 @@
 import type { NumberFieldOptions as NumberFieldOptionsType } from '@teable-group/core';
+import { Select } from 'antd';
 import { NUMBER_FIELD_PRECISION } from '../../utils/field';
-import { Select, SelectItem } from '../common/select';
+
+const { Option } = Select;
 
 export const NumberOptions = (props: {
   options: NumberFieldOptionsType;
@@ -19,11 +21,11 @@ export const NumberOptions = (props: {
       <div className="label">
         <span className="neutral-content label-text mb-2">Precision</span>
       </div>
-      <Select size="small" value={precision.toString()} onValueChange={onPrecisionChange}>
+      <Select value={precision.toString()} onChange={onPrecisionChange}>
         {NUMBER_FIELD_PRECISION.map(({ text, value }) => (
-          <SelectItem key={value} value={value.toString()}>
+          <Option key={value} value={value.toString()}>
             {text}
-          </SelectItem>
+          </Option>
         ))}
       </Select>
     </div>

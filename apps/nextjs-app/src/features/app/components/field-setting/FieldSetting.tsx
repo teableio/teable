@@ -2,9 +2,9 @@ import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Table } from '@teable-group/sdk/model';
+import { Button, Drawer } from 'antd';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Drawer } from './Drawer';
 import { FieldEditor } from './FieldEditor';
 import { useFieldSettingStore } from './store';
 import type { IFieldSetting } from './type';
@@ -101,7 +101,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     : defaultField;
 
   return (
-    <Drawer visible={visible} onChange={clickCancel}>
+    <Drawer bodyStyle={{ padding: 0 }} closable={false} visible={visible} onClose={clickCancel}>
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="w-full p-4 border-b border-base-content/10">{title}</div>
@@ -109,12 +109,10 @@ export const FieldSetting = (props: IFieldSetting) => {
         {visible && <FieldEditor field={field} onChange={onFieldEditorChange} />}
         {/* Footer */}
         <div className="flex w-full justify-end space-x-3 border-t border-base-content/10 px-3 py-4">
-          <button className="btn btn-outline btn-sm" onClick={clickCancel}>
-            Cancel
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={clickConfirm}>
+          <Button onClick={clickCancel}>Cancel</Button>
+          <Button type={'primary'} onClick={clickConfirm}>
             Save
-          </button>
+          </Button>
         </div>
       </div>
     </Drawer>

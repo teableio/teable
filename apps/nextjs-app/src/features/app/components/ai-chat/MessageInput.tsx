@@ -1,6 +1,6 @@
 import { getRandomString } from '@teable-group/core';
-import { useToast } from '@teable-group/sdk/hooks';
 import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
+import { message } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
@@ -17,7 +17,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
   const [isInIME, setIsInIME] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageStore = useMessageStore();
-  const { open: openToast } = useToast();
+  const [messageApi, contextHolder] = message.useMessage();
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -30,7 +30,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
 
   const handleSend = async () => {
     if (!value) {
-      openToast({ title: 'Please enter a message.' });
+      messageApi.info('Please enter a message.');
       return;
     }
     if (disabled) {
@@ -73,6 +73,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
         onChange={handleChange}
         onKeyDown={handleKeyDown}
       />
+      {contextHolder}
       <button
         className="w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow hover:bg-base-300 disabled:cursor-not-allowed disabled:opacity-60 text-[18px]"
         disabled={disabled}

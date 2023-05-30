@@ -1,3 +1,5 @@
+import { Menu } from 'antd';
+
 interface IFieldMenuProps {
   operations: {
     openFieldSetting: () => void;
@@ -5,21 +7,33 @@ interface IFieldMenuProps {
   };
 }
 
+enum MenuOperation {
+  EditField = 'EditField',
+  DeleteField = 'DeleteField',
+}
+
 export const FieldMenu = (props: IFieldMenuProps) => {
   const { deleteField, openFieldSetting } = props.operations;
+
+  const onClick = (key: MenuOperation) => {
+    if (key === MenuOperation.EditField) {
+      openFieldSetting();
+      return;
+    }
+    if (key === MenuOperation.DeleteField) {
+      deleteField?.();
+    }
+  };
   return (
-    <ul className="menu bg-base-100 w-60 p-2 rounded-box shadow-xl">
-      <li>
-        <button className="text-sm py-1" onClick={openFieldSetting}>
-          Edit Field
-        </button>
-      </li>
-      <div className="bg-base-content opacity-10 my-1 h-px" />
-      <li>
-        <button className="text-sm text-error py-1" onClick={deleteField}>
-          Delete Field
-        </button>
-      </li>
-    </ul>
+    <div className="rounded-box w-60 shadow-xl">
+      <Menu
+        selectable={false}
+        onClick={({ key }) => onClick(key as MenuOperation)}
+        items={[
+          { label: 'Edit Field', key: MenuOperation.EditField },
+          { label: 'Delete Field', key: MenuOperation.DeleteField },
+        ]}
+      />
+    </div>
   );
 };

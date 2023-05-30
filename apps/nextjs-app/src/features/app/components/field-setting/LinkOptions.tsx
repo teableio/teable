@@ -1,7 +1,8 @@
 import type { ILinkFieldOptionsRo } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { useTables } from '@teable-group/sdk/hooks';
-import { Select, SelectItem } from '../common/select';
+import { Select } from 'antd';
+const { Option } = Select;
 
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 
@@ -28,21 +29,21 @@ export const LinkOptions = (props: {
       <div className="label">
         <span className="neutral-content label-text mb-2">Link table</span>
       </div>
-      <Select size="small" value={foreignTableId} onValueChange={onForeignTableIdChange}>
+      <Select value={foreignTableId} onChange={onForeignTableIdChange}>
         {tables.map((table) => (
-          <SelectItem key={table.id} value={table.id}>
+          <Option key={table.id} value={table.id}>
             {table.name}
-          </SelectItem>
+          </Option>
         ))}
       </Select>
       <div className="label">
         <span className="neutral-content label-text mb-2">Relationship</span>
       </div>
-      <Select size="small" value={relationship} onValueChange={onRelationshipChange}>
+      <Select value={relationship} onChange={onRelationshipChange}>
         {relationshipOptions.map((rsp) => (
-          <SelectItem key={rsp} value={rsp}>
+          <Option key={rsp} value={rsp}>
             {rsp}
-          </SelectItem>
+          </Option>
         ))}
       </Select>
     </div>

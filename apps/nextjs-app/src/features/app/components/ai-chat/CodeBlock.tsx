@@ -1,5 +1,5 @@
-import { useToast } from '@teable-group/sdk';
 import CopyIcon from '@teable-group/ui-lib/icons/app/copy.svg';
+import { message } from 'antd';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import type { IChat } from './type';
@@ -15,18 +15,18 @@ export const checkStatementIsSelect = (statement: string) => {
   return statement.toUpperCase().trim().startsWith('SELECT');
 };
 
-export const CodeBlock: React.FC<Props> = ({ language, value, chat, onExecute }) => {
-  const toast = useToast();
+export const CodeBlock: React.FC<Props> = ({ language, value, onExecute }) => {
+  const [messageApi, contextHolder] = message.useMessage();
   const showExecuteButton = language.toUpperCase() === 'AI';
 
   const copyToClipboard = () => {
     console.log('copy!');
     if (!navigator.clipboard || !navigator.clipboard.writeText) {
-      toast.open('Failed to copy to clipboard');
+      messageApi.error('Failed to copy to clipboard');
       return;
     }
     navigator.clipboard.writeText(value).then(() => {
-      toast.open('Copied to clipboard');
+      messageApi.info('Copied to clipboard');
     });
   };
 
@@ -36,6 +36,7 @@ export const CodeBlock: React.FC<Props> = ({ language, value, chat, onExecute })
 
   return (
     <div className="w-full max-w-full relative font-sans text-sm">
+      {contextHolder}
       <div className="flex items-center justify-between py-2 px-4">
         <span className="text-xs text-white font-mono">{language}</span>
         <div className="flex items-center space-x-2">
