@@ -13,3 +13,7 @@ svg.icon {
 .gdg-input:focus {
   box-shadow: none;
 }
+
+[type='search']:focus {
+  box-shadow: inherit;
+}

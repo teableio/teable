@@ -1,16 +1,22 @@
+/* eslint-disable import/order */
 import type { NextPage } from 'next';
 import { appWithTranslation } from 'next-i18next';
 import type { AppProps as NextAppProps } from 'next/app';
 import Head from 'next/head';
 import type { ReactElement, ReactNode } from 'react';
+import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config';
 import { AppProviders } from '../AppProviders';
+import { INITIAL_THEME } from '@/themes/initial';
+import { colors } from '@/themes/colors';
 
 /**
  * Import global styles, global css or polyfills here
  * i.e.: import '@/assets/theme/style.scss'
  */
 import '../styles/global.css';
+
+import '../themes/antd.variables.css';
 
 /**
  * Local fonts
@@ -43,10 +49,13 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, pageProps, err } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
+
   return (
     <AppProviders>
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>{getColorsCssVariablesText(colors)}</style>
+        <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
       </Head>
       {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
       {getLayout(<Component {...pageProps} err={err} />, pageProps)}

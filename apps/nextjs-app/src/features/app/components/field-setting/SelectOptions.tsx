@@ -2,9 +2,9 @@ import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core'
 import { randomColor, ColorUtils, Colors } from '@teable-group/core';
 import AddCircleIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
+import { Button, Popover } from 'antd';
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
-import { Popover } from '../common/popover';
 
 export const SelectOptions = (props: {
   options: SelectFieldOptions;
@@ -64,6 +64,7 @@ export const SelectOptions = (props: {
         return (
           <li key={name} className="flex items-center">
             <Popover
+              trigger={'click'}
               content={
                 <ColorPicker color={color} onSelect={(color) => updateOptionChange(i, { color })} />
               }
@@ -86,9 +87,7 @@ export const SelectOptions = (props: {
                 onBlur={() => finishUpdateName(i)}
               />
             </div>
-            <button className="btn btn-circle btn-ghost btn-sm" onClick={() => deleteColor(i)}>
-              <CloseIcon />
-            </button>
+            <Button type="text" icon={<CloseIcon />} onClick={() => deleteColor(i)} />
           </li>
         );
       })}
