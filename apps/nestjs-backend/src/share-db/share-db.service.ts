@@ -1,13 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix } from '@teable-group/core';
+import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
+import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import _ from 'lodash';
 import { TransactionService } from 'src/share-db/transaction.service';
+import { DerivateChangeService } from './derivate-change.service';
 import { RecordCreatedEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
+import type { ITransactionMeta } from './transaction.service';
 
 type IEventType = 'Create' | 'Edit' | 'Delete';
 
@@ -24,7 +26,8 @@ export class ShareDbService extends ShareDBClass {
   private eventCollector: Map<string, IEventCollectorMeta[]> = new Map();
 
   constructor(
-    private readonly sqliteDbAdapter: SqliteDbAdapter,
+    readonly sqliteDbAdapter: SqliteDbAdapter,
+    private readonly derivateChangeService: DerivateChangeService,
     private readonly transactionService: TransactionService,
     private readonly eventEmitter: EventEmitter2
   ) {
@@ -33,7 +36,7 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
-    // this.use('apply', this.onApply);
+    this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
@@ -41,31 +44,92 @@ export class ShareDbService extends ShareDBClass {
 
   // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
   //   console.log('ShareDb:SUBMIT:', context.extra, context.op);
-
   //   next();
   // }
 
-  // private onApply(context: ShareDBClass.middleware.ApplyContext, next: (err?: unknown) => void) {
-  //   console.log('ShareDb:apply:', context.ops, context.snapshot);
+  private onApply = async (
+    context: ShareDBClass.middleware.ApplyContext,
+    next: (err?: unknown) => void
+  ) => {
+    const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
+    const tsMeta = context.extra as (ITransactionMeta & { skipCalculate?: boolean }) | undefined;
+    const recordId = context.id;
+    if (docType !== IdPrefix.Record || !context.op.op || !tsMeta || tsMeta.skipCalculate) {
+      return next();
+    }
 
-  //   next();
-  // }
+    console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
+    const opContexts = context.op.op.reduce<ISetRecordOpContext[]>((pre, cur) => {
+      const ctx = OpBuilder.editor.setRecord.detect(cur);
+      if (ctx) {
+        pre.push(ctx);
+      }
+      return pre;
+    }, []);
 
-  // private onCommit(context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) {
+    if (!opContexts.length) {
+      return next();
+    }
+
+    let fixUps:
+      | {
+          currentSnapshotOps: IOtOperation[];
+          otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } };
+          transactionMeta: ITransactionMeta;
+        }
+      | undefined = undefined;
+    try {
+      fixUps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, opContexts);
+
+      if (!fixUps) {
+        return next();
+      }
+
+      console.log('fixUps:', fixUps);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fixUps.currentSnapshotOps.length && context.$fixup(fixUps.currentSnapshotOps);
+    } catch (e) {
+      return next(e);
+    }
+
+    next();
+    const { otherSnapshotOps, transactionMeta } = fixUps;
+    this.sendOps(transactionMeta, otherSnapshotOps);
+  };
+
+  private async sendOps(
+    transactionMeta: ITransactionMeta,
+    otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
+  ) {
+    for (const tableId in otherSnapshotOps) {
+      const data = otherSnapshotOps[tableId];
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      for (const recordId in data) {
+        const ops = data[recordId];
+        const doc = this.connect().get(collection, recordId);
+
+        await new Promise((resolve, reject) => {
+          doc.fetch(() => {
+            doc.submitOp(ops, transactionMeta, (error) => {
+              if (error) return reject(error);
+              resolve(undefined);
+            });
+          });
+        });
+      }
+    }
+  }
+
+  // private onCommit = (context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) => {
   //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
 
   //   next();
   // }
 
-  // private onAfterWrite(context = SubmitRequest {backend: ShareDbService,
-  // agent: Agent,
-  // index: "rec_tbluD1SibWWuWFza6YL",
-  // projection: undefined,
-  // collection: "rec_tbluD1SibWWuWFza6YL",
-  // ...}
+  // private onAfterWrite = (
   //   context: ShareDBClass.middleware.SubmitContext,
   //   next: (err?: unknown) => void
-  // ) {
+  // ) => {
   //   console.log('ShareDb:afterWrite:', context.ops);
 
   //   next();

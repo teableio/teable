@@ -27,29 +27,30 @@ model TableMeta {
 }
 
 model Field {
-  id               String    @id
-  name             String
-  description      String?
-  options          String?
-  type             String
-  calculatedType   String    @map("calculated_type")
-  cellValueType    String    @map("cell_value_type")
-  dbFieldType      String    @map("db_field_type")
-  dbFieldName      String    @map("db_field_name")
-  defaultValue     String?   @map("default_value")
-  notNull          Boolean?  @map("not_null")
-  unique           Boolean?
-  isPrimary        Boolean?  @map("is_primary")
-  isComputed       Boolean?  @map("is_computed")
-  tableId          String    @map("table_id")
-  columnMeta       String    @map("column_meta")
-  version          Int
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
-  table            TableMeta @relation(fields: [tableId], references: [id])
+  id                   String    @id
+  name                 String
+  description          String?
+  options              String?
+  type                 String
+  calculatedType       String    @map("calculated_type")
+  cellValueType        String    @map("cell_value_type")
+  cellValueElementType String?   @map("cell_value_element_type")
+  dbFieldType          String    @map("db_field_type")
+  dbFieldName          String    @map("db_field_name")
+  defaultValue         String?   @map("default_value")
+  notNull              Boolean?  @map("not_null")
+  unique               Boolean?
+  isPrimary            Boolean?  @map("is_primary")
+  isComputed           Boolean?  @map("is_computed")
+  tableId              String    @map("table_id")
+  columnMeta           String    @map("column_meta")
+  version              Int
+  createdTime          DateTime  @default(now()) @map("created_time")
+  lastModifiedTime     DateTime  @updatedAt @map("last_modified_time")
+  deletedTime          DateTime? @map("deleted_time")
+  createdBy            String    @map("created_by")
+  lastModifiedBy       String    @map("last_modified_by")
+  table                TableMeta @relation(fields: [tableId], references: [id])
 
   @@map("field")
 }
@@ -95,6 +96,24 @@ model Snapshots {
 
   @@unique([collection, docId])
   @@map("snapshots")
+}
+
+model Reference {
+  id          String @id @default(cuid())
+  fromFieldId String @map("from_field_id")
+  toFieldId   String @map("to_field_id")
+
+  @@index([fromFieldId])
+  @@index([toFieldId])
+  @@index([toFieldId, fromFieldId])
+  @@map("reference")
+}
+
+model NodeValue {
+  id    String @id
+  value Int
+
+  @@map("node_value")
 }
 
 // model User {

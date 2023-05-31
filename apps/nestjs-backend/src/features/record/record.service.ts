@@ -13,28 +13,18 @@ import knex from 'knex';
 import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
-import type { AdapterService } from '../../share-db/adapter-service.abstract';
+import type { IAdapterService } from '../../share-db/interface';
+import type { IVisualTableDefaultField } from '../field/constant';
+import { preservedFieldName } from '../field/constant';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
-import type { RecordsVo } from './open-api/record.vo';
+import type { RecordsVo, RecordVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
-/* eslint-disable @typescript-eslint/naming-convention */
-export interface IVisualTableDefaultField {
-  __id: string;
-  __version: number;
-  __auto_number: number;
-  __created_time: Date;
-  __last_modified_time?: Date;
-  __created_by: string;
-  __last_modified_by?: string;
-}
-/* eslint-enable @typescript-eslint/naming-convention */
-
 @Injectable()
-export class RecordService implements AdapterService {
+export class RecordService implements IAdapterService {
   queryBuilder: ReturnType<typeof knex>;
 
   constructor(private readonly prismaService: PrismaService) {
@@ -311,6 +301,26 @@ export class RecordService implements AdapterService {
     };
   }
 
+  async getRecord(
+    tableId: string,
+    recordId: string,
+    fieldKey = FieldKeyType.Id
+  ): Promise<RecordVo> {
+    const recordSnapshot = await this.getSnapshotBulk(
+      this.prismaService,
+      tableId,
+      [recordId],
+      undefined,
+      fieldKey
+    );
+
+    if (!recordSnapshot.length) {
+      throw new HttpException('Can not get record', HttpStatus.NOT_FOUND);
+    }
+
+    return recordSnapshot[0].data;
+  }
+
   async getRecordIdByIndex(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -431,16 +441,7 @@ export class RecordService implements AdapterService {
     const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
     const fieldNames = fields
       .map((f) => f.dbFieldName)
-      .concat([
-        '__id',
-        '__version',
-        '__auto_number',
-        '__created_time',
-        '__last_modified_time',
-        '__created_by',
-        '__last_modified_by',
-        ...fieldNameOfViewOrder,
-      ]);
+      .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
 
     const sqlNative = this.queryBuilder(dbTableName)
       .select(fieldNames)

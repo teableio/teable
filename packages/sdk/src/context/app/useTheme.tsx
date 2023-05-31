@@ -1,6 +1,6 @@
-import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
+import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { ThemeKey } from './AppContext';
 
 interface IUseThemeResult {
@@ -56,7 +56,7 @@ export function useTheme(): IUseThemeResult {
   return useMemo(
     () => ({
       theme: theme ? theme : autoTheme,
-      isAutoTheme: !Boolean(theme),
+      isAutoTheme: !theme,
       setTheme: setThemeState,
     }),
     [theme, autoTheme, setThemeState]

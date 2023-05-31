@@ -1,11 +1,22 @@
-import type { IFieldRo, NumberFieldOptions, SingleSelectFieldOptions } from '@teable-group/core';
+import type {
+  FormulaFieldOptions,
+  IFieldRo,
+  ILinkFieldOptionsRo,
+  LinkFieldOptions,
+  NumberFieldOptions,
+  SelectFieldOptions,
+} from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import { Input, Select } from 'antd';
 import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { FIELD_CONSTANT, fieldDefaultOptionMap } from '../../utils/field';
-import { Select, SelectItem } from '../common/select';
+import { FormulaOptions } from './FormulaOptions';
+import { LinkOptions } from './LinkOptions';
 import { NumberOptions } from './NumberOptions';
 import { SelectOptions } from './SelectOptions';
+
+const { Option } = Select;
 
 export const FieldEditor = (props: {
   field: IFieldRo;
@@ -52,7 +63,9 @@ export const FieldEditor = (props: {
   };
 
   const updateFieldOptions = useCallback(
-    (options: NumberFieldOptions | SingleSelectFieldOptions) => {
+    (
+      options: NumberFieldOptions | SelectFieldOptions | ILinkFieldOptionsRo | FormulaFieldOptions
+    ) => {
       setFieldFn({
         ...field,
         options,
@@ -65,12 +78,12 @@ export const FieldEditor = (props: {
     if (!field.options) {
       return;
     }
-    // eslint-disable-next-line sonarjs/no-small-switch
     switch (field.type) {
       case FieldType.SingleSelect:
+      case FieldType.MultipleSelect:
         return (
           <SelectOptions
-            options={field.options as SingleSelectFieldOptions}
+            options={field.options as SelectFieldOptions}
             onChange={updateFieldOptions}
           />
         );
@@ -78,6 +91,17 @@ export const FieldEditor = (props: {
         return (
           <NumberOptions
             options={field.options as NumberFieldOptions}
+            onChange={updateFieldOptions}
+          />
+        );
+      case FieldType.Link:
+        return (
+          <LinkOptions options={field.options as LinkFieldOptions} onChange={updateFieldOptions} />
+        );
+      case FieldType.Formula:
+        return (
+          <FormulaOptions
+            options={field.options as FormulaFieldOptions}
             onChange={updateFieldOptions}
           />
         );
@@ -89,49 +113,39 @@ export const FieldEditor = (props: {
   return (
     <div className="flex-1 w-full overflow-y-auto text-sm">
       {/* General */}
-      <div className="flex p-8 border-b border-base-content/10">
+      <div className="flex p-8 border-b">
         <div className="text-scale-1200 basis-1/3 col-span-12 p-2">General</div>
         <div className="basis-2/3">
-          <div className="form-control w-full">
-            <div className="label">
-              <span className="neutral-content label-text mb-2">Name</span>
+          <div className="w-full">
+            <div className="pb-2">
+              <span className="label-text mb-2">Name</span>
             </div>
-            <input
-              type="text"
-              className="input input-bordered w-full input-sm"
-              value={field['name']}
-              onChange={updateFieldName}
-            />
+            <Input value={field['name']} onChange={updateFieldName} />
           </div>
-          <div className="form-control w-full mt-1">
-            <div className="label">
-              <span className="neutral-content label-text mb-2">Description</span>
+          <div className="w-full mt-1">
+            <div className="pb-2">
+              <span className="label-text mb-2">Description</span>
             </div>
-            <input
-              type="text"
-              className="input input-bordered w-full input-sm"
-              value={field['description']}
-              onChange={updateFieldDesc}
-            />
+            <Input value={field['description']} onChange={updateFieldDesc} />
           </div>
         </div>
       </div>
       {/* Field type */}
-      <div className="flex p-8 border-b border-base-content/10">
+      <div className="flex p-8 border-b">
         <div className="text-scale-1200 basis-1/3 col-span-12 p-2">Type</div>
         <div className="basis-2/3">
-          <div className="form-control w-full">
-            <div className="label">
-              <span className="neutral-content label-text mb-2">Name</span>
+          <div className="w-full">
+            <div className="pb-2">
+              <span className="neutral-content mb-2">Name</span>
             </div>
-            <Select size="small" value={field.type} onValueChange={updateFieldType}>
+            <Select className="w-full" showSearch value={field.type} onChange={updateFieldType}>
               {FIELD_CONSTANT.map(({ type, text, IconComponent }) => (
-                <SelectItem key={type} value={type}>
+                <Option key={type} value={type} label={text}>
                   <div className="flex items-center">
                     <IconComponent />
                     <span className="ml-1">{text}</span>
                   </div>
-                </SelectItem>
+                </Option>
               ))}
             </Select>
           </div>

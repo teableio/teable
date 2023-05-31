@@ -10,7 +10,7 @@ export class CreateRecordsRo implements ICreateRecordsRo {
     default: 'name',
     enum: FieldKeyType,
   })
-  fieldKeyType?: FieldKeyType;
+  fieldKeyType?: FieldKeyType = FieldKeyType.Name;
 
   @ApiProperty({
     description: `

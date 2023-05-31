@@ -1,9 +1,17 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { ApiResponse, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
-import { responseWrap } from 'src/utils/api-response';
+import {
+  ApiOperation,
+  ApiTags,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
+import type { ApiResponse } from '../../../utils/api-response';
+import { responseWrap } from '../../../utils/api-response';
 import { CreateTableRo } from '../create-table.ro';
 import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
 import { TableService } from '../table.service';
+import { TableVo } from '../table.vo';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
@@ -49,17 +57,21 @@ export class TableController {
   }
 
   @ApiOperation({ summary: 'Create table' })
-  @ApiResponse({ status: 201, description: 'The table has been successfully created.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiCreatedResponse({
+    status: 201,
+    description: 'The table has been successfully created.',
+    type: TableVo,
+  })
+  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Post()
-  async createTable(@Body(TablePipe) createTable: CreateTableRo) {
+  async createTable(@Body(TablePipe) createTable: CreateTableRo): Promise<ApiResponse<TableVo>> {
     const result = await this.tableOpenApiService.createTable(createTable);
     return responseWrap(result);
   }
 
   @ApiOperation({ summary: 'Delete table' })
-  @ApiResponse({ status: 201, description: 'The table has been removed to trash.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiOkResponse({ description: 'The table has been removed to trash.' })
+  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Delete('/:tableId')
   async archiveTable(@Param('tableId') tableId: string) {
     const result = await this.tableOpenApiService.archiveTable(tableId);

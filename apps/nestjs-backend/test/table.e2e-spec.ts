@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { initApp } from './init-app';
 
-const defaultData = {
+const assertData = {
   name: 'Project Management',
   description: 'A table for managing projects',
   fields: [
@@ -74,16 +74,13 @@ const defaultData = {
       },
     },
   ],
-  rows: {
+  data: {
     records: [
       {
         fields: {
           'Project Name': 'Project A',
           'Project Description': 'A project to develop a new product',
-          'Project Status': {
-            name: 'Not Started',
-            color: 'gray',
-          },
+          'Project Status': 'Not Started',
           'Project Manager': 'John Doe',
           'Start Date': '2022-01-01',
           'End Date': '2022-06-30',
@@ -93,10 +90,7 @@ const defaultData = {
         fields: {
           'Project Name': 'Project B',
           'Project Description': 'A project to improve customer service',
-          'Project Status': {
-            name: 'In Progress',
-            color: 'blue',
-          },
+          'Project Status': 'In Progress',
           'Project Manager': 'Jane Smith',
           'Start Date': '2022-02-01',
           'End Date': '2022-08-31',
@@ -119,10 +113,10 @@ describe('OpenAPI FieldController (e2e)', () => {
     console.log('clear table: ', result.body);
   });
 
-  it('/api/table/ (POST) with defualt data', async () => {
+  it('/api/table/ (POST) with assertData data', async () => {
     const result = await request(app.getHttpServer())
       .post('/api/table')
-      .send(defaultData)
+      .send(assertData)
       .expect(201);
     expect(result.body).toMatchObject({
       success: true,
@@ -132,6 +126,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     const recordResult = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
       .expect(200);
+
     expect(recordResult.body.data.records).toHaveLength(2);
   });
 

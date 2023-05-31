@@ -44,7 +44,9 @@ export class CreateRecord extends ActionCore {
     await this.recordOpenApiService
       .multipleCreateRecords(tableId, createData)
       .then((records) => {
-        const [record] = records;
+        const {
+          records: [record],
+        } = records;
         outPut = { msg: 'ok', data: record, code: ActionResponseStatus.Success };
       })
       .catch((error) => {

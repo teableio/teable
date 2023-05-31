@@ -2,9 +2,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import request from 'supertest';
-import type { UpdateRecordRoByIndexRo } from 'src/features/record/update-record-by-index.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
 import type { CreateRecordsRo } from '../src/features/record/create-records.ro';
+import type { UpdateRecordRoByIndexRo } from '../src/features/record/update-record-by-index.ro';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './init-app';
 
@@ -55,10 +55,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       })
-      .expect(201)
-      .expect({
-        success: true,
-      });
+      .expect(201);
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -69,23 +66,23 @@ describe('OpenAPI RecordController (e2e)', () => {
       .expect(200);
     expect(result.body.data.records).toHaveLength(4);
 
+    const newValue = 'New Record' + new Date();
     // test fieldKeyType is id
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post(`/api/table/${tableId}/record`)
       .send({
         fieldKeyType: FieldKeyType.Id,
         records: [
           {
             fields: {
-              [firstTextField.id]: 'New Record' + new Date(),
+              [firstTextField.id]: newValue,
             },
           },
         ],
       } as CreateRecordsRo)
-      .expect(201)
-      .expect({
-        success: true,
-      });
+      .expect(201);
+
+    expect(response.body.data.records[0].fields[firstTextField.id]).toEqual(newValue);
   });
 
   it('/api/table/{tableId}/record/{recordId} (PUT)', async () => {
@@ -98,7 +95,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       throw new Error('can not find text field');
     }
 
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .put(`/api/table/${tableId}/record/${recordsResponse.body.data.records[0].id}`)
       .send({
         record: {
@@ -107,10 +104,9 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         },
       } as UpdateRecordRo)
-      .expect(200)
-      .expect({
-        success: true,
-      });
+      .expect(200);
+
+    expect(response.body.data.record.fields[firstTextField.id]).toEqual('new value');
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -144,10 +140,7 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         },
       } as UpdateRecordRoByIndexRo)
-      .expect(200)
-      .expect({
-        success: true,
-      });
+      .expect(200);
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -176,8 +169,8 @@ describe('OpenAPI RecordController (e2e)', () => {
       .send({
         records,
       })
-      .expect(201)
-      .expect({ success: true });
+      .expect(201);
+
     console.timeEnd(`create ${count} records`);
   });
 });

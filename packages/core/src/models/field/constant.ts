@@ -18,7 +18,7 @@ export enum FieldType {
   Formula = 'formula',
   Rollup = 'rollup',
   Count = 'count',
-  MultipleRecordLinks = 'multipleRecordLinks',
+  Link = 'link',
   MultipleLookupValues = 'multipleLookupValues',
   CreatedTime = 'createdTime',
   LastModifiedTime = 'lastModifiedTime',
@@ -33,4 +33,13 @@ export enum DbFieldType {
   Integer = 'INTEGER',
   Real = 'REAL',
   Blob = 'BLOB',
+  Json = 'JSON',
+}
+
+export enum CellValueType {
+  String = 'string',
+  Number = 'number',
+  Boolean = 'boolean',
+  DateTime = 'dateTime',
+  Array = 'array',
 }

@@ -8,8 +8,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { ApiResponse } from 'src/utils/api-response';
-import { responseWrap } from 'src/utils/api-response';
+import type { ApiResponse } from '../../../utils/api-response';
+import { responseWrap } from '../../../utils/api-response';
 import { CreateViewRo } from '../model/create-view.ro';
 import { IViewInstance } from '../model/factory';
 import { ViewVo } from '../model/view.vo';
@@ -54,14 +54,20 @@ export class ViewOpenApiController {
   }
 
   @ApiOperation({ summary: 'Create view' })
-  @ApiCreatedResponse({ description: 'The view has been successfully created.' })
+  @ApiCreatedResponse({
+    description: 'The view has been successfully created.',
+    type: ViewVo,
+  })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBody({
     type: CreateViewRo,
   })
   @Post()
-  async createView(@Param('tableId') tableId: string, @Body(ViewPipe) viewInstance: IViewInstance) {
-    await this.viewOpenApiService.createView(tableId, viewInstance);
-    return responseWrap(null);
+  async createView(
+    @Param('tableId') tableId: string,
+    @Body(ViewPipe) viewInstance: IViewInstance
+  ): Promise<ApiResponse<ViewVo>> {
+    const viewVo = await this.viewOpenApiService.createView(tableId, viewInstance);
+    return responseWrap(viewVo);
   }
 }

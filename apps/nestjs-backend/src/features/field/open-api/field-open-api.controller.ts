@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -13,6 +23,7 @@ import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { FieldService } from '../field.service';
 import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';
+import type { FieldVo } from '../model/field.vo';
 import { GetFieldsRo } from '../model/get-fields.ro';
 import { UpdateFieldRo } from '../model/update-field.ro';
 import { FieldOpenApiService } from './field-open-api.service';
@@ -39,8 +50,12 @@ export class FieldOpenApiController {
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<FieldResponseVo> {
-    const fieldVo = await this.fieldService.getField(tableId, fieldId);
-    return responseWrap(fieldVo);
+    try {
+      const fieldVo = await this.fieldService.getField(tableId, fieldId);
+      return responseWrap(fieldVo);
+    } catch (e) {
+      throw new HttpException('field no found', HttpStatus.NOT_FOUND);
+    }
   }
 
   @Get()
@@ -67,15 +82,15 @@ export class FieldOpenApiController {
   })
   @ApiOkResponse({
     description: 'Field',
-    type: ApiResponse<null>,
+    type: ApiResponse<FieldVo>,
     isArray: true,
   })
   async createField(
     @Param('tableId') tableId: string,
     @Body(FieldPipe) fieldInstance: IFieldInstance
-  ) {
-    await this.fieldOpenApiService.createField(tableId, fieldInstance);
-    return responseWrap(null);
+  ): Promise<ApiResponse<FieldVo>> {
+    const fieldVo = await this.fieldOpenApiService.createField(tableId, fieldInstance);
+    return responseWrap(fieldVo);
   }
 
   @Put(':fieldId')

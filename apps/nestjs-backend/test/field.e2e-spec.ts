@@ -29,7 +29,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: 'table1',
     });
-    tableId = result.body.id;
+    tableId = result.body.data.id;
   });
 
   afterAll(async () => {
@@ -52,8 +52,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/table/${tableId}/field`)
       .send(fieldRo)
-      .expect(201)
-      .expect({ success: true });
+      .expect(201);
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/field`)

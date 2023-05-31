@@ -6,7 +6,7 @@ describe('Json Schema Parser Test', () => {
   it('should parse a type text', async () => {
     const json = {
       tableId: {
-        type: 'text',
+        type: 'const',
         value: 'tblwEp45tdvwTxiUl',
       },
     };
@@ -25,11 +25,11 @@ describe('Json Schema Parser Test', () => {
         type: 'array',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: 'a',
           },
           {
-            type: 'text',
+            type: 'const',
             value: 'b',
           },
         ],
@@ -52,18 +52,18 @@ describe('Json Schema Parser Test', () => {
         type: 'template',
         elements: [
           {
-            type: 'text',
+            type: 'const',
             value: 'a',
           },
           {
             type: 'array',
             elements: [
               {
-                type: 'text',
+                type: 'const',
                 value: 'b',
               },
               {
-                type: 'text',
+                type: 'const',
                 value: 'c',
               },
             ],
@@ -87,28 +87,28 @@ describe('Json Schema Parser Test', () => {
         properties: [
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'name',
             },
             value: {
-              type: 'text',
+              type: 'const',
               value: 'aa',
             },
           },
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'hobby',
             },
             value: {
               type: 'array',
               elements: [
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'Code',
                 },
                 {
-                  type: 'text',
+                  type: 'const',
                   value: 'Music',
                 },
               ],
@@ -116,7 +116,7 @@ describe('Json Schema Parser Test', () => {
           },
           {
             key: {
-              type: 'text',
+              type: 'const',
               value: 'addr',
             },
             value: {
@@ -126,11 +126,11 @@ describe('Json Schema Parser Test', () => {
                   type: 'array',
                   elements: [
                     {
-                      type: 'text',
+                      type: 'const',
                       value: 'future ',
                     },
                     {
-                      type: 'text',
+                      type: 'const',
                       value: 'mars',
                     },
                   ],
@@ -172,7 +172,7 @@ describe('Json Schema Parser Test', () => {
     it('should get object according to path', async () => {
       const data = await (
         await almanac
-      ).factValue('trigger_wtrdS3OIXzjyRyvnP', undefined, 'record.fields.fldkTOW9IsLtIHWKrDE');
+      ).factValue('trigger.wtrdS3OIXzjyRyvnP', undefined, 'record.fields.fldkTOW9IsLtIHWKrDE');
 
       expect(data).toBeDefined();
       expect(data).toStrictEqual('New Record');
@@ -190,15 +190,15 @@ describe('Json Schema Parser Test', () => {
             type: 'array',
             elements: [
               {
-                type: 'text',
+                type: 'const',
                 value: 'record',
               },
               {
-                type: 'text',
+                type: 'const',
                 value: 'fields',
               },
               {
-                type: 'text',
+                type: 'const',
                 value: 'fldkTOW9IsLtIHWKrDE',
               },
             ],
@@ -224,7 +224,7 @@ describe('Json Schema Parser Test', () => {
     const json = {
       inputExpressions: {
         tableId: {
-          type: 'text',
+          type: 'const',
           value: 'tblwEp45tdvwTxiUl',
         },
         fields: {
@@ -232,14 +232,14 @@ describe('Json Schema Parser Test', () => {
           properties: [
             {
               key: {
-                type: 'text',
+                type: 'const',
                 value: 'fldELAd4ssqjk5CBg',
               },
               value: {
                 type: 'template',
                 elements: [
                   {
-                    type: 'text',
+                    type: 'const',
                     value: 'fields.name ',
                   },
                   {
@@ -252,11 +252,11 @@ describe('Json Schema Parser Test', () => {
                       type: 'array',
                       elements: [
                         {
-                          type: 'text',
+                          type: 'const',
                           value: 'record.fields',
                         },
                         {
-                          type: 'text',
+                          type: 'const',
                           value: 'fldkTOW9IsLtIHWKrDE',
                         },
                       ],

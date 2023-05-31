@@ -4,7 +4,7 @@ import type { CreateRecordsRo } from '../record/create-records.ro';
 import type { CreateViewRo } from '../view/model/create-view.ro';
 
 export const DEFAULT_FIELDS: CreateFieldRo[] = [
-  { name: 'name', type: FieldType.SingleLineText },
+  { name: 'name', type: FieldType.SingleLineText, isPrimary: true },
   { name: 'number', type: FieldType.Number, options: { precision: 2 } },
   {
     name: 'status',
@@ -35,6 +35,6 @@ export const DEFAULT_VIEW: CreateViewRo = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_RECORDS: CreateRecordsRo = {
+export const DEFAULT_RECORD_DATA: CreateRecordsRo = {
   records: [{ fields: {} }, { fields: {} }, { fields: {} }],
 };

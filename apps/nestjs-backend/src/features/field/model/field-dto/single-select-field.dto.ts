@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core';
 import { SingleSelectFieldCore, Colors } from '@teable-group/core';
-import type { SingleSelectFieldChoices, SingleSelectFieldOptions } from '@teable-group/core';
 
-class SingleSelectOption implements SingleSelectFieldChoices {
+class SingleSelectOption implements SelectFieldChoices {
   @ApiProperty({
     type: String,
     example: 'light',
@@ -18,7 +18,7 @@ class SingleSelectOption implements SingleSelectFieldChoices {
   color!: Colors;
 }
 
-export class SingleSelectOptionsDto implements SingleSelectFieldOptions {
+export class SingleSelectOptionsDto implements SelectFieldOptions {
   @ApiProperty({
     type: [SingleSelectOption],
     description:

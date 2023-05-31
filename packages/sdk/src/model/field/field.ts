@@ -48,4 +48,5 @@ export class FieldExtended {
 export abstract class Field extends FieldCore {
   abstract updateName(name: string): Promise<void>;
   abstract updateColumnWidth(viewId: string, width: number): Promise<void>;
+  abstract delete(): Promise<void>;
 }
