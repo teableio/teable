@@ -35,6 +35,6 @@ export const DEFAULT_VIEW: CreateViewRo = {
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_RECORDS: CreateRecordsRo = {
+export const DEFAULT_RECORD_DATA: CreateRecordsRo = {
   records: [{ fields: {} }, { fields: {} }, { fields: {} }],
 };

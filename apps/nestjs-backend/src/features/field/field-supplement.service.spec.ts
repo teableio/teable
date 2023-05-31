@@ -81,16 +81,14 @@ describe('FieldSupplementService', () => {
           relationship: Relationship.OneMany,
         },
       };
-      service.generateSymmetricField = jest.fn().mockResolvedValue(sField);
-      service.createForeignKeyField = jest.fn().mockResolvedValue(undefined);
-      service['createLinkReference'] = jest.fn().mockResolvedValue(undefined);
+      service['generateSymmetricField'] = jest.fn().mockResolvedValue(sField);
+      service['createForeignKeyField'] = jest.fn().mockResolvedValue(undefined);
 
       const symmetricField = await service.supplementByCreate(prisma, 'tableId', field);
 
       expect(symmetricField).toBe(sField);
-      expect(service.generateSymmetricField).toHaveBeenCalled();
-      expect(service.createForeignKeyField).toHaveBeenCalled();
-      expect(service['createLinkReference']).toHaveBeenCalledTimes(2);
+      expect(service['generateSymmetricField']).toHaveBeenCalled();
+      expect(service['createForeignKeyField']).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -110,7 +108,7 @@ describe('FieldSupplementService', () => {
         },
       };
       (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
-      await service.createReference(prismaService, [createFieldInstanceByRo(linkField)]);
+      await service['createReference'](prismaService, createFieldInstanceByRo(linkField));
 
       expect(prismaService.reference.create).toBeCalledWith({
         data: {
@@ -131,7 +129,7 @@ describe('FieldSupplementService', () => {
         },
       };
       (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
-      await service.createReference(prismaService, [createFieldInstanceByRo(formulaField)]);
+      await service['createReference'](prismaService, createFieldInstanceByRo(formulaField));
 
       expect(prismaService.reference.create).toHaveBeenNthCalledWith(1, {
         data: {

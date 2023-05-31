@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { initApp } from './init-app';
 
-const defaultData = {
+const assertData = {
   name: 'Project Management',
   description: 'A table for managing projects',
   fields: [
@@ -74,7 +74,7 @@ const defaultData = {
       },
     },
   ],
-  rows: {
+  data: {
     records: [
       {
         fields: {
@@ -113,10 +113,10 @@ describe('OpenAPI FieldController (e2e)', () => {
     console.log('clear table: ', result.body);
   });
 
-  it('/api/table/ (POST) with defualt data', async () => {
+  it('/api/table/ (POST) with assertData data', async () => {
     const result = await request(app.getHttpServer())
       .post('/api/table')
-      .send(defaultData)
+      .send(assertData)
       .expect(201);
     expect(result.body).toMatchObject({
       success: true,
@@ -126,6 +126,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     const recordResult = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
       .expect(200);
+
     expect(recordResult.body.data.records).toHaveLength(2);
   });
 

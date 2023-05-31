@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecordSnapshot } from '@teable-group/core';
+import type { IOtOperation, IRecord, IRecordSnapshot } from '@teable-group/core';
 import {
   FieldKeyType,
   generateTransactionKey,
@@ -10,12 +10,16 @@ import {
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { IFieldInstance } from '../../../features/field/model/factory';
 import { createFieldInstanceByRaw } from '../../../features/field/model/factory';
+import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import type { ITransactionMeta } from '../../../share-db/transaction.service';
 import { TransactionService } from '../../../share-db/transaction.service';
+import type { ITransactionCreator } from '../../../utils/transaction-creator';
 import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import type { UpdateRecordRo } from '../update-record.ro';
+import type { CreateRecordsVo } from './record.vo';
 
 interface ICreateRecordOpMeta {
   snapshot: IRecordSnapshot;
@@ -23,42 +27,68 @@ interface ICreateRecordOpMeta {
 }
 
 @Injectable()
-export class RecordOpenApiService {
+export class RecordOpenApiService implements ITransactionCreator {
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly recordService: RecordService,
     private readonly transactionService: TransactionService
   ) {}
 
-  // if ops create and sent in a same tick, they will be wrap in a same transaction
-  // and this is important for keep data safe
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: CreateRecordsRo,
-    transactionMeta?: { transactionKey: string; opCount: number }
-  ) {
-    const result = await this.multipleCreateRecords2Ops(tableId, createRecordsRo, transactionMeta);
-    const connection = this.shareDbService.connect();
-    transactionMeta = transactionMeta || {
+    fieldName2IdMap?: { [fieldIdOrName: string]: IFieldInstance }
+  ): Promise<CreateRecordsVo> {
+    if (!fieldName2IdMap) {
+      fieldName2IdMap = await this.getFieldInstanceMap(
+        this.prismaService,
+        tableId,
+        createRecordsRo.fieldKeyType
+      );
+    }
+
+    const { creators, afterCreate } = this.generateCreators(
+      tableId,
+      fieldName2IdMap,
+      createRecordsRo
+    );
+    const transactionMeta = {
       transactionKey: generateTransactionKey(),
-      opCount:
-        result.length +
-        result.reduce((pre, cur) => {
-          cur.ops && pre++;
-          return pre;
-        }, 0),
+      opCount: creators.length,
     };
 
-    const recordSnapshots: IRecordSnapshot[] = [];
-    for (const opMeta of result) {
-      const { snapshot, ops } = opMeta;
+    const result: Awaited<ReturnType<typeof creators[number]>>[] = [];
+    for (const creator of creators) {
+      result.push(await creator(transactionMeta));
+    }
+
+    return afterCreate(result);
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  generateCreators(
+    tableId: string,
+    fieldName2IdMap: { [fieldIdOrName: string]: IFieldInstance },
+    createRecordsRo: CreateRecordsRo
+  ) {
+    const opMeta = this.multipleCreateRecords2Ops(fieldName2IdMap, createRecordsRo);
+    const connection = this.shareDbService.connect();
+
+    const recordCreators: ((
+      transactionMeta: ITransactionMeta
+    ) => Promise<IRecordSnapshot | void>)[] = [];
+    for (const opData of opMeta) {
+      const { snapshot, ops } = opData;
       const collection = `${IdPrefix.Record}_${tableId}`;
       const docId = snapshot.record.id;
       const doc = connection.get(collection, docId);
-      await new Promise<void>((resolve, reject) => {
-        doc.create(snapshot, undefined, transactionMeta, (error) => {
-          if (error) return reject(error);
-          resolve(undefined);
+      recordCreators.push((transactionMeta: ITransactionMeta) => {
+        return new Promise<void>((resolve, reject) => {
+          doc.create(snapshot, undefined, transactionMeta, (error) => {
+            if (error) return reject(error);
+            resolve(undefined);
+          });
         });
       });
 
@@ -66,16 +96,35 @@ export class RecordOpenApiService {
         continue;
       }
 
-      const record = await new Promise<IRecordSnapshot>((resolve, reject) => {
-        doc.submitOp(ops, transactionMeta, (error) => {
-          if (error) return reject(error);
-          resolve(doc.data);
+      recordCreators.push((transactionMeta: ITransactionMeta) => {
+        return new Promise<IRecordSnapshot>((resolve, reject) => {
+          doc.submitOp(ops, transactionMeta, (error) => {
+            if (error) return reject(error);
+            resolve(doc.data);
+          });
         });
       });
-      recordSnapshots.push(record);
     }
 
-    return { records: recordSnapshots.map((s) => s.record) };
+    return {
+      creators: recordCreators,
+      afterCreate: (result: (IRecordSnapshot | void)[]) => {
+        return {
+          records: opMeta.map((opData) => {
+            let record: IRecord;
+            const calculatedSnapshot = result.find(
+              (snapshot) => snapshot?.record.id === opData.snapshot.record.id
+            );
+            if (calculatedSnapshot) {
+              record = calculatedSnapshot.record;
+            } else {
+              record = opData.snapshot.record;
+            }
+            return record;
+          }),
+        };
+      },
+    };
   }
 
   private async getFieldInstanceMap(
@@ -98,17 +147,11 @@ export class RecordOpenApiService {
     }, {});
   }
 
-  async multipleCreateRecords2Ops(
-    tableId: string,
-    createRecordsDto: CreateRecordsRo,
-    transactionMeta?: { transactionKey: string; opCount: number }
-  ): Promise<ICreateRecordOpMeta[]> {
-    const fieldKey = createRecordsDto.fieldKeyType;
-    const prisma = await this.transactionService.getTransaction(transactionMeta);
-
-    const fieldName2IdMap = await this.getFieldInstanceMap(prisma, tableId, fieldKey);
-
-    return createRecordsDto.records.map((record) => {
+  multipleCreateRecords2Ops(
+    fieldName2IdMap: { [fieldIdOrName: string]: IFieldInstance },
+    createRecordsDto: CreateRecordsRo
+  ): ICreateRecordOpMeta[] {
+    return createRecordsDto.records.map<ICreateRecordOpMeta>((record) => {
       const recordId = generateRecordId();
       const snapshot = OpBuilder.creator.addRecord.build({
         record: { id: recordId, fields: {}, recordOrder: {} },

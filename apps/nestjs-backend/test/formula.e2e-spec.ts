@@ -20,11 +20,6 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const result1 = await request(app.getHttpServer()).post('/api/table').send({
-      name: 'table1',
-    });
-    table1Id = result1.body.data.id;
-
     numberFieldRo = {
       id: 'fldNumber' + generateFieldId(),
       name: 'Number field',
@@ -52,20 +47,13 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    await request(app.getHttpServer())
-      .post(`/api/table/${table1Id}/field`)
-      .send(numberFieldRo)
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post(`/api/table/${table1Id}/field`)
-      .send(textFieldRo)
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post(`/api/table/${table1Id}/field`)
-      .send(formulaFieldRo)
-      .expect(201);
+    const result1 = await request(app.getHttpServer())
+      .post('/api/table')
+      .send({
+        name: 'table1',
+        fields: [numberFieldRo, textFieldRo, formulaFieldRo],
+      });
+    table1Id = result1.body.data.id;
   });
 
   afterEach(async () => {

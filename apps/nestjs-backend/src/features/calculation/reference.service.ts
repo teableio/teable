@@ -513,7 +513,7 @@ export class ReferenceService {
           continue;
         }
         const value = record[key];
-        if (value) {
+        if (value != null) {
           formattedResults[dbTableName][recordId][fieldName] = value;
         }
       }

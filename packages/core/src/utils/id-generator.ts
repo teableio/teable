@@ -26,7 +26,7 @@ export function generateViewId() {
 }
 
 export function generateRecordId() {
-  return IdPrefix.Record + getRandomString(8);
+  return IdPrefix.Record + getRandomString(16);
 }
 
 export function generateTransactionKey() {
