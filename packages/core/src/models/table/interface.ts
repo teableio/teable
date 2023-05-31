@@ -8,7 +8,7 @@ export interface ICreateTableRo {
   icon?: string;
   fields?: IFieldRo[];
   views?: IViewRo[];
-  rows?: ICreateRecordsRo;
+  data?: ICreateRecordsRo;
 }
 
 export interface ITableApiVo {

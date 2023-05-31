@@ -13,7 +13,7 @@ import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
-  knex: ReturnType<typeof knex>;
+  private readonly knex: ReturnType<typeof knex>;
   constructor(private readonly prismaService: PrismaService) {
     this.knex = knex({ client: 'sqlite3' });
   }
@@ -61,7 +61,7 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  async generateSymmetricField(
+  private async generateSymmetricField(
     prisma: Prisma.TransactionClient,
     tableId: string,
     foreignTableId: string,
@@ -93,7 +93,7 @@ export class FieldSupplementService implements ISupplementService {
     }) as LinkFieldDto;
   }
 
-  async createForeignKeyField(
+  private async createForeignKeyField(
     prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
     field: LinkFieldDto
@@ -132,24 +132,19 @@ export class FieldSupplementService implements ISupplementService {
       await this.createForeignKeyField(prisma, tableId, field);
     }
 
-    await this.createLinkReference(prisma, field);
-    await this.createLinkReference(prisma, symmetricField);
-
     return symmetricField;
   }
 
-  async createReference(prisma: Prisma.TransactionClient, fields: IFieldInstance[]) {
-    for (const field of fields) {
-      switch (field.type) {
-        case FieldType.Formula:
-          await this.createFormulaReference(prisma, field);
-          break;
-        case FieldType.Link:
-          await this.createLinkReference(prisma, field);
-          break;
-        default:
-          break;
-      }
+  async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
+    switch (field.type) {
+      case FieldType.Formula:
+        await this.createFormulaReference(prisma, field);
+        break;
+      case FieldType.Link:
+        await this.createLinkReference(prisma, field);
+        break;
+      default:
+        break;
     }
   }
 

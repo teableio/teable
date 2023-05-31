@@ -16,7 +16,7 @@ import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRo } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORDS, DEFAULT_VIEW } from './constant';
+import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from './constant';
 import type { CreateTableRo } from './create-table.ro';
 
 const tableNamePrefix = 'visual';
@@ -165,7 +165,7 @@ export class TableService implements IAdapterService {
     await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
 
     // 4. create records for table
-    await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORDS);
+    await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORD_DATA);
 
     return tableMeta;
   }

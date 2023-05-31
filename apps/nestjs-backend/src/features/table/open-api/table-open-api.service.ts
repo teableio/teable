@@ -1,18 +1,31 @@
 import { Injectable } from '@nestjs/common';
-import type { ICreateTableRo } from '@teable-group/core';
-import { generateTransactionKey, IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
+import type { ICreateTableRo, IRecordSnapshot, ITableSnapshot } from '@teable-group/core';
+import {
+  FieldKeyType,
+  generateTransactionKey,
+  IdPrefix,
+  generateTableId,
+  OpBuilder,
+} from '@teable-group/core';
 import type { Doc } from '@teable/sharedb';
+import { keyBy } from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import type { ITransactionMeta } from '../../../share-db/transaction.service';
+import type { ITransactionCreator } from '../../../utils/transaction-creator';
+import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRo } from '../../field/model/factory';
+import type { FieldVo } from '../../field/model/field.vo';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { createViewInstanceByRo } from '../../view/model/factory';
+import type { ViewVo } from '../../view/model/view.vo';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import type { CreateTableRo } from '../create-table.ro';
+import type { TableVo } from '../table.vo';
 
 @Injectable()
-export class TableOpenApiService {
+export class TableOpenApiService implements ITransactionCreator {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
@@ -21,73 +34,111 @@ export class TableOpenApiService {
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
-  private getCreateTableTransactionMeta(tableRo: CreateTableRo) {
-    const tableCount = 1;
-    const fieldCount = tableRo.fields?.length || 0;
-    const viewCount = tableRo.views?.length || 0;
-    const records = tableRo.rows?.records;
-    // record ops count is adds up to record length and every record that has fields keys
-    const recordCount = records
-      ? records.length +
-        records.reduce((pre, cur) => {
-          Object.keys(cur.fields).length && pre++;
-          return pre;
-        }, 0)
-      : 0;
+  async createTable(tableRo: CreateTableRo): Promise<TableVo> {
+    if (!tableRo.fields || !tableRo.views || !tableRo.data) {
+      throw new Error('table fields views and rows are required.');
+    }
+
+    const { creators: tableCreators, opMeta: tableVo } = await this.createTableMeta(tableRo);
+    const tableId = tableVo.id;
+
+    const viewCreators: ReturnType<typeof this.viewOpenApiService.generateCreators>['creators'] =
+      [];
+
+    const fieldCreators: ReturnType<typeof this.fieldOpenApiService.generateCreators>['creators'] =
+      [];
+
+    const viewVos: ViewVo[] = [];
+    const fieldVos: FieldVo[] = [];
+    const fieldInstances: IFieldInstance[] = [];
+
+    // process views
+    tableRo.views.forEach((viewRo, index) => {
+      const { creators, opMeta } = this.viewOpenApiService.generateCreators(
+        tableId,
+        createViewInstanceByRo(viewRo),
+        index
+      );
+      viewVos.push(opMeta);
+      viewCreators.push(...creators);
+    });
+
+    // process fields
+    for (const fieldRo of tableRo.fields) {
+      const fieldInstance = createFieldInstanceByRo(fieldRo);
+      const { creators, opMeta } = this.fieldOpenApiService.generateCreators(
+        tableId,
+        fieldInstance
+      );
+      fieldVos.push(opMeta);
+      fieldCreators.push(...creators);
+      fieldInstances.push(fieldInstance);
+    }
+
+    // process record
+    const fieldName2IdMap = keyBy(
+      fieldInstances,
+      tableRo.data.fieldKeyType === FieldKeyType.Id ? 'id' : 'name'
+    );
+    const { creators: recordCreators, afterCreate: afterRecordCreate } =
+      this.recordOpenApiService.generateCreators(tableId, fieldName2IdMap, tableRo.data);
+
+    // combine all the creators to generate transaction meta
+    const transactionMeta = {
+      transactionKey: generateTransactionKey(),
+      opCount:
+        tableCreators.length + viewCreators.length + fieldCreators.length + recordCreators.length,
+    };
+
+    for (const creator of tableCreators) {
+      await creator(transactionMeta);
+    }
+    for (const creator of viewCreators) {
+      await creator(transactionMeta);
+    }
+    for (const creator of fieldCreators) {
+      await creator(transactionMeta);
+    }
+
+    const recordResult: (IRecordSnapshot | void)[] = [];
+    for (const creator of recordCreators) {
+      recordResult.push(await creator(transactionMeta));
+    }
+
+    // clean record result
+    const data = afterRecordCreate(recordResult);
 
     return {
-      transactionKey: generateTransactionKey(),
-      opCount: tableCount + fieldCount + viewCount + recordCount,
+      ...tableVo,
+      fields: fieldVos,
+      views: viewVos,
+      data,
     };
   }
 
-  async createTable(tableRo: CreateTableRo) {
-    if (!tableRo.fields || !tableRo.views || !tableRo.rows) {
-      throw new Error('table fields views and rows are required.');
-    }
-    const transactionMeta = this.getCreateTableTransactionMeta(tableRo);
-
-    const tableVo = await this.createTableMeta(tableRo, transactionMeta);
-    const tableId = tableVo.id;
-
-    for (const viewRo of tableRo.views) {
-      await this.viewOpenApiService.createView(
-        tableId,
-        createViewInstanceByRo(viewRo),
-        transactionMeta
-      );
-    }
-
-    for (const fieldRo of tableRo.fields) {
-      await this.fieldOpenApiService.createField(
-        tableId,
-        createFieldInstanceByRo(fieldRo),
-        transactionMeta
-      );
-    }
-
-    await this.recordOpenApiService.multipleCreateRecords(tableId, tableRo.rows, transactionMeta);
-
-    return tableVo;
-  }
-
-  async createTableMeta(
-    tableRo: CreateTableRo,
-    transactionMeta: { transactionKey: string; opCount: number }
-  ) {
-    const snapshot = await this.createTable2Op(tableRo);
+  generateCreators(snapshot: ITableSnapshot) {
     const tableId = snapshot.table.id;
     const collection = `${IdPrefix.Table}_node`;
     const doc = this.shareDbService.connect().get(collection, tableId);
-    await new Promise<Doc>((resolve, reject) => {
-      doc.create(snapshot, undefined, transactionMeta, (error) => {
-        if (error) return reject(error);
-        // console.log(`create document ${collectionId}.${id} succeed!`);
-        resolve(doc);
+    const creator = (transactionMeta: ITransactionMeta) => {
+      return new Promise<ITableSnapshot>((resolve, reject) => {
+        doc.create(snapshot, undefined, transactionMeta, (error) => {
+          if (error) return reject(error);
+          // console.log(`create document ${collectionId}.${id} succeed!`);
+          resolve(doc.data);
+        });
       });
-    });
+    };
 
-    return snapshot.table;
+    return {
+      creators: [creator],
+      opMeta: snapshot.table,
+    };
+  }
+
+  async createTableMeta(tableRo: CreateTableRo) {
+    const snapshot = await this.createTable2Op(tableRo);
+    return this.generateCreators(snapshot);
   }
 
   private async createTable2Op(tableRo: ICreateTableRo) {
