@@ -6734,6 +6734,7 @@ __metadata:
     get-tsconfig: "npm:4.2.0"
     jest: "npm:29.2.2"
     lodash: "npm:4.17.21"
+    nanoid: "npm:3.1.20"
     reflect-metadata: "npm:0.1.13"
     rimraf: "npm:3.0.2"
     size-limit: "npm:8.1.0"
@@ -20382,6 +20383,15 @@ __metadata:
     react: "*"
     react-dom: "*"
   checksum: c026019aaa5e02f759615d7d69bd047cee085ecaf5445410b8154ac7673131f9c9752f0c4355a92098b39bea7f0f209f73cfc67e3858b7578a02e461890f34e6
+  languageName: node
+  linkType: hard
+
+"nanoid@npm:3.1.20":
+  version: 3.1.20
+  resolution: "nanoid@npm:3.1.20"
+  bin:
+    nanoid: bin/nanoid.cjs
+  checksum: f6c68ba2c76a7367e1be88ff1e5bed52fc33e15b41698e7a71ce3a7d431400874715c546d29a0efef3d34e2e3c0e6f7b12635f060af69e7e1d23cac84a2007db
   languageName: node
   linkType: hard
 

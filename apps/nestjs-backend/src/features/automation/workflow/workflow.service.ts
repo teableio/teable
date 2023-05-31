@@ -4,6 +4,7 @@ import type {
   Prisma,
   AutomationWorkflow as AutomationWorkflowModel,
 } from '@teable-group/db-main-prisma';
+import { PrismaManager } from '@teable-group/db-main-prisma';
 import _ from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
@@ -15,6 +16,7 @@ import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
 @Injectable()
 export class WorkflowService {
   private logger = new Logger(WorkflowService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly triggerService: WorkflowTriggerService,
@@ -72,7 +74,7 @@ export class WorkflowService {
     return result;
   }
 
-  async createWorkflow(
+  async create(
     workflowId: string,
     createWorkflowRo: CreateWorkflowRo
   ): Promise<AutomationWorkflowModel> {
@@ -87,7 +89,28 @@ export class WorkflowService {
     return this.prisma.automationWorkflow.create({ data });
   }
 
-  async updateWorkflow(
+  async delete(workflowId: string): Promise<boolean> {
+    return await this.prisma.$transaction(async (tx) => {
+      const composedTransaction = PrismaManager.extendTransaction(tx) as PrismaService;
+
+      const [triggerDeleted, actionDeleted, workflowDeleted] = await Promise.all([
+        this.triggerService.delete({ workflowId }, composedTransaction),
+        this.actionService.delete({ workflowId }, composedTransaction),
+        (async () => {
+          const payload = await tx.automationWorkflow.deleteMany({ where: { workflowId } });
+          return payload.count > 0;
+        })(),
+      ]);
+
+      const check = triggerDeleted && actionDeleted && workflowDeleted;
+      if (!check) {
+        throw new Error('failed to delete workflow');
+      }
+      return check;
+    });
+  }
+
+  async updateConfig(
     workflowId: string,
     updateWorkflowRo: CreateWorkflowRo
   ): Promise<AutomationWorkflowModel> {

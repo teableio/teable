@@ -34,7 +34,7 @@ describe('WorkflowTriggerController', () => {
         inputExpressions: { tableId: 'tblwEp45tdvwTxiUl' },
       };
       jest
-        .spyOn(workflowTriggerService, 'createWorkflowTrigger')
+        .spyOn(workflowTriggerService, 'create')
         .mockImplementation((triggerId, createWorkflowTriggerRo) =>
           Promise.resolve({
             id: 'id',
@@ -47,9 +47,7 @@ describe('WorkflowTriggerController', () => {
           } as AutomationWorkflowTriggerModel)
         );
 
-      expect(
-        await workflowTriggerController.createWorkflowTrigger(pathParamTriggerId, bodyParam)
-      ).toEqual(result);
+      expect(await workflowTriggerController.create(pathParamTriggerId, bodyParam)).toEqual(result);
     });
 
     it('/Service should return void', async () => {
@@ -60,9 +58,7 @@ describe('WorkflowTriggerController', () => {
         inputExpressions: { tableId: 'tblwEp45tdvwTxiUl' },
       };
 
-      expect(
-        await workflowTriggerService.createWorkflowTrigger(pathParamWorkflowId, bodyParam)
-      ).toMatchObject({
+      expect(await workflowTriggerService.create(pathParamWorkflowId, bodyParam)).toMatchObject({
         workflowId: bodyParam.workflowId,
         triggerType: bodyParam.triggerType,
         inputExpressions: JSON.stringify(bodyParam.inputExpressions),

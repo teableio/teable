@@ -5,18 +5,27 @@ import fetch from 'node-fetch';
 import type {
   IActionResponse,
   ITemplateSchema,
-  ITypeValueSchema,
-  ITypePropertiesSchema,
+  IConstSchema,
+  IObjectSchema,
 } from '../action-core';
 import { ActionCore, actionConst, ActionResponseStatus } from '../action-core';
 
 export interface IWebhookSchema extends Record<string, unknown> {
   url: ITemplateSchema;
-  method: ITypeValueSchema;
-  headers?: ITypePropertiesSchema;
+  method: IConstSchema;
+  headers?: IObjectSchema;
   body?: ITemplateSchema;
-  timeout?: ITypeValueSchema;
-  responseParams?: ITypePropertiesSchema;
+  timeout?: IConstSchema;
+  responseParams?: IObjectSchema;
+}
+
+export interface IWebhookOptions {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeout?: number;
+  responseParams?: Record<string, string>;
 }
 
 @Injectable({ scope: Scope.REQUEST })
@@ -39,14 +48,7 @@ export class Webhook extends ActionCore {
       body,
       timeout = 60000,
       responseParams,
-    } = await this.parseInputSchema<{
-      url: string;
-      method: string;
-      headers: Record<string, string>;
-      body: string;
-      timeout: number;
-      responseParams: Record<string, string>;
-    }>(event.params as IWebhookSchema, almanac);
+    } = await this.parseInputSchema<IWebhookOptions>(event.params as IWebhookSchema, almanac);
 
     let outPut: IActionResponse<unknown>;
 
@@ -72,7 +74,7 @@ export class Webhook extends ActionCore {
 
   private responseDataWrapper(
     json: Record<string, unknown>,
-    responseParams: Record<string, string>
+    responseParams?: Record<string, string>
   ) {
     let responseData: Record<string, unknown>;
     if (responseParams && !_.isEmpty(responseParams)) {

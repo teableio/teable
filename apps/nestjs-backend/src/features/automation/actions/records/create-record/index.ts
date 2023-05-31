@@ -3,12 +3,17 @@ import { FieldKeyType } from '@teable-group/core';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import type { CreateRecordsRo } from '../../../../record/create-records.ro';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
-import type { IActionResponse, ITypeValueSchema, ITypePropertiesSchema } from '../../action-core';
+import type { IActionResponse, IConstSchema, IObjectSchema } from '../../action-core';
 import { actionConst, ActionCore, ActionResponseStatus } from '../../action-core';
 
 export interface ICreateRecordSchema extends Record<string, unknown> {
-  tableId: ITypeValueSchema;
-  fields: ITypePropertiesSchema;
+  tableId: IConstSchema;
+  fields: IObjectSchema;
+}
+
+export interface ICreateRecordOptions {
+  tableId: string;
+  fields: { [fieldIdOrName: string]: unknown };
 }
 
 @Injectable({ scope: Scope.REQUEST })
@@ -24,10 +29,10 @@ export class CreateRecord extends ActionCore {
   }
 
   onSuccess = async (event: Event, almanac: Almanac, _ruleResult: RuleResult): Promise<void> => {
-    const { tableId, fields } = await this.parseInputSchema<{
-      tableId: string;
-      fields: { [fieldIdOrName: string]: unknown };
-    }>(event.params as ICreateRecordSchema, almanac);
+    const { tableId, fields } = await this.parseInputSchema<ICreateRecordOptions>(
+      event.params as ICreateRecordSchema,
+      almanac
+    );
 
     const createData: CreateRecordsRo = {
       fieldKeyType: FieldKeyType.Id,

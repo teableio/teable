@@ -21,27 +21,38 @@ export type IActionResponse<T> = {
 };
 
 export type IActionInputSchema = IWebhookSchema | IMailSenderSchema | ICreateRecordSchema;
-export type ITypeValueSchema = { type: string; value: string };
 
-export type ITypePropertiesSchema = {
-  type: string;
-  properties: { key: ITypeValueSchema; value: ITemplateSchema }[];
-};
+export type INullSchema = { type: string };
+export type IConstSchema = { type: string; value: string };
 
 export type IObjectPathValueSchema = {
   type: string;
   object: { nodeId: string; nodeType: string };
-  path: { type: string; elements: ITypeValueSchema[] };
+  path: { type: string; elements: IConstSchema[] };
 };
 
 export type ITemplateSchema = {
   type: string;
-  elements: (ITypeValueSchema | IObjectPathValueSchema)[];
+  elements: (IConstSchema | IObjectPathValueSchema)[];
 };
 
-export type IElementArraySchema = {
+export type IObjectSchema = {
   type: string;
-  elements: ITemplateSchema[];
+  properties: {
+    key: IConstSchema;
+    value:
+      | INullSchema
+      | IConstSchema
+      | IObjectPathValueSchema
+      | ITemplateSchema
+      | IObjectSchema
+      | IObjectArraySchema;
+  }[];
+};
+
+export type IObjectArraySchema = {
+  type: string;
+  elements: (IConstSchema | IObjectPathValueSchema | ITemplateSchema | IObjectSchema)[];
 };
 
 export const actionConst = {

@@ -1,5 +1,5 @@
 import Ajv from 'ajv';
-import * as Decision from '../../actions/decision/decision.schema.json';
+import * as DecisionSchema from '../../actions/decision/decision.schema.json';
 import * as MailSenderSchema from '../../actions/mail-sender/mail-sender.schema.json';
 import * as CreateRecordSchema from '../../actions/records/create-record/create-record.schema.json';
 import * as WebhookSchema from '../../actions/webhook/webhook.schema.json';
@@ -13,7 +13,7 @@ const ajv = new Ajv({
   code: { optimize: false, source: true },
 });
 
-ajv.addSchema(Decision, 'Decision');
+ajv.addSchema(DecisionSchema, 'DecisionSchema');
 ajv.addSchema(WebhookSchema, 'WebhookSchema');
 ajv.addSchema(MailSenderSchema, 'MailSenderSchema');
 ajv.addSchema(CreateRecordSchema, 'CreateRecordSchema');

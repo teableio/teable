@@ -35,6 +35,12 @@ export class CreateWorkflowActionRo {
   parentNodeId?: string | null;
 
   @ApiPropertyOptional({
+    description: '动作创建在逻辑组入口时需要指定的参数，用下标来寻找逻辑组',
+    example: 0,
+  })
+  parentDecisionArrayIndex?: number | null;
+
+  @ApiPropertyOptional({
     description: `  
 Use the object to create each action step used to start the workflow.
 

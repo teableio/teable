@@ -26,26 +26,26 @@ export class WorkflowTriggerController {
     type: ApiResponse<null>,
     isArray: false,
   })
-  async createWorkflowTrigger(
+  async create(
     @Param('triggerId') triggerId: string,
     @Body() createWorkflowTriggerRo: CreateWorkflowTriggerRo
   ) {
-    await this.workflowTriggerService.createWorkflowTrigger(triggerId, createWorkflowTriggerRo);
+    await this.workflowTriggerService.create(triggerId, createWorkflowTriggerRo);
     return responseWrap(null);
   }
 
-  @Put()
+  @Put('updateConfig')
   @ApiOperation({ summary: 'Update workflow trigger by id' })
   @ApiParam({
     name: 'triggerId',
     description: 'Id of the workflow trigger',
     example: 'wtrRKLYPWS1Hrp0MD',
   })
-  async updateWorkflowTriggerById(
+  async updateConfig(
     @Param('triggerId') triggerId: string,
     @Body() updateWorkflowTriggerRo: CreateWorkflowTriggerRo
   ) {
-    await this.workflowTriggerService.updateWorkflowTrigger(triggerId, updateWorkflowTriggerRo);
+    await this.workflowTriggerService.updateConfig(triggerId, updateWorkflowTriggerRo);
     return responseWrap(null);
   }
 }

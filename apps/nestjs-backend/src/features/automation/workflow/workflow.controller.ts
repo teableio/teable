@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Delete } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -38,26 +38,37 @@ export class WorkflowController {
     type: ApiResponse<null>,
     isArray: false,
   })
-  async createWorkflow(
+  async create(
     @Param('workflowId') workflowId: string,
     @Body() createWorkflowRo: CreateWorkflowRo
   ) {
-    await this.workflowService.createWorkflow(workflowId, createWorkflowRo);
+    await this.workflowService.create(workflowId, createWorkflowRo);
     return responseWrap(null);
   }
 
-  @Put()
+  @Delete('delete')
+  @ApiOperation({ summary: 'Delete workflow' })
+  @ApiOkResponse({
+    type: ApiResponse<null>,
+    isArray: false,
+  })
+  async delete(@Param('workflowId') workflowId: string) {
+    await this.workflowService.delete(workflowId);
+    return responseWrap(null);
+  }
+
+  @Put('updateConfig')
   @ApiOperation({ summary: 'Update workflow by id' })
   @ApiParam({
     name: 'workflowId',
     description: 'Id of the workflow',
     example: 'wflRKLYPWS1Hrp0MD',
   })
-  async updateWorkflowById(
+  async updateConfig(
     @Param('workflowId') workflowId: string,
     @Body() updateWorkflowRo: CreateWorkflowRo
   ) {
-    await this.workflowService.updateWorkflow(workflowId, updateWorkflowRo);
+    await this.workflowService.updateConfig(workflowId, updateWorkflowRo);
     return responseWrap(null);
   }
 }

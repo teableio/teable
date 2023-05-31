@@ -338,155 +338,153 @@ describe('Ajv Compile Test', () => {
 
   describe('Validate `Decision`', () => {
     const data = {
-      inputExpressions: {
-        groups: {
-          type: 'array',
-          elements: [
-            {
-              type: 'object',
-              properties: [
-                {
-                  key: {
-                    type: 'const',
-                    value: 'hasCondition',
-                  },
-                  value: {
-                    type: 'const',
-                    value: true,
-                  },
+      groups: {
+        type: 'array',
+        elements: [
+          {
+            type: 'object',
+            properties: [
+              {
+                key: {
+                  type: 'const',
+                  value: 'hasCondition',
                 },
-                {
-                  key: {
-                    type: 'const',
-                    value: 'entryNodeId',
-                  },
-                  value: {
-                    type: 'null',
-                  },
+                value: {
+                  type: 'const',
+                  value: true,
                 },
-                {
-                  key: {
-                    type: 'const',
-                    value: 'condition',
-                  },
-                  value: {
-                    type: 'object',
-                    properties: [
-                      {
-                        key: {
-                          type: 'const',
-                          value: 'conjunction',
-                        },
-                        value: {
-                          type: 'const',
-                          value: 'and',
-                        },
+              },
+              {
+                key: {
+                  type: 'const',
+                  value: 'entryNodeId',
+                },
+                value: {
+                  type: 'null',
+                },
+              },
+              {
+                key: {
+                  type: 'const',
+                  value: 'condition',
+                },
+                value: {
+                  type: 'object',
+                  properties: [
+                    {
+                      key: {
+                        type: 'const',
+                        value: 'conjunction',
                       },
-                      {
-                        key: {
-                          type: 'const',
-                          value: 'conditions',
-                        },
-                        value: {
-                          type: 'array',
-                          elements: [
-                            {
-                              type: 'object',
-                              properties: [
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'right',
-                                  },
-                                  value: {
-                                    type: 'array',
-                                    elements: [
-                                      {
-                                        type: 'const',
-                                        value: 'selSqHdcsGCCDOa0y',
-                                      },
-                                      {
-                                        type: 'const',
-                                        value: 'selukpRoWvJ5bMu6C',
-                                      },
-                                    ],
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'dataType',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'text',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'valueType',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'select',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'operator',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'isNoneOf',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'operatorOptions',
-                                  },
-                                  value: {
-                                    type: 'null',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'left',
-                                  },
-                                  value: {
-                                    type: 'array',
-                                    elements: [
-                                      {
-                                        type: 'const',
-                                        value: 'trigger.wtrdS3OIXzjyRyvnP',
-                                      },
-                                      {
-                                        type: 'const',
-                                        value: 'data',
-                                      },
-                                    ],
-                                  },
-                                },
-                              ],
-                            },
-                          ],
-                        },
+                      value: {
+                        type: 'const',
+                        value: 'and',
                       },
-                    ],
-                  },
+                    },
+                    {
+                      key: {
+                        type: 'const',
+                        value: 'conditions',
+                      },
+                      value: {
+                        type: 'array',
+                        elements: [
+                          {
+                            type: 'object',
+                            properties: [
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'right',
+                                },
+                                value: {
+                                  type: 'array',
+                                  elements: [
+                                    {
+                                      type: 'const',
+                                      value: 'selSqHdcsGCCDOa0y',
+                                    },
+                                    {
+                                      type: 'const',
+                                      value: 'selukpRoWvJ5bMu6C',
+                                    },
+                                  ],
+                                },
+                              },
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'dataType',
+                                },
+                                value: {
+                                  type: 'const',
+                                  value: 'text',
+                                },
+                              },
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'valueType',
+                                },
+                                value: {
+                                  type: 'const',
+                                  value: 'select',
+                                },
+                              },
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'operator',
+                                },
+                                value: {
+                                  type: 'const',
+                                  value: 'isNoneOf',
+                                },
+                              },
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'operatorOptions',
+                                },
+                                value: {
+                                  type: 'null',
+                                },
+                              },
+                              {
+                                key: {
+                                  type: 'const',
+                                  value: 'left',
+                                },
+                                value: {
+                                  type: 'array',
+                                  elements: [
+                                    {
+                                      type: 'const',
+                                      value: 'trigger.wtrdS3OIXzjyRyvnP',
+                                    },
+                                    {
+                                      type: 'const',
+                                      value: 'data',
+                                    },
+                                  ],
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
                 },
-              ],
-            },
-          ],
-        },
+              },
+            ],
+          },
+        ],
       },
     };
 
     it('need to return true', async () => {
-      const validate = ajv.getSchema<ICreateRecordSchema>('ActionMeta')!;
+      const validate = ajv.getSchema<ICreateRecordSchema>('DecisionSchema')!;
 
       expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();

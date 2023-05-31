@@ -1,16 +1,25 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';
-import type { IActionResponse, IElementArraySchema, ITemplateSchema } from '../action-core';
+import type { IActionResponse, IObjectArraySchema, ITemplateSchema } from '../action-core';
 import { actionConst, ActionCore, ActionResponseStatus } from '../action-core';
 
 export interface IMailSenderSchema extends Record<string, unknown> {
-  to: IElementArraySchema;
-  cc?: IElementArraySchema;
-  bcc?: IElementArraySchema;
-  replyTo?: IElementArraySchema;
+  to: IObjectArraySchema;
+  cc?: IObjectArraySchema;
+  bcc?: IObjectArraySchema;
+  replyTo?: IObjectArraySchema;
   subject: ITemplateSchema;
   message: ITemplateSchema;
+}
+
+export interface IMailSenderOptions {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  replyTo?: string[];
+  subject: string;
+  message: string;
 }
 
 @Injectable({ scope: Scope.REQUEST })
@@ -26,14 +35,8 @@ export class MailSender extends ActionCore {
   }
 
   onSuccess = async (event: Event, almanac: Almanac, _ruleResult: RuleResult): Promise<void> => {
-    const { to, cc, bcc, replyTo, subject, message } = await this.parseInputSchema<{
-      to: string;
-      cc: string;
-      bcc: string;
-      replyTo: string;
-      subject: string;
-      message: string;
-    }>(event.params as IMailSenderSchema, almanac);
+    const { to, cc, bcc, replyTo, subject, message } =
+      await this.parseInputSchema<IMailSenderOptions>(event.params as IMailSenderSchema, almanac);
 
     const mailOptions = { to, cc, bcc, replyTo, subject, html: message };
 

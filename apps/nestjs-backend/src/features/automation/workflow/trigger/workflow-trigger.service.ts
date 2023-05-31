@@ -1,6 +1,9 @@
-import type { AutomationWorkflowTrigger as AutomationWorkflowTriggerModel } from '.prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import type { IEitherOr } from '@teable-group/core';
+import type {
+  Prisma,
+  AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
+} from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../../../prisma.service';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
@@ -30,7 +33,7 @@ export class WorkflowTriggerService {
     return result;
   }
 
-  public async createWorkflowTrigger(
+  async create(
     triggerId: string,
     createWorkflowTriggerRo: CreateWorkflowTriggerRo
   ): Promise<AutomationWorkflowTriggerModel> {
@@ -38,7 +41,6 @@ export class WorkflowTriggerService {
       workflowId: createWorkflowTriggerRo.workflowId,
       triggerId: triggerId,
       triggerType: createWorkflowTriggerRo.triggerType,
-      inputExpressions: JSON.stringify(createWorkflowTriggerRo.inputExpressions),
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -46,7 +48,22 @@ export class WorkflowTriggerService {
     return this.prisma.automationWorkflowTrigger.create({ data });
   }
 
-  public async updateWorkflowTrigger(
+  async delete(
+    id: IEitherOr<{ triggerId: string; workflowId: string }, 'triggerId', 'workflowId'>,
+    prisma?: PrismaService
+  ): Promise<boolean> {
+    const { triggerId, workflowId } = id;
+
+    const result = await (prisma || this.prisma).$transaction(async (tx) => {
+      return tx.automationWorkflowTrigger.deleteMany({
+        where: { triggerId, OR: { workflowId } },
+      });
+    });
+
+    return result.count > 0;
+  }
+
+  async updateConfig(
     triggerId: string,
     updateWorkflowTriggerRo: CreateWorkflowTriggerRo
   ): Promise<AutomationWorkflowTriggerModel> {
@@ -55,10 +72,13 @@ export class WorkflowTriggerService {
     };
 
     const data: Prisma.AutomationWorkflowTriggerUpdateInput = {
-      triggerType: updateWorkflowTriggerRo.triggerType,
       inputExpressions: JSON.stringify(updateWorkflowTriggerRo.inputExpressions),
     };
 
     return this.prisma.automationWorkflowTrigger.update({ where, data });
+  }
+
+  async updateTriggerType() {
+    return;
   }
 }

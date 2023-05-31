@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Param, Post, Put, Delete } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -26,26 +26,36 @@ export class WorkflowActionController {
     type: ApiResponse<null>,
     isArray: false,
   })
-  async createWorkflowAction(
+  async create(
     @Param('actionId') actionId: string,
     @Body() createWorkflowActionRo: CreateWorkflowActionRo
   ) {
-    await this.workflowActionService.createWorkflowAction(actionId, createWorkflowActionRo);
+    await this.workflowActionService.create(actionId, createWorkflowActionRo);
     return responseWrap(null);
   }
 
-  @Put()
+  @Delete('delete')
+  @ApiOperation({ summary: 'Delete workflow action' })
+  @ApiOkResponse({
+    type: ApiResponse<null>,
+  })
+  async delete(@Param('actionId') actionId: string) {
+    await this.workflowActionService.delete({ actionId });
+    return responseWrap(null);
+  }
+
+  @Put('updateConfig')
   @ApiOperation({ summary: 'Update workflow action by id' })
   @ApiParam({
     name: 'actionId',
     description: 'Id of the workflow action',
     example: 'wacRKLYPWS1Hrp0MD',
   })
-  async updateWorkflowAction(
+  async updateConfig(
     @Param('actionId') actionId: string,
     @Body() updateWorkflowActionRo: CreateWorkflowActionRo
   ) {
-    await this.workflowActionService.updateWorkflowAction(actionId, updateWorkflowActionRo);
+    await this.workflowActionService.updateConfig(actionId, updateWorkflowActionRo);
     return responseWrap(null);
   }
 }

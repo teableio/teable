@@ -105,4 +105,10 @@ CREATE UNIQUE INDEX "automation_workflow_workflow_id_key" ON "automation_workflo
 CREATE UNIQUE INDEX "automation_workflow_trigger_trigger_id_key" ON "automation_workflow_trigger"("trigger_id");
 
 -- CreateIndex
+CREATE INDEX "automation_workflow_trigger_workflow_id_idx" ON "automation_workflow_trigger"("workflow_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "automation_workflow_action_action_id_key" ON "automation_workflow_action"("action_id");
+
+-- CreateIndex
+CREATE INDEX "automation_workflow_action_workflow_id_idx" ON "automation_workflow_action"("workflow_id");
