@@ -6,12 +6,110 @@ import type { ICellChange } from '../features/calculation/reference.service';
 import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
 
+interface IOpsMap {
+  [tableId: string]: {
+    [recordId: string]: IOtOperation[];
+  };
+}
+
+interface IApplyParam {
+  tableId: string;
+  recordId: string;
+  opContexts: ISetRecordOpContext[];
+}
+
 @Injectable()
 export class DerivateChangeService {
   constructor(
     private readonly transactionService: TransactionService,
     private readonly referenceService: ReferenceService
   ) {}
+
+  private transactions: Map<
+    string,
+    {
+      opsMaps: IOpsMap[];
+      counter: number;
+    }
+  > = new Map();
+
+  countTransaction(tsMeta: ITransactionMeta) {
+    const transaction = this.transactions.get(tsMeta.transactionKey);
+    if (transaction) {
+      transaction.counter++;
+    } else {
+      this.transactions.set(tsMeta.transactionKey, {
+        counter: 1,
+        opsMaps: [],
+      });
+    }
+  }
+
+  cleanTransaction(tsMeta: ITransactionMeta) {
+    this.transactions.delete(tsMeta.transactionKey);
+  }
+
+  getOpsToOthers(tsMeta: ITransactionMeta) {
+    const transaction = this.transactions.get(tsMeta.transactionKey);
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+
+    if (transaction.counter === tsMeta.opCount) {
+      this.cleanTransaction(tsMeta);
+      if (!transaction.opsMaps.length) {
+        return;
+      }
+
+      console.log('transaction.opsMaps', transaction.opsMaps);
+      const otherSnapshotOps = this.composeOpsMaps(transaction.opsMaps);
+      tsMeta = this.refreshTransactionCache(tsMeta, otherSnapshotOps);
+      return {
+        otherSnapshotOps,
+        transactionMeta: tsMeta,
+      };
+    }
+  }
+
+  async getFixupOps(
+    tsMeta: ITransactionMeta,
+    data: IApplyParam
+  ): Promise<IOtOperation[] | undefined> {
+    const calculated = await this.calculate(tsMeta, data);
+    const transaction = this.transactions.get(tsMeta.transactionKey);
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    if (!calculated) {
+      return;
+    }
+    const { currentSnapshotOps, otherSnapshotOps } = calculated;
+
+    otherSnapshotOps && transaction.opsMaps.push(otherSnapshotOps);
+
+    return currentSnapshotOps;
+  }
+
+  private composeOpsMaps(opsMaps: IOpsMap[]): IOpsMap {
+    return opsMaps.reduce((composedMap, currentMap) => {
+      for (const tableId in currentMap) {
+        if (composedMap[tableId]) {
+          for (const recordId in currentMap[tableId]) {
+            if (composedMap[tableId][recordId]) {
+              composedMap[tableId][recordId] = composedMap[tableId][recordId].concat(
+                currentMap[tableId][recordId]
+              );
+            } else {
+              composedMap[tableId][recordId] = currentMap[tableId][recordId];
+            }
+          }
+        } else {
+          composedMap[tableId] = currentMap[tableId];
+        }
+      }
+      return composedMap;
+    }, {});
+  }
 
   private changeToOp(change: ICellChange) {
     const { fieldId, oldValue, newValue } = change;
@@ -48,7 +146,7 @@ export class DerivateChangeService {
 
     return {
       currentSnapshotOps,
-      otherSnapshotOps,
+      otherSnapshotOps: Object.keys(otherSnapshotOps).length ? otherSnapshotOps : undefined,
     };
   }
 
@@ -62,11 +160,9 @@ export class DerivateChangeService {
     }, 0);
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const existingOpCount = this.transactionService.transactionCache.get(
-      tsMeta.transactionKey
-    )!.opCount;
+    const existingOpCount = this.transactionService.getCache(tsMeta.transactionKey)!.opCount;
 
-    const transactionMeta = {
+    const transactionMeta: ITransactionMeta = {
       transactionKey: tsMeta.transactionKey,
       // increase opCount by changes
       opCount: opsCount + existingOpCount,
@@ -78,35 +174,28 @@ export class DerivateChangeService {
     return transactionMeta;
   }
 
-  async getFixupOps(
-    tsMeta: ITransactionMeta,
-    tableId: string,
-    recordId: string,
-    opContexts: ISetRecordOpContext[]
-  ) {
+  async calculate(tsMeta: ITransactionMeta, param: IApplyParam) {
     const prisma = await this.transactionService.getTransaction(tsMeta);
-    const derivateChanges = await this.referenceService.updateNodeValues(
-      prisma,
-      tableId,
-      opContexts.map((ctx) => ({
+    const { tableId, recordId } = param;
+
+    const recordData = param.opContexts.map((ctx) => {
+      return {
         id: recordId,
         fieldId: ctx.fieldId,
         newValue: ctx.newValue,
-      }))
+      };
+    });
+    const derivateChanges = await this.referenceService.updateNodeValues(
+      prisma,
+      tableId,
+      recordData
     );
 
     if (!derivateChanges.length) {
       return;
     }
-    console.log('derivateChanges:', derivateChanges);
+    // console.log('derivateChanges:', derivateChanges);
 
-    const { currentSnapshotOps, otherSnapshotOps } = this.getOpsByChanges(
-      tableId,
-      recordId,
-      derivateChanges
-    );
-
-    const transactionMeta = this.refreshTransactionCache(tsMeta, otherSnapshotOps);
-    return { currentSnapshotOps, otherSnapshotOps, transactionMeta };
+    return this.getOpsByChanges(tableId, recordId, derivateChanges);
   }
 }

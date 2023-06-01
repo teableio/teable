@@ -158,7 +158,7 @@ describe('TransactionService', () => {
       const result = await (service as any).newTransaction({ transactionKey, opCount });
 
       expect(result).toBe(transactionClient);
-      expect(service['transactionCache'].has(transactionKey)).toBe(true);
+      expect(service['cache'].has(transactionKey)).toBe(true);
     });
 
     it('should resolve the transaction promise when all tasks are completed', async () => {
@@ -176,7 +176,7 @@ describe('TransactionService', () => {
       await service.taskComplete(null, { transactionKey, opCount });
 
       // The transaction should be removed from the cache
-      expect(service['transactionCache'].has(transactionKey)).toBe(false);
+      expect(service['cache'].has(transactionKey)).toBe(false);
     });
   });
 });

@@ -87,7 +87,6 @@ describe('OpenAPI formula (e2e)', () => {
       .expect(200);
 
     const existRecord = getResult.body.data.records[0];
-    console.log('getResult:', existRecord);
 
     const updateResult = await request(app.getHttpServer())
       .put(`/api/table/${table1Id}/record/${existRecord.id}`)
@@ -114,7 +113,6 @@ describe('OpenAPI formula (e2e)', () => {
       .expect(200);
 
     const existRecord = getResult.body.data.records[0];
-    console.log('getResult:', existRecord);
 
     const updateResult1 = await request(app.getHttpServer())
       .put(`/api/table/${table1Id}/record/${existRecord.id}`)
