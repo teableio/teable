@@ -258,7 +258,6 @@ export class ReferenceService {
           return;
         }
         const record = recordItem.record;
-        console.log(`calculate: ${field.id}.${record.id}`);
         const value = this.calculate(field, fieldMap, recordItem);
         console.log(`calculated: ${field.id}.${record.id}`, value);
         const oldValue = record.fields[field.id];
