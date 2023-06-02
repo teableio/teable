@@ -178,7 +178,6 @@ export const GridView: React.FC = () => {
           getCellContent={getCellContent}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onCellEdited={onCellEdited}
-          isDraggable={true}
           onColumnResize={onColumnResize}
           getCellsForSelection={getCellsForSelection}
           width={'100%'}

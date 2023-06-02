@@ -173,7 +173,7 @@ const createCellValue2GridDisplay =
 
 export function useColumns() {
   const viewId = useViewId();
-  const { fields } = useFields();
+  const fields = useFields();
 
   return useMemo(
     () => ({

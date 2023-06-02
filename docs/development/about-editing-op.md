@@ -90,7 +90,7 @@ export function useColumnResize<T extends { id: string }>(
   columns: T[],
   setColumns: Dispatch<SetStateAction<T[]>>
 ) {
-  const { fields } = useFields();
+  const fields = useFields();
   const viewId = useViewId();
   const [newSize, setNewSize] = useState<number>();
   const [index, setIndex] = useState<number>();
