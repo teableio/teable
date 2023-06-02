@@ -11,7 +11,7 @@ export const FormulaOptions = (props: {
 }) => {
   const { options, onChange } = props;
   const { formatting, expression = '' } = options;
-  const { fields } = useFields();
+  const fields = useFields();
   const [expressionByName, setExpressionByName] = useState<string>((): string => {
     return FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'));
   });

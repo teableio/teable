@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 export function useColumnResize<T extends { id: string }>(_columns: T[]) {
-  const { fields } = useFields();
+  const fields = useFields();
   const viewId = useViewId();
   const [newSize, setNewSize] = useState<number>();
   const [index, setIndex] = useState<number>();
