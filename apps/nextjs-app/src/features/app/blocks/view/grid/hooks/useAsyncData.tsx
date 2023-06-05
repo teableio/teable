@@ -32,10 +32,11 @@ export function useAsyncData<TRowType>(
 ): Pick<
   DataEditorProps,
   'getCellContent' | 'onVisibleRegionChanged' | 'onCellEdited' | 'getCellsForSelection'
-> & { reset: () => void } {
+> & { reset: () => void; rows: TRowType[] } {
   pageSize = Math.max(pageSize, 1);
   const loadingRef = useRef(CompactSelection.empty());
   const dataRef = useRef<TRowType[]>(initRow);
+  const [rows, setRows] = useState<TRowType[]>(initRow);
 
   const [visiblePages, setVisiblePages] = useState<Rectangle>({
     x: 0,
@@ -128,6 +129,7 @@ export function useAsyncData<TRowType>(
           });
         }
       }
+      setRows(data);
       gridRef.current?.updateCells(damageList);
     },
     [getRowData, gridRef, pageSize, updateRow, updateRowRef]
@@ -197,5 +199,6 @@ export function useAsyncData<TRowType>(
     onCellEdited,
     getCellsForSelection,
     reset,
+    rows,
   };
 }

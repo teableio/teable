@@ -1,14 +1,14 @@
-import { useFieldSettingStore } from '@/features/app/components/field-setting/store';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
-import { useGridTheme } from './useGridTheme';
+import { useGridTheme } from '../hooks';
+import { useGridViewStore } from '../store/gridView';
 
 export const AddField = ({ disabled, onClick }: { disabled?: boolean; onClick?: () => void }) => {
-  const { open } = useFieldSettingStore();
+  const { openSetting } = useGridViewStore();
   const theme = useGridTheme();
 
   const onClickBtn = () => {
     onClick?.();
-    open({
+    openSetting({
       operator: FieldOperator.Add,
     });
   };
