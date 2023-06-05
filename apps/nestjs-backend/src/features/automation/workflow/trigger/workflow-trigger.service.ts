@@ -7,6 +7,7 @@ import type {
 import { PrismaService } from '../../../../prisma.service';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
+import type { UpdateWorkflowTriggerRo } from '../../model/update-workflow-trigger.ro';
 import { WorkflowTriggerVo } from '../../model/workflow-trigger.vo';
 
 @Injectable()
@@ -65,14 +66,14 @@ export class WorkflowTriggerService {
 
   async updateConfig(
     triggerId: string,
-    updateWorkflowTriggerRo: CreateWorkflowTriggerRo
+    updateRo: UpdateWorkflowTriggerRo
   ): Promise<AutomationWorkflowTriggerModel> {
     const where: Prisma.AutomationWorkflowTriggerWhereUniqueInput = {
       triggerId: triggerId,
     };
 
     const data: Prisma.AutomationWorkflowTriggerUpdateInput = {
-      inputExpressions: JSON.stringify(updateWorkflowTriggerRo.inputExpressions),
+      inputExpressions: JSON.stringify(updateRo.inputExpressions),
     };
 
     return this.prisma.automationWorkflowTrigger.update({ where, data });

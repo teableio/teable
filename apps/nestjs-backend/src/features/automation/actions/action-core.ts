@@ -7,7 +7,9 @@ import type {
 } from 'json-rules-engine';
 import type { IWebhookSchema, IMailSenderSchema, ICreateRecordSchema } from '../actions';
 import { JsonSchemaParser } from '../engine/json-schema/parser';
+import type { ActionTypeEnums } from '../enums/action-type.enum';
 
+export type IActionType = Exclude<ActionTypeEnums, ActionTypeEnums.Decision>;
 export enum ActionResponseStatus {
   Unknown = -1,
   Success = 200,
@@ -23,7 +25,7 @@ export type IActionResponse<T> = {
 export type IActionInputSchema = IWebhookSchema | IMailSenderSchema | ICreateRecordSchema;
 
 export type INullSchema = { type: string };
-export type IConstSchema = { type: string; value: string };
+export type IConstSchema = { type: string; value: number | string | boolean };
 
 export type IObjectPathValueSchema = {
   type: string;

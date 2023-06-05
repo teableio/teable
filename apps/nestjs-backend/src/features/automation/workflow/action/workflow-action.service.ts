@@ -7,9 +7,11 @@ import type {
 } from '@teable-group/db-main-prisma';
 import _ from 'lodash';
 import { PrismaService } from '../../../../prisma.service';
+import { DEFAULT_DECISION_SCHEMA } from '../../actions';
 import { MetaKit } from '../../engine/json-schema/meta-kit';
-import type { ActionTypeEnums } from '../../enums/action-type.enum';
+import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { CreateWorkflowActionRo } from '../../model/create-workflow-action.ro';
+import type { UpdateWorkflowActionRo } from '../../model/update-workflow-action.ro';
 import { WorkflowActionVo } from '../../model/workflow-action.vo';
 
 @Injectable()
@@ -54,69 +56,100 @@ export class WorkflowActionService {
 
   async create(
     actionId: string,
-    createWorkflowActionRo: CreateWorkflowActionRo
+    createRo: CreateWorkflowActionRo
   ): Promise<AutomationWorkflowActionModel> {
     const data: Prisma.AutomationWorkflowActionCreateInput = {
       actionId,
-      workflowId: createWorkflowActionRo.workflowId,
-      actionType: createWorkflowActionRo.actionType,
-      parentNodeId: createWorkflowActionRo.parentNodeId,
-      nextNodeId: createWorkflowActionRo.nextNodeId,
+      workflowId: createRo.workflowId,
+      actionType: createRo.actionType,
+      parentNodeId: createRo.parentNodeId,
+      nextNodeId: createRo.nextNodeId,
+      inputExpressions: JSON.stringify(
+        createRo.actionType === ActionTypeEnums.Decision ? DEFAULT_DECISION_SCHEMA : {}
+      ),
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
 
-    return await this.prisma.$transaction(
-      async (tx) => {
-        const currentNode = await tx.automationWorkflowAction.create({ data });
-        /*
-         * 1. If `data` has only the `parentNodeId` attribute, it means the current node is inserted at the end of the element
-         * 2. If `data` has only `nextNodeId` attribute, it means the current node is inserted at the front of the element
-         * 3. If `data` has only two attributes, it means that the current node is inserted in the middle of the element
-         * 4. If a new action is added to the logic, there is still a need to modify the entry node of the logic group according to the subscript
-         */
-        const { parentNodeId, nextNodeId } = data;
-        if (parentNodeId || nextNodeId) {
-          // Check for the existence of dependent nodes
-          const actionIds = [parentNodeId, nextNodeId].filter((id) => id) as string[];
-          await this.countActionOrThrow(actionIds, tx);
-        }
+    return await this.prisma.$transaction(async (tx) => {
+      const currentNode = await tx.automationWorkflowAction.create({ data });
+      /*
+       * 1. If `data` has only the `parentNodeId` attribute, it means the current node is inserted at the end of the element
+       * 2. If `data` has only `nextNodeId` attribute, it means the current node is inserted at the front of the element
+       * 3. If `data` has only two attributes, it means that the current node is inserted in the middle of the element
+       * 4. If a new action is added to the logic, there is still a need to modify the entry node of the logic group according to the subscript
+       */
+      const { parentNodeId, nextNodeId } = data;
+      if (parentNodeId || nextNodeId) {
+        // Check for the existence of dependent nodes
+        const actionIds = [parentNodeId, nextNodeId].filter((id) => id) as string[];
+        await this.countActionOrThrow(actionIds, tx);
+      }
 
-        const parentDecisionArrayIndex = createWorkflowActionRo.parentDecisionArrayIndex;
-        const replacePropOptions = {
-          shortPath: `groups.elements[${parentDecisionArrayIndex}]`,
-          propKey: 'entryNodeId',
-          propReplaceData: {},
-        };
+      const parentDecisionArrayIndex = createRo.parentDecisionArrayIndex;
 
-        if (parentNodeId) {
-          await this.updateAction(parentNodeId, { nextNodeId: currentNode.actionId }, tx);
+      if (parentNodeId) {
+        await this.updateParentNode(
+          parentNodeId,
+          currentNode.actionId,
+          parentDecisionArrayIndex,
+          tx
+        );
+      }
 
-          if (
-            identify(parentNodeId) === IdPrefix.WorkflowDecision &&
-            !_.isNil(parentDecisionArrayIndex)
-          ) {
-            replacePropOptions.propReplaceData = { type: 'const', value: currentNode.actionId };
-            await this.updateActionInputExpressionsPropValue(parentNodeId, replacePropOptions, tx);
-          }
-        }
+      if (nextNodeId) {
+        await this.updateNextNode(
+          nextNodeId,
+          currentNode.actionId,
+          parentNodeId,
+          parentDecisionArrayIndex,
+          tx
+        );
+      }
+      return currentNode;
+    });
+  }
 
-        if (nextNodeId) {
-          await this.updateAction(nextNodeId, { parentNodeId: currentNode.actionId }, tx);
+  private async updateParentNode(
+    actionId: string,
+    newNextNodeId: string,
+    parentDecisionArrayIndex?: number | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    await this.updateAction(actionId, { nextNodeId: newNextNodeId }, tx);
 
-          if (
-            parentNodeId &&
-            !_.isNil(parentDecisionArrayIndex) &&
-            identify(parentNodeId) === IdPrefix.WorkflowDecision
-          ) {
-            replacePropOptions.propReplaceData = { type: 'null' };
-            await this.updateActionInputExpressionsPropValue(parentNodeId, replacePropOptions, tx);
-          }
-        }
-        return currentNode;
-      },
-      { maxWait: 50000, timeout: 100000 }
-    );
+    if (identify(actionId) === IdPrefix.WorkflowDecision && !_.isNil(parentDecisionArrayIndex)) {
+      const replacePropOptions = {
+        shortPath: `groups.elements[${parentDecisionArrayIndex}]`,
+        propKey: 'entryNodeId',
+        propReplaceData: { type: 'const', value: newNextNodeId },
+      };
+
+      await this.updateActionInputExpressionsPropValue(actionId, replacePropOptions, tx);
+    }
+  }
+
+  private async updateNextNode(
+    actionId: string,
+    newParentNodeId: string,
+    oldParentNodeId?: string | null,
+    parentDecisionArrayIndex?: number | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    await this.updateAction(actionId, { parentNodeId: newParentNodeId }, tx);
+
+    if (
+      oldParentNodeId &&
+      !_.isNil(parentDecisionArrayIndex) &&
+      identify(oldParentNodeId) === IdPrefix.WorkflowDecision
+    ) {
+      const replacePropOptions = {
+        shortPath: `groups.elements[${parentDecisionArrayIndex}]`,
+        propKey: 'entryNodeId',
+        propReplaceData: { type: 'null' },
+      };
+      await this.updateActionInputExpressionsPropValue(oldParentNodeId, replacePropOptions, tx);
+    }
   }
 
   async delete(
@@ -164,14 +197,14 @@ export class WorkflowActionService {
     return;
   }
 
-  async updateConfig(actionId: string, createWorkflowActionRo: CreateWorkflowActionRo) {
+  async updateConfig(actionId: string, updateRo: UpdateWorkflowActionRo) {
     const where: Prisma.AutomationWorkflowActionWhereUniqueInput = {
       actionId,
     };
 
     const data: Prisma.AutomationWorkflowActionUpdateInput = {
-      description: createWorkflowActionRo.description,
-      inputExpressions: JSON.stringify(createWorkflowActionRo.inputExpressions),
+      description: updateRo.description,
+      inputExpressions: JSON.stringify(updateRo.inputExpressions),
     };
 
     return this.prisma.automationWorkflowAction.update({ where, data });

@@ -31,7 +31,6 @@ describe('WorkflowTriggerController', () => {
       const bodyParam: CreateWorkflowTriggerRo = {
         workflowId: generateWorkflowId(),
         triggerType: TriggerTypeEnums.RecordCreated,
-        inputExpressions: { tableId: 'tblwEp45tdvwTxiUl' },
       };
       jest
         .spyOn(workflowTriggerService, 'create')
@@ -55,13 +54,11 @@ describe('WorkflowTriggerController', () => {
       const bodyParam: CreateWorkflowTriggerRo = {
         workflowId: generateWorkflowId(),
         triggerType: TriggerTypeEnums.RecordCreated,
-        inputExpressions: { tableId: 'tblwEp45tdvwTxiUl' },
       };
 
       expect(await workflowTriggerService.create(pathParamWorkflowId, bodyParam)).toMatchObject({
         workflowId: bodyParam.workflowId,
         triggerType: bodyParam.triggerType,
-        inputExpressions: JSON.stringify(bodyParam.inputExpressions),
       });
     });
   });

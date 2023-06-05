@@ -32,78 +32,6 @@ describe('WorkflowActionController', () => {
     const bodyParam: CreateWorkflowActionRo = {
       workflowId: generateWorkflowId(),
       actionType: ActionTypeEnums.Webhook,
-      description: 'description',
-      inputExpressions: {
-        url: {
-          type: 'template',
-          elements: [
-            {
-              type: 'text',
-              value: 'http://127.0.0.1:3000/api/table/tabASK1p8CHBPKYdu/record',
-            },
-          ],
-        },
-        method: {
-          type: 'text',
-          value: 'POST',
-        },
-        body: {
-          type: 'template',
-          elements: [
-            {
-              type: 'text',
-              value: '{\n',
-            },
-            {
-              type: 'text',
-              value: '"records": [{\n',
-            },
-            {
-              type: 'text',
-              value: '"fields": {\n',
-            },
-            {
-              type: 'text',
-              value: '"name": "tom"\n',
-            },
-            {
-              type: 'text',
-              value: '}\n',
-            },
-            {
-              type: 'text',
-              value: '}]\n',
-            },
-            {
-              type: 'text',
-              value: '}',
-            },
-          ],
-        },
-        headers: {
-          type: 'object',
-          properties: [
-            {
-              key: {
-                type: 'text',
-                value: 'Content-Type',
-              },
-              value: {
-                type: 'template',
-                elements: [
-                  {
-                    type: 'text',
-                    value: 'application/json',
-                  },
-                ],
-              },
-            },
-          ],
-        },
-        responseParams: null,
-      },
-      nextNodeId: null,
-      parentNodeId: null,
     };
 
     it('/Controller should return success', async () => {
@@ -131,7 +59,7 @@ describe('WorkflowActionController', () => {
       const pathParamActionId = generateWorkflowActionId();
 
       expect(await workflowActionService.create(pathParamActionId, bodyParam)).toMatchObject({
-        inputExpressions: JSON.stringify(bodyParam.inputExpressions),
+        inputExpressions: {},
       });
     });
   });

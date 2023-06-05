@@ -40,15 +40,6 @@ describe('Mail-Sender Action Test', () => {
                 },
               ],
             },
-            {
-              type: 'template',
-              elements: [
-                {
-                  type: 'const',
-                  value: 'penganpingprivte@gmail.com',
-                },
-              ],
-            },
           ],
         },
         subject: {
@@ -65,7 +56,25 @@ describe('Mail-Sender Action Test', () => {
           elements: [
             {
               type: 'const',
-              value: 'first row\n1 <br>br\nsss',
+              value: `first row\n1 <br>br\nsss
+# h1 Heading 8-)
+## h2 Heading
+### h3 Heading
+#### h4 Heading
+##### h5 Heading
+###### h6 Heading
+
+---
+
+[Click me](javascript:alert('XSS'))
+
+---
+
+<div>
+  hello <script>alert('XSS');</script>
+</div>
+
+              `,
             },
           ],
         },

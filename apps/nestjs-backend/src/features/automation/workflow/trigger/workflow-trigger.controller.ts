@@ -9,6 +9,7 @@ import {
 } from '@nestjs/swagger';
 import { ApiResponse, responseWrap } from 'src/utils';
 import { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
+import { UpdateWorkflowTriggerRo } from '../../model/update-workflow-trigger.ro';
 import { WorkflowTriggerService } from './workflow-trigger.service';
 
 @ApiBearerAuth()
@@ -43,9 +44,9 @@ export class WorkflowTriggerController {
   })
   async updateConfig(
     @Param('triggerId') triggerId: string,
-    @Body() updateWorkflowTriggerRo: CreateWorkflowTriggerRo
+    @Body() updateRo: UpdateWorkflowTriggerRo
   ) {
-    await this.workflowTriggerService.updateConfig(triggerId, updateWorkflowTriggerRo);
+    await this.workflowTriggerService.updateConfig(triggerId, updateRo);
     return responseWrap(null);
   }
 }

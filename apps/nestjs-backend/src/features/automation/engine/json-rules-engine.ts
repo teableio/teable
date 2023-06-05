@@ -1,10 +1,10 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
+import { assertNever } from '@teable-group/core';
 import dayjs from 'dayjs';
 import type { EngineResult } from 'json-rules-engine';
 import { Engine } from 'json-rules-engine';
-import { UnreachableCaseError } from '../../../errors/unreachable-case-error';
 import { Webhook, MailSender, CreateRecord } from '../actions';
-import type { ActionCore, IActionInputSchema } from '../actions/action-core';
+import type { ActionCore, IActionInputSchema, IActionType } from '../actions/action-core';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
 @Injectable({ scope: Scope.REQUEST })
@@ -42,7 +42,7 @@ export class JsonRulesEngine {
     });
   }
 
-  private getAction(actionType: string): ActionCore {
+  private getAction(actionType: IActionType): ActionCore {
     switch (actionType) {
       case ActionTypeEnums.Webhook:
         return this.webhook;
@@ -51,7 +51,7 @@ export class JsonRulesEngine {
       case ActionTypeEnums.CreateRecord:
         return this.createRecord;
       default:
-        throw new UnreachableCaseError(actionType as never);
+        assertNever(actionType);
     }
   }
 
@@ -66,7 +66,11 @@ export class JsonRulesEngine {
   ): void {
     const { id, parentNodeId, inputSchema, priority } = options;
 
-    const actionRule = this.getAction(actionType).bindParams(id, inputSchema, priority);
+    const actionRule = this.getAction(actionType as IActionType).bindParams(
+      id,
+      inputSchema,
+      priority
+    );
 
     let conditions = actionRule.conditions;
     if (parentNodeId) {

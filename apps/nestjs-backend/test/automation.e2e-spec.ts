@@ -5,6 +5,8 @@ import {
   generateWorkflowDecisionId,
   generateWorkflowId,
   generateWorkflowTriggerId,
+  identify,
+  IdPrefix,
 } from '@teable-group/core';
 import request from 'supertest';
 import { ActionTypeEnums } from 'src/features/automation/enums/action-type.enum';
@@ -12,6 +14,8 @@ import { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enu
 import type { CreateWorkflowActionRo } from 'src/features/automation/model/create-workflow-action.ro';
 import type { CreateWorkflowTriggerRo } from 'src/features/automation/model/create-workflow-trigger.ro';
 import type { CreateWorkflowRo } from 'src/features/automation/model/create-workflow.ro';
+import type { UpdateWorkflowActionRo } from 'src/features/automation/model/update-workflow-action.ro';
+import type { UpdateWorkflowTriggerRo } from 'src/features/automation/model/update-workflow-trigger.ro';
 import type { FieldVo } from 'src/features/field/model/field.vo';
 import { initApp } from './init-app';
 
@@ -27,9 +31,9 @@ describe('AutomationController (e2e)', () => {
     }
   });
 
-  const createTable = async (): Promise<string> => {
+  const createTable = async (tableName = 'automation-table'): Promise<string> => {
     const result = await request(app.getHttpServer()).post('/api/table').send({
-      name: 'table1-automation-add',
+      name: tableName,
     });
     return result.body.data.id;
   };
@@ -50,48 +54,66 @@ describe('AutomationController (e2e)', () => {
 
   const createWorkflowTrigger = async (
     workflowId: string,
-    triggerRo: CreateWorkflowTriggerRo = {
+    createRo: CreateWorkflowTriggerRo = {
       workflowId: workflowId,
       triggerType: TriggerTypeEnums.RecordCreated,
-      inputExpressions: { tableId: tableId },
     }
   ) => {
     const triggerId = generateWorkflowTriggerId();
     await request(app.getHttpServer())
       .post(`/api/workflowTrigger/${triggerId}`)
-      .send(triggerRo)
+      .send(createRo)
       .expect(201)
-      .expect({ success: true });
-
-    await request(app.getHttpServer())
-      .put(`/api/workflowTrigger/${triggerId}/updateConfig`)
-      .send(triggerRo)
-      .expect(200)
       .expect({ success: true });
 
     return triggerId;
   };
 
-  const createWorkflowAction = async (workflowId: string, actionRo: CreateWorkflowActionRo) => {
+  const updateWorkflowTrigger = async (
+    triggerId: string,
+    updateRo: UpdateWorkflowTriggerRo = {
+      inputExpressions: { tableId: tableId },
+    }
+  ) => {
+    await request(app.getHttpServer())
+      .put(`/api/workflowTrigger/${triggerId}/updateConfig`)
+      .send(updateRo)
+      .expect(200)
+      .expect({ success: true });
+  };
+
+  const createWorkflowAction = async (workflowId: string, createRo: CreateWorkflowActionRo) => {
     let actionId = generateWorkflowActionId();
 
-    if (actionRo.actionType === ActionTypeEnums.Decision) {
+    let url1 = `/api/workflowAction/${actionId}`;
+
+    if (createRo.actionType === ActionTypeEnums.Decision) {
       actionId = generateWorkflowDecisionId();
+
+      url1 = `/api/workflowDecision/${actionId}`;
     }
 
     await request(app.getHttpServer())
-      .post(`/api/workflowAction/${actionId}`)
-      .send(actionRo)
+      .post(url1)
+      .send(createRo)
       .expect(201)
       .expect({ success: true });
 
+    return actionId;
+  };
+
+  const updateWorkflowAction = async (actionId: string, updateRo: UpdateWorkflowActionRo) => {
+    let url2 = `/api/workflowAction/${actionId}/updateConfig`;
+
+    if (identify(actionId) === IdPrefix.WorkflowDecision) {
+      url2 = `/api/workflowDecision/${actionId}/updateConfig`;
+    }
+
     await request(app.getHttpServer())
-      .put(`/api/workflowAction/${actionId}/updateConfig`)
-      .send(actionRo)
+      .put(url2)
+      .send(updateRo)
       .expect(200)
       .expect({ success: true });
-
-    return actionId;
   };
 
   const deleteWorkflow = async (workflowId: string) => {
@@ -106,155 +128,167 @@ describe('AutomationController (e2e)', () => {
     const workflowId = await createWorkflow();
 
     // Step.2
-    const triggerId = await createWorkflowTrigger(workflowId);
+    const triggerId = await createWorkflowTrigger(workflowId).then(async (id) => {
+      await updateWorkflowTrigger(id);
+      return id;
+    });
 
     // Step.3
-    const newTableId = await createTable();
+    const newTableId = await createTable('automation-table-1');
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
     const fields: FieldVo[] = fieldsResult.body.data;
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
-    const action1Ro: CreateWorkflowActionRo = {
+    const actionCreateRo1: CreateWorkflowActionRo = {
       workflowId: workflowId,
       actionType: ActionTypeEnums.CreateRecord,
-      description: 'description',
-      inputExpressions: {
-        tableId: {
-          type: 'const',
-          value: `${newTableId}`,
-        },
-        fields: {
-          type: 'object',
-          properties: [
-            {
-              key: {
-                type: 'const',
-                value: firstTextField.id,
+    };
+    const actionId1 = await createWorkflowAction(workflowId, actionCreateRo1).then(async (id) => {
+      const actionUpdateRo1: UpdateWorkflowActionRo = {
+        description: 'actionId1 CreateRecord description',
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: `${newTableId}`,
+          },
+          fields: {
+            type: 'object',
+            properties: [
+              {
+                key: {
+                  type: 'const',
+                  value: firstTextField.id,
+                },
+                value: {
+                  type: 'template',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'firstTextField - ',
+                    },
+                    {
+                      type: 'objectPathValue',
+                      object: {
+                        nodeId: `runEnv`,
+                        nodeType: '__system__',
+                      },
+                      path: {
+                        type: 'array',
+                        elements: [
+                          {
+                            type: 'const',
+                            value: 'executionTime',
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
               },
-              value: {
+            ],
+          },
+        },
+      };
+      await updateWorkflowAction(id, actionUpdateRo1);
+
+      return id;
+    });
+
+    // Step.4
+    const actionCreateRo2: CreateWorkflowActionRo = {
+      workflowId: workflowId,
+      actionType: ActionTypeEnums.MailSender,
+      parentNodeId: actionId1,
+    };
+    const actionId2 = await createWorkflowAction(workflowId, actionCreateRo2).then(async (id) => {
+      const actionUpdateRo1: UpdateWorkflowActionRo = {
+        description: 'actionId2 MailSender description',
+        inputExpressions: {
+          to: {
+            type: 'array',
+            elements: [
+              {
                 type: 'template',
                 elements: [
                   {
                     type: 'const',
-                    value: 'firstTextField - ',
-                  },
-                  {
-                    type: 'objectPathValue',
-                    object: {
-                      nodeId: `runEnv`,
-                      nodeType: '__system__',
-                    },
-                    path: {
-                      type: 'array',
-                      elements: [
-                        {
-                          type: 'const',
-                          value: 'executionTime',
-                        },
-                      ],
-                    },
+                    value: 'penganpingprivte@gmail.com',
                   },
                 ],
               },
-            },
-          ],
-        },
-      },
-      // nextNodeId: null,
-      // parentNodeId: null,
-    };
-    const action1Id = await createWorkflowAction(workflowId, action1Ro);
-
-    // Step.4
-    const action2Ro: CreateWorkflowActionRo = {
-      workflowId: workflowId,
-      actionType: ActionTypeEnums.MailSender,
-      description: 'description',
-      inputExpressions: {
-        to: {
-          type: 'array',
-          elements: [
-            {
-              type: 'template',
-              elements: [
-                {
-                  type: 'const',
-                  value: 'penganpingprivte@gmail.com',
+            ],
+          },
+          subject: {
+            type: 'template',
+            elements: [
+              {
+                type: 'const',
+                value: 'A test email from `table`',
+              },
+            ],
+          },
+          message: {
+            type: 'template',
+            elements: [
+              {
+                type: 'const',
+                value: '<h1>New Record By Trigger RecordId: <h1>',
+              },
+              {
+                type: 'objectPathValue',
+                object: {
+                  nodeId: `${triggerId}`,
+                  nodeType: 'trigger',
                 },
-              ],
-            },
-          ],
+                path: {
+                  type: 'array',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'record',
+                    },
+                    {
+                      type: 'const',
+                      value: 'id',
+                    },
+                  ],
+                },
+              },
+              {
+                type: 'const',
+                value: '<br/>New Record: 【',
+              },
+              {
+                type: 'objectPathValue',
+                object: {
+                  nodeId: `${actionId1}`,
+                  nodeType: 'action',
+                },
+                path: {
+                  type: 'array',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'data',
+                    },
+                    {
+                      type: 'const',
+                      value: 'fields',
+                    },
+                    {
+                      type: 'const',
+                      value: `${firstTextField.id}`,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
         },
-        subject: {
-          type: 'template',
-          elements: [
-            {
-              type: 'const',
-              value: 'A test email from `table`',
-            },
-          ],
-        },
-        message: {
-          type: 'template',
-          elements: [
-            {
-              type: 'const',
-              value: '<h1>New Record By Trigger RecordId: <h1>',
-            },
-            {
-              type: 'objectPathValue',
-              object: {
-                nodeId: `${triggerId}`,
-                nodeType: 'trigger',
-              },
-              path: {
-                type: 'array',
-                elements: [
-                  {
-                    type: 'const',
-                    value: 'record',
-                  },
-                  {
-                    type: 'const',
-                    value: 'id',
-                  },
-                ],
-              },
-            },
-            {
-              type: 'const',
-              value: '<br/>New Record: 【',
-            },
-            {
-              type: 'objectPathValue',
-              object: {
-                nodeId: `${action1Id}`,
-                nodeType: 'action',
-              },
-              path: {
-                type: 'array',
-                elements: [
-                  {
-                    type: 'const',
-                    value: 'data',
-                  },
-                  {
-                    type: 'const',
-                    value: 'fields',
-                  },
-                  {
-                    type: 'const',
-                    value: `${firstTextField.id}`,
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-      parentNodeId: action1Id,
-      // nextNodeId: null,
-    };
-    const action2Id = await createWorkflowAction(workflowId, action2Ro);
+      };
+      await updateWorkflowAction(id, actionUpdateRo1);
+
+      return id;
+    });
 
     // Verify
     const result = await request(app.getHttpServer())
@@ -267,12 +301,12 @@ describe('AutomationController (e2e)', () => {
         deploymentStatus: 'undeployed',
         trigger: expect.objectContaining({ id: triggerId, inputExpressions: expect.any(Object) }),
         actions: expect.objectContaining({
-          [action1Id]: expect.objectContaining({
-            id: action1Id,
+          [actionId1]: expect.objectContaining({
+            id: actionId1,
             inputExpressions: expect.any(Object),
           }),
-          [action2Id]: expect.objectContaining({
-            id: action2Id,
+          [actionId2]: expect.objectContaining({
+            id: actionId2,
             inputExpressions: expect.any(Object),
           }),
         }),
@@ -287,242 +321,256 @@ describe('AutomationController (e2e)', () => {
     const workflowId = await createWorkflow();
 
     // Step.2
-    const triggerId = await createWorkflowTrigger(workflowId);
+    const triggerId = await createWorkflowTrigger(workflowId).then(async (id) => {
+      await updateWorkflowTrigger(id);
+      return id;
+    });
 
     // Step.3 (create logical groups)
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
     const fields: FieldVo[] = fieldsResult.body.data;
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
-    const action1Ro: CreateWorkflowActionRo = {
+    const actionCreateRo1: CreateWorkflowActionRo = {
       workflowId: workflowId,
       actionType: ActionTypeEnums.Decision,
-      description: 'Decision Description',
-      inputExpressions: {
-        groups: {
-          type: 'array',
-          elements: [
-            {
-              type: 'object',
-              properties: [
-                {
-                  key: {
-                    type: 'const',
-                    value: 'hasCondition',
-                  },
-                  value: {
-                    type: 'const',
-                    value: true,
-                  },
-                },
-                {
-                  key: {
-                    type: 'const',
-                    value: 'entryNodeId',
-                  },
-                  value: {
-                    type: 'null',
-                  },
-                },
-                {
-                  key: {
-                    type: 'const',
-                    value: 'condition',
-                  },
-                  value: {
-                    type: 'object',
-                    properties: [
-                      {
-                        key: {
-                          type: 'const',
-                          value: 'conjunction',
-                        },
-                        value: {
-                          type: 'const',
-                          value: 'and',
-                        },
-                      },
-                      {
-                        key: {
-                          type: 'const',
-                          value: 'conditions',
-                        },
-                        value: {
-                          type: 'array',
-                          elements: [
-                            {
-                              type: 'object',
-                              properties: [
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'right',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: '触发邮件',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'dataType',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'text',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'valueType',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'text',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'operator',
-                                  },
-                                  value: {
-                                    type: 'const',
-                                    value: 'contains',
-                                  },
-                                },
-                                {
-                                  key: {
-                                    type: 'const',
-                                    value: 'left',
-                                  },
-                                  value: {
-                                    type: 'array',
-                                    elements: [
-                                      {
-                                        type: 'const',
-                                        value: `trigger.${triggerId}`,
-                                      },
-                                      {
-                                        type: 'const',
-                                        value: 'fields',
-                                      },
-                                      {
-                                        type: 'const',
-                                        value: `${firstTextField.id}`,
-                                      },
-                                    ],
-                                  },
-                                },
-                              ],
-                            },
-                          ],
-                        },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      },
     };
-    const action1Id = await createWorkflowAction(workflowId, action1Ro);
+    const actionId1 = await createWorkflowAction(workflowId, actionCreateRo1).then(async (id) => {
+      const actionUpdateRo1: UpdateWorkflowActionRo = {
+        description: 'actionId1 Decision description',
+        inputExpressions: {
+          groups: {
+            type: 'array',
+            elements: [
+              {
+                type: 'object',
+                properties: [
+                  {
+                    key: {
+                      type: 'const',
+                      value: 'hasCondition',
+                    },
+                    value: {
+                      type: 'const',
+                      value: true,
+                    },
+                  },
+                  {
+                    key: {
+                      type: 'const',
+                      value: 'entryNodeId',
+                    },
+                    value: {
+                      type: 'null',
+                    },
+                  },
+                  {
+                    key: {
+                      type: 'const',
+                      value: 'condition',
+                    },
+                    value: {
+                      type: 'object',
+                      properties: [
+                        {
+                          key: {
+                            type: 'const',
+                            value: 'logical',
+                          },
+                          value: {
+                            type: 'const',
+                            value: 'and',
+                          },
+                        },
+                        {
+                          key: {
+                            type: 'const',
+                            value: 'conditions',
+                          },
+                          value: {
+                            type: 'array',
+                            elements: [
+                              {
+                                type: 'object',
+                                properties: [
+                                  {
+                                    key: {
+                                      type: 'const',
+                                      value: 'right',
+                                    },
+                                    value: {
+                                      type: 'const',
+                                      value: '触发邮件',
+                                    },
+                                  },
+                                  {
+                                    key: {
+                                      type: 'const',
+                                      value: 'dataType',
+                                    },
+                                    value: {
+                                      type: 'const',
+                                      value: 'text',
+                                    },
+                                  },
+                                  {
+                                    key: {
+                                      type: 'const',
+                                      value: 'valueType',
+                                    },
+                                    value: {
+                                      type: 'const',
+                                      value: 'text',
+                                    },
+                                  },
+                                  {
+                                    key: {
+                                      type: 'const',
+                                      value: 'operator',
+                                    },
+                                    value: {
+                                      type: 'const',
+                                      value: 'contains',
+                                    },
+                                  },
+                                  {
+                                    key: {
+                                      type: 'const',
+                                      value: 'left',
+                                    },
+                                    value: {
+                                      type: 'array',
+                                      elements: [
+                                        {
+                                          type: 'const',
+                                          value: `trigger.${triggerId}`,
+                                        },
+                                        {
+                                          type: 'const',
+                                          value: 'fields',
+                                        },
+                                        {
+                                          type: 'const',
+                                          value: `${firstTextField.id}`,
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      };
+      await updateWorkflowAction(id, actionUpdateRo1);
+
+      return id;
+    });
 
     // Step.4
-    const action2Ro: CreateWorkflowActionRo = {
+    const actionCreateRo2: CreateWorkflowActionRo = {
       workflowId: workflowId,
       actionType: ActionTypeEnums.MailSender,
-      description: 'description',
-      inputExpressions: {
-        to: {
-          type: 'array',
-          elements: [
-            {
-              type: 'template',
-              elements: [
-                {
-                  type: 'const',
-                  value: 'penganpingprivte@gmail.com',
-                },
-              ],
-            },
-          ],
-        },
-        subject: {
-          type: 'template',
-          elements: [
-            {
-              type: 'const',
-              value: 'A test email from `table`',
-            },
-          ],
-        },
-        message: {
-          type: 'template',
-          elements: [
-            {
-              type: 'const',
-              value: '<h1>New Record By Trigger RecordId: <h1>',
-            },
-            {
-              type: 'objectPathValue',
-              object: {
-                nodeId: `${triggerId}`,
-                nodeType: 'trigger',
-              },
-              path: {
-                type: 'array',
-                elements: [
-                  {
-                    type: 'const',
-                    value: 'record',
-                  },
-                  {
-                    type: 'const',
-                    value: 'id',
-                  },
-                ],
-              },
-            },
-            {
-              type: 'const',
-              value: '<br/>New Record: 【',
-            },
-            {
-              type: 'objectPathValue',
-              object: {
-                nodeId: `${action1Id}`,
-                nodeType: 'action',
-              },
-              path: {
-                type: 'array',
-                elements: [
-                  {
-                    type: 'const',
-                    value: 'data',
-                  },
-                  {
-                    type: 'const',
-                    value: 'fields',
-                  },
-                  {
-                    type: 'const',
-                    value: `${firstTextField.id}`,
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-      parentNodeId: action1Id,
+      parentNodeId: actionId1,
       parentDecisionArrayIndex: 0,
-      // nextNodeId: null,
     };
-    const action2Id = await createWorkflowAction(workflowId, action2Ro);
+    const actionId2 = await createWorkflowAction(workflowId, actionCreateRo2).then(async (id) => {
+      const actionUpdateRo1: UpdateWorkflowActionRo = {
+        description: 'actionId2 MailSender description',
+        inputExpressions: {
+          to: {
+            type: 'array',
+            elements: [
+              {
+                type: 'template',
+                elements: [
+                  {
+                    type: 'const',
+                    value: 'penganpingprivte@gmail.com',
+                  },
+                ],
+              },
+            ],
+          },
+          subject: {
+            type: 'template',
+            elements: [
+              {
+                type: 'const',
+                value: 'A test email from `table`',
+              },
+            ],
+          },
+          message: {
+            type: 'template',
+            elements: [
+              {
+                type: 'const',
+                value: '<h1>New Record By Trigger RecordId: <h1>',
+              },
+              {
+                type: 'objectPathValue',
+                object: {
+                  nodeId: `${triggerId}`,
+                  nodeType: 'trigger',
+                },
+                path: {
+                  type: 'array',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'record',
+                    },
+                    {
+                      type: 'const',
+                      value: 'id',
+                    },
+                  ],
+                },
+              },
+              {
+                type: 'const',
+                value: '<br/>New Record: 【',
+              },
+              {
+                type: 'objectPathValue',
+                object: {
+                  nodeId: `${actionId1}`,
+                  nodeType: 'action',
+                },
+                path: {
+                  type: 'array',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'data',
+                    },
+                    {
+                      type: 'const',
+                      value: 'fields',
+                    },
+                    {
+                      type: 'const',
+                      value: `${firstTextField.id}`,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      };
+      await updateWorkflowAction(id, actionUpdateRo1);
+
+      return id;
+    });
 
     // Verify
     const result = await request(app.getHttpServer())
@@ -530,18 +578,18 @@ describe('AutomationController (e2e)', () => {
       .expect(200);
 
     // clean data
-    await deleteWorkflow(workflowId);
+    // await deleteWorkflow(workflowId);
 
     expect(result.body.data).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         actions: expect.objectContaining({
-          [action1Id]: expect.objectContaining({
-            id: action1Id,
-            nextActionId: action2Id,
+          [actionId1]: expect.objectContaining({
+            id: actionId1,
+            nextActionId: actionId2,
           }),
-          [action2Id]: expect.objectContaining({
-            id: action2Id,
+          [actionId2]: expect.objectContaining({
+            id: actionId2,
             nextActionId: null,
           }),
         }),

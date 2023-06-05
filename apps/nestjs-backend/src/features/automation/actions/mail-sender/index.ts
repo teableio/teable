@@ -1,8 +1,15 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
+import MarkdownIt from 'markdown-it';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';
 import type { IActionResponse, IObjectArraySchema, ITemplateSchema } from '../action-core';
 import { actionConst, ActionCore, ActionResponseStatus } from '../action-core';
+
+export const markdownIt = MarkdownIt({
+  html: true,
+  breaks: true,
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+}).use(require('markdown-it-sanitizer'));
 
 export interface IMailSenderSchema extends Record<string, unknown> {
   to: IObjectArraySchema;
@@ -38,7 +45,9 @@ export class MailSender extends ActionCore {
     const { to, cc, bcc, replyTo, subject, message } =
       await this.parseInputSchema<IMailSenderOptions>(event.params as IMailSenderSchema, almanac);
 
-    const mailOptions = { to, cc, bcc, replyTo, subject, html: message };
+    const html = markdownIt.render(message);
+
+    const mailOptions = { to, cc, bcc, replyTo, subject, html };
 
     let outPut: IActionResponse<unknown>;
     await this.mailSenderService

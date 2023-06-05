@@ -5,9 +5,10 @@ import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import _ from 'lodash';
+import { EventEnums } from 'src/share-db/events';
+import type { RecordEvent } from 'src/share-db/events';
 import { TransactionService } from 'src/share-db/transaction.service';
 import { DerivateChangeService } from './derivate-change.service';
-import { RecordCreatedEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 
@@ -226,11 +227,13 @@ export class ShareDbService extends ShareDBClass {
   private async createEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
     const [docType, collectionId] = context.collection.split('_');
     if (IdPrefix.Record == docType) {
-      this.eventEmitter.emitAsync(RecordCreatedEvent.EVENT_NAME, {
+      const eventValue: RecordEvent = {
+        eventName: EventEnums.RecordCreated,
         tableId: collectionId,
         recordId: context.id,
         context,
-      });
+      };
+      this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
     }
   }
 

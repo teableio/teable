@@ -9,6 +9,7 @@ import {
 } from '@nestjs/swagger';
 import { ApiResponse, responseWrap } from 'src/utils';
 import { CreateWorkflowActionRo } from '../../model/create-workflow-action.ro';
+import { UpdateWorkflowActionRo } from '../../model/update-workflow-action.ro';
 import { WorkflowActionService } from '../action/workflow-action.service';
 
 @ApiBearerAuth()
@@ -26,11 +27,8 @@ export class WorkflowDecisionController {
     type: ApiResponse<null>,
     isArray: false,
   })
-  async create(
-    @Param('decisionId') actionId: string,
-    @Body() createWorkflowDecisionRo: CreateWorkflowActionRo
-  ) {
-    await this.workflowActionService.create(actionId, createWorkflowDecisionRo);
+  async create(@Param('decisionId') actionId: string, @Body() createRo: CreateWorkflowActionRo) {
+    await this.workflowActionService.create(actionId, createRo);
     return responseWrap(null);
   }
 
@@ -54,9 +52,9 @@ export class WorkflowDecisionController {
   })
   async updateConfig(
     @Param('decisionId') actionId: string,
-    @Body() updateWorkflowDecisionRo: CreateWorkflowActionRo
+    @Body() updateRo: UpdateWorkflowActionRo
   ) {
-    await this.workflowActionService.updateConfig(actionId, updateWorkflowDecisionRo);
+    await this.workflowActionService.updateConfig(actionId, updateRo);
     return responseWrap(null);
   }
 }
