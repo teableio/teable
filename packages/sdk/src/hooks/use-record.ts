@@ -29,13 +29,15 @@ export const useRecord = (recordId: string | undefined) => {
       setInstance(createRecordInstance(doc.data, doc));
     });
 
-    doc.on('op', () => {
+    const listeners = () => {
       setInstance(createRecordInstance(doc.data, doc));
-    });
+    };
+
+    doc.on('op', listeners);
 
     return () => {
       doc.destroy();
-      doc.removeAllListeners('op');
+      doc.removeListener('op', listeners);
     };
   }, [connection, recordId, tableId]);
 
