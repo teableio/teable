@@ -2,7 +2,6 @@ import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import { ViewProvider, FieldProvider, RecordProvider, useTable } from '@teable-group/sdk';
 import { useTitle } from 'react-use';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
-import { FieldSettingStorage } from '../../components/field-setting/FieldSetting';
 import { ToolBar } from '../tool-bar/ToolBar';
 import { GridView } from '../view/grid/GridView';
 import { ViewList } from '../view/list/ViewList';
@@ -30,7 +29,6 @@ export const Table: React.FC<ITableProps> = ({
           <RecordProvider serverData={recordServerData}>
             {isHydrated && <GridView />}
           </RecordProvider>
-          {isHydrated && <FieldSettingStorage />}
         </FieldProvider>
       </div>
     </ViewProvider>

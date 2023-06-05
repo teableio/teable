@@ -3,47 +3,47 @@ import classNames from 'classnames';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { FieldMenu as FieldMenuComp } from '@/features/app/components/field-menu/FieldMenu';
-import { useFieldSettingStore } from '@/features/app/components/field-setting/store';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { useGridViewStore } from '../store/gridView';
 
-interface IFieldMenuProps {
-  style?: React.CSSProperties;
-  visible: boolean;
-  fieldId?: string;
-  onClose: () => void;
-}
+export const FieldMenu = () => {
+  const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
+  const visible = Boolean(headerMenu);
+  const position = headerMenu?.pos;
+  const style = position
+    ? {
+        left: position.x,
+        top: position.y,
+      }
+    : {};
 
-export const FieldMenu: React.FC<IFieldMenuProps> = (props) => {
-  const { visible, fieldId, onClose, style } = props;
-
+  const fieldId = headerMenu?.fieldId;
   const field = useField(fieldId);
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const fieldSettingStore = useFieldSettingStore();
 
   useClickAway(fieldSettingRef, () => {
-    onClose();
+    closeHeaderMenu();
   });
 
   const toOpenFieldSetting = () => {
-    if (!field) {
+    if (!fieldId) {
       return;
     }
-    fieldSettingStore.open({
-      field,
+    openSetting({
+      fieldId,
       operator: FieldOperator.Edit,
     });
-    onClose();
+    closeHeaderMenu();
   };
 
   const deleteField = () => {
-    onClose();
+    closeHeaderMenu();
     field?.delete();
   };
 
   return (
     <div style={style} ref={fieldSettingRef} className="absolute">
       <div
-        style={style}
         className={classNames({
           hidden: !visible,
         })}
