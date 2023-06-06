@@ -1,7 +1,8 @@
 export const INITIAL_THEME = `
   function getUserPreference() {
-    if(window.localStorage.getItem('teable_theme')) {
-      return JSON.parse(window.localStorage.getItem('teable_theme'))
+    const localStorageTheme = JSON.parse(window.localStorage.getItem('teable_theme'))
+    if(localStorageTheme) {
+      return localStorageTheme
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches
               ? 'dark'
