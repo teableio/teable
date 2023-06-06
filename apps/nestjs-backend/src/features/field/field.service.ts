@@ -34,14 +34,12 @@ import { dbType2knexFormat } from './util';
 
 @Injectable()
 export class FieldService implements IAdapterService {
-  knex: ReturnType<typeof knex>;
+  private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService
-  ) {
-    this.knex = knex({ client: 'sqlite3' });
-  }
+  ) {}
 
   async multipleGenerateValidDbFieldName(
     prisma: Prisma.TransactionClient,

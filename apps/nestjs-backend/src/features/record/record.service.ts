@@ -28,14 +28,12 @@ type IUserFields = { id: string; dbFieldName: string }[];
 
 @Injectable()
 export class RecordService implements IAdapterService {
-  queryBuilder: ReturnType<typeof knex>;
+  private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService
-  ) {
-    this.queryBuilder = knex({ client: 'sqlite3' });
-  }
+  ) {}
 
   private async getRowOrderFieldNames(prisma: Prisma.TransactionClient, tableId: string) {
     // get rowIndexFieldName by select all views, combine field prefix and ids;
@@ -85,7 +83,7 @@ export class RecordService implements IAdapterService {
   }
 
   async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
-    const sqlNative = this.queryBuilder(dbTableName).max('__auto_number').toSQL().toNative();
+    const sqlNative = this.knex(dbTableName).max('__auto_number').toSQL().toNative();
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const queryResult = await prisma.$queryRawUnsafe<[{ 'max(`__auto_number`)': null | bigint }]>(
       sqlNative.sql,
@@ -202,7 +200,7 @@ export class RecordService implements IAdapterService {
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
-    const sqlNative = this.queryBuilder(dbTableName)
+    const sqlNative = this.knex(dbTableName)
       .where(where)
       .select(idOnly ? '__id' : '*')
       .orderBy(orderBy)
@@ -224,7 +222,7 @@ export class RecordService implements IAdapterService {
     viewId: string,
     order: number
   ) {
-    const sqlNative = this.queryBuilder(dbTableName)
+    const sqlNative = this.knex(dbTableName)
       .update({ [getViewOrderFieldName(viewId)]: order, __version: version })
       .where({ __id: recordId })
       .toSQL()
@@ -256,7 +254,7 @@ export class RecordService implements IAdapterService {
 
     await this.attachmentService.updateByRecord(prisma, tableId, recordId, createAttachmentsTable);
 
-    const sqlNative = this.queryBuilder(dbTableName)
+    const sqlNative = this.knex(dbTableName)
       .update({ ...fieldsByDbFieldName, __version: version })
       .where({ __id: recordId })
       .toSQL()
@@ -379,7 +377,7 @@ export class RecordService implements IAdapterService {
     index: number
   ) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
-    const sqlNative = this.queryBuilder(dbTableName)
+    const sqlNative = this.knex(dbTableName)
       .select('__id')
       .orderBy(getViewOrderFieldName(viewId), 'asc')
       .offset(index)
@@ -413,7 +411,7 @@ export class RecordService implements IAdapterService {
       return pre;
     }, {});
 
-    const nativeSql = this.queryBuilder(dbTableName)
+    const nativeSql = this.knex(dbTableName)
       .insert({
         __id: snapshot.record.id,
         __row_default: rowCount,
@@ -441,7 +439,7 @@ export class RecordService implements IAdapterService {
       attachmentFields.map(({ id }) => ({ tableId, recordId, fieldId: id }))
     );
 
-    const nativeSql = this.queryBuilder(dbTableName)
+    const nativeSql = this.knex(dbTableName)
       .where({
         __id: recordId,
       })
@@ -505,7 +503,7 @@ export class RecordService implements IAdapterService {
       .map((f) => f.dbFieldName)
       .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
 
-    const sqlNative = this.queryBuilder(dbTableName)
+    const sqlNative = this.knex(dbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
       .toSQL()

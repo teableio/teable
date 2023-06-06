@@ -119,7 +119,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     expect(result.body.data.records[0].fields[firstTextField.id]).toEqual('new value');
   });
 
-  it('/api/table/{tableId}/record (PUT)', async () => {
+  it('/api/table/{tableId}/record by index (PUT)', async () => {
     const viewResponse = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/view`)
       .expect(200);

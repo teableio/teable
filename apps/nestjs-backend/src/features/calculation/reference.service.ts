@@ -53,13 +53,9 @@ interface IRecordRefItem {
 
 @Injectable()
 export class ReferenceService {
-  private readonly knex: ReturnType<typeof knex>;
+  private readonly knex = knex({ client: 'sqlite3' });
 
-  constructor() {
-    this.knex = knex({ client: 'sqlite3' });
-  }
-
-  async updateNodeValues(
+  async calculate(
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordData: { id: string; fieldId: string; newValue: unknown }[]
@@ -129,7 +125,7 @@ export class ReferenceService {
     return this.mergeDuplicateChange(changes);
   }
 
-  private calculate(
+  private calculateFormula(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
     recordItem: IRecordItem
@@ -258,7 +254,7 @@ export class ReferenceService {
           return;
         }
         const record = recordItem.record;
-        const value = this.calculate(field, fieldMap, recordItem);
+        const value = this.calculateFormula(field, fieldMap, recordItem);
         console.log(`calculated: ${field.id}.${record.id}`, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
@@ -619,7 +615,7 @@ export class ReferenceService {
    * E will be calculated twice
    * so we need to merge duplicate change to reduce update times
    */
-  private mergeDuplicateChange(changes: ICellChange[]) {
+  mergeDuplicateChange(changes: ICellChange[]) {
     const indexCache: { [key: string]: number } = {};
     const mergedChanges: ICellChange[] = [];
 

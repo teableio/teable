@@ -13,10 +13,8 @@ import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
-  private readonly knex: ReturnType<typeof knex>;
-  constructor(private readonly prismaService: PrismaService) {
-    this.knex = knex({ client: 'sqlite3' });
-  }
+  private readonly knex = knex({ client: 'sqlite3' });
+  constructor(private readonly prismaService: PrismaService) {}
 
   private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
     const tableMeta = await prisma.tableMeta.findUniqueOrThrow({

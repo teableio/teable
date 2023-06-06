@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
+import { groupBy } from 'lodash';
+import type { ICellContext } from '../features/calculation/link.service';
+import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import type { ICellChange } from '../features/calculation/reference.service';
 import { TransactionService } from './transaction.service';
@@ -22,6 +25,7 @@ interface IApplyParam {
 export class DerivateChangeService {
   constructor(
     private readonly transactionService: TransactionService,
+    private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService
   ) {}
 
@@ -120,7 +124,7 @@ export class DerivateChangeService {
     });
   }
 
-  private getOpsByChanges(tableId: string, recordId: string, changes: ICellChange[]) {
+  private formatOpsByChanges(tableId: string, recordId: string, changes: ICellChange[]) {
     const currentSnapshotOps: IOtOperation[] = [];
     const otherSnapshotOps = changes.reduce<{
       [tableId: string]: { [recordId: string]: IOtOperation[] };
@@ -183,19 +187,55 @@ export class DerivateChangeService {
         id: recordId,
         fieldId: ctx.fieldId,
         newValue: ctx.newValue,
+        oldValue: ctx.oldValue,
       };
     });
-    const derivateChanges = await this.referenceService.updateNodeValues(
+
+    const derivateChangesByLink = await this.linkService.getDerivateChangesByLink(
       prisma,
       tableId,
-      recordData
+      recordData as ICellContext[]
     );
+
+    const derivateChangesMap = groupBy(derivateChangesByLink, 'tableId');
+    const recordDataByLink = derivateChangesMap[tableId]?.map(
+      ({ recordId, fieldId, newValue, oldValue }) => ({
+        id: recordId,
+        fieldId,
+        newValue,
+        oldValue,
+      })
+    );
+    delete derivateChangesMap[tableId];
+
+    // recordData should concat link change in current table
+    let derivateChanges = await this.referenceService.calculate(
+      prisma,
+      tableId,
+      recordData.concat(recordDataByLink)
+    );
+
+    derivateChanges = derivateChanges.concat(derivateChangesByLink);
+
+    for (const tableId in derivateChangesMap) {
+      const recordData = derivateChangesMap[tableId].map(
+        ({ recordId, fieldId, newValue, oldValue }) => ({
+          id: recordId,
+          fieldId,
+          newValue,
+          oldValue,
+        })
+      );
+      const changes = await this.referenceService.calculate(prisma, tableId, recordData);
+      derivateChanges = derivateChanges.concat(changes);
+    }
 
     if (!derivateChanges.length) {
       return;
     }
-    // console.log('derivateChanges:', derivateChanges);
 
-    return this.getOpsByChanges(tableId, recordId, derivateChanges);
+    console.log('derivateChanges:', derivateChanges);
+
+    return this.formatOpsByChanges(tableId, recordId, derivateChanges);
   }
 }
