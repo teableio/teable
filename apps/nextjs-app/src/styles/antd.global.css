@@ -1,0 +1,24 @@
+/* Button */
+.ant-btn.ant-btn-primary {
+  background-color: var(--color-primary);
+}
+
+/* Progress */
+.ant-progress.ant-progress-circle.ant-progress-show-info
+  .ant-progress-inner
+  .ant-progress-circle
+  .ant-progress-circle-path {
+  stroke: var(--color-primary);
+}
+
+.ant-progress.ant-progress-circle.ant-progress-show-info.ant-progress-status-success
+  .ant-progress-inner
+  .ant-progress-circle
+  .ant-progress-circle-path {
+  stroke: var(--color-success);
+}
+
+.ant-progress.ant-progress-circle.ant-progress-show-info.ant-progress-status-success
+  .ant-progress-text {
+  color: var(--color-success);
+}
