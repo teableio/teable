@@ -180,7 +180,7 @@ model Attachments {
   width            Int?
   height           Int?
   deletedTime      DateTime? @map("deleted_time")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
   lastModifiedBy   String    @map("last_modified_by")
   @@map("attachments")
@@ -195,7 +195,7 @@ model AttachmentsTable {
   recordId         String    @map("record_id")
   fieldId          String    @map("field_id")
   deletedTime      DateTime? @map("deleted_time")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
   lastModifiedBy   String    @map("last_modified_by")
   @@map("attachments_table")
