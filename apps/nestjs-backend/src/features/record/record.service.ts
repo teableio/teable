@@ -1,19 +1,22 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type {
   IAggregateQueryResult,
+  IAttachment,
+  IAttachmentCellValue,
   IRecordSnapshot,
   IRecordSnapshotQuery,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
 } from '@teable-group/core';
-import { FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
+import { FieldType, FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
+import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
@@ -27,7 +30,10 @@ type IUserFields = { id: string; dbFieldName: string }[];
 export class RecordService implements IAdapterService {
   queryBuilder: ReturnType<typeof knex>;
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly attachmentService: AttachmentsTableService
+  ) {
     this.queryBuilder = knex({ client: 'sqlite3' });
   }
 
@@ -229,6 +235,7 @@ export class RecordService implements IAdapterService {
   async setRecord(
     prisma: Prisma.TransactionClient,
     version: number,
+    tableId: string,
     recordId: string,
     dbTableName: string,
     contexts: { fieldId: string; newValue: unknown }[]
@@ -239,14 +246,15 @@ export class RecordService implements IAdapterService {
 
     const fields = await prisma.field.findMany({
       where: { id: { in: Array.from(fieldIdsSet) } },
-      select: { id: true, dbFieldName: true },
+      select: { id: true, dbFieldName: true, type: true },
     });
     const fieldMap = keyBy(fields, 'id');
 
-    const fieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>((pre, ctx) => {
-      pre[fieldMap[ctx.fieldId].dbFieldName] = ctx.newValue;
-      return pre;
-    }, {});
+    const fieldsByDbFieldName = this.getFieldsByDbFieldName(fieldMap, contexts);
+
+    const createAttachmentsTable = this.getCreateAttachments(fieldMap, contexts);
+
+    await this.attachmentService.updateByRecord(prisma, tableId, recordId, createAttachmentsTable);
 
     const sqlNative = this.queryBuilder(dbTableName)
       .update({ ...fieldsByDbFieldName, __version: version })
@@ -254,6 +262,49 @@ export class RecordService implements IAdapterService {
       .toSQL()
       .toNative();
     return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+  }
+
+  getFieldsByDbFieldName(
+    fieldMap: { [key: string]: { id: string; dbFieldName: string; type: string } },
+    contexts: { fieldId: string; newValue: unknown }[]
+  ): { [dbFieldName: string]: unknown } {
+    return contexts.reduce<{ [dbFieldName: string]: unknown }>((pre, ctx) => {
+      const { dbFieldName, type } = fieldMap[ctx.fieldId];
+
+      if (type === FieldType.Attachment) {
+        pre[dbFieldName] = JSON.stringify(ctx.newValue);
+        return pre;
+      }
+
+      pre[dbFieldName] = ctx.newValue;
+
+      return pre;
+    }, {});
+  }
+
+  getCreateAttachments(
+    fieldMap: { [key: string]: { id: string; dbFieldName: string; type: string } },
+    contexts: { fieldId: string; newValue: unknown }[]
+  ) {
+    return contexts.reduce<
+      { attachmentId: string; name: string; token: string; fieldId: string }[]
+    >((pre, ctx) => {
+      const { type } = fieldMap[ctx.fieldId];
+
+      if (type === FieldType.Attachment && Array.isArray(ctx.newValue)) {
+        (ctx.newValue as IAttachmentCellValue).forEach((attachment) => {
+          const { name, token, id } = attachment;
+          pre.push({
+            name,
+            token,
+            fieldId: ctx.fieldId,
+            attachmentId: id,
+          });
+        });
+      }
+
+      return pre;
+    }, []);
   }
 
   async getRowCount(prisma: Prisma.TransactionClient, tableId: string, _viewId: string) {
@@ -379,6 +430,16 @@ export class RecordService implements IAdapterService {
 
   async del(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
+    const fields = await prisma.field.findMany({
+      where: { tableId },
+      select: { id: true, type: true },
+    });
+    const attachmentFields = fields.filter((field) => field.type === FieldType.Attachment);
+
+    await this.attachmentService.delete(
+      prisma,
+      attachmentFields.map(({ id }) => ({ tableId, recordId, fieldId: id }))
+    );
 
     const nativeSql = this.queryBuilder(dbTableName)
       .where({
@@ -403,6 +464,7 @@ export class RecordService implements IAdapterService {
       await this.setRecord(
         prisma,
         version,
+        tableId,
         recordId,
         dbTableName,
         opContexts as ISetRecordOpContext[]
@@ -429,7 +491,7 @@ export class RecordService implements IAdapterService {
 
     const allFields = await prisma.field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, name: true, dbFieldName: true },
+      select: { id: true, name: true, type: true, dbFieldName: true },
     });
 
     const allViews = await prisma.view.findMany({
@@ -460,7 +522,12 @@ export class RecordService implements IAdapterService {
       .map((record) => {
         const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
           const fieldKey = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
-          acc[fieldKey] = record[field.dbFieldName];
+          const cellValue = record[field.dbFieldName];
+          if (field.type === FieldType.Attachment) {
+            acc[fieldKey] = JSON.parse(cellValue as string);
+            return acc;
+          }
+          acc[fieldKey] = cellValue;
           return acc;
         }, {});
 
@@ -489,6 +556,31 @@ export class RecordService implements IAdapterService {
           },
         };
       });
+  }
+
+  async getAttachmentMaps(prisma: Prisma.TransactionClient, tableId: string, recordIds: string[]) {
+    const attachments = await this.attachmentService.getAttachmentTableCellValueByRecordIds(
+      prisma,
+      { tableId, recordIds }
+    );
+
+    return attachments.reduce<{ [key: string]: IAttachment }>(
+      (acc, { id, fieldId, recordId, ...reset }) => {
+        acc[`${id}-${recordId}-${fieldId}`] = { id, ...reset };
+        return acc;
+      },
+      {}
+    );
+  }
+
+  transformAttachmentCellValue(
+    cellValue: string[] | null,
+    attachmentsMap: { [key: string]: IAttachment }
+  ) {
+    if (!cellValue) {
+      return null;
+    }
+    return cellValue.map((atc) => attachmentsMap[atc]).filter(Boolean);
   }
 
   async getDocIdsByQuery(

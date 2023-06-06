@@ -55,16 +55,25 @@ export function useInstances<T, R extends { id: string }>({
     if (!collection || !connection) {
       return;
     }
+    const opListeners = new Map();
+
     const query = connection.createSubscribeQuery<T>(collection, queryParamsStorage || {});
+
+    const createOpListener = (doc: Doc<T>, handler: (op: [unknown]) => void) => {
+      const opListener = opListeners.get(doc.id);
+      doc.on('op', opListener || handler);
+      return () => doc.removeListener('op', opListener || handler);
+    };
 
     query.on('ready', () => {
       console.log(`${collection}:ready:`, query.results);
       setInstances(query.results.map((r) => factory(r.data, r)));
       query.results.forEach((doc) => {
-        doc.on('op', (op) => {
+        const opListener = createOpListener(doc, (op) => {
           console.log(`${collection} on op:`, op);
           updateInstance(doc);
         });
+        opListeners.set(doc.id, opListener);
       });
     });
 
@@ -77,11 +86,11 @@ export function useInstances<T, R extends { id: string }>({
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
-          doc.on('op', (op) => {
+          const opListener = createOpListener(doc, (op: [unknown]) => {
             console.log(`${collection} on op:`, op);
             updateInstance(doc);
           });
-
+          opListeners.set(doc.id, opListener);
           newInstances.splice(index, 0, factory(doc.data, doc));
           index++;
         });
@@ -94,7 +103,8 @@ export function useInstances<T, R extends { id: string }>({
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
-          doc.removeAllListeners('op');
+          const cleanupFunction = opListeners.get(doc.id);
+          cleanupFunction();
           newInstances.splice(index, 1);
         });
         return newInstances;
@@ -118,7 +128,8 @@ export function useInstances<T, R extends { id: string }>({
       query.destroy();
       query.results &&
         query.results.forEach((doc) => {
-          doc.removeAllListeners('op');
+          const cleanupFunction = opListeners.get(doc.id);
+          cleanupFunction();
         });
     };
   }, [connection, collection, updateInstance, queryParamsStorage, factory]);
