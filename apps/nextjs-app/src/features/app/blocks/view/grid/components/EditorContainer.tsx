@@ -4,6 +4,7 @@ import { useRef, useMemo } from 'react';
 import { useClickAway } from 'react-use';
 import { useViewStore } from '../../store/view';
 import { useGridViewStore } from '../store/gridView';
+import { AttachmentEditor } from './editor/AttachmentEditor';
 import { SelectEditor } from './editor/SelectEditor';
 
 export const EditorContainer = () => {
@@ -13,11 +14,16 @@ export const EditorContainer = () => {
   const ref = useRef<HTMLDivElement>(null);
   const record = useRecord(activeCell?.recordId);
   useClickAway(ref, () => {
-    clearEditorCtx();
+    onCancel();
   });
+
+  const onCancel = () => {
+    clearEditorCtx();
+  };
 
   const Editor = () => {
     if (!field || !record) {
+      console.log('record', record);
       return <></>;
     }
     const style = editorCtx
@@ -30,6 +36,8 @@ export const EditorContainer = () => {
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect:
         return <SelectEditor style={style} field={field} record={record} />;
+      case FieldType.Attachment:
+        return <AttachmentEditor style={style} field={field} record={record} onCancel={onCancel} />;
       default:
         return <></>;
     }
@@ -56,7 +64,7 @@ export const EditorContainer = () => {
       }}
       style={style}
     >
-      <Editor />
+      {Editor()}
     </div>
   );
 };

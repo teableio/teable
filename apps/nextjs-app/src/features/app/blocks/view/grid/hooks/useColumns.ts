@@ -71,7 +71,15 @@ const generateColumns = (
           width,
           icon: FieldType.Formula,
           kind: GridCellKind.Text,
+        };
+      case FieldType.Attachment:
+        return {
+          id: field.id,
+          title: field.name,
+          icon: FieldType.Attachment,
+          kind: GridCellKind.Custom,
           hasMenu: true,
+          width,
         };
     }
   });
@@ -166,6 +174,18 @@ const createCellValue2GridDisplay =
           allowOverlay: true,
           displayData: cellValue ? (String(cellValue) as string) : '',
           readonly: true,
+        };
+      }
+      case FieldType.Attachment: {
+        return {
+          kind: GridCellKind.Custom,
+          data: {
+            type: FieldType.Attachment,
+            options: field.options,
+            value: cellValue ?? [],
+          },
+          copyData: `${col}`,
+          allowOverlay: true,
         };
       }
     }

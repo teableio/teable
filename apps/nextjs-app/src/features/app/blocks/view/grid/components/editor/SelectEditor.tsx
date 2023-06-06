@@ -1,18 +1,14 @@
 import type { SelectFieldOptions } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
-import type { MultipleSelectField, SingleSelectField, Record } from '@teable-group/sdk';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import { Checkbox, Input, Space } from 'antd';
 import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import classNames from 'classnames';
 import { isString } from 'lodash';
 import { useMemo, useState } from 'react';
+import type { IEditorProps } from './type';
 
-export const SelectEditor = (props: {
-  field: SingleSelectField | MultipleSelectField;
-  record: Record;
-  style?: React.CSSProperties;
-}) => {
+export const SelectEditor = (props: IEditorProps) => {
   const { field, record, style } = props;
   const cellValue = record.getCellValue(field.id);
   const value = isString(cellValue) ? [cellValue] : (cellValue as string[]);

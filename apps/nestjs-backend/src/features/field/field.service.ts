@@ -23,6 +23,7 @@ import { sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
@@ -35,7 +36,10 @@ import { dbType2knexFormat } from './util';
 export class FieldService implements IAdapterService {
   knex: ReturnType<typeof knex>;
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly attachmentService: AttachmentsTableService
+  ) {
     this.knex = knex({ client: 'sqlite3' });
   }
 
@@ -305,6 +309,7 @@ export class FieldService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+    await this.attachmentService.delete(prisma, [{ fieldId, tableId: _tableId }]);
     await prisma.field.update({
       where: { id: fieldId },
       data: { deletedTime: new Date() },

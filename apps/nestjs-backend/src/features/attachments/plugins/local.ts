@@ -1,11 +1,12 @@
 import { createReadStream } from 'fs';
-import { resolve } from 'path';
+import { resolve, join } from 'path';
 import * as fse from 'fs-extra';
+import sharp from 'sharp';
 import type StorageAdapter from './storage';
 
 export default class Local implements StorageAdapter {
-  path = 'uploads';
-  storageDir = resolve(process.cwd(), '.assets', this.path);
+  path = '.assets/uploads';
+  storageDir = resolve(process.cwd(), this.path);
 
   getUploadUrl() {
     return '/api/attachments/upload';
@@ -17,10 +18,18 @@ export default class Local implements StorageAdapter {
     fse.ensureDir(distPath);
     await fse.copy(file.path, newFilePath);
     await fse.unlink(file.path);
-    return this.path;
+    return join(this.path, rename);
   }
 
   read(path: string) {
     return createReadStream(resolve(this.storageDir, path));
+  }
+
+  async getImageWidthAndHeight(path: string) {
+    const info = await sharp(path).metadata();
+    return {
+      width: info.width,
+      height: info.height,
+    };
   }
 }

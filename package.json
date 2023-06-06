@@ -64,7 +64,8 @@
     "check:install": "yarn dlx @yarnpkg/doctor@3.1.4 .",
     "check:renovate:config": "docker run -v renovate.json5:/usr/src/app/renovate.json5 -it renovate/renovate renovate-config-validator",
     "install:playwright": "playwright install",
-    "postinstall": "is-ci || yarn husky install"
+    "postinstall": "is-ci || yarn husky install",
+    "generate-openapi-types": "node ./sh/generate-openapi-types.mjs"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",
@@ -91,6 +92,7 @@
     "is-ci": "3.0.1",
     "lint-staged": "13.0.3",
     "npm-run-all": "4.1.5",
+    "openapi-typescript": "6.2.4",
     "prettier": "2.7.1",
     "rimraf": "3.0.2",
     "shell-quote": "1.7.4",

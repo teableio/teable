@@ -2,6 +2,7 @@ import type { IFieldSnapshot } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import { AttachmentField } from './attachment.field';
 import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
 import { MultipleSelectField } from './multiple-select.field';
@@ -26,6 +27,7 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Formula:
         return plainToInstance(FormulaField, field);
       case FieldType.Attachment:
+        return plainToInstance(AttachmentField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:

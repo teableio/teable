@@ -4,6 +4,7 @@ export enum IdPrefix {
   View = 'viw',
   Node = 'nod',
   Record = 'rec',
+  Attachment = 'act',
 }
 
 export function getRandomString(len: number) {
@@ -31,4 +32,8 @@ export function generateRecordId() {
 
 export function generateTransactionKey() {
   return getRandomString(20);
+}
+
+export function generateAttachmentId() {
+  return IdPrefix.Attachment + getRandomString(8);
 }

@@ -28,6 +28,7 @@ export class SetRecordBuilder implements IOpBuilder {
       return {
         p: ['record', 'fields', fieldId],
         od: oldCellValue,
+        oi: null,
       };
     }
 

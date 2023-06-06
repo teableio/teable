@@ -3,11 +3,11 @@ import { getMiddleCenterBias, measureTextCached } from '@glideapps/glide-data-gr
 import type { DrawArgs } from '@glideapps/glide-data-grid/dist/ts/data-grid/cells/cell-types';
 import { INNER_PAD, TAG_HEIGHT } from './constant';
 import { roundedRect } from './draw-fns';
-import type { ICustomCellGridCell } from './type';
+import type { ICustomCellGridCell, ISelectGridCell } from './type';
 
 export const selectCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICustomCellGridCell) => {
   const { ctx, theme, rect } = args;
-  const { value } = cell.data;
+  const { value } = cell.data as ISelectGridCell;
 
   const drawArea: Rectangle = {
     x: rect.x + theme.cellHorizontalPadding,

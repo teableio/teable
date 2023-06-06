@@ -13,6 +13,7 @@ import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { isString } from 'lodash';
 import type { CreateFieldRo } from './create-field.ro';
+import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
@@ -113,7 +114,9 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
           dbFieldType: DbFieldType.Text,
         } as FormulaFieldDto);
       }
-      case FieldType.Attachment:
+      case FieldType.Attachment: {
+        return plainToInstance(AttachmentFieldDto, fieldDto);
+      }
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -197,6 +200,7 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Formula:
       return plainToInstance(FormulaFieldDto, field);
     case FieldType.Attachment:
+      return plainToInstance(AttachmentFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:

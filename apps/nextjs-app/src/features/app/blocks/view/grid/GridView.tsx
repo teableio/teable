@@ -7,8 +7,6 @@ import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
-import type { IGridCell } from '@/features/app/components/gird-cells/type';
-import { girdCellToCellValue } from '@/features/app/components/gird-cells/utils';
 import { useViewStore } from '../store/view';
 import { AddField, BaseCell } from './components';
 import { DomBox } from './DomBox';
@@ -114,11 +112,10 @@ export const GridView: React.FC = () => {
       (cell, newVal, rowData) => {
         const [col] = cell;
         const fieldId = columns[col].id;
-        let newCellValue = newVal.data;
-        // custom cell value format
         if (newVal.kind === GridCellKind.Custom) {
-          newCellValue = girdCellToCellValue(newVal.data as IGridCell);
+          return;
         }
+        const newCellValue = newVal.data;
         const oldCellValue = rowData.data.record.fields[fieldId] ?? null;
         if (newCellValue == oldCellValue) {
           return;
