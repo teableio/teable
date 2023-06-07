@@ -30,8 +30,8 @@ export class AttachmentFieldCore extends FieldCore {
 
   isComputed = false;
 
-  cellValue2String(cellValue: IAttachmentCellValue) {
-    return cellValue.map((cv) => cv.name).join(',');
+  cellValue2String(cellValue?: IAttachmentCellValue) {
+    return cellValue ? cellValue.map((cv) => cv.name).join(',') : '';
   }
 
   convertStringToCellValue(_value: string) {

@@ -7,18 +7,11 @@ import { useInstances } from '../use-instances';
 import { TableContext } from './TableContext';
 
 interface ITableProviderProps {
-  tableId?: string;
-  viewId?: string;
   serverData?: ITableVo[];
   children: ReactNode;
 }
 
-export const TableProvider: FC<ITableProviderProps> = ({
-  tableId,
-  viewId,
-  children,
-  serverData,
-}) => {
+export const TableProvider: FC<ITableProviderProps> = ({ children, serverData }) => {
   const tables = useInstances({
     collection: `${IdPrefix.Table}_node`,
     factory: createTableInstance,
@@ -27,8 +20,8 @@ export const TableProvider: FC<ITableProviderProps> = ({
   });
 
   const value = useMemo(() => {
-    return { tableId, viewId, tables };
-  }, [tableId, viewId, tables]);
+    return { tables };
+  }, [tables]);
 
   return <TableContext.Provider value={value}>{children}</TableContext.Provider>;
 };

@@ -1,8 +1,8 @@
 import { useContext } from 'react';
-import { TableContext } from '../context/table';
+import { AnchorContext } from '../context';
 
 // use current active view id
 export function useViewId() {
-  const { viewId } = useContext(TableContext);
+  const { viewId } = useContext(AnchorContext);
   return viewId;
 }

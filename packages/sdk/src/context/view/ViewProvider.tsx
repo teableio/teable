@@ -3,7 +3,7 @@ import { IdPrefix } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useMemo } from 'react';
 import { createViewInstance } from '../../model/view/factory';
-import { TableContext } from '../table';
+import { AnchorContext } from '../anchor';
 import { useInstances } from '../use-instances';
 import { ViewContext } from './ViewContext';
 
@@ -14,7 +14,7 @@ interface IViewProviderProps {
 }
 
 export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serverData }) => {
-  const { tableId } = useContext(TableContext);
+  const { tableId } = useContext(AnchorContext);
   const views = useInstances({
     collection: `${IdPrefix.View}_${tableId}`,
     factory: createViewInstance,

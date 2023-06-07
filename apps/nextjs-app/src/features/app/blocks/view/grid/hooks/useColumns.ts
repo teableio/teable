@@ -142,8 +142,12 @@ const createCellValue2GridDisplay =
             [(cellValue as any).title || 'Untitled']
           : [];
         return {
-          kind: GridCellKind.Bubble,
-          data: cellString,
+          kind: GridCellKind.Custom,
+          data: {
+            type: FieldType.Link,
+            value: cellString ? cellString : [],
+          },
+          copyData: `${col}`,
           allowOverlay: true,
         };
       }

@@ -68,7 +68,7 @@ export abstract class FieldCore implements IFieldVo {
   // cellValue array element type enum (string, number, boolean, datetime)
   cellValueElementType?: CellValueType;
 
-  abstract cellValue2String(value: unknown): string;
+  abstract cellValue2String(value?: unknown): string;
 
   abstract convertStringToCellValue(str: string): unknown;
 

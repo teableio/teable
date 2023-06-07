@@ -19,19 +19,24 @@ export const FIELD_CONSTANT = [
     IconComponent: FieldTextIcon,
   },
   {
-    text: 'Single select',
-    type: FieldType.SingleSelect,
-    IconComponent: FieldSelectIcon,
-  },
-  {
     text: 'Number',
     type: FieldType.Number,
     IconComponent: FieldNumberIcon,
   },
   {
+    text: 'Single select',
+    type: FieldType.SingleSelect,
+    IconComponent: FieldSelectIcon,
+  },
+  {
     text: 'Multiple select',
     type: FieldType.MultipleSelect,
     IconComponent: FieldSelectIcon,
+  },
+  {
+    text: 'Attachment',
+    type: FieldType.Attachment,
+    IconComponent: FieldAttachmentIcon,
   },
   {
     text: 'Link',
@@ -42,11 +47,6 @@ export const FIELD_CONSTANT = [
     text: 'Formula',
     type: FieldType.Formula,
     IconComponent: FieldTextIcon,
-  },
-  {
-    text: 'Attachment',
-    type: FieldType.Attachment,
-    IconComponent: FieldAttachmentIcon,
   },
 ];
 
