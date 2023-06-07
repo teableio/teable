@@ -6,6 +6,7 @@ import { useViewStore } from '../../store/view';
 import { useGridViewStore } from '../store/gridView';
 import { AttachmentEditor } from './editor/AttachmentEditor';
 import { SelectEditor } from './editor/SelectEditor';
+import { LinkEditor } from './editor/SimpleLinkEditor';
 
 export const EditorContainer = () => {
   const { editorCtx, clearEditorCtx } = useGridViewStore();
@@ -38,6 +39,8 @@ export const EditorContainer = () => {
         return <SelectEditor style={style} field={field} record={record} />;
       case FieldType.Attachment:
         return <AttachmentEditor style={style} field={field} record={record} onCancel={onCancel} />;
+      case FieldType.Link:
+        return <LinkEditor style={style} field={field} record={record} onCancel={onCancel} />;
       default:
         return <></>;
     }

@@ -13,8 +13,8 @@ export class SingleSelectFieldCore extends SelectFieldCore {
 
   cellValueType!: CellValueType.String;
 
-  cellValue2String(cellValue: string) {
-    return cellValue;
+  cellValue2String(cellValue?: string) {
+    return cellValue ?? '';
   }
 
   convertStringToCellValue(value: string): string | null {

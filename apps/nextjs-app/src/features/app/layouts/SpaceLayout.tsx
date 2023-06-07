@@ -1,5 +1,5 @@
 import type { ITableVo } from '@teable-group/core';
-import { AppProvider, TableProvider } from '@teable-group/sdk/context';
+import { AnchorProvider, AppProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { SideBar } from '@/features/app/components/SideBar';
@@ -17,25 +17,23 @@ export const SpaceLayout: React.FC<{
   return (
     <AppLayout>
       <AppProvider>
-        <TableProvider
-          tableId={nodeId as string}
-          viewId={viewId as string}
-          serverData={tableServerData}
-        >
-          <div id="portal" className="h-screen flex items-start w-full relative">
-            <PanelGroup direction="horizontal" autoSaveId="main-panel">
-              <Panel defaultSize={20} minSize={20}>
-                <SideBar />
-              </Panel>
-              <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
-              <Panel minSize={30}>{children}</Panel>
-              <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
-              <Panel defaultSize={20} minSize={20}>
-                <ChatWindow />
-              </Panel>
-            </PanelGroup>
-          </div>
-        </TableProvider>
+        <AnchorProvider value={{ tableId: nodeId as string, viewId: viewId as string }}>
+          <TableProvider serverData={tableServerData}>
+            <div id="portal" className="h-screen flex items-start w-full relative">
+              <PanelGroup direction="horizontal" autoSaveId="main-panel">
+                <Panel defaultSize={20} minSize={20}>
+                  <SideBar />
+                </Panel>
+                <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
+                <Panel minSize={30}>{children}</Panel>
+                <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
+                <Panel defaultSize={20} minSize={20}>
+                  <ChatWindow />
+                </Panel>
+              </PanelGroup>
+            </div>
+          </TableProvider>
+        </AnchorProvider>
       </AppProvider>
     </AppLayout>
   );

@@ -22,7 +22,7 @@ export class SingleLineTextFieldCore extends FieldCore {
   }
 
   cellValue2String(cellValue: string) {
-    return cellValue;
+    return cellValue ?? '';
   }
 
   convertStringToCellValue(value: string): string | null {

@@ -9,7 +9,6 @@ import type { ICustomCellGridCell, ISelectGridCell } from './type';
 export const selectCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICustomCellGridCell) => {
   const { ctx, theme, rect } = args;
   const { value, options } = cell.data as ISelectGridCell;
-
   const drawArea: Rectangle = {
     x: rect.x + theme.cellHorizontalPadding,
     y: rect.y + theme.cellVerticalPadding,
@@ -32,7 +31,7 @@ export const selectCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICustomCel
       y += TAG_HEIGHT + INNER_PAD;
       x = drawArea.x;
     }
-    const color = options.choices.find((choice) => choice.name === item)?.color;
+    const color = options?.choices.find((choice) => choice.name === item)?.color;
     const themeOverride: Partial<Theme> = color
       ? {
           bgBubble: ColorUtils.getHexForColor(color),

@@ -16,6 +16,7 @@ export const BaseCell: CustomRenderer<ICustomCellGridCell> = {
     switch (type) {
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect:
+      case FieldType.Link:
         selectCell(args, cell);
         break;
       case FieldType.Attachment:

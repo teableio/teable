@@ -1,7 +1,8 @@
 import { useContext } from 'react';
-import { TableContext } from '../context';
+import { AnchorContext, TableContext } from '../context';
 
 export function useTable() {
-  const { tables, tableId } = useContext(TableContext);
+  const { tableId } = useContext(AnchorContext);
+  const { tables } = useContext(TableContext);
   return tables.find((table) => table.id === tableId);
 }

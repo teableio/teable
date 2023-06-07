@@ -287,7 +287,8 @@ export class LinkService {
         acc[recordId] = {};
         for (const dbFieldName in cur) {
           const fieldId = dbFieldName2FieldId[dbFieldName];
-          acc[recordId][fieldId] = cur[dbFieldName];
+          const cellValue = cur[dbFieldName];
+          acc[recordId][fieldId] = cellValue && JSON.parse(cellValue as string);
         }
         return acc;
       }, {});

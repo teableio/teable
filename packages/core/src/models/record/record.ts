@@ -14,6 +14,8 @@ export enum CellFormat {
 export class RecordCore {
   constructor(protected fieldMap: { [fieldId: string]: FieldCore }) {}
 
+  private _name?: string;
+
   commentCount!: number;
 
   createdTime!: Date;
@@ -22,7 +24,16 @@ export class RecordCore {
 
   isDeleted = false;
 
-  name!: string;
+  get name() {
+    if (!this._name) {
+      const primaryField = Object.values(this.fieldMap).find((field) => field.isPrimary);
+      if (!primaryField) {
+        throw new Error('Record must have a primary field');
+      }
+      this._name = this.getCellValueAsString(primaryField.id);
+    }
+    return this._name;
+  }
 
   fields!: IRecordFields;
 
@@ -31,6 +42,6 @@ export class RecordCore {
   }
 
   getCellValueAsString(fieldId: string) {
-    this.fieldMap[fieldId].cellValue2String(this.fields[fieldId]);
+    return this.fieldMap[fieldId].cellValue2String(this.fields[fieldId]);
   }
 }
