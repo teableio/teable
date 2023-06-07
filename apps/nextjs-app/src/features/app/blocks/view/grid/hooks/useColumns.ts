@@ -1,6 +1,6 @@
-import type { GridCell, GridColumn, Theme } from '@glideapps/glide-data-grid';
+import type { GridCell, GridColumn } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
-import { ColorUtils, FieldType } from '@teable-group/core';
+import { FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
@@ -111,13 +111,6 @@ const createCellValue2GridDisplay =
         };
       }
       case FieldType.SingleSelect: {
-        const color = field.options.choices.find((choice) => choice.name === cellValue)?.color;
-        const themeOverride: Partial<Theme> | undefined = color
-          ? {
-              bgBubble: ColorUtils.getHexForColor(color),
-              textDark: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-            }
-          : undefined;
         return {
           kind: GridCellKind.Custom,
           data: {
@@ -127,17 +120,9 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
-          themeOverride,
         };
       }
       case FieldType.MultipleSelect: {
-        const color = field.options.choices.find((choice) => choice.name === cellValue)?.color;
-        const themeOverride: Partial<Theme> | undefined = color
-          ? {
-              bgBubble: ColorUtils.getHexForColor(color),
-              textDark: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-            }
-          : undefined;
         return {
           kind: GridCellKind.Custom,
           data: {
@@ -147,7 +132,6 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
-          themeOverride,
         };
       }
       case FieldType.Link: {

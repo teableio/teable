@@ -15,6 +15,7 @@ export const BaseCell: CustomRenderer<ICustomCellGridCell> = {
     // eslint-disable-next-line sonarjs/no-small-switch
     switch (type) {
       case FieldType.SingleSelect:
+      case FieldType.MultipleSelect:
         selectCell(args, cell);
         break;
       case FieldType.Attachment:
