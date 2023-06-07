@@ -2,12 +2,7 @@ import { Injectable, Logger, Scope } from '@nestjs/common';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import _ from 'lodash';
 import fetch from 'node-fetch';
-import type {
-  IActionResponse,
-  ITemplateSchema,
-  IConstSchema,
-  IObjectSchema,
-} from '../action-core';
+import type { IActionResponse, ITemplateSchema, IConstSchema, IObjectSchema } from '../action-core';
 import { ActionCore, actionConst, ActionResponseStatus } from '../action-core';
 
 export interface IWebhookSchema extends Record<string, unknown> {
@@ -61,11 +56,15 @@ export class Webhook extends ActionCore {
       .then((response) => response.json())
       .then((resultJson) => {
         const responseData = this.responseDataWrapper(resultJson, responseParams);
-        outPut = { msg: 'ok', data: responseData, code: ActionResponseStatus.Success };
+        outPut = { data: responseData, status: ActionResponseStatus.OK };
       })
       .catch((error) => {
-        this.logger.error(error);
-        outPut = { msg: 'error', data: undefined, code: ActionResponseStatus.ServerError };
+        this.logger.error(error.message, error?.stack);
+        outPut = {
+          error: error.message,
+          data: '',
+          status: ActionResponseStatus.InternalServerError,
+        };
       })
       .finally(() => {
         almanac.addRuntimeFact(`${actionConst.OutPutFlag}${this.name}`, outPut);

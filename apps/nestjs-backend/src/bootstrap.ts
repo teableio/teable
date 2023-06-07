@@ -9,13 +9,13 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 import isPortReachable from 'is-port-reachable';
 import { AppModule } from './app.module';
-import { NotFoundExceptionFilter } from './filter/not-found.filter';
+import { GlobalExceptionFilter } from './filter/global-exception.filter';
 
 const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication) {
   app.useWebSocketAdapter(new WsAdapter(app));
-  app.useGlobalFilters(new NotFoundExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
   // app.setGlobalPrefix('api');

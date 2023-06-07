@@ -1,9 +1,9 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
 import { assertNever } from '@teable-group/core';
 import dayjs from 'dayjs';
-import type { EngineResult } from 'json-rules-engine';
+import type { EngineResult, TopLevelCondition } from 'json-rules-engine';
 import { Engine } from 'json-rules-engine';
-import { Webhook, MailSender, CreateRecord } from '../actions';
+import { Webhook, MailSender, CreateRecord, UpdateRecord } from '../actions';
 import type { ActionCore, IActionInputSchema, IActionType } from '../actions/action-core';
 import { ActionTypeEnums } from '../enums/action-type.enum';
 
@@ -15,7 +15,8 @@ export class JsonRulesEngine {
   constructor(
     private readonly webhook: Webhook,
     private readonly mailSender: MailSender,
-    private readonly createRecord: CreateRecord
+    private readonly createRecord: CreateRecord,
+    private readonly updateRecord: UpdateRecord
   ) {
     this.engine = new Engine([], { allowUndefinedFacts: true });
     this.initOperator();
@@ -50,42 +51,33 @@ export class JsonRulesEngine {
         return this.mailSender;
       case ActionTypeEnums.CreateRecord:
         return this.createRecord;
+      case ActionTypeEnums.UpdateRecord:
+        return this.updateRecord;
       default:
         assertNever(actionType);
     }
   }
 
   addRule(
+    actionId: string,
     actionType: string,
     options: {
-      id: string;
-      parentNodeId?: string;
       inputSchema: IActionInputSchema;
+      conditions?: TopLevelCondition;
       priority?: number;
     }
   ): void {
-    const { id, parentNodeId, inputSchema, priority } = options;
+    const { inputSchema, conditions, priority } = options;
 
     const actionRule = this.getAction(actionType as IActionType).bindParams(
-      id,
+      actionId,
       inputSchema,
       priority
     );
 
-    let conditions = actionRule.conditions;
-    if (parentNodeId) {
-      conditions = {
-        all: [
-          {
-            fact: `action.${parentNodeId}`,
-            operator: 'equal',
-            value: 200,
-            path: '$.code',
-          },
-        ],
-      };
+    if (conditions) {
+      actionRule.setConditions(conditions);
     }
-    actionRule.setConditions(conditions);
 
     this.engine.addRule(actionRule);
   }

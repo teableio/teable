@@ -1,6 +1,7 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
+import { generateWorkflowActionId } from '@teable-group/core';
 import { NextModule } from '../../next/next.module';
 import type { IMailSenderSchema } from '../actions';
 import { MailSender } from '../actions';
@@ -25,8 +26,8 @@ describe('Mail-Sender Action Test', () => {
   });
 
   it('should call onSuccess and send mail', async () => {
-    jsonRulesEngine.addRule(ActionTypeEnums.MailSender, {
-      id: 'wac3lzmmwSKWmtYoOF6',
+    const actionId = generateWorkflowActionId();
+    jsonRulesEngine.addRule(actionId, ActionTypeEnums.MailSender, {
       inputSchema: {
         to: {
           type: 'array',

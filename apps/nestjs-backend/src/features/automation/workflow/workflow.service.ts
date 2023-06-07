@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
-  Prisma,
   AutomationWorkflow as AutomationWorkflowModel,
+  Prisma,
 } from '@teable-group/db-main-prisma';
 import { PrismaManager } from '@teable-group/db-main-prisma';
+import knex from 'knex';
 import _ from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
@@ -17,11 +18,15 @@ import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
 export class WorkflowService {
   private logger = new Logger(WorkflowService.name);
 
+  private queryBuilder: ReturnType<typeof knex>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly triggerService: WorkflowTriggerService,
     private readonly actionService: WorkflowActionService
-  ) {}
+  ) {
+    this.queryBuilder = knex({ client: 'sqlite3' });
+  }
 
   async getWorkflow(workflowId: string): Promise<WorkflowVo | null> {
     const workflow = await this.prisma.automationWorkflow.findFirst({
@@ -50,13 +55,22 @@ export class WorkflowService {
 
   async getWorkflowsByTrigger(
     nodeId: string,
-    trigger: TriggerTypeEnums
+    triggerType?: TriggerTypeEnums[]
   ): Promise<WorkflowVo[] | null> {
-    const queryResult: AutomationWorkflowTriggerModel[] = await this.prisma
-      .$queryRaw`SELECT workflow_id as workflowId
-                 FROM automation_workflow_trigger
-                 WHERE trigger_type = ${trigger}
-                   AND JSON_EXTRACT(input_expressions, '$.tableId') = ${nodeId}`;
+    const queryBuilder = this.queryBuilder
+      .select('workflow_id as workflowId')
+      .from('automation_workflow_trigger')
+      .whereRaw("JSON_EXTRACT(input_expressions, '$.tableId.value') = ?", nodeId);
+
+    if (triggerType) {
+      queryBuilder.whereIn('trigger_type', triggerType);
+    }
+
+    const sqlNative = queryBuilder.toSQL().toNative();
+    const queryResult = await this.prisma.$queryRawUnsafe<AutomationWorkflowTriggerModel[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
 
     if (_.isEmpty(queryResult)) {
       return null;

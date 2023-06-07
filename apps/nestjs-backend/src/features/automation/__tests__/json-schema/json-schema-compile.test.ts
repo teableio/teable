@@ -1,4 +1,9 @@
-import type { ICreateRecordSchema, IMailSenderSchema, IWebhookSchema } from '../../actions';
+import type {
+  ICreateRecordSchema,
+  IMailSenderSchema,
+  IUpdateRecordSchema,
+  IWebhookSchema,
+} from '../../actions';
 import ajv from '../../engine/json-schema/ajv';
 
 describe('Ajv Compile Test', () => {
@@ -139,6 +144,19 @@ describe('Ajv Compile Test', () => {
       expect(validate(dynamicValue({ type: 'array', elements: [object] }))).toBeTruthy();
 
       expect(validate(dynamicValue({ type: 'null1' }))).toBeFalsy();
+    });
+  });
+
+  describe('Validate `Trigger`', () => {
+    const data = {
+      tableId: {
+        type: 'const',
+        value: 'tblwEp45tdvwTxiUl',
+      },
+    };
+
+    it('need to return true', async () => {
+      // TODO: to be realized
     });
   });
 
@@ -488,6 +506,72 @@ describe('Ajv Compile Test', () => {
 
       expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
+    });
+  });
+
+  describe('Validate `UpdateRecordSchema`', () => {
+    const data = {
+      tableId: {
+        type: 'const',
+        value: 'tblwEp45tdvwTxiUl',
+      },
+      recordId: {
+        type: 'template',
+        elements: [
+          {
+            type: 'const',
+            value: 'recELAd4ssqjk5CBg',
+          },
+        ],
+      },
+      fields: {
+        type: 'object',
+        properties: [
+          {
+            key: {
+              type: 'const',
+              value: 'fldELAd4ssqjk5CBg',
+            },
+            value: {
+              type: 'template',
+              elements: [
+                {
+                  type: 'const',
+                  value: 'fields.name',
+                },
+                {
+                  type: 'objectPathValue',
+                  object: {
+                    nodeId: 'wtrdS3OIXzjyRyvnP',
+                    nodeType: 'trigger',
+                  },
+                  path: {
+                    type: 'array',
+                    elements: [
+                      {
+                        type: 'const',
+                        value: 'fields',
+                      },
+                      {
+                        type: 'const',
+                        value: 'fldXPZs9lFMvAIo2E',
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+
+    it('need to return true', async () => {
+      const validate = ajv.getSchema<IUpdateRecordSchema>('UpdateRecordSchema')!;
+
+      expect(validate).toBeDefined();
+      expect(validate(data)).toBeTruthy();
+      expect(validate({ ...data, table: 'table' })).toBeFalsy();
     });
   });
 });

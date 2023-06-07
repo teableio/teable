@@ -5,24 +5,40 @@ import type {
   TopLevelCondition,
   RuleProperties,
 } from 'json-rules-engine';
-import type { IWebhookSchema, IMailSenderSchema, ICreateRecordSchema } from '../actions';
+import _ from 'lodash';
+import type {
+  IWebhookSchema,
+  IMailSenderSchema,
+  ICreateRecordSchema,
+  IUpdateRecordSchema,
+} from '../actions';
 import { JsonSchemaParser } from '../engine/json-schema/parser';
 import type { ActionTypeEnums } from '../enums/action-type.enum';
 
 export type IActionType = Exclude<ActionTypeEnums, ActionTypeEnums.Decision>;
+
 export enum ActionResponseStatus {
-  Unknown = -1,
-  Success = 200,
-  ServerError = 500,
+  OK = 200,
+  BadRequest = 400,
+  Unauthorized = 401,
+  TooManyRequests = 429,
+
+  InternalServerError = 500,
+  ServiceUnavailable = 503,
+  GatewayTimeout = 504,
 }
 
 export type IActionResponse<T> = {
-  msg: string;
+  error?: string;
   data: T;
-  code: ActionResponseStatus;
+  status: ActionResponseStatus;
 };
 
-export type IActionInputSchema = IWebhookSchema | IMailSenderSchema | ICreateRecordSchema;
+export type IActionInputSchema =
+  | IWebhookSchema
+  | IMailSenderSchema
+  | ICreateRecordSchema
+  | IUpdateRecordSchema;
 
 export type INullSchema = { type: string };
 export type IConstSchema = { type: string; value: number | string | boolean };
@@ -83,15 +99,19 @@ export abstract class ActionCore implements RuleProperties {
 
   abstract bindParams(id: string, inputSchema: IActionInputSchema, priority?: number): this;
 
-  protected async parseInputSchema<T>(schema: IActionInputSchema, almanac: Almanac): Promise<T> {
-    const jsonSchemaParser = new JsonSchemaParser(schema, {
-      pathResolver: async (_, path) => {
+  protected async parseInputSchema<TResult>(
+    schema: IActionInputSchema,
+    almanac: Almanac
+  ): Promise<TResult> {
+    const jsonSchemaParser = new JsonSchemaParser<IActionInputSchema, TResult>(schema, {
+      pathResolver: async (value, path) => {
         const [id, p] = path;
-        return await almanac.factValue(id, undefined, p);
+        const omitPath = `${_.startsWith(id, actionConst.OutPutFlag) ? 'data.' : ''}${p}`;
+        return await almanac.factValue(id, undefined, omitPath);
       },
     });
 
-    return (await jsonSchemaParser.parse()) as T;
+    return await jsonSchemaParser.parse();
   }
 
   protected setName(name: string): this {

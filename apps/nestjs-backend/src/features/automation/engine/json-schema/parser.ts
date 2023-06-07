@@ -6,12 +6,12 @@ function defaultPathResolver(value: object, path: string | string[]) {
   return _.get(value, path);
 }
 
-export class JsonSchemaParser {
-  private readonly inputSchema: { [key: string]: unknown };
+export class JsonSchemaParser<TSchema extends { [key: string]: unknown }, TResult> {
+  private readonly inputSchema: TSchema;
   private readonly pathResolver: IPathResolver;
 
   constructor(
-    inputSchema: { [key: string]: unknown },
+    inputSchema: TSchema,
     options: {
       pathResolver?: IPathResolver;
     } = {}
@@ -20,7 +20,7 @@ export class JsonSchemaParser {
     this.pathResolver = options.pathResolver || defaultPathResolver;
   }
 
-  async parse(): Promise<Record<string, unknown>> {
+  async parse(): Promise<TResult> {
     const result: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(this.inputSchema)) {
@@ -41,7 +41,7 @@ export class JsonSchemaParser {
       }
     }
 
-    return result;
+    return result as TResult;
   }
 }
 

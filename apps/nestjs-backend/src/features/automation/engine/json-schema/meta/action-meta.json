@@ -82,7 +82,10 @@
           "type": "object",
           "properties": {
             "type": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "array"
+              ]
             },
             "elements": {
               "type": "array",

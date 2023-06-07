@@ -21,14 +21,9 @@ import { initApp } from './init-app';
 
 describe('AutomationController (e2e)', () => {
   let app: INestApplication;
-  let tableId = '';
 
   beforeAll(async () => {
     app = await initApp();
-
-    if (tableId === '') {
-      tableId = await createTable();
-    }
   });
 
   const createTable = async (tableName = 'automation-table'): Promise<string> => {
@@ -69,12 +64,7 @@ describe('AutomationController (e2e)', () => {
     return triggerId;
   };
 
-  const updateWorkflowTrigger = async (
-    triggerId: string,
-    updateRo: UpdateWorkflowTriggerRo = {
-      inputExpressions: { tableId: tableId },
-    }
-  ) => {
+  const updateWorkflowTrigger = async (triggerId: string, updateRo: UpdateWorkflowTriggerRo) => {
     await request(app.getHttpServer())
       .put(`/api/workflowTrigger/${triggerId}/updateConfig`)
       .send(updateRo)
@@ -123,21 +113,30 @@ describe('AutomationController (e2e)', () => {
       .expect({ success: true });
   };
 
-  it('should create a full automation', async () => {
+  it('Simulate the creation of a `create table record` trigger without a logical group', async () => {
+    const tableId = await createTable();
+    const newTableId = await createTable('automation-table-1');
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
+    const fields: FieldVo[] = fieldsResult.body.data;
+    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
+
     // Step.1
     const workflowId = await createWorkflow();
 
     // Step.2
     const triggerId = await createWorkflowTrigger(workflowId).then(async (id) => {
-      await updateWorkflowTrigger(id);
+      await updateWorkflowTrigger(id, {
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: tableId,
+          },
+        },
+      });
       return id;
     });
 
     // Step.3
-    const newTableId = await createTable('automation-table-1');
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
-    const fields: FieldVo[] = fieldsResult.body.data;
-    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     const actionCreateRo1: CreateWorkflowActionRo = {
       workflowId: workflowId,
       actionType: ActionTypeEnums.CreateRecord,
@@ -314,22 +313,29 @@ describe('AutomationController (e2e)', () => {
     );
   });
 
-  it('create automated workflows with logical groups', async () => {
+  it('Simulate the creation of a `create table record` trigger with a logical group', async () => {
     const tableId = await createTable();
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    const fields: FieldVo[] = fieldsResult.body.data;
+    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     // Step.1
     const workflowId = await createWorkflow();
 
     // Step.2
     const triggerId = await createWorkflowTrigger(workflowId).then(async (id) => {
-      await updateWorkflowTrigger(id);
+      await updateWorkflowTrigger(id, {
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: tableId,
+          },
+        },
+      });
       return id;
     });
 
     // Step.3 (create logical groups)
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    const fields: FieldVo[] = fieldsResult.body.data;
-    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     const actionCreateRo1: CreateWorkflowActionRo = {
       workflowId: workflowId,
       actionType: ActionTypeEnums.Decision,
@@ -550,10 +556,6 @@ describe('AutomationController (e2e)', () => {
                   elements: [
                     {
                       type: 'const',
-                      value: 'data',
-                    },
-                    {
-                      type: 'const',
                       value: 'fields',
                     },
                     {
@@ -591,6 +593,233 @@ describe('AutomationController (e2e)', () => {
           [actionId2]: expect.objectContaining({
             id: actionId2,
             nextActionId: null,
+          }),
+        }),
+      })
+    );
+  });
+
+  it('Simulate the creation of `modify table record` triggers', async () => {
+    const tableId = await createTable('Automation-RecordUpdated');
+
+    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    const fields: FieldVo[] = fieldsResult.body.data;
+    const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
+    const firstNumField = fields.find((field) => field.type === FieldType.Number)!;
+
+    // Step.1
+    const workflowId = await createWorkflow();
+
+    // Step.2
+    const triggerId = await createWorkflowTrigger(workflowId, {
+      workflowId: workflowId,
+      triggerType: TriggerTypeEnums.RecordUpdated,
+    }).then(async (id) => {
+      await updateWorkflowTrigger(id, {
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: tableId,
+          },
+          // viewId: null, optional
+          watchFields: {
+            type: 'array',
+            elements: [
+              {
+                type: 'const',
+                value: firstTextField.id,
+              },
+            ],
+          },
+        },
+      });
+      return id;
+    });
+
+    // Step.3
+    const actionCreateRo1: CreateWorkflowActionRo = {
+      workflowId: workflowId,
+      actionType: ActionTypeEnums.UpdateRecord,
+    };
+    const actionId1 = await createWorkflowAction(workflowId, actionCreateRo1).then(async (id) => {
+      const actionUpdateRo1: UpdateWorkflowActionRo = {
+        description: 'actionId1 UpdateRecord description',
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: `${tableId}`,
+          },
+          recordId: {
+            type: 'template',
+            elements: [
+              {
+                type: 'objectPathValue',
+                object: {
+                  nodeId: triggerId,
+                  nodeType: 'trigger',
+                },
+                path: {
+                  type: 'array',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'record',
+                    },
+                    {
+                      type: 'const',
+                      value: 'id',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          fields: {
+            type: 'object',
+            properties: [
+              {
+                key: {
+                  type: 'const',
+                  value: firstNumField.id,
+                },
+                value: {
+                  type: 'template',
+                  elements: [
+                    {
+                      type: 'objectPathValue',
+                      object: {
+                        nodeId: triggerId,
+                        nodeType: 'trigger',
+                      },
+                      path: {
+                        type: 'array',
+                        elements: [
+                          {
+                            type: 'const',
+                            value: 'record',
+                          },
+                          {
+                            type: 'const',
+                            value: 'fields',
+                          },
+                          {
+                            type: 'const',
+                            value: `${firstTextField.id}`,
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      };
+      await updateWorkflowAction(id, actionUpdateRo1);
+
+      return id;
+    });
+
+    // Step.4
+    const actionCreateRo2: CreateWorkflowActionRo = {
+      workflowId: workflowId,
+      actionType: ActionTypeEnums.CreateRecord,
+      parentNodeId: actionId1,
+    };
+    const actionId2 = await createWorkflowAction(workflowId, actionCreateRo2).then(async (id) => {
+      const actionUpdateRo2: UpdateWorkflowActionRo = {
+        description: 'actionId2 CreateRecord description',
+        inputExpressions: {
+          tableId: {
+            type: 'const',
+            value: `${tableId}`,
+          },
+          fields: {
+            type: 'object',
+            properties: [
+              {
+                key: {
+                  type: 'const',
+                  value: firstTextField.id,
+                },
+                value: {
+                  type: 'template',
+                  elements: [
+                    {
+                      type: 'const',
+                      value: 'update data in the previous step [',
+                    },
+                    {
+                      type: 'objectPathValue',
+                      object: {
+                        nodeId: triggerId,
+                        nodeType: 'trigger',
+                      },
+                      path: {
+                        type: 'array',
+                        elements: [
+                          {
+                            type: 'const',
+                            value: 'record',
+                          },
+                          {
+                            type: 'const',
+                            value: 'fields',
+                          },
+                          {
+                            type: 'const',
+                            value: `${firstTextField.id}`,
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      type: 'const',
+                      value: '] -  ',
+                    },
+                    {
+                      type: 'objectPathValue',
+                      object: {
+                        nodeId: `runEnv`,
+                        nodeType: '__system__',
+                      },
+                      path: {
+                        type: 'array',
+                        elements: [
+                          {
+                            type: 'const',
+                            value: 'executionTime',
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      };
+      await updateWorkflowAction(id, actionUpdateRo2);
+
+      return id;
+    });
+
+    // Verify
+    const result = await request(app.getHttpServer())
+      .get(`/api/workflow/${workflowId}`)
+      .expect(200);
+
+    expect(result.body.data).toStrictEqual(
+      expect.objectContaining({
+        id: workflowId,
+        deploymentStatus: 'undeployed',
+        trigger: expect.objectContaining({ id: triggerId, inputExpressions: expect.any(Object) }),
+        actions: expect.objectContaining({
+          [actionId1]: expect.objectContaining({
+            id: actionId1,
+            inputExpressions: expect.any(Object),
           }),
         }),
       })

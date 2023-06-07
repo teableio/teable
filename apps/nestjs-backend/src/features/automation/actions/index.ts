@@ -2,4 +2,5 @@ export * from './action.module';
 export * from './webhook';
 export * from './mail-sender';
 export * from './records/create-record';
+export * from './records/update-record';
 export * from './decision';

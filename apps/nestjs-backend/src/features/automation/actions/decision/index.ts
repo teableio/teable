@@ -4,6 +4,10 @@ export interface IDecisionSchema extends Record<string, unknown> {
   groups: IObjectArraySchema;
 }
 
+export interface IDecisionGroups {
+  groups: IDecision[];
+}
+
 export interface IDecision {
   hasCondition: boolean;
   entryNodeId?: string | null;
@@ -30,7 +34,7 @@ type IConditionOperator =
   | 'isNoneOf';
 
 export interface IDecisionCondition {
-  left: string;
+  left: unknown;
   right: unknown;
   operator: IConditionOperator;
   dataType: string;

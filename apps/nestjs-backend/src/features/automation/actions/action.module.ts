@@ -3,11 +3,12 @@ import { MailSenderModule } from '../../mail-sender/mail-sender.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { MailSender } from './mail-sender';
 import { CreateRecord } from './records/create-record';
+import { UpdateRecord } from './records/update-record';
 import { Webhook } from './webhook';
 
 @Module({
   imports: [MailSenderModule, RecordOpenApiModule],
-  providers: [Webhook, MailSender, CreateRecord],
-  exports: [Webhook, MailSender, CreateRecord],
+  providers: [Webhook, MailSender, CreateRecord, UpdateRecord],
+  exports: [Webhook, MailSender, CreateRecord, UpdateRecord],
 })
 export class ActionModule {}

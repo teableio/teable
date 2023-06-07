@@ -53,11 +53,15 @@ export class MailSender extends ActionCore {
     await this.mailSenderService
       .sendMail(mailOptions)
       .then((senderResult) => {
-        outPut = { msg: 'ok', data: senderResult, code: ActionResponseStatus.Success };
+        outPut = { data: senderResult, status: ActionResponseStatus.OK };
       })
       .catch((error) => {
-        this.logger.error(error);
-        outPut = { msg: 'error', data: undefined, code: ActionResponseStatus.ServerError };
+        this.logger.error(error.message, error?.stack);
+        outPut = {
+          error: error.message,
+          data: undefined,
+          status: ActionResponseStatus.InternalServerError,
+        };
       })
       .finally(() => {
         almanac.addRuntimeFact(`${actionConst.OutPutFlag}${this.name}`, outPut);

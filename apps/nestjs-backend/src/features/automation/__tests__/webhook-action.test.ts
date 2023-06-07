@@ -85,7 +85,7 @@ describe('Webhook Action Test', () => {
   it('should call onSuccess and send request', async () => {
     expect(ajv.validate('WebhookSchema', webhookData.inputSchema)).toBeTruthy();
 
-    jsonRulesEngine.addRule(ActionTypeEnums.Webhook, webhookData);
+    jsonRulesEngine.addRule(webhookData.id, ActionTypeEnums.Webhook, webhookData);
 
     const { results, almanac } = await jsonRulesEngine.fire();
     expect(results).toBeDefined();
