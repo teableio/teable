@@ -21,6 +21,7 @@ export interface IFieldVo extends IFieldRo {
   cellValueType: CellValueType;
   cellValueElementType?: CellValueType;
   dbFieldType: DbFieldType;
+  dbFieldName: string;
   columnMeta: IColumnMeta;
 }
 
@@ -45,6 +46,8 @@ export abstract class FieldCore implements IFieldVo {
   isPrimary?: boolean;
 
   columnMeta!: IColumnMeta;
+
+  dbFieldName!: string;
 
   abstract type: FieldType;
 

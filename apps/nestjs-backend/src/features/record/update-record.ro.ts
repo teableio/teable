@@ -10,7 +10,7 @@ export class UpdateRecordRo implements IUpdateRecordRo {
     default: 'name',
     enum: FieldKeyType,
   })
-  fieldKeyType?: FieldKeyType;
+  fieldKeyType?: FieldKeyType = FieldKeyType.Name;
 
   @ApiProperty({
     description: `

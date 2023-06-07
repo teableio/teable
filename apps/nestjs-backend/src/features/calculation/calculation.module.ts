@@ -4,6 +4,6 @@ import { ReferenceService } from './reference.service';
 
 @Module({
   providers: [ReferenceService, LinkService],
-  exports: [ReferenceService],
+  exports: [ReferenceService, LinkService],
 })
 export class CalculationModule {}

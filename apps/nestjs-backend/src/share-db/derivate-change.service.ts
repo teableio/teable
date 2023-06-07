@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
-import { OpBuilder } from '@teable-group/core';
+import { generateTransactionKey, OpBuilder } from '@teable-group/core';
 import { groupBy } from 'lodash';
 import type { ICellContext } from '../features/calculation/link.service';
 import { LinkService } from '../features/calculation/link.service';
@@ -65,9 +65,8 @@ export class DerivateChangeService {
         return;
       }
 
-      console.log('transaction.opsMaps', transaction.opsMaps);
       const otherSnapshotOps = this.composeOpsMaps(transaction.opsMaps);
-      tsMeta = this.refreshTransactionCache(tsMeta, otherSnapshotOps);
+      tsMeta = this.refreshTransactionCache(otherSnapshotOps);
       return {
         otherSnapshotOps,
         transactionMeta: tsMeta,
@@ -155,7 +154,7 @@ export class DerivateChangeService {
   }
 
   refreshTransactionCache(
-    tsMeta: ITransactionMeta,
+    // tsMeta: ITransactionMeta,
     otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
     const opsCount = Object.values(otherSnapshotOps).reduce((pre, cur) => {
@@ -164,17 +163,18 @@ export class DerivateChangeService {
     }, 0);
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const existingOpCount = this.transactionService.getCache(tsMeta.transactionKey)!.opCount;
+    // const existingOpCount = this.transactionService.getCache(tsMeta.transactionKey)!.opCount;
 
     const transactionMeta: ITransactionMeta = {
-      transactionKey: tsMeta.transactionKey,
+      transactionKey: generateTransactionKey(),
       // increase opCount by changes
-      opCount: opsCount + existingOpCount,
+      opCount: opsCount,
       // avoid recalculate
       skipCalculate: true,
     };
 
-    this.transactionService.updateTransaction(transactionMeta);
+    console.log('updateTransaction', transactionMeta);
+    // this.transactionService.updateTransaction(transactionMeta);
     return transactionMeta;
   }
 
@@ -198,14 +198,15 @@ export class DerivateChangeService {
     );
 
     const derivateChangesMap = groupBy(derivateChangesByLink, 'tableId');
-    const recordDataByLink = derivateChangesMap[tableId]?.map(
-      ({ recordId, fieldId, newValue, oldValue }) => ({
-        id: recordId,
-        fieldId,
-        newValue,
-        oldValue,
-      })
-    );
+    const recordDataByLink = derivateChangesMap[tableId]
+      ? derivateChangesMap[tableId].map(({ recordId, fieldId, newValue, oldValue }) => ({
+          id: recordId,
+          fieldId,
+          newValue,
+          oldValue,
+        }))
+      : [];
+
     delete derivateChangesMap[tableId];
 
     // recordData should concat link change in current table
@@ -234,7 +235,7 @@ export class DerivateChangeService {
       return;
     }
 
-    console.log('derivateChanges:', derivateChanges);
+    console.log('derivateChanges:', JSON.stringify(derivateChanges, null, 2));
 
     return this.formatOpsByChanges(tableId, recordId, derivateChanges);
   }

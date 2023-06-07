@@ -44,6 +44,11 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
   dbFieldType!: DbFieldType;
 
   @ApiProperty({
+    description: `The real field name in database.`,
+  })
+  dbFieldName!: string;
+
+  @ApiProperty({
     description: `The field meta include width, statistics, hidden, order property for every view.`,
     example: false,
   })

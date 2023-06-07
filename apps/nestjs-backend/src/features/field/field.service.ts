@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  CellValueType,
-  FieldType,
   IAddColumnMetaOpContext,
   IColumnMeta,
   IFieldSnapshot,
@@ -9,15 +7,13 @@ import type {
   ISetColumnMetaOpContext,
   ISetFieldNameOpContext,
   ISnapshotBase,
-  DbFieldType,
 } from '@teable-group/core';
-import { OpName, nullsToUndefined } from '@teable-group/core';
+import { OpName } from '@teable-group/core';
 import type { ISetFieldDefaultValueOpContext } from '@teable-group/core/src/op-builder/field/set-field-default-value';
 import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
 import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
 import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
-import { instanceToPlain, plainToInstance } from 'class-transformer';
 import knex from 'knex';
 import { sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
@@ -27,8 +23,12 @@ import { AttachmentsTableService } from '../attachments/attachments-table.servic
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
-import { FieldVo } from './model/field.vo';
+import {
+  createFieldInstanceByVo,
+  rawField2FieldObj,
+  createFieldInstanceByRo,
+} from './model/factory';
+import type { FieldVo } from './model/field.vo';
 import type { GetFieldsRo } from './model/get-fields.ro';
 import { dbType2knexFormat } from './util';
 
@@ -238,26 +238,12 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  private rawField2FieldObj(field: RawField): FieldVo {
-    return nullsToUndefined({
-      ...field,
-      type: field.type as FieldType,
-      calculatedType: field.calculatedType as FieldType,
-      cellValueType: field.cellValueType as CellValueType,
-      cellValueElementType: field.cellValueElementType as CellValueType,
-      dbFieldType: field.dbFieldType as DbFieldType,
-      options: JSON.parse(field.options as string),
-      defaultValue: JSON.parse(field.defaultValue as string),
-      columnMeta: JSON.parse(field.columnMeta),
-    });
-  }
-
   async getField(tableId: string, fieldId: string): Promise<FieldVo> {
     const field = await this.prismaService.field.findUniqueOrThrow({
       where: { id: fieldId },
     });
 
-    return this.rawField2FieldObj(field);
+    return rawField2FieldObj(field);
   }
 
   async getFields(tableId: string, query: GetFieldsRo): Promise<FieldVo[]> {
@@ -274,13 +260,16 @@ export class FieldService implements IAdapterService {
       where: { tableId, deletedTime: null },
     });
 
-    const fields = fieldsPlain.map(this.rawField2FieldObj);
+    const fields = fieldsPlain.map(rawField2FieldObj);
 
-    const sortedFields = sortBy(fields, (field) => {
+    return sortBy(fields, (field) => {
       return field.columnMeta[viewId as string].order;
-    });
+    }).filter((field) => !field.columnMeta[viewId as string].hidden);
+  }
 
-    return plainToInstance(FieldVo, sortedFields);
+  async getFieldInstances(tableId: string, query: GetFieldsRo): Promise<IFieldInstance[]> {
+    const fields = await this.getFields(tableId, query);
+    return fields.map((field) => createFieldInstanceByVo(field));
   }
 
   async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
@@ -420,19 +409,19 @@ export class FieldService implements IAdapterService {
     tableId: string,
     ids: string[]
   ): Promise<ISnapshotBase<IFieldSnapshot>[]> {
-    const fields = await prisma.field.findMany({
+    const fieldRaws = await prisma.field.findMany({
       where: { tableId, id: { in: ids } },
     });
-    const fieldInstances = fields.map((field) => createFieldInstanceByRaw(field));
+    const fields = fieldRaws.map((field) => rawField2FieldObj(field));
 
-    return fields
-      .map((field, i) => {
+    return fieldRaws
+      .map((fieldRaw, i) => {
         return {
-          id: field.id,
-          v: field.version,
+          id: fieldRaw.id,
+          v: fieldRaw.version,
           type: 'json0',
           data: {
-            field: instanceToPlain(fieldInstances[i], { excludePrefixes: ['_'] }) as FieldVo,
+            field: fields[i],
           },
         };
       })

@@ -163,9 +163,10 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
   return instance;
 }
 
-export function createFieldInstanceByRaw(fieldRaw: Field) {
-  const field: FieldVo = {
+export function rawField2FieldObj(fieldRaw: Field): FieldVo {
+  return {
     id: fieldRaw.id,
+    dbFieldName: fieldRaw.dbFieldName,
     name: fieldRaw.name,
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
@@ -181,8 +182,10 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
     columnMeta: fieldRaw.columnMeta && JSON.parse(fieldRaw.columnMeta as string),
   };
+}
 
-  return createFieldInstanceByVo(field);
+export function createFieldInstanceByRaw(fieldRaw: Field) {
+  return createFieldInstanceByVo(rawField2FieldObj(fieldRaw));
 }
 
 export function createFieldInstanceByVo(field: FieldVo) {

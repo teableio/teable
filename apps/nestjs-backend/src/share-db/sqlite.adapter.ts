@@ -196,8 +196,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * snapshot: PostgresSnapshot
      */
 
-    // console.log('commit', collection, id, options);
-
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, collectionId] = collection.split('_');
     const prisma = await this.transactionService.getTransaction(options);

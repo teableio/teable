@@ -41,11 +41,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await request(app.getHttpServer())
-      .post(`/api/table/${tableId}/view`)
-      .send(viewRo)
-      .expect(201)
-      .expect({ success: true });
+    await request(app.getHttpServer()).post(`/api/table/${tableId}/view`).send(viewRo).expect(201);
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/view`)
