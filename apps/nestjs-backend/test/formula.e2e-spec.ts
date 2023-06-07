@@ -76,9 +76,9 @@ describe('OpenAPI formula (e2e)', () => {
       .expect(201);
 
     const record = recordResult.body.data.records[0];
-    expect(record.fields[numberFieldRo.id]).toEqual(1);
-    expect(record.fields[textFieldRo.id]).toEqual('x');
-    expect(record.fields[formulaFieldRo.id]).toEqual('1x');
+    expect(record.fields[numberFieldRo.name]).toEqual(1);
+    expect(record.fields[textFieldRo.name]).toEqual('x');
+    expect(record.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
   it('should response calculate record after update multi record field', async () => {
@@ -102,9 +102,9 @@ describe('OpenAPI formula (e2e)', () => {
 
     const record = updateResult.body.data.record;
 
-    expect(record.fields[numberFieldRo.id]).toEqual(1);
-    expect(record.fields[textFieldRo.id]).toEqual('x');
-    expect(record.fields[formulaFieldRo.id]).toEqual('1x');
+    expect(record.fields[numberFieldRo.name]).toEqual(1);
+    expect(record.fields[textFieldRo.name]).toEqual('x');
+    expect(record.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
   it('should response calculate record after update single record field', async () => {
@@ -127,9 +127,9 @@ describe('OpenAPI formula (e2e)', () => {
 
     const record1 = updateResult1.body.data.record;
 
-    expect(record1.fields[numberFieldRo.id]).toEqual(1);
-    expect(record1.fields[textFieldRo.id]).toBeNull();
-    expect(record1.fields[formulaFieldRo.id]).toEqual('1');
+    expect(record1.fields[numberFieldRo.name]).toEqual(1);
+    expect(record1.fields[textFieldRo.name]).toBeUndefined();
+    expect(record1.fields[formulaFieldRo.name]).toEqual('1');
 
     const updateResult2 = await request(app.getHttpServer())
       .put(`/api/table/${table1Id}/record/${existRecord.id}`)
@@ -144,8 +144,8 @@ describe('OpenAPI formula (e2e)', () => {
 
     const record2 = updateResult2.body.data.record;
 
-    expect(record2.fields[numberFieldRo.id]).toEqual(1);
-    expect(record2.fields[textFieldRo.id]).toEqual('x');
-    expect(record2.fields[formulaFieldRo.id]).toEqual('1x');
+    expect(record2.fields[numberFieldRo.name]).toEqual(1);
+    expect(record2.fields[textFieldRo.name]).toEqual('x');
+    expect(record2.fields[formulaFieldRo.name]).toEqual('1x');
   });
 });

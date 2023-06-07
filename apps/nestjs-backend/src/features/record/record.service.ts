@@ -19,6 +19,7 @@ import type { IAdapterService } from '../../share-db/interface';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
 import type { RecordsVo, RecordVo } from './open-api/record.vo';
@@ -234,50 +235,41 @@ export class RecordService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     version: number,
     tableId: string,
-    recordId: string,
     dbTableName: string,
+    recordId: string,
     contexts: { fieldId: string; newValue: unknown }[]
   ) {
-    const fieldIdsSet = contexts.reduce((acc, cur) => {
-      return acc.add(cur.fieldId);
-    }, new Set<string>());
+    const fieldIds = Array.from(
+      contexts.reduce((acc, cur) => {
+        return acc.add(cur.fieldId);
+      }, new Set<string>())
+    );
 
-    const fields = await prisma.field.findMany({
-      where: { id: { in: Array.from(fieldIdsSet) } },
-      select: { id: true, dbFieldName: true, type: true },
+    const fieldRaws = await prisma.field.findMany({
+      where: { tableId, id: { in: fieldIds } },
     });
-    const fieldMap = keyBy(fields, 'id');
+    const fieldInstances = fieldRaws.map((field) => createFieldInstanceByRaw(field));
+    const fieldInstanceMap = keyBy(fieldInstances, 'id');
 
-    const fieldsByDbFieldName = this.getFieldsByDbFieldName(fieldMap, contexts);
-
-    const createAttachmentsTable = this.getCreateAttachments(fieldMap, contexts);
+    const createAttachmentsTable = this.getCreateAttachments(fieldInstanceMap, contexts);
 
     await this.attachmentService.updateByRecord(prisma, tableId, recordId, createAttachmentsTable);
 
+    const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
+      (pre, ctx) => {
+        const fieldInstance = fieldInstanceMap[ctx.fieldId];
+        pre[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(ctx.newValue);
+        return pre;
+      },
+      {}
+    );
+
     const sqlNative = this.knex(dbTableName)
-      .update({ ...fieldsByDbFieldName, __version: version })
+      .update({ ...recordFieldsByDbFieldName, __version: version })
       .where({ __id: recordId })
       .toSQL()
       .toNative();
     return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
-  }
-
-  getFieldsByDbFieldName(
-    fieldMap: { [key: string]: { id: string; dbFieldName: string; type: string } },
-    contexts: { fieldId: string; newValue: unknown }[]
-  ): { [dbFieldName: string]: unknown } {
-    return contexts.reduce<{ [dbFieldName: string]: unknown }>((pre, ctx) => {
-      const { dbFieldName, type } = fieldMap[ctx.fieldId];
-
-      if (type === FieldType.Attachment) {
-        pre[dbFieldName] = JSON.stringify(ctx.newValue);
-        return pre;
-      }
-
-      pre[dbFieldName] = ctx.newValue;
-
-      return pre;
-    }, {});
   }
 
   getCreateAttachments(
@@ -353,7 +345,7 @@ export class RecordService implements IAdapterService {
   async getRecord(
     tableId: string,
     recordId: string,
-    fieldKey = FieldKeyType.Id
+    fieldKey = FieldKeyType.Name
   ): Promise<RecordVo> {
     const recordSnapshot = await this.getSnapshotBulk(
       this.prismaService,
@@ -463,8 +455,8 @@ export class RecordService implements IAdapterService {
         prisma,
         version,
         tableId,
-        recordId,
         dbTableName,
+        recordId,
         opContexts as ISetRecordOpContext[]
       );
       return;
@@ -478,19 +470,46 @@ export class RecordService implements IAdapterService {
     }
   }
 
+  private async getFieldsByProjection(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    projection?: { [fieldKey: string]: boolean },
+    fieldKeyType: FieldKeyType = FieldKeyType.Id
+  ) {
+    const whereParams: { name?: { in: string[] }; id?: { in: string[] } } = {};
+    if (projection) {
+      const projectionFieldKeys = Object.entries(projection)
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+      if (projectionFieldKeys.length) {
+        fieldKeyType === FieldKeyType.Id
+          ? (whereParams.id = { in: projectionFieldKeys })
+          : (whereParams.name = { in: projectionFieldKeys });
+      }
+    }
+
+    const fieldIds = (
+      await prisma.field.findMany({
+        where: { tableId, deletedTime: null, ...whereParams },
+        select: { id: true },
+      })
+    ).map((f) => f.id);
+
+    const fieldRaws = await prisma.field.findMany({
+      where: { id: { in: fieldIds }, deletedTime: null },
+    });
+
+    return fieldRaws.map((field) => createFieldInstanceByRaw(field));
+  }
+
   async getSnapshotBulk(
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
     projection?: { [fieldKey: string]: boolean },
-    fieldKeyType?: FieldKeyType
+    fieldKeyType: FieldKeyType = FieldKeyType.Id // for convince of collaboration, getSnapshotBulk use id as field key by default.
   ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
     const dbTableName = await this.getDbTableName(prisma, tableId);
-
-    const allFields = await prisma.field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, name: true, type: true, dbFieldName: true },
-    });
 
     const allViews = await prisma.view.findMany({
       where: { tableId, deletedTime: null },
@@ -498,7 +517,8 @@ export class RecordService implements IAdapterService {
     });
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
-    const fields = projection ? allFields.filter((field) => projection[field.id]) : allFields;
+    const fields = await this.getFieldsByProjection(prisma, tableId, projection, fieldKeyType);
+    const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
     const fieldNames = fields
       .map((f) => f.dbFieldName)
       .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
@@ -520,12 +540,12 @@ export class RecordService implements IAdapterService {
       .map((record) => {
         const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
           const fieldKey = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
-          const cellValue = record[field.dbFieldName];
-          if (field.type === FieldType.Attachment) {
-            acc[fieldKey] = JSON.parse(cellValue as string);
-            return acc;
+          const dbCellValue = record[field.dbFieldName];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cellValue = fieldMap[fieldKey].convertDBValue2CellValue(dbCellValue as any);
+          if (cellValue != null) {
+            acc[fieldKey] = cellValue;
           }
-          acc[fieldKey] = cellValue;
           return acc;
         }, {});
 

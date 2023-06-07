@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { LinkFieldCore, Relationship } from '@teable-group/core';
 import type { LinkFieldOptions } from '@teable-group/core';
+import type { IFieldBase } from '../field-base';
 
 export class LinkOptionsDto implements LinkFieldOptions {
   @ApiProperty({
@@ -31,4 +32,12 @@ export class LinkOptionsDto implements LinkFieldOptions {
   symmetricFieldId!: string;
 }
 
-export class LinkFieldDto extends LinkFieldCore {}
+export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
+  convertCellValue2DBValue(value: unknown): unknown {
+    return value == null ? value : JSON.stringify(value);
+  }
+
+  convertDBValue2CellValue(value: string): unknown {
+    return value == null ? value : JSON.parse(value);
+  }
+}

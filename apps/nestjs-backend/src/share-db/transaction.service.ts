@@ -78,14 +78,21 @@ export class TransactionService {
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
     err && console.error(err);
+    // console.log('taskComplete:input', tsMeta);
     const cache = this.cache.get(tsMeta.transactionKey);
+    // console.log('taskComplete:cache', {
+    //   transactionKey: tsMeta.transactionKey,
+    //   opCount: cache?.opCount,
+    // });
     if (!cache) {
       throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
     }
     const { opCount, transactionPromise, tasksPromiseCb } = cache;
 
     if (err) {
+      this.cache.delete(tsMeta.transactionKey);
       tasksPromiseCb.reject(err);
+      return false;
     }
 
     const currentCount = cache.currentCount + 1;

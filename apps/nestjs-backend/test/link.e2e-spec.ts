@@ -11,7 +11,9 @@ describe('OpenAPI link (e2e)', () => {
   let table1Id = '';
   let table2Id = '';
   jest.useRealTimers();
-
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
   beforeAll(async () => {
     app = await initApp();
   });
@@ -173,7 +175,7 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   describe('link field cell update', () => {
-    it.only('should update foreign link field when set a new link in to link field cell', async () => {
+    it('should update foreign link field when set a new link in to link field cell', async () => {
       const numberFieldRo: CreateFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
@@ -216,31 +218,40 @@ describe('OpenAPI link (e2e)', () => {
         .expect(201);
       const linkToRecordId = table1Records[0].id;
       table2Id = createTable2Result.body.data.id;
-      const linkField = createTable2Result.body.data.fields[2];
-      const table2Records = createTable2Result.body.data.data.records;
 
+      const getFields1Result = await request(app.getHttpServer())
+        .get(`/api/table/${table1Id}/field`)
+        .expect(200);
+
+      const linkField = getFields1Result.body.data[2];
+      const table2Records = createTable2Result.body.data.data.records;
       const table2RecordResult = await request(app.getHttpServer())
         .put(`/api/table/${table2Id}/record/${table2Records[0].id}`)
         .send({
           record: {
             fields: {
-              [linkField.name]: { title: 'test', id: linkToRecordId },
+              [linkFieldRo.name]: { title: 'test', id: linkToRecordId },
             },
           },
         } as UpdateRecordRo)
         .expect(200);
 
-      console.log('table2RecordResult:', table2RecordResult);
-
+      // FIXME: wait transaction complete
+      await sleep(100);
+      console.log('linkToRecordId:', linkToRecordId);
+      console.log('table2RecordResult:', table2RecordResult.body.data.record.fields);
+      console.log(`/api/table/${table1Id}/record/${linkToRecordId}`);
       const table1RecordResult = await request(app.getHttpServer())
-        .get(`/api/table/${table2Id}/record/${linkToRecordId}`)
+        .get(`/api/table/${table1Id}/record/${linkToRecordId}`)
         .expect(200);
 
-      console.log('table1RecordResult:', table1RecordResult);
-
-      expect(table1RecordResult.body.data.record.fields[linkField.name]).toEqual({
-        id: table2Records[0].id,
-      });
+      console.log('table1RecordResult:', table1RecordResult.body.data);
+      console.log('linkField.name:', linkField.name);
+      expect(table1RecordResult.body.data.record.fields[linkField.name]).toEqual([
+        {
+          id: table2Records[0].id,
+        },
+      ]);
     });
   });
 });

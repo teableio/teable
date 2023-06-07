@@ -268,7 +268,7 @@ export class LinkService {
       });
 
       const nativeSql = this.knex(tableId2DbTableName[tableId])
-        .select(dbFieldNames, '__id')
+        .select(dbFieldNames.concat('__id'))
         .whereIn('__id', recordIds)
         .toSQL()
         .toNative();
@@ -287,7 +287,6 @@ export class LinkService {
         acc[recordId] = {};
         for (const dbFieldName in cur) {
           const fieldId = dbFieldName2FieldId[dbFieldName];
-
           acc[recordId][fieldId] = cur[dbFieldName];
         }
         return acc;

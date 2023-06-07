@@ -46,6 +46,7 @@ export class ShareDbService extends ShareDBClass {
     }
     // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
     const opsToOthers = this.derivateChangeService.getOpsToOthers(tsMeta);
+
     next();
 
     // only last onApply triggered within a transaction will return otherSnapshotOps
@@ -83,7 +84,7 @@ export class ShareDbService extends ShareDBClass {
       opContexts,
     });
 
-    if (!fixupOps) {
+    if (!fixupOps || !fixupOps.length) {
       return;
     }
 
@@ -96,7 +97,7 @@ export class ShareDbService extends ShareDBClass {
     transactionMeta: ITransactionMeta,
     otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', otherSnapshotOps);
+    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;

@@ -709,7 +709,7 @@ export class ReferenceService {
     WITH affected_records AS (${cteQuery})
     SELECT * FROM affected_records`;
 
-    console.log('getAffectedRecordItems:', finalQuery);
+    // console.log('getAffectedRecordItems:', finalQuery);
 
     const results = await prisma.$queryRawUnsafe<
       {
