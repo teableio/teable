@@ -2,7 +2,7 @@ import type { CustomCell } from '@glideapps/glide-data-grid';
 import type { FieldType, IAttachmentCellValue, SelectFieldOptions } from '@teable-group/core';
 
 export interface ISelectGridCell {
-  type: FieldType.SingleSelect;
+  type: FieldType.SingleSelect | FieldType.MultipleSelect;
   value: string[];
   options: SelectFieldOptions;
 }

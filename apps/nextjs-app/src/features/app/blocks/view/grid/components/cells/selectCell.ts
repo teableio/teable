@@ -1,13 +1,14 @@
-import type { Rectangle } from '@glideapps/glide-data-grid';
+import type { Rectangle, Theme } from '@glideapps/glide-data-grid';
 import { getMiddleCenterBias, measureTextCached } from '@glideapps/glide-data-grid';
 import type { DrawArgs } from '@glideapps/glide-data-grid/dist/ts/data-grid/cells/cell-types';
+import { ColorUtils } from '@teable-group/core';
 import { INNER_PAD, TAG_HEIGHT } from './constant';
 import { roundedRect } from './draw-fns';
 import type { ICustomCellGridCell, ISelectGridCell } from './type';
 
 export const selectCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICustomCellGridCell) => {
   const { ctx, theme, rect } = args;
-  const { value } = cell.data as ISelectGridCell;
+  const { value, options } = cell.data as ISelectGridCell;
 
   const drawArea: Rectangle = {
     x: rect.x + theme.cellHorizontalPadding,
@@ -31,15 +32,21 @@ export const selectCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICustomCel
       y += TAG_HEIGHT + INNER_PAD;
       x = drawArea.x;
     }
-
+    const color = options.choices.find((choice) => choice.name === item)?.color;
+    const themeOverride: Partial<Theme> = color
+      ? {
+          bgBubble: ColorUtils.getHexForColor(color),
+          textDark: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+        }
+      : {};
     // background color
-    ctx.fillStyle = theme.bgBubble;
+    ctx.fillStyle = themeOverride.bgBubble || theme.bgBubble;
     ctx.beginPath();
     roundedRect(ctx, x, y, width, TAG_HEIGHT, TAG_HEIGHT / 2);
     ctx.fill();
 
     // font text
-    ctx.fillStyle = theme.textDark;
+    ctx.fillStyle = themeOverride.textDark || theme.textDark;
     ctx.fillText(
       item,
       x + INNER_PAD,
