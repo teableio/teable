@@ -1,6 +1,6 @@
 import type { GridCell, GridColumn, Theme } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
-import { Colors, ColorUtils, FieldType } from '@teable-group/core';
+import { ColorUtils, FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
@@ -151,20 +151,16 @@ const createCellValue2GridDisplay =
         };
       }
       case FieldType.Link: {
-        const themeOverride: Partial<Theme> | undefined = {
-          bgBubble: ColorUtils.getHexForColor(Colors.Gray),
-          textDark: ColorUtils.shouldUseLightTextOnColor(Colors.Gray) ? '#ffffff' : '#000000',
-        };
+        const cellString: string[] = Array.isArray(cellValue)
+          ? cellValue.map((l) => l.title || 'Untitled')
+          : cellValue
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            [(cellValue as any).title || 'Untitled']
+          : [];
         return {
-          kind: GridCellKind.Custom,
-          data: {
-            type: FieldType.Link,
-            options: field.options,
-            value: cellValue ? cellValue : [],
-          },
-          copyData: `${col}`,
+          kind: GridCellKind.Bubble,
+          data: cellString,
           allowOverlay: true,
-          themeOverride,
         };
       }
       case FieldType.Formula: {
