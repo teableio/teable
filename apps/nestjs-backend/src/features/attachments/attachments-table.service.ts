@@ -1,10 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import type { IAttachment } from '@teable-group/core';
-import type { Attachments, Prisma } from '@teable-group/db-main-prisma';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { difference } from 'lodash';
 
 @Injectable()
 export class AttachmentsTableService {
+  private createUniqueKey(
+    tableId: string,
+    fieldId: string,
+    recordId: string,
+    attachmentId: string
+  ) {
+    return `${tableId}-${fieldId}-${recordId}-${attachmentId}`;
+  }
+
   async updateByRecord(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -30,7 +38,12 @@ export class AttachmentsTableService {
       },
     });
     const attachmentsMap = _attachments.reduce((map, attachment) => {
-      const key = `${tableId}-${attachment.fieldId}-${recordId}-${attachment.attachmentId}`;
+      const key = this.createUniqueKey(
+        tableId,
+        recordId,
+        attachment.fieldId,
+        attachment.attachmentId
+      );
       map[key] = {
         ...attachment,
         tableId,
@@ -45,7 +58,7 @@ export class AttachmentsTableService {
     const existsMap = exists.reduce(
       (map, attachment) => {
         const { tableId, recordId, fieldId, attachmentId } = attachment;
-        const key = `${tableId}-${fieldId}-${recordId}-${attachmentId}`;
+        const key = this.createUniqueKey(tableId, recordId, fieldId, attachmentId);
         map[key] = { tableId, recordId, fieldId, attachmentId };
         return map;
       },
@@ -74,68 +87,6 @@ export class AttachmentsTableService {
       prisma,
       needDeleteKey.map((key) => existsMap[key])
     );
-  }
-
-  async getAttachmentTableCellValueByRecordIds(
-    prisma: Prisma.TransactionClient,
-    query: {
-      tableId: string;
-      recordIds: string[];
-    }
-  ): Promise<(IAttachment & { recordId: string; fieldId: string })[]> {
-    const { tableId, recordIds } = query;
-    const attachmentsTable = await prisma.attachmentsTable.findMany({
-      where: {
-        tableId,
-        recordId: { in: recordIds },
-        deletedTime: null,
-      },
-      select: {
-        attachmentId: true,
-        name: true,
-        token: true,
-        recordId: true,
-        fieldId: true,
-      },
-    });
-
-    const tokens = new Set(attachmentsTable.map((v) => v.token));
-
-    const attachments = await prisma.attachments.findMany({
-      where: {
-        token: { in: [...tokens] },
-        deletedTime: null,
-      },
-      select: {
-        size: true,
-        path: true,
-        mimetype: true,
-        token: true,
-      },
-    });
-    const attachmentsMap = attachments.reduce<{
-      [token: string]: Pick<Attachments, 'size' | 'path' | 'mimetype' | 'token'>;
-    }>((map, attachment) => {
-      map[attachment.token] = attachment;
-      return map;
-    }, {});
-
-    if (!attachmentsTable.length || !attachments.length) {
-      return [];
-    }
-    return attachmentsTable.map(({ attachmentId, name, token, recordId, fieldId }) => {
-      const { size, path, mimetype } = attachmentsMap[token];
-      return {
-        id: attachmentId,
-        token,
-        name,
-        size,
-        path,
-        mimetype,
-        recordId,
-        fieldId,
-      };
-    });
   }
 
   async delete(

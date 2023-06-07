@@ -576,21 +576,6 @@ export class RecordService implements IAdapterService {
       });
   }
 
-  async getAttachmentMaps(prisma: Prisma.TransactionClient, tableId: string, recordIds: string[]) {
-    const attachments = await this.attachmentService.getAttachmentTableCellValueByRecordIds(
-      prisma,
-      { tableId, recordIds }
-    );
-
-    return attachments.reduce<{ [key: string]: IAttachment }>(
-      (acc, { id, fieldId, recordId, ...reset }) => {
-        acc[`${id}-${recordId}-${fieldId}`] = { id, ...reset };
-        return acc;
-      },
-      {}
-    );
-  }
-
   transformAttachmentCellValue(
     cellValue: string[] | null,
     attachmentsMap: { [key: string]: IAttachment }
