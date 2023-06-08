@@ -9,7 +9,7 @@ export enum FieldOperator {
 export interface IFieldSetting {
   visible?: boolean;
   field?: IFieldInstance;
-  operator?: FieldOperator;
+  operator: FieldOperator;
   onConfirm?: (field: IFieldRo) => void;
   onCancel?: () => void;
 }

@@ -15,7 +15,7 @@ export interface IRecordSnapshotQuery {
   viewId?: string;
   type: IdPrefix.Record;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  where?: any;
+  where?: { [column: string]: string | number | boolean | null };
   orderBy?: {
     column: string; // db column name for queryBuilder
     order?: 'asc' | 'desc';

@@ -10,6 +10,7 @@ import {
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
+import FieldAttachmentIcon from '@teable-group/ui-lib/icons/app/file.svg';
 
 export const FIELD_CONSTANT = [
   {
@@ -18,19 +19,24 @@ export const FIELD_CONSTANT = [
     IconComponent: FieldTextIcon,
   },
   {
-    text: 'Single select',
-    type: FieldType.SingleSelect,
-    IconComponent: FieldSelectIcon,
-  },
-  {
     text: 'Number',
     type: FieldType.Number,
     IconComponent: FieldNumberIcon,
   },
   {
+    text: 'Single select',
+    type: FieldType.SingleSelect,
+    IconComponent: FieldSelectIcon,
+  },
+  {
     text: 'Multiple select',
     type: FieldType.MultipleSelect,
     IconComponent: FieldSelectIcon,
+  },
+  {
+    text: 'Attachment',
+    type: FieldType.Attachment,
+    IconComponent: FieldAttachmentIcon,
   },
   {
     text: 'Link',
@@ -74,4 +80,5 @@ export const fieldDefaultOptionMap: Record<string, unknown> = {
   [FieldType.MultipleSelect]: MultipleSelectField.defaultOptions(),
   [FieldType.Link]: LinkField.defaultOptions(),
   [FieldType.Formula]: FormulaField.defaultOptions(),
+  [FieldType.Attachment]: null,
 };

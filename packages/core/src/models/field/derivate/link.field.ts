@@ -70,11 +70,11 @@ export class LinkFieldCore extends FieldCore {
 
   isComputed!: true;
 
-  cellValue2String(cellValue: ILinkCellValue | ILinkCellValue[]) {
+  cellValue2String(cellValue?: ILinkCellValue | ILinkCellValue[]) {
     if (Array.isArray(cellValue)) {
       return cellValue.map((v) => v.title || '').join(', ');
     }
-    return cellValue.title || '';
+    return cellValue ? cellValue.title ?? '' : '';
   }
 
   convertStringToCellValue(_value: string): string[] | null {

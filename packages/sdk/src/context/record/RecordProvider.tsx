@@ -2,8 +2,8 @@ import type { IRecord, IRecordSnapshot, IRecordSnapshotQuery } from '@teable-gro
 import { IdPrefix } from '@teable-group/core';
 import type { ReactNode } from 'react';
 import { useContext, useEffect, useMemo, useState } from 'react';
+import { AnchorContext } from '../anchor';
 import { AppContext } from '../app/AppContext';
-import { TableContext } from '../table/TableContext';
 import { RecordContext } from './RecordContext';
 
 export interface IRecordProviderContext {
@@ -19,7 +19,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
 }) => {
   const [rowCount, setRowCount] = useState(serverData?.total ?? 0);
   const { connection } = useContext(AppContext);
-  const { tableId } = useContext(TableContext);
+  const { tableId } = useContext(AnchorContext);
 
   useEffect(() => {
     const param: IRecordSnapshotQuery = {

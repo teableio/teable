@@ -1,7 +1,7 @@
 import { useContext } from 'react';
-import { TableContext } from '../context';
+import { AnchorContext } from '../context';
 
 export function useTableId() {
-  const { tableId } = useContext(TableContext);
+  const { tableId } = useContext(AnchorContext);
   return tableId;
 }

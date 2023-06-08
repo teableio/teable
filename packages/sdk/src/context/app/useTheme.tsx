@@ -46,12 +46,12 @@ export function useTheme(): IUseThemeResult {
       const darkMode = event.matches;
       setAutoTheme(darkMode ? ThemeKey.Dark : ThemeKey.Light);
     }
-    setThemeState(theme ?? null);
+    setThemeState(theme ?? autoTheme);
     window.matchMedia(darkModeMediaQuery).addEventListener('change', change);
     return () => {
       window.matchMedia(darkModeMediaQuery).removeEventListener('change', change);
     };
-  }, []);
+  }, [autoTheme, setThemeState, theme]);
 
   return useMemo(
     () => ({

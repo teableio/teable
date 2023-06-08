@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { theme } from 'antd';
 import type { MapToken } from 'antd/es/theme/interface';
-import { kebabCase } from 'lodash';
 import { colors } from '../src/themes/colors';
 import { ThemeName } from '../src/themes/type';
 import { getColorsCssVariablesText } from '../src/themes/utils';

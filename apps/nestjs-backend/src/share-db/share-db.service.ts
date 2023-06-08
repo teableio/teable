@@ -52,11 +52,36 @@ export class ShareDbService extends ShareDBClass {
     context: ShareDBClass.middleware.ApplyContext,
     next: (err?: unknown) => void
   ) => {
+    const tsMeta = context.extra as ITransactionMeta;
+    if (tsMeta.skipCalculate) {
+      return next();
+    }
+
+    this.derivateChangeService.countTransaction(tsMeta);
+    try {
+      await this.onRecordApply(context);
+    } catch (e) {
+      this.derivateChangeService.cleanTransaction(tsMeta);
+      return next(e);
+    }
+    // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
+    const opsToOthers = this.derivateChangeService.getOpsToOthers(tsMeta);
+
+    next();
+
+    // only last onApply triggered within a transaction will return otherSnapshotOps
+    // it make sure we not lead to infinite loop
+    if (opsToOthers) {
+      this.sendOps(opsToOthers.transactionMeta, opsToOthers.otherSnapshotOps);
+    }
+  };
+
+  async onRecordApply(context: ShareDBClass.middleware.ApplyContext) {
     const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
-    const tsMeta = context.extra as (ITransactionMeta & { skipCalculate?: boolean }) | undefined;
+    const tsMeta = context.extra as ITransactionMeta;
     const recordId = context.id;
     if (docType !== IdPrefix.Record || !context.op.op || !tsMeta || tsMeta.skipCalculate) {
-      return next();
+      return;
     }
 
     console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
@@ -69,39 +94,30 @@ export class ShareDbService extends ShareDBClass {
     }, []);
 
     if (!opContexts.length) {
-      return next();
+      return;
     }
 
-    let fixUps:
-      | {
-          currentSnapshotOps: IOtOperation[];
-          otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } };
-          transactionMeta: ITransactionMeta;
-        }
-      | undefined = undefined;
-    try {
-      fixUps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, opContexts);
+    let fixupOps: IOtOperation[] | undefined = undefined;
+    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, {
+      tableId,
+      recordId,
+      opContexts,
+    });
 
-      if (!fixUps) {
-        return next();
-      }
-
-      console.log('fixUps:', fixUps);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      fixUps.currentSnapshotOps.length && context.$fixup(fixUps.currentSnapshotOps);
-    } catch (e) {
-      return next(e);
+    if (!fixupOps || !fixupOps.length) {
+      return;
     }
 
-    next();
-    const { otherSnapshotOps, transactionMeta } = fixUps;
-    this.sendOps(transactionMeta, otherSnapshotOps);
-  };
+    console.log('fixUps:', fixupOps);
+
+    fixupOps && context.$fixup(fixupOps);
+  }
 
   private async sendOps(
     transactionMeta: ITransactionMeta,
     otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
+    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;

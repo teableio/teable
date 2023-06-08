@@ -38,21 +38,17 @@ export class RecordOpenApiService implements ITransactionCreator {
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: CreateRecordsRo,
-    fieldName2IdMap?: { [fieldIdOrName: string]: IFieldInstance }
+    fieldMap?: { [fieldIdOrName: string]: IFieldInstance }
   ): Promise<CreateRecordsVo> {
-    if (!fieldName2IdMap) {
-      fieldName2IdMap = await this.getFieldInstanceMap(
+    if (!fieldMap) {
+      fieldMap = await this.getFieldInstanceMap(
         this.prismaService,
         tableId,
         createRecordsRo.fieldKeyType
       );
     }
 
-    const { creators, afterCreate } = this.generateCreators(
-      tableId,
-      fieldName2IdMap,
-      createRecordsRo
-    );
+    const { creators, afterCreate } = this.generateCreators(tableId, fieldMap, createRecordsRo);
     const transactionMeta = {
       transactionKey: generateTransactionKey(),
       opCount: creators.length,
@@ -69,10 +65,10 @@ export class RecordOpenApiService implements ITransactionCreator {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   generateCreators(
     tableId: string,
-    fieldName2IdMap: { [fieldIdOrName: string]: IFieldInstance },
+    fieldMap: { [fieldIdOrName: string]: IFieldInstance },
     createRecordsRo: CreateRecordsRo
   ) {
-    const opMeta = this.multipleCreateRecords2Ops(fieldName2IdMap, createRecordsRo);
+    const opMeta = this.multipleCreateRecords2Ops(fieldMap, createRecordsRo);
     const connection = this.shareDbService.connect();
 
     const recordCreators: ((
@@ -120,7 +116,11 @@ export class RecordOpenApiService implements ITransactionCreator {
             } else {
               record = opData.snapshot.record;
             }
-            return record;
+            return this.convertFieldKeyInRecord(
+              record,
+              Object.values(fieldMap),
+              createRecordsRo.fieldKeyType
+            );
           }),
         };
       },
@@ -180,11 +180,11 @@ export class RecordOpenApiService implements ITransactionCreator {
     updateRecordByIdsRo: (UpdateRecordRo & { recordId: string })[],
     transactionMeta?: { transactionKey: string; opCount: number }
   ) {
-    const { fieldKeyType } = updateRecordByIdsRo[0];
+    const { fieldKeyType = FieldKeyType.Name } = updateRecordByIdsRo[0];
     const prisma = await this.transactionService.getTransaction(transactionMeta);
     const dbFieldNameSet = new Set<string>();
 
-    const fieldName2IdMap = await this.getFieldInstanceMap(prisma, tableId, fieldKeyType);
+    const fieldMap = await this.getFieldInstanceMap(prisma, tableId, fieldKeyType);
 
     updateRecordByIdsRo.forEach((updateRecordByIdRo) => {
       Object.keys(updateRecordByIdRo.record.fields).forEach((k) => dbFieldNameSet.add(k));
@@ -205,27 +205,49 @@ export class RecordOpenApiService implements ITransactionCreator {
       fieldKeyType
     );
 
-    return updateRecordByIdsRo.map((updateRecordByIdRo, index) => {
-      const snapshot = snapshots[index].data.record;
-      const {
-        record: { fields },
-      } = updateRecordByIdRo;
+    return {
+      opMeta: updateRecordByIdsRo.map((updateRecordByIdRo, index) => {
+        const snapshot = snapshots[index].data.record;
+        const {
+          record: { fields },
+        } = updateRecordByIdRo;
 
-      const setRecordOps = Object.entries(fields).map(([fieldNameOrId, value]) => {
-        const field = fieldName2IdMap[fieldNameOrId];
-        const oldCellValue = snapshot.fields[fieldNameOrId];
-        const newCellValue = field.repair(value);
-        return OpBuilder.editor.setRecord.build({
-          fieldId: field.id,
-          oldCellValue,
-          newCellValue,
+        const setRecordOps = Object.entries(fields).map(([fieldNameOrId, value]) => {
+          const field = fieldMap[fieldNameOrId];
+          const oldCellValue = snapshot.fields[fieldNameOrId];
+          const newCellValue = field.repair(value);
+          return OpBuilder.editor.setRecord.build({
+            fieldId: field.id,
+            oldCellValue,
+            newCellValue,
+          });
         });
+
+        return setRecordOps.length ? setRecordOps : undefined;
+      }, []),
+      fieldMap,
+    };
+  }
+
+  private convertFieldKeyInRecord(
+    record: IRecord,
+    fields: { id: string; name: string }[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
+  ) {
+    if (fieldKeyType !== FieldKeyType.Id) {
+      const recordFields: { [fieldName: string]: unknown } = {};
+      fields.forEach((field) => {
+        if (record.fields[field.id] !== undefined) {
+          recordFields[field.name] = record.fields[field.id];
+        }
       });
 
       return {
-        ops: setRecordOps.length ? setRecordOps : undefined,
+        ...record,
+        fields: recordFields,
       };
-    }, []);
+    }
+    return record;
   }
 
   async updateRecordById(
@@ -234,7 +256,7 @@ export class RecordOpenApiService implements ITransactionCreator {
     updateRecordRo: UpdateRecordRo,
     transactionMeta?: { transactionKey: string; opCount: number }
   ): Promise<IRecordSnapshot> {
-    const result = await this.multipleUpdateRecords2Ops(
+    const { fieldMap, opMeta } = await this.multipleUpdateRecords2Ops(
       tableId,
       [{ ...updateRecordRo, recordId }],
       transactionMeta
@@ -243,14 +265,13 @@ export class RecordOpenApiService implements ITransactionCreator {
     const connection = this.shareDbService.connect();
     transactionMeta = transactionMeta || {
       transactionKey: generateTransactionKey(),
-      opCount: result.reduce((pre, cur) => {
-        cur.ops && pre++;
+      opCount: opMeta.reduce((pre, cur) => {
+        cur && pre++;
         return pre;
       }, 0),
     };
 
-    const opMeta = result[0];
-    const { ops } = opMeta;
+    const ops = opMeta[0];
     const collection = `${IdPrefix.Record}_${tableId}`;
 
     if (!ops) {
@@ -259,11 +280,18 @@ export class RecordOpenApiService implements ITransactionCreator {
 
     const doc = connection.get(collection, recordId);
 
-    return await new Promise((resolve, reject) => {
+    return await new Promise<IRecordSnapshot>((resolve, reject) => {
       doc.fetch(() => {
         doc.submitOp(ops, transactionMeta, (error: unknown) => {
           if (error) return reject(error);
-          resolve(doc.data);
+          resolve({
+            ...doc.data,
+            record: this.convertFieldKeyInRecord(
+              doc.data.record,
+              Object.values(fieldMap),
+              updateRecordRo.fieldKeyType
+            ),
+          });
         });
       });
     });

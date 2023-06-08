@@ -21,6 +21,7 @@ export interface IFieldVo extends IFieldRo {
   cellValueType: CellValueType;
   cellValueElementType?: CellValueType;
   dbFieldType: DbFieldType;
+  dbFieldName: string;
   columnMeta: IColumnMeta;
 }
 
@@ -46,6 +47,8 @@ export abstract class FieldCore implements IFieldVo {
 
   columnMeta!: IColumnMeta;
 
+  dbFieldName!: string;
+
   abstract type: FieldType;
 
   abstract isComputed?: boolean;
@@ -65,7 +68,7 @@ export abstract class FieldCore implements IFieldVo {
   // cellValue array element type enum (string, number, boolean, datetime)
   cellValueElementType?: CellValueType;
 
-  abstract cellValue2String(value: unknown): string;
+  abstract cellValue2String(value?: unknown): string;
 
   abstract convertStringToCellValue(str: string): unknown;
 

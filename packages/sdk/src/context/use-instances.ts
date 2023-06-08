@@ -1,7 +1,6 @@
 import type { Doc } from '@teable/sharedb/lib/client';
 import { isEqual } from 'lodash';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { createMemo } from 'react-use';
 import { AppContext } from './app/AppContext';
 
 export interface IUseInstancesProps<T, R> {
@@ -10,18 +9,6 @@ export interface IUseInstancesProps<T, R> {
   factory: (data: T, doc?: Doc<T>) => R;
   queryParams: unknown;
 }
-
-const memoEqual = () => {
-  let pre: unknown;
-  return function inner(cur: unknown) {
-    if (!isEqual(pre, cur)) {
-      pre = cur;
-    }
-    return pre;
-  };
-};
-
-const useMemoEqual = createMemo(memoEqual());
 
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
@@ -35,6 +22,7 @@ export function useInstances<T, R extends { id: string }>({
   initData,
 }: IUseInstancesProps<T, R>): R[] {
   const { connection } = useContext(AppContext);
+  const [queryParamsStorage, setQueryParamsStorage] = useState(queryParams);
   const [instances, setInstances] = useState<R[]>(() => {
     if (initData) {
       return initData.map((data) => factory(data));
@@ -42,7 +30,11 @@ export function useInstances<T, R extends { id: string }>({
     return [];
   });
 
-  queryParams = useMemoEqual(queryParams);
+  useEffect(() => {
+    if (!isEqual(queryParams, queryParamsStorage)) {
+      setQueryParamsStorage(queryParams);
+    }
+  }, [queryParams, queryParamsStorage]);
 
   const updateInstance = useCallback(
     (doc: Doc<T>) => {
@@ -63,16 +55,25 @@ export function useInstances<T, R extends { id: string }>({
     if (!collection || !connection) {
       return;
     }
-    const query = connection.createSubscribeQuery<T>(collection, queryParams || {});
+    const opListeners = new Map();
+
+    const query = connection.createSubscribeQuery<T>(collection, queryParamsStorage || {});
+
+    const createOpListener = (doc: Doc<T>, handler: (op: [unknown]) => void) => {
+      const opListener = opListeners.get(doc.id);
+      doc.on('op', opListener || handler);
+      return () => doc.removeListener('op', opListener || handler);
+    };
 
     query.on('ready', () => {
       console.log(`${collection}:ready:`, query.results);
       setInstances(query.results.map((r) => factory(r.data, r)));
       query.results.forEach((doc) => {
-        doc.on('op', (op) => {
+        const opListener = createOpListener(doc, (op) => {
           console.log(`${collection} on op:`, op);
           updateInstance(doc);
         });
+        opListeners.set(doc.id, opListener);
       });
     });
 
@@ -85,11 +86,11 @@ export function useInstances<T, R extends { id: string }>({
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
-          doc.on('op', (op) => {
+          const opListener = createOpListener(doc, (op: [unknown]) => {
             console.log(`${collection} on op:`, op);
             updateInstance(doc);
           });
-
+          opListeners.set(doc.id, opListener);
           newInstances.splice(index, 0, factory(doc.data, doc));
           index++;
         });
@@ -102,7 +103,8 @@ export function useInstances<T, R extends { id: string }>({
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
-          doc.removeAllListeners('op');
+          const cleanupFunction = opListeners.get(doc.id);
+          cleanupFunction();
           newInstances.splice(index, 1);
         });
         return newInstances;
@@ -126,10 +128,11 @@ export function useInstances<T, R extends { id: string }>({
       query.destroy();
       query.results &&
         query.results.forEach((doc) => {
-          doc.removeAllListeners('op');
+          const cleanupFunction = opListeners.get(doc.id);
+          cleanupFunction();
         });
     };
-  }, [connection, collection, updateInstance, queryParams, factory]);
+  }, [connection, collection, updateInstance, queryParamsStorage, factory]);
 
   return instances;
 }

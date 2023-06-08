@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core';
 import { SingleSelectFieldCore, Colors } from '@teable-group/core';
+import type { IFieldBase } from '../field-base';
 
 class SingleSelectOption implements SelectFieldChoices {
   @ApiProperty({
@@ -27,4 +28,12 @@ export class SingleSelectOptionsDto implements SelectFieldOptions {
   choices!: SingleSelectOption[];
 }
 
-export class SingleSelectFieldDto extends SingleSelectFieldCore {}
+export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
+  convertCellValue2DBValue(value: unknown): unknown {
+    return value;
+  }
+
+  convertDBValue2CellValue(value: unknown): unknown {
+    return value;
+  }
+}

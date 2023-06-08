@@ -1,9 +1,11 @@
 import { createHash } from 'crypto';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { getRandomString } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
 import { PrismaService } from '../../prisma.service';
-import type { AttachmentUploadRo } from './modal/attachment-upload.ro';
+import type { AttachmentSignatureRo } from './modal/attachment-signature.ro';
 import { Storage } from './plugins/storage';
 
 @Injectable()
@@ -12,23 +14,43 @@ export class AttachmentsService {
   /**
    * Local upload
    */
-  async upload(file: Express.Multer.File): Promise<AttachmentUploadRo> {
-    const token = await this.fileToken(file.path);
+  async upload(file: Express.Multer.File, token: string) {
+    const hash = await this.fileHash(file.path);
     const localStorage = Storage.adapter();
-    const path = await localStorage.save(file, token);
+
+    const path = await localStorage.save(file, hash);
     const { size, mimetype } = file;
-    const data = {
+    const data: Prisma.AttachmentsCreateInput = {
+      hash,
       size,
       mimetype,
       token,
       path,
+      createdBy: 'admin',
+      lastModifiedBy: 'admin',
     };
-    await this.prismaService.attachments.create({ data });
-    return data;
+
+    if (file.mimetype.startsWith('image/')) {
+      const { width, height } = await localStorage.getImageWidthAndHeight(path);
+      data.width = width;
+      data.height = height;
+    }
+
+    const count = await this.prismaService.attachments.count({
+      where: { token },
+    });
+
+    if (count === 0) {
+      await this.prismaService.attachments.create({ data });
+    }
   }
 
   async readLocalFile(token: string, filename?: string) {
     const attachment = await this.prismaService.attachments.findFirst({
+      select: {
+        mimetype: true,
+        hash: true,
+      },
       where: {
         token,
         deletedTime: null,
@@ -47,11 +69,11 @@ export class AttachmentsService {
     }
 
     const localStorage = Storage.adapter();
-    const fileStream = localStorage.read(token);
+    const fileStream = localStorage.read(attachment.hash);
     return { headers, fileStream };
   }
 
-  async fileToken(path: string): Promise<string> {
+  async fileHash(path: string): Promise<string> {
     const hash = createHash('sha256');
     const fileReadStream = createReadStream(path);
     fileReadStream.on('data', (data) => {
@@ -64,8 +86,29 @@ export class AttachmentsService {
     });
   }
 
-  getUploadUrl() {
+  async signature(): Promise<AttachmentSignatureRo> {
     const localStorage = Storage.adapter();
-    return localStorage.getUploadUrl();
+    // TODO: Replace with a unique ID generation library
+    const token = getRandomString(12);
+    return {
+      url: `${localStorage.getUploadUrl()}/${token}`,
+      secret: token,
+    };
+  }
+
+  async notify(token: string) {
+    return await this.prismaService.attachments.findFirst({
+      select: {
+        token: true,
+        size: true,
+        mimetype: true,
+        width: true,
+        height: true,
+      },
+      where: {
+        token,
+        deletedTime: null,
+      },
+    });
   }
 }

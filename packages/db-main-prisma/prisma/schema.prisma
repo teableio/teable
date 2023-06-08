@@ -171,15 +171,36 @@ model NodeValue {
 // }
 
 model Attachments {
-  id          String    @id @default(cuid())
-  token       String    @unique
-  size        Int
-  mimetype    String
-  path        String
-  deletedTime DateTime? @map("deleted_time")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id             String    @id @default(cuid())
+  token          String    @unique
+  hash           String
+  size           Int
+  mimetype       String
+  path           String
+  width          Int?
+  height         Int?
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
 
   @@map("attachments")
+}
+
+model AttachmentsTable {
+  id             String    @id @default(cuid())
+  attachmentId   String    @map("attachment_id")
+  name           String
+  token          String
+  tableId        String    @map("table_id")
+  recordId       String    @map("record_id")
+  fieldId        String    @map("field_id")
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+
+  @@map("attachments_table")
 }
 
 model AutomationWorkflow {

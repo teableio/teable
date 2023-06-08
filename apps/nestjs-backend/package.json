@@ -118,6 +118,7 @@
     "nodemailer": "6.9.1",
     "reflect-metadata": "0.1.13",
     "rxjs": "7.5.7",
+    "sharp": "0.32.1",
     "supertest": "6.3.3",
     "ts-loader": "9.4.2",
     "ws": "8.11.0",

@@ -13,6 +13,7 @@ import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { isString } from 'lodash';
 import type { CreateFieldRo } from './create-field.ro';
+import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
@@ -113,7 +114,9 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
           dbFieldType: DbFieldType.Text,
         } as FormulaFieldDto);
       }
-      case FieldType.Attachment:
+      case FieldType.Attachment: {
+        return plainToInstance(AttachmentFieldDto, fieldDto);
+      }
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -160,9 +163,10 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
   return instance;
 }
 
-export function createFieldInstanceByRaw(fieldRaw: Field) {
-  const field: FieldVo = {
+export function rawField2FieldObj(fieldRaw: Field): FieldVo {
+  return {
     id: fieldRaw.id,
+    dbFieldName: fieldRaw.dbFieldName,
     name: fieldRaw.name,
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
@@ -178,8 +182,10 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
     columnMeta: fieldRaw.columnMeta && JSON.parse(fieldRaw.columnMeta as string),
   };
+}
 
-  return createFieldInstanceByVo(field);
+export function createFieldInstanceByRaw(fieldRaw: Field) {
+  return createFieldInstanceByVo(rawField2FieldObj(fieldRaw));
 }
 
 export function createFieldInstanceByVo(field: FieldVo) {
@@ -197,6 +203,7 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Formula:
       return plainToInstance(FormulaFieldDto, field);
     case FieldType.Attachment:
+      return plainToInstance(AttachmentFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:

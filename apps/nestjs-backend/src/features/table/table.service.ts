@@ -12,6 +12,7 @@ import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldService } from '../field/field.service';
 import { createFieldInstanceByRo } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
@@ -27,7 +28,8 @@ export class TableService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
-    private readonly recordService: RecordService
+    private readonly recordService: RecordService,
+    private readonly attachmentService: AttachmentsTableService
   ) {}
 
   generateValidDbTableName(name: string) {
@@ -175,6 +177,7 @@ export class TableService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _collection: string, tableId: string) {
+    await this.attachmentService.delete(prisma, [{ tableId: tableId }]);
     await prisma.tableMeta.update({
       where: { id: tableId },
       data: { deletedTime: new Date() },

@@ -6,6 +6,7 @@ export enum IdPrefix {
   View = 'viw',
   Node = 'nod',
   Record = 'rec',
+  Attachment = 'act',
 
   Workflow = 'wfl',
   WorkflowTrigger = 'wtr',
@@ -37,6 +38,10 @@ export function generateRecordId() {
 
 export function generateTransactionKey() {
   return getRandomString(20);
+}
+
+export function generateAttachmentId() {
+  return IdPrefix.Attachment + getRandomString(8);
 }
 
 export function generateWorkflowId() {

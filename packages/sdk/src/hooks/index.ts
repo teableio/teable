@@ -13,3 +13,5 @@ export * from './use-tables';
 export * from './use-table';
 export * from './use-space';
 export * from './use-undo-manager';
+export * from './use-records';
+export * from './use-record';
