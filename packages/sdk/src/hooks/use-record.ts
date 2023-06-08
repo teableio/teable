@@ -36,7 +36,6 @@ export const useRecord = (recordId: string | undefined) => {
     doc.on('op', listeners);
 
     return () => {
-      doc.destroy();
       doc.removeListener('op', listeners);
     };
   }, [connection, recordId, tableId]);
