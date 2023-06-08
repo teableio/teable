@@ -24,7 +24,16 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
     ? [cellValue.id]
     : undefined;
   const [filterInput, setFilterInput] = useState<string>();
-  const records = useRecords();
+  // many <> one relation ship only allow select record that has not been selected
+  const records = useRecords(
+    field.options.relationship === Relationship.OneMany
+      ? {
+          where: {
+            [field.options.dbForeignKeyName]: null,
+          },
+        }
+      : undefined
+  );
   const choices = useMemo(() => {
     return (records || []).filter(
       (record) => !filterInput || record.name.indexOf(filterInput) !== -1
