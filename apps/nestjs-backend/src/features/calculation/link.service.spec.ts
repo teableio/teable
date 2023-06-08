@@ -129,7 +129,7 @@ describe('LinkService', () => {
       });
     });
 
-    it('should create correct mutation when change value for ManyOne field', () => {
+    it('should create correct mutation when change value for ManyOne field', async () => {
       /**
        * test case
        *
@@ -138,7 +138,7 @@ describe('LinkService', () => {
        * TableB: OneMany-LinkA B1.(Old) -> B1.pop(A1) | B2.(Old) -> B2.push(A1)
        *
        */
-      const ctx2: ICellContext[] = [
+      const ctxs: ICellContext[] = [
         {
           id: 'A1',
           fieldId: 'ManyOne-LinkB',
@@ -147,7 +147,7 @@ describe('LinkService', () => {
         },
       ];
 
-      const mutation1 = service['getCellMutation']('tableA', fieldMapByTableId, ctx2);
+      const mutation1 = service['getCellMutation']('tableA', fieldMapByTableId, ctxs);
       expect(mutation1).toEqual({
         tableB: {
           B1: { 'OneMany-LinkA': { add: [], del: ['A1'] } },
@@ -183,6 +183,35 @@ describe('LinkService', () => {
           newValue: undefined,
         },
       ]);
+
+      // Mock Prisma TransactionClient
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prisma: any = {
+        $executeRawUnsafe: jest.fn(),
+      };
+      const tableId2DbTableName = {
+        tableA: 'tableA',
+        tableB: 'tableB',
+      };
+
+      await service['updateForeignKey'](
+        prisma,
+        'tableA',
+        tableId2DbTableName,
+        fieldMapByTableId,
+        ctxs,
+        changes1
+      );
+
+      const nativeSql = service['knex']('tableA')
+        .update({
+          [fieldMapByTableId['tableB']['OneMany-LinkA'].options.dbForeignKeyName]: 'B2',
+        })
+        .where('__id', 'A1')
+        .toSQL()
+        .toNative();
+
+      expect(prisma.$executeRawUnsafe).toBeCalledWith(nativeSql.sql, ...nativeSql.bindings);
     });
 
     it('should create correct mutation when multi mixed change for ManyOne field', () => {

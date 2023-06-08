@@ -1,3 +1,4 @@
+import type { IRecordSnapshotQuery } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
@@ -7,27 +8,20 @@ import { useFields } from './use-fields';
 import { useTableId } from './use-table-id';
 import { useViewId } from './use-view-id';
 
-interface IQuery {
-  offset?: number;
-  limit?: number;
-}
-
-export const useRecords = (query?: IQuery) => {
+export const useRecords = (query?: Omit<IRecordSnapshotQuery, 'type'>) => {
   const tableId = useTableId();
 
   const viewId = useViewId();
 
   const fields = useFields();
 
-  const { offset = 0, limit = 50 } = query || {};
-
   const instances = useInstances({
     collection: `${IdPrefix.Record}_${tableId}`,
     factory: createRecordInstance,
     queryParams: {
       viewId,
-      offset,
-      limit,
+      ...query,
+      type: IdPrefix.Record,
     },
   });
   return useMemo(() => {

@@ -300,11 +300,21 @@ export class LinkService {
   // update foreignKey by ManyOne relationship field value changes
   private async updateForeignKey(
     prisma: Prisma.TransactionClient,
+    tableId: string,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
+    contexts: ICellContext[],
     changes: ICellChange[]
   ) {
-    for (const change of changes) {
+    const combinedChanges = contexts
+      .map((ctx) => ({
+        tableId: tableId,
+        recordId: ctx.id,
+        fieldId: ctx.fieldId,
+        newValue: ctx.newValue as unknown,
+      }))
+      .concat(changes);
+    for (const change of combinedChanges) {
       const { tableId, recordId, fieldId, newValue } = change;
       const dbTableName = tableId2DbTableName[tableId];
       const field = fieldMapByTableId[tableId][fieldId];
@@ -379,7 +389,14 @@ export class LinkService {
     );
 
     if (cellChange.length) {
-      await this.updateForeignKey(prisma, tableId2DbTableName, fieldMapByTableId, cellChange);
+      await this.updateForeignKey(
+        prisma,
+        tableId,
+        tableId2DbTableName,
+        fieldMapByTableId,
+        contexts,
+        cellChange
+      );
     }
 
     return cellChange;
