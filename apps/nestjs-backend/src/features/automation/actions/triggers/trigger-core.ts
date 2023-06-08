@@ -1,0 +1,119 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { identify, IdPrefix } from '@teable-group/core';
+import type { TopLevelCondition } from 'json-rules-engine';
+import _ from 'lodash';
+import { JsonRulesEngine } from '../../engine/json-rules-engine';
+import { JsonSchemaParser } from '../../engine/json-schema/parser';
+import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
+import type { WorkflowActionVo } from '../../model/workflow-action.vo';
+import { WorkflowService } from '../../workflow/workflow.service';
+import { ActionResponseStatus } from '../action-core';
+import type { IActionInputSchema } from '../action-core';
+import type { IDecision, IDecisionGroups, IDecisionSchema } from '../decision';
+
+@Injectable()
+export abstract class TriggerCore<TEvent> {
+  protected logger = new Logger(TriggerCore.name);
+
+  constructor(
+    protected readonly jsonRulesEngine: JsonRulesEngine,
+    protected readonly workflowService: WorkflowService
+  ) {}
+
+  abstract listenerTrigger(event: TEvent): Promise<void>;
+
+  protected async getWorkflowsByTrigger(tableId: string, triggerType?: TriggerTypeEnums[]) {
+    return await this.workflowService.getWorkflowsByTrigger(tableId, triggerType);
+  }
+
+  protected async splitAction(workflowActions: { [actionId: string]: WorkflowActionVo }): Promise<{
+    actions: { [actionId: string]: WorkflowActionVo };
+    decisionGroups?: { [actionId: string]: IDecision };
+  }> {
+    const decisionNode = _.findLast(workflowActions, (_, key) => {
+      return identify(key) === IdPrefix.WorkflowDecision;
+    });
+
+    let actions = workflowActions;
+    let decisionGroups: { [actionId: string]: IDecision } | undefined;
+    if (decisionNode) {
+      actions = _.omit(workflowActions, decisionNode.id);
+      const decisionInput = await new JsonSchemaParser<IDecisionSchema, IDecisionGroups>(
+        decisionNode.inputExpressions! as IDecisionSchema
+      ).parse();
+
+      decisionGroups = _.keyBy<IDecision>(decisionInput.groups, 'entryNodeId');
+    }
+
+    return {
+      actions,
+      decisionGroups,
+    };
+  }
+
+  protected async callActionEngine(
+    triggerData: Record<string, unknown>,
+    actions: { [actionId: string]: WorkflowActionVo },
+    decisionGroups?: { [actionId: string]: IDecision }
+  ) {
+    let parentNodeId: string;
+    const actionEntries = Object.entries(actions);
+    const actionTotal = actionEntries.length;
+    actionEntries.forEach(([actionId, action], index) => {
+      const options = {
+        inputSchema: action.inputExpressions as IActionInputSchema,
+        conditions: this.buildConditions(actionId, parentNodeId, decisionGroups),
+        priority: actionTotal - index,
+      };
+      this.jsonRulesEngine.addRule(actionId, action.actionType.toString(), options);
+
+      parentNodeId = actionId;
+    });
+
+    this.jsonRulesEngine.fire(triggerData);
+  }
+
+  protected buildConditions(
+    currentActionId: string,
+    parentActionId?: string | null,
+    decisionGroups?: { [actionId: string]: IDecision }
+  ): TopLevelCondition | undefined {
+    const resultCondition = [];
+
+    if (!parentActionId) {
+      return undefined;
+    }
+
+    resultCondition.push({
+      fact: `action.${parentActionId}`,
+      operator: 'equal',
+      value: ActionResponseStatus.OK,
+      path: '$.status',
+    });
+
+    if (decisionGroups) {
+      const decision = decisionGroups[currentActionId];
+      if (!decision) {
+        return undefined;
+      }
+
+      const conditions = decision.condition.conditions.reduce((pre, cur) => {
+        pre.push({
+          fact: _.head(cur.left as string[]),
+          operator: cur.operator,
+          value: cur.right,
+          path: `$.${_.join(_.tail(cur.left as string[]), '.')}`,
+        });
+        return pre;
+      }, [] as { [key: string]: unknown }[]);
+
+      const dynamicLogic = {
+        [`${decision.condition.logical === 'and' ? 'all' : 'any'}`]: conditions,
+      } as TopLevelCondition;
+
+      resultCondition.push(dynamicLogic);
+    }
+
+    return { all: resultCondition };
+  }
+}

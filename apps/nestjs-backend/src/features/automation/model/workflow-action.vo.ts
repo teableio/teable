@@ -13,7 +13,7 @@ export class WorkflowActionVo {
     enum: ActionTypeEnums,
     example: ActionTypeEnums.Webhook,
   })
-  actionType?: ActionTypeEnums | null;
+  actionType!: ActionTypeEnums;
 
   @ApiPropertyOptional({
     description: 'description of the action',
