@@ -56,7 +56,14 @@ export function useInstances<T, R extends { id: string }>({
       return;
     }
     const opListeners = new Map();
-
+    // for easy component refresh clean data when switch & loading
+    setInstances((instances) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (instances[0] && (instances[0] as any).doc) {
+        return [];
+      }
+      return instances;
+    });
     const query = connection.createSubscribeQuery<T>(collection, queryParamsStorage || {});
 
     const createOpListener = (doc: Doc<T>, handler: (op: [unknown]) => void) => {
