@@ -4,7 +4,7 @@ import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
 import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import _ from 'lodash';
+import { uniq, map, orderBy } from 'lodash';
 import { TransactionService } from 'src/share-db/transaction.service';
 import { DerivateChangeService } from './derivate-change.service';
 import { EventEnums } from './events';
@@ -213,21 +213,24 @@ export class ShareDbService extends ShareDBClass {
     cacheEventArray: IEventCollectorMeta[]
   ): Promise<void> {
     const getType = (types: IEventType[]): IEventType | undefined => {
-      const typeFrequencies = _.countBy(types);
-      if (typeFrequencies.Create) {
-        return IEventType.Create;
-      }
-      if (typeFrequencies.Edit && !typeFrequencies.Create && !typeFrequencies.Delete) {
-        return IEventType.Edit;
-      }
-      if (typeFrequencies.Delete && !typeFrequencies.Create && !typeFrequencies.Edit) {
-        return IEventType.Delete;
+      const uniqueType = uniq(types);
+      if (uniqueType.length === 1) {
+        if (uniqueType.includes(IEventType.Edit)) {
+          return IEventType.Edit;
+        }
+        if (uniqueType.includes(IEventType.Delete)) {
+          return IEventType.Delete;
+        }
+      } else {
+        if (uniqueType.includes(IEventType.Create)) {
+          return IEventType.Create;
+        }
       }
     };
 
-    const allTypes = _.map(cacheEventArray, 'type');
+    const allTypes = map(cacheEventArray, 'type');
     const type = getType(allTypes)!;
-    const lastContext = _.orderBy(cacheEventArray, 'sort', 'desc')[0].context;
+    const lastContext = orderBy(cacheEventArray, 'sort', 'desc')[0].context;
 
     if (type === IEventType.Create) {
       this.createEvent(lastContext);
