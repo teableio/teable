@@ -1,6 +1,6 @@
 import { Engine } from 'json-rules-engine';
 import type { Almanac } from 'json-rules-engine';
-import { JsonSchemaParser } from '../../engine/json-schema/parser';
+import { JsonSchemaParser } from './parser';
 
 describe('Json Schema Parser Test', () => {
   it('should parse a type text', async () => {

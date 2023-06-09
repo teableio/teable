@@ -2,12 +2,12 @@ import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { generateWorkflowActionId } from '@teable-group/core';
-import { NextModule } from '../../next/next.module';
-import type { IMailSenderSchema } from '../actions';
-import { MailSender } from '../actions';
-import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine';
-import { ActionTypeEnums } from '../enums/action-type.enum';
+import { NextModule } from '../../../next/next.module';
+import { AutomationModule } from '../../automation.module';
+import { JsonRulesEngine } from '../../engine/json-rules-engine';
+import { ActionTypeEnums } from '../../enums/action-type.enum';
+import type { IMailSenderSchema } from './mail-sender';
+import { MailSender } from './mail-sender';
 
 jest.setTimeout(100000000);
 describe('Mail-Sender Action Test', () => {

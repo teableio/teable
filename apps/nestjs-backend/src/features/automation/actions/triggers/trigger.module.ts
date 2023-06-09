@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import { WorkflowModule } from '../../workflow/workflow.module';
 import { ActionModule } from '../action.module';
-import { TriggerRecordCreated } from './record-created';
-import { TriggerRecordUpdated } from './record-updated';
+import { TriggerRecordCreated } from './record-created/record-created';
+import { TriggerRecordUpdated } from './record-updated/record-updated';
 
 @Module({
   imports: [WorkflowModule, ActionModule],

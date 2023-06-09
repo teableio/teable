@@ -5,15 +5,12 @@ import type {
   TopLevelCondition,
   RuleProperties,
 } from 'json-rules-engine';
-import _ from 'lodash';
-import type {
-  IWebhookSchema,
-  IMailSenderSchema,
-  ICreateRecordSchema,
-  IUpdateRecordSchema,
-} from '../actions';
+import { startsWith } from 'lodash';
 import { JsonSchemaParser } from '../engine/json-schema/parser';
 import type { ActionTypeEnums } from '../enums/action-type.enum';
+import type { IMailSenderSchema } from './mail-sender';
+import type { ICreateRecordSchema, IUpdateRecordSchema } from './records';
+import type { IWebhookSchema } from './webhook';
 
 export type IActionType = Exclude<ActionTypeEnums, ActionTypeEnums.Decision>;
 
@@ -106,7 +103,7 @@ export abstract class ActionCore implements RuleProperties {
     const jsonSchemaParser = new JsonSchemaParser<IActionInputSchema, TResult>(schema, {
       pathResolver: async (value, path) => {
         const [id, p] = path;
-        const omitPath = `${_.startsWith(id, actionConst.OutPutFlag) ? 'data.' : ''}${p}`;
+        const omitPath = `${startsWith(id, actionConst.OutPutFlag) ? 'data.' : ''}${p}`;
         return await almanac.factValue(id, undefined, omitPath);
       },
     });

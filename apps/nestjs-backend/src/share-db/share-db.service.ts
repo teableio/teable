@@ -12,7 +12,11 @@ import type { RecordEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 
-type IEventType = 'Create' | 'Edit' | 'Delete';
+enum IEventType {
+  Create = 'create',
+  Edit = 'edit',
+  Delete = 'delete',
+}
 
 interface IEventCollectorMeta {
   type: IEventType;
@@ -163,7 +167,7 @@ export class ShareDbService extends ShareDBClass {
     }
 
     let cacheEventArray = this.eventCollector.get(transactionKey);
-    const transactionCacheMeta = this.transactionService.transactionCache.get(transactionKey);
+    const transactionCacheMeta = this.transactionService.getCache(transactionKey);
 
     const eventType = this.getEventType(context.op)!;
     const cacheEventMeta: IEventCollectorMeta = {
@@ -194,13 +198,13 @@ export class ShareDbService extends ShareDBClass {
     op: ShareDBClass.CreateOp | ShareDBClass.DeleteOp | ShareDBClass.EditOp
   ): IEventType | undefined {
     if ('create' in op) {
-      return 'Create';
+      return IEventType.Create;
     }
     if ('op' in op) {
-      return 'Edit';
+      return IEventType.Edit;
     }
     if ('del' in op) {
-      return 'Delete';
+      return IEventType.Delete;
     }
   }
 
@@ -211,13 +215,13 @@ export class ShareDbService extends ShareDBClass {
     const getType = (types: IEventType[]): IEventType | undefined => {
       const typeFrequencies = _.countBy(types);
       if (typeFrequencies.Create) {
-        return 'Create';
+        return IEventType.Create;
       }
       if (typeFrequencies.Edit && !typeFrequencies.Create && !typeFrequencies.Delete) {
-        return 'Edit';
+        return IEventType.Edit;
       }
       if (typeFrequencies.Delete && !typeFrequencies.Create && !typeFrequencies.Edit) {
-        return 'Delete';
+        return IEventType.Delete;
       }
     };
 
@@ -225,15 +229,15 @@ export class ShareDbService extends ShareDBClass {
     const type = getType(allTypes)!;
     const lastContext = _.orderBy(cacheEventArray, 'sort', 'desc')[0].context;
 
-    if (type === 'Create') {
+    if (type === IEventType.Create) {
       this.createEvent(lastContext);
     }
 
-    if (type === 'Edit') {
+    if (type === IEventType.Edit) {
       this.editEvent(lastContext);
     }
 
-    if (type === 'Delete') {
+    if (type === IEventType.Delete) {
       // Delete Event
     }
 

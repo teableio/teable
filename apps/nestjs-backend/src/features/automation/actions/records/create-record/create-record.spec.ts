@@ -5,34 +5,32 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
-  generateFieldId,
   generateRecordId,
   generateTableId,
+  generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import { FieldModule } from '../../field/field.module';
-import { FieldService } from '../../field/field.service';
-import type { FieldVo } from '../../field/model/field.vo';
-import { NextModule } from '../../next/next.module';
-import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
-import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../table/constant';
-import { TableOpenApiModule } from '../../table/open-api/table-open-api.module';
-import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import type { ICreateRecordSchema } from '../actions';
-import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine';
-import { ActionTypeEnums } from '../enums/action-type.enum';
+import { FieldModule } from '../../../../field/field.module';
+import { FieldService } from '../../../../field/field.service';
+import type { FieldVo } from '../../../../field/model/field.vo';
+import { NextModule } from '../../../../next/next.module';
+import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
+import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
+import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
+import { TableOpenApiModule } from '../../../../table/open-api/table-open-api.module';
+import { TableOpenApiService } from '../../../../table/open-api/table-open-api.service';
+import { AutomationModule } from '../../../automation.module';
+import { JsonRulesEngine } from '../../../engine/json-rules-engine';
+import { ActionTypeEnums } from '../../../enums/action-type.enum';
+import type { ICreateRecordSchema } from './create-record';
 
 jest.setTimeout(100000000);
-describe('Update-Record Action Test', () => {
+describe('Create-Record Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
   let tableOpenApiService: TableOpenApiService;
   let fieldService: FieldService;
   let recordOpenApiService: RecordOpenApiService;
-  const tableId = generateTableId();
-  const recordId = generateRecordId();
-  const fieldId = generateFieldId();
+  let tableId = generateTableId();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -67,7 +65,7 @@ describe('Update-Record Action Test', () => {
     jest.spyOn(fieldService, 'getFields').mockImplementation((tableId, query) =>
       Promise.resolve([
         {
-          id: fieldId,
+          id: 'fldHrMYez5yIwBdKEiK',
           name: 'name',
           type: FieldType.SingleLineText,
           calculatedType: FieldType.SingleLineText,
@@ -76,7 +74,7 @@ describe('Update-Record Action Test', () => {
           dbFieldName: 'name_fldHrMYez5yIwBdKEiK',
           isPrimary: true,
           isComputed: false,
-          tableId: tableId,
+          tableId: 'tblWhRzdMqzFegryaRS',
           columnMeta: {
             viw7zLgU4zVzbOK1HOe: {
               order: 0,
@@ -92,18 +90,22 @@ describe('Update-Record Action Test', () => {
     );
 
     jest
-      .spyOn(recordOpenApiService, 'updateRecordById')
-      .mockImplementation((tableId, recordId, updateRecordRo) =>
+      .spyOn(recordOpenApiService, 'multipleCreateRecords')
+      .mockImplementation((tableId, createRecordsRo, fieldName2IdMap) =>
         Promise.resolve({
-          record: {
-            id: recordId,
-            fields: { [fieldId]: 'update: mockName' },
-            recordOrder: { tableId: 1 },
-          },
+          records: [
+            {
+              id: generateRecordId(),
+              fields: {
+                fldHrMYez5yIwBdKEiK: 'name: mockName',
+              },
+              recordOrder: { [generateViewId()]: 1 },
+            },
+          ],
         })
       );
 
-    await createTable();
+    tableId = await createTable();
   });
 
   const createTable = async (): Promise<string> => {
@@ -116,25 +118,16 @@ describe('Update-Record Action Test', () => {
     return result.id;
   };
 
-  it('should call onSuccess and update records', async () => {
+  it('should call onSuccess and create records', async () => {
     const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     const actionId = generateWorkflowActionId();
-    jsonRulesEngine.addRule(actionId, ActionTypeEnums.UpdateRecord, {
+    jsonRulesEngine.addRule(actionId, ActionTypeEnums.CreateRecord, {
       inputSchema: {
         tableId: {
           type: 'const',
           value: tableId,
-        },
-        recordId: {
-          type: 'template',
-          elements: [
-            {
-              type: 'const',
-              value: recordId,
-            },
-          ],
         },
         fields: {
           type: 'object',
@@ -149,7 +142,7 @@ describe('Update-Record Action Test', () => {
                 elements: [
                   {
                     type: 'const',
-                    value: 'update: mockName',
+                    value: 'name: mockName',
                   },
                 ],
               },
@@ -172,7 +165,7 @@ describe('Update-Record Action Test', () => {
     expect(createResult).toStrictEqual(expect.objectContaining({ status: 200 }));
     expect(createResult).toStrictEqual(
       expect.objectContaining({
-        data: expect.objectContaining({ fields: { [firstTextField.id]: 'update: mockName' } }),
+        data: expect.objectContaining({ fields: { [firstTextField.id]: 'name: mockName' } }),
       })
     );
   });

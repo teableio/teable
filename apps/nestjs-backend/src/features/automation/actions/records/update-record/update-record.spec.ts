@@ -5,32 +5,34 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
+  generateFieldId,
   generateRecordId,
   generateTableId,
-  generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import { FieldModule } from '../../field/field.module';
-import { FieldService } from '../../field/field.service';
-import type { FieldVo } from '../../field/model/field.vo';
-import { NextModule } from '../../next/next.module';
-import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
-import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../table/constant';
-import { TableOpenApiModule } from '../../table/open-api/table-open-api.module';
-import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import type { ICreateRecordSchema } from '../actions';
-import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine';
-import { ActionTypeEnums } from '../enums/action-type.enum';
+import { FieldModule } from '../../../../field/field.module';
+import { FieldService } from '../../../../field/field.service';
+import type { FieldVo } from '../../../../field/model/field.vo';
+import { NextModule } from '../../../../next/next.module';
+import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
+import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
+import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
+import { TableOpenApiModule } from '../../../../table/open-api/table-open-api.module';
+import { TableOpenApiService } from '../../../../table/open-api/table-open-api.service';
+import { AutomationModule } from '../../../automation.module';
+import { JsonRulesEngine } from '../../../engine/json-rules-engine';
+import { ActionTypeEnums } from '../../../enums/action-type.enum';
+import type { IUpdateRecordSchema } from './update-record';
 
 jest.setTimeout(100000000);
-describe('Create-Record Action Test', () => {
+describe('Update-Record Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
   let tableOpenApiService: TableOpenApiService;
   let fieldService: FieldService;
   let recordOpenApiService: RecordOpenApiService;
-  let tableId = generateTableId();
+  const tableId = generateTableId();
+  const recordId = generateRecordId();
+  const fieldId = generateFieldId();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -65,7 +67,7 @@ describe('Create-Record Action Test', () => {
     jest.spyOn(fieldService, 'getFields').mockImplementation((tableId, query) =>
       Promise.resolve([
         {
-          id: 'fldHrMYez5yIwBdKEiK',
+          id: fieldId,
           name: 'name',
           type: FieldType.SingleLineText,
           calculatedType: FieldType.SingleLineText,
@@ -74,7 +76,7 @@ describe('Create-Record Action Test', () => {
           dbFieldName: 'name_fldHrMYez5yIwBdKEiK',
           isPrimary: true,
           isComputed: false,
-          tableId: 'tblWhRzdMqzFegryaRS',
+          tableId: tableId,
           columnMeta: {
             viw7zLgU4zVzbOK1HOe: {
               order: 0,
@@ -90,22 +92,18 @@ describe('Create-Record Action Test', () => {
     );
 
     jest
-      .spyOn(recordOpenApiService, 'multipleCreateRecords')
-      .mockImplementation((tableId, createRecordsRo, fieldName2IdMap) =>
+      .spyOn(recordOpenApiService, 'updateRecordById')
+      .mockImplementation((tableId, recordId, updateRecordRo) =>
         Promise.resolve({
-          records: [
-            {
-              id: generateRecordId(),
-              fields: {
-                fldHrMYez5yIwBdKEiK: 'name: mockName',
-              },
-              recordOrder: { [generateViewId()]: 1 },
-            },
-          ],
+          record: {
+            id: recordId,
+            fields: { [fieldId]: 'update: mockName' },
+            recordOrder: { tableId: 1 },
+          },
         })
       );
 
-    tableId = await createTable();
+    await createTable();
   });
 
   const createTable = async (): Promise<string> => {
@@ -118,16 +116,25 @@ describe('Create-Record Action Test', () => {
     return result.id;
   };
 
-  it('should call onSuccess and create records', async () => {
+  it('should call onSuccess and update records', async () => {
     const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     const actionId = generateWorkflowActionId();
-    jsonRulesEngine.addRule(actionId, ActionTypeEnums.CreateRecord, {
+    jsonRulesEngine.addRule(actionId, ActionTypeEnums.UpdateRecord, {
       inputSchema: {
         tableId: {
           type: 'const',
           value: tableId,
+        },
+        recordId: {
+          type: 'template',
+          elements: [
+            {
+              type: 'const',
+              value: recordId,
+            },
+          ],
         },
         fields: {
           type: 'object',
@@ -142,14 +149,14 @@ describe('Create-Record Action Test', () => {
                 elements: [
                   {
                     type: 'const',
-                    value: 'name: mockName',
+                    value: 'update: mockName',
                   },
                 ],
               },
             },
           ],
         },
-      } as ICreateRecordSchema,
+      } as IUpdateRecordSchema,
     });
 
     const { results, almanac } = await jsonRulesEngine.fire();
@@ -165,7 +172,7 @@ describe('Create-Record Action Test', () => {
     expect(createResult).toStrictEqual(expect.objectContaining({ status: 200 }));
     expect(createResult).toStrictEqual(
       expect.objectContaining({
-        data: expect.objectContaining({ fields: { [firstTextField.id]: 'name: mockName' } }),
+        data: expect.objectContaining({ fields: { [firstTextField.id]: 'update: mockName' } }),
       })
     );
   });

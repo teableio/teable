@@ -6,7 +6,7 @@ import type {
 } from '@teable-group/db-main-prisma';
 import { PrismaManager } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import _ from 'lodash';
+import { keyBy, isEmpty } from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
 import type { CreateWorkflowRo } from '../model/create-workflow.ro';
@@ -48,7 +48,7 @@ export class WorkflowService {
       result.trigger = trigger;
 
       const actions = await this.actionService.getWorkflowActions(workflowId);
-      result.actions = _.keyBy(actions, (item) => item.id);
+      result.actions = keyBy(actions, (item) => item.id);
     }
     return result;
   }
@@ -72,7 +72,7 @@ export class WorkflowService {
       ...sqlNative.bindings
     );
 
-    if (_.isEmpty(queryResult)) {
+    if (isEmpty(queryResult)) {
       return null;
     }
 

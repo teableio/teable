@@ -5,7 +5,7 @@ import type {
   AutomationWorkflowAction as AutomationWorkflowActionModel,
   Prisma,
 } from '@teable-group/db-main-prisma';
-import _ from 'lodash';
+import { isEmpty, keyBy, isNil } from 'lodash';
 import { PrismaService } from '../../../../prisma.service';
 import { DEFAULT_DECISION_SCHEMA } from '../../actions';
 import { MetaKit } from '../../engine/json-schema/meta-kit';
@@ -25,15 +25,15 @@ export class WorkflowActionService {
       where: { workflowId },
     });
 
-    if (_.isEmpty(actionsData)) {
+    if (isEmpty(actionsData)) {
       return null;
     }
 
     // Perform a pre-sort on the data to ensure the order of execution
     const sortedActions: AutomationWorkflowActionModel[] = [];
-    const cacheById = _.keyBy(actionsData, (action) => action.actionId);
+    const cacheById = keyBy(actionsData, (action) => action.actionId);
 
-    let currentObj = actionsData.find((obj) => _.isEmpty(obj.parentNodeId));
+    let currentObj = actionsData.find((obj) => isEmpty(obj.parentNodeId));
 
     while (currentObj) {
       sortedActions.push(currentObj);
@@ -118,7 +118,7 @@ export class WorkflowActionService {
   ) {
     await this.updateAction(actionId, { nextNodeId: newNextNodeId }, tx);
 
-    if (identify(actionId) === IdPrefix.WorkflowDecision && !_.isNil(parentDecisionArrayIndex)) {
+    if (identify(actionId) === IdPrefix.WorkflowDecision && !isNil(parentDecisionArrayIndex)) {
       const replacePropOptions = {
         shortPath: `groups.elements[${parentDecisionArrayIndex}]`,
         propKey: 'entryNodeId',
@@ -140,7 +140,7 @@ export class WorkflowActionService {
 
     if (
       oldParentNodeId &&
-      !_.isNil(parentDecisionArrayIndex) &&
+      !isNil(parentDecisionArrayIndex) &&
       identify(oldParentNodeId) === IdPrefix.WorkflowDecision
     ) {
       const replacePropOptions = {

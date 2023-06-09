@@ -1,12 +1,12 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
-import { NextModule } from '../../next/next.module';
-import type { IWebhookSchema } from '../actions';
-import { AutomationModule } from '../automation.module';
-import { JsonRulesEngine } from '../engine/json-rules-engine';
-import ajv from '../engine/json-schema/ajv';
-import { ActionTypeEnums } from '../enums/action-type.enum';
+import { NextModule } from '../../../next/next.module';
+import { AutomationModule } from '../../automation.module';
+import { JsonRulesEngine } from '../../engine/json-rules-engine';
+import ajv from '../../engine/json-schema/ajv';
+import { ActionTypeEnums } from '../../enums/action-type.enum';
+import type { IWebhookSchema } from './webhook';
 
 jest.setTimeout(100000000);
 describe('Webhook Action Test', () => {

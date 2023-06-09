@@ -3,8 +3,10 @@ import type {
   IMailSenderSchema,
   IUpdateRecordSchema,
   IWebhookSchema,
+  IDecisionSchema,
+  ITriggerRecordCreatedSchema,
 } from '../../actions';
-import ajv from '../../engine/json-schema/ajv';
+import ajv from './ajv';
 
 describe('Ajv Compile Test', () => {
   describe('Validate `Action Meta`s', () => {
@@ -124,7 +126,7 @@ describe('Ajv Compile Test', () => {
         $ref: 'ActionMeta#/definitions/object',
       });
 
-      const dynamicValue = (value: any) => {
+      const dynamicValue = (value: unknown) => {
         return {
           ...object,
           properties: [
@@ -144,19 +146,6 @@ describe('Ajv Compile Test', () => {
       expect(validate(dynamicValue({ type: 'array', elements: [object] }))).toBeTruthy();
 
       expect(validate(dynamicValue({ type: 'null1' }))).toBeFalsy();
-    });
-  });
-
-  describe('Validate `Trigger`', () => {
-    const data = {
-      tableId: {
-        type: 'const',
-        value: 'tblwEp45tdvwTxiUl',
-      },
-    };
-
-    it('need to return true', async () => {
-      // TODO: to be realized
     });
   });
 
@@ -502,7 +491,7 @@ describe('Ajv Compile Test', () => {
     };
 
     it('need to return true', async () => {
-      const validate = ajv.getSchema<ICreateRecordSchema>('DecisionSchema')!;
+      const validate = ajv.getSchema<IDecisionSchema>('DecisionSchema')!;
 
       expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
@@ -572,6 +561,22 @@ describe('Ajv Compile Test', () => {
       expect(validate).toBeDefined();
       expect(validate(data)).toBeTruthy();
       expect(validate({ ...data, table: 'table' })).toBeFalsy();
+    });
+  });
+
+  describe('Validate `Trigger Record Created`', () => {
+    const data = {
+      tableId: {
+        type: 'const',
+        value: 'tblwEp45tdvwTxiUl',
+      },
+    };
+
+    it('need to return true', async () => {
+      const validate = ajv.getSchema<ITriggerRecordCreatedSchema>('TriggerRecordCreatedSchema')!;
+
+      expect(validate).toBeDefined();
+      expect(validate(data)).toBeTruthy();
     });
   });
 });

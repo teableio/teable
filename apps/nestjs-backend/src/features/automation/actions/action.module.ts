@@ -2,8 +2,7 @@ import { Module } from '@nestjs/common';
 import { MailSenderModule } from '../../mail-sender/mail-sender.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { MailSender } from './mail-sender';
-import { CreateRecord } from './records/create-record';
-import { UpdateRecord } from './records/update-record';
+import { CreateRecord, UpdateRecord } from './records';
 import { Webhook } from './webhook';
 
 @Module({
