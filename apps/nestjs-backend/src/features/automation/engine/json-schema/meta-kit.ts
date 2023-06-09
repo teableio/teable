@@ -1,5 +1,5 @@
 import { JSONPath } from 'jsonpath-plus';
-import _ from 'lodash';
+import { isEmpty, update, isNil } from 'lodash';
 
 type IType = 'properties';
 
@@ -18,12 +18,12 @@ export class MetaKit {
   ): string | undefined {
     const match = `[?(@.key.value === '${propKey}')]`;
 
-    const queryResult = this.queryPath(json, shortPath, 'properties', match);
-    if (_.isEmpty(queryResult)) {
+    const matchResults = this.queryPath(json, shortPath, 'properties', match);
+    if (isEmpty(matchResults)) {
       return undefined;
     }
-    const last = _.last(queryResult)!;
-    return cancelSymbol ? last.slice(1) : last;
+    const result = matchResults![0];
+    return cancelSymbol ? result.slice(1) : result;
   }
 
   private static queryPath(
@@ -37,8 +37,8 @@ export class MetaKit {
   }
 
   private static replace(json: object, path: string | string[], updater: object, type?: IType) {
-    return _.update(json, path, (value) => {
-      if (!_.isNil(value)) {
+    return update(json, path, (value) => {
+      if (!isNil(value)) {
         if (type === 'properties') {
           value.value = updater;
         } else {

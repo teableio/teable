@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetRecordOpContext } from '@teable-group/core/dist/op-builder/record/set-record';
 import { SetRecordBuilder } from '@teable-group/core/dist/op-builder/record/set-record';
-import _ from 'lodash';
+import { map, intersection, isEmpty } from 'lodash';
 import { EventEnums, RecordEvent } from '../../../../../share-db/events';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
@@ -49,10 +49,10 @@ export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
           pre.push(new SetRecordBuilder().detect(cur));
           return pre;
         }, [] as ISetRecordOpContext[]);
-        const changeFields = _.map(setRecordOps, 'fieldId');
+        const changeFields = map(setRecordOps, 'fieldId');
 
-        const sameField = _.intersection(triggerInput.watchFields as string[], changeFields);
-        if (_.isEmpty(sameField)) {
+        const sameField = intersection(triggerInput.watchFields as string[], changeFields);
+        if (isEmpty(sameField)) {
           continue;
         }
 

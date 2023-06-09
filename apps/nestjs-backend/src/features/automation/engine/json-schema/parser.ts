@@ -1,9 +1,9 @@
-import _ from 'lodash';
+import { get } from 'lodash';
 
 type IPathResolver<T = unknown> = (value: object, path: string | string[]) => T;
 
 function defaultPathResolver(value: object, path: string | string[]) {
-  return _.get(value, path);
+  return get(value, path);
 }
 
 export class JsonSchemaParser<TSchema extends { [key: string]: unknown }, TResult> {

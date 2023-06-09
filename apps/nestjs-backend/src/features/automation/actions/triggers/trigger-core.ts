@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { identify, IdPrefix } from '@teable-group/core';
 import type { TopLevelCondition } from 'json-rules-engine';
-import _ from 'lodash';
+import { findLast, omit, keyBy, head, join, tail } from 'lodash';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import { JsonSchemaParser } from '../../engine/json-schema/parser';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
@@ -30,19 +30,19 @@ export abstract class TriggerCore<TEvent> {
     actions: { [actionId: string]: WorkflowActionVo };
     decisionGroups?: { [actionId: string]: IDecision };
   }> {
-    const decisionNode = _.findLast(workflowActions, (_, key) => {
+    const decisionNode = findLast(workflowActions, (_, key) => {
       return identify(key) === IdPrefix.WorkflowDecision;
     });
 
     let actions = workflowActions;
     let decisionGroups: { [actionId: string]: IDecision } | undefined;
     if (decisionNode) {
-      actions = _.omit(workflowActions, decisionNode.id);
+      actions = omit(workflowActions, decisionNode.id);
       const decisionInput = await new JsonSchemaParser<IDecisionSchema, IDecisionGroups>(
         decisionNode.inputExpressions! as IDecisionSchema
       ).parse();
 
-      decisionGroups = _.keyBy<IDecision>(decisionInput.groups, 'entryNodeId');
+      decisionGroups = keyBy<IDecision>(decisionInput.groups, 'entryNodeId');
     }
 
     return {
@@ -99,10 +99,10 @@ export abstract class TriggerCore<TEvent> {
 
       const conditions = decision.condition.conditions.reduce((pre, cur) => {
         pre.push({
-          fact: _.head(cur.left as string[]),
+          fact: head(cur.left as string[]),
           operator: cur.operator,
           value: cur.right,
-          path: `$.${_.join(_.tail(cur.left as string[]), '.')}`,
+          path: `$.${join(tail(cur.left as string[]), '.')}`,
         });
         return pre;
       }, [] as { [key: string]: unknown }[]);
