@@ -1,3 +1,5 @@
+import { customAlphabet } from 'nanoid';
+
 export enum IdPrefix {
   Table = 'tbl',
   Field = 'fld',
@@ -5,13 +7,17 @@ export enum IdPrefix {
   Node = 'nod',
   Record = 'rec',
   Attachment = 'act',
+
+  Workflow = 'wfl',
+  WorkflowTrigger = 'wtr',
+  WorkflowAction = 'wac',
+  WorkflowDecision = 'wde',
 }
 
 export function getRandomString(len: number) {
   const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
-  for (let i = len; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
+  const nanoid = customAlphabet(chars, len);
+  return nanoid();
 }
 
 export function generateTableId() {
@@ -36,4 +42,31 @@ export function generateTransactionKey() {
 
 export function generateAttachmentId() {
   return IdPrefix.Attachment + getRandomString(8);
+}
+
+export function generateWorkflowId() {
+  return IdPrefix.Workflow + getRandomString(16);
+}
+
+export function generateWorkflowTriggerId() {
+  return IdPrefix.WorkflowTrigger + getRandomString(16);
+}
+
+export function generateWorkflowActionId() {
+  return IdPrefix.WorkflowAction + getRandomString(16);
+}
+
+export function generateWorkflowDecisionId() {
+  return IdPrefix.WorkflowDecision + getRandomString(16);
+}
+
+export function identify(id: string): IdPrefix | undefined {
+  if (id.length < 2) {
+    return undefined;
+  }
+
+  const idPrefix = id.substring(0, 3);
+  return (Object.values(IdPrefix) as string[]).includes(idPrefix)
+    ? (idPrefix as IdPrefix)
+    : undefined;
 }

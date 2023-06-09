@@ -1,17 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
 import { OpBuilder, IdPrefix } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb';
+import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
+import { uniq, map, orderBy } from 'lodash';
+import { TransactionService } from 'src/share-db/transaction.service';
 import { DerivateChangeService } from './derivate-change.service';
+import { EventEnums } from './events';
+import type { RecordEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 
+enum IEventType {
+  Create = 'create',
+  Edit = 'edit',
+  Delete = 'delete',
+}
+
+interface IEventCollectorMeta {
+  type: IEventType;
+  sort: number;
+  context: ShareDBClass.middleware.SubmitContext;
+}
+
 @Injectable()
 export class ShareDbService extends ShareDBClass {
+  private logger = new Logger(ShareDbService.name);
+
+  private eventCollector: Map<string, IEventCollectorMeta[]> = new Map();
+
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
-    private readonly derivateChangeService: DerivateChangeService
+    private readonly derivateChangeService: DerivateChangeService,
+    private readonly transactionService: TransactionService,
+    private readonly eventEmitter: EventEmitter2
   ) {
     super({
       db: sqliteDbAdapter,
@@ -21,6 +44,7 @@ export class ShareDbService extends ShareDBClass {
     this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
+    this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
 
   // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
@@ -131,6 +155,123 @@ export class ShareDbService extends ShareDBClass {
 
   //   next();
   // }
+
+  private onSubmitRequestEnd(error: Error, context: ShareDBClass.middleware.SubmitContext) {
+    const extra = context.extra as { [key: string]: unknown };
+    const transactionKey = extra?.transactionKey as string;
+
+    if (error) {
+      this.logger.error(error);
+      this.removeEventCollector(transactionKey);
+      return;
+    }
+
+    let cacheEventArray = this.eventCollector.get(transactionKey);
+    const transactionCacheMeta = this.transactionService.getCache(transactionKey);
+
+    const eventType = this.getEventType(context.op)!;
+    const cacheEventMeta: IEventCollectorMeta = {
+      type: eventType,
+      sort: transactionCacheMeta?.currentCount ?? (cacheEventArray?.length ?? 0) + 1,
+      context: context,
+    };
+
+    (cacheEventArray = cacheEventArray ?? []).push(cacheEventMeta);
+
+    this.eventCollector.set(transactionKey, cacheEventArray);
+
+    if (!transactionCacheMeta) {
+      // When the `event group` corresponding to a transaction ID completes,
+      // the `type` in the event group is analyzed to dispatch subsequent event tasks
+      this.eventAssign(transactionKey, cacheEventArray);
+    }
+  }
+
+  private removeEventCollector(key: string | undefined) {
+    if (!key) {
+      return;
+    }
+    this.eventCollector.delete(key);
+  }
+
+  private getEventType(
+    op: ShareDBClass.CreateOp | ShareDBClass.DeleteOp | ShareDBClass.EditOp
+  ): IEventType | undefined {
+    if ('create' in op) {
+      return IEventType.Create;
+    }
+    if ('op' in op) {
+      return IEventType.Edit;
+    }
+    if ('del' in op) {
+      return IEventType.Delete;
+    }
+  }
+
+  private async eventAssign(
+    transactionKey: string,
+    cacheEventArray: IEventCollectorMeta[]
+  ): Promise<void> {
+    const getType = (types: IEventType[]): IEventType | undefined => {
+      const uniqueType = uniq(types);
+      if (uniqueType.length === 1) {
+        if (uniqueType.includes(IEventType.Edit)) {
+          return IEventType.Edit;
+        }
+        if (uniqueType.includes(IEventType.Delete)) {
+          return IEventType.Delete;
+        }
+      } else {
+        if (uniqueType.includes(IEventType.Create)) {
+          return IEventType.Create;
+        }
+      }
+    };
+
+    const allTypes = map(cacheEventArray, 'type');
+    const type = getType(allTypes)!;
+    const lastContext = orderBy(cacheEventArray, 'sort', 'desc')[0].context;
+
+    if (type === IEventType.Create) {
+      this.createEvent(lastContext);
+    }
+
+    if (type === IEventType.Edit) {
+      this.editEvent(lastContext);
+    }
+
+    if (type === IEventType.Delete) {
+      // Delete Event
+    }
+
+    this.removeEventCollector(transactionKey);
+  }
+
+  private async createEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
+    const [docType, collectionId] = context.collection.split('_');
+    if (IdPrefix.Record == docType) {
+      const eventValue: RecordEvent = {
+        eventName: EventEnums.RecordCreated,
+        tableId: collectionId,
+        recordId: context.id,
+        context,
+      };
+      this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
+    }
+  }
+
+  private async editEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
+    const [docType, collectionId] = context.collection.split('_');
+    if (IdPrefix.Record == docType) {
+      const eventValue: RecordEvent = {
+        eventName: EventEnums.RecordUpdated,
+        tableId: collectionId,
+        recordId: context.id,
+        context,
+      };
+      this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
+    }
+  }
 
   async submitOps(collection: string, id: string, ops: IOtOperation[]) {
     const doc = this.connect().get(collection, id);

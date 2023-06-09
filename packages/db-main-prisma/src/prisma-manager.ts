@@ -3,6 +3,7 @@
  * and connection limits in development mode.
  */
 import type { Prisma, PrismaClient } from '@prisma/client';
+
 export type IPrismaClientOptions = Prisma.PrismaClientOptions;
 
 declare let global: {
@@ -12,6 +13,7 @@ declare let global: {
 
 export class PrismaManager {
   private static instances?: Record<string, PrismaClient>;
+
   private constructor() {}
 
   /**
@@ -45,5 +47,20 @@ export class PrismaManager {
       }
       return global.__PRISMA_INSTANCES__[instanceKey];
     }
+  }
+
+  static extendTransaction(tx: Prisma.TransactionClient) {
+    return new Proxy(tx, {
+      get(target, p) {
+        if (p === '$transaction') {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          return async (func) => func(tx);
+        }
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        return target[p];
+      },
+    });
   }
 }

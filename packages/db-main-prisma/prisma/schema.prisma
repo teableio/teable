@@ -27,30 +27,30 @@ model TableMeta {
 }
 
 model Field {
-  id               String    @id
-  name             String
-  description      String?
-  options          String?
-  type             String
-  calculatedType   String    @map("calculated_type")
-  cellValueType    String    @map("cell_value_type")
-  cellValueElementType String? @map("cell_value_element_type")
-  dbFieldType      String    @map("db_field_type")
-  dbFieldName      String    @map("db_field_name")
-  defaultValue     String?   @map("default_value")
-  notNull          Boolean?  @map("not_null")
-  unique           Boolean?
-  isPrimary        Boolean?  @map("is_primary")
-  isComputed       Boolean?  @map("is_computed")
-  tableId          String    @map("table_id")
-  columnMeta       String    @map("column_meta")
-  version          Int
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
-  table            TableMeta @relation(fields: [tableId], references: [id])
+  id                   String    @id
+  name                 String
+  description          String?
+  options              String?
+  type                 String
+  calculatedType       String    @map("calculated_type")
+  cellValueType        String    @map("cell_value_type")
+  cellValueElementType String?   @map("cell_value_element_type")
+  dbFieldType          String    @map("db_field_type")
+  dbFieldName          String    @map("db_field_name")
+  defaultValue         String?   @map("default_value")
+  notNull              Boolean?  @map("not_null")
+  unique               Boolean?
+  isPrimary            Boolean?  @map("is_primary")
+  isComputed           Boolean?  @map("is_computed")
+  tableId              String    @map("table_id")
+  columnMeta           String    @map("column_meta")
+  version              Int
+  createdTime          DateTime  @default(now()) @map("created_time")
+  lastModifiedTime     DateTime  @updatedAt @map("last_modified_time")
+  deletedTime          DateTime? @map("deleted_time")
+  createdBy            String    @map("created_by")
+  lastModifiedBy       String    @map("last_modified_by")
+  table                TableMeta @relation(fields: [tableId], references: [id])
 
   @@map("field")
 }
@@ -110,93 +110,156 @@ model Reference {
 }
 
 model NodeValue {
-  id    String  @id
+  id    String @id
   value Int
 
   @@map("node_value")
 }
 
-model User {
-  id            Int       @id @default(autoincrement())
-  firstName     String?   @map("first_name")
-  lastName      String?   @map("last_name")
-  nickname      String    @unique
-  email         String    @unique
-  emailVerified DateTime? @map("email_verified")
-  avatarUrl     String?   @map("avatar_url")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  accounts      Account[]
-  sessions      Session[]
-
-  @@map("users")
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            Int     @map("user_id")
-  type              String
-  provider          String
-  providerAccountId String  @map("provider_account_id")
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("auth_accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("session_token")
-  userId       Int      @map("user_id")
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("auth_sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("auth_verification_tokens")
-}
+// model User {
+//   id            Int       @id @default(autoincrement())
+//   firstName     String?   @map("first_name")
+//   lastName      String?   @map("last_name")
+//   nickname      String    @unique
+//   email         String    @unique
+//   emailVerified DateTime? @map("email_verified")
+//   avatarUrl     String?   @map("avatar_url")
+//   createdAt     DateTime  @default(now()) @map("created_at")
+//   updatedAt     DateTime  @updatedAt @map("updated_at")
+//   accounts      Account[]
+//   sessions      Session[]
+//
+//   @@map("users")
+// }
+//
+// model Account {
+//   id                String  @id @default(cuid())
+//   userId            Int     @map("user_id")
+//   type              String
+//   provider          String
+//   providerAccountId String  @map("provider_account_id")
+//   refresh_token     String?
+//   access_token      String?
+//   expires_at        Int?
+//   token_type        String?
+//   scope             String?
+//   id_token          String?
+//   session_state     String?
+//   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+//
+//   @@unique([provider, providerAccountId])
+//   @@map("auth_accounts")
+// }
+//
+// model Session {
+//   id           String   @id @default(cuid())
+//   sessionToken String   @unique @map("session_token")
+//   userId       Int      @map("user_id")
+//   expires      DateTime
+//   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+//
+//   @@map("auth_sessions")
+// }
+//
+// model VerificationToken {
+//   identifier String
+//   token      String   @unique
+//   expires    DateTime
+//
+//   @@unique([identifier, token])
+//   @@map("auth_verification_tokens")
+// }
 
 model Attachments {
-  id               String    @id @default(cuid())
-  token            String    @unique
-  hash             String
-  size             Int
-  mimetype         String
-  path             String
-  width            Int?
-  height           Int?
-  deletedTime      DateTime? @map("deleted_time")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  id             String    @id @default(cuid())
+  token          String    @unique
+  hash           String
+  size           Int
+  mimetype       String
+  path           String
+  width          Int?
+  height         Int?
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+
   @@map("attachments")
 }
 
 model AttachmentsTable {
+  id             String    @id @default(cuid())
+  attachmentId   String    @map("attachment_id")
+  name           String
+  token          String
+  tableId        String    @map("table_id")
+  recordId       String    @map("record_id")
+  fieldId        String    @map("field_id")
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+
+  @@map("attachments_table")
+}
+
+model AutomationWorkflow {
   id               String    @id @default(cuid())
-  attachmentId     String    @map("attachment_id")
-  name             String
-  token            String
-  tableId          String    @map("table_id")
-  recordId         String    @map("record_id")
-  fieldId          String    @map("field_id")
-  deletedTime      DateTime? @map("deleted_time")
+  workflowId       String    @unique @map("workflow_id")
+  name             String    @map("name")
+  description      String?   @map("description")
+  deploymentStatus String    @default("undeployed") @map("deployment_status")
   createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
   lastModifiedBy   String    @map("last_modified_by")
-  @@map("attachments_table")
+
+  @@map("automation_workflow")
+}
+
+model AutomationWorkflowTrigger {
+  id               String    @id @default(cuid())
+  triggerId        String    @unique @map("trigger_id")
+  workflowId       String    @map("workflow_id")
+  description      String?   @map("description")
+  triggerType      String?   @map("trigger_type")
+  inputExpressions String?   @map("input_expressions")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@index([workflowId])
+  @@map("automation_workflow_trigger")
+}
+
+model AutomationWorkflowAction {
+  id               String    @id @default(cuid())
+  actionId         String    @unique @map("action_id")
+  workflowId       String    @map("workflow_id")
+  description      String?   @map("description")
+  actionType       String?   @map("action_type")
+  inputExpressions String?   @map("input_expressions")
+  nextNodeId       String?   @map("next_node_id")
+  parentNodeId     String?   @map("parent_node_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@index([workflowId])
+  @@map("automation_workflow_action")
+}
+
+model AutomationWorkflowExecutionHistory {
+  id                  String   @id @default(cuid())
+  automaionWorkflowId String   @map("automaion_workflow_id")
+  executionType       String   @map("execution_type")
+  executionResult     String   @map("execution_result")
+  createdTime         DateTime @default(now()) @map("created_time")
+
+  @@map("automation_workflow_execution_history")
 }
