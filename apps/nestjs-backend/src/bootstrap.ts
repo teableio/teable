@@ -3,6 +3,7 @@ import path from 'path';
 import type { RedocOptions } from '@juicyllama/nestjs-redoc';
 import { RedocModule } from '@juicyllama/nestjs-redoc';
 import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -17,6 +18,9 @@ const host = 'localhost';
 export async function setUpAppMiddleware(app: INestApplication) {
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalPipes(
+    new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
+  );
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
   // app.setGlobalPrefix('api');

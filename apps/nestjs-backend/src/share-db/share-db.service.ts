@@ -47,17 +47,25 @@ export class ShareDbService extends ShareDBClass {
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
 
-  // private onSubmit(context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) {
-  //   console.log('ShareDb:SUBMIT:', context.extra, context.op);
+  // private onSubmit = (
+  //   context: ShareDBClass.middleware.SubmitContext,
+  //   next: (err?: unknown) => void
+  // ) => {
   //   next();
-  // }
+  // };
 
+  /**
+   * Goal:
+   * 1. we need all effect to be done when get API response
+   * 2. all effect should be done in one transaction
+   */
   private onApply = async (
     context: ShareDBClass.middleware.ApplyContext,
     next: (err?: unknown) => void
   ) => {
     const tsMeta = context.extra as ITransactionMeta;
-    if (tsMeta.skipCalculate) {
+    if (tsMeta.skipCalculate || tsMeta.isBackend) {
+      console.log('tsMeta.skipCalculate:', tsMeta);
       return next();
     }
 
@@ -122,22 +130,40 @@ export class ShareDbService extends ShareDBClass {
     otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
     console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
+    console.log('new:transactionMeta:', transactionMeta);
+    const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
         const doc = this.connect().get(collection, recordId);
-
         await new Promise((resolve, reject) => {
-          doc.fetch(() => {
-            doc.submitOp(ops, transactionMeta, (error) => {
-              if (error) return reject(error);
-              resolve(undefined);
-            });
+          doc.fetch((error) => {
+            if (error) {
+              return reject(error);
+            }
+            resolve(undefined);
           });
         });
+        queue.push({
+          doc,
+          ops,
+          transactionMeta,
+        });
       }
+    }
+
+    for (const item of queue) {
+      await new Promise((resolve, reject) => {
+        item.doc.submitOp(item.ops, item.transactionMeta, (error) => {
+          if (error) {
+            return reject(error);
+          }
+          console.log('sendOpsAfterApply:succeed', item.transactionMeta);
+          resolve(undefined);
+        });
+      });
     }
   }
 

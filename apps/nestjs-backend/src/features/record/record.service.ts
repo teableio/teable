@@ -362,13 +362,8 @@ export class RecordService implements IAdapterService {
     return recordSnapshot[0].data;
   }
 
-  async getRecordIdByIndex(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    viewId: string,
-    index: number
-  ) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+  async getRecordIdByIndex(tableId: string, viewId: string, index: number) {
+    const dbTableName = await this.getDbTableName(this.prismaService, tableId);
     const sqlNative = this.knex(dbTableName)
       .select('__id')
       .orderBy(getViewOrderFieldName(viewId), 'asc')
@@ -376,7 +371,7 @@ export class RecordService implements IAdapterService {
       .limit(1)
       .toSQL()
       .toNative();
-    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
+    const result = await this.prismaService.$queryRawUnsafe<{ __id: string }[]>(
       sqlNative.sql,
       ...sqlNative.bindings
     );

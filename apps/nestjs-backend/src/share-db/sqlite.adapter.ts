@@ -12,6 +12,7 @@ import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import { PrismaService } from '../prisma.service';
 import type { IAdapterService } from './interface';
+import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -21,11 +22,6 @@ export interface ICollectionSnapshot {
 }
 
 type IProjection = { [fieldKey: string]: boolean };
-
-interface IOptions {
-  transactionKey?: string;
-  opCounter: number;
-}
 
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
@@ -182,7 +178,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     rawOp: CreateOp | DeleteOp | EditOp,
     snapshot: ICollectionSnapshot,
-    options: { transactionKey: string; opCount: number },
+    options: ITransactionMeta,
     callback: (err: unknown, succeed?: boolean, complete?: boolean) => void
   ) {
     /*
@@ -195,6 +191,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
+    console.log('commit', collection, id, options);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, collectionId] = collection.split('_');
@@ -237,10 +234,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
         await this.deleteSnapshot(prisma, collection, id);
       }
 
-      const complete = await this.transactionService.taskComplete(undefined, options);
+      const complete = options.isBackend
+        ? true
+        : await this.transactionService.taskComplete(undefined, options);
       callback(null, true, complete);
     } catch (err) {
-      await this.transactionService.taskComplete(err, options);
+      options.isBackend || (await this.transactionService.taskComplete(err, options));
       callback(err);
     }
   }
@@ -259,13 +258,19 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
-    options: IOptions | undefined,
+    options: ({ agentCustom?: { transactionKey?: string } } & ITransactionMeta) | undefined,
     callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
   ) {
     // console.log('getSnapshotBulk:', { options, collection, ids });
     try {
       const [docType, collectionId] = collection.split('_');
-      const prisma = await this.transactionService.getTransaction(options);
+      const prisma = await this.transactionService.getTransaction(
+        options?.agentCustom?.transactionKey
+          ? {
+              transactionKey: options.agentCustom.transactionKey,
+            }
+          : options
+      );
 
       const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
         prisma,
@@ -300,9 +305,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: IOptions | undefined,
+    options: ({ agentCustom?: { transactionKey?: string } } & ITransactionMeta) | undefined,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
+    // console.log('getSnapshot:', { options, collection });
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
       if (err) {
         callback(err);
@@ -327,13 +333,20 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number,
-    options: IOptions | undefined,
+    options: ({ agentCustom?: { transactionKey?: string } } & ITransactionMeta) | undefined,
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
+      // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
-      const prisma = await this.transactionService.getTransaction(options);
+      const prisma = await this.transactionService.getTransaction(
+        options?.agentCustom?.transactionKey
+          ? {
+              transactionKey: options.agentCustom.transactionKey,
+            }
+          : options
+      );
       const res = await prisma.$queryRawUnsafe<
         { collection: string; id: string; from: number; to: number; operation: string }[]
       >(

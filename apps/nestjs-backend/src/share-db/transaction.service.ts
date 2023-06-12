@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -7,6 +8,12 @@ export interface ITransactionMeta {
   transactionKey: string;
   opCount: number;
   skipCalculate?: boolean;
+  isBackend?: true;
+}
+
+export interface IBackendTransactionMeta {
+  isBackend: true;
+  transactionKey: string;
 }
 
 @Injectable()
@@ -15,11 +22,12 @@ export class TransactionService {
   private cache: Map<
     string,
     {
-      currentCount: number;
-      opCount: number;
+      isBackend?: boolean;
+      currentCount?: number;
+      opCount?: number;
       client?: Prisma.TransactionClient;
-      transactionPromise: Promise<void>;
-      tasksPromiseCb: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
+      transactionPromise?: Promise<void>;
+      tasksPromiseCb?: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
     }
   > = new Map();
 
@@ -60,6 +68,27 @@ export class TransactionService {
     return prismaClient;
   }
 
+  newBackendTransaction(transactionKey: string, prisma: Prisma.TransactionClient) {
+    const cache = this.cache.get(transactionKey);
+    if (cache) {
+      throw new Error('Transaction already exists: ' + transactionKey);
+    }
+
+    this.cache.set(transactionKey, {
+      isBackend: true,
+      client: prisma,
+    });
+  }
+
+  completeBackendTransaction(transactionKey: string) {
+    const cache = this.cache.get(transactionKey);
+    if (!cache || !cache.isBackend) {
+      throw new Error('Can not find transaction: ' + transactionKey);
+    }
+    console.log('completeBackendTransaction', transactionKey);
+    this.cache.delete(transactionKey);
+  }
+
   updateTransaction(tsMeta: ITransactionMeta) {
     const cache = this.cache.get(tsMeta.transactionKey);
     if (!cache) {
@@ -73,7 +102,10 @@ export class TransactionService {
   }
 
   getCache(transactionKey: string) {
-    return this.cache.get(transactionKey);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const cache = this.cache.get(transactionKey)!;
+
+    return { currentCount: cache.currentCount, opCount: cache.opCount };
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
@@ -91,14 +123,14 @@ export class TransactionService {
 
     if (err) {
       this.cache.delete(tsMeta.transactionKey);
-      tasksPromiseCb.reject(err);
+      tasksPromiseCb!.reject(err);
       return false;
     }
 
-    const currentCount = cache.currentCount + 1;
+    const currentCount = cache.currentCount! + 1;
     if (opCount === currentCount) {
       this.cache.delete(tsMeta.transactionKey);
-      tasksPromiseCb.resolve(undefined);
+      tasksPromiseCb!.resolve(undefined);
       await transactionPromise;
       return true;
     }
@@ -133,6 +165,11 @@ export class TransactionService {
     throw new Error('max wait time exceed: ' + transactionKey);
   }
 
+  // for api service use only
+  getTransactionSync(transactionKey: string) {
+    return this.cache.get(transactionKey)!.client!;
+  }
+
   async getTransaction(tsMeta?: {
     transactionKey?: string;
     opCount?: number;
@@ -141,19 +178,24 @@ export class TransactionService {
       return this.prismaService;
     }
     const { transactionKey, opCount } = tsMeta;
-    if (!opCount) {
-      throw new Error("opCount can't be empty");
-    }
 
     const cache = this.cache.get(transactionKey);
     let prismaClient: Prisma.TransactionClient;
     if (cache) {
+      const isBackend = cache?.isBackend;
+      if (!opCount && !isBackend) {
+        throw new Error("opCount can't be empty");
+      }
+
       if (cache.client) {
         return cache.client;
       } else {
         return await this.waitClient(transactionKey);
       }
     } else {
+      if (!opCount) {
+        throw new Error("opCount can't be empty");
+      }
       prismaClient = await this.newTransaction({ transactionKey, opCount });
     }
 
