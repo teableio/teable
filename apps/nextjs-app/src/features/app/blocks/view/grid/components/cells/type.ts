@@ -13,6 +13,10 @@ export interface IAttachmentGridCell {
   options: null;
 }
 
-export type IGridCell = ISelectGridCell | IAttachmentGridCell;
+export interface ILoadingGridCell {
+  type: 'loading';
+}
+
+export type IGridCell = ISelectGridCell | IAttachmentGridCell | ILoadingGridCell;
 
 export type ICustomCellGridCell = CustomCell<IGridCell>;
