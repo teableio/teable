@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
@@ -15,7 +15,7 @@ export interface ITransactionMeta {
 
 @Injectable()
 export class TransactionService {
-  constructor(private readonly prismaService: PrismaService) {}
+  private logger = new Logger(TransactionService.name);
   private cache: Map<
     string,
     {
@@ -27,6 +27,8 @@ export class TransactionService {
       tasksPromiseCb?: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
     }
   > = new Map();
+
+  constructor(private readonly prismaService: PrismaService) {}
 
   private async newTransaction(tsMeta: ITransactionMeta) {
     let tasksPromiseCb:
@@ -75,7 +77,7 @@ export class TransactionService {
     }
   ): Promise<R> {
     const transactionKey = generateTransactionKey();
-    console.log('startBackendTransaction:', transactionKey);
+    this.logger.log('startBackendTransaction:' + transactionKey);
     const result = await this.prismaService.$transaction(async (prisma) => {
       this.cache.set(transactionKey, {
         isBackend: true,
@@ -133,9 +135,9 @@ export class TransactionService {
 
   getCache(transactionKey: string) {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const cache = this.cache.get(transactionKey)!;
+    const cache = this.cache.get(transactionKey);
 
-    return { currentCount: cache.currentCount, opCount: cache.opCount };
+    return { currentCount: cache?.currentCount, opCount: cache?.opCount };
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
@@ -162,6 +164,7 @@ export class TransactionService {
       this.cache.delete(tsMeta.transactionKey);
       tasksPromiseCb!.resolve(undefined);
       await transactionPromise;
+      console.log('transaction complete:', tsMeta.transactionKey, tsMeta.opCount);
       return true;
     }
     this.cache.set(tsMeta.transactionKey, {
@@ -200,10 +203,18 @@ export class TransactionService {
     return this.cache.get(transactionKey)!.client!;
   }
 
-  async getTransaction(tsMeta?: {
-    transactionKey?: string;
-    opCount?: number;
-  }): Promise<Prisma.TransactionClient> {
+  async getTransaction(
+    options:
+      | ({ agentCustom?: ITransactionMeta & { isBackend?: boolean } } & ITransactionMeta)
+      | undefined
+  ): Promise<Prisma.TransactionClient> {
+    let tsMeta = undefined;
+    if (options?.agentCustom && options.agentCustom.transactionKey) {
+      tsMeta = options.agentCustom;
+    } else {
+      tsMeta = options;
+    }
+
     if (!tsMeta || !tsMeta.transactionKey) {
       return this.prismaService;
     }
@@ -224,7 +235,7 @@ export class TransactionService {
       }
     } else {
       if (!opCount) {
-        return this.prismaService;
+        throw new Error("opCount can't be empty");
       }
       prismaClient = await this.newTransaction({ transactionKey, opCount });
     }

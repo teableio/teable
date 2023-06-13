@@ -74,7 +74,7 @@ export class ShareDbService extends ShareDBClass {
     next: (err?: unknown) => void
   ) => {
     const tsMeta = context.extra as ITransactionMeta;
-    if (tsMeta.skipCalculate || context.agent.custom) {
+    if (tsMeta.skipCalculate || context.agent.custom?.transactionKey) {
       console.log('tsMeta.skipCalculate:', tsMeta, context.agent.custom);
       return next();
     }
@@ -105,7 +105,6 @@ export class ShareDbService extends ShareDBClass {
     if (docType !== IdPrefix.Record || !context.op.op || !tsMeta || tsMeta.skipCalculate) {
       return;
     }
-
     console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
     const opContexts = context.op.op.reduce<ISetRecordOpContext[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
@@ -143,9 +142,7 @@ export class ShareDbService extends ShareDBClass {
     console.log('new:transactionMeta:', transactionMeta);
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    connection.agent!.custom = {
-      transactionKey: transactionMeta.transactionKey,
-    };
+    connection.agent!.custom = transactionMeta;
     const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];

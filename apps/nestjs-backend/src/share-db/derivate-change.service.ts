@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import { generateTransactionKey } from '@teable-group/core';
 import type { IApplyParam, IOpsMap } from '../features/calculation/link.service';
 import { LinkService } from '../features/calculation/link.service';
 import { TransactionService } from './transaction.service';
@@ -88,18 +87,17 @@ export class DerivateChangeService {
     }, 0);
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    // const existingOpCount = this.transactionService.getCache(tsMeta.transactionKey)!.opCount;
+    const existingOpCount = this.transactionService.getCache(tsMeta.transactionKey)!.opCount!;
 
     const transactionMeta: ITransactionMeta = {
-      transactionKey: generateTransactionKey(),
+      transactionKey: tsMeta.transactionKey,
       // increase opCount by changes
-      opCount: opsCount,
+      opCount: existingOpCount + opsCount,
       // avoid recalculate
       skipCalculate: true,
     };
 
-    console.log('refreshTransactionCache:', transactionMeta);
-    // this.transactionService.updateTransaction(transactionMeta);
+    this.transactionService.updateTransaction(transactionMeta);
     return transactionMeta;
   }
 }

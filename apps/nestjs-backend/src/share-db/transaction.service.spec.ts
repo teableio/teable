@@ -29,12 +29,12 @@ describe('TransactionService', () => {
 
   describe('getTransaction', () => {
     it('should return prismaService if no transactionKey is provided', async () => {
-      const result = await service.getTransaction({});
+      const result = await service.getTransaction({} as any);
       expect(result).toBe(prismaService);
     });
 
     it('should throw an error if opCount is not provided', async () => {
-      await expect(service.getTransaction({ transactionKey: 'testKey' })).rejects.toThrow(
+      await expect(service.getTransaction({ transactionKey: 'testKey' } as any)).rejects.toThrow(
         "opCount can't be empty"
       );
     });

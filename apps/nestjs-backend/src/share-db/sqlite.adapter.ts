@@ -20,7 +20,7 @@ export interface ICollectionSnapshot {
   v: number;
   data: IRecord;
 }
-type IOptions = { agentCustom?: { transactionKey?: string } } & ITransactionMeta;
+type IOptions = { agentCustom?: ITransactionMeta & { isBackend?: boolean } } & ITransactionMeta;
 type IProjection = { [fieldKey: string]: boolean };
 
 @Injectable()
@@ -194,8 +194,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, collectionId] = collection.split('_');
-    const prisma = await this.transactionService.getTransaction(options.agentCustom ?? options);
-    const isBackend = Boolean(options.agentCustom);
+    const prisma = await this.transactionService.getTransaction(options);
+    const isBackend = Boolean(options.agentCustom?.isBackend);
 
     try {
       const opsResult = await prisma.ops.aggregate({
@@ -264,9 +264,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // console.log('getSnapshotBulk:', { options, collection, ids });
     try {
       const [docType, collectionId] = collection.split('_');
-      const prisma = await this.transactionService.getTransaction(
-        options?.agentCustom ? options.agentCustom : options
-      );
+      const prisma = await this.transactionService.getTransaction(options);
 
       const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
         prisma,
@@ -336,9 +334,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
       // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
-      const prisma = await this.transactionService.getTransaction(
-        options?.agentCustom ? options.agentCustom : options
-      );
+      const prisma = await this.transactionService.getTransaction(options);
       const res = await prisma.$queryRawUnsafe<
         { collection: string; id: string; from: number; to: number; operation: string }[]
       >(
