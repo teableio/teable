@@ -11,6 +11,7 @@ export class NextController {
   @Get([
     '/',
     'favicon.ico',
+    '__nextjs*',
     '_next/*',
     'images/*',
     'home',
