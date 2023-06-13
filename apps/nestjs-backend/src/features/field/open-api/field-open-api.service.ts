@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { IFieldSnapshot, IOtOperation } from '@teable-group/core';
-import { FieldType, generateTransactionKey, IdPrefix, OpBuilder } from '@teable-group/core';
+import { FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
 import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import type { ITransactionMeta } from '../../../share-db/transaction.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { ITransactionCreator } from '../../../utils/transaction-creator';
 import { FieldSupplementService } from '../field-supplement.service';
@@ -26,30 +25,29 @@ export class FieldOpenApiService implements ITransactionCreator {
   ) {}
 
   async createField(tableId: string, fieldInstance: IFieldInstance) {
-    const { creators, opMeta } = this.generateCreators(tableId, fieldInstance);
-    const transactionMeta = {
-      transactionKey: generateTransactionKey(),
-      opCount: creators.length,
-    };
-
-    for (const creator of creators) {
-      await creator(transactionMeta);
-    }
-
-    return opMeta;
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_, transactionKey) => {
+        const { creators, opMeta } = this.createCreators(tableId, fieldInstance);
+        for (const creator of creators) {
+          await creator(transactionKey);
+        }
+        return opMeta;
+      }
+    );
   }
 
   generateFirstCreators(tableId: string, field: IFieldInstance) {
     const snapshot = this.createField2Ops(tableId, field);
     const id = snapshot.field.id;
-    const collection = `${IdPrefix.Field}_${tableId}`;
-    const doc = this.shareDbService.connect().get(collection, id);
     return {
-      creator: async (transactionMeta: ITransactionMeta) => {
-        const prisma = await this.transactionService.getTransaction(transactionMeta);
+      creator: async (transactionKey: string) => {
+        const collection = `${IdPrefix.Field}_${tableId}`;
+        const doc = this.shareDbService.getConnection(transactionKey).get(collection, id);
+        const prisma = this.transactionService.getTransactionSync(transactionKey);
         await this.fieldSupplementService.createReference(prisma, field);
         return await new Promise<IFieldSnapshot>((resolve, reject) => {
-          doc.create(snapshot, undefined, transactionMeta, (error) => {
+          doc.create(snapshot, (error) => {
             if (error) return reject(error);
             // console.log(`create document ${collectionId}.${id} succeed!`);
             resolve(doc.data);
@@ -61,9 +59,9 @@ export class FieldOpenApiService implements ITransactionCreator {
   }
 
   generateSecondCreators(brotherFieldTableId: string, brotherField: LinkFieldDto) {
-    return async (transactionMeta: ITransactionMeta) => {
+    return async (transactionKey: string) => {
       const tableId = brotherField.options.foreignTableId;
-      const prisma = await this.transactionService.getTransaction(transactionMeta);
+      const prisma = this.transactionService.getTransactionSync(transactionKey);
       const field = await this.fieldSupplementService.supplementByCreate(
         prisma,
         brotherFieldTableId,
@@ -74,9 +72,9 @@ export class FieldOpenApiService implements ITransactionCreator {
       const snapshot = this.createField2Ops(tableId, field);
       const id = snapshot.field.id;
       const collection = `${IdPrefix.Field}_${tableId}`;
-      const doc = this.shareDbService.connect().get(collection, id);
+      const doc = this.shareDbService.getConnection(transactionKey).get(collection, id);
       return await new Promise<IFieldSnapshot>((resolve, reject) => {
-        doc.create(snapshot, undefined, transactionMeta, (error) => {
+        doc.create(snapshot, (error) => {
           if (error) return reject(error);
           // console.log(`create document ${collectionId}.${id} succeed!`);
           resolve(doc.data);
@@ -85,8 +83,8 @@ export class FieldOpenApiService implements ITransactionCreator {
     };
   }
 
-  generateCreators(tableId: string, field: IFieldInstance) {
-    const creators: ((transactionMeta: ITransactionMeta) => Promise<IFieldSnapshot>)[] = [];
+  createCreators(tableId: string, field: IFieldInstance) {
+    const creators: ((transactionKey: string) => Promise<IFieldSnapshot>)[] = [];
     const { creator, snapshot } = this.generateFirstCreators(tableId, field);
     creators.push(creator);
     if (field.type === FieldType.Link) {
@@ -105,39 +103,44 @@ export class FieldOpenApiService implements ITransactionCreator {
   }
 
   async updateFieldById(tableId: string, fieldId: string, updateFieldRo: UpdateFieldRo) {
-    const fieldVo = await this.fieldService.getField(tableId, fieldId);
-    if (!fieldVo) {
-      throw new HttpException(`Not found fieldId(${fieldId})`, HttpStatus.NOT_FOUND);
-    }
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (prisma, transactionKey) => {
+        const fieldVo = await this.fieldService.getField(tableId, fieldId, prisma);
+        if (!fieldVo) {
+          throw new HttpException(`Not found fieldId(${fieldId})`, HttpStatus.NOT_FOUND);
+        }
 
-    const oldFieldInstance = createFieldInstanceByVo(fieldVo);
+        const oldFieldInstance = createFieldInstanceByVo(fieldVo);
 
-    let newFieldInstance: IFieldInstance;
-    try {
-      newFieldInstance = createFieldInstanceByRo({
-        ...fieldVo,
-        ...updateFieldRo,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-    }
+        let newFieldInstance: IFieldInstance;
+        try {
+          newFieldInstance = createFieldInstanceByRo({
+            ...fieldVo,
+            ...updateFieldRo,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (e: any) {
+          throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+        }
 
-    const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
-      (key) => oldFieldInstance[key] !== newFieldInstance[key]
-    );
+        const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
+          (key) => oldFieldInstance[key] !== newFieldInstance[key]
+        );
 
-    const ops = this.updateField2Ops(updateKeys, newFieldInstance, oldFieldInstance);
-    const collection = `${IdPrefix.Field}_${tableId}`;
-    const doc = this.shareDbService.connect().get(collection, fieldId);
-    return new Promise((resolve, reject) => {
-      doc.fetch(() => {
-        doc.submitOp(ops, { transactionKey: generateTransactionKey(), opCount: 1 }, (error) => {
-          if (error) return reject(error);
-          resolve(undefined);
+        const ops = this.updateField2Ops(updateKeys, newFieldInstance, oldFieldInstance);
+        const collection = `${IdPrefix.Field}_${tableId}`;
+        const doc = this.shareDbService.getConnection(transactionKey).get(collection, fieldId);
+        return new Promise((resolve, reject) => {
+          doc.fetch(() => {
+            doc.submitOp(ops, undefined, (error) => {
+              if (error) return reject(error);
+              resolve(undefined);
+            });
+          });
         });
-      });
-    });
+      }
+    );
   }
 
   updateField2Ops(

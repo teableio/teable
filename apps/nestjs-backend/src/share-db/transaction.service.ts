@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { noop } from 'lodash';
 import { PrismaService } from '../../src/prisma.service';
+import type { ShareDbService } from './share-db.service';
 
 export interface ITransactionMeta {
   transactionKey: string;
@@ -11,17 +15,20 @@ export interface ITransactionMeta {
 
 @Injectable()
 export class TransactionService {
-  constructor(private readonly prismaService: PrismaService) {}
+  private logger = new Logger(TransactionService.name);
   private cache: Map<
     string,
     {
-      currentCount: number;
-      opCount: number;
+      isBackend?: boolean;
+      currentCount?: number;
+      opCount?: number;
       client?: Prisma.TransactionClient;
-      transactionPromise: Promise<void>;
-      tasksPromiseCb: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
+      transactionPromise?: Promise<void>;
+      tasksPromiseCb?: { resolve: (value: unknown) => void; reject: (reason?: unknown) => void };
     }
   > = new Map();
+
+  constructor(private readonly prismaService: PrismaService) {}
 
   private async newTransaction(tsMeta: ITransactionMeta) {
     let tasksPromiseCb:
@@ -60,6 +67,60 @@ export class TransactionService {
     return prismaClient;
   }
 
+  async $transaction<R>(
+    shareDbService: ShareDbService,
+    fn: (prisma: Prisma.TransactionClient, transactionKey: string) => Promise<R>,
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    }
+  ): Promise<R> {
+    const transactionKey = generateTransactionKey();
+    this.logger.log('startBackendTransaction:' + transactionKey);
+    const result = await this.prismaService.$transaction(async (prisma) => {
+      this.cache.set(transactionKey, {
+        isBackend: true,
+        client: prisma,
+      });
+      try {
+        return await fn(prisma, transactionKey);
+      } catch (e) {
+        // if transaction has been rollback, cancel publish
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (shareDbService as any).pendingPublish[transactionKey];
+        throw e;
+      } finally {
+        this.completeBackendTransaction(transactionKey);
+      }
+    }, options);
+    this.publishPendingOp(shareDbService, transactionKey);
+    return result;
+  }
+
+  private completeBackendTransaction(transactionKey: string) {
+    const cache = this.cache.get(transactionKey);
+    if (!cache || !cache.isBackend) {
+      throw new Error('Can not find transaction: ' + transactionKey);
+    }
+    console.log('completeBackendTransaction', transactionKey);
+    this.cache.delete(transactionKey);
+  }
+
+  // dispatch op publish event, make sure op is published after transaction is completed
+  private publishPendingOp(shareDbService: ShareDbService, transactionKey: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pendingPublish = (shareDbService as any).pendingPublish[transactionKey];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (shareDbService as any).pendingPublish[transactionKey];
+    if (pendingPublish) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pendingPublish.forEach((p: any) => {
+        shareDbService.pubsub.publish(p.channels, p.op, noop);
+      });
+    }
+  }
+
   updateTransaction(tsMeta: ITransactionMeta) {
     const cache = this.cache.get(tsMeta.transactionKey);
     if (!cache) {
@@ -73,7 +134,10 @@ export class TransactionService {
   }
 
   getCache(transactionKey: string) {
-    return this.cache.get(transactionKey);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const cache = this.cache.get(transactionKey);
+
+    return { currentCount: cache?.currentCount, opCount: cache?.opCount };
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
@@ -91,15 +155,16 @@ export class TransactionService {
 
     if (err) {
       this.cache.delete(tsMeta.transactionKey);
-      tasksPromiseCb.reject(err);
+      tasksPromiseCb!.reject(err);
       return false;
     }
 
-    const currentCount = cache.currentCount + 1;
+    const currentCount = cache.currentCount! + 1;
     if (opCount === currentCount) {
       this.cache.delete(tsMeta.transactionKey);
-      tasksPromiseCb.resolve(undefined);
+      tasksPromiseCb!.resolve(undefined);
       await transactionPromise;
+      console.log('transaction complete:', tsMeta.transactionKey, tsMeta.opCount);
       return true;
     }
     this.cache.set(tsMeta.transactionKey, {
@@ -133,27 +198,45 @@ export class TransactionService {
     throw new Error('max wait time exceed: ' + transactionKey);
   }
 
-  async getTransaction(tsMeta?: {
-    transactionKey?: string;
-    opCount?: number;
-  }): Promise<Prisma.TransactionClient> {
+  // for api service use only
+  getTransactionSync(transactionKey: string) {
+    return this.cache.get(transactionKey)!.client!;
+  }
+
+  async getTransaction(
+    options:
+      | ({ agentCustom?: ITransactionMeta & { isBackend?: boolean } } & ITransactionMeta)
+      | undefined
+  ): Promise<Prisma.TransactionClient> {
+    let tsMeta = undefined;
+    if (options?.agentCustom && options.agentCustom.transactionKey) {
+      tsMeta = options.agentCustom;
+    } else {
+      tsMeta = options;
+    }
+
     if (!tsMeta || !tsMeta.transactionKey) {
       return this.prismaService;
     }
     const { transactionKey, opCount } = tsMeta;
-    if (!opCount) {
-      throw new Error("opCount can't be empty");
-    }
 
     const cache = this.cache.get(transactionKey);
     let prismaClient: Prisma.TransactionClient;
     if (cache) {
+      const isBackend = cache?.isBackend;
+      if (!opCount && !isBackend) {
+        throw new Error("opCount can't be empty");
+      }
+
       if (cache.client) {
         return cache.client;
       } else {
         return await this.waitClient(transactionKey);
       }
     } else {
+      if (!opCount) {
+        throw new Error("opCount can't be empty");
+      }
       prismaClient = await this.newTransaction({ transactionKey, opCount });
     }
 

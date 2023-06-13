@@ -1,20 +1,21 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, IRecordSnapshot } from '@teable-group/core';
-import {
-  FieldKeyType,
-  generateTransactionKey,
-  IdPrefix,
-  generateRecordId,
-  OpBuilder,
+import { Injectable } from '@nestjs/common';
+import type {
+  IOtOperation,
+  IRecord,
+  IRecordSnapshot,
+  ISetRecordOpContext,
 } from '@teable-group/core';
+import { OpName, FieldKeyType, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Doc } from '@teable/sharedb/lib/client';
+import { keyBy } from 'lodash';
+import { TransactionService } from '../../..//share-db/transaction.service';
 import type { IFieldInstance } from '../../../features/field/model/factory';
 import { createFieldInstanceByRaw } from '../../../features/field/model/factory';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import type { ITransactionMeta } from '../../../share-db/transaction.service';
-import { TransactionService } from '../../../share-db/transaction.service';
-import type { ITransactionCreator } from '../../../utils/transaction-creator';
+import type { IApplyParam, IOpsMap } from '../../calculation/link.service';
+import { LinkService } from '../../calculation/link.service';
 import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
@@ -27,103 +28,227 @@ interface ICreateRecordOpMeta {
 }
 
 @Injectable()
-export class RecordOpenApiService implements ITransactionCreator {
+export class RecordOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
+    private readonly transactionService: TransactionService,
     private readonly recordService: RecordService,
-    private readonly transactionService: TransactionService
+    private readonly linkService: LinkService
   ) {}
 
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: CreateRecordsRo,
-    fieldMap?: { [fieldIdOrName: string]: IFieldInstance }
+    transactionKey?: string
   ): Promise<CreateRecordsVo> {
-    if (!fieldMap) {
-      fieldMap = await this.getFieldInstanceMap(
-        this.prismaService,
-        tableId,
-        createRecordsRo.fieldKeyType
-      );
+    if (transactionKey) {
+      return await this.createRecords(transactionKey, tableId, createRecordsRo);
     }
 
-    const { creators, afterCreate } = this.generateCreators(tableId, fieldMap, createRecordsRo);
-    const transactionMeta = {
-      transactionKey: generateTransactionKey(),
-      opCount: creators.length,
-    };
-
-    const result: Awaited<ReturnType<typeof creators[number]>>[] = [];
-    for (const creator of creators) {
-      result.push(await creator(transactionMeta));
-    }
-
-    return afterCreate(result);
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_, transactionKey) => {
+        return await this.createRecords(transactionKey, tableId, createRecordsRo);
+      }
+    );
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  generateCreators(
+  private async generateApplyParams(
+    transactionKey: string,
     tableId: string,
-    fieldMap: { [fieldIdOrName: string]: IFieldInstance },
-    createRecordsRo: CreateRecordsRo
+    fieldKey: FieldKeyType,
+    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
   ) {
-    const opMeta = this.multipleCreateRecords2Ops(fieldMap, createRecordsRo);
-    const connection = this.shareDbService.connect();
+    const prisma = this.transactionService.getTransactionSync(transactionKey);
+    const fieldKeys = Array.from(
+      records.reduce<Set<string>>((acc, record) => {
+        Object.keys(record.fields).forEach((fieldKey) => acc.add(fieldKey));
+        return acc;
+      }, new Set())
+    );
 
-    const recordCreators: ((
-      transactionMeta: ITransactionMeta
-    ) => Promise<IRecordSnapshot | void>)[] = [];
-    for (const opData of opMeta) {
-      const { snapshot, ops } = opData;
+    const fieldRaws = await prisma.field.findMany({
+      where: { tableId, [fieldKey]: { in: fieldKeys } },
+      select: { id: true, name: true },
+    });
+    const fieldIdMap = keyBy(fieldRaws, fieldKey);
+
+    const connection = this.shareDbService.getConnection(transactionKey);
+    const applyParams: (IApplyParam & { ops: IOtOperation[]; doc: Doc<IRecordSnapshot> })[] = [];
+    for (const record of records) {
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      const doc = connection.get(collection, record.id);
+      const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
+        doc.fetch((err) => {
+          if (err) return reject(err);
+          resolve(doc.data);
+        });
+      });
+      const opContexts: ISetRecordOpContext[] = [];
+      const ops: IOtOperation[] = [];
+
+      Object.entries(record.fields).forEach(([fieldKey, value]) => {
+        const fieldId = fieldIdMap[fieldKey].id;
+        const oldCellValue = snapshot.record.fields[fieldId];
+        ops.push(
+          OpBuilder.editor.setRecord.build({
+            fieldId,
+            newCellValue: value,
+            oldCellValue,
+          })
+        );
+        opContexts.push({
+          name: OpName.SetRecord,
+          fieldId,
+          newValue: value,
+          oldValue: oldCellValue,
+        });
+      });
+
+      applyParams.push({
+        tableId,
+        recordId: record.id,
+        doc,
+        ops,
+        opContexts,
+      });
+    }
+    return applyParams;
+  }
+
+  private async calculateAndSubmitOp(
+    transactionKey: string,
+    tableId: string,
+    fieldKey: FieldKeyType = FieldKeyType.Name,
+    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
+  ): Promise<IRecordSnapshot[]> {
+    const prisma = this.transactionService.getTransactionSync(transactionKey);
+    const applyParams = await this.generateApplyParams(transactionKey, tableId, fieldKey, records);
+    // calculate all changes
+    const opsMaps: IOpsMap[] = [];
+    for (const applyParam of applyParams) {
+      const { ops } = applyParam;
+      const calculated = await this.linkService.calculate(prisma, applyParam);
+      if (calculated) {
+        ops.push(...calculated.currentSnapshotOps);
+        calculated.otherSnapshotOps && opsMaps.push(calculated.otherSnapshotOps);
+      }
+    }
+    const opsMap = this.linkService.composeOpsMaps(opsMaps);
+    // make sure opsMap not overlap with exist applyPrams
+    for (const applyParam of applyParams) {
+      const { tableId, recordId, ops } = applyParam;
+      if (opsMap[tableId]?.[recordId]) {
+        const extraOps = opsMap[tableId][recordId];
+        ops.push(...extraOps);
+        delete opsMap[tableId][recordId];
+      }
+    }
+    // submit other changes
+    await this.sendOtherOps(transactionKey, opsMap);
+
+    // submit current changes
+    const recordSnapshots: IRecordSnapshot[] = [];
+    for (const applyParam of applyParams) {
+      const { doc, ops } = applyParam;
+      if (!ops.length) {
+        continue;
+      }
+      const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
+        doc.submitOp(ops, undefined, (err) => {
+          if (err) return reject(err);
+          resolve(doc.data);
+        });
+      });
+      recordSnapshots.push(snapshot);
+    }
+    return recordSnapshots;
+  }
+
+  private async sendOtherOps(
+    transactionKey: string,
+    otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
+  ) {
+    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
+    const connection = this.shareDbService.getConnection(transactionKey);
+    for (const tableId in otherSnapshotOps) {
+      const data = otherSnapshotOps[tableId];
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      for (const recordId in data) {
+        const ops = data[recordId];
+        const doc = connection.get(collection, recordId);
+        await new Promise((resolve, reject) => {
+          doc.fetch((err) => {
+            if (err) return reject(err);
+            doc.submitOp(ops, undefined, (error) => {
+              if (error) {
+                console.error('sendOpsAfterApply error:', error);
+                return reject(error);
+              }
+              console.log('sendOpsAfterApply:succeed', ops);
+              resolve(undefined);
+            });
+          });
+        });
+      }
+    }
+  }
+
+  private async createRecords(
+    transactionKey: string,
+    tableId: string,
+    createRecordsRo: CreateRecordsRo
+  ): Promise<CreateRecordsVo> {
+    const snapshots = createRecordsRo.records.map(() => {
+      const recordId = generateRecordId();
+      return OpBuilder.creator.addRecord.build({
+        record: { id: recordId, fields: {}, recordOrder: {} },
+      });
+    });
+
+    const connection = this.shareDbService.getConnection(transactionKey);
+
+    for (const snapshot of snapshots) {
       const collection = `${IdPrefix.Record}_${tableId}`;
       const docId = snapshot.record.id;
       const doc = connection.get(collection, docId);
-      recordCreators.push((transactionMeta: ITransactionMeta) => {
-        return new Promise<void>((resolve, reject) => {
-          doc.create(snapshot, undefined, transactionMeta, (error) => {
-            if (error) return reject(error);
-            resolve(undefined);
-          });
-        });
-      });
-
-      if (!ops) {
-        continue;
-      }
-
-      recordCreators.push((transactionMeta: ITransactionMeta) => {
-        return new Promise<IRecordSnapshot>((resolve, reject) => {
-          doc.submitOp(ops, transactionMeta, (error) => {
-            if (error) return reject(error);
-            resolve(doc.data);
-          });
+      await new Promise<void>((resolve, reject) => {
+        doc.create(snapshot, (error) => {
+          if (error) return reject(error);
+          resolve(undefined);
         });
       });
     }
 
+    const records = await this.calculateAndSubmitOp(
+      transactionKey,
+      tableId,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      createRecordsRo.fieldKeyType!,
+      createRecordsRo.records.map((s, i) => ({ id: snapshots[i].record.id, fields: s.fields }))
+    );
+
+    const fieldIds = Array.from(
+      records.reduce<Set<string>>((pre, cur) => {
+        Object.keys(cur.record.fields).forEach((fieldId) => pre.add(fieldId));
+        return pre;
+      }, new Set())
+    );
+    const prisma = this.transactionService.getTransactionSync(transactionKey);
+    const fields = await prisma.field.findMany({
+      where: { id: { in: fieldIds }, deletedTime: null },
+      select: { id: true, name: true },
+    });
+
     return {
-      creators: recordCreators,
-      afterCreate: (result: (IRecordSnapshot | void)[]) => {
-        return {
-          records: opMeta.map((opData) => {
-            let record: IRecord;
-            const calculatedSnapshot = result.find(
-              (snapshot) => snapshot?.record.id === opData.snapshot.record.id
-            );
-            if (calculatedSnapshot) {
-              record = calculatedSnapshot.record;
-            } else {
-              record = opData.snapshot.record;
-            }
-            return this.convertFieldKeyInRecord(
-              record,
-              Object.values(fieldMap),
-              createRecordsRo.fieldKeyType
-            );
-          }),
-        };
-      },
+      records: snapshots.map((snapshot) => {
+        const record = records.find((record) => record.record.id === snapshot.record.id);
+        if (record) {
+          return this.convertFieldKeyInRecord(record.record, fields, createRecordsRo.fieldKeyType);
+        }
+        return snapshot.record;
+      }),
     };
   }
 
@@ -176,12 +301,11 @@ export class RecordOpenApiService implements ITransactionCreator {
   }
 
   async multipleUpdateRecords2Ops(
+    prisma: Prisma.TransactionClient,
     tableId: string,
-    updateRecordByIdsRo: (UpdateRecordRo & { recordId: string })[],
-    transactionMeta?: { transactionKey: string; opCount: number }
+    updateRecordByIdsRo: (UpdateRecordRo & { recordId: string })[]
   ) {
     const { fieldKeyType = FieldKeyType.Name } = updateRecordByIdsRo[0];
-    const prisma = await this.transactionService.getTransaction(transactionMeta);
     const dbFieldNameSet = new Set<string>();
 
     const fieldMap = await this.getFieldInstanceMap(prisma, tableId, fieldKeyType);
@@ -253,59 +377,41 @@ export class RecordOpenApiService implements ITransactionCreator {
   async updateRecordById(
     tableId: string,
     recordId: string,
-    updateRecordRo: UpdateRecordRo,
-    transactionMeta?: { transactionKey: string; opCount: number }
+    updateRecordRo: UpdateRecordRo
   ): Promise<IRecordSnapshot> {
-    const { fieldMap, opMeta } = await this.multipleUpdateRecords2Ops(
-      tableId,
-      [{ ...updateRecordRo, recordId }],
-      transactionMeta
-    );
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (prisma, transactionKey) => {
+        const records = await this.calculateAndSubmitOp(
+          transactionKey,
+          tableId,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          updateRecordRo.fieldKeyType!,
+          [{ id: recordId, fields: updateRecordRo.record.fields }]
+        );
 
-    const connection = this.shareDbService.connect();
-    transactionMeta = transactionMeta || {
-      transactionKey: generateTransactionKey(),
-      opCount: opMeta.reduce((pre, cur) => {
-        cur && pre++;
-        return pre;
-      }, 0),
-    };
-
-    const ops = opMeta[0];
-    const collection = `${IdPrefix.Record}_${tableId}`;
-
-    if (!ops) {
-      throw new HttpException('nothing to update', HttpStatus.BAD_REQUEST);
-    }
-
-    const doc = connection.get(collection, recordId);
-
-    return await new Promise<IRecordSnapshot>((resolve, reject) => {
-      doc.fetch(() => {
-        doc.submitOp(ops, transactionMeta, (error: unknown) => {
-          if (error) return reject(error);
-          resolve({
-            ...doc.data,
-            record: this.convertFieldKeyInRecord(
-              doc.data.record,
-              Object.values(fieldMap),
-              updateRecordRo.fieldKeyType
-            ),
-          });
+        if (records.length !== 1) {
+          throw new Error('update record failed');
+        }
+        const fields = await prisma.field.findMany({
+          where: { id: { in: Object.keys(records[0].record.fields) }, deletedTime: null },
+          select: { id: true, name: true },
         });
-      });
-    });
+        return {
+          record: this.convertFieldKeyInRecord(
+            records[0].record,
+            fields,
+            updateRecordRo.fieldKeyType
+          ),
+        };
+      }
+    );
   }
 
-  async updateRecordByIndex(
-    tableId: string,
-    updateRecordRoByIndexRo: UpdateRecordRoByIndexRo,
-    transactionMeta?: { transactionKey: string; opCount: number }
-  ) {
+  async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: UpdateRecordRoByIndexRo) {
     const { viewId, index, ...updateRecordRo } = updateRecordRoByIndexRo;
-    const prisma = await this.transactionService.getTransaction(transactionMeta);
-    const recordId = await this.recordService.getRecordIdByIndex(prisma, tableId, viewId, index);
+    const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
 
-    return await this.updateRecordById(tableId, recordId, updateRecordRo, transactionMeta);
+    return await this.updateRecordById(tableId, recordId, updateRecordRo);
   }
 }

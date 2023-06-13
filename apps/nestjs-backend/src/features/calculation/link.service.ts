@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import type { FieldType, LinkFieldOptions } from '@teable-group/core';
-import { Relationship, IdPrefix } from '@teable-group/core';
+import type {
+  FieldType,
+  IOtOperation,
+  ISetRecordOpContext,
+  LinkFieldOptions,
+} from '@teable-group/core';
+import { OpBuilder, Relationship, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { difference } from 'lodash';
+import { difference, groupBy } from 'lodash';
+import { ReferenceService } from './reference.service';
 import type { ICellChange } from './reference.service';
 
 export interface ITinyLinkField {
@@ -46,8 +52,21 @@ export interface ICellContext {
   oldValue?: { id: string }[] | { id: string };
 }
 
+export interface IOpsMap {
+  [tableId: string]: {
+    [recordId: string]: IOtOperation[];
+  };
+}
+
+export interface IApplyParam {
+  tableId: string;
+  recordId: string;
+  opContexts: ISetRecordOpContext[];
+}
+
 @Injectable()
 export class LinkService {
+  constructor(private readonly referenceService: ReferenceService) {}
   private readonly knex = knex({ client: 'sqlite3' });
 
   // for performance, we should detect if record contains link by cellValue
@@ -400,5 +419,126 @@ export class LinkService {
     }
 
     return cellChange;
+  }
+
+  async calculate(prisma: Prisma.TransactionClient, param: IApplyParam) {
+    const { tableId, recordId } = param;
+
+    const recordData = param.opContexts.map((ctx) => {
+      return {
+        id: recordId,
+        fieldId: ctx.fieldId,
+        newValue: ctx.newValue,
+        oldValue: ctx.oldValue,
+      };
+    });
+
+    const derivateChangesByLink = await this.getDerivateChangesByLink(
+      prisma,
+      tableId,
+      recordData as ICellContext[]
+    );
+
+    const derivateChangesMap = groupBy(derivateChangesByLink, 'tableId');
+    const recordDataByLink = derivateChangesMap[tableId]
+      ? derivateChangesMap[tableId].map(({ recordId, fieldId, newValue, oldValue }) => ({
+          id: recordId,
+          fieldId,
+          newValue,
+          oldValue,
+        }))
+      : [];
+
+    delete derivateChangesMap[tableId];
+
+    // recordData should concat link change in current table
+    let derivateChanges = await this.referenceService.calculate(
+      prisma,
+      tableId,
+      recordData.concat(recordDataByLink)
+    );
+
+    derivateChanges = derivateChanges.concat(derivateChangesByLink);
+
+    for (const tableId in derivateChangesMap) {
+      const recordData = derivateChangesMap[tableId].map(
+        ({ recordId, fieldId, newValue, oldValue }) => ({
+          id: recordId,
+          fieldId,
+          newValue,
+          oldValue,
+        })
+      );
+      const changes = await this.referenceService.calculate(prisma, tableId, recordData);
+      derivateChanges = derivateChanges.concat(changes);
+    }
+
+    if (!derivateChanges.length) {
+      return;
+    }
+
+    console.log('derivateChanges:', JSON.stringify(derivateChanges, null, 2));
+
+    return this.formatOpsByChanges(tableId, recordId, derivateChanges);
+  }
+
+  private changeToOp(change: ICellChange) {
+    const { fieldId, oldValue, newValue } = change;
+    return OpBuilder.editor.setRecord.build({
+      fieldId,
+      oldCellValue: oldValue,
+      newCellValue: newValue,
+    });
+  }
+
+  private formatOpsByChanges(tableId: string, recordId: string, changes: ICellChange[]) {
+    const currentSnapshotOps: IOtOperation[] = [];
+    const otherSnapshotOps = changes.reduce<{
+      [tableId: string]: { [recordId: string]: IOtOperation[] };
+    }>((pre, cur) => {
+      const { tableId: curTableId, recordId: curRecordId } = cur;
+      const op = this.changeToOp(cur);
+
+      if (curTableId === tableId && curRecordId === recordId) {
+        currentSnapshotOps.push(op);
+        return pre;
+      }
+
+      if (!pre[curTableId]) {
+        pre[curTableId] = {};
+      }
+      if (!pre[curTableId][curRecordId]) {
+        pre[curTableId][curRecordId] = [];
+      }
+      pre[curTableId][curRecordId].push(op);
+
+      return pre;
+    }, {});
+
+    return {
+      currentSnapshotOps,
+      otherSnapshotOps: Object.keys(otherSnapshotOps).length ? otherSnapshotOps : undefined,
+    };
+  }
+
+  composeOpsMaps(opsMaps: IOpsMap[]): IOpsMap {
+    return opsMaps.reduce((composedMap, currentMap) => {
+      for (const tableId in currentMap) {
+        if (composedMap[tableId]) {
+          for (const recordId in currentMap[tableId]) {
+            if (composedMap[tableId][recordId]) {
+              composedMap[tableId][recordId] = composedMap[tableId][recordId].concat(
+                currentMap[tableId][recordId]
+              );
+            } else {
+              composedMap[tableId][recordId] = currentMap[tableId][recordId];
+            }
+          }
+        } else {
+          composedMap[tableId] = currentMap[tableId];
+        }
+      }
+      return composedMap;
+    }, {});
   }
 }

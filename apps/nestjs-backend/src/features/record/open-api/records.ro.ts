@@ -43,9 +43,14 @@ export class RecordsRo implements IRecordsRo {
   })
   @IsOptional()
   @Transform((param) => (param.value as string).split(','), { toClassOnly: true })
-  @ValidateIf((o) => o.recordIds.every((r: string) => r.startsWith('rec')), {
-    message: 'Error recordIds, recordId is illegal',
-  })
+  @ValidateIf(
+    (o) => {
+      return o.recordIds ? o.recordIds.every((r: string) => r.startsWith('rec')) : true;
+    },
+    {
+      message: 'Error recordIds, recordId is illegal',
+    }
+  )
   recordIds?: string[];
 
   @ApiPropertyOptional({
@@ -59,10 +64,6 @@ export class RecordsRo implements IRecordsRo {
   @ApiPropertyOptional({
     type: [String],
     description: 'Project the fields you want to fetch, default is all fields in view.',
-  })
-  @Transform((param) => (param.value as string).split(','), { toClassOnly: true })
-  @ValidateIf((o) => o.recordIds.every((r: string) => r.startsWith('fld')), {
-    message: 'Error projection, fieldId is illegal',
   })
   projection?: string[];
 

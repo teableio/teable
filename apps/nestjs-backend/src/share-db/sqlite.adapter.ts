@@ -12,6 +12,7 @@ import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import { PrismaService } from '../prisma.service';
 import type { IAdapterService } from './interface';
+import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
 
 export interface ICollectionSnapshot {
@@ -19,13 +20,8 @@ export interface ICollectionSnapshot {
   v: number;
   data: IRecord;
 }
-
+type IOptions = { agentCustom?: ITransactionMeta & { isBackend?: boolean } } & ITransactionMeta;
 type IProjection = { [fieldKey: string]: boolean };
-
-interface IOptions {
-  transactionKey?: string;
-  opCounter: number;
-}
 
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {
@@ -99,7 +95,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
-    // console.log('queryPoll:', { _options, collection, query });
     try {
       const [docType, collectionId] = collection.split('_');
 
@@ -182,7 +177,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     rawOp: CreateOp | DeleteOp | EditOp,
     snapshot: ICollectionSnapshot,
-    options: { transactionKey: string; opCount: number },
+    options: IOptions,
     callback: (err: unknown, succeed?: boolean, complete?: boolean) => void
   ) {
     /*
@@ -195,10 +190,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
+    console.log('commit', collection, id, options);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, collectionId] = collection.split('_');
     const prisma = await this.transactionService.getTransaction(options);
+    const isBackend = Boolean(options.agentCustom?.isBackend);
 
     try {
       const opsResult = await prisma.ops.aggregate({
@@ -237,10 +234,12 @@ export class SqliteDbAdapter extends ShareDb.DB {
         await this.deleteSnapshot(prisma, collection, id);
       }
 
-      const complete = await this.transactionService.taskComplete(undefined, options);
+      const complete = isBackend
+        ? false
+        : await this.transactionService.taskComplete(undefined, options);
       callback(null, true, complete);
     } catch (err) {
-      await this.transactionService.taskComplete(err, options);
+      isBackend || (await this.transactionService.taskComplete(err, options));
       callback(err);
     }
   }
@@ -300,9 +299,10 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: IOptions | undefined,
+    options: IOptions,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
+    // console.log('getSnapshot:', { options, collection });
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
       if (err) {
         callback(err);
@@ -327,10 +327,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number,
-    options: IOptions | undefined,
+    options: IOptions,
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
+      // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
       const prisma = await this.transactionService.getTransaction(options);

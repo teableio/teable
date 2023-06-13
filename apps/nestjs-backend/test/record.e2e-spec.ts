@@ -106,7 +106,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       } as UpdateRecordRo)
       .expect(200);
 
-    expect(response.body.data.record.fields[firstTextField.id]).toEqual('new value');
+    expect(response.body.data.record.fields[firstTextField.name]).toEqual('new value');
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -116,7 +116,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(200);
     expect(result.body.data.records).toHaveLength(3);
-    expect(result.body.data.records[0].fields[firstTextField.id]).toEqual('new value');
+    expect(result.body.data.records[0].fields[firstTextField.name]).toEqual('new value');
   });
 
   it('/api/table/{tableId}/record by index (PUT)', async () => {
@@ -150,7 +150,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(200);
     expect(result.body.data.records).toHaveLength(3);
-    expect(result.body.data.records[1].fields[firstTextField.id]).toEqual('new value');
+    expect(result.body.data.records[1].fields[firstTextField.name]).toEqual('new value');
   });
 
   it('/api/table/{tableId}/record (POST) (100x)', async () => {
