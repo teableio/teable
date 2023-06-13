@@ -264,7 +264,7 @@ export class FieldService implements IAdapterService {
 
     return sortBy(fields, (field) => {
       return field.columnMeta[viewId as string].order;
-    }).filter((field) => !field.columnMeta[viewId as string].hidden);
+    });
   }
 
   async getFieldInstances(tableId: string, query: GetFieldsRo): Promise<IFieldInstance[]> {

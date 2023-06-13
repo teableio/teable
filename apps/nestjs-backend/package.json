@@ -49,6 +49,7 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
+    "@faker-js/faker": "8.0.2",
     "@nestjs/testing": "9.3.9",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/better-sqlite3": "7.6.2",

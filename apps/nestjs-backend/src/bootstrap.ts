@@ -3,6 +3,7 @@ import path from 'path';
 import type { RedocOptions } from '@juicyllama/nestjs-redoc';
 import { RedocModule } from '@juicyllama/nestjs-redoc';
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -42,17 +43,10 @@ export async function setUpAppMiddleware(app: INestApplication) {
   await RedocModule.setup('/redocs', app, document, redocOptions);
 }
 
-export async function bootstrap(port: number, dir?: string) {
+export async function bootstrap() {
   try {
-    const app = await NestFactory.create(
-      AppModule.forRoot({
-        port,
-        dir: dir,
-      }),
-      {
-        snapshot: true,
-      }
-    );
+    const app = await NestFactory.create(AppModule, { snapshot: true });
+    const configService = app.get(ConfigService);
 
     await setUpAppMiddleware(app);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
@@ -65,6 +59,8 @@ export async function bootstrap(port: number, dir?: string) {
     //   }
     // });
 
+    const port = await getAvailablePort(configService.get<string>('PORT') as string);
+
     console.log(`> Ready on http://${host}:${port}`);
     console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);
@@ -75,7 +71,7 @@ export async function bootstrap(port: number, dir?: string) {
   }
 }
 
-export async function getAvailablePort(dPort: number | string): Promise<number> {
+async function getAvailablePort(dPort: number | string): Promise<number> {
   let port = Number(dPort);
   while (await isPortReachable(port, { host })) {
     console.log(`> Fail on http://${host}:${port} Trying on ${port + 1}`);

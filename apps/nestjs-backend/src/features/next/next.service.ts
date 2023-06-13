@@ -1,30 +1,29 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import createServer from 'next';
 import type { NextServer } from 'next/dist/server/next';
-import * as appInterface from '../../app.interface';
 
 @Injectable()
 export class NextService implements OnModuleInit {
+  private logger = new Logger(NextService.name);
   public server!: NextServer;
-  constructor(
-    @Inject('APP_CONFIG') private config: appInterface.IAppConfig,
-    private configService: ConfigService
-  ) {}
+  constructor(private configService: ConfigService) {}
 
   private async startNEXTjs() {
     const nodeEnv = this.configService.get<string>('NODE_ENV');
+    const port = this.configService.get<number>('PORT');
+    const nextJsDir = this.configService.get<string>('NEXTJS_DIR');
     try {
       this.server = createServer({
         dev: nodeEnv !== 'production',
-        port: this.config.port,
-        dir: this.config.dir,
+        port: port,
+        dir: nextJsDir,
         hostname: 'localhost',
       });
       await this.server.prepare();
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
     }
   }
 

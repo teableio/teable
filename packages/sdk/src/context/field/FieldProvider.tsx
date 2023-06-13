@@ -14,13 +14,13 @@ interface IFieldProviderProps {
 }
 
 export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
-  const { tableId } = useContext(AnchorContext);
+  const { viewId, tableId } = useContext(AnchorContext);
 
   const fields = useInstances({
     collection: `${IdPrefix.Field}_${tableId}`,
     factory: createFieldInstance,
     initData: serverSideData ? serverSideData.map((d) => ({ field: d })) : undefined,
-    queryParams: {},
+    queryParams: { viewId },
   });
 
   const value = useMemo(() => {

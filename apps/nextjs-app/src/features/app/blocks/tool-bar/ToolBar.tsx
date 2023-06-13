@@ -2,13 +2,13 @@ import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
-import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { useCallback } from 'react';
+import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
@@ -42,10 +42,7 @@ export const ToolBar: React.FC = () => {
         <AddIcon className="text-lg pr-1" />
         Insert record
       </button>
-      <button className="btn btn-xs btn-ghost font-normal">
-        <EyeCloseIcon className="text-lg pr-1" />
-        Hide fields
-      </button>
+      <FilterColumnsButton />
       <button className="btn btn-xs btn-ghost font-normal">
         <FilterIcon className="text-lg pr-1" />
         Filter

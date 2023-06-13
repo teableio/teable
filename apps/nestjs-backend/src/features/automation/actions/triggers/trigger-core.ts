@@ -80,23 +80,17 @@ export abstract class TriggerCore<TEvent> {
   ): TopLevelCondition | undefined {
     const resultCondition = [];
 
-    if (!parentActionId) {
-      return undefined;
+    if (parentActionId) {
+      resultCondition.push({
+        fact: `action.${parentActionId}`,
+        operator: 'equal',
+        value: ActionResponseStatus.OK,
+        path: '$.status',
+      });
     }
 
-    resultCondition.push({
-      fact: `action.${parentActionId}`,
-      operator: 'equal',
-      value: ActionResponseStatus.OK,
-      path: '$.status',
-    });
-
-    if (decisionGroups) {
-      const decision = decisionGroups[currentActionId];
-      if (!decision) {
-        return undefined;
-      }
-
+    const decision = decisionGroups && decisionGroups[currentActionId];
+    if (decision) {
       const conditions = decision.condition.conditions.reduce((pre, cur) => {
         pre.push({
           fact: head(cur.left as string[]),
@@ -114,6 +108,6 @@ export abstract class TriggerCore<TEvent> {
       resultCondition.push(dynamicLogic);
     }
 
-    return { all: resultCondition };
+    return resultCondition.length ? { all: resultCondition } : undefined;
   }
 }

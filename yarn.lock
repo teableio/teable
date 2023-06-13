@@ -2727,6 +2727,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@faker-js/faker@npm:8.0.2":
+  version: 8.0.2
+  resolution: "@faker-js/faker@npm:8.0.2"
+  checksum: 9114ce0ad7fa08935874142ca8121fcaba606743bb39446c7e00638c185a5171d4b1de81b90530cc8bb7faf233f935d50a1dfe7b547982e060ee9404b4b7baa8
+  languageName: node
+  linkType: hard
+
 "@fontsource/inter@npm:4.5.14":
   version: 4.5.14
   resolution: "@fontsource/inter@npm:4.5.14"
@@ -6497,6 +6504,7 @@ __metadata:
   dependencies:
     "@babel/core": "npm:7.19.6"
     "@belgattitude/http-exception": "npm:1.4.0"
+    "@faker-js/faker": "npm:8.0.2"
     "@juicyllama/nestjs-redoc": "npm:2.3.10"
     "@nestjs/common": "npm:9.3.9"
     "@nestjs/config": "npm:2.2.0"

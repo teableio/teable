@@ -1,7 +1,12 @@
 export interface IConfig {
+  nextJs: INextJsConfig;
   cors: ICorsConfig;
   swagger: ISwaggerConfig;
   mail: IMailConfig;
+}
+
+export interface INextJsConfig {
+  dir: string;
 }
 
 export interface ICorsConfig {

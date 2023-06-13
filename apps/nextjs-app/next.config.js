@@ -34,6 +34,9 @@ const NEXTJS_DISABLE_SENTRY = trueEnv.includes(process.env?.NEXTJS_DISABLE_SENTR
 const NEXTJS_SENTRY_DEBUG = trueEnv.includes(process.env?.NEXTJS_SENTRY_DEBUG ?? 'false');
 const NEXTJS_SENTRY_TRACING = trueEnv.includes(process.env?.NEXTJS_SENTRY_TRACING ?? 'false');
 
+const NEXTJS_SERVER_HOST = 'localhost';
+const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
+
 /**
  * A way to allow CI optimization when the build done there is not used
  * to deliver an image or deploy the files.
@@ -110,7 +113,7 @@ const secureHeaders = createSecureHeaders({
         }
       : {},
   },
-  ...(enableCSP && process.env.NODE_ENV === 'production'
+  ...(enableCSP && isProd
     ? {
         forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 4, includeSubDomains: true }],
       }
@@ -197,6 +200,16 @@ const nextConfig = {
     // dirs: [`${__dirname}/src`],
   },
 
+  async rewrites() {
+    const socketProxy = {
+      source: '/socket/:path*',
+      destination: `http://${NEXTJS_SERVER_HOST}:${NEXTJS_SOCKET_PORT}/socket/:path*`,
+    };
+
+    return isProd ? [] : [socketProxy];
+  },
+
+  // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async headers() {
     return [
       {
@@ -208,18 +221,6 @@ const nextConfig = {
           { key: 'Cross-Origin-Embedder-Policy', value: 'same-origin' },
         ],
       },
-    ];
-  },
-
-  // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
-  async rewrites() {
-    return [
-      /*
-      {
-        source: `/about-us`,
-        destination: '/about',
-      },
-      */
     ];
   },
 

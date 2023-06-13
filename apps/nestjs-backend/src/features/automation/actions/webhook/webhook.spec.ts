@@ -12,9 +12,9 @@ jest.setTimeout(100000000);
 describe('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AutomationModule, NextModule.forRoot({ port: 3000 }), EventEmitterModule.forRoot()],
+      imports: [AutomationModule, EventEmitterModule.forRoot()],
     }).compile();
 
     moduleRef.useLogger(new ConsoleLogger());

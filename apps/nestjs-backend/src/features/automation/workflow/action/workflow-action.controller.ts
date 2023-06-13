@@ -7,7 +7,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { ApiResponse, responseWrap } from 'src/utils';
+import { ApiResponse, responseWrap } from '../../../../utils';
 import { CreateWorkflowActionRo } from '../../model/create-workflow-action.ro';
 import { UpdateWorkflowActionRo } from '../../model/update-workflow-action.ro';
 import { WorkflowActionService } from './workflow-action.service';

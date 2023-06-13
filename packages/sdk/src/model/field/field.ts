@@ -36,6 +36,26 @@ export class FieldExtended {
     });
   }
 
+  static async updateColumnHidden(
+    doc: Doc<IFieldSnapshot>,
+    viewId: string,
+    newHidden: boolean,
+    oldHidden?: boolean
+  ) {
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'hidden',
+      oldMetaValue: oldHidden,
+      newMetaValue: newHidden,
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      doc.submitOp([fieldOperation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
+
   static delete(doc: Doc<IFieldSnapshot>) {
     return new Promise<void>((resolve, reject) => {
       doc.del({}, (error) => {
@@ -47,6 +67,14 @@ export class FieldExtended {
 
 export abstract class Field extends FieldCore {
   abstract updateName(name: string): Promise<void>;
+
   abstract updateColumnWidth(viewId: string, width: number): Promise<void>;
+
+  abstract updateColumnHidden(
+    viewId: string,
+    newHidden: boolean,
+    oldHidden: boolean
+  ): Promise<void>;
+
   abstract delete(): Promise<void>;
 }
