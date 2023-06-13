@@ -3,6 +3,7 @@ import { GridCellKind } from '@glideapps/glide-data-grid';
 import { FieldType } from '@teable-group/core';
 import { isMatchCustomCell } from '../../utils';
 import { attachmentCell } from './attachmentCell';
+import { loadingCell } from './loadingCell';
 import { selectCell } from './selectCell';
 import type { ICustomCellGridCell, IGridCell } from './type';
 
@@ -23,7 +24,7 @@ export const BaseCell: CustomRenderer<ICustomCellGridCell> = {
         attachmentCell(args, cell);
         break;
       default:
-        return false;
+        loadingCell(args, cell);
     }
 
     return true;

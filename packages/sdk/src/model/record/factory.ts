@@ -4,12 +4,8 @@ import { plainToInstance } from 'class-transformer';
 import type { IFieldInstance } from '../field';
 import { Record } from './record';
 
-export function createRecordInstance(
-  recordSnapshot: IRecordSnapshot,
-  doc?: Doc<IRecordSnapshot>,
-  fieldMap?: { [fieldId: string]: IFieldInstance }
-) {
-  const instance = plainToInstance(Record, { ...recordSnapshot.record, fieldMap });
+export function createRecordInstance(recordSnapshot: IRecordSnapshot, doc?: Doc<IRecordSnapshot>) {
+  const instance = plainToInstance(Record, { ...recordSnapshot.record });
   // force inject object into instance
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;

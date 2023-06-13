@@ -1,9 +1,6 @@
 import DataEditor, { GridCellKind, useCustomCells } from '@glideapps/glide-data-grid';
 import type { DataEditorRef, Rectangle, Item } from '@glideapps/glide-data-grid';
-import type { IRecordSnapshot } from '@teable-group/core';
-import { IdPrefix, OpBuilder } from '@teable-group/core';
 import { useConnection, useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
-import type { Doc } from '@teable/sharedb/lib/client';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -20,7 +17,7 @@ export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
   const container = useRef<HTMLDivElement>(null);
 
-  const { connected, connection } = useConnection();
+  const { connected } = useConnection();
   const tableId = useTableId() as string;
   const table = useTable();
   const rowCount = useRowCount();
@@ -32,68 +29,7 @@ export const GridView: React.FC = () => {
   const gridViewStore = useGridViewStore();
   const viewStore = useViewStore();
 
-  const {
-    getCellContent,
-    onVisibleRegionChanged,
-    onCellEdited,
-    getCellsForSelection,
-    reset,
-    rows,
-  } = useAsyncData<Doc<IRecordSnapshot>>(
-    50,
-    5,
-    useCallback(
-      async (updateRowRef, updateRow, [offset, limit]) => {
-        const query = connection.createSubscribeQuery<IRecordSnapshot>(
-          `${IdPrefix.Record}_${tableId}`,
-          {
-            offset,
-            limit,
-          }
-        );
-        const recordDocs = await new Promise<typeof query['results']>((resolve) => {
-          function subscribeUpdate(doc: Doc) {
-            doc.on('op', (op) => {
-              console.log('doc on op:', op);
-              updateRow(doc);
-            });
-          }
-
-          query.on('ready', () => {
-            console.log(
-              'record:ready:',
-              query.results.map((r) => r.data.record)
-            );
-            query.results.forEach((doc) => {
-              subscribeUpdate(doc);
-            });
-            resolve(query.results);
-          });
-          query.on('changed', () => {
-            updateRowRef(query.results, offset);
-          });
-          query.on('insert', (docs) => {
-            docs.forEach((doc) => {
-              subscribeUpdate(doc);
-            });
-          });
-          query.on('remove', (docs) => {
-            docs.forEach((doc) => {
-              doc.removeAllListeners('op');
-            });
-          });
-        });
-        const rowData = recordDocs.map((rd) =>
-          columns.map((column) => {
-            const fieldId = column.id;
-            return String(rd.data.record.fields[fieldId] ?? '');
-          })
-        );
-        console.log('getRowData', columns, rowData);
-        return recordDocs;
-      },
-      [columns, connection, tableId]
-    ),
+  const { getCellContent, onVisibleRegionChanged, onCellEdited, reset, records } = useAsyncData(
     useCallback(
       (rowData, col) => {
         const fieldId = columns[col]?.id;
@@ -103,7 +39,7 @@ export const GridView: React.FC = () => {
             allowOverlay: false,
           };
         }
-        const cellValue = rowData.data.record.fields[fieldId];
+        const cellValue = rowData.getCellValue(fieldId);
         return cellValue2GridDisplay(cellValue, col);
       },
       [cellValue2GridDisplay, columns]
@@ -115,35 +51,23 @@ export const GridView: React.FC = () => {
         if (newVal.kind === GridCellKind.Custom) {
           return;
         }
-        const newCellValue = newVal.data;
-        const oldCellValue = rowData.data.record.fields[fieldId] ?? null;
+        const newCellValue = newVal.data === '' ? null : newVal.data;
+        const oldCellValue = rowData.getCellValue(fieldId) ?? null;
         if (newCellValue == oldCellValue) {
           return;
         }
         console.log('endEdit', newVal.data);
-        const operation = OpBuilder.editor.setRecord.build({
-          fieldId,
-          newCellValue,
-          oldCellValue,
-        });
-
-        rowData.submitOp([operation], { undoable: true }, (error) => {
-          if (error) {
-            console.error('row data submit error: ', error);
-          }
-        });
+        rowData.updateCell(fieldId, newCellValue);
         return rowData;
       },
       [columns]
     ),
     ref,
-    useMemo(
-      () =>
-        ssrRecords?.map((record) => {
-          return { data: { record } } as Doc;
-        }),
-      [ssrRecords]
-    )
+    useMemo(() => {
+      return ssrRecords?.map((record) => {
+        return { record };
+      });
+    }, [ssrRecords])
   );
 
   const preTableId = usePrevious(tableId);
@@ -172,7 +96,7 @@ export const GridView: React.FC = () => {
       return;
     }
     viewStore.activateCell({
-      recordId: rows[row].data.record.id,
+      recordId: records[row].id,
       fieldId: columns[col].id,
     });
     gridViewStore.updateEditorPosition({
@@ -198,7 +122,6 @@ export const GridView: React.FC = () => {
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
           onColumnResize={onColumnResize}
-          getCellsForSelection={getCellsForSelection}
           width={'100%'}
           columns={columns}
           rows={rowCount}
@@ -226,6 +149,7 @@ export const GridView: React.FC = () => {
           smoothScrollX
           smoothScrollY
           getCellContent={getCellContent}
+          onVisibleRegionChanged={onVisibleRegionChanged}
           width={'100%'}
           columns={columns}
           rows={rowCount}
