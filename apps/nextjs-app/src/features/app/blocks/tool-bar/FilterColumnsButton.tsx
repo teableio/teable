@@ -35,7 +35,7 @@ export const FilterColumnsButton = () => {
 
   const content = () => (
     <div>
-      <div style={{ marginTop: 12 }}>
+      <div className="mt-3">
         <Input
           prefix={<SearchIcon />}
           placeholder="Find column"
@@ -44,12 +44,12 @@ export const FilterColumnsButton = () => {
           onChange={(e) => {
             setSearchText(e.target.value);
           }}
-          style={{ marginBottom: 8 }}
+          className="mb-2"
         />
       </div>
-      <div style={{ margin: '8px 0px 8px 8px', width: 300 }}>
+      <div className="my-2 ml-0 mr-2 w-72">
         {fieldData.map((field) => (
-          <div style={{ padding: '1px 8px 7px 1px' }} key={field.id}>
+          <div className="pt-px pl-2 pb-2 pr-px" key={field.id}>
             <Switch
               size="small"
               checked={Boolean(activeViewId && !field.columnMeta[activeViewId].hidden)}
@@ -57,17 +57,15 @@ export const FilterColumnsButton = () => {
                 activeViewId && field.updateColumnHidden(activeViewId, !checked)
               }
             />
-            <span style={{ marginLeft: 8 }} className="font-medium">
-              {field.name}
-            </span>
+            <span className="ml-2 font-medium">{field.name}</span>
           </div>
         ))}
       </div>
-      <div style={{ padding: 4 }}>
+      <div className="p-1">
         <Button size="small" type="text" onClick={handleDeselectAll}>
           HIDE ALL
         </Button>
-        <Button size="small" type="text" style={{ float: 'right' }} onClick={handleSelectAll}>
+        <Button size="small" type="text" className="float-right" onClick={handleSelectAll}>
           SHOW ALL
         </Button>
       </div>

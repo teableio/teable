@@ -25,7 +25,7 @@ export class MailSenderService {
     });
   }
 
-  public async sendMail(mailOptions: SendMailOptions): Promise<boolean> {
+  async sendMail(mailOptions: SendMailOptions): Promise<boolean> {
     mailOptions = {
       from: `"Teable" <${this.mailConfig.auth.user}>`,
       ...mailOptions,

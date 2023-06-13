@@ -2,27 +2,31 @@ import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { generateWorkflowActionId } from '@teable-group/core';
-import { NextModule } from '../../../next/next.module';
+import { MailSenderService } from 'src/features/mail-sender/mail-sender.service';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IMailSenderSchema } from './mail-sender';
-import { MailSender } from './mail-sender';
 
 jest.setTimeout(100000000);
+
 describe('Mail-Sender Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
-  let mailSender: MailSender;
+  let mailSenderService: MailSenderService;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AutomationModule, NextModule.forRoot({ port: 3000 }), EventEmitterModule.forRoot()],
+      imports: [AutomationModule, EventEmitterModule.forRoot()],
     }).compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
-    mailSender = await moduleRef.resolve<MailSender>(MailSender);
+    mailSenderService = await moduleRef.resolve<MailSenderService>(MailSenderService);
+
+    jest
+      .spyOn(mailSenderService, 'sendMail')
+      .mockImplementation((mailOptions) => Promise.resolve(true));
   });
 
   it('should call onSuccess and send mail', async () => {

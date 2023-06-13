@@ -9,12 +9,7 @@ import { TableOpenApiModule } from 'src/features/table/open-api/table-open-api.m
 
 export async function initApp() {
   const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [
-      TableOpenApiModule,
-      NextModule.forRoot({ port: 3000 }),
-      EventEmitterModule.forRoot(),
-      AutomationModule,
-    ],
+    imports: [TableOpenApiModule, NextModule, EventEmitterModule.forRoot(), AutomationModule],
   }).compile();
 
   const app = moduleFixture.createNestApplication();

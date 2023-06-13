@@ -39,7 +39,6 @@ describe('Create-Record Action Test', () => {
         TableOpenApiModule,
         RecordOpenApiModule,
         FieldModule,
-        NextModule.forRoot({ port: 3000 }),
         EventEmitterModule.forRoot(),
       ],
     }).compile();

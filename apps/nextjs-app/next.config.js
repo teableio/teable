@@ -7,7 +7,6 @@ const path = require('path');
 const { createSecureHeaders } = require('next-secure-headers');
 const withNextTranspileModules = require('next-transpile-modules');
 const pc = require('picocolors');
-const { getAvailablePort } = require('@teable-group/core/dist/utils/port-reachable');
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**

@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
@@ -13,7 +14,6 @@ import {
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import type { FieldVo } from '../../../../field/model/field.vo';
-import { NextModule } from '../../../../next/next.module';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
@@ -41,7 +41,6 @@ describe('Update-Record Action Test', () => {
         TableOpenApiModule,
         RecordOpenApiModule,
         FieldModule,
-        NextModule.forRoot({ port: 3000 }),
         EventEmitterModule.forRoot(),
       ],
     }).compile();
@@ -55,9 +54,9 @@ describe('Update-Record Action Test', () => {
 
     jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((tableRo) =>
       Promise.resolve({
-        name: 'table1-automation-add',
+        name: `table1-${faker.string.nanoid()}`,
         id: tableId,
-        order: 1,
+        order: faker.number.int(),
         views: tableRo.views,
         fields: tableRo.fields,
         data: tableRo.data,
@@ -68,12 +67,12 @@ describe('Update-Record Action Test', () => {
       Promise.resolve([
         {
           id: fieldId,
-          name: 'name',
+          name: faker.string.sample(),
           type: FieldType.SingleLineText,
           calculatedType: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
-          dbFieldName: 'name_fldHrMYez5yIwBdKEiK',
+          dbFieldName: `name_${faker.string.nanoid()}`,
           isPrimary: true,
           isComputed: false,
           tableId: tableId,
@@ -83,10 +82,10 @@ describe('Update-Record Action Test', () => {
             },
           },
           version: 1,
-          createdTime: '2023-05-31T11:23:57.045Z',
-          lastModifiedTime: '2023-05-31T11:23:57.045Z',
-          createdBy: 'admin',
-          lastModifiedBy: 'admin',
+          createdTime: faker.date.soon().toString(),
+          lastModifiedTime: faker.date.soon().toString(),
+          createdBy: faker.string.nanoid(),
+          lastModifiedBy: faker.string.nanoid(),
         },
       ])
     );

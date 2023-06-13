@@ -1,6 +1,9 @@
 import type { IConfig } from './config.interface';
 
 const loadConfig: IConfig = {
+  nextJs: {
+    dir: process.env.NEXTJS_DIR || '../nextjs-app',
+  },
   cors: {
     enabled: true,
   },
