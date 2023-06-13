@@ -1,19 +1,16 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
+import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { noop } from 'lodash';
 import { PrismaService } from '../../src/prisma.service';
+import type { ShareDbService } from './share-db.service';
 
 export interface ITransactionMeta {
   transactionKey: string;
   opCount: number;
   skipCalculate?: boolean;
-  isBackend?: true;
-}
-
-export interface IBackendTransactionMeta {
-  isBackend: true;
-  transactionKey: string;
 }
 
 @Injectable()
@@ -68,25 +65,58 @@ export class TransactionService {
     return prismaClient;
   }
 
-  newBackendTransaction(transactionKey: string, prisma: Prisma.TransactionClient) {
-    const cache = this.cache.get(transactionKey);
-    if (cache) {
-      throw new Error('Transaction already exists: ' + transactionKey);
+  async $transaction<R>(
+    shareDbService: ShareDbService,
+    fn: (prisma: Prisma.TransactionClient, transactionKey: string) => Promise<R>,
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
     }
-
-    this.cache.set(transactionKey, {
-      isBackend: true,
-      client: prisma,
-    });
+  ): Promise<R> {
+    const transactionKey = generateTransactionKey();
+    console.log('startBackendTransaction:', transactionKey);
+    const result = await this.prismaService.$transaction(async (prisma) => {
+      this.cache.set(transactionKey, {
+        isBackend: true,
+        client: prisma,
+      });
+      try {
+        return await fn(prisma, transactionKey);
+      } catch (e) {
+        // if transaction has been rollback, cancel publish
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (shareDbService as any).pendingPublish[transactionKey];
+        throw e;
+      } finally {
+        this.completeBackendTransaction(transactionKey);
+      }
+    }, options);
+    this.publishPendingOp(shareDbService, transactionKey);
+    return result;
   }
 
-  completeBackendTransaction(transactionKey: string) {
+  private completeBackendTransaction(transactionKey: string) {
     const cache = this.cache.get(transactionKey);
     if (!cache || !cache.isBackend) {
       throw new Error('Can not find transaction: ' + transactionKey);
     }
     console.log('completeBackendTransaction', transactionKey);
     this.cache.delete(transactionKey);
+  }
+
+  // dispatch op publish event, make sure op is published after transaction is completed
+  private publishPendingOp(shareDbService: ShareDbService, transactionKey: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pendingPublish = (shareDbService as any).pendingPublish[transactionKey];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (shareDbService as any).pendingPublish[transactionKey];
+    if (pendingPublish) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pendingPublish.forEach((p: any) => {
+        shareDbService.pubsub.publish(p.channels, p.op, noop);
+      });
+    }
   }
 
   updateTransaction(tsMeta: ITransactionMeta) {
@@ -194,7 +224,7 @@ export class TransactionService {
       }
     } else {
       if (!opCount) {
-        throw new Error("opCount can't be empty");
+        return this.prismaService;
       }
       prismaClient = await this.newTransaction({ transactionKey, opCount });
     }

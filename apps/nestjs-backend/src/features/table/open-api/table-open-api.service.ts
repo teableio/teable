@@ -1,11 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { ICreateTableRo, ITableSnapshot } from '@teable-group/core';
-import { generateTransactionKey, IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
+import { IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { Doc } from '@teable/sharedb';
-import { TransactionService } from 'src/share-db/transaction.service';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateFieldRo } from '../../field/model/create-field.ro';
 import { createFieldInstanceByRo } from '../../field/model/factory';
 import type { FieldVo } from '../../field/model/field.vo';
@@ -22,7 +20,6 @@ import type { TableVo } from '../table.vo';
 @Injectable()
 export class TableOpenApiService {
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -44,7 +41,7 @@ export class TableOpenApiService {
       viewCreators.push(...creators);
     });
     for (const creator of viewCreators) {
-      await creator({ transactionKey, isBackend: true });
+      await creator(transactionKey);
     }
     return viewVos;
   }
@@ -62,7 +59,7 @@ export class TableOpenApiService {
       fieldCreators.push(...creators);
     }
     for (const creator of fieldCreators) {
-      await creator({ transactionKey, isBackend: true });
+      await creator(transactionKey);
     }
     return fieldVos;
   }
@@ -72,13 +69,12 @@ export class TableOpenApiService {
   }
 
   async createTable(tableRo: CreateTableRo): Promise<TableVo> {
-    return await this.prismaService.$transaction(async (prisma) => {
-      if (!tableRo.fields || !tableRo.views || !tableRo.data) {
-        throw new Error('table fields views and rows are required.');
-      }
-      const transactionKey = generateTransactionKey();
-      this.transactionService.newBackendTransaction(transactionKey, prisma);
-      try {
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (prisma, transactionKey) => {
+        if (!tableRo.fields || !tableRo.views || !tableRo.data) {
+          throw new Error('table fields views and rows are required.');
+        }
         const tableVo = await this.createTableMeta(prisma, transactionKey, tableRo);
 
         const tableId = tableVo.id;
@@ -92,10 +88,8 @@ export class TableOpenApiService {
           views: viewVos,
           data,
         };
-      } finally {
-        this.transactionService.completeBackendTransaction(transactionKey);
       }
-    });
+    );
   }
 
   async createTableMeta(
@@ -106,9 +100,10 @@ export class TableOpenApiService {
     const snapshot = await this.createTable2Op(prisma, tableRo);
     const tableId = snapshot.table.id;
     const collection = `${IdPrefix.Table}_node`;
-    const doc = this.shareDbService.connect().get(collection, tableId);
+    const connection = this.shareDbService.getConnection(transactionKey);
+    const doc = connection.get(collection, tableId);
     const tableSnapshot = await new Promise<ITableSnapshot>((resolve, reject) => {
-      doc.create(snapshot, undefined, { transactionKey, isBackend: true }, (error) => {
+      doc.create(snapshot, (error) => {
         if (error) return reject(error);
         resolve(doc.data);
       });
@@ -133,21 +128,20 @@ export class TableOpenApiService {
 
   async archiveTable(tableId: string) {
     const collection = `${IdPrefix.Table}_node`;
-    const doc = this.shareDbService.connect().get(collection, tableId);
-    await new Promise<Doc>((resolve, reject) => {
-      doc.fetch(() => {
-        doc.del(
-          {
-            transactionKey: generateTransactionKey(),
-            opCount: 1,
-          },
-          (error) => {
-            if (error) return reject(error);
-            console.log(`delete document ${collection}.${tableId} succeed!`);
-            resolve(doc);
-          }
-        );
-      });
-    });
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_, transactionKey) => {
+        const doc = this.shareDbService.getConnection(transactionKey).get(collection, tableId);
+        await new Promise((resolve, reject) => {
+          doc.fetch(() => {
+            doc.del({}, (error) => {
+              if (error) return reject(error);
+              console.log(`delete document ${collection}.${tableId} succeed!`);
+              resolve(doc.data);
+            });
+          });
+        });
+      }
+    );
   }
 }

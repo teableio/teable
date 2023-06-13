@@ -47,6 +47,16 @@ export class ShareDbService extends ShareDBClass {
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
 
+  getConnection(transactionKey: string) {
+    const connection = this.connect();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    connection.agent!.custom = {
+      transactionKey,
+      isBackend: true,
+    };
+    return connection;
+  }
+
   // private onSubmit = (
   //   context: ShareDBClass.middleware.SubmitContext,
   //   next: (err?: unknown) => void
@@ -64,8 +74,8 @@ export class ShareDbService extends ShareDBClass {
     next: (err?: unknown) => void
   ) => {
     const tsMeta = context.extra as ITransactionMeta;
-    if (tsMeta.skipCalculate || tsMeta.isBackend) {
-      console.log('tsMeta.skipCalculate:', tsMeta);
+    if (tsMeta.skipCalculate || context.agent.custom) {
+      console.log('tsMeta.skipCalculate:', tsMeta, context.agent.custom);
       return next();
     }
 
@@ -131,13 +141,18 @@ export class ShareDbService extends ShareDBClass {
   ) {
     console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
     console.log('new:transactionMeta:', transactionMeta);
+    const connection = this.connect();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    connection.agent!.custom = {
+      transactionKey: transactionMeta.transactionKey,
+    };
     const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
-        const doc = this.connect().get(collection, recordId);
+        const doc = connection.get(collection, recordId);
         await new Promise((resolve, reject) => {
           doc.fetch((error) => {
             if (error) {

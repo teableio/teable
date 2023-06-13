@@ -5,18 +5,11 @@ import type {
   IRecordSnapshot,
   ISetRecordOpContext,
 } from '@teable-group/core';
-import {
-  generateTransactionKey,
-  OpName,
-  FieldKeyType,
-  IdPrefix,
-  generateRecordId,
-  OpBuilder,
-} from '@teable-group/core';
+import { OpName, FieldKeyType, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
-import { TransactionService } from 'src/share-db/transaction.service';
+import { TransactionService } from '../../..//share-db/transaction.service';
 import type { IFieldInstance } from '../../../features/field/model/factory';
 import { createFieldInstanceByRaw } from '../../../features/field/model/factory';
 import { PrismaService } from '../../../prisma.service';
@@ -53,15 +46,12 @@ export class RecordOpenApiService {
       return await this.createRecords(transactionKey, tableId, createRecordsRo);
     }
 
-    return await this.prismaService.$transaction(async (prisma) => {
-      const transactionKey = generateTransactionKey();
-      this.transactionService.newBackendTransaction(transactionKey, prisma);
-      try {
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_, transactionKey) => {
         return await this.createRecords(transactionKey, tableId, createRecordsRo);
-      } finally {
-        this.transactionService.completeBackendTransaction(transactionKey);
       }
-    });
+    );
   }
 
   private async generateApplyParams(
@@ -84,13 +74,11 @@ export class RecordOpenApiService {
     });
     const fieldIdMap = keyBy(fieldRaws, fieldKey);
 
-    const connection = this.shareDbService.connect();
+    const connection = this.shareDbService.getConnection(transactionKey);
     const applyParams: (IApplyParam & { ops: IOtOperation[]; doc: Doc<IRecordSnapshot> })[] = [];
     for (const record of records) {
       const collection = `${IdPrefix.Record}_${tableId}`;
       const doc = connection.get(collection, record.id);
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      connection.agent!.custom = { transactionKey };
       const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
         doc.fetch((err) => {
           if (err) return reject(err);
@@ -168,7 +156,7 @@ export class RecordOpenApiService {
         continue;
       }
       const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
-        doc.submitOp(ops, { transactionKey, isBackend: true }, (err) => {
+        doc.submitOp(ops, undefined, (err) => {
           if (err) return reject(err);
           resolve(doc.data);
         });
@@ -183,19 +171,17 @@ export class RecordOpenApiService {
     otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
     console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
+    const connection = this.shareDbService.getConnection(transactionKey);
     for (const tableId in otherSnapshotOps) {
       const data = otherSnapshotOps[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
-        const connection = this.shareDbService.connect();
         const doc = connection.get(collection, recordId);
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        connection.agent!.custom = { transactionKey };
         await new Promise((resolve, reject) => {
           doc.fetch((err) => {
             if (err) return reject(err);
-            doc.submitOp(ops, { transactionKey, isBackend: true }, (error) => {
+            doc.submitOp(ops, undefined, (error) => {
               if (error) {
                 console.error('sendOpsAfterApply error:', error);
                 return reject(error);
@@ -221,14 +207,14 @@ export class RecordOpenApiService {
       });
     });
 
-    const connection = this.shareDbService.connect();
+    const connection = this.shareDbService.getConnection(transactionKey);
 
     for (const snapshot of snapshots) {
       const collection = `${IdPrefix.Record}_${tableId}`;
       const docId = snapshot.record.id;
       const doc = connection.get(collection, docId);
       await new Promise<void>((resolve, reject) => {
-        doc.create(snapshot, undefined, { transactionKey, isBackend: true }, (error) => {
+        doc.create(snapshot, (error) => {
           if (error) return reject(error);
           resolve(undefined);
         });
@@ -393,10 +379,9 @@ export class RecordOpenApiService {
     recordId: string,
     updateRecordRo: UpdateRecordRo
   ): Promise<IRecordSnapshot> {
-    return await this.prismaService.$transaction(async (prisma) => {
-      const transactionKey = generateTransactionKey();
-      this.transactionService.newBackendTransaction(transactionKey, prisma);
-      try {
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (prisma, transactionKey) => {
         const records = await this.calculateAndSubmitOp(
           transactionKey,
           tableId,
@@ -419,10 +404,8 @@ export class RecordOpenApiService {
             updateRecordRo.fieldKeyType
           ),
         };
-      } finally {
-        this.transactionService.completeBackendTransaction(transactionKey);
       }
-    });
+    );
   }
 
   async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: UpdateRecordRoByIndexRo) {
