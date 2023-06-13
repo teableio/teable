@@ -5,11 +5,11 @@ import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { uniq, map, orderBy } from 'lodash';
-import { TransactionService } from 'src/share-db/transaction.service';
 import { DerivateChangeService } from './derivate-change.service';
 import { EventEnums } from './events';
 import type { RecordEvent } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
+import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
 
 enum IEventType {

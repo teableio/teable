@@ -53,7 +53,7 @@ export class MailSender extends ActionCore {
     await this.mailSenderService
       .sendMail(mailOptions)
       .then((senderResult) => {
-        outPut = { data: senderResult, status: ActionResponseStatus.OK };
+        outPut = { data: { senderResult }, status: ActionResponseStatus.OK };
       })
       .catch((error) => {
         this.logger.error(error.message, error?.stack);

@@ -16,6 +16,11 @@ export class FormulaField extends FormulaFieldCore implements Field {
     return FieldExtended.updateColumnWidth(this.doc, viewId, width, oldWidth);
   }
 
+  async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
+    const oldHidden = this.columnMeta[viewId].hidden;
+    return FieldExtended.updateColumnHidden(this.doc, viewId, hidden, oldHidden);
+  }
+
   async delete(): Promise<void> {
     return FieldExtended.delete(this.doc);
   }
