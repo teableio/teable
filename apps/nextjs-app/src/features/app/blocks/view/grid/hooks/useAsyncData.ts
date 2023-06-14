@@ -52,7 +52,7 @@ export const useAsyncData = (
     const data = records;
     for (let i = 0; i < data.length; i++) {
       recordsRef.current[startIndex + i] = records[i];
-      for (let col = vr.x; col <= vr.x + vr.width; col++) {
+      for (let col = Math.max(vr.x - 1, 0); col <= vr.x + vr.width; col++) {
         damageList.push({
           cell: [col, i + startIndex],
         });
