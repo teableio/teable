@@ -2,17 +2,16 @@ import type { IAttachment, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
 import DownloadIcon from '@teable-group/ui-lib/icons/app/download.svg';
-import { Progress, Typography } from 'antd';
 import { map, omit } from 'lodash';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import type { IGetNotifyResponse } from '../../api/attachment/attachment.types';
 import { getFileCover } from '../../utils';
 import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
-
-const { Text } = Typography;
 
 export interface IUploadAttachment {
   attachments: IAttachmentCellValue;
@@ -94,7 +93,6 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   }, [attachments, uploadingFiles]);
 
   const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
-
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="overflow-y-scroll relative flex-1" ref={listRef}>
@@ -103,39 +101,44 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           <ul className="absolute -right-2 w-full h-full flex flex-wrap">
             {attachments.map((attachment) => (
               <li key={attachment.id} className="w-28 h-28 pr-1 mr-1 flex flex-col">
-                <div className="group flex-1 px-2 relative border border-base-200 cursor-pointer rounded-md overflow-hidden">
+                <div className="group flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden">
                   <img
                     className="w-full h-full"
                     src={getFileCover(attachment.mimetype, getAttachmentUrl(attachment))}
                     alt={attachment.name}
                   />
-                  <ul className="absolute top-0 right-0 opacity-0 flex justify-end group-hover:opacity-100 space-x-1 bg-neutral/50 p-1 w-full">
+                  <ul className="absolute top-0 right-0 opacity-0 flex justify-end group-hover:opacity-100 space-x-1 bg-foreground/50 p-1 w-full">
                     {/* <li>
                       <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
                         <FullscreenIcon />
                       </button>
                     </li> */}
                     <li>
-                      <button
-                        className="btn btn-xs btn-circle bg-neutral/50 border-none"
+                      <Button
+                        variant={'ghost'}
+                        className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => downloadFile(attachment)}
                       >
                         <DownloadIcon />
-                      </button>
+                      </Button>
                     </li>
                     <li>
-                      <button
-                        className="btn btn-xs btn-circle bg-neutral/50 border-none"
+                      <Button
+                        variant={'ghost'}
+                        className="h-5 w-5 p-0 rounded-full focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => onDelete(attachment.id)}
                       >
                         <CloseIcon />
-                      </button>
+                      </Button>
                     </li>
                   </ul>
                 </div>
-                <Text className="w-full text-center" ellipsis={{ tooltip: attachment.name }}>
+                <span
+                  className="w-full text-center text-ellipsis whitespace-nowrap overflow-hidden"
+                  title={attachment.name}
+                >
                   {attachment.name}
-                </Text>
+                </span>
               </li>
             ))}
             {uploadingFilesList.map(({ id, progress, file }) => (
@@ -143,10 +146,16 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                 key={id}
                 className="w-28 h-28 pr-1 mr-1 flex flex-col justify-between items-center"
               >
-                <Progress size={88} type="circle" percent={progress} />
-                <Text className="w-full" ellipsis={{ tooltip: file.name }}>
+                <div className="w-full flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden flex justify-center items-center flex-col">
+                  <Progress value={progress} />
+                  {progress}%
+                </div>
+                <span
+                  className="w-full text-center text-ellipsis whitespace-nowrap overflow-hidden"
+                  title={file.name}
+                >
                   {file.name}
-                </Text>
+                </span>
               </li>
             ))}
           </ul>

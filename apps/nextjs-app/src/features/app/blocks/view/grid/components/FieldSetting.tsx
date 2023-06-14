@@ -1,5 +1,5 @@
 import { useField } from '@teable-group/sdk';
-import { FieldSetting as _FieldSetting } from '@/features/app/components/field-setting/FieldSetting';
+import { FieldSetting as FieldSettingInner } from '@/features/app/components/field-setting/FieldSetting';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { useGridViewStore } from '../store/gridView';
 
@@ -19,7 +19,7 @@ export const FieldSetting = () => {
   }
 
   return (
-    <_FieldSetting
+    <FieldSettingInner
       visible={visible}
       field={field}
       operator={setting?.operator || FieldOperator.Add}

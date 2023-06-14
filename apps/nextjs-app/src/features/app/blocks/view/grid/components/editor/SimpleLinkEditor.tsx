@@ -2,11 +2,16 @@ import type { ILinkCellValue } from '@teable-group/core';
 import { Colors, ColorUtils, Relationship } from '@teable-group/core';
 import type { LinkField, Record } from '@teable-group/sdk';
 import { AnchorProvider, FieldProvider, RecordProvider, useRecords } from '@teable-group/sdk';
-import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
-import { Checkbox, Input, Space } from 'antd';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
+import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import classNames from 'classnames';
-import { useMemo, useState } from 'react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 
 export interface ILinkEditorProps {
   field: LinkField;
@@ -18,12 +23,11 @@ export interface ILinkEditorProps {
 const SimpleLinkEditor = (props: ILinkEditorProps) => {
   const { field, record, style } = props;
   const cellValue = record.getCellValue(field.id) as ILinkCellValue | ILinkCellValue[] | undefined;
-  const value = Array.isArray(cellValue)
+  const values = Array.isArray(cellValue)
     ? cellValue.map((v) => v.id)
     : cellValue
     ? [cellValue.id]
     : undefined;
-  const [filterInput, setFilterInput] = useState<string>();
   // many <> one relation ship only allow select record that has not been selected
   const records = useRecords(
     field.options.relationship === Relationship.OneMany
@@ -34,22 +38,25 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
         }
       : undefined
   );
-  const choices = useMemo(() => {
-    return (records || []).filter(
-      (record) => !filterInput || record.name.indexOf(filterInput) !== -1
-    );
-  }, [records, filterInput]);
+  const choices = records;
 
-  const onChangeInner = (value: CheckboxValueType[]) => {
+  const onSelect = (value: string) => {
     let newCellValue = null;
+    const currentValues = values?.slice() || [];
+    const existIndex = currentValues.findIndex((item) => item === value);
+    if (existIndex > -1) {
+      currentValues.splice(existIndex, 1);
+    } else {
+      newCellValue = currentValues.push(value);
+    }
     if (field.options.relationship === Relationship.ManyOne) {
-      const id = value?.[value.length - 1]?.toString() ?? null;
+      const id = currentValues?.[currentValues.length - 1]?.toString() ?? null;
       if (id) {
         const title = records.find((record) => record.id === id)?.name;
         newCellValue = { id, title };
       }
     } else {
-      newCellValue = (value as string[]).map((id) => ({
+      newCellValue = currentValues.map((id) => ({
         id,
         title: records.find((record) => record.id === id)?.name,
       }));
@@ -58,39 +65,35 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
   };
 
   return (
-    <div className="bg-base-100 rounded-sm shadow-sm p-2 shadow-base-300" style={style}>
-      <Input
-        className="mb-2"
-        prefix={<SearchIcon />}
-        placeholder="search"
-        value={filterInput}
-        onChange={(e) => setFilterInput(e.target.value)}
-      />
-      {choices.length === 0 && <div className="text-sm text-center">No Data</div>}
-      <Checkbox.Group className="w-full" value={value} onChange={onChangeInner}>
-        <Space direction={'vertical'} size={10}>
-          {choices.map(({ name, id }) => {
-            return (
-              <div className="flex items-center mb-2" key={id}>
-                <Checkbox value={id}>
-                  <div
-                    className={classNames('px-2 rounded-lg')}
-                    style={{
-                      backgroundColor: ColorUtils.getHexForColor(Colors.GrayBright),
-                      color: ColorUtils.shouldUseLightTextOnColor(Colors.GrayBright)
-                        ? '#ffffff'
-                        : '#000000',
-                    }}
-                  >
-                    {name || 'Untitled'}
-                  </div>
-                </Checkbox>
+    <Command className="rounded-sm shadow-sm p-2" style={style}>
+      <CommandList>
+        <CommandInput placeholder="Search option" />
+        <CommandEmpty>No found.</CommandEmpty>
+        <CommandGroup aria-valuetext="name">
+          {choices.map(({ name, id }) => (
+            <CommandItem key={id} value={id} onSelect={onSelect}>
+              <SelectIcon
+                className={classNames(
+                  'mr-2 h-4 w-4',
+                  values?.includes(id) ? 'opacity-100' : 'opacity-0'
+                )}
+              />
+              <div
+                className={classNames('px-2 rounded-lg')}
+                style={{
+                  backgroundColor: ColorUtils.getHexForColor(Colors.GrayBright),
+                  color: ColorUtils.shouldUseLightTextOnColor(Colors.GrayBright)
+                    ? '#ffffff'
+                    : '#000000',
+                }}
+              >
+                {name || 'Untitled'}
               </div>
-            );
-          })}
-        </Space>
-      </Checkbox.Group>
-    </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 };
 

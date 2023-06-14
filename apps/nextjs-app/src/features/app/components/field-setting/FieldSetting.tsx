@@ -2,8 +2,9 @@ import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Table } from '@teable-group/sdk/model';
-import { Button, Drawer } from 'antd';
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
 import { FieldOperator } from './type';
@@ -56,6 +57,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
   }, [visible]);
 
   const onEditFinished = (open?: boolean) => {
+    clickCancel();
     if (open) {
       return;
     }
@@ -100,26 +102,24 @@ const FieldSettingBase = (props: IFieldSetting) => {
     : defaultField;
 
   return (
-    <Drawer
-      bodyStyle={{ padding: 0 }}
-      closable={false}
-      open={currentVisible}
-      onClose={clickCancel}
-      afterOpenChange={onEditFinished}
-    >
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="w-full p-4 border-b border-base-content/10">{title}</div>
-        {/* Content Form */}
-        {<FieldEditor field={field} onChange={onFieldEditorChange} />}
-        {/* Footer */}
-        <div className="flex w-full justify-end space-x-3 border-t border-base-content/10 px-3 py-4">
-          <Button onClick={clickCancel}>Cancel</Button>
-          <Button type={'primary'} onClick={clickConfirm}>
-            Save
-          </Button>
+    <Sheet open={currentVisible} onOpenChange={onEditFinished}>
+      <SheetContent className="p-0" position="right">
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="w-full p-3 border-b">{title}</div>
+          {/* Content Form */}
+          {<FieldEditor field={field} onChange={onFieldEditorChange} />}
+          {/* Footer */}
+          <div className="flex w-full justify-end space-x-3 border-t px-3 py-4">
+            <Button size={'sm'} variant={'outline'} onClick={clickCancel}>
+              Cancel
+            </Button>
+            <Button size={'sm'} onClick={clickConfirm}>
+              Save
+            </Button>
+          </div>
         </div>
-      </div>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 };

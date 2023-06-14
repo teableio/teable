@@ -36,7 +36,7 @@ export const EditorContainer = () => {
     switch (field.type) {
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect:
-        return <SelectEditor style={style} field={field} record={record} />;
+        return <SelectEditor style={style} field={field} record={record} onCancel={onCancel} />;
       case FieldType.Attachment:
         return <AttachmentEditor style={style} field={field} record={record} onCancel={onCancel} />;
       case FieldType.Link:
@@ -58,15 +58,7 @@ export const EditorContainer = () => {
   }, [editorCtx]);
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div
-      ref={ref}
-      className="absolute z-10"
-      onMouseDown={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-      }}
-      style={style}
-    >
+    <div ref={ref} className="click-outside-ignore absolute z-10" style={style}>
       {Editor()}
     </div>
   );
