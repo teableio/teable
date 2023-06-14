@@ -24,10 +24,10 @@ export const SpaceLayout: React.FC<{
                 <Panel defaultSize={20} minSize={20}>
                   <SideBar />
                 </Panel>
-                <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
+                <ResizeHandle className="border-l hover:bg-primary hover:px-px" />
                 <Panel minSize={30}>{children}</Panel>
-                <ResizeHandle className="border-l border-base-300 hover:bg-base-300 hover:px-px" />
-                <Panel defaultSize={20} minSize={20}>
+                <ResizeHandle className="border-l hover:bg-primary hover:px-px" />
+                <Panel collapsible defaultSize={20}>
                   <ChatWindow />
                 </Panel>
               </PanelGroup>
