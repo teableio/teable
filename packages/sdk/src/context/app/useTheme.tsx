@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { ThemeKey } from './AppContext';
@@ -21,14 +21,13 @@ export function useTheme(): IUseThemeResult {
   const [autoTheme, setAutoTheme] = useState(ThemeKey.Light);
   const [theme, setTheme] = useLocalStorage<ThemeKey | null>(LocalStorageKeys.Theme);
 
-  const setThemeState = useCallback((themeKey: ThemeKey | null) => {
-    if (themeKey) {
-      document.documentElement.setAttribute('data-theme', themeKey);
+  useEffect(() => {
+    if (theme) {
+      document.documentElement.setAttribute('data-theme', theme);
     } else {
-      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.setAttribute('data-theme', autoTheme);
     }
-    setTheme(themeKey);
-  }, []);
+  }, [theme, autoTheme]);
 
   // run in browser environment
   useEffect(() => {
@@ -46,19 +45,18 @@ export function useTheme(): IUseThemeResult {
       const darkMode = event.matches;
       setAutoTheme(darkMode ? ThemeKey.Dark : ThemeKey.Light);
     }
-    setThemeState(theme ?? autoTheme);
     window.matchMedia(darkModeMediaQuery).addEventListener('change', change);
     return () => {
       window.matchMedia(darkModeMediaQuery).removeEventListener('change', change);
     };
-  }, [autoTheme, setThemeState, theme]);
+  }, [autoTheme, theme]);
 
   return useMemo(
     () => ({
-      theme: theme ? theme : autoTheme,
+      theme: theme || autoTheme,
       isAutoTheme: !theme,
-      setTheme: setThemeState,
+      setTheme,
     }),
-    [theme, autoTheme, setThemeState]
+    [theme, autoTheme, setTheme]
   );
 }
