@@ -28,6 +28,10 @@ export const DraggableList: React.FC = () => {
       newOrder = (prevOrder + nextOrder) / 2;
     }
 
+    if (newOrder === table.order) {
+      return;
+    }
+
     table.updateOrder(newOrder);
   };
 
