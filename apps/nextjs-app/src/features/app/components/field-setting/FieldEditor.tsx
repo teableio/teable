@@ -7,16 +7,15 @@ import type {
   SelectFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import { Input, Select } from 'antd';
 import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
-import { FIELD_CONSTANT, fieldDefaultOptionMap } from '../../utils/field';
+import { Input } from '@/components/ui/input';
+import { fieldDefaultOptionMap } from '../../utils/field';
 import { FormulaOptions } from './FormulaOptions';
 import { LinkOptions } from './LinkOptions';
 import { NumberOptions } from './NumberOptions';
+import { SelectFieldType } from './SelectFieldType';
 import { SelectOptions } from './SelectOptions';
-
-const { Option } = Select;
 
 export const FieldEditor = (props: {
   field: IFieldRo;
@@ -120,13 +119,13 @@ export const FieldEditor = (props: {
             <div className="pb-2">
               <span className="label-text mb-2">Name</span>
             </div>
-            <Input value={field['name']} onChange={updateFieldName} />
+            <Input className="h-8" value={field['name']} onChange={updateFieldName} />
           </div>
           <div className="w-full mt-1">
             <div className="pb-2">
               <span className="label-text mb-2">Description</span>
             </div>
-            <Input value={field['description']} onChange={updateFieldDesc} />
+            <Input className="h-8" value={field['description']} onChange={updateFieldDesc} />
           </div>
         </div>
       </div>
@@ -138,16 +137,7 @@ export const FieldEditor = (props: {
             <div className="pb-2">
               <span className="neutral-content mb-2">Name</span>
             </div>
-            <Select className="w-full" showSearch value={field.type} onChange={updateFieldType}>
-              {FIELD_CONSTANT.map(({ type, text, IconComponent }) => (
-                <Option key={type} value={type} label={text}>
-                  <div className="flex items-center">
-                    <IconComponent />
-                    <span className="ml-1">{text}</span>
-                  </div>
-                </Option>
-              ))}
-            </Select>
+            <SelectFieldType value={field.type} onChange={updateFieldType} />
           </div>
         </div>
       </div>

@@ -25,9 +25,9 @@ export const DragAndCopy = (props: { onChange?: (files: FileList) => void }) => 
     <div className="w-full h-full flex flex-col">
       <div
         className={classNames(
-          'flex-1 w-full bg-base-200/80 text-base-content/70 rounded-md flex items-center justify-center',
+          'flex-1 w-full bg-foreground/10 text-foreground/60 rounded-md flex items-center justify-center',
           {
-            'border border-accent-focus': isFileDragIn,
+            'border border-dashed border-foreground': isFileDragIn,
           }
         )}
         onDrop={handleFileDrop}

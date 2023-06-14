@@ -1,30 +1,45 @@
-import { Logger } from '@nestjs/common';
-import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
-import { WebSocketGateway } from '@nestjs/websockets';
+import type { OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
-import type { Server } from 'ws';
+import type { WebSocket } from 'ws';
+import { Server } from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 
-@WebSocketGateway(parseInt(process.env.SOCKET_PORT || '3001'), { path: '/socket' })
-export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+@Injectable()
+export class WsGateway implements OnModuleInit {
   private logger = new Logger(WsGateway.name);
 
-  constructor(private readonly shareDb: ShareDbService) {}
+  server!: Server;
 
-  handleDisconnect() {
-    this.logger.log('client disconnect');
-  }
+  constructor(
+    private readonly shareDb: ShareDbService,
+    private readonly configService: ConfigService
+  ) {}
 
-  handleConnection(client: unknown) {
-    this.logger.log({ message: 'client Connect', client });
-  }
+  handleConnection = (webSocket: WebSocket) => {
+    this.logger.log('ws:on:connection');
+    const stream = new WebSocketJSONStream(webSocket);
+    this.shareDb.listen(stream);
+  };
 
-  afterInit(server: Server) {
-    this.logger.log('WsGateway afterInit');
-    server.on('connection', (webSocket) => {
-      this.logger.log('server:on:connection');
-      const stream = new WebSocketJSONStream(webSocket);
-      this.shareDb.listen(stream);
-    });
+  handleError = (error: Error) => {
+    this.logger.error('ws:on:error', error);
+  };
+
+  handleClose = () => {
+    this.logger.error('ws:on:close');
+  };
+
+  onModuleInit() {
+    const port = this.configService.get<number>('SOCKET_PORT');
+
+    this.server = new Server({ port, path: '/socket' });
+
+    this.server.on('connection', this.handleConnection);
+
+    this.server.on('error', this.handleError);
+
+    this.server.on('close', this.handleClose);
   }
 }

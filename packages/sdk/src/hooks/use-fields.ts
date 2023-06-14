@@ -2,15 +2,14 @@ import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
 import { useViewId } from './use-view-id';
 
-export function useFields(entireColumn?: boolean) {
+export function useFields(options: { entireColumn?: boolean } = {}) {
+  const { entireColumn } = options;
   const { fields } = useContext(FieldContext);
   const viewId = useViewId();
 
-  if (!viewId) {
-    throw new Error("Can't find view id");
-  }
-
   return useMemo(() => {
-    return entireColumn ? fields : fields.filter((field) => !field.columnMeta[viewId].hidden);
-  }, [entireColumn, fields]);
+    return entireColumn
+      ? fields
+      : fields.filter(({ columnMeta }) => viewId && !columnMeta?.[viewId]?.hidden);
+  }, [viewId, fields, entireColumn]);
 }

@@ -17,7 +17,7 @@ export class LinkField extends LinkFieldCore implements Field {
   }
 
   async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
-    const oldHidden = this.columnMeta[viewId].hidden;
+    const oldHidden = this.columnMeta[viewId]?.hidden;
     return FieldExtended.updateColumnHidden(this.doc, viewId, hidden, oldHidden);
   }
 

@@ -1,26 +1,45 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
-
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 export const ThemePicker: React.FC = () => {
   const { theme, isAutoTheme, setTheme } = useTheme();
+  const value = isAutoTheme ? 'auto' : theme;
   return (
-    <select
-      className="select select-bordered select-xs py-0"
-      onChange={(e) => {
-        console.log('select change: ', e.target.value);
-        setTheme(e.target.value === '' ? null : (e.target.value as ThemeKey));
-      }}
-      value={isAutoTheme ? '' : theme}
-    >
-      {[ThemeKey.Light, ThemeKey.Dark].map((item) => {
-        return (
-          <option key={item} disabled={!isAutoTheme && theme === item} value={item}>
-            {item}
-          </option>
-        );
-      })}
-      <option disabled={isAutoTheme} value="">
-        auto
-      </option>
-    </select>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size={'xxs'} variant="outline">
+          {value}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(value) => {
+            setTheme(value === '' ? null : (value as ThemeKey));
+          }}
+        >
+          {[ThemeKey.Light, ThemeKey.Dark].map((item) => {
+            return (
+              <DropdownMenuRadioItem
+                key={item}
+                disabled={!isAutoTheme && theme === item}
+                value={item}
+              >
+                {item}
+              </DropdownMenuRadioItem>
+            );
+          })}
+          <DropdownMenuRadioItem disabled={isAutoTheme} value="">
+            auto
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

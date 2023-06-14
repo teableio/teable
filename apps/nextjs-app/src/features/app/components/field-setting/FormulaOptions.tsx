@@ -3,6 +3,7 @@ import { useFields } from '@teable-group/sdk/hooks';
 import { FormulaField, NumberField } from '@teable-group/sdk/model';
 import { keyBy } from 'lodash';
 import { useState } from 'react';
+import { Input } from '@/components/ui/input';
 import { NumberOptions } from './NumberOptions';
 
 export const FormulaOptions = (props: {
@@ -31,23 +32,23 @@ export const FormulaOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full">
-      <div className="label">
+    <div className="w-full space-y-2">
+      <div className="space-y-2">
         <span className="neutral-content label-text mb-2">Formula</span>
+        <Input
+          type="text"
+          className="h-8"
+          value={expressionByName}
+          onChange={(e) => onExpressionChange(e.target.value)}
+        />
       </div>
-      <input
-        type="text"
-        className="input input-bordered w-full input-sm"
-        value={expressionByName}
-        onChange={(e) => onExpressionChange(e.target.value)}
-      />
-      <div className="label">
+      <div className="space-y-2">
         <span className="neutral-content label-text mb-2">Formatting</span>
+        <NumberOptions
+          options={formatting || NumberField.defaultOptions()}
+          onChange={onFormattingChange}
+        />
       </div>
-      <NumberOptions
-        options={formatting || NumberField.defaultOptions()}
-        onChange={onFormattingChange}
-      />
     </div>
   );
 };
