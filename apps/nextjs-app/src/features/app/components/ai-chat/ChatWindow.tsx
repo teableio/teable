@@ -142,7 +142,7 @@ export const ChatWindow = () => {
   return (
     <main
       ref={chatWindowRef}
-      className="drawer-content relative w-full h-full flex flex-col justify-start items-start overflow-y-auto bg-base-100"
+      className="drawer-content relative w-full h-full flex flex-col justify-start items-start overflow-y-auto"
     >
       <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
         {messageList.length === 0 ? (
@@ -153,6 +153,7 @@ export const ChatWindow = () => {
               loading={'eager'}
               src={'/shared-assets/images/tai-logo.png'}
               alt={'tailwind-ui-logo'}
+              priority={true}
             />
             <p>What can I do for you?</p>
           </div>
