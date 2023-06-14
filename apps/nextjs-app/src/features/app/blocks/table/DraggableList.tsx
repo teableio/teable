@@ -1,11 +1,14 @@
 import { useTableId, useTables } from '@teable-group/sdk';
 import type { OnDragEndResponder } from 'react-beautiful-dnd';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { TableListItem } from './TableListItem';
 
 export const DraggableList: React.FC = () => {
   const tables = useTables();
   const tableId = useTableId();
+
+  const isHydrated = useIsHydrated();
 
   const onDragEnd: OnDragEndResponder = (result) => {
     if (!result.destination) return;
@@ -30,34 +33,36 @@ export const DraggableList: React.FC = () => {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <Droppable droppableId="droppable">
-        {(provided) => (
-          <ul
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            style={{ listStyle: 'none', padding: 0 }}
-          >
-            {tables.map((table, index) => (
-              <Draggable key={table.id} draggableId={table.id} index={index}>
-                {(provided) => (
-                  <li
-                    className="group relative"
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    style={{
-                      ...provided.draggableProps.style,
-                    }}
-                  >
-                    <TableListItem table={table} isActive={table.id === tableId} />
-                  </li>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </ul>
-        )}
-      </Droppable>
+      {isHydrated && (
+        <Droppable droppableId="droppable">
+          {(provided) => (
+            <ul
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              style={{ listStyle: 'none', padding: 0 }}
+            >
+              {tables.map((table, index) => (
+                <Draggable key={table.id} draggableId={table.id} index={index}>
+                  {(provided) => (
+                    <li
+                      className="group relative"
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      style={{
+                        ...provided.draggableProps.style,
+                      }}
+                    >
+                      <TableListItem table={table} isActive={table.id === tableId} />
+                    </li>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </ul>
+          )}
+        </Droppable>
+      )}
     </DragDropContext>
   );
 };
