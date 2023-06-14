@@ -26,7 +26,9 @@ export class AttachmentFieldCore extends FieldCore {
 
   calculatedType = FieldType.Attachment;
 
-  cellValueType = CellValueType.Array;
+  cellValueType = CellValueType.String;
+
+  isMultipleCellValue = true;
 
   isComputed = false;
 

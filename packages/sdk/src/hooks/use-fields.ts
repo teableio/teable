@@ -10,6 +10,6 @@ export function useFields(options: { entireColumn?: boolean } = {}) {
   return useMemo(() => {
     return entireColumn
       ? fields
-      : fields.filter(({ columnMeta }) => viewId && !columnMeta?.[viewId]?.hidden);
+      : fields.filter(({ columnMeta }) => (viewId ? !columnMeta?.[viewId]?.hidden : true));
   }, [viewId, fields, entireColumn]);
 }

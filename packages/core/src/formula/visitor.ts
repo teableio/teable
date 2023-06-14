@@ -19,12 +19,11 @@ import type {
   FieldReferenceCurlyContext,
 } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
-import type { ITypedValue } from './typed-value';
-import { ArrayTypedValue, FlatTypedValue } from './typed-value';
+import { TypedValue } from './typed-value';
 
 export class EvalVisitor
-  extends AbstractParseTreeVisitor<ITypedValue>
-  implements FormulaVisitor<ITypedValue>
+  extends AbstractParseTreeVisitor<TypedValue>
+  implements FormulaVisitor<TypedValue>
 {
   constructor(private dependencies: { [fieldId: string]: FieldCore }, private record?: IRecord) {
     super();
@@ -37,25 +36,25 @@ export class EvalVisitor
   visitStringLiteral(ctx: StringLiteralContext): any {
     // Extract and return the string value without quotes
     const value = ctx.text.slice(1, -1);
-    return new FlatTypedValue(value, CellValueType.String);
+    return new TypedValue(value, CellValueType.String);
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): any {
     // Parse and return the integer value
     const value = parseInt(ctx.text, 10);
-    return new FlatTypedValue(value, CellValueType.Number);
+    return new TypedValue(value, CellValueType.Number);
   }
 
   visitDecimalLiteral(ctx: DecimalLiteralContext): any {
     // Parse and return the decimal value
     const value = parseFloat(ctx.text);
-    return new FlatTypedValue(value, CellValueType.Number);
+    return new TypedValue(value, CellValueType.Number);
   }
 
   visitBooleanLiteral(ctx: BooleanLiteralContext): any {
     // Parse and return the boolean value
     const value = ctx.text.toUpperCase() === 'TRUE';
-    return new FlatTypedValue(value, CellValueType.Boolean);
+    return new TypedValue(value, CellValueType.Boolean);
   }
 
   visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): any {
@@ -72,8 +71,8 @@ export class EvalVisitor
 
   private getBinaryOpValueType(
     ctx: BinaryOpContext,
-    left: ITypedValue,
-    right: ITypedValue
+    left: TypedValue,
+    right: TypedValue
   ): CellValueType {
     switch (true) {
       case Boolean(ctx.PLUS()): {
@@ -112,7 +111,7 @@ export class EvalVisitor
     }
   }
 
-  private transformNodeValue(typedValue: ITypedValue, ctx: BinaryOpContext) {
+  private transformNodeValue(typedValue: TypedValue, ctx: BinaryOpContext) {
     // A Node with a field value type requires dedicated string conversion logic to be executed.
     if (!typedValue.field) {
       return typedValue;
@@ -140,20 +139,17 @@ export class EvalVisitor
       return typedValue;
     }
 
-    if (
-      field.cellValueType === CellValueType.Array &&
-      field.cellValueElementType === CellValueType.Number
-    ) {
+    if (field.isMultipleCellValue && field.cellValueType === CellValueType.Number) {
       if (!typedValue.value?.length) return null;
       if (typedValue.value.length > 1) {
         throw new TypeError(
           'Cannot perform mathematical calculations on an array with more than one numeric element.'
         );
       }
-      return new FlatTypedValue(Number(typedValue.value[0]), CellValueType.Number);
+      return new TypedValue(Number(typedValue.value[0]), CellValueType.Number);
     }
 
-    return new FlatTypedValue(field.cellValue2String(typedValue.value), CellValueType.String);
+    return new TypedValue(field.cellValue2String(typedValue.value), CellValueType.String);
   }
 
   visitBinaryOp(ctx: BinaryOpContext) {
@@ -226,19 +222,12 @@ export class EvalVisitor
       default:
         throw new Error(`Unsupported binary operation: ${ctx.text}`);
     }
-    return new FlatTypedValue(value, valueType);
+    return new TypedValue(value, valueType);
   }
 
   private createTypedValueByField(field: FieldCore) {
     const value = this.record ? this.record.fields[field.id] : null;
-
-    if (field.cellValueType === CellValueType.Array) {
-      if (!field.cellValueElementType) {
-        throw new Error('field.cellValueElementType is not define for a array value');
-      }
-      return new ArrayTypedValue(value, field.cellValueElementType, field);
-    }
-    return new FlatTypedValue(value, field.cellValueType, field);
+    return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
@@ -250,30 +239,36 @@ export class EvalVisitor
     return this.createTypedValueByField(field);
   }
 
-  private transformTypedValue(typedValue: ITypedValue, func: FormulaFunc): ITypedValue {
-    const { value, type, field } = typedValue;
+  /**
+   * transform typed value into function accept value type as possible as it can
+   */
+  private transformTypedValue(typedValue: TypedValue, func: FormulaFunc): TypedValue {
+    const { value, type, isMultiple, field } = typedValue;
 
+    // select first number value if multiple value
     if (
-      type === CellValueType.Array &&
-      !func.acceptCellValueType.has(CellValueType.Array) &&
-      'elementType' in typedValue &&
-      typedValue.elementType === CellValueType.Number
+      isMultiple &&
+      !func.acceptMultipleCellValue &&
+      type === CellValueType.Number &&
+      func.acceptCellValueType.has(type)
     ) {
       if (value?.length > 1) {
         throw new TypeError(`function ${func.name} is not accept array value: ${value}`);
       }
       const transValue = value && value[0];
-      return new FlatTypedValue(transValue, CellValueType.Number);
+      return new TypedValue(transValue, CellValueType.Number);
     }
 
-    if (!func.acceptCellValueType.has(type)) {
+    // stringify all value if function not accept multiple value
+    if (isMultiple && !func.acceptMultipleCellValue) {
       const transValue = field ? field.cellValue2String(value) : String(value);
-      return new FlatTypedValue(transValue, CellValueType.String);
+      return new TypedValue(transValue, CellValueType.String, false, field);
     }
 
+    // transform date value into string if function not accept date value
     if (!func.acceptCellValueType.has(type) && type === CellValueType.DateTime) {
       const transValue = value == null ? value : new Date(value).toISOString();
-      return new FlatTypedValue(transValue, CellValueType.DateTime);
+      return new TypedValue(transValue, CellValueType.DateTime, false, field);
     }
 
     return typedValue;
@@ -291,20 +286,17 @@ export class EvalVisitor
       return this.transformTypedValue(typedValue, func);
     });
 
-    const { type, elementType } = func.getReturnType(params);
+    const { type, isMultiple } = func.getReturnType(params);
 
     if (!this.record) {
-      return new FlatTypedValue(null, type);
+      return new TypedValue(null, type, isMultiple);
     }
 
     const value = func.eval(params, { record: this.record, dependencies: this.dependencies });
-    if (type === CellValueType.Array && elementType) {
-      return new ArrayTypedValue(value, elementType);
-    }
-    return new FlatTypedValue(value, type);
+    return new TypedValue(value, type, isMultiple);
   }
 
   protected defaultResult() {
-    return new FlatTypedValue(null, CellValueType.String);
+    return new TypedValue(null, CellValueType.String);
   }
 }

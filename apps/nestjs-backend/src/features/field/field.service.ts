@@ -90,7 +90,7 @@ export class FieldService implements IAdapterService {
       dbFieldType,
       calculatedType,
       cellValueType,
-      cellValueElementType,
+      isMultipleCellValue,
     } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
@@ -115,7 +115,7 @@ export class FieldService implements IAdapterService {
       dbFieldType,
       calculatedType,
       cellValueType,
-      cellValueElementType,
+      isMultipleCellValue,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };

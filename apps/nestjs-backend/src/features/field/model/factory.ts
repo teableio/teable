@@ -85,8 +85,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
           ...fieldDto,
           isComputed: false,
           calculatedType: FieldType.MultipleSelect,
-          cellValueType: CellValueType.Array,
-          cellValueElementType: CellValueType.String,
+          cellValueType: CellValueType.String,
+          isMultipleCellValue: true,
           dbFieldType: DbFieldType.Text,
         } as MultipleSelectFieldDto);
       case FieldType.Link: {
@@ -96,12 +96,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
           ...fieldDto,
           isComputed: true,
           calculatedType: FieldType.Link,
-          cellValueType:
-            options.relationship === Relationship.ManyOne
-              ? CellValueType.String
-              : CellValueType.Array,
-          cellValueElementType:
-            options.relationship === Relationship.ManyOne ? undefined : CellValueType.String,
+          cellValueType: CellValueType.String,
+          isMultipleCellValue: options.relationship === Relationship.OneMany,
           dbFieldType: DbFieldType.Text,
         } as LinkFieldDto);
       }
@@ -178,7 +174,7 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     calculatedType: fieldRaw.calculatedType as FieldType,
     cellValueType: fieldRaw.cellValueType as CellValueType,
-    cellValueElementType: fieldRaw.cellValueElementType as CellValueType,
+    isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
     columnMeta: fieldRaw.columnMeta && JSON.parse(fieldRaw.columnMeta as string),
   };

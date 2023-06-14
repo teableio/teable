@@ -1,6 +1,6 @@
 import type { FieldCore, IRecord } from '../../models';
 import { CellValueType } from '../../models/field/constant';
-import type { FlatTypedValue } from '../typed-value';
+import type { TypedValue } from '../typed-value';
 
 export enum FormulaFuncType {
   Array = 'Array',
@@ -9,6 +9,7 @@ export enum FormulaFuncType {
   Numeric = 'Numeric',
   Record = 'Record',
   Text = 'Text',
+  System = 'System',
 }
 
 export interface IFormulaContext {
@@ -32,6 +33,8 @@ export abstract class FormulaFunc {
     CellValueType.String,
   ]);
 
+  acceptMultipleCellValue = true;
+
   /**
    * The function needs to perform parameter type and quantity verification during the AST tree parsing phase. If the requirements of the function are not met, throw a new Error with a friendly prompt.
    * Error throwing principles:
@@ -40,22 +43,23 @@ export abstract class FormulaFunc {
    * 3. The function name should be clearly stated in the error message
    * 4. Arabic numerals such as "3" should be used instead of Chinese characters such as "三" in error messages regarding numbers.
    */
-  abstract validateParams(params: FlatTypedValue[]): boolean;
+  abstract validateParams(params: TypedValue[]): boolean;
 
   /**
    * @param params The parameter is optional. When the parameter is not passed, it returns a static default type. When the parameter is passed, different functions dynamically calculate the return type based on the parameter type.
    * The function return type can be directly inferred from AstNode without obtaining actual values.
    */
-  abstract getReturnType(params?: FlatTypedValue[]): {
+  abstract getReturnType(params?: TypedValue[]): {
     type: CellValueType;
-    elementType?: CellValueType;
+    isMultiple?: boolean;
   };
 
   // function implementation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  abstract eval(params: FlatTypedValue[], context: IFormulaContext): any;
+  abstract eval(params: TypedValue[], context: IFormulaContext): any;
 }
 
 export enum FunctionName {
   Sum = 'SUM',
+  Lookup = 'LOOKUP',
 }

@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import type { IRecord } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
+import type { LinkFieldDto } from 'src/features/field/model/field-dto/link-field.dto';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
@@ -172,7 +175,17 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   describe('link field cell update', () => {
-    it('should update foreign link field when set a new link in to link field cell', async () => {
+    let ctx: {
+      numberFieldRo: CreateFieldRo;
+      textFieldRo: CreateFieldRo;
+      table1Records: IRecord[];
+      table1linkField: LinkFieldDto;
+      linkFieldRo: CreateFieldRo;
+      table2Id: string;
+      table2Records: IRecord[];
+      linkToRecordId2: string;
+    } = {} as any;
+    beforeAll(async () => {
       const numberFieldRo: CreateFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
@@ -190,14 +203,14 @@ describe('OpenAPI link (e2e)', () => {
         .post('/api/table')
         .send({
           name: 'table1',
-          fields: [numberFieldRo, textFieldRo],
+          fields: [textFieldRo, numberFieldRo],
         })
         .expect(201);
 
       table1Id = createTable1Result.body.data.id;
       const table1Records = createTable1Result.body.data.data.records;
 
-      const linkFieldRo: CreateFieldRo = {
+      const table2LinkFieldRo: CreateFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
@@ -211,7 +224,7 @@ describe('OpenAPI link (e2e)', () => {
         .post('/api/table')
         .send({
           name: 'table2',
-          fields: [numberFieldRo, textFieldRo, linkFieldRo],
+          fields: [textFieldRo, numberFieldRo, table2LinkFieldRo],
         })
         .expect(201);
       const linkToRecordId = table1Records[0].id;
@@ -222,7 +235,8 @@ describe('OpenAPI link (e2e)', () => {
         .get(`/api/table/${table1Id}/field`)
         .expect(200);
 
-      const linkField = getFields1Result.body.data[2];
+      const table1linkField = getFields1Result.body.data[2];
+
       const table2Records = createTable2Result.body.data.data.records;
       // table2 link field first record link to table1 first record
       const table2RecordResult = await request(app.getHttpServer())
@@ -230,7 +244,7 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [linkFieldRo.name]: { title: 'test', id: linkToRecordId },
+              [table2LinkFieldRo.name]: { title: 'test', id: linkToRecordId },
             },
           },
         } as UpdateRecordRo)
@@ -242,38 +256,97 @@ describe('OpenAPI link (e2e)', () => {
         .expect(200);
 
       console.log('table1RecordResult:', table1RecordResult.body.data);
-      console.log('linkField.name:', linkField.name);
-      expect(table1RecordResult.body.data.record.fields[linkField.name]).toEqual([
+      console.log('table1linkField.name:', table1linkField.name);
+      expect(table1RecordResult.body.data.record.fields[table1linkField.name]).toEqual([
         {
           id: table2Records[0].id,
         },
       ]);
 
       const linkToRecordId2 = table1Records[1].id;
+      ctx = {
+        numberFieldRo,
+        textFieldRo,
+        linkFieldRo: table2LinkFieldRo,
+        table1linkField,
+        table1Records,
+        table2Id,
+        table2Records,
+        linkToRecordId2,
+      };
+    });
+
+    it('should update foreign link field when set a new link in to link field cell', async () => {
       await request(app.getHttpServer())
-        .put(`/api/table/${table2Id}/record/${table2Records[0].id}`)
+        .put(`/api/table/${table2Id}/record/${ctx.table2Records[0].id}`)
         .send({
           record: {
             fields: {
-              [linkFieldRo.name]: { title: 'test', id: linkToRecordId2 },
+              [ctx.linkFieldRo.name]: { title: 'test', id: ctx.linkToRecordId2 },
             },
           },
         } as UpdateRecordRo)
         .expect(200);
 
-      console.log('linkToRecordId2:', linkToRecordId2);
+      console.log('linkToRecordId2:', ctx.linkToRecordId2);
       const table1RecordResult2 = await request(app.getHttpServer())
         .get(`/api/table/${table1Id}/record`)
         .expect(200);
 
       console.log('table1RecordResult2:', table1RecordResult2.body.data.records);
-      console.log('linkField.name:', linkField.name);
-      expect(table1RecordResult2.body.data.records[0].fields[linkField.name]).toBeUndefined();
-      expect(table1RecordResult2.body.data.records[1].fields[linkField.name]).toEqual([
+      console.log('linkField.name:', ctx.table1linkField.name);
+      expect(
+        table1RecordResult2.body.data.records[0].fields[ctx.table1linkField.name]
+      ).toBeUndefined();
+      expect(table1RecordResult2.body.data.records[1].fields[ctx.table1linkField.name]).toEqual([
         {
-          id: table2Records[0].id,
+          id: ctx.table2Records[0].id,
         },
       ]);
+    });
+
+    it.only('should update foreign link field when change lookupField value', async () => {
+      await request(app.getHttpServer())
+        .put(`/api/table/${table2Id}/record/${ctx.table2Records[0].id}`)
+        .send({
+          record: {
+            fields: {
+              [ctx.textFieldRo.name]: 'BX',
+            },
+          },
+        } as UpdateRecordRo)
+        .expect(200);
+
+      const table1RecordResult2 = await request(app.getHttpServer())
+        .get(`/api/table/${table1Id}/record`)
+        .expect(200);
+
+      expect(table1RecordResult2.body.data.records[0].fields[ctx.table1linkField.name]).toEqual([
+        {
+          title: 'BX',
+          id: ctx.table2Records[0].id,
+        },
+      ]);
+
+      await request(app.getHttpServer())
+        .put(`/api/table/${table1Id}/record/${ctx.table1Records[0].id}`)
+        .send({
+          record: {
+            fields: {
+              [ctx.textFieldRo.name]: 'AX',
+            },
+          },
+        } as UpdateRecordRo)
+        .expect(200);
+
+      const table2RecordResult2 = await request(app.getHttpServer())
+        .get(`/api/table/${table2Id}/record`)
+        .expect(200);
+
+      expect(table2RecordResult2.body.data.records[0].fields[ctx.linkFieldRo.name]).toEqual({
+        title: 'AX',
+        id: ctx.table1Records[0].id,
+      });
     });
   });
 });

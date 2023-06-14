@@ -89,7 +89,7 @@ export class FormulaFieldCore extends FieldCore {
 
   cellValueType!: CellValueType;
 
-  declare cellValueElementType?: CellValueType;
+  declare isMultipleCellValue?: boolean | undefined;
 
   isComputed!: true;
 

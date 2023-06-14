@@ -78,7 +78,6 @@ describe('FormulaFieldCore', () => {
   it('should return current typed value with field context', () => {
     expect(FormulaFieldCore.getParsedValueType('2 + 2', {})).toEqual({
       cellValueType: CellValueType.Number,
-      cellValueElementType: undefined,
     });
 
     expect(
@@ -87,7 +86,6 @@ describe('FormulaFieldCore', () => {
       })
     ).toEqual({
       cellValueType: CellValueType.Number,
-      cellValueElementType: undefined,
     });
 
     expect(
@@ -96,7 +94,6 @@ describe('FormulaFieldCore', () => {
       })
     ).toEqual({
       cellValueType: CellValueType.Number,
-      cellValueElementType: undefined,
     });
   });
 

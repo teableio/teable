@@ -1,16 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { IRecord, LinkFieldCore } from '@teable-group/core';
 import { CellValueType, Relationship, FieldType, evaluate } from '@teable-group/core';
-import type { Field } from '@teable-group/db-main-prisma';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import type { Knex } from 'knex';
 import knex from 'knex';
 import { groupBy, intersectionBy, uniqBy } from 'lodash';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 
 interface ITopoItem {
   id: string;
@@ -60,13 +59,14 @@ export class ReferenceService {
     tableId: string,
     recordData: { id: string; fieldId: string; newValue: unknown }[]
   ): Promise<ICellChange[]> {
+    // console.log('calculate', tableId, recordData);
     const fieldIds = recordData.map((ctx) => ctx.fieldId);
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
     if (!undirectedGraph.length) {
       return [];
     }
     const allFieldIds = this.flatGraph(undirectedGraph);
-    const { fieldMap, fieldId2TableId, dbTableName2fieldRaws, tableId2DbTableName } =
+    const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
     const topoOrdersByFieldId = uniqBy(recordData, 'fieldId').reduce<{
@@ -76,6 +76,7 @@ export class ReferenceService {
       return pre;
     }, {});
 
+    // console.log('topoOrdersByFieldId:', topoOrdersByFieldId);
     const originRecordItems = recordData.map((record) => ({
       dbTableName: tableId2DbTableName[tableId],
       fieldId: record.fieldId,
@@ -96,17 +97,20 @@ export class ReferenceService {
       const items = await this.getAffectedRecordItems(prisma, originRecordItems, linkOrders);
       affectedRecordItems = affectedRecordItems.concat(items);
     }
+    // console.log('affectedRecordItems', affectedRecordItems);
 
     // extra dependent records for link field
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
+    // console.log('dependentRecordItems', dependentRecordItems);
 
     // record data source
     const dbTableName2records = await this.getRecordsBatch(prisma, {
       originRecordItems,
       affectedRecordItems,
       dependentRecordItems,
-      dbTableName2fieldRaws,
+      dbTableName2fields,
     });
+    // console.log('dbTableName2records', dbTableName2records);
 
     const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
       const orderWithRecords = this.createTopoItemWithRecords({
@@ -118,9 +122,11 @@ export class ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
+      // console.log('collectChanges:', orderWithRecords, fieldId2TableId);
 
       return pre.concat(this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId));
     }, []);
+    // console.log('changes:', changes);
 
     return this.mergeDuplicateChange(changes);
   }
@@ -143,7 +149,7 @@ export class ReferenceService {
 
     if (field.type === FieldType.Formula) {
       const typedValue = evaluate(field.options.expression, fieldMap, record);
-      if (typedValue.type === CellValueType.Array) {
+      if (typedValue.isMultiple) {
         return field.cellValue2String(typedValue.toPlain());
       }
       return typedValue.toPlain();
@@ -153,46 +159,46 @@ export class ReferenceService {
   }
 
   private calculateRollup(
-    field: LinkFieldCore,
+    field: LinkFieldDto,
     lookupField: IFieldInstance,
     record: IRecord,
     dependencies: IRecord | IRecord[]
   ): unknown {
-    const formula = '{values}';
-
-    const plain = instanceToPlain(lookupField, { excludePrefixes: ['_'] });
+    const fieldRaw = instanceToPlain(lookupField, { excludePrefixes: ['_'] });
 
     // TODO: array value flatten
     const lookupValues = Array.isArray(dependencies)
       ? dependencies.map((depRecord) => depRecord.fields[lookupField.id])
       : dependencies.fields[lookupField.id];
 
-    const cellValueType =
-      field.options.relationship === Relationship.OneMany
-        ? CellValueType.Array
-        : lookupField.cellValueType;
-
-    const cellValueElementType =
-      cellValueType === CellValueType.Array ? lookupField.cellValueType : undefined;
-
     const virtualField = createFieldInstanceByRaw({
-      ...plain,
+      ...fieldRaw,
       id: 'values',
-      cellValueType,
-      cellValueElementType,
-      options: JSON.stringify(plain.options),
-      defaultValue: JSON.stringify(plain.defaultValue),
-      columnMeta: JSON.stringify(plain.columnMeta),
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: field.options.relationship === Relationship.OneMany,
+      options: JSON.stringify(fieldRaw.options),
+      defaultValue: JSON.stringify(fieldRaw.defaultValue),
+      columnMeta: JSON.stringify(fieldRaw.columnMeta),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
+    // console.log('virtualField:', virtualField);
+    // console.log('lookupValues:', lookupValues);
 
-    console.log('lookupValues:', lookupValues);
-
-    return evaluate(
-      formula,
+    const result = evaluate(
+      field.expression,
       { values: virtualField },
       { ...record, fields: { ...record.fields, values: lookupValues } }
-    ).toPlain();
+    );
+    // console.log('calculateRollup:result', result);
+    const plain = result.toPlain();
+    // console.log('calculateRollup:plain', plain);
+
+    // console.log('calculateRollup:currentValue', record.fields[field.id]);
+    if (field.type === FieldType.Link) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return field.updateCellTitle(record.fields[field.id] as any, plain);
+    }
+    return plain;
   }
 
   private async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
@@ -221,20 +227,23 @@ export class ReferenceService {
       return pre;
     }, {});
 
-    const dbTableName2fieldRaws = fieldRaws.reduce<{ [fieldId: string]: Field[] }>((pre, f) => {
-      const dbTableName = tableId2DbTableName[f.tableId];
-      if (pre[dbTableName]) {
-        pre[dbTableName].push(f);
-      } else {
-        pre[dbTableName] = [f];
-      }
-      return pre;
-    }, {});
+    const dbTableName2fields = fieldRaws.reduce<{ [fieldId: string]: IFieldInstance[] }>(
+      (pre, f) => {
+        const dbTableName = tableId2DbTableName[f.tableId];
+        if (pre[dbTableName]) {
+          pre[dbTableName].push(fieldMap[f.id]);
+        } else {
+          pre[dbTableName] = [fieldMap[f.id]];
+        }
+        return pre;
+      },
+      {}
+    );
 
     return {
       fieldMap,
       fieldId2TableId,
-      dbTableName2fieldRaws,
+      dbTableName2fields,
       tableId2DbTableName,
     };
   }
@@ -245,17 +254,19 @@ export class ReferenceService {
     fieldId2TableId: { [fieldId: string]: string }
   ) {
     // detail changes
+    // console.log('collectChanges:', orders, fieldMap);
     const changes: ICellChange[] = [];
 
     orders.forEach((item) => {
       item.recordItems.forEach((recordItem) => {
         const field = fieldMap[item.id];
+        // console.log('collectChanges:recordItems:', field, recordItem.record);
         if (!field.isComputed) {
           return;
         }
         const record = recordItem.record;
         const value = this.calculateFormula(field, fieldMap, recordItem);
-        console.log(`calculated: ${field.id}.${record.id}`, value);
+        // console.log(`calculated: ${field.id}.${record.id}`, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
         changes.push({
@@ -271,11 +282,11 @@ export class ReferenceService {
   }
 
   private recordRaw2Record(
-    fieldRaws: Field[],
+    fields: IFieldInstance[],
     raw: { [dbFieldName: string]: unknown } & IVisualTableDefaultField
   ) {
-    const fieldsData = fieldRaws.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-      acc[field.id] = raw[field.dbFieldName];
+    const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
+      acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
       return acc;
     }, {});
 
@@ -308,7 +319,7 @@ export class ReferenceService {
 
         newOrder.push({
           dbTableName,
-          fieldId: field.name,
+          fieldId: field.id,
           foreignKeyField: foreignKeyFieldName,
           linkedTable,
           relationship: field.options.relationship,
@@ -322,40 +333,40 @@ export class ReferenceService {
     prisma: Prisma.TransactionClient,
     params: {
       originRecordItems: { dbTableName: string; id: string; fieldId: string; newValue: unknown }[];
-      dbTableName2fieldRaws: { [tableId: string]: Field[] };
+      dbTableName2fields: { [tableId: string]: IFieldInstance[] };
       affectedRecordItems: IRecordRefItem[];
       dependentRecordItems: IRecordRefItem[];
     }
   ) {
-    const { originRecordItems, affectedRecordItems, dependentRecordItems, dbTableName2fieldRaws } =
+    const { originRecordItems, affectedRecordItems, dependentRecordItems, dbTableName2fields } =
       params;
     const recordIdsByTableName = groupBy(
       [...affectedRecordItems, ...dependentRecordItems, ...originRecordItems],
       'dbTableName'
     );
 
-    let query: Knex.QueryBuilder | undefined;
+    const results: {
+      [tableName: string]: { [fieldName: string]: unknown }[];
+    } = {};
     for (const dbTableName in recordIdsByTableName) {
       // deduplication is needed
       const recordIds = Array.from(new Set(recordIdsByTableName[dbTableName].map((r) => r.id)));
-      const fieldNames = dbTableName2fieldRaws[dbTableName].map((f) => f.dbFieldName);
-      const aliasedFieldNames = [...fieldNames, ...preservedFieldName].map(
-        (fieldName) => `${dbTableName}.${fieldName} as ${dbTableName}#${fieldName}`
+      const fieldNames = dbTableName2fields[dbTableName]
+        .map((f) => f.dbFieldName)
+        .concat([...preservedFieldName]);
+      const nativeSql = this.knex(dbTableName)
+        .select(fieldNames)
+        .whereIn('__id', recordIds)
+        .toSQL()
+        .toNative();
+      const result = await prisma.$queryRawUnsafe<{ [fieldName: string]: unknown }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
       );
-      const subQuery = this.knex(dbTableName).select(aliasedFieldNames).whereIn('__id', recordIds);
-      // TODO: can i change it to union all for performance
-      query = query ? query.union(subQuery) : subQuery;
+      results[dbTableName] = result;
     }
-    if (!query) {
-      throw new Error("recordItems shouldn't be empty");
-    }
-    const nativeSql = query.toSQL().toNative();
 
-    const result = await prisma.$queryRawUnsafe<{ [fieldName: string]: unknown }[]>(
-      nativeSql.sql,
-      ...nativeSql.bindings
-    );
-    const formattedResults = this.formatRecordQueryResult(result, dbTableName2fieldRaws);
+    const formattedResults = this.formatRecordQueryResult(results, dbTableName2fields);
 
     this.coverRecordData(originRecordItems, formattedResults);
 
@@ -476,52 +487,21 @@ export class ReferenceService {
   }
 
   private formatRecordQueryResult(
-    result: { [fieldName: string]: unknown }[],
-    dbTableName2fieldRaws: { [tableId: string]: Field[] }
+    formattedResults: {
+      [tableName: string]: { [dbFiendName: string]: unknown }[];
+    },
+    dbTableName2fields: { [tableId: string]: IFieldInstance[] }
   ): {
     [tableName: string]: IRecord[];
   } {
-    const formattedResults: {
-      [tableName: string]: { [recordId: string]: { [fieldKey: string]: unknown } };
-    } = {};
-    result.forEach((record) => {
-      let dbTableName: string | undefined = undefined;
-      let recordId: string | undefined = undefined;
-      for (const key in record) {
-        const [_dbTableName, fieldName] = key.split('#');
-        if (fieldName === '__id') {
-          dbTableName = _dbTableName;
-          recordId = record[key] as string;
-          formattedResults[dbTableName] = {};
-          formattedResults[dbTableName][recordId] = {};
-          break;
-        }
-      }
-
-      if (!dbTableName || !recordId) {
-        throw new Error('Invalid record query result');
-      }
-
-      for (const key in record) {
-        const [_dbTableName, fieldName] = key.split('#');
-        if (dbTableName !== _dbTableName) {
-          continue;
-        }
-        const value = record[key];
-        if (value != null) {
-          formattedResults[dbTableName][recordId][fieldName] = value;
-        }
-      }
-    });
-
     return Object.entries(formattedResults).reduce<{
       [dbTableName: string]: IRecord[];
     }>((acc, e) => {
       const [dbTableName, recordMap] = e;
-      const fieldRaws = dbTableName2fieldRaws[dbTableName];
-      acc[dbTableName] = Object.values(recordMap).map((r) => {
+      const fields = dbTableName2fields[dbTableName];
+      acc[dbTableName] = recordMap.map((r) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this.recordRaw2Record(fieldRaws, r as any);
+        return this.recordRaw2Record(fields, r as any);
       });
       return acc;
     }, {});
