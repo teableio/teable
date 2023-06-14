@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 
 export const FilterColumnsButton = () => {
   const activeViewId = useViewId();
-  const fields = useFields({ entireColumn: true });
+  const fields = useFields({ widthHidden: true });
 
   const [searchText, setSearchText] = useState<string>('');
 
