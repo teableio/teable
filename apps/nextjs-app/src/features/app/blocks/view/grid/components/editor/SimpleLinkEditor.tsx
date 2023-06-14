@@ -58,7 +58,9 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
     } else {
       newCellValue = currentValues.map((id) => ({
         id,
-        title: records.find((record) => record.id === id)?.name,
+        title:
+          ((cellValue as ILinkCellValue[]) || []).find((record) => record.id === id)?.title ??
+          records.find((record) => record.id === id)?.name,
       }));
     }
     record.updateCell(field.id, newCellValue);
@@ -71,7 +73,7 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {choices.map(({ name, id }) => (
-            <CommandItem key={id} value={id} onSelect={onSelect}>
+            <CommandItem key={id} value={id} onSelect={() => onSelect(id)}>
               <SelectIcon
                 className={classNames(
                   'mr-2 h-4 w-4',
