@@ -3,15 +3,21 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType, Relationship } from '@teable-group/core';
-import type { ICellContext, IRecordMapByTableId, ITinyFieldMapByTableId } from './link.service';
+import type {
+  ICellContext,
+  IRecordMapByTableId,
+  IRecordTitleMapByTableId,
+  ITinyFieldMapByTableId,
+} from './link.service';
 import { LinkService } from './link.service';
+import { ReferenceService } from './reference.service';
 
 describe('LinkService', () => {
   let service: LinkService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [LinkService],
+      providers: [LinkService, ReferenceService],
     }).compile();
 
     service = module.get<LinkService>(LinkService);
@@ -30,7 +36,7 @@ describe('LinkService', () => {
             options: {
               relationship: Relationship.ManyOne,
               foreignTableId: 'tableB',
-              lookupFieldId: 'primary',
+              lookupFieldId: 'fieldB',
               dbForeignKeyName: '__fk_ManyOne-LinkB',
               symmetricFieldId: 'OneMany-LinkA',
             },
@@ -45,7 +51,7 @@ describe('LinkService', () => {
             options: {
               relationship: Relationship.OneMany,
               foreignTableId: 'tableA',
-              lookupFieldId: 'primary',
+              lookupFieldId: 'fieldA',
               dbForeignKeyName: '__fk_ManyOne-LinkB',
               symmetricFieldId: 'ManyOne-LinkB',
             },
@@ -82,9 +88,15 @@ describe('LinkService', () => {
         tableA: { A1: { 'ManyOne-LinkB': undefined } },
         tableB: { B1: { 'OneMany-LinkA': undefined } },
       };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' } },
+        tableB: { B1: { fieldB: 'B1' } },
+      };
+
       const changes1 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId1,
+        recordTitleMapByTableId1,
         fieldMapByTableId
       );
       expect(changes1).toEqual([
@@ -93,17 +105,22 @@ describe('LinkService', () => {
           recordId: 'B1',
           fieldId: 'OneMany-LinkA',
           oldValue: undefined,
-          newValue: [{ id: 'A1' }],
+          newValue: [{ id: 'A1', title: 'A1' }],
         },
       ]);
 
       const recordMapByTableId2: IRecordMapByTableId = {
         tableA: { A1: { 'ManyOne-LinkB': undefined } },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A2' }] } },
+        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A2', title: 'A2' }] } },
+      };
+      const recordTitleMapByTableId2: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' } },
+        tableB: { B1: { fieldB: 'B1' } },
       };
       const changes2 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId2,
+        recordTitleMapByTableId2,
         fieldMapByTableId
       );
       expect(changes2).toEqual([
@@ -111,8 +128,11 @@ describe('LinkService', () => {
           tableId: 'tableB',
           recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A2' }],
-          newValue: [{ id: 'A2' }, { id: 'A1' }],
+          oldValue: [{ id: 'A2', title: 'A2' }],
+          newValue: [
+            { id: 'A2', title: 'A2' },
+            { id: 'A1', title: 'A1' },
+          ],
         },
       ]);
 
@@ -158,13 +178,18 @@ describe('LinkService', () => {
       const recordMapByTableId1: IRecordMapByTableId = {
         tableA: { A1: { 'ManyOne-LinkB': undefined } },
         tableB: {
-          B1: { 'OneMany-LinkA': [{ id: 'A1' }] },
+          B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] },
           B2: { 'OneMany-LinkA': undefined },
         },
+      };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' } },
+        tableB: { B1: { fieldB: 'B1' }, B2: { fieldB: 'B2' } },
       };
       const changes1 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId1,
+        recordTitleMapByTableId1,
         fieldMapByTableId
       );
       expect(changes1).toEqual([
@@ -173,13 +198,13 @@ describe('LinkService', () => {
           recordId: 'B2',
           fieldId: 'OneMany-LinkA',
           oldValue: undefined,
-          newValue: [{ id: 'A1' }],
+          newValue: [{ id: 'A1', title: 'A1' }],
         },
         {
           tableId: 'tableB',
           recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A1' }],
+          oldValue: [{ id: 'A1', title: 'A1' }],
           newValue: undefined,
         },
       ]);
@@ -244,18 +269,23 @@ describe('LinkService', () => {
 
       const recordMapByTableId1: IRecordMapByTableId = {
         tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1' } },
+          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
           A2: { 'ManyOne-LinkB': undefined },
-          A3: { 'ManyOne-LinkB': { id: 'B2' } },
+          A3: { 'ManyOne-LinkB': { id: 'B2', title: 'B2' } },
         },
         tableB: {
-          B1: { 'OneMany-LinkA': [{ id: 'A1' }] },
-          B2: { 'OneMany-LinkA': [{ id: 'A3' }] },
+          B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] },
+          B2: { 'OneMany-LinkA': [{ id: 'A3', title: 'A3' }] },
         },
+      };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' }, A3: { fieldA: 'A3' } },
+        tableB: { B1: { fieldB: 'B1' }, B2: { fieldB: 'B2' } },
       };
       const changes1 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId1,
+        recordTitleMapByTableId1,
         fieldMapByTableId
       );
       expect(changes1).toEqual([
@@ -263,14 +293,17 @@ describe('LinkService', () => {
           tableId: 'tableB',
           recordId: 'B2',
           fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A3' }],
-          newValue: [{ id: 'A1' }, { id: 'A2' }],
+          oldValue: [{ id: 'A3', title: 'A3' }],
+          newValue: [
+            { id: 'A1', title: 'A1' },
+            { id: 'A2', title: 'A2' },
+          ],
         },
         {
           tableId: 'tableB',
           recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A1' }],
+          oldValue: [{ id: 'A1', title: 'A1' }],
           newValue: undefined,
         },
       ]);
@@ -300,9 +333,14 @@ describe('LinkService', () => {
         tableA: { A1: { 'ManyOne-LinkB': undefined } },
         tableB: { B1: { 'OneMany-LinkA': undefined } },
       };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' } },
+        tableB: { B1: { fieldB: 'B1' } },
+      };
       const changes1 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId1,
+        recordTitleMapByTableId1,
         fieldMapByTableId
       );
       expect(changes1).toEqual([
@@ -311,7 +349,7 @@ describe('LinkService', () => {
           recordId: 'A1',
           fieldId: 'ManyOne-LinkB',
           oldValue: undefined,
-          newValue: { id: 'B1' },
+          newValue: { id: 'B1', title: 'B1' },
         },
       ]);
     });
@@ -344,14 +382,19 @@ describe('LinkService', () => {
 
       const recordMapByTableId1: IRecordMapByTableId = {
         tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1' } },
+          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
           A2: { 'ManyOne-LinkB': undefined },
         },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1' }] } },
+        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] } },
+      };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' } },
+        tableB: { B1: { fieldB: 'B1' } },
       };
       const changes1 = service['getCellChangeByMutation'](
         mutation1,
         recordMapByTableId1,
+        recordTitleMapByTableId1,
         fieldMapByTableId
       );
       expect(changes1).toEqual([
@@ -360,13 +403,13 @@ describe('LinkService', () => {
           recordId: 'A2',
           fieldId: 'ManyOne-LinkB',
           oldValue: undefined,
-          newValue: { id: 'B1' },
+          newValue: { id: 'B1', title: 'B1' },
         },
         {
           tableId: 'tableA',
           recordId: 'A1',
           fieldId: 'ManyOne-LinkB',
-          oldValue: { id: 'B1' },
+          oldValue: { id: 'B1', title: 'B1' },
           newValue: undefined,
         },
       ]);
@@ -405,13 +448,22 @@ describe('LinkService', () => {
 
       const recordMapByTableId1: IRecordMapByTableId = {
         tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1' } },
+          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
           A2: { 'ManyOne-LinkB': undefined },
         },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1' }] } },
+        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] } },
+      };
+      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
+        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' } },
+        tableB: { B1: { fieldB: 'B1' } },
       };
       expect(() =>
-        service['getCellChangeByMutation'](mutation1, recordMapByTableId1, fieldMapByTableId)
+        service['getCellChangeByMutation'](
+          mutation1,
+          recordMapByTableId1,
+          recordTitleMapByTableId1,
+          fieldMapByTableId
+        )
       ).toThrowError('ManyOne relationship should not have multiple records');
     });
   });
