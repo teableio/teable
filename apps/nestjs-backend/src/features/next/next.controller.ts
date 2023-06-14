@@ -12,6 +12,7 @@ export class NextController {
     '/',
     'favicon.ico',
     '_next/*',
+    '__nextjs*',
     'images/*',
     'home',
     '404/*',

@@ -1,3 +1,4 @@
+import type { IFieldInstance } from '@teable-group/sdk';
 import { useFields, useViewId } from '@teable-group/sdk';
 import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
 import React, { useState } from 'react';
@@ -9,32 +10,30 @@ import { Switch } from '@/components/ui/switch';
 
 export const FilterColumnsButton = () => {
   const activeViewId = useViewId();
-  const fields = useFields(true);
+  const fields = useFields({ entireColumn: true });
+
   const [searchText, setSearchText] = useState<string>('');
 
-  const fieldData = fields
-    .filter((field) => !field.isPrimary)
-    .filter((field) => !searchText || field.name.includes(searchText));
+  const filterFields = (fields: IFieldInstance[], searchText: string, shouldBeHidden?: boolean) =>
+    fields.filter(
+      (field) =>
+        activeViewId &&
+        !field.isPrimary &&
+        (!searchText || field.name.includes(searchText)) &&
+        (!shouldBeHidden || field.columnMeta[activeViewId]?.hidden === shouldBeHidden)
+    );
 
-  const hiddenCount = fieldData.filter(
-    (field) => activeViewId && field.columnMeta[activeViewId].hidden
-  ).length;
+  const fieldData = filterFields(fields, searchText);
+  const hiddenCount = filterFields(fields, searchText, true).length;
 
-  const handleDeselectAll = () => {
+  const updateColumnHiddenStatus = (status: boolean) => {
     fieldData
-      .filter((field) => activeViewId && !field.columnMeta[activeViewId].hidden)
-      .forEach((field) => {
-        activeViewId && field.updateColumnHidden(activeViewId, true);
-      });
+      .filter((field) => activeViewId && field.columnMeta[activeViewId]?.hidden !== status)
+      .forEach((field) => activeViewId && field.updateColumnHidden(activeViewId, status));
   };
 
-  const handleSelectAll = () => {
-    fieldData
-      .filter((field) => activeViewId && field.columnMeta[activeViewId].hidden)
-      .forEach((field) => {
-        activeViewId && field.updateColumnHidden(activeViewId, false);
-      });
-  };
+  const handleDeselectAll = () => updateColumnHiddenStatus(true);
+  const handleSelectAll = () => updateColumnHiddenStatus(false);
 
   const content = () => (
     <div className="space-y-4">
