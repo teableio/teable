@@ -39,7 +39,7 @@ export class FormulaFieldCore extends FieldCore {
     const typedValue = visitor.visit(tree);
     return {
       cellValueType: typedValue.type,
-      cellValueElementType: 'elementType' in typedValue ? typedValue.elementType : undefined,
+      isMultipleCellValue: typedValue.isMultiple,
     };
   }
 
