@@ -41,5 +41,4 @@ export enum CellValueType {
   Number = 'number',
   Boolean = 'boolean',
   DateTime = 'dateTime',
-  Array = 'array',
 }

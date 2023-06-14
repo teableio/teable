@@ -19,7 +19,7 @@ export interface IFieldVo extends IFieldRo {
   isComputed?: boolean;
   calculatedType: FieldType;
   cellValueType: CellValueType;
-  cellValueElementType?: CellValueType;
+  isMultipleCellValue?: boolean;
   dbFieldType: DbFieldType;
   dbFieldName: string;
   columnMeta: IColumnMeta;
@@ -62,11 +62,11 @@ export abstract class FieldCore implements IFieldVo {
   // for lookup field, it is a dynamic value
   abstract calculatedType: FieldType;
 
-  // cellValue type enum (string, number, boolean, datetime, array)
+  // cellValue type enum (string, number, boolean, datetime)
   abstract cellValueType: CellValueType;
 
-  // cellValue array element type enum (string, number, boolean, datetime)
-  cellValueElementType?: CellValueType;
+  // if cellValue is array
+  isMultipleCellValue?: boolean;
 
   abstract cellValue2String(value?: unknown): string;
 

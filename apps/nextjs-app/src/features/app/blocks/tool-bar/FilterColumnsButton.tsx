@@ -52,7 +52,7 @@ export const FilterColumnsButton = () => {
               className="h-5 w-9"
               classNameThumb="w-4 h-4 data-[state=checked]:translate-x-4"
               id="airplane-mode"
-              checked={Boolean(activeViewId && !field.columnMeta[activeViewId].hidden)}
+              checked={Boolean(activeViewId && !field.columnMeta[activeViewId]?.hidden)}
               onCheckedChange={(checked) => {
                 activeViewId && field.updateColumnHidden(activeViewId, !checked);
               }}

@@ -433,13 +433,13 @@ export interface components {
        * @example string 
        * @enum {string}
        */
-      cellValueType: "string" | "number" | "boolean" | "dateTime" | "array";
+      cellValueType: "string" | "number" | "boolean" | "dateTime";
       /**
        * @description The inner element data type of a array type cellValue. 
        * @example string 
        * @enum {string}
        */
-      cellValueElementType?: "string" | "number" | "boolean" | "dateTime" | "array";
+      isMultipleCellValue?: "boolean";
       /**
        * @description true if this field is computed, false otherwise. A field is "computed" if it's value is not set by user input (e.g. autoNumber, formula, etc.). 
        * @example false

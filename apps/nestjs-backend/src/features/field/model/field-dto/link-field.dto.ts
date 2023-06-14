@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { LinkFieldCore, Relationship } from '@teable-group/core';
-import type { LinkFieldOptions } from '@teable-group/core';
+import type { LinkFieldOptions, ILinkCellValue } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
 
 export class LinkOptionsDto implements LinkFieldOptions {
@@ -39,5 +39,23 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
 
   convertDBValue2CellValue(value: string): unknown {
     return value == null ? value : JSON.parse(value);
+  }
+
+  updateCellTitle(
+    value: ILinkCellValue | ILinkCellValue[],
+    title: string | null | (string | null)[]
+  ) {
+    if (this.isMultipleCellValue) {
+      const values = value as ILinkCellValue[];
+      const titles = title as string[];
+      return values.map((v, i) => ({
+        id: v.id,
+        title: titles[i],
+      }));
+    }
+    return {
+      id: (value as ILinkCellValue).id,
+      title: title as string,
+    };
   }
 }

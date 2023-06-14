@@ -60,13 +60,15 @@ export class LinkFieldCore extends FieldCore {
 
   options!: LinkFieldOptions;
 
+  expression = 'LOOKUP({values})';
+
   defaultValue!: null;
 
   calculatedType!: FieldType.Link;
 
-  cellValueType!: CellValueType.Array | CellValueType.String;
+  cellValueType!: CellValueType.String;
 
-  declare cellValueElementType?: CellValueType.String;
+  declare isMultipleCellValue?: boolean | undefined;
 
   isComputed!: true;
 

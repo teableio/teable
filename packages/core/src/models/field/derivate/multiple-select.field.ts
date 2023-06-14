@@ -11,9 +11,9 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
 
   calculatedType!: FieldType.MultipleSelect;
 
-  cellValueType!: CellValueType.Array;
+  cellValueType!: CellValueType.String;
 
-  declare cellValueElementType: CellValueType.String;
+  isMultipleCellValue = true;
 
   cellValue2String(cellValue?: string[]) {
     return cellValue ? cellValue.join(', ') : '';

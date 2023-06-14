@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type {
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
@@ -119,36 +119,48 @@ export class TableService implements IAdapterService {
 
   async getSSRSnapshot(tableId: string, viewId?: string) {
     if (!viewId) {
-      const view = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-      viewId = view.id;
+      try {
+        const view = await this.prismaService.view.findFirstOrThrow({
+          where: { tableId, deletedTime: null },
+          select: { id: true },
+        });
+        viewId = view.id;
+      } catch (e) {
+        throw new HttpException('No found', HttpStatus.NOT_FOUND);
+      }
     }
 
     const tables = await this.getTables();
 
-    const fields = await this.fieldService.getFields(tableId, { viewId });
-    const views = await this.viewService.getViews(tableId);
-    const rows = await this.recordService.getRecords(tableId, {
-      viewId,
-      skip: 0,
-      take: 50,
-    });
+    try {
+      const fields = await this.fieldService.getFields(tableId, { viewId });
+      const views = await this.viewService.getViews(tableId);
+      const rows = await this.recordService.getRecords(tableId, {
+        viewId,
+        skip: 0,
+        take: 50,
+      });
 
-    return {
-      tables,
-      fields,
-      views,
-      rows,
-    };
+      return {
+        tables,
+        fields,
+        views,
+        rows,
+      };
+    } catch (e) {
+      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+    }
   }
 
   async getDefaultViewId(tableId: string) {
-    return this.prismaService.view.findFirstOrThrow({
-      where: { tableId, deletedTime: null },
-      select: { id: true },
-    });
+    try {
+      return this.prismaService.view.findFirstOrThrow({
+        where: { tableId, deletedTime: null },
+        select: { id: true },
+      });
+    } catch (e) {
+      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+    }
   }
 
   private async createTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
