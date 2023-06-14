@@ -59,8 +59,6 @@
     "@storybook/manager-webpack5": "6.5.13",
     "@storybook/react": "6.5.13",
     "@tailwindcss/aspect-ratio": "0.4.2",
-    "@tailwindcss/forms": "0.5.3",
-    "@tailwindcss/line-clamp": "0.4.2",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/jest-dom": "5.16.5",
     "@testing-library/react": "13.4.0",

@@ -1,5 +1,4 @@
 import { useTableId, useTables } from '@teable-group/sdk';
-import classnames from 'classnames';
 import type { OnDragEndResponder } from 'react-beautiful-dnd';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { TableListItem } from './TableListItem';
@@ -35,7 +34,6 @@ export const DraggableList: React.FC = () => {
         {(provided) => (
           <ul
             {...provided.droppableProps}
-            className="menu menu-compact"
             ref={provided.innerRef}
             style={{ listStyle: 'none', padding: 0 }}
           >
@@ -43,7 +41,7 @@ export const DraggableList: React.FC = () => {
               <Draggable key={table.id} draggableId={table.id} index={index}>
                 {(provided) => (
                   <li
-                    className={classnames('group relative', { bordered: table.id === tableId })}
+                    className="group relative"
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}

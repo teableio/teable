@@ -8,6 +8,7 @@ import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
@@ -31,38 +32,38 @@ export const ToolBar: React.FC = () => {
   }, [table]);
 
   return (
-    <div className="flex px-4 py-2 bg-base-100 border-y border-base-300 space-x-2">
-      <button className="btn btn-xs btn-ghost" onClick={undo}>
+    <div className="flex px-4 py-2 border-y space-x-2 flex-wrap">
+      <Button className="font-normal" size={'xs'} variant={'ghost'} onClick={undo}>
         <BackIcon className="text-lg pr-1" />
-      </button>
-      <button className="btn btn-xs btn-ghost" onClick={redo}>
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'} onClick={redo}>
         <ForwardIcon className="text-lg pr-1" />
-      </button>
-      <button className="btn btn-xs btn-ghost font-normal" onClick={addRecord}>
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'} onClick={addRecord}>
         <AddIcon className="text-lg pr-1" />
         Insert record
-      </button>
+      </Button>
       <FilterColumnsButton />
-      <button className="btn btn-xs btn-ghost font-normal">
+      <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <FilterIcon className="text-lg pr-1" />
         Filter
-      </button>
-      <button className="btn btn-xs btn-ghost font-normal">
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort
-      </button>
-      <button className="btn btn-xs btn-ghost font-normal">
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <GroupIcon className="text-lg pr-1" />
         Group
-      </button>
-      <button className="btn btn-xs btn-ghost font-normal">
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <ColorIcon className="text-lg pr-1" />
         Color
-      </button>
-      <button className="btn btn-xs btn-ghost font-normal">
+      </Button>
+      <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <RowHeightIcon className="text-lg pr-1" />
         Row Height
-      </button>
+      </Button>
     </div>
   );
 };

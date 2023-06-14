@@ -1,8 +1,8 @@
 import { getRandomString } from '@teable-group/core';
 import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
-import { message } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
+import { useToast } from '@/components/ui/use-toast';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
 import type { IChat } from './type';
 
@@ -17,7 +17,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
   const [isInIME, setIsInIME] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageStore = useMessageStore();
-  const [messageApi, contextHolder] = message.useMessage();
+  const { toast } = useToast();
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -30,7 +30,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
 
   const handleSend = async () => {
     if (!value) {
-      messageApi.info('Please enter a message.');
+      toast({ description: 'Please enter a message.' });
       return;
     }
     if (disabled) {
@@ -60,10 +60,10 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
   };
 
   return (
-    <div className="w-full h-auto flex flex-row justify-between items-end border rounded-lg mb-2 p-1 relative shadow bg-base-100">
+    <div className="bg-base-100 w-full h-auto flex flex-row justify-between items-end border rounded-lg mb-2 p-1 relative shadow">
       <TextareaAutosize
         ref={textareaRef}
-        className="hide-scrollbar w-full h-full textarea bg-transparent leading-6 p-1 mr-1 resize-none text-sm min-h-0"
+        className="hide-scrollbar textarea w-full h-full bg-transparent leading-6 p-1 mr-1 resize-none text-sm min-h-0"
         placeholder="Type a message..."
         rows={1}
         minRows={1}
@@ -73,9 +73,8 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
         onChange={handleChange}
         onKeyDown={handleKeyDown}
       />
-      {contextHolder}
       <button
-        className="w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow hover:bg-base-300 disabled:cursor-not-allowed disabled:opacity-60 text-[18px]"
+        className="hover:bg-base-300 w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow disabled:cursor-not-allowed disabled:opacity-60 text-[18px]"
         disabled={disabled}
         onClick={handleSend}
       >

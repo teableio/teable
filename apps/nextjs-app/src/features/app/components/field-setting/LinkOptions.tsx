@@ -1,8 +1,14 @@
 import type { ILinkFieldOptionsRo } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { useTables } from '@teable-group/sdk/hooks';
-import { Select } from 'antd';
-const { Option } = Select;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SelectTable } from './SelectTable';
 
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 
@@ -25,27 +31,27 @@ export const LinkOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full">
-      <div className="label">
+    <div className="space-y-2 w-full">
+      <div className="space-y-2">
         <span className="neutral-content label-text mb-2">Link table</span>
+        <SelectTable value={foreignTableId} onChange={onForeignTableIdChange} tables={tables} />
       </div>
-      <Select value={foreignTableId} onChange={onForeignTableIdChange}>
-        {tables.map((table) => (
-          <Option key={table.id} value={table.id}>
-            {table.name}
-          </Option>
-        ))}
-      </Select>
-      <div className="label">
+
+      <div className="space-y-2">
         <span className="neutral-content label-text mb-2">Relationship</span>
+        <Select value={relationship} onValueChange={onRelationshipChange}>
+          <SelectTrigger className="w-full h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {relationshipOptions.map((rsp) => (
+              <SelectItem key={rsp} value={rsp}>
+                {rsp}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <Select value={relationship} onChange={onRelationshipChange}>
-        {relationshipOptions.map((rsp) => (
-          <Option key={rsp} value={rsp}>
-            {rsp}
-          </Option>
-        ))}
-      </Select>
     </div>
   );
 };

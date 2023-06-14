@@ -16,10 +16,6 @@ import { colors } from '@/themes/colors';
  */
 import '../styles/global.css';
 
-import '../themes/antd.variables.css';
-// Some styles are not being overridden by the main theme color.
-import '../styles/antd.global.css';
-
 /**
  * Local fonts
  * @link https://fontsource.org/docs/guides/nextjs

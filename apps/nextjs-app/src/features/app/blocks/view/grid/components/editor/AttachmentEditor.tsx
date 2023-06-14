@@ -1,35 +1,35 @@
 import type { IAttachmentCellValue } from '@teable-group/core';
-import { Modal } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { UploadAttachment } from '@/features/app/components/upload-attachment/UploadAttachment';
 import type { IEditorProps } from './type';
 
 export const AttachmentEditor = (props: IEditorProps) => {
   const { record, field, onCancel } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(true);
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const setAttachments = (attachments: IAttachmentCellValue) => {
     record.updateCell(field.id, attachments);
   };
 
-  const afterOpenChange = (open: boolean) => {
+  useEffect(() => {
     if (!open) {
       onCancel?.();
     }
-  };
+  }, [onCancel, open]);
 
   return (
-    <Modal
-      open={open}
-      onCancel={() => setOpen(false)}
-      footer={false}
-      afterOpenChange={afterOpenChange}
-      centered
-      destroyOnClose
-    >
-      <div className="h-80 flex-1 overflow-hidden">
-        <UploadAttachment attachments={attachments || []} onChange={setAttachments} />
-      </div>
-    </Modal>
+    <>
+      <div ref={containerRef} />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          container={containerRef.current}
+          className="click-outside-ignore h-80 flex-1 overflow-hidden"
+        >
+          <UploadAttachment attachments={attachments || []} onChange={setAttachments} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
