@@ -9,12 +9,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 export const ThemePicker: React.FC = () => {
   const { theme, isAutoTheme, setTheme } = useTheme();
-  const value = isAutoTheme ? 'auto' : theme;
+  const value = isAutoTheme ? '' : theme;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size={'xxs'} variant="outline">
-          {value}
+          {value || 'auto'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">

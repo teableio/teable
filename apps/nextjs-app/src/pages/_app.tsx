@@ -53,8 +53,8 @@ const MyApp = (appProps: AppPropsWithLayout) => {
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>{getColorsCssVariablesText(colors)}</style>
-        <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
       </Head>
+      <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
       {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
       {getLayout(<Component {...pageProps} err={err} />, pageProps)}
     </AppProviders>
