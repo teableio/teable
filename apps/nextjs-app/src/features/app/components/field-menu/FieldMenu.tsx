@@ -1,4 +1,4 @@
-import { Menu } from 'antd';
+import { Button } from '@/components/ui/button';
 
 interface IFieldMenuProps {
   operations: {
@@ -25,15 +25,25 @@ export const FieldMenu = (props: IFieldMenuProps) => {
     }
   };
   return (
-    <div className="rounded-box w-60 shadow-xl">
-      <Menu
-        selectable={false}
-        onClick={({ key }) => onClick(key as MenuOperation)}
-        items={[
-          { label: 'Edit Field', key: MenuOperation.EditField },
-          { label: 'Delete Field', key: MenuOperation.DeleteField },
-        ]}
-      />
-    </div>
+    <ul className="rounded-box w-60 shadow-xl bg-background overflow-hidden">
+      <li>
+        <Button
+          className="w-full font-normal text-sm border-none justify-start"
+          variant={'ghost'}
+          onClick={() => onClick(MenuOperation.EditField)}
+        >
+          Edit Field
+        </Button>
+      </li>
+      <li>
+        <Button
+          className="w-full font-normal text-sm border-none justify-start"
+          variant={'ghost'}
+          onClick={() => onClick(MenuOperation.DeleteField)}
+        >
+          Delete Field
+        </Button>
+      </li>
+    </ul>
   );
 };

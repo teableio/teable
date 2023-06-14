@@ -20,7 +20,7 @@ export const AddField = ({ disabled, onClick }: { disabled?: boolean; onClick?: 
       }}
     >
       <button
-        className="bg-base-100 min-w-[120px] w-full h-9 hover:bg-base-200 font-semibold text-lg border-b border-b-base-300"
+        className="bg-background min-w-[120px] w-full h-9 hover:bg-accent font-semibold text-lg border-b"
         onClick={onClickBtn}
         disabled={disabled}
       >

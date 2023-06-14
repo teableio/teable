@@ -1,66 +1,71 @@
 import type { SelectFieldOptions } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
-import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
-import { Checkbox, Input, Space } from 'antd';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
+import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import classNames from 'classnames';
 import { isString } from 'lodash';
-import { useMemo, useState } from 'react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import type { IEditorProps } from './type';
 
 export const SelectEditor = (props: IEditorProps) => {
-  const { field, record, style } = props;
+  const { field, record, style, onCancel } = props;
   const cellValue = record.getCellValue(field.id);
-  const value = isString(cellValue) ? [cellValue] : (cellValue as string[]);
-  const [filterInput, setFilterInput] = useState<string>();
-  const optionChoices = (field?.options as SelectFieldOptions)?.choices;
-  const choices = useMemo(() => {
-    return (optionChoices || []).filter(
-      (choice) => !filterInput || choice.name.indexOf(filterInput) !== -1
-    );
-  }, [optionChoices, filterInput]);
+  const values = isString(cellValue) ? [cellValue] : ((cellValue ?? []) as string[]);
+  const choices = (field?.options as SelectFieldOptions)?.choices || [];
 
-  const onChangeInner = (value: CheckboxValueType[]) => {
+  const onSelect = (v: string) => {
     let newCellValue = null;
-    if (field.type === FieldType.SingleSelect) {
-      newCellValue = value?.[value.length - 1]?.toString() ?? null;
+    const existIndex = values.findIndex((item) => item === v);
+    if (existIndex > -1) {
+      newCellValue = values.slice();
+      newCellValue.splice(existIndex, 1);
     } else {
-      newCellValue = value as string[];
+      newCellValue = [...values, v];
     }
-    record.updateCell(field.id, newCellValue);
+    if (field.type === FieldType.SingleSelect) {
+      record.updateCell(
+        field.id,
+        newCellValue.length ? newCellValue[newCellValue.length - 1] : null
+      );
+      onCancel?.();
+      return;
+    }
+    record.updateCell(field.id, newCellValue.length ? newCellValue : null);
   };
 
   return (
-    <div className="bg-base-100 rounded-sm shadow-sm p-2 shadow-base-300" style={style}>
-      <Input
-        className="mb-2"
-        prefix={<SearchIcon />}
-        placeholder="search"
-        value={filterInput}
-        onChange={(e) => setFilterInput(e.target.value)}
-      />
-      {choices.length === 0 && <div className="text-sm text-center">No Data</div>}
-      <Checkbox.Group className="w-full" value={value} onChange={onChangeInner}>
-        <Space direction={'vertical'} size={10}>
-          {choices.map(({ name, color }) => {
-            return (
-              <div className="flex items-center mb-2" key={name}>
-                <Checkbox key={name} value={name}>
-                  <div
-                    className={classNames('px-2 rounded-lg')}
-                    style={{
-                      backgroundColor: ColorUtils.getHexForColor(color),
-                      color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-                    }}
-                  >
-                    {name}
-                  </div>
-                </Checkbox>
+    <Command className="rounded-sm shadow-sm p-2 border" style={style}>
+      <CommandList>
+        <CommandInput placeholder="Search option" />
+        <CommandEmpty>No found.</CommandEmpty>
+        <CommandGroup aria-valuetext="name">
+          {choices.map(({ color, name }) => (
+            <CommandItem key={name} value={name} onSelect={onSelect}>
+              <SelectIcon
+                className={classNames(
+                  'mr-2 h-4 w-4',
+                  values?.includes(name) ? 'opacity-100' : 'opacity-0'
+                )}
+              />
+              <div
+                className={classNames('px-2 rounded-lg')}
+                style={{
+                  backgroundColor: ColorUtils.getHexForColor(color),
+                  color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+                }}
+              >
+                {name}
               </div>
-            );
-          })}
-        </Space>
-      </Checkbox.Group>
-    </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 };

@@ -1,4 +1,3 @@
-import { StyleProvider } from '@ant-design/cssinjs';
 import type { UndoManager } from '@teable/sharedb/lib/client';
 import { Connection } from '@teable/sharedb/lib/client';
 import type { Socket } from '@teable/sharedb/lib/sharedb';
@@ -6,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Space } from '../../model/space';
 import { AppContext } from '../app/AppContext';
-import { AntdThemeProvider } from './AntdThemeProvider';
 import { useTheme } from './useTheme';
 
 function getWsPath() {
@@ -60,11 +58,5 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { connection, connected, space, undoManager, ...themeProps };
   }, [connection, connected, space, undoManager, themeProps]);
 
-  return (
-    <AppContext.Provider value={value}>
-      <AntdThemeProvider>
-        <StyleProvider hashPriority="high">{children}</StyleProvider>
-      </AntdThemeProvider>
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
