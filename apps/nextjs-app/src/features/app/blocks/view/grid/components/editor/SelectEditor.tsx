@@ -46,7 +46,7 @@ export const SelectEditor = (props: IEditorProps) => {
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {choices.map(({ color, name }) => (
-            <CommandItem key={name} value={name} onSelect={onSelect}>
+            <CommandItem key={name} value={name} onSelect={() => onSelect(name)}>
               <SelectIcon
                 className={classNames(
                   'mr-2 h-4 w-4',
