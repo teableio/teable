@@ -47,7 +47,6 @@ export const FieldSetting = (props: IFieldSetting) => {
 const FieldSettingBase = (props: IFieldSetting) => {
   const { visible, field: currentField, operator, onConfirm, onCancel } = props;
   const [currentVisible, setCurrentVisible] = useState<boolean | undefined>(visible);
-  const [currentOperator, setCurrentOperator] = useState<'cancel' | 'confirm'>();
 
   const fieldRef = useRef<IFieldRo>();
   const [updateCount, setUpdateCount] = useState<number>(0);
@@ -56,13 +55,8 @@ const FieldSettingBase = (props: IFieldSetting) => {
     setCurrentVisible(visible);
   }, [visible]);
 
-  const onEditFinished = (open?: boolean) => {
-    clickCancel();
+  const onOpenChange = (open?: boolean) => {
     if (open) {
-      return;
-    }
-    if (fieldRef.current && currentOperator === 'confirm') {
-      onConfirm?.(fieldRef.current);
       return;
     }
     onCancel?.();
@@ -73,21 +67,20 @@ const FieldSettingBase = (props: IFieldSetting) => {
     fieldRef.current = field;
   };
 
-  const clickCancel = () => {
+  const onCancelInner = () => {
     if (updateCount > 0) {
       // confirm that update
     }
-    setCurrentOperator('cancel');
     setCurrentVisible(false);
     setUpdateCount(0);
   };
 
-  const clickConfirm = () => {
+  const onConfirmInner = () => {
     setCurrentVisible(false);
     if (!fieldRef.current) {
       return;
     }
-    setCurrentOperator('confirm');
+    onConfirm?.(fieldRef.current);
   };
 
   const title = operator === FieldOperator.Add ? 'Add Field' : 'Edit Field';
@@ -102,7 +95,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
     : defaultField;
 
   return (
-    <Sheet open={currentVisible} onOpenChange={onEditFinished}>
+    <Sheet open={currentVisible} onOpenChange={onOpenChange}>
       <SheetContent className="p-0" position="right">
         <div className="h-full flex flex-col">
           {/* Header */}
@@ -111,10 +104,10 @@ const FieldSettingBase = (props: IFieldSetting) => {
           {<FieldEditor field={field} onChange={onFieldEditorChange} />}
           {/* Footer */}
           <div className="flex w-full justify-end space-x-3 border-t px-3 py-4">
-            <Button size={'sm'} variant={'outline'} onClick={clickCancel}>
+            <Button size={'sm'} variant={'outline'} onClick={onCancelInner}>
               Cancel
             </Button>
-            <Button size={'sm'} onClick={clickConfirm}>
+            <Button size={'sm'} onClick={onConfirmInner}>
               Save
             </Button>
           </div>
