@@ -20,8 +20,6 @@ export abstract class SelectFieldCore extends FieldCore {
 
   options!: SelectFieldOptions;
 
-  isComputed!: false;
-
   validateOptions() {
     return z
       .object({

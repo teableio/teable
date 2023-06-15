@@ -24,8 +24,6 @@ export class AttachmentFieldCore extends FieldCore {
 
   defaultValue = null;
 
-  calculatedType = FieldType.Attachment;
-
   cellValueType = CellValueType.String;
 
   isMultipleCellValue = true;

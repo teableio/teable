@@ -26,7 +26,7 @@ describe('FieldSupplementService', () => {
         name: 'text',
         type: FieldType.SingleLineText,
       };
-      const result = await service.prepareFieldOptions(field);
+      const result = await service.prepareField(field);
       expect(result).toBe(field);
     });
 
@@ -45,7 +45,7 @@ describe('FieldSupplementService', () => {
       const mockField = { id: 'mockFieldId' };
       (prismaService as any).field = { findFirstOrThrow: jest.fn().mockResolvedValue(mockField) };
 
-      const result = await service.prepareFieldOptions(field);
+      const result = await service.prepareField(field);
       expect(result.id).toBeDefined();
       expect(result.options).toMatchObject({ lookupFieldId: mockField.id });
       expect(prismaService.field.findFirstOrThrow).toHaveBeenCalled();

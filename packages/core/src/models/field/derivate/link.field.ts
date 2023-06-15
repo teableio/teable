@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
 export enum Relationship {
@@ -56,21 +56,15 @@ export class LinkFieldCore extends FieldCore {
 
   type!: FieldType.Link;
 
-  dbFieldType!: DbFieldType.Text;
-
   options!: LinkFieldOptions;
 
   expression = 'LOOKUP({values})';
 
   defaultValue!: null;
 
-  calculatedType!: FieldType.Link;
-
   cellValueType!: CellValueType.String;
 
   declare isMultipleCellValue?: boolean | undefined;
-
-  isComputed!: true;
 
   cellValue2String(cellValue?: ILinkCellValue | ILinkCellValue[]) {
     if (Array.isArray(cellValue)) {

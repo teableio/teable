@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
-import type { LinkFieldOptions } from '@teable-group/core';
 import {
   formatFieldErrorMessage,
   DbFieldType,
@@ -7,7 +6,6 @@ import {
   CellValueType,
   FieldType,
   generateFieldId,
-  Relationship,
 } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
@@ -52,67 +50,24 @@ function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
 
 export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: string }) {
   // generate Id first
-  const fieldDto = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
+  const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 
   const instance = (() => {
     switch (createFieldRo.type) {
       case FieldType.SingleLineText:
-        return plainToInstance(SingleLineTextFieldDto, {
-          ...fieldDto,
-          isComputed: false,
-          calculatedType: FieldType.SingleLineText,
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-        } as SingleLineTextFieldDto);
+        return SingleLineTextFieldDto.factory(fieldRo);
       case FieldType.Number:
-        return plainToInstance(NumberFieldDto, {
-          ...fieldDto,
-          isComputed: false,
-          calculatedType: FieldType.Number,
-          cellValueType: CellValueType.Number,
-          dbFieldType: DbFieldType.Real,
-        } as NumberFieldDto);
+        return NumberFieldDto.factory(fieldRo);
       case FieldType.SingleSelect:
-        return plainToInstance(SingleSelectFieldDto, {
-          ...fieldDto,
-          isComputed: false,
-          calculatedType: FieldType.SingleSelect,
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-        } as SingleSelectFieldDto);
+        return SingleSelectFieldDto.factory(fieldRo);
       case FieldType.MultipleSelect:
-        return plainToInstance(MultipleSelectFieldDto, {
-          ...fieldDto,
-          isComputed: false,
-          calculatedType: FieldType.MultipleSelect,
-          cellValueType: CellValueType.String,
-          isMultipleCellValue: true,
-          dbFieldType: DbFieldType.Text,
-        } as MultipleSelectFieldDto);
-      case FieldType.Link: {
-        const options = fieldDto.options as LinkFieldOptions;
-
-        return plainToInstance(LinkFieldDto, {
-          ...fieldDto,
-          isComputed: true,
-          calculatedType: FieldType.Link,
-          cellValueType: CellValueType.String,
-          isMultipleCellValue: options.relationship === Relationship.OneMany,
-          dbFieldType: DbFieldType.Text,
-        } as LinkFieldDto);
-      }
-      case FieldType.Formula: {
-        return plainToInstance(FormulaFieldDto, {
-          ...fieldDto,
-          isComputed: true,
-          calculatedType: FieldType.Formula,
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-        } as FormulaFieldDto);
-      }
-      case FieldType.Attachment: {
-        return plainToInstance(AttachmentFieldDto, fieldDto);
-      }
+        return MultipleSelectFieldDto.factory(fieldRo);
+      case FieldType.Link:
+        return LinkFieldDto.factory(fieldRo);
+      case FieldType.Formula:
+        return FormulaFieldDto.factory(fieldRo);
+      case FieldType.Attachment:
+        return AttachmentFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -132,12 +87,10 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
       case FieldType.Percent:
       case FieldType.Checkbox:
       case FieldType.Rollup:
-      case FieldType.MultipleLookupValues:
         return plainToInstance(SingleLineTextFieldDto, {
-          ...fieldDto,
+          ...fieldRo,
           type: FieldType.SingleLineText,
           isComputed: false,
-          calculatedType: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
         } as SingleLineTextFieldDto);
@@ -171,8 +124,9 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
+    isLookup: Boolean(fieldRaw.lookupFieldId) || undefined,
+    lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
     defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
-    calculatedType: fieldRaw.calculatedType as FieldType,
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
@@ -219,7 +173,6 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Percent:
     case FieldType.Checkbox:
     case FieldType.Rollup:
-    case FieldType.MultipleLookupValues:
       throw new Error('did not implement yet');
     default:
       assertNever(field.type);

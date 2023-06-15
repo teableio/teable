@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IFieldVo } from '@teable-group/core';
-import { CellValueType, FieldType, DbFieldType, IColumnMeta } from '@teable-group/core';
+import { LookupOptionsVo, CellValueType, DbFieldType, IColumnMeta } from '@teable-group/core';
 import { CreateFieldRo } from './create-field.ro';
 
 export class FieldVo extends CreateFieldRo implements IFieldVo {
@@ -9,13 +9,6 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
     example: 'fldXXXXXXXX',
   })
   id!: string;
-
-  @ApiProperty({
-    description: 'The field type after calculated.',
-    enum: FieldType,
-    example: FieldType.SingleLineText,
-  })
-  calculatedType!: FieldType;
 
   @ApiProperty({
     description: 'The basic data type of cellValue.',
@@ -35,6 +28,12 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
     example: false,
   })
   isComputed?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Set the field is lookup field',
+    type: LookupOptionsVo,
+  })
+  lookupOptions?: LookupOptionsVo | undefined;
 
   @ApiProperty({
     description: `The real field type in database.`,
