@@ -30,7 +30,7 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
-  private async prepareLinkFieldOptions(field: LinkFieldDto) {
+  private async prepareLinkField(field: LinkFieldDto) {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
@@ -75,13 +75,13 @@ export class FieldSupplementService implements ISupplementService {
     } catch (e) {
       throw new HttpException('linkFieldId is invalid', HttpStatusCode.BadRequest);
     }
-    const options = JSON.parse(optionsRaw as string) as LinkFieldOptions;
+    const linkFieldOptions = JSON.parse(optionsRaw as string) as LinkFieldOptions;
 
     return {
       ...field,
-      options: {
-        ...field.options,
-        relationship: options.relationship,
+      lookupOptions: {
+        ...lookupOptions,
+        relationship: linkFieldOptions.relationship,
       },
     };
   }
@@ -113,7 +113,7 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     if (field.type == FieldType.Link) {
-      return await this.prepareLinkFieldOptions(field as LinkFieldDto);
+      return await this.prepareLinkField(field as LinkFieldDto);
     }
 
     if (field.type == FieldType.Formula) {

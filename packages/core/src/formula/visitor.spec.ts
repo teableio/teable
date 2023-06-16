@@ -11,7 +11,7 @@ describe('EvalVisitor', () => {
     fields: {
       fldTest: 8,
     },
-    createdTime: Date.now(),
+    createdTime: new Date().toISOString(),
     recordOrder: { viwTest: 1 },
   };
 

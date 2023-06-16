@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IRecord, LinkFieldCore } from '@teable-group/core';
-import { CellValueType, Relationship, FieldType, evaluate } from '@teable-group/core';
+import { Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
@@ -8,8 +8,8 @@ import { groupBy, intersectionBy, uniqBy } from 'lodash';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRaw } from '../field/model/factory';
-import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
+import type { FieldVo } from '../field/model/field.vo';
 
 interface ITopoItem {
   id: string;
@@ -137,7 +137,6 @@ export class ReferenceService {
     recordItem: IRecordItem
   ) {
     const record = recordItem.record;
-    // TODO: lookup and rollup field have the same logical
     if (field.type === FieldType.Link) {
       if (!recordItem.dependencies) {
         throw new Error(`Dependency should not be undefined when contains a ${field.type} field`);
@@ -159,33 +158,28 @@ export class ReferenceService {
   }
 
   private calculateRollup(
-    field: LinkFieldDto,
+    field: IFieldInstance,
     lookupField: IFieldInstance,
     record: IRecord,
     dependencies: IRecord | IRecord[]
   ): unknown {
-    const fieldRaw = instanceToPlain(lookupField, { excludePrefixes: ['_'] });
+    const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as FieldVo;
 
     // TODO: array value flatten
     const lookupValues = Array.isArray(dependencies)
       ? dependencies.map((depRecord) => depRecord.fields[lookupField.id])
       : dependencies.fields[lookupField.id];
 
-    const virtualField = createFieldInstanceByRaw({
-      ...fieldRaw,
+    const virtualField = createFieldInstanceByVo({
+      ...fieldVo,
       id: 'values',
-      cellValueType: CellValueType.String,
-      isMultipleCellValue: field.options.relationship === Relationship.OneMany,
-      options: JSON.stringify(fieldRaw.options),
-      defaultValue: JSON.stringify(fieldRaw.defaultValue),
-      columnMeta: JSON.stringify(fieldRaw.columnMeta),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      cellValueType: field.cellValueType,
+      isMultipleCellValue: field.isMultipleCellValue,
+    });
     // console.log('virtualField:', virtualField);
     // console.log('lookupValues:', lookupValues);
-
     const result = evaluate(
-      field.expression,
+      'LOOKUP({values})',
       { values: virtualField },
       { ...record, fields: { ...record.fields, values: lookupValues } }
     );
@@ -293,8 +287,8 @@ export class ReferenceService {
     return {
       fields: fieldsData,
       id: raw.__id,
-      createdTime: raw.__created_time?.getTime(),
-      lastModifiedTime: raw.__last_modified_time?.getTime(),
+      createdTime: raw.__created_time?.toISOString(),
+      lastModifiedTime: raw.__last_modified_time?.toISOString(),
       createdBy: raw.__created_by,
       lastModifiedBy: raw.__last_modified_by,
       recordOrder: {},

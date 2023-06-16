@@ -58,8 +58,6 @@ export class LinkFieldCore extends FieldCore {
 
   options!: LinkFieldOptions;
 
-  expression = 'LOOKUP({values})';
-
   defaultValue!: null;
 
   cellValueType!: CellValueType.String;
