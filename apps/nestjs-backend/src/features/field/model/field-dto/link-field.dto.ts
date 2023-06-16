@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { LinkFieldCore, Relationship } from '@teable-group/core';
+import { CellValueType, DbFieldType, LinkFieldCore, Relationship } from '@teable-group/core';
 import type { LinkFieldOptions, ILinkCellValue } from '@teable-group/core';
+import { plainToInstance } from 'class-transformer';
+import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 export class LinkOptionsDto implements LinkFieldOptions {
@@ -33,12 +35,27 @@ export class LinkOptionsDto implements LinkFieldOptions {
 }
 
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
+  static factory(fieldRo: CreateFieldRo) {
+    const isMultipleCellValue =
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne;
+
+    const options = fieldRo.options as LinkFieldOptions;
+
+    return plainToInstance(LinkFieldDto, {
+      ...fieldRo,
+      isComputed: true,
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: options.relationship !== Relationship.ManyOne || isMultipleCellValue,
+      dbFieldType: DbFieldType.Text,
+    } as LinkFieldDto);
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
-    return value == null ? value : JSON.stringify(value);
+    return value && JSON.stringify(value);
   }
 
   convertDBValue2CellValue(value: string): unknown {
-    return value == null ? value : JSON.parse(value);
+    return value && JSON.parse(value);
   }
 
   updateCellTitle(

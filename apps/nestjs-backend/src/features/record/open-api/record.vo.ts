@@ -15,14 +15,14 @@ export class Record implements IRecord {
   fields!: IRecordFields;
 
   @ApiPropertyOptional({
-    description: 'Created time, milliseconds timestamp.',
+    description: 'Created time, date ISO string (new Date().toISOString).',
   })
-  createdTime?: number;
+  createdTime?: string;
 
   @ApiPropertyOptional({
-    description: 'Last modified time, milliseconds timestamp.',
+    description: 'Last modified time, date ISO string (new Date().toISOString).',
   })
-  lastModifiedTime?: number;
+  lastModifiedTime?: string;
 
   @ApiPropertyOptional({
     description: 'Created by, user name',

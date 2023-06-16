@@ -19,7 +19,6 @@ export enum FieldType {
   Rollup = 'rollup',
   Count = 'count',
   Link = 'link',
-  MultipleLookupValues = 'multipleLookupValues',
   CreatedTime = 'createdTime',
   LastModifiedTime = 'lastModifiedTime',
   CreatedBy = 'createdBy',
@@ -31,6 +30,7 @@ export enum FieldType {
 export enum DbFieldType {
   Text = 'TEXT',
   Integer = 'INTEGER',
+  DateTime = 'DATETIME',
   Real = 'REAL',
   Blob = 'BLOB',
   Json = 'JSON',

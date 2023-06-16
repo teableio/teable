@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DbFieldType, FieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
 export class NumberFieldOptions {
@@ -9,17 +9,11 @@ export class NumberFieldOptions {
 export class NumberFieldCore extends FieldCore {
   type!: FieldType.Number;
 
-  dbFieldType!: DbFieldType.Real;
-
   options!: NumberFieldOptions;
 
   defaultValue: number | null = null;
 
-  calculatedType!: FieldType.Number;
-
   cellValueType!: CellValueType.Number;
-
-  isComputed!: false;
 
   static defaultOptions(): NumberFieldOptions {
     return {

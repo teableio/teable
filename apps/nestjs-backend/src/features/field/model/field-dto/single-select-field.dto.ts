@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core';
-import { SingleSelectFieldCore, Colors } from '@teable-group/core';
+import {
+  CellValueType,
+  DbFieldType,
+  Relationship,
+  SingleSelectFieldCore,
+  Colors,
+} from '@teable-group/core';
+import { plainToInstance } from 'class-transformer';
+import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 class SingleSelectOption implements SelectFieldChoices {
@@ -29,11 +37,31 @@ export class SingleSelectOptionsDto implements SelectFieldOptions {
 }
 
 export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
+  static factory(fieldRo: CreateFieldRo) {
+    const isLookup = fieldRo.isLookup;
+    const isMultipleCellValue =
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne;
+
+    return plainToInstance(SingleSelectFieldDto, {
+      ...fieldRo,
+      isComputed: isLookup,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Text,
+      isMultipleCellValue,
+    } as SingleSelectFieldDto);
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
+    if (this.isMultipleCellValue) {
+      return JSON.stringify(value);
+    }
     return value;
   }
 
   convertDBValue2CellValue(value: unknown): unknown {
+    if (this.isMultipleCellValue) {
+      return value && JSON.parse(value as string);
+    }
     return value;
   }
 }

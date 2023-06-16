@@ -6,7 +6,7 @@ import type { RootContext } from '../../../formula/parser/Formula';
 import { Formula } from '../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../formula/parser/FormulaLexer';
 import type { IRecord } from '../../record';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { NumberFieldOptions } from './number.field';
 
@@ -77,21 +77,21 @@ export class FormulaFieldCore extends FieldCore {
     return visitor.getResult();
   }
 
-  type!: FieldType.Formula;
+  static getReferenceFieldIds(expression: string) {
+    const tree = this.parse(expression);
+    const visitor = new FieldReferenceVisitor();
+    return Array.from(new Set(visitor.visit(tree)));
+  }
 
-  dbFieldType!: DbFieldType;
+  type!: FieldType.Formula;
 
   options!: FormulaFieldOptions;
 
   defaultValue!: null;
 
-  calculatedType!: FieldType.Formula;
-
   cellValueType!: CellValueType;
 
   declare isMultipleCellValue?: boolean | undefined;
-
-  isComputed!: true;
 
   private _tree?: RootContext;
 

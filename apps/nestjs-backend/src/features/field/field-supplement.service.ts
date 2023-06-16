@@ -1,14 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import type { LinkFieldOptions } from '@teable-group/core';
 import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { HttpStatusCode } from 'axios';
 import knex from 'knex';
+import { keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { ISupplementService } from '../../share-db/interface';
 import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByRo } from './model/factory';
-import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
+import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
+import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 
 @Injectable()
@@ -28,10 +30,7 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
-  async prepareFieldOptions(field: CreateFieldRo): Promise<CreateFieldRo & { id?: string }> {
-    if (field.type !== FieldType.Link) {
-      return field;
-    }
+  private async prepareLinkField(field: LinkFieldDto) {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
@@ -57,6 +56,71 @@ export class FieldSupplementService implements ISupplementService {
         symmetricFieldId,
       } as LinkFieldOptions,
     };
+  }
+
+  private async prepareLookupField(field: CreateFieldRo) {
+    const { lookupOptions } = field;
+    if (!lookupOptions) {
+      throw new HttpException('lookupOptions is required', HttpStatusCode.BadRequest);
+    }
+
+    let optionsRaw: string;
+    try {
+      const linkFieldId = lookupOptions.linkFieldId;
+      const { options } = await this.prismaService.field.findFirstOrThrow({
+        where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
+        select: { options: true },
+      });
+      optionsRaw = options as string;
+    } catch (e) {
+      throw new HttpException('linkFieldId is invalid', HttpStatusCode.BadRequest);
+    }
+    const linkFieldOptions = JSON.parse(optionsRaw as string) as LinkFieldOptions;
+
+    return {
+      ...field,
+      lookupOptions: {
+        ...lookupOptions,
+        relationship: linkFieldOptions.relationship,
+      },
+    };
+  }
+
+  private async prepareFormulaField(field: FormulaFieldDto) {
+    const fieldIds = FormulaFieldDto.getReferenceFieldIds(field.options.expression);
+
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { id: { in: fieldIds }, deletedTime: null },
+    });
+
+    const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const fieldMap = keyBy(fields, 'id');
+    const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
+      field.options.expression,
+      fieldMap
+    );
+
+    return {
+      ...field,
+      cellValueType,
+      isMultipleCellValue,
+    };
+  }
+
+  async prepareField(field: CreateFieldRo): Promise<CreateFieldRo & { id?: string }> {
+    if (field.isLookup) {
+      field = await this.prepareLookupField(field);
+    }
+
+    if (field.type == FieldType.Link) {
+      return await this.prepareLinkField(field as LinkFieldDto);
+    }
+
+    if (field.type == FieldType.Formula) {
+      return await this.prepareFormulaField(field as FormulaFieldDto);
+    }
+
+    return field;
   }
 
   private async generateSymmetricField(
