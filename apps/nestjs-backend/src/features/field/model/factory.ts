@@ -69,6 +69,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
         return FormulaFieldDto.factory(fieldRo);
       case FieldType.Attachment:
         return AttachmentFieldDto.factory(fieldRo);
+      case FieldType.Date:
+        return DateFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -86,7 +88,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
       case FieldType.Currency:
       case FieldType.Percent:
       case FieldType.Checkbox:
-      case FieldType.Date:
       case FieldType.Rollup:
         return plainToInstance(SingleLineTextFieldDto, {
           ...fieldRo,

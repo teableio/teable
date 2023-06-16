@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { DateFormatting, DateFieldCore } from '@teable-group/core';
+import {
+  DateFormatting,
+  DateFieldCore,
+  Relationship,
+  CellValueType,
+  DbFieldType,
+} from '@teable-group/core';
 import type { DateFieldOptions } from '@teable-group/core';
+import { plainToInstance } from 'class-transformer';
+import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 export class DateOptionsDto implements DateFieldOptions {
@@ -22,6 +30,20 @@ export class DateOptionsDto implements DateFieldOptions {
 }
 
 export class DateFieldDto extends DateFieldCore implements IFieldBase {
+  static factory(fieldRo: CreateFieldRo) {
+    const isLookup = fieldRo.isLookup;
+    const isMultipleCellValue =
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne;
+
+    return plainToInstance(DateFieldDto, {
+      ...fieldRo,
+      isComputed: isLookup,
+      cellValueType: CellValueType.DateTime,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Text : DbFieldType.DateTime,
+      isMultipleCellValue,
+    } as DateFieldDto);
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     return value;
   }

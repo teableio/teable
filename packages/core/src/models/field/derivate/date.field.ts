@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { z } from 'zod';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
 export enum DateFormatting {
@@ -22,17 +22,11 @@ export class DateFieldOptions {
 export class DateFieldCore extends FieldCore {
   type!: FieldType.Date;
 
-  dbFieldType!: DbFieldType.Real;
-
   options!: DateFieldOptions;
 
-  defaultValue: number | null = null;
-
-  calculatedType!: FieldType.Date;
+  defaultValue: string | null = null;
 
   cellValueType!: CellValueType.DateTime;
-
-  isComputed!: false;
 
   static defaultOptions() {
     return {
@@ -41,22 +35,19 @@ export class DateFieldCore extends FieldCore {
     };
   }
 
-  cellValue2String(cellValue: number) {
+  cellValue2String(cellValue: string) {
     if (cellValue == null) return '';
     return dayjs(cellValue).format(this.options.formatting);
   }
 
-  convertStringToCellValue(value: string): number | null {
+  convertStringToCellValue(value: string): string | null {
     if (value === '' || value == null) {
       return null;
     }
-    return dayjs(value).valueOf();
+    return dayjs(value).toISOString();
   }
 
   repair(value: unknown) {
-    if (typeof value === 'number') {
-      return value;
-    }
     if (typeof value === 'string') {
       return this.convertStringToCellValue(value);
     }
@@ -83,6 +74,6 @@ export class DateFieldCore extends FieldCore {
   }
 
   validateDefaultValue() {
-    return z.number().optional().nullable().safeParse(this.defaultValue);
+    return z.string().optional().nullable().safeParse(this.defaultValue);
   }
 }
