@@ -49,7 +49,7 @@ function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
   }
 }
 
-export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: string }) {
+export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
   // generate Id first
   const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 

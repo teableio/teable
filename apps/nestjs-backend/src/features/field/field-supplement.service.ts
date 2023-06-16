@@ -30,7 +30,7 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
-  private async prepareLinkField(field: LinkFieldDto) {
+  private async prepareLinkField(field: CreateFieldRo) {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
@@ -58,24 +58,25 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareLookupField(field: CreateFieldRo) {
+  private async prepareLookupField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new HttpException('lookupOptions is required', HttpStatusCode.BadRequest);
     }
 
-    let optionsRaw: string;
-    try {
-      const linkFieldId = lookupOptions.linkFieldId;
-      const { options } = await this.prismaService.field.findFirstOrThrow({
-        where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
-        select: { options: true },
-      });
-      optionsRaw = options as string;
-    } catch (e) {
+    const linkFieldId = lookupOptions.linkFieldId;
+    const fieldRaw = await this.prismaService.field.findFirst({
+      where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
+      select: { options: true },
+    });
+    const optionsRaw = fieldRaw?.options || null;
+    const linkFieldOptions: LinkFieldOptions =
+      (optionsRaw && JSON.parse(optionsRaw as string)) ||
+      batchFieldRos?.find((field) => field.id === linkFieldId);
+
+    if (!linkFieldOptions) {
       throw new HttpException('linkFieldId is invalid', HttpStatusCode.BadRequest);
     }
-    const linkFieldOptions = JSON.parse(optionsRaw as string) as LinkFieldOptions;
 
     return {
       ...field,
@@ -86,15 +87,20 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareFormulaField(field: FormulaFieldDto) {
+  private async prepareFormulaField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
     const fieldIds = FormulaFieldDto.getReferenceFieldIds(field.options.expression);
-
     const fieldRaws = await this.prismaService.field.findMany({
-      where: { id: { in: fieldIds }, deletedTime: null },
+      where: { id: { in: fieldIds } },
     });
 
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-    const fieldMap = keyBy(fields, 'id');
+    const batchFields = batchFieldRos?.map((fieldRo) => createFieldInstanceByRo(fieldRo));
+    const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
+
+    if (Object.keys(fieldMap).length !== fieldIds.length) {
+      throw new HttpException('formula field reference field not found', HttpStatusCode.BadRequest);
+    }
+
     const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
       field.options.expression,
       fieldMap
@@ -107,20 +113,23 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  async prepareField(field: CreateFieldRo): Promise<CreateFieldRo & { id?: string }> {
-    if (field.isLookup) {
-      field = await this.prepareLookupField(field);
+  async prepareField(
+    fieldRo: CreateFieldRo,
+    batchFieldRos?: CreateFieldRo[]
+  ): Promise<CreateFieldRo & { id?: string }> {
+    if (fieldRo.isLookup) {
+      fieldRo = await this.prepareLookupField(fieldRo, batchFieldRos);
     }
 
-    if (field.type == FieldType.Link) {
-      return await this.prepareLinkField(field as LinkFieldDto);
+    if (fieldRo.type == FieldType.Link) {
+      return await this.prepareLinkField(fieldRo);
     }
 
-    if (field.type == FieldType.Formula) {
-      return await this.prepareFormulaField(field as FormulaFieldDto);
+    if (fieldRo.type == FieldType.Formula) {
+      return await this.prepareFormulaField(fieldRo, batchFieldRos);
     }
 
-    return field;
+    return fieldRo;
   }
 
   private async generateSymmetricField(
@@ -198,16 +207,40 @@ export class FieldSupplementService implements ISupplementService {
   }
 
   async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
+    if (field.isLookup) {
+      return this.createLookupReference(prisma, field);
+    }
+
     switch (field.type) {
       case FieldType.Formula:
-        await this.createFormulaReference(prisma, field);
-        break;
+        return this.createFormulaReference(prisma, field);
       case FieldType.Link:
-        await this.createLinkReference(prisma, field);
-        break;
+        return await this.createLinkReference(prisma, field);
       default:
         break;
     }
+  }
+
+  private async createLookupReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
+    const toFieldId = field.id;
+    if (!field.lookupOptions) {
+      throw new Error('lookupOptions is required');
+    }
+    const { lookupFieldId, linkFieldId } = field.lookupOptions;
+
+    await prisma.reference.create({
+      data: {
+        fromFieldId: lookupFieldId,
+        toFieldId,
+      },
+    });
+
+    await prisma.reference.create({
+      data: {
+        fromFieldId: linkFieldId,
+        toFieldId,
+      },
+    });
   }
 
   private async createLinkReference(prisma: Prisma.TransactionClient, field: LinkFieldDto) {
