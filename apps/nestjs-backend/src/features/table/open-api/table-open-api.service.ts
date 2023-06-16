@@ -1,24 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ICreateTableRo, ITableSnapshot } from '@teable-group/core';
-import { IdPrefix, generateTableId, OpBuilder } from '@teable-group/core';
+import { generateTableId, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateFieldRo } from '../../field/model/create-field.ro';
 import { createFieldInstanceByRo } from '../../field/model/factory';
-import type { FieldVo } from '../../field/model/field.vo';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { CreateRecordsRo } from '../../record/create-records.ro';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { CreateViewRo } from '../../view/model/create-view.ro';
 import { createViewInstanceByRo } from '../../view/model/factory';
-import type { ViewVo } from '../../view/model/view.vo';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import type { CreateTableRo } from '../create-table.ro';
 import type { TableVo } from '../table.vo';
 
 @Injectable()
 export class TableOpenApiService {
+  private logger = new Logger(TableOpenApiService.name);
   constructor(
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
@@ -28,40 +27,19 @@ export class TableOpenApiService {
   ) {}
 
   private async createView(transactionKey: string, tableId: string, viewRos: CreateViewRo[]) {
-    const viewCreators: ReturnType<typeof this.viewOpenApiService.createCreators>['creators'] = [];
-    const viewVos: ViewVo[] = [];
-
-    viewRos.forEach((viewRo, index) => {
-      const { creators, opMeta } = this.viewOpenApiService.createCreators(
-        tableId,
-        createViewInstanceByRo(viewRo),
-        index
-      );
-      viewVos.push(opMeta);
-      viewCreators.push(...creators);
+    const viewCreationPromises = viewRos.map(async (fieldRo) => {
+      const viewInstance = createViewInstanceByRo(fieldRo);
+      return this.viewOpenApiService.createView(tableId, viewInstance, transactionKey);
     });
-    for (const creator of viewCreators) {
-      await creator(transactionKey);
-    }
-    return viewVos;
+    return await Promise.all(viewCreationPromises);
   }
 
   private async createField(transactionKey: string, tableId: string, fieldRos: CreateFieldRo[]) {
-    const fieldCreators: ReturnType<typeof this.fieldOpenApiService.createCreators>['creators'] =
-      [];
-
-    const fieldVos: FieldVo[] = [];
-    // process fields
-    for (const fieldRo of fieldRos) {
+    const fieldCreationPromises = fieldRos.map(async (fieldRo) => {
       const fieldInstance = createFieldInstanceByRo(fieldRo);
-      const { creators, opMeta } = this.fieldOpenApiService.createCreators(tableId, fieldInstance);
-      fieldVos.push(opMeta);
-      fieldCreators.push(...creators);
-    }
-    for (const creator of fieldCreators) {
-      await creator(transactionKey);
-    }
-    return fieldVos;
+      return this.fieldOpenApiService.createField(tableId, fieldInstance, transactionKey);
+    });
+    return await Promise.all(fieldCreationPromises);
   }
 
   private async createRecord(transactionKey: string, tableId: string, data: CreateRecordsRo) {
@@ -136,7 +114,7 @@ export class TableOpenApiService {
           doc.fetch(() => {
             doc.del({}, (error) => {
               if (error) return reject(error);
-              console.log(`delete document ${collection}.${tableId} succeed!`);
+              this.logger.log(`delete document ${collection}.${tableId} succeed!`);
               resolve(doc.data);
             });
           });

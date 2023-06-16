@@ -7382,6 +7382,7 @@ __metadata:
     reconnecting-websocket: "npm:4.4.0"
     rimraf: "npm:3.0.2"
     ts-jest: "npm:29.0.3"
+    ts-mixer: "npm:6.0.3"
     typescript: "npm:4.8.4"
     vite: "npm:3.2.1"
     vite-tsconfig-paths: "npm:3.5.2"
@@ -28097,6 +28098,13 @@ __metadata:
     typescript: "*"
     webpack: ^5.0.0
   checksum: c93a9c27f057174961d0b9a227894cc5183e793d196b6f3d183eb0fffc67437d69cbbc6122eb672d671c9663532d83be3aeae6bfe17e57335c280ac67eba2e26
+  languageName: node
+  linkType: hard
+
+"ts-mixer@npm:6.0.3":
+  version: 6.0.3
+  resolution: "ts-mixer@npm:6.0.3"
+  checksum: 92e94c139429d321d1b37ab099f1a97b04d100504c988a40ddf3e380ae90a56f80accb4b1b4f572ffd55352e6f6c4dd0ab5f5715d6e6b8499cdaf4db306294a6
   languageName: node
   linkType: hard
 

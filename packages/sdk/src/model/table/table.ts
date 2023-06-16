@@ -5,22 +5,14 @@ import type {
   IFieldVo,
   IJsonApiSuccessResponse,
   ITableSnapshot,
-  IViewSnapshot,
-  IViewVo,
-  ViewType,
   ICreateRecordsRo,
   IRecordsVo,
   IRecordsRo,
   IUpdateRecordByIndexRo,
+  IViewRo,
   DateFieldOptions,
 } from '@teable-group/core';
-import {
-  generateRecordId,
-  generateViewId,
-  IdPrefix,
-  OpBuilder,
-  TableCore,
-} from '@teable-group/core';
+import { generateRecordId, IdPrefix, OpBuilder, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
@@ -98,24 +90,14 @@ export class Table extends TableCore {
     });
   }
 
-  async createView(name: string, type: ViewType, order: number) {
-    const data: IViewVo = {
-      id: generateViewId(),
-      name,
-      type,
-      order,
-    };
+  async createView(params: IViewRo & { tableId: string }) {
+    const { tableId, ...viewRo } = params;
 
-    const createSnapshot = OpBuilder.creator.addView.build(data);
-    const connection = this.doc.connection;
-    const doc = connection.get(`${IdPrefix.View}_${this.id}`, data.id);
-    return new Promise<Doc<IViewSnapshot>>((resolve, reject) => {
-      doc.create(createSnapshot, (error) => {
-        if (error) return reject(error);
-        console.log(`create view succeed!`, data);
-        resolve(doc);
-      });
-    });
+    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
+      `/api/table/${tableId}/view`,
+      viewRo
+    );
+    return response.data.data;
   }
 
   async createRecord(recordFields: IRecordFields) {

@@ -43,6 +43,7 @@
     "dequal": "^2.0.3",
     "react-use": "17.4.0",
     "reconnecting-websocket": "4.4.0",
+    "ts-mixer": "6.0.3",
     "zustand": "4.3.7"
   },
   "peerDependencies": {
