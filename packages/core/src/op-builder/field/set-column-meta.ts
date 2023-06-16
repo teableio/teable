@@ -1,13 +1,9 @@
-import type { Column, IOtOperation } from '../../models';
+import type { IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
-type IMetaKey = keyof Column;
-
 export interface ISetColumnMetaOpContext {
   name: OpName.SetColumnMeta;
-  viewId: string;
-  metaKey: IMetaKey;
   newMetaValue: number;
   oldMetaValue?: number;
 }
@@ -15,16 +11,11 @@ export interface ISetColumnMetaOpContext {
 export class SetColumnMetaBuilder implements IOpBuilder {
   name: OpName.SetColumnMeta = OpName.SetColumnMeta;
 
-  build(params: {
-    viewId: string;
-    metaKey: IMetaKey;
-    newMetaValue: unknown;
-    oldMetaValue?: unknown;
-  }): IOtOperation {
-    const { viewId, metaKey, newMetaValue, oldMetaValue } = params;
+  build(params: { newMetaValue: unknown; oldMetaValue?: unknown }): IOtOperation {
+    const { newMetaValue, oldMetaValue } = params;
 
     return {
-      p: ['field', 'columnMeta', viewId, metaKey],
+      p: ['field', 'columnMeta'],
       oi: newMetaValue,
       ...(oldMetaValue ? { od: oldMetaValue } : {}),
     };
@@ -33,12 +24,7 @@ export class SetColumnMetaBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetColumnMetaOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, [
-      'field',
-      'columnMeta',
-      ':viewId',
-      ':metaKey',
-    ]);
+    const result = pathMatcher<Record<string, never>>(p, ['field', 'columnMeta']);
 
     if (!result) {
       return null;
@@ -46,8 +32,6 @@ export class SetColumnMetaBuilder implements IOpBuilder {
 
     return {
       name: this.name,
-      viewId: result.viewId,
-      metaKey: result.metaKey,
       newMetaValue: oi,
       oldMetaValue: od,
     };

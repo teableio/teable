@@ -373,20 +373,11 @@ export class FieldService implements IAdapterService {
           return;
         }
         case OpName.SetColumnMeta: {
-          const { metaKey, viewId, newMetaValue } = opContext;
-
-          const fieldData = await prisma.field.findUniqueOrThrow({
-            where: { id: fieldId },
-            select: { columnMeta: true },
-          });
-
-          const columnMeta = JSON.parse(fieldData.columnMeta);
-
-          columnMeta[viewId][metaKey] = newMetaValue;
+          const { newMetaValue } = opContext;
 
           await prisma.field.update({
             where: { id: fieldId },
-            data: { columnMeta: JSON.stringify(columnMeta), version },
+            data: { columnMeta: JSON.stringify(newMetaValue), version },
           });
           return;
         }
