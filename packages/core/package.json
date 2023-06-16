@@ -33,6 +33,7 @@
   "dependencies": {
     "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
+    "dayjs": "1.11.8",
     "lodash": "4.17.21",
     "nanoid": "3.1.20",
     "reflect-metadata": "0.1.13",

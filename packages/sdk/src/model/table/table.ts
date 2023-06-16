@@ -12,6 +12,7 @@ import type {
   IRecordsVo,
   IRecordsRo,
   IUpdateRecordByIndexRo,
+  DateFieldOptions,
 } from '@teable-group/core';
 import {
   generateRecordId,
@@ -42,13 +43,12 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  static async getFields(tableId: string, viewId: string) {
+  static async getFields(tableId: string, viewId?: string) {
+    const params = viewId ? { viewId } : {};
     const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
       `/api/table/${tableId}/field`,
       {
-        params: {
-          viewId,
-        },
+        params,
       }
     );
     return response.data.data;
@@ -119,10 +119,23 @@ export class Table extends TableCore {
   }
 
   async createRecord(recordFields: IRecordFields) {
+    const finalRecordFields: IRecordFields = {};
+    const fields = await Table.getFields(this.id);
+
+    fields.forEach((f) => {
+      const { id, options } = f;
+      if ((options as DateFieldOptions)?.autoFill) {
+        finalRecordFields[id] = Date.now();
+      }
+    });
+
     const recordSnapshot: IRecordSnapshot = {
       record: {
         id: generateRecordId(),
-        fields: recordFields,
+        fields: {
+          ...finalRecordFields,
+          ...recordFields,
+        },
         recordOrder: {},
       },
     };

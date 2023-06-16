@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable prettier/prettier */
 
+import type { DateFormatting } from "@teable-group/core";
+
 export interface paths {
   "/api/file-tree/*": {
     get: operations["FileTreeController_getFileTree"];
@@ -138,6 +140,14 @@ export interface components {
        * @example 2
        */
       precision: number;
+    };
+    DateOptionsDto: {
+      /**
+       * @description the display formatting of the date, caveat: the formatting is just a formatter, it dose not effect the storing value of the record 
+       * @example "YYYY/MM/DD"
+       */
+      formatting: DateFormatting;
+      autoFill: boolean;
     };
     SingleSelectOption: {
       /**

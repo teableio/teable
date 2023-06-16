@@ -6,6 +6,7 @@ export const isMatchCustomCell = (type: string) => {
     FieldType.MultipleSelect,
     FieldType.Attachment,
     FieldType.Link,
+    FieldType.Date,
     'loading',
   ].includes(type);
 };
