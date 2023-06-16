@@ -8,7 +8,7 @@ import { createFieldInstanceByRo } from '../model/factory';
 export class FieldPipe implements PipeTransform {
   constructor(private readonly fieldSupplementService: FieldSupplementService) {}
   async transform(value: CreateFieldRo, _metadata: ArgumentMetadata) {
-    value = await this.fieldSupplementService.prepareFieldOptions(value);
+    value = await this.fieldSupplementService.prepareField(value);
     return createFieldInstanceByRo(value);
   }
 }

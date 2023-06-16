@@ -1,21 +1,15 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
 export class SingleLineTextFieldCore extends FieldCore {
   type!: FieldType.SingleLineText;
 
-  dbFieldType!: DbFieldType.Text;
-
   options = null;
 
   defaultValue: string | null = null;
 
-  calculatedType!: FieldType.SingleLineText;
-
   cellValueType!: CellValueType.String;
-
-  isComputed!: false;
 
   static defaultOptions() {
     return null;

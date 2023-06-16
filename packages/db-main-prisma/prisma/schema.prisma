@@ -23,6 +23,7 @@ model TableMeta {
   fields           Field[]
   views            View[]
 
+  @@index([order])
   @@map("table_meta")
 }
 
@@ -32,7 +33,6 @@ model Field {
   description          String?
   options              String?
   type                 String
-  calculatedType       String    @map("calculated_type")
   cellValueType        String    @map("cell_value_type")
   isMultipleCellValue  Boolean?  @map("is_multiple_cell_value")
   dbFieldType          String    @map("db_field_type")
@@ -42,6 +42,8 @@ model Field {
   unique               Boolean?
   isPrimary            Boolean?  @map("is_primary")
   isComputed           Boolean?  @map("is_computed")
+  lookupFieldId        String?   @map("lookup_field_id")
+  lookupOptions        String?   @map("lookup_options")
   tableId              String    @map("table_id")
   columnMeta           String    @map("column_meta")
   version              Int
@@ -52,6 +54,7 @@ model Field {
   lastModifiedBy       String    @map("last_modified_by")
   table                TableMeta @relation(fields: [tableId], references: [id])
 
+  @@index([lookupFieldId])
   @@map("field")
 }
 
@@ -74,6 +77,7 @@ model View {
   lastModifiedBy   String    @map("last_modified_by")
   table            TableMeta @relation(fields: [tableId], references: [id])
 
+  @@index([order])
   @@map("view")
 }
 

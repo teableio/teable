@@ -11,7 +11,7 @@ describe('EvalVisitor', () => {
     fields: {
       fldTest: 8,
     },
-    createdTime: Date.now(),
+    createdTime: new Date().toISOString(),
     recordOrder: { viwTest: 1 },
   };
 
@@ -33,7 +33,6 @@ describe('EvalVisitor', () => {
         precision: 2,
       },
       defaultValue: 0,
-      calculatedType: FieldType.Number,
       cellValueType: CellValueType.Number,
       isComputed: false,
     };
