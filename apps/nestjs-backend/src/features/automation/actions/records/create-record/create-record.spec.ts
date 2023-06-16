@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
@@ -13,7 +14,6 @@ import {
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import type { FieldVo } from '../../../../field/model/field.vo';
-import { NextModule } from '../../../../next/next.module';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
@@ -67,7 +67,6 @@ describe('Create-Record Action Test', () => {
           id: 'fldHrMYez5yIwBdKEiK',
           name: 'name',
           type: FieldType.SingleLineText,
-          calculatedType: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
           dbFieldName: 'name_fldHrMYez5yIwBdKEiK',

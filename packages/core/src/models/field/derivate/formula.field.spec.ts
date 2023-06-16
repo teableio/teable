@@ -21,7 +21,6 @@ describe('FormulaFieldCore', () => {
       expression: '{fld123} + 2',
     },
     defaultValue: 0,
-    calculatedType: FieldType.Formula,
     cellValueType: CellValueType.Number,
     isComputed: false,
   });
@@ -43,7 +42,6 @@ describe('FormulaFieldCore', () => {
       precision: 2,
     },
     defaultValue: 0,
-    calculatedType: FieldType.Number,
     cellValueType: CellValueType.Number,
     isComputed: false,
   });

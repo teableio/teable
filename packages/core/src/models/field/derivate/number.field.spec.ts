@@ -26,7 +26,6 @@ describe('NumberFieldCore', () => {
         precision: 2,
       },
       defaultValue: 0,
-      calculatedType: FieldType.Number,
       cellValueType: CellValueType.Number,
       isComputed: false,
     };
@@ -43,7 +42,6 @@ describe('NumberFieldCore', () => {
     expect(field.type).toBe(FieldType.Number);
     expect(field.isComputed).toBe(false);
     expect(field.dbFieldType).toBe(DbFieldType.Real);
-    expect(field.calculatedType).toBe(FieldType.Number);
     expect(field.cellValueType).toBe(CellValueType.Number);
   });
 

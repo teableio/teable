@@ -1,13 +1,15 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import { FieldType } from '@teable-group/core';
+import { FieldType, LookupOptions } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
 import { DateOptionsDto } from './field-dto/date-field.dto';
+import { FormulaOptionsDto } from './field-dto/formula-field.dto';
 import { LinkOptionsDto } from './field-dto/link-field.dto';
 import { MultipleSelectOptionsDto } from './field-dto/multiple-select-field.dto';
 import { NumberOptionsDto } from './field-dto/number-field.dto';
 import { SingleSelectOptionsDto } from './field-dto/single-select-field.dto';
 
 @ApiExtraModels(LinkOptionsDto)
+@ApiExtraModels(FormulaOptionsDto)
 @ApiExtraModels(MultipleSelectOptionsDto)
 @ApiExtraModels(SingleSelectOptionsDto)
 @ApiExtraModels(NumberOptionsDto)
@@ -36,6 +38,7 @@ export class CreateFieldRo implements IFieldRo {
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
     oneOf: [
+      { $ref: getSchemaPath(FormulaOptionsDto) },
       { $ref: getSchemaPath(LinkOptionsDto) },
       { $ref: getSchemaPath(MultipleSelectOptionsDto) },
       { $ref: getSchemaPath(SingleSelectOptionsDto) },
@@ -59,6 +62,17 @@ other fields do not support defaultValue.
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   defaultValue?: any;
+
+  @ApiPropertyOptional({
+    description: 'Set the field is lookup field',
+  })
+  isLookup?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Set the field is lookup field',
+    type: LookupOptions,
+  })
+  lookupOptions?: LookupOptions | undefined;
 
   @ApiPropertyOptional({
     description: 'Set if it is a primary field',

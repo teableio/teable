@@ -1,15 +1,11 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './select.field.abstract';
 
 export class MultipleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.MultipleSelect;
 
-  dbFieldType!: DbFieldType.Text;
-
   defaultValue!: string[] | null;
-
-  calculatedType!: FieldType.MultipleSelect;
 
   cellValueType!: CellValueType.String;
 

@@ -118,7 +118,7 @@ export class RecordService implements IAdapterService {
       const rowIndexValues = rowIndexFieldNames.map(() => rowCount + i);
 
       // 3. generate id, __row_default, __created_time, __created_by, __version
-      const systemValues = [generateRecordId(), rowCount + i, new Date().getTime(), 'admin', 1];
+      const systemValues = [generateRecordId(), rowCount + i, new Date().toISOString(), 'admin', 1];
 
       dbValueMatrix.push([...recordValues, ...rowIndexValues, ...systemValues]);
     }
@@ -402,7 +402,7 @@ export class RecordService implements IAdapterService {
       .insert({
         __id: snapshot.record.id,
         __row_default: rowCount,
-        __created_time: new Date().getTime(),
+        __created_time: new Date().toISOString(),
         __created_by: 'admin',
         __version: 1,
         ...orders,
@@ -560,8 +560,8 @@ export class RecordService implements IAdapterService {
             record: {
               fields: fieldsData,
               id: record.__id,
-              createdTime: record.__created_time?.getTime(),
-              lastModifiedTime: record.__last_modified_time?.getTime(),
+              createdTime: record.__created_time?.toISOString(),
+              lastModifiedTime: record.__last_modified_time?.toISOString(),
               createdBy: record.__created_by,
               lastModifiedBy: record.__last_modified_by,
               recordOrder,

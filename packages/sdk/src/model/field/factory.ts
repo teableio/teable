@@ -49,7 +49,6 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Percent:
       case FieldType.Checkbox:
       case FieldType.Rollup:
-      case FieldType.MultipleLookupValues:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);

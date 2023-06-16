@@ -12,6 +12,8 @@ export function dbType2knexFormat(dbFieldType: DbFieldType) {
       return 'float';
     case DbFieldType.Text:
       return 'text';
+    case DbFieldType.DateTime:
+      return 'datetime';
     default:
       assertNever(dbFieldType);
   }

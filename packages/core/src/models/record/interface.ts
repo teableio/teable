@@ -3,8 +3,8 @@ import type { CellFormat, FieldKeyType } from './record';
 export interface IRecord {
   id: string;
   fields: IRecordFields;
-  createdTime?: number;
-  lastModifiedTime?: number;
+  createdTime?: string;
+  lastModifiedTime?: string;
   createdBy?: string;
   lastModifiedBy?: string;
   recordOrder: { [viewId: string]: number };

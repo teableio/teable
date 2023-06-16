@@ -433,12 +433,6 @@ export interface components {
        */
       id: string;
       /**
-       * @description The field type after calculated. 
-       * @example singleLineText 
-       * @enum {string}
-       */
-      calculatedType: "singleLineText" | "longText" | "user" | "attachment" | "checkbox" | "multipleSelect" | "singleSelect" | "date" | "phoneNumber" | "email" | "url" | "number" | "currency" | "percent" | "duration" | "rating" | "formula" | "rollup" | "count" | "link" | "multipleLookupValues" | "createdTime" | "lastModifiedTime" | "createdBy" | "lastModifiedBy" | "autoNumber" | "button";
-      /**
        * @description The basic data type of cellValue. 
        * @example string 
        * @enum {string}

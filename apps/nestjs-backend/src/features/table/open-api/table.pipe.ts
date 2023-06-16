@@ -18,7 +18,7 @@ export class TablePipe implements PipeTransform {
     fieldRos[0].isPrimary = true;
     const fields: CreateFieldRo[] = [];
     for (const fieldRo of fieldRos) {
-      fields.push(await this.fieldSupplementService.prepareFieldOptions(fieldRo));
+      fields.push(await this.fieldSupplementService.prepareField(fieldRo));
     }
     return {
       ...tableRo,

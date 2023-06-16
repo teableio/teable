@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -69,7 +70,6 @@ describe('Update-Record Action Test', () => {
           id: fieldId,
           name: faker.string.sample(),
           type: FieldType.SingleLineText,
-          calculatedType: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
           dbFieldName: `name_${faker.string.nanoid()}`,

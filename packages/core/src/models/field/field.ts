@@ -1,13 +1,31 @@
 import type { SafeParseReturnType } from 'zod';
 import type { StatisticsFunc } from '../view';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
+import type { Relationship } from './derivate';
 import type { IColumnMeta } from './interface';
+
+export class LookupOptions {
+  foreignTableId!: string;
+  linkFieldId!: string;
+  lookupFieldId!: string;
+  relationShip?: Relationship;
+}
+
+export class LookupOptionsVo {
+  foreignTableId!: string;
+  linkFieldId!: string;
+  lookupFieldId!: string;
+  relationShip!: Relationship;
+}
+
 export interface IFieldRo {
   name: string;
   type: FieldType;
   icon?: string;
   description?: string;
   options?: unknown;
+  isLookup?: boolean;
+  lookupOptions?: LookupOptions;
   notNull?: boolean;
   unique?: boolean;
   isPrimary?: boolean;
@@ -17,9 +35,9 @@ export interface IFieldRo {
 export interface IFieldVo extends IFieldRo {
   id: string;
   isComputed?: boolean;
-  calculatedType: FieldType;
   cellValueType: CellValueType;
   isMultipleCellValue?: boolean;
+  lookupOptions?: LookupOptionsVo;
   dbFieldType: DbFieldType;
   dbFieldName: string;
   columnMeta: IColumnMeta;
@@ -51,22 +69,25 @@ export abstract class FieldCore implements IFieldVo {
 
   abstract type: FieldType;
 
-  abstract isComputed?: boolean;
+  isComputed?: boolean;
 
-  abstract dbFieldType: DbFieldType;
+  dbFieldType!: DbFieldType;
 
   abstract options?: unknown;
 
   abstract defaultValue?: unknown;
 
-  // for lookup field, it is a dynamic value
-  abstract calculatedType: FieldType;
-
   // cellValue type enum (string, number, boolean, datetime)
   abstract cellValueType: CellValueType;
 
-  // if cellValue is array
+  // if cellValue multiple
+  // every field need to consider to support multiple cellValue, because lookup value may be multiple
   isMultipleCellValue?: boolean;
+
+  // if this field is lookup field
+  isLookup?: boolean;
+
+  lookupOptions?: LookupOptionsVo;
 
   abstract cellValue2String(value?: unknown): string;
 

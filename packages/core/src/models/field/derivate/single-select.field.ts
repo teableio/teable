@@ -1,15 +1,11 @@
 import { z } from 'zod';
-import type { FieldType, DbFieldType, CellValueType } from '../constant';
+import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './select.field.abstract';
 
 export class SingleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.SingleSelect;
 
-  dbFieldType!: DbFieldType.Text;
-
   defaultValue: string | null = null;
-
-  calculatedType!: FieldType.SingleSelect;
 
   cellValueType!: CellValueType.String;
 
