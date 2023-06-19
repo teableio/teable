@@ -1,61 +1,57 @@
-import type { IColumnMeta, IFieldSnapshot } from '@teable-group/core';
+import type { IFieldSnapshot } from '@teable-group/core';
 import { FieldCore, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
+import type { Error } from '@teable/sharedb/lib/sharedb';
 
 export abstract class FieldOperations extends FieldCore {
   doc!: Doc<IFieldSnapshot>;
 
-  updateName(name: string): Promise<void> {
+  private async submitOperation(operation: unknown, deleteFlag = false): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const callback = (error: Error) => {
+        error ? reject(error) : resolve(undefined);
+      };
+
+      if (deleteFlag) {
+        this.doc.del({}, callback);
+      } else {
+        this.doc.submitOp([operation], undefined, callback);
+      }
+    });
+  }
+
+  async updateName(name: string): Promise<void> {
     const fieldOperation = OpBuilder.editor.setFieldName.build({
       newName: name,
       oldName: this.name,
     });
 
-    return new Promise<void>((resolve, reject) => {
-      this.doc.submitOp([fieldOperation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
-      });
-    });
+    return await this.submitOperation(fieldOperation);
   }
 
   async updateColumnWidth(viewId: string, width: number): Promise<void> {
-    const newColumnMeta = this.columnMeta;
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'width',
+      newMetaValue: width,
+      oldMetaValue: this.columnMeta[viewId]?.width,
+    });
 
-    newColumnMeta[viewId]['width'] = width;
-
-    return this.updateColumnMeta(newColumnMeta, this.columnMeta);
+    return await this.submitOperation(fieldOperation);
   }
 
   async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
-    const newColumnMeta = {
-      ...this.columnMeta,
-      [viewId]: {
-        ...this.columnMeta[viewId],
-        hidden,
-      },
-    };
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'hidden',
+      newMetaValue: hidden,
+      oldMetaValue: this.columnMeta[viewId]?.hidden,
+    });
 
-    return this.updateColumnMeta(newColumnMeta, this.columnMeta);
+    return await this.submitOperation(fieldOperation);
   }
 
   async delete(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.doc.del({}, (error) => {
-        error ? reject(error) : resolve(undefined);
-      });
-    });
-  }
-
-  async updateColumnMeta(newMetaValue: IColumnMeta, oldMetaValue?: IColumnMeta) {
-    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
-      newMetaValue: newMetaValue,
-      oldMetaValue: oldMetaValue,
-    });
-
-    return new Promise<void>((resolve, reject) => {
-      this.doc.submitOp([fieldOperation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
-      });
-    });
+    return await this.submitOperation(null, true);
   }
 }

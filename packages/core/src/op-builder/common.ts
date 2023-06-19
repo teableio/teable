@@ -12,6 +12,7 @@ export enum OpName {
   SetFieldOrder = 'setFieldOrder',
   AddColumnMeta = 'addColumnMeta',
   SetColumnMeta = 'setColumnMeta',
+  DeleteColumnMeta = 'deleteColumnMeta',
   DeleteField = 'deleteField',
   SetFieldName = 'setFieldName',
   SetFieldDescription = 'setFieldDescription',
