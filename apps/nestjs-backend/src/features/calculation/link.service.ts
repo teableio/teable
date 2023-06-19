@@ -8,7 +8,7 @@ import type {
 import { OpBuilder, Relationship, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { difference, groupBy } from 'lodash';
+import { difference } from 'lodash';
 import { ReferenceService } from './reference.service';
 import type { ICellChange } from './reference.service';
 
@@ -101,7 +101,7 @@ export class LinkService {
     return isLinkCellItem(value);
   }
 
-  private filterLinkContext(contexts: ICellContext[]) {
+  private filterLinkContext(contexts: ICellContext[]): ICellContext[] {
     return contexts.filter((ctx) => {
       if (this.isLinkCell(ctx.newValue)) {
         return true;
@@ -448,7 +448,12 @@ export class LinkService {
     tableId: string,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
-    contexts: ICellContext[],
+    contexts: {
+      id: string;
+      fieldId: string;
+      newValue?: unknown;
+      oldValue?: unknown;
+    }[],
     changes: ICellChange[]
   ) {
     const combinedChanges = contexts
@@ -505,9 +510,14 @@ export class LinkService {
   async getDerivateChangesByLink(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    contexts: ICellContext[]
+    contexts: {
+      id: string;
+      fieldId: string;
+      newValue?: unknown;
+      oldValue?: unknown;
+    }[]
   ): Promise<ICellChange[]> {
-    const linkContext = this.filterLinkContext(contexts);
+    const linkContext = this.filterLinkContext(contexts as ICellContext[]);
     if (!linkContext.length) {
       return [];
     }
@@ -555,63 +565,32 @@ export class LinkService {
     return cellChange;
   }
 
-  async calculate(prisma: Prisma.TransactionClient, param: IApplyParam) {
-    const { tableId, recordId } = param;
-
-    const recordData = param.opContexts.map((ctx) => {
-      return {
-        id: recordId,
-        fieldId: ctx.fieldId,
-        newValue: ctx.newValue,
-        oldValue: ctx.oldValue,
-      };
-    });
-
-    const derivateChangesByLink = await this.getDerivateChangesByLink(
-      prisma,
-      tableId,
-      recordData as ICellContext[]
-    );
-
-    const derivateChangesMap = groupBy(derivateChangesByLink, 'tableId');
-    const recordDataByLink = derivateChangesMap[tableId]
-      ? derivateChangesMap[tableId].map(({ recordId, fieldId, newValue, oldValue }) => ({
-          id: recordId,
-          fieldId,
-          newValue,
-          oldValue,
-        }))
-      : [];
-
-    delete derivateChangesMap[tableId];
-
-    // recordData should concat link change in current table
-    let derivateChanges = await this.referenceService.calculate(
-      prisma,
-      tableId,
-      recordData.concat(recordDataByLink)
-    );
-
-    derivateChanges = derivateChanges.concat(derivateChangesByLink);
-
-    for (const tableId in derivateChangesMap) {
-      const recordData = derivateChangesMap[tableId].map(
-        ({ recordId, fieldId, newValue, oldValue }) => ({
-          id: recordId,
-          fieldId,
-          newValue,
-          oldValue,
-        })
-      );
-      const changes = await this.referenceService.calculate(prisma, tableId, recordData);
-      derivateChanges = derivateChanges.concat(changes);
+  async calculate(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
+    const cellChanges: ICellChange[] = [];
+    for (const tableId in opsMap) {
+      const recordData: {
+        id: string;
+        fieldId: string;
+        newValue: unknown;
+      }[] = [];
+      for (const recordId in opsMap[tableId]) {
+        opsMap[tableId][recordId].forEach((op) => {
+          const ctx = OpBuilder.editor.setRecord.detect(op);
+          if (!ctx) {
+            throw new Error('invalid op, it should detect by OpBuilder.editor.setRecord.detect');
+          }
+          recordData.push({
+            id: recordId,
+            fieldId: ctx.fieldId,
+            newValue: ctx.newValue,
+          });
+        });
+      }
+      const change = await this.referenceService.calculate(prisma, tableId, recordData);
+      cellChanges.push(...change);
     }
 
-    if (!derivateChanges.length) {
-      return;
-    }
-
-    return this.formatOpsByChanges(tableId, recordId, derivateChanges);
+    return cellChanges;
   }
 
   private changeToOp(change: ICellChange) {
@@ -623,18 +602,12 @@ export class LinkService {
     });
   }
 
-  private formatOpsByChanges(tableId: string, recordId: string, changes: ICellChange[]) {
-    const currentSnapshotOps: IOtOperation[] = [];
-    const otherSnapshotOps = changes.reduce<{
+  formatOpsByChanges(changes: ICellChange[]) {
+    return changes.reduce<{
       [tableId: string]: { [recordId: string]: IOtOperation[] };
     }>((pre, cur) => {
       const { tableId: curTableId, recordId: curRecordId } = cur;
       const op = this.changeToOp(cur);
-
-      if (curTableId === tableId && curRecordId === recordId) {
-        currentSnapshotOps.push(op);
-        return pre;
-      }
 
       if (!pre[curTableId]) {
         pre[curTableId] = {};
@@ -646,11 +619,6 @@ export class LinkService {
 
       return pre;
     }, {});
-
-    return {
-      currentSnapshotOps,
-      otherSnapshotOps: Object.keys(otherSnapshotOps).length ? otherSnapshotOps : undefined,
-    };
   }
 
   composeOpsMaps(opsMaps: IOpsMap[]): IOpsMap {

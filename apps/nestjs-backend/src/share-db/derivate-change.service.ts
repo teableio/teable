@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import type { IApplyParam, IOpsMap } from '../features/calculation/link.service';
+import { OpBuilder } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
+import type { ICellChange } from 'src/features/calculation/reference.service';
+import type { IOpsMap } from '../features/calculation/link.service';
 import { LinkService } from '../features/calculation/link.service';
 import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
@@ -57,12 +60,49 @@ export class DerivateChangeService {
     }
   }
 
+  private async calculate(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordId: string,
+    ops: IOtOperation[],
+    changes: ICellChange[]
+  ) {
+    const linkOpsMap = this.linkService.formatOpsByChanges(changes);
+    if (!linkOpsMap[tableId]) {
+      linkOpsMap[tableId] = {};
+    }
+    if (!linkOpsMap[tableId][recordId]) {
+      linkOpsMap[tableId][recordId] = ops;
+    } else {
+      linkOpsMap[tableId][recordId].push(...ops);
+    }
+
+    return await this.linkService.calculate(prisma, linkOpsMap);
+  }
+
   async getFixupOps(
     tsMeta: ITransactionMeta,
-    data: IApplyParam
+    tableId: string,
+    recordId: string,
+    ops: IOtOperation[]
   ): Promise<IOtOperation[] | undefined> {
     const prisma = await this.transactionService.getTransaction(tsMeta);
-    const calculated = await this.linkService.calculate(prisma, data);
+    const changes = await this.linkService.getDerivateChangesByLink(
+      prisma,
+      tableId,
+      ops.map((op) => {
+        const context = OpBuilder.editor.setRecord.detect(op);
+        if (!context) {
+          throw new Error('Invalid operation');
+        }
+        return {
+          id: recordId,
+          ...context,
+        };
+      })
+    );
+    const calculated = await this.calculate(prisma, tableId, recordId, ops, changes);
+
     const transaction = this.transactions.get(tsMeta.transactionKey);
     if (!transaction) {
       throw new Error('Transaction not found');
@@ -70,9 +110,18 @@ export class DerivateChangeService {
     if (!calculated) {
       return;
     }
-    const { currentSnapshotOps, otherSnapshotOps } = calculated;
 
-    otherSnapshotOps && transaction.opsMaps.push(otherSnapshotOps);
+    const opsMap = this.linkService.formatOpsByChanges(changes.concat(calculated));
+    const currentSnapshotOps = opsMap[tableId]?.[recordId];
+
+    if (currentSnapshotOps) {
+      delete opsMap[tableId][recordId];
+      if (!Object.keys(opsMap[tableId])) {
+        delete opsMap[tableId];
+      }
+    }
+
+    Object.keys(opsMap) && transaction.opsMaps.push(opsMap);
 
     return currentSnapshotOps;
   }

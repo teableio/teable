@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
+import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
@@ -106,24 +106,20 @@ export class ShareDbService extends ShareDBClass {
       return;
     }
     console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
-    const opContexts = context.op.op.reduce<ISetRecordOpContext[]>((pre, cur) => {
+    const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
-        pre.push(ctx);
+        pre.push(cur);
       }
       return pre;
     }, []);
 
-    if (!opContexts.length) {
+    if (!ops.length) {
       return;
     }
 
     let fixupOps: IOtOperation[] | undefined = undefined;
-    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, {
-      tableId,
-      recordId,
-      opContexts,
-    });
+    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, ops);
 
     if (!fixupOps || !fixupOps.length) {
       return;
@@ -207,6 +203,7 @@ export class ShareDbService extends ShareDBClass {
     let cacheEventArray = this.eventCollector.get(transactionKey);
     const transactionCacheMeta = this.transactionService.getCache(transactionKey);
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const eventType = this.getEventType(context.op)!;
     const cacheEventMeta: IEventCollectorMeta = {
       type: eventType,
@@ -267,6 +264,7 @@ export class ShareDbService extends ShareDBClass {
     };
 
     const allTypes = map(cacheEventArray, 'type');
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const type = getType(allTypes)!;
     const lastContext = orderBy(cacheEventArray, 'sort', 'desc')[0].context;
 

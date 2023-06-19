@@ -30,13 +30,13 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
-  private async prepareLinkField(field: CreateFieldRo) {
+  private async prepareLinkField(field: CreateFieldRo): Promise<CreateFieldRo> {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
-    const fieldId = generateFieldId();
+    const fieldId = field.id ?? generateFieldId();
     const symmetricFieldId = generateFieldId();
     let dbForeignKeyName = '';
     if (relationship === Relationship.ManyOne) {
@@ -54,11 +54,14 @@ export class FieldSupplementService implements ISupplementService {
         lookupFieldId,
         dbForeignKeyName,
         symmetricFieldId,
-      } as LinkFieldOptions,
+      },
     };
   }
 
-  private async prepareLookupField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
+  private async prepareLookupField(
+    field: CreateFieldRo,
+    batchFieldRos?: CreateFieldRo[]
+  ): Promise<CreateFieldRo> {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new HttpException('lookupOptions is required', HttpStatusCode.BadRequest);
@@ -83,7 +86,8 @@ export class FieldSupplementService implements ISupplementService {
       lookupOptions: {
         ...lookupOptions,
         relationship: linkFieldOptions.relationship,
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
     };
   }
 
@@ -116,7 +120,7 @@ export class FieldSupplementService implements ISupplementService {
   async prepareField(
     fieldRo: CreateFieldRo,
     batchFieldRos?: CreateFieldRo[]
-  ): Promise<CreateFieldRo & { id?: string }> {
+  ): Promise<CreateFieldRo> {
     if (fieldRo.isLookup) {
       fieldRo = await this.prepareLookupField(fieldRo, batchFieldRos);
     }
@@ -144,6 +148,7 @@ export class FieldSupplementService implements ISupplementService {
     });
 
     // lookup field id is the primary field of the table to which it is linked
+    // console.log('tableId:', tableId);
     const { id: lookupFieldId } = await prisma.field.findFirstOrThrow({
       where: { tableId, isPrimary: true },
       select: { id: true },

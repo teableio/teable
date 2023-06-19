@@ -22,7 +22,7 @@ import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
-import type { IFieldInstance } from './model/factory';
+import type { IFieldInstance, IPreparedRo } from './model/factory';
 import {
   createFieldInstanceByVo,
   rawField2FieldObj,
@@ -294,7 +294,7 @@ export class FieldService implements IAdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
-    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
+    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo & IPreparedRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);

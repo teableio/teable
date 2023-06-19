@@ -1,5 +1,11 @@
-import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import { FieldType, LookupOptions } from '@teable-group/core';
+import {
+  ApiExtraModels,
+  ApiHideProperty,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { CellValueType, FieldType, LookupOptions } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
 import { IsOptional, ValidateIf } from 'class-validator';
 import { DateOptionsDto } from './field-dto/date-field.dto';
@@ -104,4 +110,7 @@ other fields do not support defaultValue.
     example: false,
   })
   unique?: boolean;
+
+  @ApiHideProperty()
+  cellValueType?: CellValueType;
 }
