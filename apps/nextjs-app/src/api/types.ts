@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable prettier/prettier */
 
-import type { DateFormatting } from "@teable-group/core";
+import type { DateFormatting, TimeFormatting } from "@teable-group/core";
 
 export interface paths {
   "/api/file-tree/*": {
@@ -146,7 +146,17 @@ export interface components {
        * @description the display formatting of the date, caveat: the formatting is just a formatter, it dose not effect the storing value of the record 
        * @example "YYYY/MM/DD"
        */
-      formatting: DateFormatting;
+      dateFormatting: DateFormatting;
+      /**
+       * @description the display formatting of the time, caveat: the formatting is just a formatter, it dose not effect the storing value of the record 
+       * @example "HH:mm"
+       */
+      timeFormatting: TimeFormatting;
+      /**
+       * @description the display timeZone of the time, caveat: the timeZone is just a formatter, it dose not effect the storing value of the record 
+       * @example "Asia/Shanghai"
+       */
+      timeZone: string;
       autoFill: boolean;
     };
     SingleSelectOption: {

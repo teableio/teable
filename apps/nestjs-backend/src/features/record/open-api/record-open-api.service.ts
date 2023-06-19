@@ -5,7 +5,15 @@ import type {
   IRecordSnapshot,
   ISetRecordOpContext,
 } from '@teable-group/core';
-import { OpName, FieldKeyType, IdPrefix, generateRecordId, OpBuilder } from '@teable-group/core';
+import {
+  OpName,
+  FieldKeyType,
+  IdPrefix,
+  generateRecordId,
+  OpBuilder,
+  FieldType,
+  assertNever,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
@@ -123,8 +131,38 @@ export class RecordOpenApiService {
     fieldKey: FieldKeyType = FieldKeyType.Name,
     records: { id: string; fields: { [fieldKey: string]: unknown } }[]
   ): Promise<IRecordSnapshot[]> {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
+    // submit auto fill changes
+    await this.sendAutoFillOps(transactionKey, tableId, records);
+
     const applyParams = await this.generateApplyParams(transactionKey, tableId, fieldKey, records);
+    // submit other changes
+    await this.sendOtherOps(transactionKey, applyParams);
+
+    // submit current changes
+    return await this.sendCurrentOps(applyParams);
+  }
+
+  private async sendCurrentOps(
+    applyParams: (IApplyParam & { ops: IOtOperation[]; doc: Doc<IRecordSnapshot> })[]
+  ) {
+    const recordSnapshots: IRecordSnapshot[] = [];
+    for (const applyParam of applyParams) {
+      const { doc, ops } = applyParam;
+      if (!ops.length) {
+        continue;
+      }
+      const snapshot = await this.submitOps(doc, ops);
+      recordSnapshots.push(snapshot);
+    }
+    return recordSnapshots;
+  }
+
+  private async sendOtherOps(
+    transactionKey: string,
+    applyParams: (IApplyParam & { ops: IOtOperation[]; doc: Doc<IRecordSnapshot> })[]
+  ) {
+    const prisma = this.transactionService.getTransactionSync(transactionKey);
+
     // calculate all changes
     const opsMaps: IOpsMap[] = [];
     for (const applyParam of applyParams) {
@@ -135,6 +173,7 @@ export class RecordOpenApiService {
         calculated.otherSnapshotOps && opsMaps.push(calculated.otherSnapshotOps);
       }
     }
+
     const opsMap = this.linkService.composeOpsMaps(opsMaps);
     // make sure opsMap not overlap with exist applyPrams
     for (const applyParam of applyParams) {
@@ -145,54 +184,100 @@ export class RecordOpenApiService {
         delete opsMap[tableId][recordId];
       }
     }
-    // submit other changes
-    await this.sendOtherOps(transactionKey, opsMap);
 
-    // submit current changes
-    const recordSnapshots: IRecordSnapshot[] = [];
-    for (const applyParam of applyParams) {
-      const { doc, ops } = applyParam;
-      if (!ops.length) {
-        continue;
-      }
-      const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
-        doc.submitOp(ops, undefined, (err) => {
-          if (err) return reject(err);
-          resolve(doc.data);
-        });
-      });
-      recordSnapshots.push(snapshot);
-    }
-    return recordSnapshots;
-  }
-
-  private async sendOtherOps(
-    transactionKey: string,
-    otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
-  ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
+    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     const connection = this.shareDbService.getConnection(transactionKey);
-    for (const tableId in otherSnapshotOps) {
-      const data = otherSnapshotOps[tableId];
+    for (const tableId in opsMap) {
+      const data = opsMap[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
         const doc = connection.get(collection, recordId);
-        await new Promise((resolve, reject) => {
-          doc.fetch((err) => {
-            if (err) return reject(err);
-            doc.submitOp(ops, undefined, (error) => {
-              if (error) {
-                console.error('sendOpsAfterApply error:', error);
-                return reject(error);
-              }
-              console.log('sendOpsAfterApply:succeed', ops);
-              resolve(undefined);
-            });
-          });
-        });
+        await this.submitOps(doc, ops);
       }
     }
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async sendAutoFillOps(
+    transactionKey: string,
+    tableId: string,
+    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
+  ) {
+    const connection = this.shareDbService.getConnection(transactionKey);
+    const collection = `${IdPrefix.Record}_${tableId}`;
+    const prisma = this.transactionService.getTransactionSync(transactionKey);
+    const fieldRaws = await prisma.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, type: true, options: true },
+    });
+    const opsInfoMap: { doc: Doc<unknown>; ops: IOtOperation[] }[] = [];
+
+    for (const record of records) {
+      const { id: recordId, fields } = record;
+      const doc = connection.get(collection, recordId);
+      const ops: IOtOperation[] = [];
+
+      for (const fieldRaw of fieldRaws) {
+        const { id: fieldId, type, options } = fieldRaw;
+        if (options == null) continue;
+        const { autoFill, defaultValue: _defaultValue } = JSON.parse(options) || {};
+        if (fields[fieldId] != null || !autoFill) continue;
+
+        const defaultValue = this.getDefaultValue(type as FieldType, _defaultValue);
+        if (defaultValue) {
+          const op = OpBuilder.editor.setRecord.build({
+            fieldId,
+            oldCellValue: null,
+            newCellValue: defaultValue,
+          });
+          ops.push(op);
+        }
+      }
+
+      if (!ops.length) continue;
+      opsInfoMap.push({
+        doc,
+        ops,
+      });
+    }
+
+    for (const opsInfo of opsInfoMap) {
+      const { doc, ops } = opsInfo;
+      await this.submitOps(doc, ops);
+    }
+  }
+
+  private getDefaultValue(type: FieldType, defaultValue: unknown) {
+    switch (type) {
+      case FieldType.Date:
+        return new Date().toISOString();
+      case FieldType.SingleLineText:
+      case FieldType.LongText:
+      case FieldType.Number:
+      case FieldType.Percent:
+      case FieldType.Currency: {
+        return defaultValue;
+      }
+      default:
+        assertNever(type as never);
+    }
+  }
+
+  private async submitOps<T>(doc: Doc<T>, ops: IOtOperation[]): Promise<T> {
+    return new Promise((resolve, reject) => {
+      doc.fetch((err) => {
+        if (err) return reject(err);
+        doc.submitOp(ops, undefined, (error) => {
+          if (error) {
+            console.error('sendOpsAfterApply error:', error);
+            return reject(error);
+          }
+          console.log('sendOpsAfterApply:succeed', ops);
+          resolve(doc.data);
+        });
+      });
+    });
   }
 
   private async createRecords(

@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   DateFormatting,
+  TimeFormatting,
   DateFieldCore,
   Relationship,
   CellValueType,
   DbFieldType,
+  DEFAULT_TIME_ZONE,
 } from '@teable-group/core';
 import type { DateFieldOptions } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
@@ -14,14 +16,30 @@ import type { IFieldBase } from '../field-base';
 export class DateOptionsDto implements DateFieldOptions {
   @ApiProperty({
     enum: DateFormatting,
-    example: DateFormatting.YMDForIncline,
+    example: DateFormatting.YMDWithSlash,
     description:
       'the display formatting of the date, caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
   })
-  formatting!: DateFormatting;
+  dateFormatting!: DateFormatting;
 
   @ApiProperty({
-    type: Boolean,
+    enum: TimeFormatting,
+    example: TimeFormatting.Hour24,
+    description:
+      'the display formatting of the time, caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
+  })
+  timeFormatting!: TimeFormatting;
+
+  @ApiProperty({
+    type: 'string',
+    example: DEFAULT_TIME_ZONE,
+    description:
+      'the display time zone of the time, caveat: the timeZone is just a formatter, it dose not effect the storing value of the record',
+  })
+  timeZone!: string;
+
+  @ApiProperty({
+    type: 'boolean',
     example: false,
     description:
       'Whether the new row is automatically filled with the current time, caveat: the autoFill is just a formatter, it dose not effect the storing value of the record',

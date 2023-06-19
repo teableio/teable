@@ -1,6 +1,5 @@
 import type {
   IRecordFields,
-  IRecordSnapshot,
   IFieldRo,
   IFieldVo,
   IJsonApiSuccessResponse,
@@ -10,9 +9,8 @@ import type {
   IRecordsRo,
   IUpdateRecordByIndexRo,
   IViewRo,
-  DateFieldOptions,
 } from '@teable-group/core';
-import { generateRecordId, IdPrefix, OpBuilder, TableCore } from '@teable-group/core';
+import { OpBuilder, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
@@ -101,35 +99,17 @@ export class Table extends TableCore {
   }
 
   async createRecord(recordFields: IRecordFields) {
-    const finalRecordFields: IRecordFields = {};
-    const fields = await Table.getFields(this.id);
-
-    fields.forEach((f) => {
-      const { id, options } = f;
-      if ((options as DateFieldOptions)?.autoFill) {
-        finalRecordFields[id] = Date.now();
+    const response = await axios.post<IJsonApiSuccessResponse<IRecordsVo>>(
+      `/api/table/${this.id}/record`,
+      {
+        records: [
+          {
+            fields: recordFields,
+          },
+        ],
       }
-    });
-
-    const recordSnapshot: IRecordSnapshot = {
-      record: {
-        id: generateRecordId(),
-        fields: {
-          ...finalRecordFields,
-          ...recordFields,
-        },
-        recordOrder: {},
-      },
-    };
-    const createSnapshot = OpBuilder.creator.addRecord.build(recordSnapshot);
-    const connection = this.doc.connection;
-    const doc = connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
-    return new Promise<Doc<IRecordSnapshot>>((resolve, reject) => {
-      doc.create(createSnapshot, (error) => {
-        if (error) return reject(error);
-        resolve(doc);
-      });
-    });
+    );
+    return response.data.data;
   }
 
   async createField(fieldRo: IFieldRo) {

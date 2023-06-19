@@ -1,4 +1,4 @@
-import { DateFormatting, FieldType } from '@teable-group/core';
+import { DateFormatting, FieldType, TimeFormatting } from '@teable-group/core';
 import {
   MultipleSelectField,
   NumberField,
@@ -79,38 +79,53 @@ export const NUMBER_FIELD_PRECISION = [
   },
 ];
 
-export const DATE_FIELD_FORMATTING = [
+export const DATE_FORMATTING_OF_DATE_FIELD = [
   {
-    text: DateFormatting.YMDForIncline,
-    value: DateFormatting.YMDForIncline,
+    text: '年/月/日',
+    value: DateFormatting.YMDWithSlash,
   },
   {
-    text: DateFormatting.YMDForHorizontal,
-    value: DateFormatting.YMDForHorizontal,
+    text: '年-月-日',
+    value: DateFormatting.YMDWithDash,
   },
   {
-    text: DateFormatting.DMY,
+    text: '日/月/年',
     value: DateFormatting.DMY,
   },
   {
-    text: DateFormatting.YM,
+    text: '年/月',
     value: DateFormatting.YM,
   },
   {
-    text: DateFormatting.MD,
+    text: '月/日',
     value: DateFormatting.MD,
   },
   {
-    text: DateFormatting.Y,
+    text: '年',
     value: DateFormatting.Y,
   },
   {
-    text: DateFormatting.M,
+    text: '月',
     value: DateFormatting.M,
   },
   {
-    text: DateFormatting.D,
+    text: '日',
     value: DateFormatting.D,
+  },
+];
+
+export const TIME_FORMATTING_OF_DATE_FIELD = [
+  {
+    text: '24 小时',
+    value: TimeFormatting.Hour24,
+  },
+  {
+    text: '12 小时',
+    value: TimeFormatting.Hour12,
+  },
+  {
+    text: '不显示',
+    value: TimeFormatting.None,
   },
 ];
 
