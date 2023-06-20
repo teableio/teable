@@ -16,10 +16,11 @@ import { useDeleteView } from './useDeleteView';
 
 interface IProps {
   view: View;
+  isDelete: boolean;
   isActive: boolean;
 }
 
-export const ViewListItem: React.FC<IProps> = ({ view, isActive }) => {
+export const ViewListItem: React.FC<IProps> = ({ view, isDelete, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
   const tableId = useTableId();
   const deleteView = useDeleteView(view.id);
@@ -68,6 +69,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, isActive }) => {
                 <DropdownMenuItem>Duplicate view</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  disabled={!isDelete}
                   onSelect={(e) => {
                     e.preventDefault();
                     deleteView();

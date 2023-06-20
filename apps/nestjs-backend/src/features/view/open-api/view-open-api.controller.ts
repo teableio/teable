@@ -73,7 +73,7 @@ export class ViewOpenApiController {
 
   @ApiOperation({ summary: 'Delete view' })
   @Delete('/:viewId')
-  async archiveTable(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
+  async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
     const result = await this.viewOpenApiService.deleteView(tableId, viewId);
     return responseWrap(result);
   }

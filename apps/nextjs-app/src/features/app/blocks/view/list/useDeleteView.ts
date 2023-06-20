@@ -1,12 +1,10 @@
-import { useTable, useViews } from '@teable-group/sdk/hooks';
+import { useTable } from '@teable-group/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 
 export function useDeleteView(viewId: string) {
   const table = useTable();
-  const views = useViews();
   const router = useRouter();
-  const firstView = views[0];
 
   return useCallback(async () => {
     if (!table) {
@@ -18,8 +16,8 @@ export function useDeleteView(viewId: string) {
       viewId,
     });
     router.push({
-      pathname: '/space/[tableId]/[viewId]',
-      query: { tableId: table.id, viewId: firstView.id },
+      pathname: '/space/[tableId]',
+      query: { tableId: table.id },
     });
-  }, [router, table, viewId, firstView.id]);
+  }, [router, table, viewId]);
 }
