@@ -1,6 +1,7 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { FieldType, LookupOptions } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
+import { DateOptionsDto } from './field-dto/date-field.dto';
 import { FormulaOptionsDto } from './field-dto/formula-field.dto';
 import { LinkOptionsDto } from './field-dto/link-field.dto';
 import { MultipleSelectOptionsDto } from './field-dto/multiple-select-field.dto';
@@ -12,6 +13,7 @@ import { SingleSelectOptionsDto } from './field-dto/single-select-field.dto';
 @ApiExtraModels(MultipleSelectOptionsDto)
 @ApiExtraModels(SingleSelectOptionsDto)
 @ApiExtraModels(NumberOptionsDto)
+@ApiExtraModels(DateOptionsDto)
 export class CreateFieldRo implements IFieldRo {
   @ApiProperty({
     description: 'The name of the field.',
@@ -41,6 +43,7 @@ export class CreateFieldRo implements IFieldRo {
       { $ref: getSchemaPath(MultipleSelectOptionsDto) },
       { $ref: getSchemaPath(SingleSelectOptionsDto) },
       { $ref: getSchemaPath(NumberOptionsDto) },
+      { $ref: getSchemaPath(DateOptionsDto) },
     ],
   })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,4 +1,4 @@
-import { FieldType } from '@teable-group/core';
+import { DateFormatting, FieldType, TimeFormatting } from '@teable-group/core';
 import {
   MultipleSelectField,
   NumberField,
@@ -6,6 +6,7 @@ import {
   SingleSelectField,
   LinkField,
   FormulaField,
+  DateField,
 } from '@teable-group/sdk/model';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
@@ -48,6 +49,11 @@ export const FIELD_CONSTANT = [
     type: FieldType.Formula,
     IconComponent: FieldTextIcon,
   },
+  {
+    text: 'Date',
+    type: FieldType.Date,
+    IconComponent: FieldTextIcon,
+  },
 ];
 
 export const NUMBER_FIELD_PRECISION = [
@@ -73,6 +79,56 @@ export const NUMBER_FIELD_PRECISION = [
   },
 ];
 
+export const DATE_FORMATTING_OF_DATE_FIELD = [
+  {
+    text: 'Year/Month/Day',
+    value: DateFormatting.YMDWithSlash,
+  },
+  {
+    text: 'Year-Month-Day',
+    value: DateFormatting.YMDWithDash,
+  },
+  {
+    text: 'Day/Month/Year',
+    value: DateFormatting.DMY,
+  },
+  {
+    text: 'Year/Month',
+    value: DateFormatting.YM,
+  },
+  {
+    text: 'Month/Day',
+    value: DateFormatting.MD,
+  },
+  {
+    text: 'Year',
+    value: DateFormatting.Y,
+  },
+  {
+    text: 'Month',
+    value: DateFormatting.M,
+  },
+  {
+    text: 'Day',
+    value: DateFormatting.D,
+  },
+];
+
+export const TIME_FORMATTING_OF_DATE_FIELD = [
+  {
+    text: '24 hour',
+    value: TimeFormatting.Hour24,
+  },
+  {
+    text: '12 hour',
+    value: TimeFormatting.Hour12,
+  },
+  {
+    text: 'No display',
+    value: TimeFormatting.None,
+  },
+];
+
 export const fieldDefaultOptionMap: Record<string, unknown> = {
   [FieldType.SingleLineText]: SingleLineTextField.defaultOptions(),
   [FieldType.SingleSelect]: SingleSelectField.defaultOptions(),
@@ -80,5 +136,6 @@ export const fieldDefaultOptionMap: Record<string, unknown> = {
   [FieldType.MultipleSelect]: MultipleSelectField.defaultOptions(),
   [FieldType.Link]: LinkField.defaultOptions(),
   [FieldType.Formula]: FormulaField.defaultOptions(),
+  [FieldType.Date]: DateField.defaultOptions(),
   [FieldType.Attachment]: null,
 };

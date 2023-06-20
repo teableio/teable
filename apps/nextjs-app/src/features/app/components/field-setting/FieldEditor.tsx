@@ -1,4 +1,5 @@
 import type {
+  DateFieldOptions,
   FormulaFieldOptions,
   IFieldRo,
   ILinkFieldOptionsRo,
@@ -11,6 +12,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { Input } from '@/components/ui/input';
 import { fieldDefaultOptionMap } from '../../utils/field';
+import { DateOptions } from './DateOptions';
 import { FormulaOptions } from './FormulaOptions';
 import { LinkOptions } from './LinkOptions';
 import { NumberOptions } from './NumberOptions';
@@ -63,7 +65,12 @@ export const FieldEditor = (props: {
 
   const updateFieldOptions = useCallback(
     (
-      options: NumberFieldOptions | SelectFieldOptions | ILinkFieldOptionsRo | FormulaFieldOptions
+      options:
+        | NumberFieldOptions
+        | SelectFieldOptions
+        | ILinkFieldOptionsRo
+        | FormulaFieldOptions
+        | DateFieldOptions
     ) => {
       setFieldFn({
         ...field,
@@ -103,6 +110,10 @@ export const FieldEditor = (props: {
             options={field.options as FormulaFieldOptions}
             onChange={updateFieldOptions}
           />
+        );
+      case FieldType.Date:
+        return (
+          <DateOptions options={field.options as DateFieldOptions} onChange={updateFieldOptions} />
         );
       default:
         return;

@@ -7,3 +7,4 @@ export * from './link.field';
 export * from './formula.field';
 export * from './field';
 export * from './attachment.field';
+export * from './date.field';

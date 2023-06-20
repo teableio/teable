@@ -1,11 +1,11 @@
+import { drawTextCell, GridCellKind } from '@glideapps/glide-data-grid';
 import type { CustomRenderer } from '@glideapps/glide-data-grid';
-import { GridCellKind } from '@glideapps/glide-data-grid';
 import { FieldType } from '@teable-group/core';
 import { isMatchCustomCell } from '../../utils';
 import { attachmentCell } from './attachmentCell';
 import { loadingCell } from './loadingCell';
 import { selectCell } from './selectCell';
-import type { ICustomCellGridCell, IGridCell } from './type';
+import type { ICustomCellGridCell, IDateGridCell, IGridCell } from './type';
 
 export const BaseCell: CustomRenderer<ICustomCellGridCell> = {
   kind: GridCellKind.Custom,
@@ -22,6 +22,9 @@ export const BaseCell: CustomRenderer<ICustomCellGridCell> = {
         break;
       case FieldType.Attachment:
         attachmentCell(args, cell);
+        break;
+      case FieldType.Date:
+        drawTextCell(args, ((cell as ICustomCellGridCell).data as IDateGridCell).value);
         break;
       default:
         loadingCell(args, cell);

@@ -12,6 +12,7 @@ import { plainToInstance } from 'class-transformer';
 import { isString } from 'lodash';
 import type { CreateFieldRo } from './create-field.ro';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
+import { DateFieldDto } from './field-dto/date-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
@@ -68,6 +69,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
         return FormulaFieldDto.factory(fieldRo);
       case FieldType.Attachment:
         return AttachmentFieldDto.factory(fieldRo);
+      case FieldType.Date:
+        return DateFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -79,7 +82,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: st
       case FieldType.AutoNumber:
       case FieldType.Count:
       case FieldType.CreatedTime:
-      case FieldType.Date:
       case FieldType.Duration:
       case FieldType.LastModifiedTime:
       case FieldType.Rating:
@@ -154,6 +156,8 @@ export function createFieldInstanceByVo(field: FieldVo) {
       return plainToInstance(FormulaFieldDto, field);
     case FieldType.Attachment:
       return plainToInstance(AttachmentFieldDto, field);
+    case FieldType.Date:
+      return plainToInstance(DateFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -165,7 +169,6 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.AutoNumber:
     case FieldType.Count:
     case FieldType.CreatedTime:
-    case FieldType.Date:
     case FieldType.Duration:
     case FieldType.LastModifiedTime:
     case FieldType.Rating:
