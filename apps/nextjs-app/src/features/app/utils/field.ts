@@ -81,50 +81,50 @@ export const NUMBER_FIELD_PRECISION = [
 
 export const DATE_FORMATTING_OF_DATE_FIELD = [
   {
-    text: '年/月/日',
+    text: 'Year/Month/Day',
     value: DateFormatting.YMDWithSlash,
   },
   {
-    text: '年-月-日',
+    text: 'Year-Month-Day',
     value: DateFormatting.YMDWithDash,
   },
   {
-    text: '日/月/年',
+    text: 'Day/Month/Year',
     value: DateFormatting.DMY,
   },
   {
-    text: '年/月',
+    text: 'Year/Month',
     value: DateFormatting.YM,
   },
   {
-    text: '月/日',
+    text: 'Month/Day',
     value: DateFormatting.MD,
   },
   {
-    text: '年',
+    text: 'Year',
     value: DateFormatting.Y,
   },
   {
-    text: '月',
+    text: 'Month',
     value: DateFormatting.M,
   },
   {
-    text: '日',
+    text: 'Day',
     value: DateFormatting.D,
   },
 ];
 
 export const TIME_FORMATTING_OF_DATE_FIELD = [
   {
-    text: '24 小时',
+    text: '24 hour',
     value: TimeFormatting.Hour24,
   },
   {
-    text: '12 小时',
+    text: '12 hour',
     value: TimeFormatting.Hour12,
   },
   {
-    text: '不显示',
+    text: 'No display',
     value: TimeFormatting.None,
   },
 ];

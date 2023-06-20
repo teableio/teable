@@ -60,7 +60,7 @@ describe('DateFieldCore', () => {
 
   it('should repair invalid value', () => {
     expect(() => field.repair(1687158022191)).not.toThrow();
-    expect(() => field.repair(null)).toThrowError('invalid value: null for field: Test Date Field');
+    expect(() => field.repair(true)).toThrowError('invalid value: true for field: Test Date Field');
   });
 
   describe('validateOptions', () => {
