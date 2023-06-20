@@ -1,5 +1,10 @@
 import type { CustomCell } from '@glideapps/glide-data-grid';
-import type { FieldType, IAttachmentCellValue, SelectFieldOptions } from '@teable-group/core';
+import type {
+  DateFieldOptions,
+  FieldType,
+  IAttachmentCellValue,
+  SelectFieldOptions,
+} from '@teable-group/core';
 
 export interface ISelectGridCell {
   type: FieldType.SingleSelect | FieldType.MultipleSelect | FieldType.Link;
@@ -13,10 +18,16 @@ export interface IAttachmentGridCell {
   options: null;
 }
 
+export interface IDateGridCell {
+  type: FieldType.Date;
+  value: string;
+  options?: DateFieldOptions;
+}
+
 export interface ILoadingGridCell {
   type: 'loading';
 }
 
-export type IGridCell = ISelectGridCell | IAttachmentGridCell | ILoadingGridCell;
+export type IGridCell = ISelectGridCell | IAttachmentGridCell | ILoadingGridCell | IDateGridCell;
 
 export type ICustomCellGridCell = CustomCell<IGridCell>;

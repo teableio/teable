@@ -1,17 +1,16 @@
 import type {
-  ICreateRecordsRo,
+  IRecordFields,
   IFieldRo,
   IFieldVo,
   IJsonApiSuccessResponse,
-  IRecordFields,
-  IRecordSnapshot,
-  IRecordsRo,
-  IRecordsVo,
   ITableSnapshot,
+  ICreateRecordsRo,
+  IRecordsVo,
+  IRecordsRo,
   IUpdateRecordByIndexRo,
   IViewRo,
 } from '@teable-group/core';
-import { generateRecordId, IdPrefix, OpBuilder, TableCore } from '@teable-group/core';
+import { OpBuilder, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
@@ -35,13 +34,12 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  static async getFields(tableId: string, viewId: string) {
+  static async getFields(tableId: string, viewId?: string) {
+    const params = viewId ? { viewId } : {};
     const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
       `/api/table/${tableId}/field`,
       {
-        params: {
-          viewId,
-        },
+        params,
       }
     );
     return response.data.data;
@@ -109,22 +107,17 @@ export class Table extends TableCore {
   }
 
   async createRecord(recordFields: IRecordFields) {
-    const recordSnapshot: IRecordSnapshot = {
-      record: {
-        id: generateRecordId(),
-        fields: recordFields,
-        recordOrder: {},
-      },
-    };
-    const createSnapshot = OpBuilder.creator.addRecord.build(recordSnapshot);
-    const connection = this.doc.connection;
-    const doc = connection.get(`${IdPrefix.Record}_${this.id}`, recordSnapshot.record.id);
-    return new Promise<Doc<IRecordSnapshot>>((resolve, reject) => {
-      doc.create(createSnapshot, (error) => {
-        if (error) return reject(error);
-        resolve(doc);
-      });
-    });
+    const response = await axios.post<IJsonApiSuccessResponse<IRecordsVo>>(
+      `/api/table/${this.id}/record`,
+      {
+        records: [
+          {
+            fields: recordFields,
+          },
+        ],
+      }
+    );
+    return response.data.data;
   }
 
   async createField(fieldRo: IFieldRo) {

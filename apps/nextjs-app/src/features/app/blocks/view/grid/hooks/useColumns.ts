@@ -81,6 +81,15 @@ const generateColumns = (
           hasMenu: true,
           width,
         };
+      case FieldType.Date:
+        return {
+          id: field.id,
+          title: field.name,
+          icon: FieldType.Date,
+          kind: GridCellKind.Custom,
+          hasMenu: true,
+          width,
+        };
     }
   });
 };
@@ -167,6 +176,17 @@ const createCellValue2GridDisplay =
             type: FieldType.Attachment,
             options: field.options,
             value: cellValue ?? [],
+          },
+          copyData: `${col}`,
+          allowOverlay: true,
+        };
+      }
+      case FieldType.Date: {
+        return {
+          kind: GridCellKind.Custom,
+          data: {
+            type: FieldType.Date,
+            value: field.cellValue2String(cellValue as number),
           },
           copyData: `${col}`,
           allowOverlay: true,

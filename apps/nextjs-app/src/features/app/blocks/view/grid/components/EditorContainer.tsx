@@ -5,6 +5,7 @@ import { useClickAway } from 'react-use';
 import { useViewStore } from '../../store/view';
 import { useGridViewStore } from '../store/gridView';
 import { AttachmentEditor } from './editor/AttachmentEditor';
+import { DateEditor } from './editor/DateEditor';
 import { SelectEditor } from './editor/SelectEditor';
 import { LinkEditor } from './editor/SimpleLinkEditor';
 
@@ -41,6 +42,8 @@ export const EditorContainer = () => {
         return <AttachmentEditor style={style} field={field} record={record} onCancel={onCancel} />;
       case FieldType.Link:
         return <LinkEditor style={style} field={field} record={record} onCancel={onCancel} />;
+      case FieldType.Date:
+        return <DateEditor style={style} field={field} record={record} onCancel={onCancel} />;
       default:
         return <></>;
     }
