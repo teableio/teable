@@ -1,6 +1,11 @@
-import type { IConfig } from './config.interface';
+import type { IConfig, ILogLevel } from './config.interface';
 
 const loadConfig: IConfig = {
+  logger: {
+    level: {
+      prismaQueryLog: (process.env.LOGGER_LEVEL_PRISMAQUERYLOG as ILogLevel) || 'off',
+    },
+  },
   nextJs: {
     dir: process.env.NEXTJS_DIR || '../nextjs-app',
   },

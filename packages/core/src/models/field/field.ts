@@ -30,6 +30,7 @@ export interface IFieldRo {
   unique?: boolean;
   isPrimary?: boolean;
   defaultValue?: unknown;
+  columnMeta?: IColumnMeta;
 }
 
 export interface IFieldVo extends IFieldRo {

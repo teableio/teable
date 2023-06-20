@@ -1,6 +1,7 @@
 import type { IOtOperation } from '../models';
 import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
+import { DeleteColumnMetaBuilder } from './field/delete-column-meta';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
 import { SetFieldDefaultValueBuilder } from './field/set-field-default-value';
 import { SetFieldDescriptionBuilder } from './field/set-field-description';
@@ -35,6 +36,7 @@ export class OpBuilder {
     setRecordOrder: new SetRecordOrderBuilder(),
 
     addColumnMeta: new AddColumnMetaBuilder(),
+    deleteColumnMeta: new DeleteColumnMetaBuilder(),
     setColumnMeta: new SetColumnMetaBuilder(),
     setFieldName: new SetFieldNameBuilder(),
     setFieldDescription: new SetFieldDescriptionBuilder(),

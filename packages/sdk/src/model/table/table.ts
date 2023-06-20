@@ -1,12 +1,12 @@
 import type {
-  IRecordFields,
+  ICreateRecordsRo,
   IFieldRo,
   IFieldVo,
   IJsonApiSuccessResponse,
-  ITableSnapshot,
-  ICreateRecordsRo,
-  IRecordsVo,
+  IRecordFields,
   IRecordsRo,
+  IRecordsVo,
+  ITableSnapshot,
   IUpdateRecordByIndexRo,
   IViewRo,
 } from '@teable-group/core';
@@ -15,6 +15,7 @@ import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
 export class Table extends TableCore {
+  protected doc!: Doc<ITableSnapshot>;
   static async updateRecordByIndex(params: IUpdateRecordByIndexRo & { tableId: string }) {
     const { tableId, ...recordRo } = params;
     const response = await axios.put<IJsonApiSuccessResponse<void>>(
@@ -73,8 +74,6 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  protected doc!: Doc<ITableSnapshot>;
-
   async updateName(name: string) {
     const fieldOperation = OpBuilder.editor.setTableName.build({
       newName: name,
@@ -94,6 +93,15 @@ export class Table extends TableCore {
     const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
       `/api/table/${tableId}/view`,
       viewRo
+    );
+    return response.data.data;
+  }
+
+  async deleteView(params: { tableId: string; viewId: string }) {
+    const { tableId, viewId } = params;
+
+    const response = await axios.delete<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/view/${viewId}`
     );
     return response.data.data;
   }

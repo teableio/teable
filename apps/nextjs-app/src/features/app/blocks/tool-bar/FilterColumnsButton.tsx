@@ -1,6 +1,7 @@
 import type { IFieldInstance } from '@teable-group/sdk';
 import { useFields, useViewId } from '@teable-group/sdk';
 import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
+import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,14 +38,17 @@ export const FilterColumnsButton = () => {
 
   const content = () => (
     <div className="space-y-4">
-      <Input
-        placeholder="Find column"
-        value={searchText}
-        onChange={(e) => {
-          setSearchText(e.target.value);
-        }}
-        className="h-8"
-      />
+      <div className="relative inline-flex items-center w-full">
+        <Input
+          className="pl-8 pr-2 py-1"
+          placeholder="Find column"
+          value={searchText}
+          onChange={(e) => {
+            setSearchText(e.target.value);
+          }}
+        />
+        <SearchIcon className="text-xl absolute left-2 top-1/2 -translate-y-1/2" />
+      </div>
       <div className="w-72 space-y-2">
         {fieldData.map((field) => (
           <div className="flex items-center space-x-2" key={field.id}>
@@ -91,7 +95,9 @@ export const FilterColumnsButton = () => {
           {hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields'}
         </Button>
       </PopoverTrigger>
-      <PopoverContent>{content()}</PopoverContent>
+      <PopoverContent side="bottom" align="start">
+        {content()}
+      </PopoverContent>
     </Popover>
   );
 };

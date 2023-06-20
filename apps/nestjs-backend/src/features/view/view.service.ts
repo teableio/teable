@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  IColumnMeta,
   ISetViewNameOpContext,
   ISnapshotBase,
   IViewSnapshot,
   ViewType,
 } from '@teable-group/core';
-import { OpName, generateViewId } from '@teable-group/core';
+import { generateViewId, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
@@ -21,30 +20,6 @@ export class ViewService implements IAdapterService {
 
   getRowIndexFieldName(viewId: string) {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
-  }
-
-  private async updateColumnMeta(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    viewId: string
-  ) {
-    const fields = await prisma.field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true },
-    });
-
-    for (let index = 0; index < fields.length; index++) {
-      const field = fields[index];
-      const columnMeta: IColumnMeta = JSON.parse(field.columnMeta);
-      columnMeta[viewId] = {
-        order: index,
-      };
-
-      await prisma.field.update({
-        where: { id: field.id },
-        data: { columnMeta: JSON.stringify(columnMeta) },
-      });
-    }
   }
 
   async createViewTransaction(
@@ -100,16 +75,13 @@ export class ViewService implements IAdapterService {
       data,
     });
 
-    // 2. add view id to columnMeta in every field
-    await this.updateColumnMeta(prisma, tableId, viewId);
-
-    // 3. add a field for maintain row order number
+    // 2. add a field for maintain row order number
     await prisma.$executeRawUnsafe(`
       ALTER TABLE ${dbTableName}
       ADD ${rowIndexFieldName} REAL;
     `);
 
-    // 4. fill initial order for every record, with auto increment integer
+    // 3. fill initial order for every record, with auto increment integer
     await prisma.$executeRawUnsafe(`
       UPDATE ${dbTableName} SET ${rowIndexFieldName} = __row_default;
     `);
