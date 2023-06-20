@@ -328,47 +328,27 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  private async handleFieldName(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
+  private handleFieldName(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return { name: (opContext as ISetFieldNameOpContext).newName };
   }
 
-  private async handleFieldDescription(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
+  private handleFieldDescription(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return { description: (opContext as ISetFieldDescriptionOpContext).newDescription };
   }
 
-  private async handleFieldType(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
+  private handleFieldType(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return { type: (opContext as ISetFieldTypeOpContext).newType };
   }
 
-  private async handleFieldOptions(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
+  private handleFieldOptions(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
   }
 
-  private async handleFieldDefaultValue(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
+  private handleFieldDefaultValue(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return {
       defaultValue: JSON.stringify((opContext as ISetFieldDefaultValueOpContext).newDefaultValue),
@@ -387,55 +367,51 @@ export class FieldService implements IAdapterService {
       select: { columnMeta: true },
     });
 
-    const oldColumnMeta = JSON.parse(fieldData.columnMeta);
-    let columnMeta = cloneDeep(oldColumnMeta);
+    let newColumnMeta = JSON.parse(fieldData.columnMeta);
     if (opContext.name === OpName.AddColumnMeta) {
       const { viewId, newMetaValue } = opContext;
 
-      columnMeta = {
-        ...oldColumnMeta,
+      newColumnMeta = {
+        ...newColumnMeta,
         [viewId]: {
-          ...oldColumnMeta[viewId],
+          ...newColumnMeta[viewId],
           ...newMetaValue,
         },
       };
-    }
-    if (opContext.name === OpName.SetColumnMeta) {
+    } else if (opContext.name === OpName.SetColumnMeta) {
       const { viewId, metaKey, newMetaValue } = opContext;
 
-      columnMeta = {
-        ...oldColumnMeta,
+      newColumnMeta = {
+        ...newColumnMeta,
         [viewId]: {
-          ...oldColumnMeta[viewId],
+          ...newColumnMeta[viewId],
           [metaKey]: newMetaValue,
         },
       };
-    }
-    if (opContext.name === OpName.DeleteColumnMeta) {
+    } else if (opContext.name === OpName.DeleteColumnMeta) {
       const { viewId, oldMetaValue } = opContext;
 
       forEach(oldMetaValue, (value, key) => {
-        if (isEqual(columnMeta[viewId][key], value)) {
-          delete columnMeta[viewId][key];
-          if (Object.keys(columnMeta[viewId]).length === 0) {
-            delete columnMeta[viewId];
+        if (isEqual(newColumnMeta[viewId][key], value)) {
+          delete newColumnMeta[viewId][key];
+          if (Object.keys(newColumnMeta[viewId]).length === 0) {
+            delete newColumnMeta[viewId];
           }
         }
       });
     }
 
-    return { columnMeta: JSON.stringify(columnMeta) };
+    return { columnMeta: JSON.stringify(newColumnMeta) };
   }
 
-  async update(
-    prisma: Prisma.TransactionClient,
-    version: number,
-    tableId: string,
-    fieldId: string,
-    opContexts: IOpContexts[]
+  private async updateStrategies(
+    opContext: IOpContexts,
+    params: {
+      prisma: Prisma.TransactionClient;
+      fieldId: string;
+      opContext: IOpContexts;
+    }
   ) {
-    let updateData = { version };
-
     const opHandlers = {
       [OpName.SetFieldName]: this.handleFieldName,
       [OpName.SetFieldDescription]: this.handleFieldDescription,
@@ -448,29 +424,39 @@ export class FieldService implements IAdapterService {
       [OpName.DeleteColumnMeta]: this.handleColumnMeta,
     };
 
-    for (const opContext of opContexts) {
-      const handler = opHandlers[opContext.name];
+    const handler = opHandlers[opContext.name];
 
-      if (handler) {
-        updateData = {
-          ...updateData,
-          ...(await handler({ prisma, fieldId, opContext })),
-        };
-      } else {
-        throw new Error(`Unknown context ${opContext} for field update`);
-      }
+    if (!handler) {
+      throw new Error(`Unknown context ${opContext} for field update`);
     }
 
-    this.logger.log(
-      `Field update tableId: ${tableId} | fieldId: ${fieldId} | updateData: ${JSON.stringify(
-        updateData
-      )}`
-    );
+    return handler.constructor.name === 'AsyncFunction' ? await handler(params) : handler(params);
+  }
 
-    await prisma.field.update({
-      where: { id: fieldId },
-      data: updateData,
-    });
+  async update(
+    prisma: Prisma.TransactionClient,
+    version: number,
+    tableId: string,
+    fieldId: string,
+    opContexts: IOpContexts[]
+  ) {
+    for (const opContext of opContexts) {
+      const updateData = {
+        version,
+        ...(await this.updateStrategies(opContext, { prisma, fieldId, opContext })),
+      };
+
+      this.logger.log(
+        `Field update tableId: ${tableId} | fieldId: ${fieldId} | updateData: ${JSON.stringify(
+          updateData
+        )}`
+      );
+
+      await prisma.field.update({
+        where: { id: fieldId },
+        data: updateData,
+      });
+    }
   }
 
   async getSnapshotBulk(

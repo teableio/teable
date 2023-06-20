@@ -1,5 +1,5 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import { FieldType, LookupOptions } from '@teable-group/core';
+import { FieldType, IColumnMeta, LookupOptions } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
 import { FormulaOptionsDto } from './field-dto/formula-field.dto';
 import { LinkOptionsDto } from './field-dto/link-field.dto';
@@ -88,4 +88,20 @@ other fields do not support defaultValue.
     example: false,
   })
   unique?: boolean;
+
+  @ApiProperty({
+    description:
+      'A mapping of view IDs to their corresponding column metadata, including order, width, and hidden status',
+    properties: {
+      viewId: {
+        type: 'object',
+        properties: {
+          order: { type: 'number' },
+          width: { type: 'number' },
+          hidden: { type: 'boolean' },
+        },
+      },
+    },
+  })
+  columnMeta?: IColumnMeta;
 }

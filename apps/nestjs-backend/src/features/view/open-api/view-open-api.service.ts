@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IColumnMeta, IViewSnapshot } from '@teable-group/core';
-import { IdPrefix, OpBuilder } from '@teable-group/core';
+import { IdPrefix, OpBuilder, OpName } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -55,21 +55,13 @@ export class ViewOpenApiService {
     const collection = `${IdPrefix.View}_${tableId}`;
 
     await this.createDoc(transactionKey, collection, viewId, createSnapshot);
-
-    await this.updateColumnMetaForFields(transactionKey, tableId, ({ index }) => {
-      return this.buildAddColumnMeta2Op(viewId, index);
-    });
-
+    await this.updateColumnMetaForFields(transactionKey, viewId, tableId, OpName.AddColumnMeta);
     return createSnapshot.view;
   }
 
   private async deleteViewAndColumnMeta(transactionKey: string, tableId: string, viewId: string) {
     const collection = `${IdPrefix.View}_${tableId}`;
-
-    await this.updateColumnMetaForFields(transactionKey, tableId, ({ oldColumnMeta }) => {
-      return this.buildDeleteColumnMeta2Op(viewId, oldColumnMeta);
-    });
-
+    await this.updateColumnMetaForFields(transactionKey, viewId, tableId, OpName.DeleteColumnMeta);
     return await this.deleteDoc(transactionKey, collection, viewId);
   }
 
@@ -84,8 +76,9 @@ export class ViewOpenApiService {
 
   private async updateColumnMetaForFields(
     transactionKey: string,
+    viewId: string,
     tableId: string,
-    buildOtOperation: (params: { index: number; oldColumnMeta: IColumnMeta }) => unknown
+    opName: OpName.AddColumnMeta | OpName.DeleteColumnMeta
   ) {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     const fields = await prisma.field.findMany({
@@ -98,7 +91,12 @@ export class ViewOpenApiService {
       const collection = `${IdPrefix.Field}_${tableId}`;
       const doc = this.shareDbService.getConnection(transactionKey).get(collection, field.id);
 
-      const data = buildOtOperation({ index, oldColumnMeta: JSON.parse(field.columnMeta) });
+      let data: unknown;
+      if (opName === OpName.AddColumnMeta) {
+        data = this.addColumnMeta2Op(viewId, index);
+      } else {
+        data = this.deleteColumnMeta2Op(viewId, JSON.parse(field.columnMeta));
+      }
 
       await new Promise((resolve, reject) => {
         doc.fetch(() => {
@@ -146,14 +144,14 @@ export class ViewOpenApiService {
     });
   }
 
-  private buildAddColumnMeta2Op(viewId: string, order: number) {
+  private addColumnMeta2Op(viewId: string, order: number) {
     return OpBuilder.editor.addColumnMeta.build({
       viewId,
       newMetaValue: { order },
     });
   }
 
-  private buildDeleteColumnMeta2Op(viewId: string, oldColumnMeta: IColumnMeta) {
+  private deleteColumnMeta2Op(viewId: string, oldColumnMeta: IColumnMeta) {
     return OpBuilder.editor.deleteColumnMeta.build({ viewId, oldMetaValue: oldColumnMeta[viewId] });
   }
 

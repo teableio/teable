@@ -131,7 +131,7 @@ export class FieldOpenApiService {
 
         // Avoid some unnecessary changes, first differences to find out the key with changes
         const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
-          (key) => !isEqual(oldFieldInstance[key], newFieldInstance[key])
+          (key) => !isEqual(fieldVo[key], updateFieldRo[key])
         );
 
         const ops = this.updateField2Ops(updateKeys, newFieldInstance, oldFieldInstance);

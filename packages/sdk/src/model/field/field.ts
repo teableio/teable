@@ -1,22 +1,15 @@
 import type { IFieldSnapshot } from '@teable-group/core';
 import { FieldCore, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import type { Error } from '@teable/sharedb/lib/sharedb';
 
 export abstract class FieldOperations extends FieldCore {
   doc!: Doc<IFieldSnapshot>;
 
-  private async submitOperation(operation: unknown, deleteFlag = false): Promise<void> {
+  private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const callback = (error: Error) => {
+      this.doc.submitOp([operation], undefined, (error) => {
         error ? reject(error) : resolve(undefined);
-      };
-
-      if (deleteFlag) {
-        this.doc.del({}, callback);
-      } else {
-        this.doc.submitOp([operation], undefined, callback);
-      }
+      });
     });
   }
 
@@ -52,6 +45,10 @@ export abstract class FieldOperations extends FieldCore {
   }
 
   async delete(): Promise<void> {
-    return await this.submitOperation(null, true);
+    return new Promise<void>((resolve, reject) => {
+      this.doc.del({}, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
   }
 }

@@ -11,6 +11,7 @@ import type { CreateRecordsRo } from '../../record/create-records.ro';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { CreateViewRo } from '../../view/model/create-view.ro';
 import { createViewInstanceByRo } from '../../view/model/factory';
+import type { ViewVo } from '../../view/model/view.vo';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import type { CreateTableRo } from '../create-table.ro';
 import type { TableVo } from '../table.vo';
@@ -34,8 +35,16 @@ export class TableOpenApiService {
     return await Promise.all(viewCreationPromises);
   }
 
-  private async createField(transactionKey: string, tableId: string, fieldRos: CreateFieldRo[]) {
+  private async createField(
+    transactionKey: string,
+    tableId: string,
+    viewVos: ViewVo[],
+    fieldRos: CreateFieldRo[]
+  ) {
     const fieldCreationPromises = fieldRos.map(async (fieldRo) => {
+      viewVos.forEach((view, index) => {
+        fieldRo['columnMeta'] = { ...fieldRo.columnMeta, [view.id]: { order: index } };
+      });
       const fieldInstance = createFieldInstanceByRo(fieldRo);
       return this.fieldOpenApiService.createField(tableId, fieldInstance, transactionKey);
     });
@@ -58,7 +67,7 @@ export class TableOpenApiService {
         const tableId = tableVo.id;
 
         const viewVos = await this.createView(transactionKey, tableId, tableRo.views);
-        const fieldVos = await this.createField(transactionKey, tableId, tableRo.fields);
+        const fieldVos = await this.createField(transactionKey, tableId, viewVos, tableRo.fields);
         const data = await this.createRecord(transactionKey, tableId, tableRo.data);
         return {
           ...tableVo,
