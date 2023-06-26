@@ -1,12 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  IOtOperation,
-  IRecord,
-  IRecordSnapshot,
-  ISetRecordOpContext,
-} from '@teable-group/core';
+import type { IOtOperation, IRecord, IRecordSnapshot } from '@teable-group/core';
 import {
-  OpName,
   FieldKeyType,
   IdPrefix,
   generateRecordId,
@@ -23,7 +17,7 @@ import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IApplyParam, ICellContext, IOpsMap } from '../../calculation/link.service';
+import type { IOpsMap, ICellContext } from '../../calculation/link.service';
 import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
@@ -62,7 +56,7 @@ export class RecordOpenApiService {
     );
   }
 
-  private async generateOpsParamsByTableId(
+  private async generateCellContexts(
     prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
@@ -82,7 +76,7 @@ export class RecordOpenApiService {
     });
     const fieldIdMap = keyBy(fieldRaws, fieldKey);
 
-    const applyParams: IApplyParam[] = [];
+    const cellContexts: ICellContext[] = [];
     for (const record of records) {
       const collection = `${IdPrefix.Record}_${tableId}`;
       const doc = connection.get(collection, record.id);
@@ -92,85 +86,26 @@ export class RecordOpenApiService {
           resolve(doc.data);
         });
       });
-      const opContexts: ISetRecordOpContext[] = [];
-
       Object.entries(record.fields).forEach(([fieldKey, value]) => {
         const fieldId = fieldIdMap[fieldKey].id;
         const oldCellValue = snapshot.record.fields[fieldId];
-        opContexts.push({
-          name: OpName.SetRecord,
+        cellContexts.push({
+          recordId: record.id,
           fieldId,
           newValue: value,
           oldValue: oldCellValue,
         });
       });
-
-      applyParams.push({
-        tableId,
-        recordId: record.id,
-        opContexts,
-      });
     }
-    return applyParams;
+    return cellContexts;
   }
 
-  private async submitOpByLinkDerivation(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    tableId: string,
-    applyParams: IApplyParam[]
-  ) {
-    // calculate all changes
-    const opsMaps: IOpsMap[] = [];
-    // derivate changes by link and submit it
-    for (const applyParam of applyParams) {
-      const recordData = applyParam.opContexts.map((ctx) => {
-        return {
-          id: applyParam.recordId,
-          fieldId: ctx.fieldId,
-          newValue: ctx.newValue,
-          oldValue: ctx.oldValue,
-        };
-      });
-
-      const derivateChangesByLink = await this.linkService.getDerivateChangesByLink(
-        prisma,
-        tableId,
-        recordData as ICellContext[]
-      );
-      opsMaps.push(
-        this.linkService.formatOpsByChanges(
-          recordData
-            .map((data) => {
-              return {
-                tableId,
-                recordId: data.id,
-                fieldId: data.fieldId,
-                newValue: data.newValue,
-                oldValue: data.oldValue,
-              };
-            })
-            .concat(derivateChangesByLink)
-        )
-      );
-    }
-
-    const opsMap = this.linkService.composeOpsMaps(opsMaps);
-    await this.sendOpsMap(connection, opsMap);
-    return opsMap;
-  }
-
-  private async submitOpByCalculation(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    opsMap: IOpsMap
-  ) {
+  private async getOpsMapByCalculation(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
     const calculated = await this.linkService.calculate(prisma, opsMap);
 
     opsMap = this.linkService.formatOpsByChanges(calculated);
 
-    // submit other changes
-    await this.sendOpsMap(connection, opsMap);
+    return opsMap;
   }
 
   private async getRecordSnapshotsAfterSubmit(
@@ -187,6 +122,21 @@ export class RecordOpenApiService {
       return doc.data;
     });
   }
+  private async getOpsMapByLink(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    opContexts: ICellContext[]
+  ) {
+    const derivateChangesByLink = await this.linkService.getDerivateChangesByLink(
+      prisma,
+      tableId,
+      opContexts
+    );
+
+    return derivateChangesByLink.length
+      ? this.linkService.formatOpsByChanges(derivateChangesByLink)
+      : undefined;
+  }
 
   private async calculateAndSubmitOp(
     transactionKey: string,
@@ -197,8 +147,8 @@ export class RecordOpenApiService {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     const connection = this.shareDbService.getConnection(transactionKey);
 
-    // generate Op by origin submit
-    const originApplyParams = await this.generateOpsParamsByTableId(
+    // 1. generate Op by origin submit
+    const opsContexts = await this.generateCellContexts(
       prisma,
       connection,
       tableId,
@@ -206,19 +156,36 @@ export class RecordOpenApiService {
       records
     );
 
-    // console.log('generateOpsParamsByTableId', JSON.stringify(originApplyParams, null, 2));
-    // apply op by origin submit and link derivation
-    const opsMap = await this.submitOpByLinkDerivation(
-      prisma,
-      connection,
-      tableId,
-      originApplyParams
+    const opsMapOrigin = this.linkService.formatOpsByChanges(
+      opsContexts.map((data) => {
+        return {
+          tableId,
+          recordId: data.recordId,
+          fieldId: data.fieldId,
+          newValue: data.newValue,
+          oldValue: data.oldValue,
+        };
+      })
     );
 
+    // 2. get cell changes by link derivation
+    const opsMayByLink = await this.getOpsMapByLink(prisma, tableId, opsContexts);
     // console.log('submitOpByLinkDerivation', JSON.stringify(opsMap, null, 2));
 
-    // apply op by calculate derivation
-    await this.submitOpByCalculation(prisma, connection, opsMap);
+    // 3. calculate by origin ops and link derivation
+    const opsMapByCalculation = await this.getOpsMapByCalculation(
+      prisma,
+      this.linkService.composeMaps([opsMapOrigin, opsMayByLink])
+    );
+
+    const composedOpsMap = this.linkService.composeMaps([
+      opsMapOrigin,
+      opsMayByLink,
+      opsMapByCalculation,
+    ]);
+
+    // 4. send all ops
+    await this.sendOpsMap(connection, composedOpsMap);
 
     // return record result
     return this.getRecordSnapshotsAfterSubmit(connection, tableId, records);

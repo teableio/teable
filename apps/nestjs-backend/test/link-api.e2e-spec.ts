@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IRecord } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
-import type { LinkFieldDto } from 'src/features/field/model/field-dto/link-field.dto';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
+import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './init-app';
 
@@ -29,6 +30,11 @@ describe('OpenAPI link (e2e)', () => {
 
   describe('create table with link field', () => {
     it('should create foreign link field when create a new table with link field', async () => {
+      const textFieldRo: CreateFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
       const numberFieldRo: CreateFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
@@ -37,16 +43,18 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const textFieldRo: CreateFieldRo = {
-        name: 'text field',
-        type: FieldType.SingleLineText,
-      };
-
       const createTable1Result = await request(app.getHttpServer())
         .post('/api/table')
         .send({
           name: 'table1',
-          fields: [numberFieldRo, textFieldRo],
+          fields: [textFieldRo, numberFieldRo],
+          data: {
+            records: [
+              { fields: { 'text field': 'table1_1' } },
+              { fields: { 'text field': 'table1_2' } },
+              { fields: { 'text field': 'table1_3' } },
+            ],
+          },
         })
         .expect(201);
 
@@ -65,7 +73,14 @@ describe('OpenAPI link (e2e)', () => {
         .post('/api/table')
         .send({
           name: 'table2',
-          fields: [numberFieldRo, textFieldRo, linkFieldRo],
+          fields: [textFieldRo, numberFieldRo, linkFieldRo],
+          data: {
+            records: [
+              { fields: { 'text field': 'table2_1' } },
+              { fields: { 'text field': 'table2_2' } },
+              { fields: { 'text field': 'table2_3' } },
+            ],
+          },
         })
         .expect(201);
       table2Id = createTable2Result.body.data.id;
@@ -203,6 +218,13 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
+          data: {
+            records: [
+              { fields: { 'text field': 'table1_1' } },
+              { fields: { 'text field': 'table1_2' } },
+              { fields: { 'text field': 'table1_3' } },
+            ],
+          },
         })
         .expect(201);
 
@@ -224,8 +246,16 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, table2LinkFieldRo],
+          data: {
+            records: [
+              { fields: { 'text field': 'table2_1' } },
+              { fields: { 'text field': 'table2_2' } },
+              { fields: { 'text field': 'table2_3' } },
+            ],
+          },
         })
         .expect(201);
+
       const linkToRecordId = table1Records[0].id;
       table2Id = createTable2Result.body.data.id;
 
@@ -256,6 +286,7 @@ describe('OpenAPI link (e2e)', () => {
 
       expect(table1RecordResult.body.data.record.fields[table1linkField.name]).toEqual([
         {
+          title: 'table2_1',
           id: table2Records[0].id,
         },
       ]);
@@ -279,7 +310,7 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'test', id: ctx.table1Records[1].id },
+              [ctx.table2LinkFieldRo.name]: { title: 'table1_2', id: ctx.table1Records[1].id },
             },
           },
         } as UpdateRecordRo)
@@ -294,6 +325,7 @@ describe('OpenAPI link (e2e)', () => {
       ).toBeUndefined();
       expect(table1RecordResult2.body.data.records[1].fields[ctx.table1linkField.name]).toEqual([
         {
+          title: 'table2_1',
           id: ctx.table2Records[0].id,
         },
       ]);
@@ -329,7 +361,7 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'test', id: ctx.table1Records[0].id },
+              [ctx.table2LinkFieldRo.name]: { title: 'table1_1', id: ctx.table1Records[0].id },
             },
           },
         } as UpdateRecordRo)
@@ -443,7 +475,7 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'test1', id: ctx.table1Records[1].id },
+              [ctx.table2LinkFieldRo.name]: { title: 'illegal title', id: ctx.table1Records[1].id },
             },
           },
         } as UpdateRecordRo)
@@ -463,12 +495,13 @@ describe('OpenAPI link (e2e)', () => {
 
       expect(table1RecordResult.body.data.records[1].fields[ctx.table1linkField.name]).toEqual([
         {
+          title: 'table2_1',
           id: ctx.table2Records[0].id,
         },
       ]);
 
       expect(table2RecordResult.body.data.records[0].fields[table2FormulaFieldRo.name]).toEqual(
-        'test1'
+        'table1_2'
       );
     });
 
@@ -492,8 +525,8 @@ describe('OpenAPI link (e2e)', () => {
           record: {
             fields: {
               [ctx.table1linkField.name]: [
-                { title: 'test1', id: ctx.table2Records[0].id },
-                { title: 'test2', id: ctx.table2Records[1].id },
+                { title: 'illegal test1', id: ctx.table2Records[0].id },
+                { title: 'illegal test2', id: ctx.table2Records[1].id },
               ],
             },
           },
@@ -505,12 +538,12 @@ describe('OpenAPI link (e2e)', () => {
         .expect(200);
 
       expect(table1RecordResult.body.data.records[0].fields[ctx.table1linkField.name]).toEqual([
-        { title: 'test1', id: ctx.table2Records[0].id },
-        { title: 'test2', id: ctx.table2Records[1].id },
+        { title: 'table2_1', id: ctx.table2Records[0].id },
+        { title: 'table2_2', id: ctx.table2Records[1].id },
       ]);
 
       expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual(
-        'test1, test2'
+        'table2_1, table2_2'
       );
     });
   });

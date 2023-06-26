@@ -80,21 +80,22 @@ export class ShareDbService extends ShareDBClass {
     }
 
     this.derivateChangeService.countTransaction(tsMeta);
+    let derivateData: Awaited<ReturnType<DerivateChangeService['derivateAndCalculateLink']>>;
     try {
       await this.onRecordApply(context);
+      // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
+      derivateData = await this.derivateChangeService.derivateAndCalculateLink(tsMeta);
     } catch (e) {
       this.derivateChangeService.cleanTransaction(tsMeta);
       return next(e);
     }
-    // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
-    const opsToOthers = this.derivateChangeService.getOpsToOthers(tsMeta);
 
     next();
 
     // only last onApply triggered within a transaction will return otherSnapshotOps
     // it make sure we not lead to infinite loop
-    if (opsToOthers) {
-      this.sendOps(opsToOthers.transactionMeta, opsToOthers.otherSnapshotOps);
+    if (derivateData) {
+      this.sendOpsMap(derivateData.transactionMeta, derivateData.opsMap);
     }
   };
 
@@ -130,18 +131,18 @@ export class ShareDbService extends ShareDBClass {
     fixupOps && context.$fixup(fixupOps);
   }
 
-  private async sendOps(
+  private async sendOpsMap(
     transactionMeta: ITransactionMeta,
-    otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
+    opsMap: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
+    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     console.log('new:transactionMeta:', transactionMeta);
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     connection.agent!.custom = transactionMeta;
     const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
-    for (const tableId in otherSnapshotOps) {
-      const data = otherSnapshotOps[tableId];
+    for (const tableId in opsMap) {
+      const data = opsMap[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
