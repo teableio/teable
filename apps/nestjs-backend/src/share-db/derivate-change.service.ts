@@ -3,7 +3,7 @@ import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
-import type { ICellChange } from '../features/calculation/reference.service';
+import type { ICellChange, IOpsMap } from '../features/calculation/reference.service';
 import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
 
@@ -19,6 +19,7 @@ export class DerivateChangeService {
     string,
     {
       changes: ICellChange[];
+      opsMaps: IOpsMap[];
       counter: number;
     }
   > = new Map();
@@ -31,6 +32,7 @@ export class DerivateChangeService {
       this.transactions.set(tsMeta.transactionKey, {
         counter: 1,
         changes: [],
+        opsMaps: [],
       });
     }
   }
@@ -46,25 +48,31 @@ export class DerivateChangeService {
     }
 
     if (transaction.counter === tsMeta.opCount) {
-      const changes = transaction.changes;
+      const { changes, opsMaps } = transaction;
       this.cleanTransaction(tsMeta);
-      if (!changes.length) {
-        return;
-      }
       if (new Set(changes.map((c) => c.tableId)).size > 1) {
         throw new Error('Invalid changes, contains multiple tableId in 1 transaction');
       }
-      const prisma = await this.transactionService.getTransaction(tsMeta);
-      const derivateChanges = await this.linkService.getDerivateChangesByLink(
-        prisma,
-        changes[0].tableId,
-        changes
-      );
 
-      const opsMap = this.linkService.formatOpsByChanges(derivateChanges);
-      tsMeta = this.refreshTransactionCache(tsMeta, opsMap);
+      const prisma = await this.transactionService.getTransaction(tsMeta);
+      let derivateOpsMap: IOpsMap = {};
+
+      if (changes.length) {
+        const derivateChanges = await this.linkService.getDerivateChangesByLink(
+          prisma,
+          changes[0].tableId,
+          changes
+        );
+
+        derivateOpsMap = this.linkService.formatOpsByChanges(derivateChanges);
+      }
+
+      // compose opsMap from origin calculation and derivateChanges calculation
+      const finalOpsMap = this.linkService.composeMaps(opsMaps.concat(derivateOpsMap));
+      tsMeta = this.refreshTransactionCache(tsMeta, finalOpsMap);
+
       return {
-        opsMap,
+        opsMap: finalOpsMap,
         transactionMeta: tsMeta,
       };
     }
@@ -90,22 +98,31 @@ export class DerivateChangeService {
       };
     });
 
-    const linkOpsMap = this.linkService.formatOpsByChanges(changes);
+    const calculated = await this.referenceService.calculateOpsMap(
+      prisma,
+      this.linkService.formatOpsByChanges(changes)
+    );
 
-    const calculated = await this.referenceService.calculateOpsMap(prisma, linkOpsMap);
+    const calculatedOpsMap = this.linkService.formatOpsByChanges(calculated);
 
     const transaction = this.transactions.get(tsMeta.transactionKey);
     if (!transaction) {
       throw new Error('Transaction not found');
     }
-
     transaction.changes.push(...changes);
 
     if (!calculated.length) {
       return;
     }
 
-    return calculated.map(this.linkService.changeToOp);
+    // we should cache ops from other snapshot and return ops from current snapshot
+    const fixUpOps: IOtOperation[] | undefined = calculatedOpsMap[tableId]?.[recordId];
+    if (fixUpOps) {
+      delete calculatedOpsMap[tableId][recordId];
+    }
+    transaction.opsMaps.push(calculatedOpsMap);
+
+    return fixUpOps;
   }
 
   refreshTransactionCache(

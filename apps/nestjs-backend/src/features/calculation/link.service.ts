@@ -577,7 +577,6 @@ export class LinkService {
 
     const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
     const fieldMapByTableId = await this.getTinyFieldMapByTableId(prisma, fieldIds);
-    // const cellMutation = this.getCellMutation(tableId, fieldMapByTableId, linkContext);
     const tableId2DbTableName = await this.getTableId2DbTableName(
       prisma,
       Object.keys(fieldMapByTableId)
