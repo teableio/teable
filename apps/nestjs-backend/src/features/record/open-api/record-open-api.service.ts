@@ -11,13 +11,15 @@ import {
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
-import type { IFieldInstance } from '../../../features/field/model/factory';
-import { createFieldInstanceByRaw } from '../../../features/field/model/factory';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IOpsMap, ICellContext } from '../../calculation/link.service';
+import type { ICellContext } from '../../calculation/link.service';
+import type { IOpsMap } from '../../calculation/reference.service';
+import { ReferenceService } from '../../calculation/reference.service';
+import { createFieldInstanceByRaw } from '../../field/model/factory';
+import type { IFieldInstance } from '../../field/model/factory';
 import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
@@ -36,7 +38,8 @@ export class RecordOpenApiService {
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly recordService: RecordService,
-    private readonly linkService: LinkService
+    private readonly linkService: LinkService,
+    private readonly referenceService: ReferenceService
   ) {}
 
   async multipleCreateRecords(
@@ -101,7 +104,7 @@ export class RecordOpenApiService {
   }
 
   private async getOpsMapByCalculation(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
-    const calculated = await this.linkService.calculate(prisma, opsMap);
+    const calculated = await this.referenceService.calculateOpsMap(prisma, opsMap);
 
     opsMap = this.linkService.formatOpsByChanges(calculated);
 
@@ -207,7 +210,7 @@ export class RecordOpenApiService {
     connection: Connection,
     opsMapByTableId: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(opsMapByTableId, null, 2));
+    // console.log('sendOpsAfterApply:', JSON.stringify(opsMapByTableId, null, 2));
     for (const tableId in opsMapByTableId) {
       const data = opsMapByTableId[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;

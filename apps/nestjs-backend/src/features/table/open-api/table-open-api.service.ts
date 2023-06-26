@@ -118,7 +118,8 @@ export class TableOpenApiService {
       async (_, transactionKey) => {
         const doc = this.shareDbService.getConnection(transactionKey).get(collection, tableId);
         await new Promise((resolve, reject) => {
-          doc.fetch(() => {
+          doc.fetch((error) => {
+            if (error) return reject(error);
             doc.del({}, (error) => {
               if (error) return reject(error);
               this.logger.log(`delete document ${collection}.${tableId} succeed!`);

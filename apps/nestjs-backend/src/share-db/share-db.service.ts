@@ -95,7 +95,20 @@ export class ShareDbService extends ShareDBClass {
     // only last onApply triggered within a transaction will return otherSnapshotOps
     // it make sure we not lead to infinite loop
     if (derivateData) {
-      this.sendOpsMap(derivateData.transactionMeta, derivateData.opsMap);
+      const send = (error: Error, context: ShareDBClass.middleware.SubmitContext) => {
+        if (tsMeta.transactionKey === (context.extra as ITransactionMeta).transactionKey) {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          this.sendOpsMap(derivateData!.transactionMeta, derivateData!.opsMap);
+          this.off('submitRequestEnd', send);
+          clearTimeout(timer);
+        }
+      };
+      // 10s limit Exceed, incase of memory leak
+      const timer = setTimeout(() => {
+        console.error('sendOpsMap timeout exceed');
+        this.off('submitRequestEnd', send);
+      }, 10000);
+      this.on('submitRequestEnd', send);
     }
   };
 
@@ -135,12 +148,10 @@ export class ShareDbService extends ShareDBClass {
     transactionMeta: ITransactionMeta,
     opsMap: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
-    console.log('new:transactionMeta:', transactionMeta);
+    // console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     connection.agent!.custom = transactionMeta;
-    const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
     for (const tableId in opsMap) {
       const data = opsMap[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
@@ -152,27 +163,15 @@ export class ShareDbService extends ShareDBClass {
             if (error) {
               return reject(error);
             }
-            resolve(undefined);
+            doc.submitOp(ops, transactionMeta, (error) => {
+              if (error) {
+                return reject(error);
+              }
+              resolve(undefined);
+            });
           });
         });
-        queue.push({
-          doc,
-          ops,
-          transactionMeta,
-        });
       }
-    }
-
-    for (const item of queue) {
-      await new Promise((resolve, reject) => {
-        item.doc.submitOp(item.ops, item.transactionMeta, (error) => {
-          if (error) {
-            return reject(error);
-          }
-          console.log('sendOpsAfterApply:succeed', item.transactionMeta);
-          resolve(undefined);
-        });
-      });
     }
   }
 

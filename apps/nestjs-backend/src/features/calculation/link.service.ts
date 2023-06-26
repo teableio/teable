@@ -4,7 +4,6 @@ import { FieldType, OpBuilder, Relationship, IdPrefix } from '@teable-group/core
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { cloneDeep, isEqual, set } from 'lodash';
-import { ReferenceService } from './reference.service';
 import type { ICellChange } from './reference.service';
 
 export interface ITinyLinkField {
@@ -43,12 +42,6 @@ export interface ICellContext {
   oldValue?: unknown;
 }
 
-export interface IOpsMap {
-  [tableId: string]: {
-    [recordId: string]: IOtOperation[];
-  };
-}
-
 interface IUpdateForeignKeyParam {
   tableId: string;
   foreignTableId: string;
@@ -63,7 +56,6 @@ interface IUpdateForeignKeyParam {
 
 @Injectable()
 export class LinkService {
-  constructor(private readonly referenceService: ReferenceService) {}
   private readonly knex = knex({ client: 'sqlite3' });
 
   // for performance, we detect if record contains link by cellValue
@@ -533,6 +525,7 @@ export class LinkService {
       fieldMapByTableId,
       recordMapByTableId
     );
+    // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
 
     const updatedRecordMapByTableId = this.updateForeignKeyInMemory(
       updateForeignKeyParams,
@@ -548,7 +541,6 @@ export class LinkService {
       updatedRecordMapByTableId
     );
 
-    // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
     // console.log('updatedRecordMapByTableId:', JSON.stringify(updatedRecordMapByTableId, null, 2));
 
     const cellChanges = this.getDiffCellChangeByRecordMap(
@@ -603,34 +595,6 @@ export class LinkService {
     console.log('changes:', JSON.stringify(changes, null, 2));
 
     return changes;
-  }
-
-  async calculate(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
-    const cellChanges: ICellChange[] = [];
-    for (const tableId in opsMap) {
-      const recordData: {
-        id: string;
-        fieldId: string;
-        newValue: unknown;
-      }[] = [];
-      for (const recordId in opsMap[tableId]) {
-        opsMap[tableId][recordId].forEach((op) => {
-          const ctx = OpBuilder.editor.setRecord.detect(op);
-          if (!ctx) {
-            throw new Error('invalid op, it should detect by OpBuilder.editor.setRecord.detect');
-          }
-          recordData.push({
-            id: recordId,
-            fieldId: ctx.fieldId,
-            newValue: ctx.newValue,
-          });
-        });
-      }
-      const change = await this.referenceService.calculate(prisma, tableId, recordData);
-      cellChanges.push(...change);
-    }
-
-    return cellChanges;
   }
 
   changeToOp(change: ICellChange) {

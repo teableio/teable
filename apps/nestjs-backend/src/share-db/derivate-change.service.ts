@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
-import type { ICellChange } from 'src/features/calculation/reference.service';
 import { LinkService } from '../features/calculation/link.service';
+import { ReferenceService } from '../features/calculation/reference.service';
+import type { ICellChange } from '../features/calculation/reference.service';
 import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
 
@@ -10,6 +11,7 @@ import type { ITransactionMeta } from './transaction.service';
 export class DerivateChangeService {
   constructor(
     private readonly linkService: LinkService,
+    private readonly referenceService: ReferenceService,
     private readonly transactionService: TransactionService
   ) {}
 
@@ -90,21 +92,20 @@ export class DerivateChangeService {
 
     const linkOpsMap = this.linkService.formatOpsByChanges(changes);
 
-    const calculated = await this.linkService.calculate(prisma, linkOpsMap);
+    const calculated = await this.referenceService.calculateOpsMap(prisma, linkOpsMap);
 
     const transaction = this.transactions.get(tsMeta.transactionKey);
     if (!transaction) {
       throw new Error('Transaction not found');
     }
+
+    transaction.changes.push(...changes);
+
     if (!calculated.length) {
       return;
     }
 
-    const calculatedOps = calculated.map(this.linkService.changeToOp);
-
-    transaction.changes.push(...changes);
-
-    return calculatedOps;
+    return calculated.map(this.linkService.changeToOp);
   }
 
   refreshTransactionCache(

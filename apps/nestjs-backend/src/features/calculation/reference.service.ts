@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { IRecord, LinkFieldCore, LinkFieldOptions } from '@teable-group/core';
-import { Relationship, FieldType, evaluate } from '@teable-group/core';
+import type { IOtOperation, IRecord, LinkFieldCore, LinkFieldOptions } from '@teable-group/core';
+import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
@@ -28,6 +28,12 @@ export interface ICellChange {
   fieldId: string;
   oldValue: unknown;
   newValue: unknown;
+}
+
+export interface IOpsMap {
+  [tableId: string]: {
+    [recordId: string]: IOtOperation[];
+  };
 }
 
 export interface ITopoItemWithRecords extends ITopoItem {
@@ -132,6 +138,34 @@ export class ReferenceService {
     // console.log('changes:', changes);
 
     return this.mergeDuplicateChange(changes);
+  }
+
+  async calculateOpsMap(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
+    const cellChanges: ICellChange[] = [];
+    for (const tableId in opsMap) {
+      const recordData: {
+        id: string;
+        fieldId: string;
+        newValue: unknown;
+      }[] = [];
+      for (const recordId in opsMap[tableId]) {
+        opsMap[tableId][recordId].forEach((op) => {
+          const ctx = OpBuilder.editor.setRecord.detect(op);
+          if (!ctx) {
+            throw new Error('invalid op, it should detect by OpBuilder.editor.setRecord.detect');
+          }
+          recordData.push({
+            id: recordId,
+            fieldId: ctx.fieldId,
+            newValue: ctx.newValue,
+          });
+        });
+      }
+      const change = await this.calculate(prisma, tableId, recordData);
+      cellChanges.push(...change);
+    }
+
+    return cellChanges;
   }
 
   private calculateFormula(
