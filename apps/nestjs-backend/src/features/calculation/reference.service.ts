@@ -301,7 +301,7 @@ export class ReferenceService {
         }
         const record = recordItem.record;
         const value = this.calculateFormula(field, fieldMap, recordItem);
-        console.log(`calculated: ${field.id}.${record.id}`, value);
+        // console.log(`calculated: ${field.id}.${record.id}`, recordItem.record.fields, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
         changes.push({
@@ -547,9 +547,11 @@ export class ReferenceService {
   ) {
     newRecordData.forEach((cover) => {
       const records = allRecordByDbTableName[cover.dbTableName];
-      records.forEach((record) => {
-        record.fields[cover.fieldId] = cover.newValue;
-      });
+      const record = records.find((r) => r.id === cover.id);
+      if (!record) {
+        throw new Error('Can not find record in DB');
+      }
+      record.fields[cover.fieldId] = cover.newValue;
     });
   }
 

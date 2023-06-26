@@ -75,7 +75,6 @@ export class ShareDbService extends ShareDBClass {
   ) => {
     const tsMeta = context.extra as ITransactionMeta;
     if (tsMeta.skipCalculate || context.agent.custom?.transactionKey) {
-      console.log('tsMeta.skipCalculate:', tsMeta, context.agent.custom);
       return next();
     }
 

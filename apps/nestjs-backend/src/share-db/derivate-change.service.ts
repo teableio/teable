@@ -55,7 +55,6 @@ export class DerivateChangeService {
       }
 
       const prisma = await this.transactionService.getTransaction(tsMeta);
-      let derivateOpsMap: IOpsMap = {};
 
       if (changes.length) {
         const derivateChanges = await this.linkService.getDerivateChangesByLink(
@@ -64,11 +63,15 @@ export class DerivateChangeService {
           changes
         );
 
-        derivateOpsMap = this.linkService.formatOpsByChanges(derivateChanges);
+        const derivateOpsMap = this.linkService.formatOpsByChanges(derivateChanges);
+        opsMaps.push(derivateOpsMap);
+        const calculated = await this.referenceService.calculateOpsMap(prisma, derivateOpsMap);
+        const calculatedOpsMap = this.linkService.formatOpsByChanges(calculated);
+        opsMaps.push(calculatedOpsMap);
       }
 
       // compose opsMap from origin calculation and derivateChanges calculation
-      const finalOpsMap = this.linkService.composeMaps(opsMaps.concat(derivateOpsMap));
+      const finalOpsMap = this.linkService.composeMaps(opsMaps);
       tsMeta = this.refreshTransactionCache(tsMeta, finalOpsMap);
 
       return {
