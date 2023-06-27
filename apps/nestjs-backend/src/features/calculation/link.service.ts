@@ -1,15 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  FieldType,
-  IOtOperation,
-  ISetRecordOpContext,
-  LinkFieldOptions,
-} from '@teable-group/core';
-import { OpBuilder, Relationship, IdPrefix } from '@teable-group/core';
+import type { IOtOperation, LinkFieldOptions } from '@teable-group/core';
+import { FieldType, OpBuilder, Relationship, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { difference, groupBy } from 'lodash';
-import { ReferenceService } from './reference.service';
+import { cloneDeep, isEqual, set } from 'lodash';
 import type { ICellChange } from './reference.service';
 
 export interface ITinyLinkField {
@@ -20,32 +14,10 @@ export interface ITinyLinkField {
   options: LinkFieldOptions;
 }
 
-export interface ICellMutation {
-  [tableId: string]: {
-    [recordId: string]: {
-      [fieldId: string]: {
-        add: string[];
-        del: string[];
-      };
-    };
-  };
-}
-
 export interface IRecordMapByTableId {
   [tableId: string]: {
     [recordId: string]: {
-      [fieldId: string]:
-        | { id: string; title?: string }[]
-        | { id: string; title?: string }
-        | undefined;
-    };
-  };
-}
-
-export interface IRecordTitleMapByTableId {
-  [tableId: string]: {
-    [recordId: string]: {
-      [fieldId: string]: string | undefined;
+      [fieldId: string]: unknown;
     };
   };
 }
@@ -56,31 +28,37 @@ export interface ITinyFieldMapByTableId {
   };
 }
 
-export interface ICellContext {
-  id: string;
+export interface ILinkCellContext {
+  recordId: string;
   fieldId: string;
   newValue?: { id: string }[] | { id: string };
   oldValue?: { id: string }[] | { id: string };
 }
 
-export interface IOpsMap {
-  [tableId: string]: {
-    [recordId: string]: IOtOperation[];
-  };
+export interface ICellContext {
+  recordId: string;
+  fieldId: string;
+  newValue?: unknown;
+  oldValue?: unknown;
 }
 
-export interface IApplyParam {
+interface IUpdateForeignKeyParam {
   tableId: string;
+  foreignTableId: string;
+  mainLinkFieldId: string;
+  mainTableLookupFieldId: string;
+  foreignLinkFieldId: string;
+  foreignTableLookupFieldId: string;
+  dbForeignKeyName: string;
   recordId: string;
-  opContexts: ISetRecordOpContext[];
+  fRecordId: string | null;
 }
 
 @Injectable()
 export class LinkService {
-  constructor(private readonly referenceService: ReferenceService) {}
   private readonly knex = knex({ client: 'sqlite3' });
 
-  // for performance, we should detect if record contains link by cellValue
+  // for performance, we detect if record contains link by cellValue
   private isLinkCell(value: unknown): boolean {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function isLinkCellItem(item: any): boolean {
@@ -101,7 +79,7 @@ export class LinkService {
     return isLinkCellItem(value);
   }
 
-  private filterLinkContext(contexts: ICellContext[]) {
+  private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
     return contexts.filter((ctx) => {
       if (this.isLinkCell(ctx.newValue)) {
         return true;
@@ -156,247 +134,175 @@ export class LinkService {
   }
 
   /**
-   * test case
-   *
-   * case 1 Add Link Record From ManyOne link Field
-   * TableA: ManyOne-LinkB A1.null -> A1.B1
-   * { TableB: { B1: { 'OneMany-LinkA': add: [A1] }} }
-   * TableB: OneMany-LinkA B1.null -> B1.push(A1)
-   *
-   * case 2 Change Link Record From ManyOne link Field
-   * TableA: ManyOne-LinkB A1.B1 -> A1.B2
-   * TableB: OneMany-LinkA B1.(Old) -> B1.pop(A1) | B2.(Old) -> B2.push(A1)
-   *
-   * case 3 Add Link Record From OneMany link Field
-   * TableA: OneMany-linkB A1.(old) -> A1.push(B1)
-   * TableB: ManyOne-LinkA B1.null -> B2.A1
-   *
-   * case 4 Change Link Record From OneMany link Field
-   * TableA: OneMany-linkB A1.(old) -> A1.[B1]
-   * TableB: ManyOne-LinkA B1.null -> B2.A1
-   *
+   * mainLinkFieldId is the link fieldId of the main table, contain only one link cell value
+   * foreignLinkFieldId is the link fieldId of the foreign table, contain multiple link cell value
    */
-  private getCellMutation(
+  private updateForeignKeyInMemory(
+    updateForeignKeyParams: IUpdateForeignKeyParam[],
+    recordMapByTableId: IRecordMapByTableId
+  ) {
+    recordMapByTableId = cloneDeep(recordMapByTableId);
+    updateForeignKeyParams.forEach((param) => {
+      const {
+        tableId,
+        foreignTableId,
+        mainLinkFieldId,
+        foreignTableLookupFieldId,
+        mainTableLookupFieldId,
+        foreignLinkFieldId,
+        dbForeignKeyName: fkFieldId,
+        recordId,
+        fRecordId,
+      } = param;
+      const foreignTable = recordMapByTableId[foreignTableId];
+      const mainRecord = recordMapByTableId[tableId][recordId];
+      if (!mainRecord) {
+        throw new Error('mainRecord not found');
+      }
+
+      // If there is an old value, remove this record from the old foreign Link Field
+      const oldFRecordId = mainRecord[fkFieldId] as string;
+      if (oldFRecordId) {
+        const fRecord = foreignTable[oldFRecordId];
+        const oldFRecordFLink = fRecord[foreignLinkFieldId] as
+          | { id: string; title?: string }[]
+          | undefined;
+        const newFRecordFLink = (oldFRecordFLink || []).filter((record) => record.id !== recordId);
+        fRecord[foreignLinkFieldId] = newFRecordFLink.length ? newFRecordFLink : null;
+      }
+
+      // If the fRecordId is not null, add this record to the new foreignTable's foreignLinkField
+      if (fRecordId) {
+        const newFRecord = foreignTable[fRecordId];
+        const newFRecordFLink = newFRecord[foreignLinkFieldId] as
+          | { id: string; title?: string }[]
+          | undefined;
+        const title = mainRecord[mainTableLookupFieldId] as string | undefined;
+        if (newFRecordFLink) {
+          newFRecordFLink.push({
+            id: recordId,
+            title,
+          });
+        } else {
+          newFRecord[foreignLinkFieldId] = [{ id: recordId, title }];
+        }
+      }
+
+      if (fRecordId) {
+        mainRecord[mainLinkFieldId] = { id: fRecordId };
+      }
+
+      // Update the link field in main table
+      mainRecord[mainLinkFieldId] = fRecordId
+        ? { id: fRecordId, title: foreignTable[fRecordId][foreignTableLookupFieldId] as string }
+        : null;
+
+      // Update the foreignKey field in main table
+      mainRecord[fkFieldId] = fRecordId;
+    });
+    return recordMapByTableId;
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private getRecordMapStructAndForeignKeyParams(
     tableId: string,
     fieldMapByTableId: ITinyFieldMapByTableId,
-    contexts: ICellContext[]
-  ): ICellMutation {
-    function polishValue(value?: { id: string }[] | { id: string }): string[] {
-      if (Array.isArray(value)) {
-        return value.map((item) => item.id);
-      }
-      if (value) {
-        return [value.id];
-      }
-      return [];
-    }
-    return contexts.reduce<ICellMutation>((acc, ctx) => {
-      const { id: recordId, fieldId, oldValue, newValue } = ctx;
-      const oldIds = polishValue(oldValue);
-      const newIds = polishValue(newValue);
-      const toAdd = difference(newIds, oldIds);
-      const toDel = difference(oldIds, newIds);
-      const { foreignTableId, symmetricFieldId } = fieldMapByTableId[tableId][fieldId].options;
-
-      if (!acc[foreignTableId]) {
-        acc[foreignTableId] = {};
-      }
-
-      const prepare = (targetRecordId: string) => {
-        if (!acc[foreignTableId][targetRecordId]) {
-          acc[foreignTableId][targetRecordId] = {};
-        }
-        if (!acc[foreignTableId][targetRecordId][symmetricFieldId]) {
-          acc[foreignTableId][targetRecordId][symmetricFieldId] = {
-            add: [],
-            del: [],
-          };
-        }
-        return acc[foreignTableId][targetRecordId][symmetricFieldId];
-      };
-
-      for (const addRecordId of toAdd) {
-        prepare(addRecordId).add.push(recordId);
-      }
-      for (const deleteRecordId of toDel) {
-        prepare(deleteRecordId).del.push(recordId);
-      }
-
-      return acc;
-    }, {});
-  }
-
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  private getCellChangeByMutation(
-    cellMutation: ICellMutation,
-    recordMapByTableId: IRecordMapByTableId,
-    recordTitleMapByTableId: IRecordTitleMapByTableId,
-    fieldMapByTableId: ITinyFieldMapByTableId
-  ): ICellChange[] {
-    const changes: ICellChange[] = [];
-    for (const tableId in cellMutation) {
-      for (const recordId in cellMutation[tableId]) {
-        for (const fieldId in cellMutation[tableId][recordId]) {
-          const { add, del } = cellMutation[tableId][recordId][fieldId];
-          const oldValue = recordMapByTableId[tableId][recordId][fieldId];
-          const field = fieldMapByTableId[tableId][fieldId];
-          if (field.options.relationship === Relationship.ManyOne) {
-            if (oldValue && !('id' in oldValue)) {
-              throw new Error("ManyOne relationship's old value should be a single record");
-            }
-
-            if (add.length > 1 || del.length > 1) {
-              throw new Error('ManyOne relationship should not have multiple records');
-            }
-
-            if (del.length && del[0] !== oldValue?.id) {
-              throw new Error("ManyOne relationship's old value should be equal to delete value");
-            }
-            const id = add[0];
-            const title =
-              id &&
-              recordTitleMapByTableId[field.options.foreignTableId][id][
-                field.options.lookupFieldId
-              ];
-            changes.push({
-              tableId,
-              recordId,
-              fieldId,
-              oldValue,
-              newValue: id ? { id, title } : undefined,
-            });
-            continue;
-          }
-
-          let newValue: { id: string }[] = [];
-          if (oldValue) {
-            newValue = (oldValue as { id: string }[]).filter((item) => !del.includes(item.id));
-          }
-          newValue.push(
-            ...add.map((id) => {
-              const title =
-                recordTitleMapByTableId[field.options.foreignTableId][id][
-                  field.options.lookupFieldId
-                ];
-              return { id, title };
-            })
-          );
-
-          changes.push({
-            tableId,
-            recordId,
-            fieldId,
-            oldValue,
-            newValue: newValue.length ? newValue : undefined,
-          });
-        }
-      }
-    }
-    return changes;
-  }
-
-  private async getRecordMapByMutation(
-    prisma: Prisma.TransactionClient,
-    tableId2DbTableName: { [tableId: string]: string },
-    fieldMapByTableId: ITinyFieldMapByTableId,
-    cellMutation: ICellMutation
-  ): Promise<IRecordMapByTableId> {
+    cellContexts: ILinkCellContext[]
+  ) {
     const recordMapByTableId: IRecordMapByTableId = {};
-    for (const tableId in cellMutation) {
-      const recordIds = Object.keys(cellMutation[tableId]);
-      const fieldIds = Array.from(
-        Object.values(cellMutation[tableId]).reduce<Set<string>>((pre, cur) => {
-          for (const fieldId in cur) {
-            pre.add(fieldId);
-          }
-          return pre;
-        }, new Set())
-      );
+    const updateForeignKeyParams: IUpdateForeignKeyParam[] = [];
+    for (const cellContext of cellContexts) {
+      const { recordId, fieldId, newValue, oldValue } = cellContext;
+      const linkRecordIds = [oldValue, newValue]
+        .flat()
+        .filter(Boolean)
+        .map((item) => item?.id as string);
+      const field = fieldMapByTableId[tableId][fieldId];
+      const dbForeignKeyName = field.options.dbForeignKeyName;
+      const foreignTableId = field.options.foreignTableId;
+      const foreignLinkFieldId = field.options.symmetricFieldId;
+      const foreignField = fieldMapByTableId[foreignTableId][foreignLinkFieldId];
+      const foreignLookupFieldId = field.options.lookupFieldId;
+      const lookupFieldId = foreignField.options.lookupFieldId;
 
-      const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
-      const dbFieldNames = fieldIds.map((fieldId) => {
-        const field = fieldMapByTableId[tableId][fieldId];
-        dbFieldName2FieldId[field.dbFieldName] = fieldId;
-        return field.dbFieldName;
+      set(recordMapByTableId, [tableId, recordId, fieldId], undefined);
+      set(recordMapByTableId, [tableId, recordId, lookupFieldId], undefined);
+
+      linkRecordIds.forEach((linkRecordId) => {
+        set(recordMapByTableId, [foreignTableId, linkRecordId, foreignLinkFieldId], undefined);
+        set(recordMapByTableId, [foreignTableId, linkRecordId, foreignLookupFieldId], undefined);
       });
 
-      const nativeSql = this.knex(tableId2DbTableName[tableId])
-        .select(dbFieldNames.concat('__id'))
-        .whereIn('__id', recordIds)
-        .toSQL()
-        .toNative();
-
-      const recordRaw = await prisma.$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
-
-      recordMapByTableId[tableId] = recordRaw.reduce<{
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        [recordId: string]: { [fieldId: string]: any };
-      }>((acc, cur) => {
-        const recordId = cur.__id as string;
-        delete cur.__id;
-        acc[recordId] = {};
-        for (const dbFieldName in cur) {
-          const fieldId = dbFieldName2FieldId[dbFieldName];
-          const cellValue = cur[dbFieldName];
-          acc[recordId][fieldId] = cellValue && JSON.parse(cellValue as string);
+      if (field.options.relationship === Relationship.ManyOne) {
+        if (newValue && !('id' in newValue)) {
+          throw new Error('ManyOne relationship should not have multiple records');
         }
-        return acc;
-      }, {});
-    }
+        // add dbForeignKeyName to the record
+        set(recordMapByTableId, [tableId, recordId, dbForeignKeyName], undefined);
+        updateForeignKeyParams.push({
+          tableId,
+          foreignTableId,
+          mainLinkFieldId: fieldId,
+          mainTableLookupFieldId: lookupFieldId,
+          foreignLinkFieldId,
+          foreignTableLookupFieldId: foreignLookupFieldId,
+          dbForeignKeyName: field.options.dbForeignKeyName,
+          recordId,
+          fRecordId: newValue?.id || null,
+        });
+      }
+      if (field.options.relationship === Relationship.OneMany) {
+        if (newValue && !Array.isArray(newValue)) {
+          throw new Error('ManyMany relationship newValue should have multiple records');
+        }
+        if (oldValue && !Array.isArray(oldValue)) {
+          throw new Error('ManyMany relationship oldValue should have multiple records');
+        }
+        const paramCommon = {
+          tableId: foreignTableId,
+          foreignTableId: tableId,
+          mainLinkFieldId: foreignLinkFieldId,
+          mainTableLookupFieldId: foreignLookupFieldId,
+          foreignLinkFieldId: fieldId,
+          foreignTableLookupFieldId: lookupFieldId,
+          dbForeignKeyName: field.options.dbForeignKeyName,
+        };
 
-    return recordMapByTableId;
+        oldValue &&
+          oldValue.forEach((oldValueItem) => {
+            // add dbForeignKeyName to the record
+            set(recordMapByTableId, [foreignTableId, oldValueItem.id, dbForeignKeyName], undefined);
+            updateForeignKeyParams.push({
+              ...paramCommon,
+              recordId: oldValueItem.id,
+              fRecordId: null,
+            });
+          });
+        newValue &&
+          newValue.forEach((newValueItem) => {
+            // add dbForeignKeyName to the record
+            set(recordMapByTableId, [foreignTableId, newValueItem.id, dbForeignKeyName], undefined);
+            updateForeignKeyParams.push({
+              ...paramCommon,
+              recordId: newValueItem.id,
+              fRecordId: recordId,
+            });
+          });
+      }
+    }
+    return {
+      recordMapByTableId,
+      updateForeignKeyParams,
+    };
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private getRecordMapByTableIdByMutation(
-    fieldMapByTableId: ITinyFieldMapByTableId,
-    cellMutation: ICellMutation
-  ) {
-    const recordMapByTableId: IRecordTitleMapByTableId = {};
-    for (const tableId in cellMutation) {
-      const mutations = Object.values(cellMutation[tableId]);
-      const fieldMap = fieldMapByTableId[tableId];
-      for (const mutation of mutations) {
-        for (const fieldId in mutation) {
-          const field = fieldMap[fieldId];
-          const targetTableId = field.options.foreignTableId;
-          const lookupFieldId = field.options.lookupFieldId;
-          const add = mutation[fieldId].add;
-          if (!recordMapByTableId[targetTableId]) {
-            recordMapByTableId[targetTableId] = {};
-          }
-          for (const recordId of add) {
-            if (!recordMapByTableId[targetTableId][recordId]) {
-              recordMapByTableId[targetTableId][recordId] = {};
-            }
-            recordMapByTableId[targetTableId][recordId][lookupFieldId] = undefined;
-          }
-        }
-      }
-    }
-    return recordMapByTableId;
-  }
-
-  private async getRecordTitleByMutation(
+  private async fillRecordMapByCellContexts(
     prisma: Prisma.TransactionClient,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
-    cellMutation: ICellMutation
-  ): Promise<{
-    [tableId: string]: {
-      [recordId: string]: {
-        [fieldId: string]: string | undefined;
-      };
-    };
-  }> {
-    const recordMapByTableId = this.getRecordMapByTableIdByMutation(
-      fieldMapByTableId,
-      cellMutation
-    );
-
+    recordMapByTableId: IRecordMapByTableId
+  ): Promise<IRecordMapByTableId> {
     for (const tableId in recordMapByTableId) {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
@@ -412,6 +318,10 @@ export class LinkService {
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
       const dbFieldNames = fieldIds.map((fieldId) => {
         const field = fieldMapByTableId[tableId][fieldId];
+        // dbForeignName is not exit in fieldMapByTableId
+        if (!field) {
+          return fieldId;
+        }
         dbFieldName2FieldId[field.dbFieldName] = fieldId;
         return field.dbFieldName;
       });
@@ -432,7 +342,20 @@ export class LinkService {
         delete record.__id;
         for (const dbFieldName in record) {
           const fieldId = dbFieldName2FieldId[dbFieldName];
-          const cellValue = record[dbFieldName];
+          let cellValue = record[dbFieldName];
+
+          // dbForeignName is not exit in fieldMapByTableId
+          if (!fieldId) {
+            recordLookupFieldsMap[recordId][dbFieldName] = cellValue;
+            continue;
+          }
+
+          const field = fieldMapByTableId[tableId][fieldId];
+          // TODO: maybe lookup other type of field?
+          if (field.type === FieldType.Link && cellValue != null) {
+            cellValue = JSON.parse(cellValue as string);
+          }
+
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           recordLookupFieldsMap[recordId][fieldId] = (cellValue as any) ?? undefined;
         }
@@ -445,37 +368,35 @@ export class LinkService {
   // update foreignKey by ManyOne relationship field value changes
   private async updateForeignKey(
     prisma: Prisma.TransactionClient,
-    tableId: string,
     tableId2DbTableName: { [tableId: string]: string },
-    fieldMapByTableId: ITinyFieldMapByTableId,
-    contexts: ICellContext[],
-    changes: ICellChange[]
+    fkFieldNameMap: { [fkFieldName: string]: Set<string> },
+    recordMapByTableId: IRecordMapByTableId
   ) {
-    const combinedChanges = contexts
-      .map((ctx) => ({
-        tableId: tableId,
-        recordId: ctx.id,
-        fieldId: ctx.fieldId,
-        newValue: ctx.newValue as unknown,
-      }))
-      .concat(changes);
-    for (const change of combinedChanges) {
-      const { tableId, recordId, fieldId, newValue } = change;
-      const dbTableName = tableId2DbTableName[tableId];
-      const field = fieldMapByTableId[tableId][fieldId];
-      const dbForeignKeyName = field.options.dbForeignKeyName;
-      if (field.options.relationship !== Relationship.ManyOne) {
+    for (const tableId in recordMapByTableId) {
+      if (!fkFieldNameMap[tableId]) {
         continue;
       }
+      const fkFieldNames = Array.from(fkFieldNameMap[tableId]);
+      for (const recordId in recordMapByTableId[tableId]) {
+        const record = recordMapByTableId[tableId][recordId];
+        const updateParam = fkFieldNames.reduce<{ [fkFieldName: string]: string | null }>(
+          (pre, fkFieldName) => {
+            const value = record[fkFieldName] as string | null;
+            pre[fkFieldName] = value;
+            return pre;
+          },
+          {}
+        );
 
-      const nativeSql = this.knex(dbTableName)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ [dbForeignKeyName]: newValue ? (newValue as any).id : null })
-        .where('__id', recordId)
-        .toSQL()
-        .toNative();
+        const dbTableName = tableId2DbTableName[tableId];
+        const nativeSql = this.knex(dbTableName)
+          .update(updateParam)
+          .where('__id', recordId)
+          .toSQL()
+          .toNative();
 
-      await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+        await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+      }
     }
   }
 
@@ -497,7 +418,149 @@ export class LinkService {
     }, {});
   }
 
+  private getFkFieldNameMap(updateForeignKeyParams: IUpdateForeignKeyParam[]) {
+    return updateForeignKeyParams.reduce<{ [fkFieldName: string]: Set<string> }>((pre, cur) => {
+      const { tableId, dbForeignKeyName } = cur;
+      if (!pre[tableId]) {
+        pre[tableId] = new Set();
+      }
+      pre[tableId].add(dbForeignKeyName);
+      return pre;
+    }, {});
+  }
+
+  private getDiffCellChangeByRecordMap(
+    fkFieldNameMap: { [fkFieldName: string]: Set<string> },
+    originRecordMapByTableId: IRecordMapByTableId,
+    updatedRecordMapByTableId: IRecordMapByTableId
+  ): ICellChange[] {
+    const changes: ICellChange[] = [];
+
+    for (const tableId in originRecordMapByTableId) {
+      const originRecords = originRecordMapByTableId[tableId];
+      const updatedRecords = updatedRecordMapByTableId[tableId];
+
+      for (const recordId in originRecords) {
+        const originFields = originRecords[recordId];
+        const updatedFields = updatedRecords[recordId];
+
+        for (const fieldId in originFields) {
+          // ignore foreignKey field
+          if (fkFieldNameMap[tableId]?.has(fieldId)) {
+            continue;
+          }
+
+          const oldValue = originFields[fieldId];
+          const newValue = updatedFields[fieldId];
+
+          if (!isEqual(oldValue, newValue)) {
+            changes.push({ tableId, recordId, fieldId, oldValue, newValue });
+          }
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  private deepEqualIgnoreArrayOrder(a: unknown, b: unknown): boolean {
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+
+      const mapA: { [id: string]: { id: string; title?: string } } = {};
+      for (const obj of a as { id: string; title?: string }[]) {
+        mapA[obj.id] = obj;
+      }
+
+      for (const obj of b as { id: string; title?: string }[]) {
+        const correspondingObjA = mapA[obj.id];
+        if (!correspondingObjA || obj.title !== correspondingObjA.title) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return isEqual(a, b);
+  }
+
+  private filterCellChangeByCellContexts(
+    tableId: string,
+    cellContexts: ICellContext[],
+    cellChanges: ICellChange[]
+  ): ICellChange[] {
+    // Create a map for quick access to cell contexts by tableId, recordId and fieldId
+    const cellContextMap: { [key: string]: ICellContext } = {};
+    for (const context of cellContexts) {
+      const key = `${tableId}-${context.recordId}-${context.fieldId}`;
+      cellContextMap[key] = context;
+    }
+
+    return cellChanges.filter((change) => {
+      const key = `${change.tableId}-${change.recordId}-${change.fieldId}`;
+      const context = cellContextMap[key];
+
+      // If cell context does not exist or its new value is not equal to the change's new value,
+      // keep the change
+      return !context || !this.deepEqualIgnoreArrayOrder(change.newValue, context.newValue);
+    });
+  }
+
+  private async getCellChangeByCellContexts(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    tableId2DbTableName: { [tableId: string]: string },
+    fieldMapByTableId: ITinyFieldMapByTableId,
+    linkContexts: ILinkCellContext[]
+  ): Promise<ICellChange[]> {
+    const { recordMapByTableId, updateForeignKeyParams } =
+      this.getRecordMapStructAndForeignKeyParams(tableId, fieldMapByTableId, linkContexts);
+
+    // console.log('recordMapByTableId:', recordMapByTableId);
+    // console.log('updateForeignKeyParams:', updateForeignKeyParams);
+    const originRecordMapByTableId = await this.fillRecordMapByCellContexts(
+      prisma,
+      tableId2DbTableName,
+      fieldMapByTableId,
+      recordMapByTableId
+    );
+    // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
+
+    const updatedRecordMapByTableId = this.updateForeignKeyInMemory(
+      updateForeignKeyParams,
+      recordMapByTableId
+    );
+
+    const fkFieldNameMap = this.getFkFieldNameMap(updateForeignKeyParams);
+
+    await this.updateForeignKey(
+      prisma,
+      tableId2DbTableName,
+      fkFieldNameMap,
+      updatedRecordMapByTableId
+    );
+
+    // console.log('updatedRecordMapByTableId:', JSON.stringify(updatedRecordMapByTableId, null, 2));
+
+    const cellChanges = this.getDiffCellChangeByRecordMap(
+      fkFieldNameMap,
+      originRecordMapByTableId,
+      updatedRecordMapByTableId
+    );
+
+    return this.filterCellChangeByCellContexts(tableId, linkContexts, cellChanges);
+  }
+
   /**
+   * v2.0 improved strategy
+   * 0: define `main table` is where foreign key located in, `foreign table` is where foreign key referenced to
+   * 1. generate foreign key changes, cache effected recordIds, both main table and foreign table
+   * 2. update foreign key by changes and submit origin op
+   * 3. check and generate op to update main table by cached recordIds
+   * 4. check and generate op to update foreign table by cached recordIds
+   *
+   * v1.0 Strategy (deprecated)
    * 1. diff changes from context, merge all off changes by recordId
    * 2. generate new changes from merged changes
    * 3. update foreign key by changes
@@ -505,116 +568,35 @@ export class LinkService {
   async getDerivateChangesByLink(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    contexts: ICellContext[]
+    cellContexts: ICellContext[]
   ): Promise<ICellChange[]> {
-    const linkContext = this.filterLinkContext(contexts);
-    if (!linkContext.length) {
+    const linkContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
+    if (!linkContexts.length) {
       return [];
     }
 
-    const fieldIds = linkContext.map((ctx) => ctx.fieldId);
+    const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
     const fieldMapByTableId = await this.getTinyFieldMapByTableId(prisma, fieldIds);
-    const cellMutation = this.getCellMutation(tableId, fieldMapByTableId, linkContext);
     const tableId2DbTableName = await this.getTableId2DbTableName(
       prisma,
       Object.keys(fieldMapByTableId)
     );
 
-    const recordMapByTableId = await this.getRecordMapByMutation(
-      prisma,
-      tableId2DbTableName,
-      fieldMapByTableId,
-      cellMutation
-    );
-
-    const recordTitleMapByTableId = await this.getRecordTitleByMutation(
-      prisma,
-      tableId2DbTableName,
-      fieldMapByTableId,
-      cellMutation
-    );
-
-    const cellChange = this.getCellChangeByMutation(
-      cellMutation,
-      recordMapByTableId,
-      recordTitleMapByTableId,
-      fieldMapByTableId
-    );
-
-    if (cellChange.length) {
-      await this.updateForeignKey(
-        prisma,
-        tableId,
-        tableId2DbTableName,
-        fieldMapByTableId,
-        contexts,
-        cellChange
-      );
-    }
-
-    return cellChange;
-  }
-
-  async calculate(prisma: Prisma.TransactionClient, param: IApplyParam) {
-    const { tableId, recordId } = param;
-
-    const recordData = param.opContexts.map((ctx) => {
-      return {
-        id: recordId,
-        fieldId: ctx.fieldId,
-        newValue: ctx.newValue,
-        oldValue: ctx.oldValue,
-      };
-    });
-
-    const derivateChangesByLink = await this.getDerivateChangesByLink(
+    const changes = await this.getCellChangeByCellContexts(
       prisma,
       tableId,
-      recordData as ICellContext[]
+      tableId2DbTableName,
+      fieldMapByTableId,
+      linkContexts
     );
 
-    const derivateChangesMap = groupBy(derivateChangesByLink, 'tableId');
-    const recordDataByLink = derivateChangesMap[tableId]
-      ? derivateChangesMap[tableId].map(({ recordId, fieldId, newValue, oldValue }) => ({
-          id: recordId,
-          fieldId,
-          newValue,
-          oldValue,
-        }))
-      : [];
+    console.log('linkContexts:', JSON.stringify(linkContexts, null, 2));
+    console.log('changes:', JSON.stringify(changes, null, 2));
 
-    delete derivateChangesMap[tableId];
-
-    // recordData should concat link change in current table
-    let derivateChanges = await this.referenceService.calculate(
-      prisma,
-      tableId,
-      recordData.concat(recordDataByLink)
-    );
-
-    derivateChanges = derivateChanges.concat(derivateChangesByLink);
-
-    for (const tableId in derivateChangesMap) {
-      const recordData = derivateChangesMap[tableId].map(
-        ({ recordId, fieldId, newValue, oldValue }) => ({
-          id: recordId,
-          fieldId,
-          newValue,
-          oldValue,
-        })
-      );
-      const changes = await this.referenceService.calculate(prisma, tableId, recordData);
-      derivateChanges = derivateChanges.concat(changes);
-    }
-
-    if (!derivateChanges.length) {
-      return;
-    }
-
-    return this.formatOpsByChanges(tableId, recordId, derivateChanges);
+    return changes;
   }
 
-  private changeToOp(change: ICellChange) {
+  changeToOp(change: ICellChange) {
     const { fieldId, oldValue, newValue } = change;
     return OpBuilder.editor.setRecord.build({
       fieldId,
@@ -623,18 +605,12 @@ export class LinkService {
     });
   }
 
-  private formatOpsByChanges(tableId: string, recordId: string, changes: ICellChange[]) {
-    const currentSnapshotOps: IOtOperation[] = [];
-    const otherSnapshotOps = changes.reduce<{
+  formatOpsByChanges(changes: ICellChange[]) {
+    return changes.reduce<{
       [tableId: string]: { [recordId: string]: IOtOperation[] };
     }>((pre, cur) => {
       const { tableId: curTableId, recordId: curRecordId } = cur;
       const op = this.changeToOp(cur);
-
-      if (curTableId === tableId && curRecordId === recordId) {
-        currentSnapshotOps.push(op);
-        return pre;
-      }
 
       if (!pre[curTableId]) {
         pre[curTableId] = {};
@@ -646,31 +622,30 @@ export class LinkService {
 
       return pre;
     }, {});
-
-    return {
-      currentSnapshotOps,
-      otherSnapshotOps: Object.keys(otherSnapshotOps).length ? otherSnapshotOps : undefined,
-    };
   }
 
-  composeOpsMaps(opsMaps: IOpsMap[]): IOpsMap {
-    return opsMaps.reduce((composedMap, currentMap) => {
-      for (const tableId in currentMap) {
-        if (composedMap[tableId]) {
-          for (const recordId in currentMap[tableId]) {
-            if (composedMap[tableId][recordId]) {
-              composedMap[tableId][recordId] = composedMap[tableId][recordId].concat(
-                currentMap[tableId][recordId]
-              );
-            } else {
-              composedMap[tableId][recordId] = currentMap[tableId][recordId];
+  composeMaps<T>(opsMaps: ({ [x: string]: { [y: string]: T[] } } | undefined)[]): {
+    [x: string]: { [y: string]: T[] };
+  } {
+    return opsMaps
+      .filter(Boolean)
+      .reduce<{ [x: string]: { [y: string]: T[] } }>((composedMap, currentMap) => {
+        for (const tableId in currentMap) {
+          if (composedMap[tableId]) {
+            for (const recordId in currentMap[tableId]) {
+              if (composedMap[tableId][recordId]) {
+                composedMap[tableId][recordId] = composedMap[tableId][recordId].concat(
+                  currentMap[tableId][recordId]
+                );
+              } else {
+                composedMap[tableId][recordId] = currentMap[tableId][recordId];
+              }
             }
+          } else {
+            composedMap[tableId] = currentMap[tableId];
           }
-        } else {
-          composedMap[tableId] = currentMap[tableId];
         }
-      }
-      return composedMap;
-    }, {});
+        return composedMap;
+      }, {});
   }
 }

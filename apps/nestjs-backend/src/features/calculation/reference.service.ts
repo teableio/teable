@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { IRecord, LinkFieldCore } from '@teable-group/core';
-import { Relationship, FieldType, evaluate } from '@teable-group/core';
+import type { IOtOperation, IRecord, LinkFieldCore, LinkFieldOptions } from '@teable-group/core';
+import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
@@ -28,6 +28,12 @@ export interface ICellChange {
   fieldId: string;
   oldValue: unknown;
   newValue: unknown;
+}
+
+export interface IOpsMap {
+  [tableId: string]: {
+    [recordId: string]: IOtOperation[];
+  };
 }
 
 export interface ITopoItemWithRecords extends ITopoItem {
@@ -59,7 +65,7 @@ export class ReferenceService {
     tableId: string,
     recordData: { id: string; fieldId: string; newValue: unknown }[]
   ): Promise<ICellChange[]> {
-    // console.log('calculate', tableId, recordData);
+    // console.log('calculateSource:', tableId, recordData);
     const fieldIds = recordData.map((ctx) => ctx.fieldId);
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
     if (!undirectedGraph.length) {
@@ -69,6 +75,7 @@ export class ReferenceService {
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
+    // console.log('undirectedGraph', undirectedGraph);
     const topoOrdersByFieldId = uniqBy(recordData, 'fieldId').reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, { fieldId }) => {
@@ -76,13 +83,14 @@ export class ReferenceService {
       return pre;
     }, {});
 
-    // console.log('topoOrdersByFieldId:', topoOrdersByFieldId);
+    // console.log('topoOrdersByFieldId:', JSON.stringify(topoOrdersByFieldId, null, 2));
     const originRecordItems = recordData.map((record) => ({
       dbTableName: tableId2DbTableName[tableId],
       fieldId: record.fieldId,
       newValue: record.newValue,
       id: record.id,
     }));
+    // console.log('originRecordItems:', originRecordItems);
 
     let affectedRecordItems: IRecordRefItem[] = [];
     for (const fieldId in topoOrdersByFieldId) {
@@ -94,10 +102,11 @@ export class ReferenceService {
         fieldId2TableId,
       });
       // only affected records included
+      // console.log('linkOrders:', linkOrders);
       const items = await this.getAffectedRecordItems(prisma, originRecordItems, linkOrders);
       affectedRecordItems = affectedRecordItems.concat(items);
     }
-    // console.log('affectedRecordItems', affectedRecordItems);
+    // console.log('affectedRecordItems', JSON.stringify(affectedRecordItems, null, 2));
 
     // extra dependent records for link field
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
@@ -110,7 +119,7 @@ export class ReferenceService {
       dependentRecordItems,
       dbTableName2fields,
     });
-    // console.log('dbTableName2records', dbTableName2records);
+    // console.log('dbTableName2records', JSON.stringify(dbTableName2records, null, 2));
 
     const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
       const orderWithRecords = this.createTopoItemWithRecords({
@@ -122,7 +131,7 @@ export class ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
-      // console.log('collectChanges:', orderWithRecords, fieldId2TableId);
+      // console.log('collectChanges:', topoOrders, orderWithRecords, fieldId2TableId);
 
       return pre.concat(this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId));
     }, []);
@@ -131,17 +140,53 @@ export class ReferenceService {
     return this.mergeDuplicateChange(changes);
   }
 
+  async calculateOpsMap(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
+    const cellChanges: ICellChange[] = [];
+    for (const tableId in opsMap) {
+      const recordData: {
+        id: string;
+        fieldId: string;
+        newValue: unknown;
+      }[] = [];
+      for (const recordId in opsMap[tableId]) {
+        opsMap[tableId][recordId].forEach((op) => {
+          const ctx = OpBuilder.editor.setRecord.detect(op);
+          if (!ctx) {
+            throw new Error('invalid op, it should detect by OpBuilder.editor.setRecord.detect');
+          }
+          recordData.push({
+            id: recordId,
+            fieldId: ctx.fieldId,
+            newValue: ctx.newValue,
+          });
+        });
+      }
+      const change = await this.calculate(prisma, tableId, recordData);
+      cellChanges.push(...change);
+    }
+
+    return cellChanges;
+  }
+
   private calculateFormula(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
     recordItem: IRecordItem
   ) {
     const record = recordItem.record;
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.isLookup) {
       if (!recordItem.dependencies) {
         throw new Error(`Dependency should not be undefined when contains a ${field.type} field`);
       }
-      const lookupField = fieldMap[field.options.lookupFieldId];
+      const lookupFieldId = field.isLookup
+        ? field.lookupOptions?.lookupFieldId
+        : (field.options as LinkFieldOptions).lookupFieldId;
+
+      if (!lookupFieldId) {
+        throw new Error('lookupFieldId should not be undefined');
+      }
+
+      const lookupField = fieldMap[lookupFieldId];
 
       return this.calculateRollup(field, lookupField, record, recordItem.dependencies);
     }
@@ -176,18 +221,14 @@ export class ReferenceService {
       cellValueType: field.cellValueType,
       isMultipleCellValue: field.isMultipleCellValue,
     });
-    // console.log('virtualField:', virtualField);
-    // console.log('lookupValues:', lookupValues);
     const result = evaluate(
       'LOOKUP({values})',
       { values: virtualField },
       { ...record, fields: { ...record.fields, values: lookupValues } }
     );
-    // console.log('calculateRollup:result', result);
-    const plain = result.toPlain();
-    // console.log('calculateRollup:plain', plain);
 
-    // console.log('calculateRollup:currentValue', record.fields[field.id]);
+    const plain = result.toPlain();
+
     if (field.type === FieldType.Link) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return field.updateCellTitle(record.fields[field.id] as any, plain);
@@ -260,7 +301,7 @@ export class ReferenceService {
         }
         const record = recordItem.record;
         const value = this.calculateFormula(field, fieldMap, recordItem);
-        // console.log(`calculated: ${field.id}.${record.id}`, value);
+        // console.log(`calculated: ${field.id}.${record.id}`, recordItem.record.fields, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
         changes.push({
@@ -396,7 +437,6 @@ export class ReferenceService {
     affectedRecordItems: IRecordRefItem[];
   }): IRecord {
     const { field, record, affectedRecordItems, foreignTableRecords } = params;
-
     if (field.options.relationship !== Relationship.ManyOne) {
       throw new Error("field's relationship should be ManyOne");
     }
@@ -435,7 +475,6 @@ export class ReferenceService {
     const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
     return topoOrders.map((order) => {
       const field = fieldMap[order.id];
-
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
       const allRecords = dbTableName2records[dbTableName];
@@ -508,9 +547,11 @@ export class ReferenceService {
   ) {
     newRecordData.forEach((cover) => {
       const records = allRecordByDbTableName[cover.dbTableName];
-      records.forEach((record) => {
-        record.fields[cover.fieldId] = cover.newValue;
-      });
+      const record = records.find((r) => r.id === cover.id);
+      if (!record) {
+        throw new Error('Can not find record in DB');
+      }
+      record.fields[cover.fieldId] = cover.newValue;
     });
   }
 
@@ -537,12 +578,14 @@ export class ReferenceService {
           visit(edge.toFieldId);
         }
 
-        sortedNodes.push({ id: node, dependencies });
+        sortedNodes.push({ id: node, dependencies: Array.from(new Set(dependencies)) });
       }
     }
 
     visit(startNodeId);
 
+    // first item in the topological order should not include dependencies
+    sortedNodes.pop();
     return sortedNodes.reverse();
   }
 
@@ -694,6 +737,10 @@ export class ReferenceService {
         relationTo?: string;
       }[]
     >(finalQuery);
+
+    if (!results.length) {
+      return originRecordItems;
+    }
 
     // startIds are always the first records in the result set, so we can just slice them off
     return results.splice(originRecordItems.length).map((record) => ({

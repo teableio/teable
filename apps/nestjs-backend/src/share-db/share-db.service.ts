@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { IOtOperation, ISetRecordOpContext } from '@teable-group/core';
+import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
@@ -75,26 +75,39 @@ export class ShareDbService extends ShareDBClass {
   ) => {
     const tsMeta = context.extra as ITransactionMeta;
     if (tsMeta.skipCalculate || context.agent.custom?.transactionKey) {
-      console.log('tsMeta.skipCalculate:', tsMeta, context.agent.custom);
       return next();
     }
 
     this.derivateChangeService.countTransaction(tsMeta);
+    let derivateData: Awaited<ReturnType<DerivateChangeService['derivateAndCalculateLink']>>;
     try {
       await this.onRecordApply(context);
+      // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
+      derivateData = await this.derivateChangeService.derivateAndCalculateLink(tsMeta);
     } catch (e) {
       this.derivateChangeService.cleanTransaction(tsMeta);
       return next(e);
     }
-    // notice: The timing of updating transactions is crucial, so getOpsToOthers must be called before next().
-    const opsToOthers = this.derivateChangeService.getOpsToOthers(tsMeta);
 
     next();
 
     // only last onApply triggered within a transaction will return otherSnapshotOps
     // it make sure we not lead to infinite loop
-    if (opsToOthers) {
-      this.sendOps(opsToOthers.transactionMeta, opsToOthers.otherSnapshotOps);
+    if (derivateData) {
+      const send = (error: Error, context: ShareDBClass.middleware.SubmitContext) => {
+        if (tsMeta.transactionKey === (context.extra as ITransactionMeta).transactionKey) {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          this.sendOpsMap(derivateData!.transactionMeta, derivateData!.opsMap);
+          this.off('submitRequestEnd', send);
+          clearTimeout(timer);
+        }
+      };
+      // 10s limit Exceed, incase of memory leak
+      const timer = setTimeout(() => {
+        console.error('sendOpsMap timeout exceed');
+        this.off('submitRequestEnd', send);
+      }, 10000);
+      this.on('submitRequestEnd', send);
     }
   };
 
@@ -106,24 +119,20 @@ export class ShareDbService extends ShareDBClass {
       return;
     }
     console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
-    const opContexts = context.op.op.reduce<ISetRecordOpContext[]>((pre, cur) => {
+    const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
-        pre.push(ctx);
+        pre.push(cur);
       }
       return pre;
     }, []);
 
-    if (!opContexts.length) {
+    if (!ops.length) {
       return;
     }
 
     let fixupOps: IOtOperation[] | undefined = undefined;
-    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, {
-      tableId,
-      recordId,
-      opContexts,
-    });
+    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, ops);
 
     if (!fixupOps || !fixupOps.length) {
       return;
@@ -134,18 +143,16 @@ export class ShareDbService extends ShareDBClass {
     fixupOps && context.$fixup(fixupOps);
   }
 
-  private async sendOps(
+  private async sendOpsMap(
     transactionMeta: ITransactionMeta,
-    otherSnapshotOps: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
+    opsMap: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(otherSnapshotOps, null, 2));
-    console.log('new:transactionMeta:', transactionMeta);
+    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     connection.agent!.custom = transactionMeta;
-    const queue: { doc: Doc; transactionMeta: ITransactionMeta; ops: IOtOperation[] }[] = [];
-    for (const tableId in otherSnapshotOps) {
-      const data = otherSnapshotOps[tableId];
+    for (const tableId in opsMap) {
+      const data = opsMap[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
@@ -155,27 +162,15 @@ export class ShareDbService extends ShareDBClass {
             if (error) {
               return reject(error);
             }
-            resolve(undefined);
+            doc.submitOp(ops, transactionMeta, (error) => {
+              if (error) {
+                return reject(error);
+              }
+              resolve(undefined);
+            });
           });
         });
-        queue.push({
-          doc,
-          ops,
-          transactionMeta,
-        });
       }
-    }
-
-    for (const item of queue) {
-      await new Promise((resolve, reject) => {
-        item.doc.submitOp(item.ops, item.transactionMeta, (error) => {
-          if (error) {
-            return reject(error);
-          }
-          console.log('sendOpsAfterApply:succeed', item.transactionMeta);
-          resolve(undefined);
-        });
-      });
     }
   }
 
@@ -207,6 +202,7 @@ export class ShareDbService extends ShareDBClass {
     let cacheEventArray = this.eventCollector.get(transactionKey);
     const transactionCacheMeta = this.transactionService.getCache(transactionKey);
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const eventType = this.getEventType(context.op)!;
     const cacheEventMeta: IEventCollectorMeta = {
       type: eventType,
@@ -267,6 +263,7 @@ export class ShareDbService extends ShareDBClass {
     };
 
     const allTypes = map(cacheEventArray, 'type');
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const type = getType(allTypes)!;
     const lastContext = orderBy(cacheEventArray, 'sort', 'desc')[0].context;
 

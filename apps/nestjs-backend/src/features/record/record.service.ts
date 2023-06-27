@@ -250,7 +250,14 @@ export class RecordService implements IAdapterService {
 
     const createAttachmentsTable = this.getCreateAttachments(fieldInstanceMap, contexts);
 
-    await this.attachmentService.updateByRecord(prisma, tableId, recordId, createAttachmentsTable);
+    if (createAttachmentsTable.length) {
+      await this.attachmentService.updateByRecord(
+        prisma,
+        tableId,
+        recordId,
+        createAttachmentsTable
+      );
+    }
 
     const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
       (pre, ctx) => {

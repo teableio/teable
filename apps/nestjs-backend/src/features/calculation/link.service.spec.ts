@@ -3,12 +3,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType, Relationship } from '@teable-group/core';
-import type {
-  ICellContext,
-  IRecordMapByTableId,
-  IRecordTitleMapByTableId,
-  ITinyFieldMapByTableId,
-} from './link.service';
+import type { ILinkCellContext, ITinyFieldMapByTableId } from './link.service';
 import { LinkService } from './link.service';
 import { ReferenceService } from './reference.service';
 
@@ -60,411 +55,716 @@ describe('LinkService', () => {
       };
     });
 
-    it('should create correct mutation when add or del value for ManyOne field', () => {
-      /**
-       * test case
-       *
-       * case 1 Add Link Record From ManyOne link Field
-       * TableA: ManyOne-LinkB A1.null -> A1.B1
-       * { TableB: { B1: { 'OneMany-LinkA': add: [A1] }} }
-       * TableB: OneMany-LinkA B1.null -> B1.push(A1)
-       *
-       */
-
-      const ctx1: ICellContext[] = [
+    it('should create correct ForeignKeyParams when add value for ManyOne field', () => {
+      const ctx1: ILinkCellContext[] = [
         {
-          id: 'A1',
+          recordId: 'A1',
           fieldId: 'ManyOne-LinkB',
           newValue: { id: 'B1' },
         },
       ];
 
-      const mutation1 = service['getCellMutation']('tableA', fieldMapByTableId, ctx1);
-      expect(mutation1).toEqual({
-        tableB: { B1: { 'OneMany-LinkA': { add: ['A1'], del: [] } } },
-      });
-
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: { A1: { 'ManyOne-LinkB': undefined } },
-        tableB: { B1: { 'OneMany-LinkA': undefined } },
-      };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' } },
-        tableB: { B1: { fieldB: 'B1' } },
-      };
-
-      const changes1 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId1,
-        recordTitleMapByTableId1,
-        fieldMapByTableId
-      );
-      expect(changes1).toEqual([
-        {
-          tableId: 'tableB',
-          recordId: 'B1',
-          fieldId: 'OneMany-LinkA',
-          oldValue: undefined,
-          newValue: [{ id: 'A1', title: 'A1' }],
-        },
-      ]);
-
-      const recordMapByTableId2: IRecordMapByTableId = {
-        tableA: { A1: { 'ManyOne-LinkB': undefined } },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A2', title: 'A2' }] } },
-      };
-      const recordTitleMapByTableId2: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' } },
-        tableB: { B1: { fieldB: 'B1' } },
-      };
-      const changes2 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId2,
-        recordTitleMapByTableId2,
-        fieldMapByTableId
-      );
-      expect(changes2).toEqual([
-        {
-          tableId: 'tableB',
-          recordId: 'B1',
-          fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A2', title: 'A2' }],
-          newValue: [
-            { id: 'A2', title: 'A2' },
-            { id: 'A1', title: 'A1' },
-          ],
-        },
-      ]);
-
-      const ctx2: ICellContext[] = [
-        {
-          id: 'A1',
-          fieldId: 'ManyOne-LinkB',
-          oldValue: { id: 'B1' },
-        },
-      ];
-
-      expect(service['getCellMutation']('tableA', fieldMapByTableId, ctx2)).toEqual({
-        tableB: { B1: { 'OneMany-LinkA': { add: [], del: ['A1'] } } },
-      });
-    });
-
-    it('should create correct mutation when change value for ManyOne field', async () => {
-      /**
-       * test case
-       *
-       * case 2 Change Link Record From ManyOne link Field
-       * TableA: ManyOne-LinkB A1.B1 -> A1.B2
-       * TableB: OneMany-LinkA B1.(Old) -> B1.pop(A1) | B2.(Old) -> B2.push(A1)
-       *
-       */
-      const ctxs: ICellContext[] = [
-        {
-          id: 'A1',
-          fieldId: 'ManyOne-LinkB',
-          newValue: { id: 'B2' },
-          oldValue: { id: 'B1' },
-        },
-      ];
-
-      const mutation1 = service['getCellMutation']('tableA', fieldMapByTableId, ctxs);
-      expect(mutation1).toEqual({
-        tableB: {
-          B1: { 'OneMany-LinkA': { add: [], del: ['A1'] } },
-          B2: { 'OneMany-LinkA': { add: ['A1'], del: [] } },
-        },
-      });
-
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: { A1: { 'ManyOne-LinkB': undefined } },
-        tableB: {
-          B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] },
-          B2: { 'OneMany-LinkA': undefined },
-        },
-      };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' } },
-        tableB: { B1: { fieldB: 'B1' }, B2: { fieldB: 'B2' } },
-      };
-      const changes1 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId1,
-        recordTitleMapByTableId1,
-        fieldMapByTableId
-      );
-      expect(changes1).toEqual([
-        {
-          tableId: 'tableB',
-          recordId: 'B2',
-          fieldId: 'OneMany-LinkA',
-          oldValue: undefined,
-          newValue: [{ id: 'A1', title: 'A1' }],
-        },
-        {
-          tableId: 'tableB',
-          recordId: 'B1',
-          fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A1', title: 'A1' }],
-          newValue: undefined,
-        },
-      ]);
-
-      // Mock Prisma TransactionClient
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const prisma: any = {
-        $executeRawUnsafe: jest.fn(),
-      };
-      const tableId2DbTableName = {
-        tableA: 'tableA',
-        tableB: 'tableB',
-      };
-
-      await service['updateForeignKey'](
-        prisma,
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
         'tableA',
-        tableId2DbTableName,
         fieldMapByTableId,
-        ctxs,
-        changes1
+        ctx1
       );
+      expect(result1.recordMapByTableId).toEqual({
+        tableA: {
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+        },
+        tableB: { B1: { fieldB: undefined, 'OneMany-LinkA': undefined } },
+      });
 
-      const nativeSql = service['knex']('tableA')
-        .update({
-          [fieldMapByTableId['tableB']['OneMany-LinkA'].options.dbForeignKeyName]: 'B2',
-        })
-        .where('__id', 'A1')
-        .toSQL()
-        .toNative();
-
-      expect(prisma.$executeRawUnsafe).toBeCalledWith(nativeSql.sql, ...nativeSql.bindings);
+      expect(result1.updateForeignKeyParams).toEqual([
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+      ]);
     });
 
-    it('should create correct mutation when multi mixed change for ManyOne field', () => {
-      const ctx2: ICellContext[] = [
+    it('should create correct ForeignKeyParams when delete value for ManyOne field', () => {
+      const ctx1: ILinkCellContext[] = [
         {
-          id: 'A1',
+          recordId: 'A1',
           fieldId: 'ManyOne-LinkB',
-          newValue: { id: 'B2' },
           oldValue: { id: 'B1' },
-        },
-        {
-          id: 'A2',
-          fieldId: 'ManyOne-LinkB',
-          newValue: { id: 'B2' },
-        },
-        {
-          id: 'A3',
-          fieldId: 'ManyOne-LinkB',
-          oldValue: { id: 'B2' },
+          newValue: undefined,
         },
       ];
 
-      const mutation1 = service['getCellMutation']('tableA', fieldMapByTableId, ctx2);
-      expect(mutation1).toEqual({
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableA',
+        fieldMapByTableId,
+        ctx1
+      );
+      expect(result1.recordMapByTableId).toEqual({
+        tableA: {
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+        },
+        tableB: { B1: { fieldB: undefined, 'OneMany-LinkA': undefined } },
+      });
+
+      expect(result1.updateForeignKeyParams).toEqual([
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
+        },
+      ]);
+    });
+
+    it('should create correct ForeignKeyParams when replace value for ManyOne field', () => {
+      const ctx1: ILinkCellContext[] = [
+        {
+          recordId: 'A1',
+          fieldId: 'ManyOne-LinkB',
+          oldValue: { id: 'B1' },
+          newValue: { id: 'B2' },
+        },
+      ];
+
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableA',
+        fieldMapByTableId,
+        ctx1
+      );
+
+      expect(result1.recordMapByTableId).toEqual({
+        tableA: {
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+        },
         tableB: {
-          B1: { 'OneMany-LinkA': { add: [], del: ['A1'] } },
-          B2: { 'OneMany-LinkA': { add: ['A1', 'A2'], del: ['A3'] } },
+          B1: { fieldB: undefined, 'OneMany-LinkA': undefined },
+          B2: { fieldB: undefined, 'OneMany-LinkA': undefined },
         },
       });
 
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
-          A2: { 'ManyOne-LinkB': undefined },
-          A3: { 'ManyOne-LinkB': { id: 'B2', title: 'B2' } },
-        },
-        tableB: {
-          B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] },
-          B2: { 'OneMany-LinkA': [{ id: 'A3', title: 'A3' }] },
-        },
-      };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' }, A3: { fieldA: 'A3' } },
-        tableB: { B1: { fieldB: 'B1' }, B2: { fieldB: 'B2' } },
-      };
-      const changes1 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId1,
-        recordTitleMapByTableId1,
-        fieldMapByTableId
-      );
-      expect(changes1).toEqual([
+      expect(result1.updateForeignKeyParams).toEqual([
         {
-          tableId: 'tableB',
-          recordId: 'B2',
-          fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A3', title: 'A3' }],
-          newValue: [
-            { id: 'A1', title: 'A1' },
-            { id: 'A2', title: 'A2' },
-          ],
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B2',
         },
+      ]);
+    });
+
+    it('should create correct ForeignKeyParams when add value for oneMany field', () => {
+      const ctx1: ILinkCellContext[] = [
         {
-          tableId: 'tableB',
           recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          oldValue: [{ id: 'A1', title: 'A1' }],
+          newValue: [{ id: 'A1' }],
+        },
+      ];
+
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableB',
+        fieldMapByTableId,
+        ctx1
+      );
+      expect(result1.recordMapByTableId).toEqual({
+        tableA: {
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+        },
+        tableB: { B1: { fieldB: undefined, 'OneMany-LinkA': undefined } },
+      });
+
+      expect(result1.updateForeignKeyParams).toEqual([
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+      ]);
+    });
+
+    it('should create correct ForeignKeyParams when del value for oneMany field', () => {
+      const ctx1: ILinkCellContext[] = [
+        {
+          recordId: 'B1',
+          fieldId: 'OneMany-LinkA',
+          oldValue: [{ id: 'A1' }],
           newValue: undefined,
         },
-      ]);
-    });
-
-    it('should create correct mutation when add value for OneMany field', () => {
-      /**
-       * test case
-       *
-       * case 3 Add Link Record From OneMany link Field
-       * TableA: OneMany-linkB A1.(old) -> A1.push(B1)
-       * TableB: ManyOne-LinkA B1.null -> B2.A1
-       *
-       */
-      const ctx: ICellContext[] = [
-        { id: 'B1', fieldId: 'OneMany-LinkA', newValue: [{ id: 'A1' }] },
       ];
 
-      const mutation1 = service['getCellMutation']('tableB', fieldMapByTableId, ctx);
-      expect(mutation1).toEqual({
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableB',
+        fieldMapByTableId,
+        ctx1
+      );
+      expect(result1.recordMapByTableId).toEqual({
         tableA: {
-          A1: { 'ManyOne-LinkB': { add: ['B1'], del: [] } },
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
         },
+        tableB: { B1: { fieldB: undefined, 'OneMany-LinkA': undefined } },
       });
 
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: { A1: { 'ManyOne-LinkB': undefined } },
-        tableB: { B1: { 'OneMany-LinkA': undefined } },
-      };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' } },
-        tableB: { B1: { fieldB: 'B1' } },
-      };
-      const changes1 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId1,
-        recordTitleMapByTableId1,
-        fieldMapByTableId
-      );
-      expect(changes1).toEqual([
+      expect(result1.updateForeignKeyParams).toEqual([
         {
           tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
           recordId: 'A1',
-          fieldId: 'ManyOne-LinkB',
-          oldValue: undefined,
-          newValue: { id: 'B1', title: 'B1' },
+          fRecordId: null,
         },
       ]);
     });
 
-    it('should create correct mutation when change value for OneMany field', () => {
-      /**
-       * test case
-       *
-       * case 4 Change Link Record From OneMany link Field
-       * TableA: OneMany-linkB A1.(old) -> A1.[B1]
-       * TableB: ManyOne-LinkA B1.null -> B2.A1
-       *
-       */
-      const ctx2: ICellContext[] = [
+    it('should create correct ForeignKeyParams when replace value for oneMany field', () => {
+      const ctx1: ILinkCellContext[] = [
         {
-          id: 'B1',
+          recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          newValue: [{ id: 'A2' }],
           oldValue: [{ id: 'A1' }],
+          newValue: [{ id: 'A1' }, { id: 'A2' }],
         },
       ];
 
-      const mutation1 = service['getCellMutation']('tableB', fieldMapByTableId, ctx2);
-      expect(mutation1).toEqual({
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableB',
+        fieldMapByTableId,
+        ctx1
+      );
+
+      expect(result1.recordMapByTableId).toEqual({
         tableA: {
-          A1: { 'ManyOne-LinkB': { add: [], del: ['B1'] } },
-          A2: { 'ManyOne-LinkB': { add: ['B1'], del: [] } },
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+          A2: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
         },
+        tableB: { B1: { fieldB: undefined, 'OneMany-LinkA': undefined } },
       });
 
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
-          A2: { 'ManyOne-LinkB': undefined },
-        },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] } },
-      };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' } },
-        tableB: { B1: { fieldB: 'B1' } },
-      };
-      const changes1 = service['getCellChangeByMutation'](
-        mutation1,
-        recordMapByTableId1,
-        recordTitleMapByTableId1,
-        fieldMapByTableId
-      );
-      expect(changes1).toEqual([
+      expect(result1.updateForeignKeyParams).toEqual([
         {
           tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
           recordId: 'A2',
-          fieldId: 'ManyOne-LinkB',
-          oldValue: undefined,
-          newValue: { id: 'B1', title: 'B1' },
-        },
-        {
-          tableId: 'tableA',
-          recordId: 'A1',
-          fieldId: 'ManyOne-LinkB',
-          oldValue: { id: 'B1', title: 'B1' },
-          newValue: undefined,
+          fRecordId: 'B1',
         },
       ]);
     });
 
-    it('should throw error when add same record for the OneMany field who link to a ManyOne field', () => {
-      /**
-       * test case
-       *
-       * case 4 Change Link Record From OneMany link Field
-       * TableA: OneMany-linkB A1.(old) -> A1.[B1]
-       * TableB: ManyOne-LinkA B1.null -> B2.A1
-       *
-       */
-      const ctx2: ICellContext[] = [
+    it('should create correct ForeignKeyParams even when illegal value for oneMany field', () => {
+      const ctx1: ILinkCellContext[] = [
         {
-          id: 'B1',
+          recordId: 'B1',
           fieldId: 'OneMany-LinkA',
-          newValue: [{ id: 'A2' }],
           oldValue: [{ id: 'A1' }],
+          newValue: [{ id: 'A1' }, { id: 'A2' }],
         },
         {
-          id: 'B2',
+          recordId: 'B2',
           fieldId: 'OneMany-LinkA',
-          newValue: [{ id: 'A2' }],
+          newValue: [{ id: 'A1' }, { id: 'A2' }],
         },
       ];
 
-      const mutation1 = service['getCellMutation']('tableB', fieldMapByTableId, ctx2);
-      expect(mutation1).toEqual({
+      const result1 = service['getRecordMapStructAndForeignKeyParams'](
+        'tableB',
+        fieldMapByTableId,
+        ctx1
+      );
+
+      expect(result1.recordMapByTableId).toEqual({
         tableA: {
-          A1: { 'ManyOne-LinkB': { add: [], del: ['B1'] } },
-          A2: { 'ManyOne-LinkB': { add: ['B1', 'B2'], del: [] } },
+          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+          A2: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
+        },
+        tableB: {
+          B1: { fieldB: undefined, 'OneMany-LinkA': undefined },
+          B2: { fieldB: undefined, 'OneMany-LinkA': undefined },
         },
       });
 
-      const recordMapByTableId1: IRecordMapByTableId = {
-        tableA: {
-          A1: { 'ManyOne-LinkB': { id: 'B1', title: 'B1' } },
-          A2: { 'ManyOne-LinkB': undefined },
+      expect(result1.updateForeignKeyParams).toEqual([
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
         },
-        tableB: { B1: { 'OneMany-LinkA': [{ id: 'A1', title: 'A1' }] } },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A2',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B2',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A2',
+          fRecordId: 'B2',
+        },
+      ]);
+    });
+
+    it('should update foreign key in memory correctly when add value', () => {
+      const recordMapByTableId = {
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': undefined,
+            '__fk_ManyOne-LinkB': undefined,
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': undefined,
+          },
+        },
       };
-      const recordTitleMapByTableId1: IRecordTitleMapByTableId = {
-        tableA: { A1: { fieldA: 'A1' }, A2: { fieldA: 'A2' } },
-        tableB: { B1: { fieldB: 'B1' } },
+
+      const updateForeignKeyParams = [
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+      ];
+
+      const result1 = service['updateForeignKeyInMemory'](
+        updateForeignKeyParams,
+        recordMapByTableId
+      );
+
+      expect(result1).toEqual({
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+        },
+      });
+    });
+
+    it('should update foreign key in memory correctly when del value', () => {
+      const recordMapByTableId = {
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+        },
       };
-      expect(() =>
-        service['getCellChangeByMutation'](
-          mutation1,
-          recordMapByTableId1,
-          recordTitleMapByTableId1,
-          fieldMapByTableId
-        )
-      ).toThrowError('ManyOne relationship should not have multiple records');
+
+      const updateForeignKeyParams = [
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
+        },
+      ];
+
+      const result1 = service['updateForeignKeyInMemory'](
+        updateForeignKeyParams,
+        recordMapByTableId
+      );
+
+      expect(result1).toEqual({
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': null,
+            '__fk_ManyOne-LinkB': null,
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': null,
+          },
+        },
+      });
+    });
+
+    it('should update foreign key in memory correctly when replace value', () => {
+      const recordMapByTableId = {
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+          B2: {
+            fieldB: 'B2',
+            'OneMany-LinkA': undefined,
+          },
+        },
+      };
+
+      const updateForeignKeyParams = [
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B2',
+        },
+      ];
+
+      const result1 = service['updateForeignKeyInMemory'](
+        updateForeignKeyParams,
+        recordMapByTableId
+      );
+
+      expect(result1).toEqual({
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B2', title: 'B2' },
+            '__fk_ManyOne-LinkB': 'B2',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': null,
+          },
+          B2: {
+            fieldB: 'B2',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+        },
+      });
+    });
+
+    it('should update foreign key in memory correctly when replace multiple value', () => {
+      const recordMapByTableId = {
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+          A2: {
+            fieldA: 'A2',
+            'ManyOne-LinkB': undefined,
+            '__fk_ManyOne-LinkB': undefined,
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+        },
+      };
+
+      const updateForeignKeyParams = [
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A2',
+          fRecordId: 'B1',
+        },
+      ];
+
+      const result1 = service['updateForeignKeyInMemory'](
+        updateForeignKeyParams,
+        recordMapByTableId
+      );
+
+      expect(result1).toEqual({
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+          A2: {
+            fieldA: 'A2',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [
+              { id: 'A1', title: 'A1' },
+              { id: 'A2', title: 'A2' },
+            ],
+          },
+        },
+      });
+    });
+
+    it('should update foreign key in memory correctly event when illegal value', () => {
+      const recordMapByTableId = {
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B1', title: 'B1' },
+            '__fk_ManyOne-LinkB': 'B1',
+          },
+          A2: {
+            fieldA: 'A2',
+            'ManyOne-LinkB': undefined,
+            '__fk_ManyOne-LinkB': undefined,
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': [{ id: 'A1', title: 'A1' }],
+          },
+          B2: {
+            fieldB: 'B2',
+            'OneMany-LinkA': undefined,
+          },
+        },
+      };
+
+      const updateForeignKeyParams = [
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: null,
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A2',
+          fRecordId: 'B1',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A1',
+          fRecordId: 'B2',
+        },
+        {
+          tableId: 'tableA',
+          foreignTableId: 'tableB',
+          mainLinkFieldId: 'ManyOne-LinkB',
+          mainTableLookupFieldId: 'fieldA',
+          foreignLinkFieldId: 'OneMany-LinkA',
+          foreignTableLookupFieldId: 'fieldB',
+          dbForeignKeyName: '__fk_ManyOne-LinkB',
+          recordId: 'A2',
+          fRecordId: 'B2',
+        },
+      ];
+
+      const result1 = service['updateForeignKeyInMemory'](
+        updateForeignKeyParams,
+        recordMapByTableId
+      );
+
+      expect(result1).toEqual({
+        tableA: {
+          A1: {
+            fieldA: 'A1',
+            'ManyOne-LinkB': { id: 'B2', title: 'B2' },
+            '__fk_ManyOne-LinkB': 'B2',
+          },
+          A2: {
+            fieldA: 'A2',
+            'ManyOne-LinkB': { id: 'B2', title: 'B2' },
+            '__fk_ManyOne-LinkB': 'B2',
+          },
+        },
+        tableB: {
+          B1: {
+            fieldB: 'B1',
+            'OneMany-LinkA': null,
+          },
+          B2: {
+            fieldB: 'B2',
+            'OneMany-LinkA': [
+              { id: 'A1', title: 'A1' },
+              { id: 'A2', title: 'A2' },
+            ],
+          },
+        },
+      });
     });
   });
 });

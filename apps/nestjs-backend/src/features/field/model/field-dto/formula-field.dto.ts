@@ -35,7 +35,7 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
     const isMultipleCellValue =
       (fieldRo as FormulaFieldDto).isMultipleCellValue ||
       (fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne);
-    const cellValueType = (fieldRo as FormulaFieldDto).cellValueType;
+    const cellValueType = (fieldRo as FormulaFieldDto).cellValueType || CellValueType.String;
 
     function getDbFieldType(cellValueType: CellValueType) {
       switch (cellValueType) {

@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
+import type { LookupOptionsVo } from '@teable-group/core';
 import {
   formatFieldErrorMessage,
   DbFieldType,
@@ -20,6 +21,12 @@ import { NumberFieldDto } from './field-dto/number-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
 import type { FieldVo } from './field.vo';
+
+export interface IPreparedRo {
+  cellValueType: CellValueType;
+  isLookup?: boolean;
+  lookupOptions?: LookupOptionsVo;
+}
 
 function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
   switch (key) {
@@ -49,7 +56,7 @@ function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
   }
 }
 
-export function createFieldInstanceByRo(createFieldRo: CreateFieldRo & { id?: string }) {
+export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
   // generate Id first
   const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 

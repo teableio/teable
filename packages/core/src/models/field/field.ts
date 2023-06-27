@@ -15,7 +15,7 @@ export class LookupOptionsVo {
   foreignTableId!: string;
   linkFieldId!: string;
   lookupFieldId!: string;
-  relationShip!: Relationship;
+  relationship!: Relationship;
 }
 
 export interface IFieldRo {
