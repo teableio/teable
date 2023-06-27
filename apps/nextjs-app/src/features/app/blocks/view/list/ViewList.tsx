@@ -11,7 +11,12 @@ export const ViewList: React.FC = () => {
   return (
     <div className="mx-2 flex pt-2 items-center space-x-2">
       {views.map((view) => (
-        <ViewListItem key={view.id} view={view} isActive={view.id === activeViewId} />
+        <ViewListItem
+          key={view.id}
+          view={view}
+          isDelete={views.length > 1}
+          isActive={view.id === activeViewId}
+        />
       ))}
       <Button
         size={'xxs'}

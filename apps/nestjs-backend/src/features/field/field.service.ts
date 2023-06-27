@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IAddColumnMetaOpContext,
   IColumnMeta,
@@ -9,13 +9,14 @@ import type {
   ISnapshotBase,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
+import type { IDeleteColumnMetaOpContext } from '@teable-group/core/dist/op-builder/field/delete-column-meta';
 import type { ISetFieldDefaultValueOpContext } from '@teable-group/core/src/op-builder/field/set-field-default-value';
 import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
 import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
 import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { sortBy } from 'lodash';
+import { cloneDeep, forEach, isEqual, sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -24,16 +25,27 @@ import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance, IPreparedRo } from './model/factory';
 import {
+  createFieldInstanceByRo,
   createFieldInstanceByVo,
   rawField2FieldObj,
-  createFieldInstanceByRo,
 } from './model/factory';
 import type { FieldVo } from './model/field.vo';
 import type { GetFieldsRo } from './model/get-fields.ro';
 import { dbType2knexFormat } from './util';
 
+type IOpContexts =
+  | ISetFieldNameOpContext
+  | ISetFieldDescriptionOpContext
+  | ISetFieldTypeOpContext
+  | ISetFieldOptionsOpContext
+  | ISetFieldDefaultValueOpContext
+  | IAddColumnMetaOpContext
+  | ISetColumnMetaOpContext
+  | IDeleteColumnMetaOpContext;
+
 @Injectable()
 export class FieldService implements IAdapterService {
+  private logger = new Logger(FieldService.name);
   private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
@@ -316,95 +328,134 @@ export class FieldService implements IAdapterService {
     });
   }
 
+  private handleFieldName(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return { name: (opContext as ISetFieldNameOpContext).newName };
+  }
+
+  private handleFieldDescription(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return { description: (opContext as ISetFieldDescriptionOpContext).newDescription };
+  }
+
+  private handleFieldType(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return { type: (opContext as ISetFieldTypeOpContext).newType };
+  }
+
+  private handleFieldOptions(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
+  }
+
+  private handleFieldDefaultValue(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return {
+      defaultValue: JSON.stringify((opContext as ISetFieldDefaultValueOpContext).newDefaultValue),
+    };
+  }
+
+  private async handleColumnMeta(params: {
+    prisma: Prisma.TransactionClient;
+    fieldId: string;
+    opContext: IOpContexts;
+  }) {
+    const { prisma, fieldId, opContext } = params;
+
+    const fieldData = await prisma.field.findUniqueOrThrow({
+      where: { id: fieldId },
+      select: { columnMeta: true },
+    });
+
+    let newColumnMeta = JSON.parse(fieldData.columnMeta);
+    if (opContext.name === OpName.AddColumnMeta) {
+      const { viewId, newMetaValue } = opContext;
+
+      newColumnMeta = {
+        ...newColumnMeta,
+        [viewId]: {
+          ...newColumnMeta[viewId],
+          ...newMetaValue,
+        },
+      };
+    } else if (opContext.name === OpName.SetColumnMeta) {
+      const { viewId, metaKey, newMetaValue } = opContext;
+
+      newColumnMeta = {
+        ...newColumnMeta,
+        [viewId]: {
+          ...newColumnMeta[viewId],
+          [metaKey]: newMetaValue,
+        },
+      };
+    } else if (opContext.name === OpName.DeleteColumnMeta) {
+      const { viewId, oldMetaValue } = opContext;
+
+      forEach(oldMetaValue, (value, key) => {
+        if (isEqual(newColumnMeta[viewId][key], value)) {
+          delete newColumnMeta[viewId][key];
+          if (Object.keys(newColumnMeta[viewId]).length === 0) {
+            delete newColumnMeta[viewId];
+          }
+        }
+      });
+    }
+
+    return { columnMeta: JSON.stringify(newColumnMeta) };
+  }
+
+  private async updateStrategies(
+    opContext: IOpContexts,
+    params: {
+      prisma: Prisma.TransactionClient;
+      fieldId: string;
+      opContext: IOpContexts;
+    }
+  ) {
+    const opHandlers = {
+      [OpName.SetFieldName]: this.handleFieldName,
+      [OpName.SetFieldDescription]: this.handleFieldDescription,
+      [OpName.SetFieldType]: this.handleFieldType,
+      [OpName.SetFieldOptions]: this.handleFieldOptions,
+      [OpName.SetFieldDefaultValue]: this.handleFieldDefaultValue,
+
+      [OpName.AddColumnMeta]: this.handleColumnMeta,
+      [OpName.SetColumnMeta]: this.handleColumnMeta,
+      [OpName.DeleteColumnMeta]: this.handleColumnMeta,
+    };
+
+    const handler = opHandlers[opContext.name];
+
+    if (!handler) {
+      throw new Error(`Unknown context ${opContext} for field update`);
+    }
+
+    return handler.constructor.name === 'AsyncFunction' ? await handler(params) : handler(params);
+  }
+
   async update(
     prisma: Prisma.TransactionClient,
     version: number,
-    _tableId: string,
+    tableId: string,
     fieldId: string,
-    opContexts: (
-      | ISetColumnMetaOpContext
-      | ISetFieldNameOpContext
-      | IAddColumnMetaOpContext
-      | ISetFieldDescriptionOpContext
-      | ISetFieldTypeOpContext
-      | ISetFieldOptionsOpContext
-      | ISetFieldDefaultValueOpContext
-    )[]
+    opContexts: IOpContexts[]
   ) {
     for (const opContext of opContexts) {
-      switch (opContext.name) {
-        case OpName.SetFieldName: {
-          const { newName } = opContext;
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { name: newName, version },
-          });
-          return;
-        }
-        case OpName.SetFieldDescription: {
-          const { newDescription } = opContext;
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { description: newDescription, version },
-          });
-          return;
-        }
-        case OpName.SetFieldType: {
-          const { newType } = opContext;
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { type: newType, version },
-          });
-          return;
-        }
-        case OpName.SetFieldOptions: {
-          const { newOptions } = opContext;
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { options: JSON.stringify(newOptions), version },
-          });
-          return;
-        }
-        case OpName.SetFieldDefaultValue: {
-          const { newDefaultValue } = opContext;
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { defaultValue: JSON.stringify(newDefaultValue), version },
-          });
-          return;
-        }
-        case OpName.SetColumnMeta: {
-          const { newMetaValue } = opContext;
+      const updateData = {
+        version,
+        ...(await this.updateStrategies(opContext, { prisma, fieldId, opContext })),
+      };
 
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { columnMeta: JSON.stringify(newMetaValue), version },
-          });
-          return;
-        }
-        case OpName.AddColumnMeta: {
-          const { viewId, newMetaValue } = opContext;
+      this.logger.log(
+        `Field update tableId: ${tableId} | fieldId: ${fieldId} | updateData: ${JSON.stringify(
+          updateData
+        )}`
+      );
 
-          const fieldData = await prisma.field.findUniqueOrThrow({
-            where: { id: fieldId },
-            select: { columnMeta: true },
-          });
-
-          const columnMeta = JSON.parse(fieldData.columnMeta);
-
-          Object.entries(newMetaValue).forEach(([key, value]) => {
-            columnMeta[viewId][key] = value;
-          });
-
-          await prisma.field.update({
-            where: { id: fieldId },
-            data: { columnMeta: JSON.stringify(columnMeta), version },
-          });
-          return;
-        }
-        default:
-          throw new Error(`Unknown context ${opContext} for field update`);
-      }
+      await prisma.field.update({
+        where: { id: fieldId },
+        data: updateData,
+      });
     }
   }
 

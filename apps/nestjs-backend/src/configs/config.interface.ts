@@ -1,8 +1,17 @@
+export type ILogLevel = 'off' | 'on';
+
 export interface IConfig {
+  logger: ILoggerConfig;
   nextJs: INextJsConfig;
   cors: ICorsConfig;
   swagger: ISwaggerConfig;
   mail: IMailConfig;
+}
+
+export interface ILoggerConfig {
+  level: {
+    prismaQueryLog?: ILogLevel;
+  };
 }
 
 export interface INextJsConfig {

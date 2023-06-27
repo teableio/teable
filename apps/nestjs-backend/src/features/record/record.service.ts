@@ -201,7 +201,7 @@ export class RecordService implements IAdapterService {
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
-    const sqlNative = this.knex(dbTableName)
+    return this.knex(dbTableName)
       .where(where)
       .select(idOnly ? '__id' : '*')
       .orderBy(orderBy)
@@ -210,9 +210,6 @@ export class RecordService implements IAdapterService {
       .limit(limit)
       .toSQL()
       .toNative();
-
-    console.log('sqlNative: ', sqlNative);
-    return sqlNative;
   }
 
   async setRecordOrder(

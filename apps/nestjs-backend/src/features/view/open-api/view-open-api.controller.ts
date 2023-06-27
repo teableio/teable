@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -69,5 +69,12 @@ export class ViewOpenApiController {
   ): Promise<ApiResponse<ViewVo>> {
     const viewVo = await this.viewOpenApiService.createView(tableId, viewInstance);
     return responseWrap(viewVo);
+  }
+
+  @ApiOperation({ summary: 'Delete view' })
+  @Delete('/:viewId')
+  async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
+    const result = await this.viewOpenApiService.deleteView(tableId, viewId);
+    return responseWrap(result);
   }
 }

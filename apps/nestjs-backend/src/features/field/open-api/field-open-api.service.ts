@@ -3,7 +3,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { IFieldSnapshot, IOtOperation } from '@teable-group/core';
 import { FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
-import { isEmpty } from 'lodash';
+import { isEmpty, isEqual } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldSupplementService } from '../field-supplement.service';
@@ -129,8 +129,9 @@ export class FieldOpenApiService {
           throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
         }
 
+        // Avoid some unnecessary changes, first differences to find out the key with changes
         const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
-          (key) => oldFieldInstance[key] !== newFieldInstance[key]
+          (key) => !isEqual(fieldVo[key], updateFieldRo[key])
         );
 
         const ops = this.updateField2Ops(updateKeys, newFieldInstance, oldFieldInstance);

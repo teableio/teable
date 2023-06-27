@@ -5,7 +5,7 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { CellValueType, FieldType, LookupOptions } from '@teable-group/core';
+import { CellValueType, FieldType, LookupOptions, IColumnMeta } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
 import { IsOptional, ValidateIf } from 'class-validator';
 import { DateOptionsDto } from './field-dto/date-field.dto';
@@ -113,4 +113,20 @@ other fields do not support defaultValue.
 
   @ApiHideProperty()
   cellValueType?: CellValueType;
+
+  @ApiPropertyOptional({
+    description:
+      'A mapping of view IDs to their corresponding column metadata, including order, width, and hidden status',
+    properties: {
+      viewId: {
+        type: 'object',
+        properties: {
+          order: { type: 'number' },
+          width: { type: 'number' },
+          hidden: { type: 'boolean' },
+        },
+      },
+    },
+  })
+  columnMeta?: IColumnMeta;
 }
