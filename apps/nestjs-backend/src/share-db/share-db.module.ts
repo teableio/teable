@@ -6,9 +6,10 @@ import { DerivateChangeService } from './derivate-change.service';
 import { ShareDbService } from './share-db.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import { TransactionService } from './transaction.service';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
-  imports: [TableModule, CalculationModule],
+  imports: [TableModule, CalculationModule, EventEmitterModule],
   providers: [
     ShareDbService,
     SqliteDbAdapter,
@@ -16,6 +17,6 @@ import { TransactionService } from './transaction.service';
     TransactionService,
     DerivateChangeService,
   ],
-  exports: [ShareDbService, TransactionService],
+  exports: [ShareDbService, TransactionService, EventEmitterModule.forRoot()],
 })
 export class ShareDbModule {}
