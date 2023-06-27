@@ -6,7 +6,7 @@ import type { FieldVo } from '../src/features/field/model/field.vo';
 import type { CreateRecordsRo } from '../src/features/record/create-records.ro';
 import type { UpdateRecordRoByIndexRo } from '../src/features/record/update-record-by-index.ro';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
-import { initApp } from './init-app';
+import { initApp } from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;

@@ -4,8 +4,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { json, urlencoded } from 'express';
-import loadConfig from '../src/configs/config';
-import { TableOpenApiModule } from '../src/features/table/open-api/table-open-api.module';
+import loadConfig from '../../src/configs/config';
+import { TableOpenApiModule } from '../../src/features/table/open-api/table-open-api.module';
 
 export async function initApp() {
   const moduleFixture: TestingModule = await Test.createTestingModule({

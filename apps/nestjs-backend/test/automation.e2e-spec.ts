@@ -9,15 +9,15 @@ import {
   IdPrefix,
 } from '@teable-group/core';
 import request from 'supertest';
-import { ActionTypeEnums } from 'src/features/automation/enums/action-type.enum';
-import { TriggerTypeEnums } from 'src/features/automation/enums/trigger-type.enum';
-import type { CreateWorkflowActionRo } from 'src/features/automation/model/create-workflow-action.ro';
-import type { CreateWorkflowTriggerRo } from 'src/features/automation/model/create-workflow-trigger.ro';
-import type { CreateWorkflowRo } from 'src/features/automation/model/create-workflow.ro';
-import type { UpdateWorkflowActionRo } from 'src/features/automation/model/update-workflow-action.ro';
-import type { UpdateWorkflowTriggerRo } from 'src/features/automation/model/update-workflow-trigger.ro';
-import type { FieldVo } from 'src/features/field/model/field.vo';
-import { initApp } from './init-app';
+import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
+import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
+import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
+import type { CreateWorkflowTriggerRo } from '../src/features/automation/model/create-workflow-trigger.ro';
+import type { CreateWorkflowRo } from '../src/features/automation/model/create-workflow.ro';
+import type { UpdateWorkflowActionRo } from '../src/features/automation/model/update-workflow-action.ro';
+import type { UpdateWorkflowTriggerRo } from '../src/features/automation/model/update-workflow-trigger.ro';
+import type { FieldVo } from '../src/features/field/model/field.vo';
+import { initApp } from './utils/init-app';
 
 describe('AutomationController (e2e)', () => {
   let app: INestApplication;
