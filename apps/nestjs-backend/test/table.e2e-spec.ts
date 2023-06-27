@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { initApp } from './init-app';
+import { initApp } from './utils/init-app';
 
 const assertData = {
   name: 'Project Management',

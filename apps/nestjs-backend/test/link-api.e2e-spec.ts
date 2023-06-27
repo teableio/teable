@@ -8,7 +8,7 @@ import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
-import { initApp } from './init-app';
+import { initApp } from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;

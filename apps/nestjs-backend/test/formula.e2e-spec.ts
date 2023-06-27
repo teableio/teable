@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldType, generateFieldId } from '@teable-group/core';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
-import { initApp } from './init-app';
+import { initApp } from './utils/init-app';
 
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;

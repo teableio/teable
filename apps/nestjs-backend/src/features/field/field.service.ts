@@ -16,7 +16,7 @@ import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builde
 import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { cloneDeep, forEach, isEqual, sortBy } from 'lodash';
+import { forEach, isEqual, sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
