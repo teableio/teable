@@ -137,7 +137,7 @@ export class LinkService {
    * mainLinkFieldId is the link fieldId of the main table, contain only one link cell value
    * foreignLinkFieldId is the link fieldId of the foreign table, contain multiple link cell value
    */
-  updateForeignKeyInMemory(
+  private updateForeignKeyInMemory(
     updateForeignKeyParams: IUpdateForeignKeyParam[],
     recordMapByTableId: IRecordMapByTableId
   ) {
@@ -429,7 +429,7 @@ export class LinkService {
     }, {});
   }
 
-  getDiffCellChangeByRecordMap(
+  private getDiffCellChangeByRecordMap(
     fkFieldNameMap: { [fkFieldName: string]: Set<string> },
     originRecordMapByTableId: IRecordMapByTableId,
     updatedRecordMapByTableId: IRecordMapByTableId
@@ -507,7 +507,7 @@ export class LinkService {
     });
   }
 
-  async getCellChangeByCellContexts(
+  private async getCellChangeByCellContexts(
     prisma: Prisma.TransactionClient,
     tableId: string,
     tableId2DbTableName: { [tableId: string]: string },

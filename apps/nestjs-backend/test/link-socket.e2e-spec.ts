@@ -41,8 +41,8 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   afterEach(async () => {
-    // await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`);
-    // await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2Id}`);
+    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`);
+    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2Id}`);
   });
 
   describe('link field cell update', () => {
