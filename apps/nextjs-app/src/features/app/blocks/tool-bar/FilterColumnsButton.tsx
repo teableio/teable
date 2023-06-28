@@ -70,7 +70,7 @@ export const FilterColumnsButton = () => {
       <div className="p-1">
         <Button
           variant={'ghost'}
-          size="xxs"
+          size="xs"
           className="font-normal text-xs"
           onClick={handleDeselectAll}
         >
@@ -78,7 +78,7 @@ export const FilterColumnsButton = () => {
         </Button>
         <Button
           variant={'ghost'}
-          size="xxs"
+          size="xs"
           className="float-right font-normal text-xs"
           onClick={handleSelectAll}
         >

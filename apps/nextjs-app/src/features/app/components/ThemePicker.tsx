@@ -13,7 +13,7 @@ export const ThemePicker: React.FC = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size={'xxs'} variant="outline">
+        <Button size={'xs'} variant="outline">
           {value || 'auto'}
         </Button>
       </DropdownMenuTrigger>

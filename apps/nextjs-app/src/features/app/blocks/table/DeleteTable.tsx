@@ -11,7 +11,7 @@ export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
   return (
     <Button
       variant={'ghost'}
-      size={'xxs'}
+      size={'xs'}
       className={className}
       onClick={async () => {
         await space.deleteTable(tableId);

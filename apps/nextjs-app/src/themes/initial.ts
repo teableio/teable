@@ -8,5 +8,6 @@ export const INITIAL_THEME = `
               ? 'dark'
               : 'light'
   }
-  document.documentElement.setAttribute('data-theme', getUserPreference());
+  const theme = getUserPreference();
+  theme === 'dark' && document.documentElement.classList.add('dark');
 `;
