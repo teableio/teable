@@ -96,15 +96,15 @@ const FieldSettingBase = (props: IFieldSetting) => {
 
   return (
     <Sheet open={currentVisible} onOpenChange={onOpenChange}>
-      <SheetContent className="p-0" position="right">
-        <div className="h-full flex flex-col">
+      <SheetContent className="px-4 py-2 w-[320px]" side="right">
+        <div className="h-full flex flex-col gap-2">
           {/* Header */}
-          <div className="w-full p-3 border-b">{title}</div>
+          <div className="text-md w-full py-2 font-semibold border-b">{title}</div>
           {/* Content Form */}
           {<FieldEditor field={field} onChange={onFieldEditorChange} />}
           {/* Footer */}
-          <div className="flex w-full justify-end space-x-3 border-t px-3 py-4">
-            <Button size={'sm'} variant={'outline'} onClick={onCancelInner}>
+          <div className="flex w-full justify-end space-x-2 py-2">
+            <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
               Cancel
             </Button>
             <Button size={'sm'} onClick={onConfirmInner}>
