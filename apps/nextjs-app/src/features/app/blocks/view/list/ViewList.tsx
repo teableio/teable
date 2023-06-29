@@ -19,7 +19,7 @@ export const ViewList: React.FC = () => {
         />
       ))}
       <Button
-        size={'xxs'}
+        size={'xs'}
         variant={'ghost'}
         // className="flex items-center space-x-2"
         onClick={addView}

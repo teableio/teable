@@ -14,7 +14,13 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns(), '.next', '.out', 'main'],
+  ignorePatterns: [
+    ...getDefaultIgnorePatterns(),
+    '.next',
+    '.out',
+    'main',
+    'tailwind.shadcnui.config.js',
+  ],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/sonar',

@@ -25,7 +25,6 @@ export const SelectFieldType = (props: {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          size={'xs'}
           variant="outline"
           role="combobox"
           aria-expanded={open}

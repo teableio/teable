@@ -47,36 +47,21 @@ export const SideBar: React.FC = () => {
           </div>
           <ul className="space-y-1 py-2">
             <li>
-              <Button
-                variant="ghost"
-                asChild
-                size="sm"
-                className="w-full justify-start rounded-none"
-              >
+              <Button variant="ghost" asChild className="w-full justify-start rounded-none">
                 <Link href="/space" className="font-normal">
                   <HomeIcon className="mr-2 h-4 w-4" /> Home
                 </Link>
               </Button>
             </li>
             <li>
-              <Button
-                variant="ghost"
-                asChild
-                size="sm"
-                className="w-full justify-start rounded-none"
-              >
+              <Button variant="ghost" asChild className="w-full justify-start rounded-none">
                 <Link className="py-1 font-normal" href="/space/dashboard">
                   <DashboardIcon className="mr-2 h-4 w-4" /> Dashboard
                 </Link>
               </Button>
             </li>
             <li>
-              <Button
-                variant="ghost"
-                asChild
-                size="sm"
-                className="w-full justify-start rounded-none"
-              >
+              <Button variant="ghost" asChild className="w-full justify-start rounded-none">
                 <a className="py-1 font-normal">
                   <FavoriteIcon className="mr-2 h-4 w-4" /> Favorites
                 </a>
