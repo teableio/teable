@@ -126,7 +126,7 @@ export const FieldEditor = (props: {
   }, [field.options, field.type, updateFieldOptions]);
 
   return (
-    <div className="flex-1 w-full overflow-y-auto gap-2 text-sm">
+    <div className="flex-1 w-full overflow-y-auto gap-2 px-2 text-sm">
       {/* General */}
       <div className="flex flex-col gap-2">
         <div className="w-full flex flex-col gap-2">
@@ -134,7 +134,7 @@ export const FieldEditor = (props: {
             <span className="label-text mb-2">Name</span>
           </div>
           <Input
-            placeholder="Field name"
+            placeholder="Field name (optional)"
             className="h-8"
             value={field['name']}
             onChange={updateFieldName}
@@ -164,7 +164,12 @@ export const FieldEditor = (props: {
             <div>
               <span className="label-text mb-2">Description</span>
             </div>
-            <Input className="h-8" value={field['description']} onChange={updateFieldDesc} />
+            <Input
+              className="h-8"
+              value={field['description']}
+              placeholder="Describe this field (optional)"
+              onChange={updateFieldDesc}
+            />
           </div>
         )}
         <div className="w-full flex flex-col gap-2">
@@ -176,7 +181,7 @@ export const FieldEditor = (props: {
             {getFieldSubtitle(field.type)}
           </p>
         </div>
-        <hr className=" border-slate-200" />
+        <hr className="border-slate-200" />
         {/* Field options */}
         {optionComponent}
       </div>
