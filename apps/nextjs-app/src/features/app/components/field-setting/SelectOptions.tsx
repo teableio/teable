@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 export const SelectOptions = (props: {
   options: SelectFieldOptions;
+  isLookup?: boolean;
   onChange?: (options: SelectFieldOptions) => void;
 }) => {
   const { options, onChange } = props;

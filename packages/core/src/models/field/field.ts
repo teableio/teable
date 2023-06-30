@@ -4,14 +4,14 @@ import type { CellValueType, DbFieldType, FieldType } from './constant';
 import type { Relationship } from './derivate';
 import type { IColumnMeta } from './interface';
 
-export class LookupOptions {
+export class ILookupOptions {
   foreignTableId!: string;
   linkFieldId!: string;
   lookupFieldId!: string;
-  relationShip?: Relationship;
+  relationship?: Relationship;
 }
 
-export class LookupOptionsVo {
+export class ILookupOptionsVo {
   foreignTableId!: string;
   linkFieldId!: string;
   lookupFieldId!: string;
@@ -25,7 +25,7 @@ export interface IFieldRo {
   description?: string;
   options?: unknown;
   isLookup?: boolean;
-  lookupOptions?: LookupOptions;
+  lookupOptions?: ILookupOptions;
   notNull?: boolean;
   unique?: boolean;
   isPrimary?: boolean;
@@ -38,7 +38,7 @@ export interface IFieldVo extends IFieldRo {
   isComputed?: boolean;
   cellValueType: CellValueType;
   isMultipleCellValue?: boolean;
-  lookupOptions?: LookupOptionsVo;
+  lookupOptions?: ILookupOptionsVo;
   dbFieldType: DbFieldType;
   dbFieldName: string;
   columnMeta: IColumnMeta;
@@ -88,7 +88,7 @@ export abstract class FieldCore implements IFieldVo {
   // if this field is lookup field
   isLookup?: boolean;
 
-  lookupOptions?: LookupOptionsVo;
+  lookupOptions?: ILookupOptionsVo;
 
   abstract cellValue2String(value?: unknown): string;
 

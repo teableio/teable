@@ -2,10 +2,8 @@ import { assertNever, FieldType } from '@teable-group/core';
 import { useCallback } from 'react';
 
 export const useFieldTypeSubtitle = () => {
-  return useCallback((fieldType: FieldType | 'lookup'): string => {
+  return useCallback((fieldType: FieldType): string => {
     switch (fieldType) {
-      case 'lookup':
-        return 'See values from a field in a linked record.';
       case FieldType.Link:
         return 'Link to records in the table you choose';
       case FieldType.SingleLineText:

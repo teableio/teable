@@ -5,7 +5,7 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { CellValueType, FieldType, LookupOptions, IColumnMeta } from '@teable-group/core';
+import { CellValueType, FieldType, ILookupOptions, IColumnMeta } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
 import { IsOptional, ValidateIf } from 'class-validator';
 import { DateOptionsDto } from './field-dto/date-field.dto';
@@ -89,9 +89,9 @@ other fields do not support defaultValue.
 
   @ApiPropertyOptional({
     description: 'Set the field is lookup field',
-    type: LookupOptions,
+    type: ILookupOptions,
   })
-  lookupOptions?: LookupOptions | undefined;
+  lookupOptions?: ILookupOptions | undefined;
 
   @ApiPropertyOptional({
     description: 'Set if it is a primary field',

@@ -10,6 +10,7 @@ import { NUMBER_FIELD_PRECISION } from '../../utils/field';
 
 export const NumberOptions = (props: {
   options: NumberFieldOptionsType;
+  isLookup?: boolean;
   onChange?: (options: NumberFieldOptionsType) => void;
 }) => {
   const { options, onChange } = props;

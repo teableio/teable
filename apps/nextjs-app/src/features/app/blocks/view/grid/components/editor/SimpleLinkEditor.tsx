@@ -102,12 +102,8 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
 export const LinkEditor = (props: ILinkEditorProps) => {
   const tableId = props.field.options.foreignTableId;
   return (
-    <AnchorProvider value={{ tableId }}>
-      <FieldProvider fallback={<h1>Empty</h1>}>
-        <RecordProvider>
-          <SimpleLinkEditor {...props} />
-        </RecordProvider>
-      </FieldProvider>
+    <AnchorProvider tableId={tableId} fallback={<h1>Empty</h1>}>
+      <SimpleLinkEditor {...props} />
     </AnchorProvider>
   );
 };

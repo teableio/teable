@@ -1,6 +1,4 @@
-import { FieldType } from '@teable-group/core';
 import ArrowDownIcon from '@teable-group/ui-lib/icons/app/arrow-down.svg';
-import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
@@ -13,14 +11,16 @@ import {
   CommandItem,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FIELD_CONSTANT } from '../../utils';
 
-export const SelectFieldType = (props: {
-  value?: FieldType;
-  isLookup?: boolean;
-  onChange?: (type: FieldType | 'lookup') => void;
-}) => {
-  const { value = FieldType.SingleLineText, isLookup, onChange } = props;
+type IProps<T = { id: string; name: string }> = {
+  selectedId?: string;
+  placeholder?: string;
+  candidates?: T[];
+  onChange?: (id: string) => void;
+};
+
+export const Selector: React.FC<IProps> = (props) => {
+  const { selectedId = '', onChange, candidates = [] } = props;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
 
@@ -29,55 +29,39 @@ export const SelectFieldType = (props: {
       <PopoverTrigger asChild>
         <Button
           ref={ref}
+          disabled={!candidates.length}
           variant="outline"
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between font-normal"
         >
-          {isLookup
-            ? 'Lookup to other table'
-            : FIELD_CONSTANT.find(({ type }) => type === value)?.text}
+          {selectedId ? candidates.find(({ id }) => id === selectedId)?.name : ''}
           <ArrowDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: ref.current?.offsetWidth }}>
         <Command>
-          <CommandInput placeholder="Search field type..." />
+          <CommandInput placeholder="Find a field..." />
           <CommandEmpty>No found.</CommandEmpty>
           <CommandGroup>
-            {FIELD_CONSTANT.map(({ text, IconComponent, type }) => (
+            {candidates.map(({ id, name }) => (
               <CommandItem
-                key={type}
-                value={type}
+                key={id}
+                value={id}
                 onSelect={() => {
-                  onChange?.(type);
+                  onChange?.(id);
                   setOpen(false);
                 }}
               >
                 <SelectIcon
                   className={classNames(
                     'mr-2 h-4 w-4',
-                    value === type ? 'opacity-100' : 'opacity-0'
+                    id === selectedId ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                <IconComponent className="mr-2 h-4 w-4" />
-                {text}
+                {name}
               </CommandItem>
             ))}
-            <CommandItem
-              key={'lookup'}
-              value={'lookup'}
-              onSelect={() => {
-                onChange?.('lookup');
-                setOpen(false);
-              }}
-            >
-              <SelectIcon
-                className={classNames('mr-2 h-4 w-4', isLookup ? 'opacity-100' : 'opacity-0')}
-              />
-              <SearchIcon className="mr-2 h-4 w-4" />
-              Lookup to other table
-            </CommandItem>
           </CommandGroup>
         </Command>
       </PopoverContent>

@@ -8,9 +8,9 @@ import { useInstances } from '../use-instances';
 import { FieldContext } from './FieldContext';
 
 interface IFieldProviderProps {
-  fallback: React.ReactNode;
   children: ReactNode;
   serverSideData?: IFieldVo[];
+  fallback?: React.ReactNode;
 }
 
 export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
