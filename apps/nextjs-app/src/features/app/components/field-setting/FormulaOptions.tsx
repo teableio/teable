@@ -8,6 +8,7 @@ import { NumberOptions } from './NumberOptions';
 
 export const FormulaOptions = (props: {
   options: FormulaFieldOptions;
+  isLookup?: boolean;
   onChange?: (options: FormulaFieldOptions) => void;
 }) => {
   const { options, onChange } = props;

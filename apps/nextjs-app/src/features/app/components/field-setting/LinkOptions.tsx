@@ -14,6 +14,7 @@ const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relatio
 
 export const LinkOptions = (props: {
   options: ILinkFieldOptionsRo;
+  isLookup?: boolean;
   onChange?: (options: ILinkFieldOptionsRo) => void;
 }) => {
   const { options, onChange } = props;

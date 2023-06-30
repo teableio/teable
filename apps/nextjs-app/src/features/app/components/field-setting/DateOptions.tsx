@@ -29,6 +29,7 @@ const SelectInfoMap: {
 
 export const DateOptions = (props: {
   options: DateFieldOptions;
+  isLookup?: boolean;
   onChange?: (options: DateFieldOptions) => void;
 }) => {
   const { options, onChange } = props;
