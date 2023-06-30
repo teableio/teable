@@ -8,10 +8,14 @@ import {
   FormulaField,
   DateField,
 } from '@teable-group/sdk/model';
+import CalendarIcon from '@teable-group/ui-lib/icons/app/calendar.svg';
+import CodeIcon from '@teable-group/ui-lib/icons/app/code.svg';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
 import FieldAttachmentIcon from '@teable-group/ui-lib/icons/app/file.svg';
+import LinkIcon from '@teable-group/ui-lib/icons/app/link.svg';
+import MenuIcon from '@teable-group/ui-lib/icons/app/menu.svg';
 
 export const FIELD_CONSTANT = [
   {
@@ -32,7 +36,12 @@ export const FIELD_CONSTANT = [
   {
     text: 'Multiple select',
     type: FieldType.MultipleSelect,
-    IconComponent: FieldSelectIcon,
+    IconComponent: MenuIcon,
+  },
+  {
+    text: 'Date',
+    type: FieldType.Date,
+    IconComponent: CalendarIcon,
   },
   {
     text: 'Attachment',
@@ -40,19 +49,14 @@ export const FIELD_CONSTANT = [
     IconComponent: FieldAttachmentIcon,
   },
   {
-    text: 'Link',
-    type: FieldType.Link,
-    IconComponent: FieldSelectIcon,
-  },
-  {
     text: 'Formula',
     type: FieldType.Formula,
-    IconComponent: FieldTextIcon,
+    IconComponent: CodeIcon,
   },
   {
-    text: 'Date',
-    type: FieldType.Date,
-    IconComponent: FieldTextIcon,
+    text: 'Link',
+    type: FieldType.Link,
+    IconComponent: LinkIcon,
   },
 ];
 

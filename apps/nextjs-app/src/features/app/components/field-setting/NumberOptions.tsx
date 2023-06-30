@@ -21,7 +21,7 @@ export const NumberOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full">
+    <div className="form-control flex flex-col gap-2 w-full">
       <div className="label">
         <span className="neutral-content label-text mb-2">Precision</span>
       </div>
