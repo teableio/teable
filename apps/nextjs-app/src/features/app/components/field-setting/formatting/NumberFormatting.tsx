@@ -1,4 +1,5 @@
 import type { INumberFormatting } from '@teable-group/core';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -46,9 +47,7 @@ export const NumberFormatting: React.FC<IProps> = ({ formatting = { precision: 0
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      <div className="label">
-        <span className="neutral-content label-text mb-2">Precision</span>
-      </div>
+      <Label className="font-normal">Precision</Label>
       <Select value={precision.toString()} onValueChange={onPrecisionChange}>
         <SelectTrigger className="w-full h-8">
           <SelectValue />

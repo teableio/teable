@@ -34,12 +34,12 @@ export const LinkOptions = (props: {
   return (
     <div className="space-y-2 w-full">
       <div className="space-y-2">
-        <span className="neutral-content label-text mb-2">Link table</span>
+        <span className="neutral-content label-text">Link table</span>
         <SelectTable value={foreignTableId} onChange={onForeignTableIdChange} tables={tables} />
       </div>
 
       <div className="space-y-2">
-        <span className="neutral-content label-text mb-2">Relationship</span>
+        <span className="neutral-content label-text">Relationship</span>
         <Select value={relationship} onValueChange={onRelationshipChange}>
           <SelectTrigger className="w-full">
             <SelectValue />

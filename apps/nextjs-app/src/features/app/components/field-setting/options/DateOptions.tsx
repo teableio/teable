@@ -26,7 +26,7 @@ export const DateOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full">
+    <div className="form-control w-full space-y-2">
       <DatetimeFormatting onChange={onFormattingChange} formatting={options.formatting} />
       {!isLookup && (
         <div className="flex items-center space-x-2">
