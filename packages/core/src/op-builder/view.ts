@@ -1,5 +1,5 @@
-import type { IOtOperation } from '../models';
-import type { IFilter, ISort } from '../models/view/interface';
+import type { IFilter, IOtOperation } from '../models';
+import type { ISort } from '../models/view/interface';
 
 enum ViewMetaKey {
   Name = 'name',

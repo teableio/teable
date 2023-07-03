@@ -1,4 +1,5 @@
-import type { FilterConjunction, FilterDuration, ViewType } from './constant';
+import type { FilterDuration, ViewType } from './constant';
+import type { IFilter } from './filter';
 
 export type IFilterCheckbox = [boolean] | null;
 export type IFilterText = [string] | null;
@@ -122,11 +123,6 @@ export type ISort = {
   rules: ISortedField[];
   keepSort: boolean;
 };
-
-export interface IFilter {
-  conjunction: FilterConjunction;
-  conditions: unknown[];
-}
 
 export interface IViewRo {
   name: string;

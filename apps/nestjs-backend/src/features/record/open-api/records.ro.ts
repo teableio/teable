@@ -1,6 +1,6 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiHideProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { IRecordsRo } from '@teable-group/core';
-import { CellFormat, FieldKeyType } from '@teable-group/core';
+import { CellFormat, FieldKeyType, IFilter } from '@teable-group/core';
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 
@@ -82,4 +82,16 @@ export class RecordsRo implements IRecordsRo {
   })
   @IsEnum(FieldKeyType, { message: 'Error fieldKey, You should set it to "name" or "id"' })
   fieldKey?: FieldKeyType = FieldKeyType.Name;
+
+  @ApiHideProperty()
+  @IsOptional()
+  filter?: IFilter;
+
+  @ApiPropertyOptional({
+    description:
+      'A Teable Query Language (TQL) string used to filter results. It allows complex query conditions based on fields, operators, and values.',
+    example: "{field} = 'Completed' AND {field} > 5",
+  })
+  @IsOptional()
+  filterByTql?: string;
 }
