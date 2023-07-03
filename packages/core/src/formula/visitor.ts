@@ -226,7 +226,19 @@ export class EvalVisitor
   }
 
   private createTypedValueByField(field: FieldCore) {
-    const value = this.record ? this.record.fields[field.id] : null;
+    let value: any = this.record ? this.record.fields[field.id] : null;
+    if (value == null || field.cellValueType !== CellValueType.String) {
+      return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
+    }
+
+    // link field or attachment field may have object cellValue, need to be converted to string.
+    // TODO: should not convert isMultipleCellValue to string
+    if (
+      (field.isMultipleCellValue && value[0] && typeof value[0] === 'object') ||
+      (!field.isMultipleCellValue && typeof value === 'object')
+    ) {
+      value = field.cellValue2String(value);
+    }
     return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
   }
 

@@ -37,7 +37,7 @@ export class LinkOptionsDto implements LinkFieldOptions {
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
 
     const options = fieldRo.options as LinkFieldOptions;
 

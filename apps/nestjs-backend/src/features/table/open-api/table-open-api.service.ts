@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ICreateTableRo, ITableSnapshot } from '@teable-group/core';
 import { generateTableId, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { FieldVo } from 'src/features/field/model/field.vo';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { CreateFieldRo } from '../../field/model/create-field.ro';
@@ -41,14 +42,20 @@ export class TableOpenApiService {
     viewVos: ViewVo[],
     fieldRos: CreateFieldRo[]
   ) {
-    const fieldCreationPromises = fieldRos.map(async (fieldRo) => {
+    const fieldVos: FieldVo[] = [];
+    for (const fieldRo of fieldRos) {
       viewVos.forEach((view, index) => {
         fieldRo['columnMeta'] = { ...fieldRo.columnMeta, [view.id]: { order: index } };
       });
       const fieldInstance = createFieldInstanceByRo(fieldRo);
-      return this.fieldOpenApiService.createField(tableId, fieldInstance, transactionKey);
-    });
-    return await Promise.all(fieldCreationPromises);
+      const fieldVo = await this.fieldOpenApiService.createField(
+        tableId,
+        fieldInstance,
+        transactionKey
+      );
+      fieldVos.push(fieldVo);
+    }
+    return fieldVos;
   }
 
   private async createRecord(transactionKey: string, tableId: string, data: CreateRecordsRo) {
@@ -120,7 +127,8 @@ export class TableOpenApiService {
       async (_, transactionKey) => {
         const doc = this.shareDbService.getConnection(transactionKey).get(collection, tableId);
         await new Promise((resolve, reject) => {
-          doc.fetch(() => {
+          doc.fetch((error) => {
+            if (error) return reject(error);
             doc.del({}, (error) => {
               if (error) return reject(error);
               this.logger.log(`delete document ${collection}.${tableId} succeed!`);

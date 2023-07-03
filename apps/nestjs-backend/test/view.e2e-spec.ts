@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ViewType } from '@teable-group/core';
 import request from 'supertest';
 import type { CreateViewRo } from '../src/features/view/model/create-view.ro';
-import { initApp } from './init-app';
+import { initApp } from './utils/init-app';
 
 const defaultViews = [
   {

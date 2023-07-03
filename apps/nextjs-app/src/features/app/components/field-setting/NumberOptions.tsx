@@ -10,6 +10,7 @@ import { NUMBER_FIELD_PRECISION } from '../../utils/field';
 
 export const NumberOptions = (props: {
   options: NumberFieldOptionsType;
+  isLookup?: boolean;
   onChange?: (options: NumberFieldOptionsType) => void;
 }) => {
   const { options, onChange } = props;
@@ -21,7 +22,7 @@ export const NumberOptions = (props: {
   };
 
   return (
-    <div className="form-control w-full">
+    <div className="form-control flex flex-col gap-2 w-full">
       <div className="label">
         <span className="neutral-content label-text mb-2">Precision</span>
       </div>

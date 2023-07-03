@@ -1,4 +1,3 @@
-import { isEqual } from 'lodash';
 import type { IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
@@ -18,10 +17,6 @@ export class SetRecordBuilder implements IOpBuilder {
     let { newCellValue, oldCellValue } = params;
     newCellValue = newCellValue ?? null;
     oldCellValue = oldCellValue ?? null;
-
-    if (isEqual(oldCellValue, newCellValue)) {
-      throw new Error(`'old value (${oldCellValue}) and new value (${newCellValue}) are equal'`);
-    }
 
     // convert set null to delete key
     if (newCellValue == null || (Array.isArray(newCellValue) && newCellValue.length === 0)) {

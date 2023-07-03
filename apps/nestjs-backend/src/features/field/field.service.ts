@@ -16,14 +16,14 @@ import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builde
 import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
-import { cloneDeep, forEach, isEqual, sortBy } from 'lodash';
+import { forEach, isEqual, sortBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { preservedFieldName } from './constant';
 import type { CreateFieldRo } from './model/create-field.ro';
-import type { IFieldInstance } from './model/factory';
+import type { IFieldInstance, IPreparedRo } from './model/factory';
 import {
   createFieldInstanceByRo,
   createFieldInstanceByVo,
@@ -306,7 +306,7 @@ export class FieldService implements IAdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
-    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo);
+    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo & IPreparedRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);

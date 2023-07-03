@@ -14,6 +14,7 @@ const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relatio
 
 export const LinkOptions = (props: {
   options: ILinkFieldOptionsRo;
+  isLookup?: boolean;
   onChange?: (options: ILinkFieldOptionsRo) => void;
 }) => {
   const { options, onChange } = props;
@@ -40,7 +41,7 @@ export const LinkOptions = (props: {
       <div className="space-y-2">
         <span className="neutral-content label-text mb-2">Relationship</span>
         <Select value={relationship} onValueChange={onRelationshipChange}>
-          <SelectTrigger className="w-full h-8">
+          <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

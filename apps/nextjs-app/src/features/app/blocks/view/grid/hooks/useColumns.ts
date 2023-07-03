@@ -71,6 +71,7 @@ const generateColumns = (
           width,
           icon: FieldType.Formula,
           kind: GridCellKind.Text,
+          hasMenu: true,
         };
       case FieldType.Attachment:
         return {
@@ -107,6 +108,7 @@ const createCellValue2GridDisplay =
           data: (cellValue as string) || '',
           allowOverlay: true,
           displayData: (cellValue as string) || '',
+          readonly: field.isComputed,
         };
       }
       case FieldType.Number: {
@@ -117,6 +119,7 @@ const createCellValue2GridDisplay =
           displayData: field.cellValue2String(cellValue as number),
           contentAlign: 'right',
           themeOverride: { fontFamily: '"everson mono", courier, consolas, monaco, monospace' },
+          readonly: field.isComputed,
         };
       }
       case FieldType.SingleSelect: {
@@ -129,6 +132,7 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isComputed,
         };
       }
       case FieldType.MultipleSelect: {
@@ -141,6 +145,7 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isComputed,
         };
       }
       case FieldType.Link: {
@@ -158,6 +163,7 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isLookup,
         };
       }
       case FieldType.Formula: {
@@ -166,7 +172,7 @@ const createCellValue2GridDisplay =
           data: cellValue ? (String(cellValue) as string) : '',
           allowOverlay: true,
           displayData: cellValue ? (String(cellValue) as string) : '',
-          readonly: true,
+          readonly: field.isComputed,
         };
       }
       case FieldType.Attachment: {
@@ -179,6 +185,7 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isComputed,
         };
       }
       case FieldType.Date: {
@@ -190,6 +197,7 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isComputed,
         };
       }
     }

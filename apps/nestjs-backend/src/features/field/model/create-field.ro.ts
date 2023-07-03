@@ -1,6 +1,13 @@
-import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
-import { FieldType, IColumnMeta, LookupOptions } from '@teable-group/core';
+import {
+  ApiExtraModels,
+  ApiHideProperty,
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from '@nestjs/swagger';
+import { CellValueType, FieldType, ILookupOptions, IColumnMeta } from '@teable-group/core';
 import type { IFieldRo } from '@teable-group/core';
+import { IsOptional, ValidateIf } from 'class-validator';
 import { DateOptionsDto } from './field-dto/date-field.dto';
 import { FormulaOptionsDto } from './field-dto/formula-field.dto';
 import { LinkOptionsDto } from './field-dto/link-field.dto';
@@ -15,6 +22,18 @@ import { SingleSelectOptionsDto } from './field-dto/single-select-field.dto';
 @ApiExtraModels(NumberOptionsDto)
 @ApiExtraModels(DateOptionsDto)
 export class CreateFieldRo implements IFieldRo {
+  @ApiPropertyOptional({
+    description:
+      'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. specify id when create sometimes useful',
+    example: 'Single Select',
+  })
+  @IsOptional()
+  @ValidateIf((o) => /^fld[\da-zA-Z]{16}$/.test(o.id), {
+    message:
+      'id is illegal, it must start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`',
+  })
+  id?: string;
+
   @ApiProperty({
     description: 'The name of the field.',
     example: 'Single Select',
@@ -70,9 +89,9 @@ other fields do not support defaultValue.
 
   @ApiPropertyOptional({
     description: 'Set the field is lookup field',
-    type: LookupOptions,
+    type: ILookupOptions,
   })
-  lookupOptions?: LookupOptions | undefined;
+  lookupOptions?: ILookupOptions | undefined;
 
   @ApiPropertyOptional({
     description: 'Set if it is a primary field',
@@ -92,7 +111,10 @@ other fields do not support defaultValue.
   })
   unique?: boolean;
 
-  @ApiProperty({
+  @ApiHideProperty()
+  cellValueType?: CellValueType;
+
+  @ApiPropertyOptional({
     description:
       'A mapping of view IDs to their corresponding column metadata, including order, width, and hidden status',
     properties: {

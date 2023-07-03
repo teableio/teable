@@ -3,7 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { ILoggerConfig } from 'src/configs/config.interface';
+import type { ILoggerConfig } from './configs/config.interface';
 
 @Injectable()
 export class PrismaService
@@ -37,6 +37,7 @@ export class PrismaService
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
 
     super(initialConfig);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.loggerConfig = this.configService.get<ILoggerConfig>('logger')!;
   }
 

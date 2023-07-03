@@ -27,7 +27,6 @@ export const SelectTable = (props: {
       <PopoverTrigger asChild>
         <Button
           ref={ref}
-          size={'xs'}
           variant="outline"
           role="combobox"
           aria-expanded={open}

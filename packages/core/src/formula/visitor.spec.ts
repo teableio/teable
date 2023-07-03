@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
 import type { FieldCore, IRecord } from '../models';
-import { FieldType, DbFieldType, CellValueType, NumberFieldCore } from '../models';
+import {
+  FormulaFieldCore,
+  FieldType,
+  DbFieldType,
+  CellValueType,
+  NumberFieldCore,
+} from '../models';
 import { evaluate } from './evaluate';
 
 describe('EvalVisitor', () => {
@@ -9,15 +15,15 @@ describe('EvalVisitor', () => {
   const record: IRecord = {
     id: 'recTest',
     fields: {
-      fldTest: 8,
+      fldNumber: 8,
     },
     createdTime: new Date().toISOString(),
     recordOrder: { viwTest: 1 },
   };
 
   beforeAll(() => {
-    const fieldJson = {
-      id: 'fldTest',
+    const numberFieldJon = {
+      id: 'fldNumber',
       name: 'f1',
       description: 'A test number field',
       notNull: true,
@@ -37,9 +43,9 @@ describe('EvalVisitor', () => {
       isComputed: false,
     };
 
-    const field = plainToInstance(NumberFieldCore, fieldJson);
+    const numberField = plainToInstance(NumberFieldCore, numberFieldJon);
     fieldContext = {
-      [field.id]: field,
+      [numberField.id]: numberField,
     };
   });
 
@@ -128,11 +134,37 @@ describe('EvalVisitor', () => {
   });
 
   it('field reference', () => {
-    expect(evalFormula('{fldTest}', fieldContext, record)).toBe(8);
-    expect(evalFormula('{fldTest} + 1', fieldContext, record)).toBe(9);
+    expect(evalFormula('{fldNumber}', fieldContext, record)).toBe(8);
+    expect(evalFormula('{fldNumber} + 1', fieldContext, record)).toBe(9);
   });
 
   it('function call', () => {
-    expect(evalFormula('sum({fldTest}, 1, 2, 3)', fieldContext, record)).toBe(14);
+    expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
+  });
+
+  it('lookup call', () => {
+    const virtualField = {
+      id: 'values',
+      type: FieldType.Formula,
+      name: 'values',
+      description: 'A test text field',
+      notNull: true,
+      unique: true,
+      columnMeta: {
+        index: 0,
+        columnIndex: 0,
+      },
+      dbFieldType: DbFieldType.Text,
+      cellValueType: CellValueType.String,
+      isComputed: false,
+      isMultipleCellValue: true,
+    };
+
+    const result = evaluate(
+      'LOOKUP({values})',
+      { values: plainToInstance(FormulaFieldCore, virtualField) },
+      { ...record, fields: { ...record.fields, values: ['CX, C2', 'C3'] } }
+    );
+    expect(result.toPlain()).toEqual(['CX, C2', 'C3']);
   });
 });

@@ -11,6 +11,12 @@ interface IUseThemeResult {
 
 const darkModeMediaQuery = '(prefers-color-scheme: dark)';
 
+function updateTheme(theme: ThemeKey | null) {
+  theme === ThemeKey.Dark
+    ? document.documentElement.classList.add(ThemeKey.Dark)
+    : document.documentElement.classList.remove(ThemeKey.Dark);
+}
+
 /**
  * Theme provider
  * if user set theme manually, it will keep in localstorage
@@ -22,11 +28,7 @@ export function useTheme(): IUseThemeResult {
   const [theme, setTheme] = useLocalStorage<ThemeKey | null>(LocalStorageKeys.Theme);
 
   useEffect(() => {
-    if (theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-    } else {
-      document.documentElement.setAttribute('data-theme', autoTheme);
-    }
+    updateTheme(theme || autoTheme);
   }, [theme, autoTheme]);
 
   // run in browser environment

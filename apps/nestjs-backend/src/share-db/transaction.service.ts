@@ -108,18 +108,17 @@ export class TransactionService {
   }
 
   // dispatch op publish event, make sure op is published after transaction is completed
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private publishPendingOp(shareDbService: ShareDbService, transactionKey: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pendingPublish = (shareDbService as any).pendingPublish[transactionKey];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (shareDbService as any).pendingPublish[transactionKey];
     if (pendingPublish) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pendingPublish.forEach((p: any) => {
         shareDbService.pubsub.publish(p.channels, p.op, noop);
       });
     }
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   updateTransaction(tsMeta: ITransactionMeta) {
     const cache = this.cache.get(tsMeta.transactionKey);

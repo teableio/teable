@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IRecord } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
+import { CellValueType, FieldType, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
@@ -121,7 +121,6 @@ describe('ReferenceService', () => {
       const sortedNodes = service['getTopologicalOrder']('a', graph);
 
       expect(sortedNodes).toEqual([
-        { id: 'a', dependencies: [] },
         { id: 'c', dependencies: ['a', 'b'] },
         { id: 'd', dependencies: ['c'] },
       ]);
@@ -343,6 +342,7 @@ describe('ReferenceService', () => {
             dbForeignKeyName: 'dbForeignKeyName1',
             symmetricFieldId: 'symmetricField1',
           },
+          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'A',
@@ -362,6 +362,7 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'manyToOneA',
           },
+          cellValueType: CellValueType.String,
         }),
         // fieldB is a special field depend on oneToManyC, may be convert it to formula field
         fieldB: createFieldInstanceByRo({
@@ -371,6 +372,7 @@ describe('ReferenceService', () => {
           options: {
             expression: '{oneToManyC}',
           },
+          cellValueType: CellValueType.String,
         }),
         manyToOneA: createFieldInstanceByRo({
           id: 'manyToOneA',
@@ -383,6 +385,7 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'oneToManyB',
           },
+          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'B',
@@ -402,11 +405,13 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'manyToOneB',
           },
+          cellValueType: CellValueType.String,
         }),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
+          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'C',
@@ -426,6 +431,7 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'oneToManyC',
           },
+          cellValueType: CellValueType.String,
         }),
       };
 
@@ -441,26 +447,51 @@ describe('ReferenceService', () => {
 
       recordMap = {
         // use new value fieldC: 'CX' here
-        idC1: { id: 'idC1', fields: { fieldC: 'CX', manyToOneB: 'C1, C2' }, recordOrder: {} },
-        idC2: { id: 'idC2', fields: { fieldC: 'C2', manyToOneB: 'C1, C2' }, recordOrder: {} },
+        idC1: {
+          id: 'idC1',
+          fields: { fieldC: 'CX', manyToOneB: { title: 'C1, C2', id: 'idB1' } },
+          recordOrder: {},
+        },
+        idC2: {
+          id: 'idC2',
+          fields: { fieldC: 'C2', manyToOneB: { title: 'C1, C2', id: 'idB1' } },
+          recordOrder: {},
+        },
         idB1: {
           id: 'idB1',
-          fields: { fieldB: 'C1, C2', manyToOneA: 'A1', oneToManyC: ['C1', 'C2'] },
+          fields: {
+            fieldB: 'C1, C2',
+            manyToOneA: { title: 'A1', id: 'idA1' },
+            oneToManyC: [
+              { title: 'C1', id: 'idC1' },
+              { title: 'C2', id: 'idC2' },
+            ],
+          },
           recordOrder: {},
         },
         idB2: {
           id: 'idB2',
-          fields: { fieldB: 'C3', manyToOneA: 'A1', oneToManyC: ['C3'] },
+          fields: {
+            fieldB: 'C3',
+            manyToOneA: { title: 'A1', id: 'idA1' },
+            oneToManyC: [{ title: 'C3', id: 'idC3' }],
+          },
           recordOrder: {},
         },
         idC3: {
           id: 'idC3',
-          fields: { fieldC: 'C3', manyToOneB: 'C3' },
+          fields: { fieldC: 'C3', manyToOneB: { title: 'C3', id: 'idC3' } },
           recordOrder: {},
         },
         idA1: {
           id: 'idA1',
-          fields: { fieldA: 'A1', oneToManyB: ['C1, C2', 'C3'] },
+          fields: {
+            fieldA: 'A1',
+            oneToManyB: [
+              { title: 'C1, C2', id: 'idB1' },
+              { title: 'C3', id: 'idC3' },
+            ],
+          },
           recordOrder: {},
         },
       };
@@ -534,8 +565,14 @@ describe('ReferenceService', () => {
           tableId: 'B',
           recordId: 'idB1',
           fieldId: 'oneToManyC',
-          oldValue: ['C1', 'C2'],
-          newValue: ['CX', 'C2'],
+          oldValue: [
+            { title: 'C1', id: 'idC1' },
+            { title: 'C2', id: 'idC2' },
+          ],
+          newValue: [
+            { title: 'CX', id: 'idC1' },
+            { title: 'C2', id: 'idC2' },
+          ],
         },
         {
           tableId: 'B',
@@ -548,22 +585,28 @@ describe('ReferenceService', () => {
           tableId: 'A',
           recordId: 'idA1',
           fieldId: 'oneToManyB',
-          oldValue: ['C1, C2', 'C3'],
-          newValue: ['CX, C2', 'C3'],
+          oldValue: [
+            { title: 'C1, C2', id: 'idB1' },
+            { title: 'C3', id: 'idC3' },
+          ],
+          newValue: [
+            { title: 'CX, C2', id: 'idB1' },
+            { title: 'C3', id: 'idC3' },
+          ],
         },
         {
           tableId: 'C',
           recordId: 'idC1',
           fieldId: 'manyToOneB',
-          oldValue: 'C1, C2',
-          newValue: 'CX, C2',
+          oldValue: { title: 'C1, C2', id: 'idB1' },
+          newValue: { title: 'CX, C2', id: 'idB1' },
         },
         {
           tableId: 'C',
           recordId: 'idC2',
           fieldId: 'manyToOneB',
-          oldValue: 'C1, C2',
-          newValue: 'CX, C2',
+          oldValue: { title: 'C1, C2', id: 'idB1' },
+          newValue: { title: 'CX, C2', id: 'idB1' },
         },
       ]);
     });
@@ -649,6 +692,7 @@ describe('ReferenceService', () => {
           options: {
             precision: 1,
           },
+          cellValueType: CellValueType.String,
         }),
         fieldB: createFieldInstanceByRo({
           id: 'fieldB',
@@ -657,11 +701,13 @@ describe('ReferenceService', () => {
           options: {
             expression: '{fieldA} & {fieldC}',
           },
+          cellValueType: CellValueType.String,
         }),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
+          cellValueType: CellValueType.String,
         }),
       };
 

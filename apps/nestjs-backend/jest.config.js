@@ -44,6 +44,7 @@ const config = {
   // false by default, overrides in cli, ie: yarn test:unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['text'],
   collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.{js,ts}', '!**/__mock__/*'],
 };
 

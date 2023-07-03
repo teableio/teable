@@ -1,23 +1,13 @@
-import type {
-  DateFieldOptions,
-  FormulaFieldOptions,
-  IFieldRo,
-  ILinkFieldOptionsRo,
-  LinkFieldOptions,
-  NumberFieldOptions,
-  SelectFieldOptions,
-} from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { useCallback, useMemo, useState } from 'react';
+import type { IFieldRo, FieldType } from '@teable-group/core';
+import { useCallback, useState } from 'react';
 import { useCounter } from 'react-use';
 import { Input } from '@/components/ui/input';
 import { fieldDefaultOptionMap } from '../../utils/field';
-import { DateOptions } from './DateOptions';
-import { FormulaOptions } from './FormulaOptions';
-import { LinkOptions } from './LinkOptions';
-import { NumberOptions } from './NumberOptions';
+import type { IFieldOptionsProps } from './FieldOptions';
+import { FieldOptions } from './FieldOptions';
+import { LookupOptions } from './lookupOptions';
 import { SelectFieldType } from './SelectFieldType';
-import { SelectOptions } from './SelectOptions';
+import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
   field: IFieldRo;
@@ -31,7 +21,7 @@ export const FieldEditor = (props: {
     options: currentField.options,
   });
   const [updateCount, { inc: incUpdateCount }] = useCounter(0);
-
+  const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldRo) => {
       incUpdateCount();
@@ -40,6 +30,7 @@ export const FieldEditor = (props: {
     },
     [incUpdateCount, onChange, updateCount]
   );
+  const getFieldSubtitle = useFieldTypeSubtitle();
 
   const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
@@ -55,23 +46,24 @@ export const FieldEditor = (props: {
     });
   };
 
-  const updateFieldType = (type: FieldType) => {
+  const updateFieldTypeWithLookup = (type: FieldType | 'lookup') => {
+    if (type === 'lookup') {
+      return setFieldFn({
+        ...field,
+        isLookup: true,
+      });
+    }
+
     setFieldFn({
       ...field,
       type,
+      isLookup: undefined,
       options: fieldDefaultOptionMap[type],
     });
   };
 
-  const updateFieldOptions = useCallback(
-    (
-      options:
-        | NumberFieldOptions
-        | SelectFieldOptions
-        | ILinkFieldOptionsRo
-        | FormulaFieldOptions
-        | DateFieldOptions
-    ) => {
+  const updateFieldOptions: IFieldOptionsProps['updateFieldOptions'] = useCallback(
+    (options) => {
       setFieldFn({
         ...field,
         options,
@@ -80,80 +72,88 @@ export const FieldEditor = (props: {
     [field, setFieldFn]
   );
 
-  const optionComponent = useMemo(() => {
-    if (!field.options) {
-      return;
-    }
-    switch (field.type) {
-      case FieldType.SingleSelect:
-      case FieldType.MultipleSelect:
-        return (
-          <SelectOptions
-            options={field.options as SelectFieldOptions}
-            onChange={updateFieldOptions}
-          />
-        );
-      case FieldType.Number:
-        return (
-          <NumberOptions
-            options={field.options as NumberFieldOptions}
-            onChange={updateFieldOptions}
-          />
-        );
-      case FieldType.Link:
-        return (
-          <LinkOptions options={field.options as LinkFieldOptions} onChange={updateFieldOptions} />
-        );
-      case FieldType.Formula:
-        return (
-          <FormulaOptions
-            options={field.options as FormulaFieldOptions}
-            onChange={updateFieldOptions}
-          />
-        );
-      case FieldType.Date:
-        return (
-          <DateOptions options={field.options as DateFieldOptions} onChange={updateFieldOptions} />
-        );
-      default:
-        return;
-    }
-  }, [field.options, field.type, updateFieldOptions]);
-
   return (
-    <div className="flex-1 w-full overflow-y-auto text-sm">
+    <div className="flex-1 w-full overflow-y-auto gap-2 px-2 text-sm">
       {/* General */}
-      <div className="flex p-8 border-b">
-        <div className="text-scale-1200 basis-1/3 col-span-12 p-2">General</div>
-        <div className="basis-2/3">
-          <div className="w-full">
-            <div className="pb-2">
-              <span className="label-text mb-2">Name</span>
-            </div>
-            <Input className="h-8" value={field['name']} onChange={updateFieldName} />
+      <div className="flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2">
+          <div>
+            <span className="label-text mb-2">Name</span>
           </div>
-          <div className="w-full mt-1">
-            <div className="pb-2">
+          <Input
+            placeholder="Field name (optional)"
+            className="h-8"
+            value={field['name']}
+            onChange={updateFieldName}
+          />
+          {!showDescription && (
+            <p className="text-xs font-medium text-left text-slate-500">
+              <span
+                onClick={() => {
+                  setShowDescription(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setShowDescription(true);
+                  }
+                }}
+                tabIndex={0}
+                role={'button'}
+                className="cursor-pointer border-b border-solid border-slate-500 "
+              >
+                Add Description
+              </span>
+            </p>
+          )}
+        </div>
+        {showDescription && (
+          <div className="w-full flex flex-col gap-2">
+            <div>
               <span className="label-text mb-2">Description</span>
             </div>
-            <Input className="h-8" value={field['description']} onChange={updateFieldDesc} />
+            <Input
+              className="h-8"
+              value={field['description']}
+              placeholder="Describe this field (optional)"
+              onChange={updateFieldDesc}
+            />
           </div>
-        </div>
-      </div>
-      {/* Field type */}
-      <div className="flex p-8 border-b">
-        <div className="text-scale-1200 basis-1/3 col-span-12 p-2">Type</div>
-        <div className="basis-2/3">
-          <div className="w-full">
-            <div className="pb-2">
-              <span className="neutral-content mb-2">Name</span>
-            </div>
-            <SelectFieldType value={field.type} onChange={updateFieldType} />
+        )}
+        <div className="w-full flex flex-col gap-2">
+          <div>
+            <span className="label-text mb-2">Type</span>
           </div>
+          <SelectFieldType
+            value={field.type}
+            isLookup={field.isLookup}
+            onChange={updateFieldTypeWithLookup}
+          />
+          <p className="text-xs font-medium text-left text-slate-500">
+            {field.isLookup
+              ? 'See values from a field in a linked record.'
+              : getFieldSubtitle(field.type)}
+          </p>
         </div>
+        <hr className="border-slate-200" />
+        {field.isLookup && (
+          <LookupOptions
+            options={field.lookupOptions}
+            onChange={(options, fieldType) => {
+              setFieldFn({
+                ...field,
+                lookupOptions: options,
+                type: fieldType,
+              });
+            }}
+          />
+        )}
+        <FieldOptions
+          options={field.options as IFieldOptionsProps['options']}
+          type={field.type}
+          isLookup={field.isLookup}
+          updateFieldOptions={updateFieldOptions}
+        />
       </div>
-      {/* Field options */}
-      {optionComponent && <div className="p-8">{optionComponent}</div>}
     </div>
   );
 };
