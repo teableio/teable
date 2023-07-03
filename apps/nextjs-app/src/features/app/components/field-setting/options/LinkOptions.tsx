@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SelectTable } from './SelectTable';
+import { SelectTable } from '../SelectTable';
 
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 

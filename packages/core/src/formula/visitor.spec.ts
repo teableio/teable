@@ -167,4 +167,8 @@ describe('EvalVisitor', () => {
     );
     expect(result.toPlain()).toEqual(['CX, C2', 'C3']);
   });
+
+  it('should throw exception', () => {
+    expect(() => evalFormula('{}', fieldContext, record)).toThrowError();
+  });
 });

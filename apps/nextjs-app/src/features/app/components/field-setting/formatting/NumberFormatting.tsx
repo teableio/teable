@@ -1,4 +1,4 @@
-import type { NumberFieldOptions as NumberFieldOptionsType } from '@teable-group/core';
+import type { INumberFormatting } from '@teable-group/core';
 import {
   Select,
   SelectContent,
@@ -6,23 +6,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { NUMBER_FIELD_PRECISION } from '../../utils/field';
 
-export const NumberOptions = (props: {
-  options: NumberFieldOptionsType;
-  isLookup?: boolean;
-  onChange?: (options: NumberFieldOptionsType) => void;
-}) => {
-  const { options, onChange } = props;
-  const precision = options.precision || 0;
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const NUMBER_FIELD_PRECISION = [
+  {
+    text: '1',
+    value: 0,
+  },
+  {
+    text: '1.0',
+    value: 1,
+  },
+  {
+    text: '1.00',
+    value: 2,
+  },
+  {
+    text: '1.000',
+    value: 3,
+  },
+  {
+    text: '1.0000',
+    value: 4,
+  },
+];
+
+interface IProps {
+  formatting?: INumberFormatting;
+  onChange?: (formatting: INumberFormatting) => void;
+}
+
+export const NumberFormatting: React.FC<IProps> = ({ formatting = { precision: 0 }, onChange }) => {
+  const precision = formatting.precision;
 
   const onPrecisionChange = (value: string) => {
     const precision = Number(value) || 0;
-    onChange?.({ precision });
+    onChange?.({ precision: Number.isNaN(precision) ? 0 : precision });
   };
 
   return (
-    <div className="form-control flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-2 w-full">
       <div className="label">
         <span className="neutral-content label-text mb-2">Precision</span>
       </div>

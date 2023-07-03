@@ -1,4 +1,4 @@
-import type { IAttachment, IAttachmentCellValue } from '@teable-group/core';
+import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
 import DownloadIcon from '@teable-group/ui-lib/icons/app/download.svg';
@@ -22,7 +22,7 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
 const attachmentManager = new AttachmentManager(2);
 
-export const getAttachmentUrl = (item: IAttachment) =>
+export const getAttachmentUrl = (item: IAttachmentItem) =>
   `${window.location.origin}/api/attachments/${item.token}`;
 
 export const UploadAttachment = (props: IUploadAttachment) => {
@@ -37,7 +37,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     onChange(attachments.filter((attachment) => attachment.id !== id));
   };
 
-  const downloadFile = (attachment: IAttachment) => {
+  const downloadFile = (attachment: IAttachmentItem) => {
     window.open(`${getAttachmentUrl(attachment)}?filename=${attachment.name}`);
   };
 
@@ -45,7 +45,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     (file: IFile, attachment: IGetNotifyResponse) => {
       const { id, instance } = file;
 
-      const newAttachment: IAttachment = {
+      const newAttachment: IAttachmentItem = {
         id,
         name: instance.name,
         ...attachment,

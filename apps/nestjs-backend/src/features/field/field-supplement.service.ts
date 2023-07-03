@@ -1,5 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
-import type { LinkFieldOptions } from '@teable-group/core';
+import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { HttpStatusCode } from 'axios';
@@ -73,7 +73,7 @@ export class FieldSupplementService implements ISupplementService {
       select: { options: true },
     });
     const optionsRaw = fieldRaw?.options || null;
-    const linkFieldOptions: LinkFieldOptions =
+    const linkFieldOptions: ILinkFieldOptions =
       (optionsRaw && JSON.parse(optionsRaw as string)) ||
       batchFieldRos?.find((field) => field.id === linkFieldId);
 

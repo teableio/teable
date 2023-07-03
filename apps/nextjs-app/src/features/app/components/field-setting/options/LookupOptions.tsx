@@ -4,7 +4,7 @@ import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable } from '@teable-group/sdk/hooks';
 import type { LinkField } from '@teable-group/sdk/model';
 import { useCallback, useMemo, useState } from 'react';
-import { Selector } from './Selector';
+import { Selector } from '../Selector';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;

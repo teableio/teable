@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable prettier/prettier */
 
-import type { DateFormatting, TimeFormatting } from "@teable-group/core";
+import type { DateFormattingPreset, TimeFormatting } from "@teable-group/core";
 
 export interface paths {
   "/api/file-tree/*": {
@@ -146,7 +146,7 @@ export interface components {
        * @description the display formatting of the date, caveat: the formatting is just a formatter, it dose not effect the storing value of the record 
        * @example "YYYY/MM/DD"
        */
-      dateFormatting: DateFormatting;
+      dateFormatting: DateFormattingPreset;
       /**
        * @description the display formatting of the time, caveat: the formatting is just a formatter, it dose not effect the storing value of the record 
        * @example "HH:mm"

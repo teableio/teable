@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, LinkFieldOptions } from '@teable-group/core';
+import type { IOtOperation, ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, OpBuilder, Relationship, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
@@ -11,7 +11,7 @@ export interface ITinyLinkField {
   tableId: string;
   type: FieldType;
   dbFieldName: string;
-  options: LinkFieldOptions;
+  options: ILinkFieldOptions;
 }
 
 export interface IRecordMapByTableId {

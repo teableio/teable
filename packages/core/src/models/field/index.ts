@@ -4,3 +4,4 @@ export * from './constant';
 export * from './field';
 export * from './colors';
 export * from './color-utils';
+export * from './formatting';
