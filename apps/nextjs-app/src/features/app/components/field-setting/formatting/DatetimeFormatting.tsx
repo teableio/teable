@@ -1,9 +1,5 @@
 import type { IDatetimeFormatting } from '@teable-group/core';
-import {
-  DateFormattingPreset,
-  TimeFormatting,
-  defaultDatetimeFormatting,
-} from '@teable-group/core';
+import { DateFormattingPreset, TimeFormatting } from '@teable-group/core';
 import dayjs from 'dayjs';
 import { Label } from '@/components/ui/label';
 import {
@@ -14,8 +10,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const formatStrings: { [key: string]: string } = {
-  en: 'MMM D, YYYY', // English
+// | Locale | Date Format | Notes |
+// |--------|-------------|-------|
+// | en-US  | M/D/YYYY    | U.S. English (United States), e.g., 12/31/2023 |
+// | en-GB  | D/M/YYYY    | British English (United Kingdom, European), e.g., 31/12/2023 |
+// | fr-FR  | DD/MM/YYYY  | French (France), e.g., 31/12/2023 |
+// | de-DE  | DD.MM.YYYY  | German (Germany), e.g., 31.12.2023 |
+// | ja-JP  | YYYY/MM/DD  | Japanese (Japan), e.g., 2023/12/31 |
+// | zh-CN  | YYYY-MM-DD  | Simplified Chinese (China), e.g., 2023-12-31 |
+// | ko-KR  | YYYY.MM.DD  | Korean (South Korea), e.g., 2023.12.31 |
+const localFormatStrings: { [key: string]: string } = {
+  en: 'M/D/YYYY',
+  'en-GB': 'D/M/YYYY',
+  fr: 'DD/MM/YYYY',
+  de: 'DD.MM.YYYY',
+  ja: 'YYYY/MM/DD',
+  zh: 'YYYY-MM-DD',
+  ko: 'YYYY.MM.DD',
+};
+
+const friendlyFormatStrings: { [key: string]: string } = {
+  en: 'MMMM D, YYYY', // English
+  'en-GB': 'D MMMM YYYY', // English GB
   zh: 'YYYY 年 M 月 D 日', // Chinese
   fr: 'D MMM YYYY', // French
   de: 'D. MMM YYYY', // German
@@ -32,14 +48,19 @@ const formatStrings: { [key: string]: string } = {
   ta: 'D MMMM, YYYY', // Tamil
 };
 
-function getFormatStringForLanguage(language: string) {
+function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
   // If the full language tag is not found, fallback to the base language
   const baseLanguage = language.split('-')[0];
-  return formatStrings[language] || formatStrings[baseLanguage] || formatStrings['en']; // Default to 'en'
+  return preset[language] || preset[baseLanguage] || preset['en']; // Default to 'en'
 }
 
-const useDefaultSettings = () => {
-  const friendlyDateFormatting = getFormatStringForLanguage(navigator.language);
+const useSelectInfoMap = (currentDateFormatting: string) => {
+  const friendlyDateFormatting = getFormatStringForLanguage(
+    navigator.language,
+    friendlyFormatStrings
+  );
+  const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
+
   const optionsWithExample = (text: string, formatting: string) => {
     return {
       text: `${text} (${dayjs().format(formatting)})`,
@@ -48,16 +69,22 @@ const useDefaultSettings = () => {
   };
 
   const dateFormattingPresetOptions = [
+    optionsWithExample('Local', localDateFormatting),
+    optionsWithExample('Friendly', friendlyDateFormatting),
     optionsWithExample('US', DateFormattingPreset.US),
     optionsWithExample('European', DateFormattingPreset.European),
     optionsWithExample('ISO', DateFormattingPreset.ISO),
-    optionsWithExample('Friendly', friendlyDateFormatting),
     optionsWithExample('Year/Month', DateFormattingPreset.YM),
     optionsWithExample('Month/Day', DateFormattingPreset.MD),
     optionsWithExample('Year', DateFormattingPreset.Y),
     optionsWithExample('Month', DateFormattingPreset.M),
     optionsWithExample('Day', DateFormattingPreset.D),
   ];
+
+  // add [Custom] option if currentDateFormatting not in the list
+  if (!dateFormattingPresetOptions.find((option) => option.value === currentDateFormatting)) {
+    dateFormattingPresetOptions.push(optionsWithExample('Custom', currentDateFormatting));
+  }
 
   const timeFormattingPresetOptions = [
     {
@@ -74,25 +101,15 @@ const useDefaultSettings = () => {
     },
   ];
 
-  const selectInfoMap: {
-    key: 'date' | 'time';
-    label: string;
-    list: { text: string; value: string }[];
-  }[] = [
-    {
-      key: 'date',
+  return {
+    date: {
       label: 'Date Formatting',
       list: dateFormattingPresetOptions,
     },
-    {
-      key: 'time',
+    time: {
       label: 'Time Formatting',
       list: timeFormattingPresetOptions,
     },
-  ];
-
-  return {
-    selectInfoMap,
   };
 };
 
@@ -101,37 +118,53 @@ interface IProps {
   onChange?: (formatting: IDatetimeFormatting) => void;
 }
 export const DatetimeFormatting: React.FC<IProps> = ({
-  formatting = defaultDatetimeFormatting,
+  formatting = {
+    date: '',
+    time: TimeFormatting.None,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  },
   onChange,
 }) => {
-  const onFormattingChange = (value: string, key: string) => {
+  const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
+
+  formatting = {
+    ...formatting,
+    date: formatting.date || localDateFormatting,
+  };
+
+  const selectInfoMap = useSelectInfoMap(formatting.date);
+
+  const onFormattingChange = (value: string, typeKey: string) => {
     onChange?.({
       ...formatting,
-      [key]: value,
+      [typeKey]: value,
     });
   };
 
-  const { selectInfoMap } = useDefaultSettings();
-
   return (
-    <div className="w-full">
-      {selectInfoMap.map((item) => {
-        const { key, label, list } = item;
+    <div className="w-full space-y-2">
+      {Object.entries(selectInfoMap).map(([typeKey, item]) => {
+        const { label, list } = item;
+        const formattingString = formatting[typeKey as 'date' | 'time'] as string;
+        const formattingTitle = list.find((option) => option.value === formattingString)?.text;
         return (
-          <div key={key} className="mb-4">
-            <Label htmlFor="airplane-mode" className="font-normal">
+          <div key={typeKey} className="space-y-2">
+            <Label htmlFor="datetime-formatting-select" className="font-normal">
               {label}
             </Label>
             <Select
-              value={formatting[key] as string}
-              onValueChange={(value) => onFormattingChange(value, key)}
+              value={formattingTitle}
+              onValueChange={(text) =>
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                onFormattingChange(list.find((option) => option.text === text)!.value, typeKey)
+              }
             >
               <SelectTrigger className="w-full h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {list.map(({ text, value }) => (
-                  <SelectItem key={value} value={value}>
+                {list.map(({ text }) => (
+                  <SelectItem key={text} value={text}>
                     {text}
                   </SelectItem>
                 ))}

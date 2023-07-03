@@ -69,7 +69,7 @@ export const LookupOptions = (props: {
       {existLinkField ? (
         <>
           <div className="space-y-2">
-            <span className="neutral-content label-text mb-2">
+            <span className="neutral-content label-text">
               Linked record field to use for lookup
             </span>
             <Selector

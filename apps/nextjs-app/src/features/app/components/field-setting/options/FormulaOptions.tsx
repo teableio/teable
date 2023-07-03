@@ -86,14 +86,14 @@ export const FormulaOptions = (props: {
     <div className="w-full space-y-2">
       {!isLookup && (
         <div className="space-y-2">
-          <span className="neutral-content label-text mb-2">Formula</span>
+          <span className="neutral-content label-text">Formula</span>
           <Input
             type="text"
             className="h-8"
             value={expressionByName}
             onChange={(e) => onExpressionChange(e.target.value)}
           />
-          {errMsg && <span className="neutral-content label-text mb-2">{errMsg}</span>}
+          {errMsg && <span className="neutral-content label-text">{errMsg}</span>}
         </div>
       )}
       {!errMsg && (
