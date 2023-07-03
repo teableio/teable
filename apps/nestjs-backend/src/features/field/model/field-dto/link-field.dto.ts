@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CellValueType, DbFieldType, LinkFieldCore, Relationship } from '@teable-group/core';
-import type { LinkFieldOptions, ILinkCellValue } from '@teable-group/core';
+import type { ILinkFieldOptions, ILinkCellValue } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
-export class LinkOptionsDto implements LinkFieldOptions {
+export class LinkOptionsDto implements ILinkFieldOptions {
   @ApiProperty({
     description: 'describe the relationship from this table to the foreign table',
     enum: Relationship,
@@ -39,7 +39,7 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
     const isMultipleCellValue =
       fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
 
-    const options = fieldRo.options as LinkFieldOptions;
+    const options = fieldRo.options as ILinkFieldOptions;
 
     return plainToInstance(LinkFieldDto, {
       ...fieldRo,

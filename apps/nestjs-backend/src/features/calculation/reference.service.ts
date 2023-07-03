@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, LinkFieldCore, LinkFieldOptions } from '@teable-group/core';
+import type { IOtOperation, IRecord, LinkFieldCore, ILinkFieldOptions } from '@teable-group/core';
 import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -180,7 +180,7 @@ export class ReferenceService {
       }
       const lookupFieldId = field.isLookup
         ? field.lookupOptions?.lookupFieldId
-        : (field.options as LinkFieldOptions).lookupFieldId;
+        : (field.options as ILinkFieldOptions).lookupFieldId;
 
       if (!lookupFieldId) {
         throw new Error('lookupFieldId should not be undefined');

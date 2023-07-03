@@ -244,9 +244,13 @@ export class EvalVisitor
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
     const fieldId = ctx.field_reference_curly().text;
+    if (fieldId == '') {
+      return new TypedValue('', CellValueType.String);
+    }
+
     const field = this.dependencies[fieldId];
     if (!field) {
-      throw new Error(`FieldId ${fieldId} is not found from dependencies`);
+      throw new Error(`FieldId ${fieldId} is a valid field id`);
     }
     return this.createTypedValueByField(field);
   }

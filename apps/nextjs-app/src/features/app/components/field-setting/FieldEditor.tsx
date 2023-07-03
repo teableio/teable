@@ -1,11 +1,12 @@
 import type { IFieldRo, FieldType } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useCallback, useState } from 'react';
 import { useCounter } from 'react-use';
 import { Input } from '@/components/ui/input';
 import { fieldDefaultOptionMap } from '../../utils/field';
-import type { IFieldOptionsProps } from './FieldOptions';
 import { FieldOptions } from './FieldOptions';
-import { LookupOptions } from './lookupOptions';
+import type { IFieldOptionsProps } from './FieldOptions';
+import { LookupOptions } from './options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
@@ -151,6 +152,7 @@ export const FieldEditor = (props: {
           options={field.options as IFieldOptionsProps['options']}
           type={field.type}
           isLookup={field.isLookup}
+          cellValueType={(field as IFieldInstance).cellValueType}
           updateFieldOptions={updateFieldOptions}
         />
       </div>

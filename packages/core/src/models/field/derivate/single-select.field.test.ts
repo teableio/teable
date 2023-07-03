@@ -1,11 +1,11 @@
 import { Colors } from '../colors';
-import type { SelectFieldOptions } from './select.field.abstract';
+import type { ISelectFieldOptions } from './select.field.abstract';
 import { SingleSelectFieldCore } from './single-select.field';
 
 describe('SingleSelectFieldCore', () => {
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      const options: SelectFieldOptions = {
+      const options: ISelectFieldOptions = {
         choices: [
           { name: 'Option 1', color: Colors.Blue },
           { name: 'Option 2', color: Colors.Red },

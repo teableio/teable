@@ -1,4 +1,4 @@
-import type { SelectFieldChoices, SelectFieldOptions } from '@teable-group/core';
+import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
 import { randomColor, ColorUtils, Colors } from '@teable-group/core';
 import AddCircleIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export const SelectOptions = (props: {
-  options: SelectFieldOptions;
+  options: ISelectFieldOptions;
   isLookup?: boolean;
-  onChange?: (options: SelectFieldOptions) => void;
+  onChange?: (options: ISelectFieldOptions) => void;
 }) => {
-  const { options, onChange } = props;
+  const { options, isLookup, onChange } = props;
   const choices = options.choices || [];
   const [names, setNames] = useState<string[]>(choices.map(({ name }) => name));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -23,7 +23,7 @@ export const SelectOptions = (props: {
     setNames(namesArr);
   };
 
-  const updateOptionChange = (index: number, choice: Partial<SelectFieldChoices>) => {
+  const updateOptionChange = (index: number, choice: Partial<ISelectFieldChoice>) => {
     const newChoice = choices.map((v, i) => {
       if (i === index) {
         return {
@@ -47,7 +47,7 @@ export const SelectOptions = (props: {
     const choice = {
       name: '',
       color: randomColor(existColors)[0],
-    } as SelectFieldChoices;
+    } as ISelectFieldChoice;
 
     const newChoices = [...choices, choice];
     onChange?.({ choices: newChoices });
@@ -59,6 +59,10 @@ export const SelectOptions = (props: {
   const finishUpdateName = (index: number) => {
     updateOptionChange(index, { name: names[index] });
   };
+
+  if (isLookup) {
+    return <></>;
+  }
 
   return (
     <ul className="space-y-2">

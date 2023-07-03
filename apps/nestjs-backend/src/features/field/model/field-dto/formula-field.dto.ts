@@ -1,19 +1,20 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import {
   assertNever,
   CellValueType,
   DbFieldType,
   FormulaFieldCore,
-  NumberFieldOptions,
   Relationship,
 } from '@teable-group/core';
-import type { FormulaFieldOptions } from '@teable-group/core';
+import type { IFormulaFieldOptions } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
-import { NumberOptionsDto } from './number-field.dto';
+import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
 
-export class FormulaOptionsDto implements FormulaFieldOptions {
+@ApiExtraModels(DatetimeFormattingDto)
+@ApiExtraModels(NumberFormattingDto)
+export class FormulaOptionsDto implements IFormulaFieldOptions {
   @ApiProperty({
     description: 'formula expression string',
   })
@@ -21,9 +22,12 @@ export class FormulaOptionsDto implements FormulaFieldOptions {
 
   @ApiPropertyOptional({
     description: 'formatting options for the result of the formula',
-    type: NumberOptionsDto,
+    oneOf: [
+      { $ref: getSchemaPath(NumberFormattingDto) },
+      { $ref: getSchemaPath(DatetimeFormattingDto) },
+    ],
   })
-  formatting?: NumberFieldOptions;
+  formatting?: NumberFormattingDto;
 }
 
 export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
