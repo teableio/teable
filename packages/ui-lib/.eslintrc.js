@@ -6,9 +6,7 @@
 // Workaround for https://github.com/eslint/eslint/issues/3458 (re-export of @rushstack/eslint-patch)
 require('@teable-group/eslint-config-bases/patch/modern-module-resolution');
 
-const {
-  getDefaultIgnorePatterns,
-} = require('@teable-group/eslint-config-bases/helpers');
+const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/helpers');
 
 module.exports = {
   root: true,
@@ -16,7 +14,11 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns(), '/storybook-static'],
+  ignorePatterns: [
+    ...getDefaultIgnorePatterns(),
+    '/storybook-static',
+    'tailwind.shadcnui.config.js',
+  ],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/regexp',

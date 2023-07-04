@@ -1,14 +1,14 @@
 import type { IDatetimeFormatting } from '@teable-group/core';
 import { DateFormattingPreset, TimeFormatting } from '@teable-group/core';
-import dayjs from 'dayjs';
-import { Label } from '@/components/ui/label';
+import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@teable-group/ui-lib/shadcn/ui/select';
+import dayjs from 'dayjs';
 
 // | Locale | Date Format | Notes |
 // |--------|-------------|-------|

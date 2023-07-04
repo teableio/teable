@@ -2,12 +2,12 @@ import type { IFieldInstance } from '@teable-group/sdk';
 import { useFields, useViewId } from '@teable-group/sdk';
 import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { Switch } from '@teable-group/ui-lib/shadcn/ui/switch';
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
 
 export const FilterColumnsButton = () => {
   const activeViewId = useViewId();

@@ -6,7 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@teable-group/ui-lib/shadcn/ui/select';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const NUMBER_FIELD_PRECISION = [

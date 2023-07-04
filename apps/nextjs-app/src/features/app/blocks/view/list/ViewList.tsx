@@ -1,6 +1,6 @@
 import { useViewId, useViews } from '@teable-group/sdk';
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
-import { Button } from '@/components/ui/button';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useAddView } from './useAddView';
 import { ViewListItem } from './ViewListItem';
 

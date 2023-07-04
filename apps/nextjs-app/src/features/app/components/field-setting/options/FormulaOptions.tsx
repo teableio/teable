@@ -2,9 +2,9 @@ import type { IFormulaFieldOptions, IFormulaFormatting } from '@teable-group/cor
 import { CellValueType } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
 import { FormulaField } from '@teable-group/sdk/model';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { keyBy } from 'lodash';
 import { useMemo, useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
 import { NumberFormatting } from '../formatting/NumberFormatting';
 

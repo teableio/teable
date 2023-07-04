@@ -1,6 +1,6 @@
 import type { IDateFieldOptions, IDatetimeFormatting } from '@teable-group/core';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+import { Switch } from '@teable-group/ui-lib/shadcn/ui/switch';
 import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
 
 export const DateOptions = (props: {

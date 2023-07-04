@@ -1,8 +1,6 @@
 import type { ISelectFieldOptions } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
-import classNames from 'classnames';
-import { isString } from 'lodash';
 import {
   Command,
   CommandEmpty,
@@ -10,7 +8,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from '@teable-group/ui-lib/shadcn/ui/command';
+import classNames from 'classnames';
+import { isString } from 'lodash';
 import type { IEditorProps } from './type';
 
 export const SelectEditor = (props: IEditorProps) => {

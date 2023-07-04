@@ -1,8 +1,8 @@
 import { getRandomString } from '@teable-group/core';
 import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
+import { useToast } from '@teable-group/ui-lib/shadcn/ui/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { useToast } from '@/components/ui/use-toast';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
 import type { IChat } from './type';
 
