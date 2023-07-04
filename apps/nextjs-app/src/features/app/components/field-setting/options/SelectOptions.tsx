@@ -2,10 +2,10 @@ import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core
 import { randomColor, ColorUtils, Colors } from '@teable-group/core';
 import AddCircleIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export const SelectOptions = (props: {
   options: ISelectFieldOptions;

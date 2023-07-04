@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@teable-group/ui-lib/shadcn/ui/select';
 import { SelectTable } from '../SelectTable';
 
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];

@@ -1,6 +1,6 @@
 import type { IAttachmentCellValue } from '@teable-group/core';
+import { Dialog, DialogContent } from '@teable-group/ui-lib/shadcn/ui/dialog';
 import { useEffect, useRef, useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { UploadAttachment } from '@/features/app/components/upload-attachment/UploadAttachment';
 import type { IEditorProps } from './type';
 

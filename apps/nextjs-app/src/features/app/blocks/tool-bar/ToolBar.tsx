@@ -7,8 +7,8 @@ import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {

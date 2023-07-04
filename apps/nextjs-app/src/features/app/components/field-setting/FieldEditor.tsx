@@ -1,8 +1,8 @@
 import type { IFieldRo, FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { useCounter } from 'react-use';
-import { Input } from '@/components/ui/input';
 import { fieldDefaultOptionMap } from '../../utils/field';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';

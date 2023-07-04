@@ -1,8 +1,8 @@
 import type { Table } from '@teable-group/sdk/model';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { DeleteTable } from './DeleteTable';
 
 interface IProps {

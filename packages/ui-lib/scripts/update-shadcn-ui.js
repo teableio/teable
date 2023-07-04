@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { readdirSync } = require('fs');
 const path = require('path');
-const componentsDir = path.join(__dirname, '../src/components/ui');
+const componentsDir = path.join(__dirname, '../src/shadcn/ui');
 
 const components = readdirSync(componentsDir, { withFileTypes: true })
   .filter((dirent) => !dirent.isDirectory() && dirent.name.endsWith('.tsx'))
