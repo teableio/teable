@@ -4,7 +4,7 @@ import type { IFieldInstance } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { useCounter } from 'react-use';
-import { fieldDefaultOptionMap } from '../../utils/field';
+import { useFieldStaticGetter } from '../../utils';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
 import { LookupOptions } from './options/LookupOptions';
@@ -35,6 +35,7 @@ export const FieldEditor = (props: {
     [incUpdateCount, onChange, updateCount]
   );
   const getFieldSubtitle = useFieldTypeSubtitle();
+  const getFieldStatic = useFieldStaticGetter();
 
   const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
@@ -65,7 +66,7 @@ export const FieldEditor = (props: {
       type,
       isLookup: undefined,
       lookupOptions: undefined,
-      options: fieldDefaultOptionMap[type],
+      options: getFieldStatic(type, false).defaultOptions,
     });
   };
 

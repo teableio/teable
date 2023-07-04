@@ -4,6 +4,7 @@ import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable } from '@teable-group/sdk/hooks';
 import type { LinkField } from '@teable-group/sdk/model';
 import { useCallback, useMemo, useState } from 'react';
+import { useFieldStaticGetter } from '@/features/app/utils';
 import { Selector } from '../Selector';
 
 const SelectFieldByTableId: React.FC<{
@@ -12,7 +13,7 @@ const SelectFieldByTableId: React.FC<{
 }> = ({ selectedId, onChange }) => {
   const fields = useFields();
   const table = useTable();
-
+  const getFieldStatic = useFieldStaticGetter();
   return (
     <div className="space-y-2">
       <span className="neutral-content label-text mb-2">
@@ -24,7 +25,14 @@ const SelectFieldByTableId: React.FC<{
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           onChange(id, fields.find((f) => f.id === id)!.type);
         }}
-        candidates={fields}
+        candidates={fields.map((f) => {
+          const Icon = getFieldStatic(f.type, f.isLookup).Icon;
+          return {
+            id: f.id,
+            name: f.name,
+            icon: <Icon />,
+          };
+        })}
       />
     </div>
   );

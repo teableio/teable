@@ -18,13 +18,16 @@ const generateColumns = (
   return fields.map((field) => {
     const columnMeta = field.columnMeta[viewId];
     const width = columnMeta?.width || 150;
+    const iconString = (type: FieldType, isLookup: boolean | undefined) => {
+      return isLookup ? `${type}_lookup` : type;
+    };
     switch (field.type) {
       case FieldType.SingleLineText:
         return {
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.SingleLineText,
+          icon: iconString(FieldType.SingleLineText, field.isLookup),
           kind: GridCellKind.Text,
           hasMenu: true,
         };
@@ -33,7 +36,7 @@ const generateColumns = (
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.SingleSelect,
+          icon: iconString(FieldType.SingleSelect, field.isLookup),
           kind: GridCellKind.Bubble,
           hasMenu: true,
         };
@@ -42,7 +45,7 @@ const generateColumns = (
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.Number,
+          icon: iconString(FieldType.Number, field.isLookup),
           kind: GridCellKind.Number,
           hasMenu: true,
         };
@@ -51,7 +54,7 @@ const generateColumns = (
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.MultipleSelect,
+          icon: iconString(FieldType.MultipleSelect, field.isLookup),
           kind: GridCellKind.Bubble,
           hasMenu: true,
         };
@@ -60,7 +63,7 @@ const generateColumns = (
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.Link,
+          icon: iconString(FieldType.Link, field.isLookup),
           kind: GridCellKind.Bubble,
           hasMenu: true,
         };
@@ -69,7 +72,7 @@ const generateColumns = (
           id: field.id,
           title: field.name,
           width,
-          icon: FieldType.Formula,
+          icon: iconString(FieldType.Formula, field.isLookup),
           kind: GridCellKind.Text,
           hasMenu: true,
         };
@@ -77,7 +80,7 @@ const generateColumns = (
         return {
           id: field.id,
           title: field.name,
-          icon: FieldType.Attachment,
+          icon: iconString(FieldType.Attachment, field.isLookup),
           kind: GridCellKind.Custom,
           hasMenu: true,
           width,
@@ -86,7 +89,7 @@ const generateColumns = (
         return {
           id: field.id,
           title: field.name,
-          icon: FieldType.Date,
+          icon: iconString(FieldType.Date, field.isLookup),
           kind: GridCellKind.Custom,
           hasMenu: true,
           width,

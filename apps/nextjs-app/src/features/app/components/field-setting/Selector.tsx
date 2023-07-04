@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/sh
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
 
-type IProps<T = { id: string; name: string }> = {
+type IProps<T = { id: string; name: string; icon?: React.ReactNode }> = {
   selectedId?: string;
   placeholder?: string;
   candidates?: T[];
@@ -44,7 +44,7 @@ export const Selector: React.FC<IProps> = (props) => {
           <CommandInput placeholder="Find a field..." />
           <CommandEmpty>No found.</CommandEmpty>
           <CommandGroup>
-            {candidates.map(({ id, name }) => (
+            {candidates.map(({ id, name, icon }) => (
               <CommandItem
                 key={id}
                 value={id}
@@ -59,7 +59,7 @@ export const Selector: React.FC<IProps> = (props) => {
                     id === selectedId ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {name}
+                {icon} <span className="ml-2">{name}</span>
               </CommandItem>
             ))}
           </CommandGroup>
