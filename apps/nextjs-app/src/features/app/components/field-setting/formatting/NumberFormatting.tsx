@@ -1,5 +1,5 @@
 import type { INumberFormatting } from '@teable-group/core';
-import { Label } from '@/components/ui/label';
+import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import {
   Select,
   SelectContent,
