@@ -6,14 +6,14 @@ abstract class SystemFunc extends FormulaFunc {
   readonly type = FormulaFuncType.System;
 }
 
-export class Lookup extends SystemFunc {
-  name = FunctionName.Lookup;
+export class Rollup extends SystemFunc {
+  name = FunctionName.Rollup;
 
   acceptValueType = new Set([CellValueType.String]);
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      throw new Error(`${FunctionName.Lookup} only allow 1 param`);
+      throw new Error(`${FunctionName.Rollup} only allow 1 param`);
     }
 
     return true;

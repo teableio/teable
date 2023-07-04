@@ -31,6 +31,9 @@ export class DateFieldCore extends FieldCore {
     if (cellValue == null) return '';
     const { date, time } = this.options.formatting;
     const format = time === TimeFormatting.None ? date : `${date} ${time}`;
+    if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      return cellValue.map((v) => dayjs(v).format(format)).join(', ');
+    }
     return dayjs(cellValue).format(format);
   }
 
@@ -49,6 +52,10 @@ export class DateFieldCore extends FieldCore {
   }
 
   validateOptions() {
+    // lookup field only need to validate formatting
+    if (this.isLookup) {
+      return datetimeFormattingDef.safeParse(this.options.formatting);
+    }
     return dateFieldOptionsDef.safeParse(this.options);
   }
 

@@ -3,7 +3,7 @@ import { FieldCore, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 
 export abstract class FieldOperations extends FieldCore {
-  doc!: Doc<IFieldSnapshot>;
+  protected doc!: Doc<IFieldSnapshot>;
 
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {

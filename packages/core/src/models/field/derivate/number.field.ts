@@ -31,6 +31,10 @@ export class NumberFieldCore extends FieldCore {
       return '';
     }
     const precision = this.options.formatting.precision;
+
+    if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      return cellValue.map((v) => v.toFixed(precision)).join(', ');
+    }
     return cellValue.toFixed(precision);
   }
 
@@ -53,6 +57,10 @@ export class NumberFieldCore extends FieldCore {
   }
 
   validateOptions() {
+    // lookup field only need to validate formatting
+    if (this.isLookup) {
+      return numberFormattingDef.safeParse(this.options.formatting);
+    }
     return numberOptionsDef.safeParse(this.options);
   }
 

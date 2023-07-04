@@ -17,7 +17,7 @@ export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
 
     return plainToInstance(NumberFieldDto, {
       ...fieldRo,

@@ -13,13 +13,15 @@ import { SelectTable } from '../SelectTable';
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 
 export const LinkOptions = (props: {
-  options: ILinkFieldOptionsRo;
+  options?: Partial<ILinkFieldOptionsRo>;
   isLookup?: boolean;
-  onChange?: (options: ILinkFieldOptionsRo) => void;
+  onChange?: (options: Partial<ILinkFieldOptionsRo>) => void;
 }) => {
-  const { options, onChange } = props;
+  const { options, isLookup, onChange } = props;
   const tables = useTables();
-  const { foreignTableId, relationship } = options;
+
+  const relationship = options?.relationship;
+  const foreignTableId = options?.foreignTableId;
 
   const onForeignTableIdChange = (value: string) => {
     const foreignTableId = value;
@@ -30,6 +32,10 @@ export const LinkOptions = (props: {
     const relationship = value;
     onChange?.({ foreignTableId, relationship });
   };
+
+  if (isLookup) {
+    return <></>;
+  }
 
   return (
     <div className="space-y-2 w-full">
