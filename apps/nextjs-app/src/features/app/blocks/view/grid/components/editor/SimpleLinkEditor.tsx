@@ -1,7 +1,7 @@
 import type { ILinkCellValue } from '@teable-group/core';
 import { Colors, ColorUtils, Relationship } from '@teable-group/core';
 import type { LinkField, Record } from '@teable-group/sdk';
-import { AnchorProvider, FieldProvider, RecordProvider, useRecords } from '@teable-group/sdk';
+import { AnchorProvider, useRecords } from '@teable-group/sdk';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import {
   Command,

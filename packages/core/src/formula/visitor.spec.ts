@@ -142,7 +142,7 @@ describe('EvalVisitor', () => {
     expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
   });
 
-  it('lookup call', () => {
+  it('rollup call', () => {
     const virtualField = {
       id: 'values',
       type: FieldType.Formula,
@@ -161,7 +161,7 @@ describe('EvalVisitor', () => {
     };
 
     const result = evaluate(
-      'lookup({values})',
+      'rollup({values})',
       { values: plainToInstance(FormulaFieldCore, virtualField) },
       { ...record, fields: { ...record.fields, values: ['CX, C2', 'C3'] } }
     );

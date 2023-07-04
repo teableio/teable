@@ -25,6 +25,10 @@ export abstract class SelectFieldCore extends FieldCore {
   options!: ISelectFieldOptions;
 
   validateOptions() {
+    if (this.isLookup) {
+      return z.null().optional().safeParse(this.options);
+    }
+
     return selectFieldOptionsDef.safeParse(this.options);
   }
 }

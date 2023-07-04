@@ -2,7 +2,6 @@ import type {
   IDateFieldOptions,
   IFormulaFieldOptions,
   ILinkFieldOptionsRo,
-  ILinkFieldOptions,
   INumberFieldOptions,
   ISelectFieldOptions,
   CellValueType,
@@ -20,7 +19,7 @@ export interface IFieldOptionsProps {
   type: FieldType;
   isLookup: boolean | undefined;
   cellValueType?: CellValueType; // for formula field with lookup only
-  updateFieldOptions: (options: IFieldInstance['options'] | ILinkFieldOptionsRo) => void;
+  updateFieldOptions: (options: Partial<IFieldInstance['options'] | ILinkFieldOptionsRo>) => void;
 }
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({
@@ -51,7 +50,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
     case FieldType.Link:
       return (
         <LinkOptions
-          options={options as ILinkFieldOptions}
+          options={options as ILinkFieldOptionsRo}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />

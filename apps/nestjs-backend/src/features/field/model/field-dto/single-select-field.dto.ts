@@ -40,7 +40,7 @@ export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFiel
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
 
     return plainToInstance(SingleSelectFieldDto, {
       ...fieldRo,

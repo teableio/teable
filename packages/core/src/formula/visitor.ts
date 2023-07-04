@@ -231,12 +231,15 @@ export class EvalVisitor
       return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
     }
 
-    // link field or attachment field may have object cellValue, need to be converted to string.
-    // TODO: should not convert isMultipleCellValue to string
-    if (
-      (field.isMultipleCellValue && value[0] && typeof value[0] === 'object') ||
-      (!field.isMultipleCellValue && typeof value === 'object')
-    ) {
+    // some field like link or attachment may contain json object cellValue, that need to be converted to string.
+    if (field.isMultipleCellValue && value[0] && typeof value[0] === 'object') {
+      // fallback by levels.
+      value = value.map(
+        (v: any) => v.title || v.text || v.name || v.str || v.string || v.id || JSON.stringify(v)
+      );
+    }
+
+    if (!field.isMultipleCellValue && typeof value === 'object') {
       value = field.cellValue2String(value);
     }
     return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);

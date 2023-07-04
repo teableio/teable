@@ -36,9 +36,7 @@ export const SelectFieldType = (props: {
           aria-expanded={open}
           className="w-full justify-between font-normal"
         >
-          {isLookup
-            ? 'Lookup to other table'
-            : FIELD_TYPE_ORDER.find((type) => getFieldStatic(type, isLookup).title)}
+          {isLookup ? 'Lookup to other table' : getFieldStatic(value, false)?.title}
           <ArrowDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -48,7 +46,7 @@ export const SelectFieldType = (props: {
           <CommandEmpty>No found.</CommandEmpty>
           <CommandGroup>
             {FIELD_TYPE_ORDER.map((type) => {
-              const { title, Icon } = getFieldStatic(type, isLookup);
+              const { title, Icon } = getFieldStatic(type, false);
               return (
                 <CommandItem
                   key={type}

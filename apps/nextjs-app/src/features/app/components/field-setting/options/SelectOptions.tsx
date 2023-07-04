@@ -8,12 +8,12 @@ import classNames from 'classnames';
 import { useRef, useState } from 'react';
 
 export const SelectOptions = (props: {
-  options: ISelectFieldOptions;
+  options?: ISelectFieldOptions;
   isLookup?: boolean;
   onChange?: (options: ISelectFieldOptions) => void;
 }) => {
   const { options, isLookup, onChange } = props;
-  const choices = options.choices || [];
+  const choices = options?.choices || [];
   const [names, setNames] = useState<string[]>(choices.map(({ name }) => name));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 

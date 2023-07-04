@@ -129,6 +129,10 @@ export class FormulaFieldCore extends FieldCore {
   }
 
   validateOptions() {
+    // lookup field only need to validate formatting
+    if (this.isLookup) {
+      return formulaFormattingDef.safeParse(this.options.formatting);
+    }
     return formulaFieldOptionsDef.safeParse(this.options);
   }
 

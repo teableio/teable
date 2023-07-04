@@ -219,32 +219,32 @@ export class ReferenceService {
   ): unknown {
     const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as FieldVo;
 
-    // TODO: array value flatten
     const lookupValues = Array.isArray(dependencies)
       ? dependencies.map((depRecord) => depRecord.fields[lookupField.id])
       : dependencies.fields[lookupField.id];
 
-    // console.log('calculateRollup:dependencies:', dependencies);
-    // console.log('lookupValues:', lookupValues);
-    const virtualField = createFieldInstanceByVo({
-      ...fieldVo,
-      id: 'values',
-      cellValueType: field.cellValueType,
-      isMultipleCellValue: field.isMultipleCellValue,
-    });
-    const result = evaluate(
-      'lookup({values})',
-      { values: virtualField },
-      { ...record, fields: { ...record.fields, values: lookupValues } }
-    );
-
-    const plain = result.toPlain();
+    if (field.isLookup) {
+      return lookupValues;
+    }
 
     if (field.type === FieldType.Link) {
+      const virtualField = createFieldInstanceByVo({
+        ...fieldVo,
+        id: 'values',
+        cellValueType: field.cellValueType,
+        isMultipleCellValue: field.isMultipleCellValue,
+      });
+      const result = evaluate(
+        'rollup({values})',
+        { values: virtualField },
+        { ...record, fields: { ...record.fields, values: lookupValues } }
+      );
+
+      const plain = result.toPlain();
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return field.updateCellTitle(record.fields[field.id] as any, plain);
     }
-    return plain;
   }
 
   private async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {

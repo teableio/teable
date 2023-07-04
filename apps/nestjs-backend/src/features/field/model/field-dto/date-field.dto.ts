@@ -25,7 +25,7 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
 
     return plainToInstance(DateFieldDto, {
       ...fieldRo,

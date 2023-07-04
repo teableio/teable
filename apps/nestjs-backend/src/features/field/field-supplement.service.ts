@@ -123,7 +123,7 @@ export class FieldSupplementService implements ISupplementService {
     batchFieldRos?: CreateFieldRo[]
   ): Promise<CreateFieldRo> {
     if (fieldRo.isLookup) {
-      fieldRo = await this.prepareLookupField(fieldRo, batchFieldRos);
+      return await this.prepareLookupField(fieldRo, batchFieldRos);
     }
 
     if (fieldRo.type == FieldType.Link) {

@@ -24,6 +24,7 @@ export const Selector: React.FC<IProps> = (props) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
 
+  const selected = candidates.find(({ id }) => id === selectedId);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -33,10 +34,17 @@ export const Selector: React.FC<IProps> = (props) => {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className="w-full flex gap-2 font-normal"
         >
-          {selectedId ? candidates.find(({ id }) => id === selectedId)?.name : ''}
-          <ArrowDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {selected ? (
+            <>
+              {selected.icon} <span>{selected.name}</span>
+            </>
+          ) : (
+            ''
+          )}
+          <div className="grow"></div>
+          <ArrowDownIcon className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: ref.current?.offsetWidth }}>

@@ -78,6 +78,9 @@ export class LinkFieldCore extends FieldCore {
   }
 
   validateOptions() {
+    if (this.isLookup) {
+      return z.null().optional().safeParse(this.options);
+    }
     return linkFieldOptionsDef.safeParse(this.options);
   }
 
