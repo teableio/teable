@@ -6,7 +6,7 @@ export const NumberOptions = (props: {
   isLookup?: boolean;
   onChange?: (options: INumberFieldOptions) => void;
 }) => {
-  const { onChange } = props;
+  const { options, onChange } = props;
 
   const onFormattingChange = (formatting: INumberFormatting) => {
     onChange?.({
@@ -16,7 +16,7 @@ export const NumberOptions = (props: {
 
   return (
     <div className="form-control">
-      <NumberFormatting onChange={onFormattingChange} />
+      <NumberFormatting formatting={options?.formatting} onChange={onFormattingChange} />
     </div>
   );
 };

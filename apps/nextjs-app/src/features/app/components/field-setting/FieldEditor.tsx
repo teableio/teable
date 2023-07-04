@@ -1,4 +1,5 @@
-import type { IFieldRo, FieldType } from '@teable-group/core';
+import type { IFieldRo } from '@teable-group/core';
+import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
@@ -11,15 +12,17 @@ import { SelectFieldType } from './SelectFieldType';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
-  field: IFieldRo;
+  field?: IFieldRo;
   onChange?: (field: IFieldRo, updateCount?: number) => void;
 }) => {
   const { field: currentField, onChange } = props;
   const [field, setField] = useState<IFieldRo>({
-    name: currentField.name,
-    description: currentField.description || '',
-    type: currentField.type,
-    options: currentField.options,
+    name: currentField?.name || '',
+    type: currentField?.type || FieldType.SingleLineText,
+    description: currentField?.description,
+    options: currentField?.options,
+    isLookup: currentField?.isLookup,
+    lookupOptions: currentField?.lookupOptions,
   });
   const [updateCount, { inc: incUpdateCount }] = useCounter(0);
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
@@ -51,6 +54,8 @@ export const FieldEditor = (props: {
     if (type === 'lookup') {
       return setFieldFn({
         ...field,
+        type: FieldType.SingleLineText, // reset fieldType to default
+        options: undefined, // reset fieldType to default
         isLookup: true,
       });
     }
@@ -59,6 +64,7 @@ export const FieldEditor = (props: {
       ...field,
       type,
       isLookup: undefined,
+      lookupOptions: undefined,
       options: fieldDefaultOptionMap[type],
     });
   };

@@ -1,5 +1,4 @@
 import type { IFieldRo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Table } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -8,11 +7,6 @@ import { useEffect, useRef, useState } from 'react';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
 import { FieldOperator } from './type';
-
-const defaultField = {
-  name: '',
-  type: FieldType.SingleLineText,
-};
 
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
@@ -45,7 +39,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 };
 
 const FieldSettingBase = (props: IFieldSetting) => {
-  const { visible, field: currentField, operator, onConfirm, onCancel } = props;
+  const { visible, field, operator, onConfirm, onCancel } = props;
   const [currentVisible, setCurrentVisible] = useState<boolean | undefined>(visible);
 
   const fieldRef = useRef<IFieldRo>();
@@ -84,15 +78,6 @@ const FieldSettingBase = (props: IFieldSetting) => {
   };
 
   const title = operator === FieldOperator.Add ? 'Add Field' : 'Edit Field';
-
-  const field = currentField
-    ? {
-        name: currentField.name,
-        type: currentField.type,
-        description: currentField.description,
-        options: currentField.options,
-      }
-    : defaultField;
 
   return (
     <Sheet open={currentVisible} onOpenChange={onOpenChange}>

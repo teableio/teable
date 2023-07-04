@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, LinkFieldCore, ILinkFieldOptions } from '@teable-group/core';
+import type { IOtOperation, IRecord, ILinkFieldOptions } from '@teable-group/core';
 import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -71,11 +71,18 @@ export class ReferenceService {
     if (!undirectedGraph.length) {
       return [];
     }
+
+    // get all related field by undirected graph
     const allFieldIds = this.flatGraph(undirectedGraph);
+
+    // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
-    // console.log('undirectedGraph', undirectedGraph);
+    // console.log('undirectedGraph:', undirectedGraph);
+    // console.log('tableId2DbTableName:', tableId2DbTableName);
+
+    // topological sorting
     const topoOrdersByFieldId = uniqBy(recordData, 'fieldId').reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, { fieldId }) => {
@@ -84,6 +91,8 @@ export class ReferenceService {
     }, {});
 
     // console.log('topoOrdersByFieldId:', JSON.stringify(topoOrdersByFieldId, null, 2));
+
+    // submitted changed records
     const originRecordItems = recordData.map((record) => ({
       dbTableName: tableId2DbTableName[tableId],
       fieldId: record.fieldId,
@@ -92,6 +101,7 @@ export class ReferenceService {
     }));
     // console.log('originRecordItems:', originRecordItems);
 
+    // the origin change will lead to affected record changes
     let affectedRecordItems: IRecordRefItem[] = [];
     for (const fieldId in topoOrdersByFieldId) {
       const topoOrders = topoOrdersByFieldId[fieldId];
@@ -108,7 +118,6 @@ export class ReferenceService {
     }
     // console.log('affectedRecordItems', JSON.stringify(affectedRecordItems, null, 2));
 
-    // extra dependent records for link field
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
     // console.log('dependentRecordItems', dependentRecordItems);
 
@@ -176,7 +185,7 @@ export class ReferenceService {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.isLookup) {
       if (!recordItem.dependencies) {
-        throw new Error(`Dependency should not be undefined when contains a ${field.type} field`);
+        throw new Error(`Dependency should not be undefined when contains a computed field`);
       }
       const lookupFieldId = field.isLookup
         ? field.lookupOptions?.lookupFieldId
@@ -215,6 +224,8 @@ export class ReferenceService {
       ? dependencies.map((depRecord) => depRecord.fields[lookupField.id])
       : dependencies.fields[lookupField.id];
 
+    // console.log('calculateRollup:dependencies:', dependencies);
+    // console.log('lookupValues:', lookupValues);
     const virtualField = createFieldInstanceByVo({
       ...fieldVo,
       id: 'values',
@@ -222,7 +233,7 @@ export class ReferenceService {
       isMultipleCellValue: field.isMultipleCellValue,
     });
     const result = evaluate(
-      'LOOKUP({values})',
+      'lookup({values})',
       { values: virtualField },
       { ...record, fields: { ...record.fields, values: lookupValues } }
     );
@@ -289,13 +300,13 @@ export class ReferenceService {
     fieldId2TableId: { [fieldId: string]: string }
   ) {
     // detail changes
-    // console.log('collectChanges:', orders, fieldMap);
+    // console.log('collectChanges:', orders);
     const changes: ICellChange[] = [];
 
     orders.forEach((item) => {
       item.recordItems.forEach((recordItem) => {
         const field = fieldMap[item.id];
-        // console.log('collectChanges:recordItems:', field, recordItem.record);
+        // console.log('collectChanges:recordItems:', field, recordItem);
         if (!field.isComputed) {
           return;
         }
@@ -348,6 +359,20 @@ export class ReferenceService {
       const field = fieldMap[item.id];
       const tableId = fieldId2TableId[field.id];
       const dbTableName = tableId2DbTableName[tableId];
+      if (field.isLookup && field.lookupOptions) {
+        const { dbForeignKeyName, relationship, foreignTableId, linkFieldId } = field.lookupOptions;
+        const linkedTable = tableId2DbTableName[foreignTableId];
+
+        newOrder.push({
+          dbTableName,
+          fieldId: linkFieldId,
+          foreignKeyField: dbForeignKeyName,
+          linkedTable,
+          relationship,
+        });
+        continue;
+      }
+
       if (field.type === FieldType.Link) {
         const foreignKeyFieldName = field.options.dbForeignKeyName;
         const linkedTable = tableId2DbTableName[field.options.foreignTableId];
@@ -409,18 +434,15 @@ export class ReferenceService {
   }
 
   private getOneManyDependencies(params: {
-    field: LinkFieldCore;
+    linkFieldId: string;
     record: IRecord;
     foreignTableRecords: IRecord[];
     dependentRecordItems: IRecordRefItem[];
   }): IRecord[] {
-    const { field, dependentRecordItems, record, foreignTableRecords } = params;
+    const { linkFieldId, dependentRecordItems, record, foreignTableRecords } = params;
 
-    if (field.options.relationship !== Relationship.OneMany) {
-      throw new Error("field's relationship should be OneMany");
-    }
     return dependentRecordItems
-      .filter((item) => item.relationTo === record.id && item.fieldId === field.id)
+      .filter((item) => item.relationTo === record.id && item.fieldId === linkFieldId)
       .map((item) => {
         const record = foreignTableRecords.find((r) => r.id === item.id);
         if (!record) {
@@ -431,15 +453,11 @@ export class ReferenceService {
   }
 
   private getMany2OneDependency(params: {
-    field: LinkFieldCore;
     record: IRecord;
     foreignTableRecords: IRecord[];
     affectedRecordItems: IRecordRefItem[];
   }): IRecord {
-    const { field, record, affectedRecordItems, foreignTableRecords } = params;
-    if (field.options.relationship !== Relationship.ManyOne) {
-      throw new Error("field's relationship should be ManyOne");
-    }
+    const { record, affectedRecordItems, foreignTableRecords } = params;
 
     const linkRecordRef = affectedRecordItems.find((item) => item.id === record.id);
     if (!linkRecordRef) {
@@ -451,6 +469,43 @@ export class ReferenceService {
       throw new Error('Can not find link record');
     }
     return linkRecord;
+  }
+
+  private getDependencyRecordItems(params: {
+    linkFieldId: string;
+    relationship: Relationship;
+    records: IRecord[];
+    foreignTableRecords: IRecord[];
+    affectedRecordItems: IRecordRefItem[];
+    dependentRecordItems: IRecordRefItem[];
+  }) {
+    const {
+      linkFieldId,
+      records,
+      relationship,
+      foreignTableRecords,
+      dependentRecordItems,
+      affectedRecordItems,
+    } = params;
+    const dependenciesArr = records.map((record) => {
+      if (relationship === Relationship.OneMany) {
+        return this.getOneManyDependencies({
+          record,
+          linkFieldId: linkFieldId,
+          foreignTableRecords,
+          dependentRecordItems,
+        });
+      }
+      if (relationship === Relationship.ManyOne) {
+        return this.getMany2OneDependency({
+          record,
+          foreignTableRecords,
+          affectedRecordItems,
+        });
+      }
+      throw new Error('Unsupported relationship');
+    });
+    return records.map((record, i) => ({ record, dependencies: dependenciesArr[i] }));
   }
 
   private createTopoItemWithRecords(params: {
@@ -482,34 +537,36 @@ export class ReferenceService {
       // only affected record need to be calculated
       const records = intersectionBy(allRecords, affectedRecordItems, 'id');
 
-      // update link field dependency
-      if (field.type === FieldType.Link) {
-        const foreignTableName = tableId2DbTableName[field.options.foreignTableId];
+      const appendRecordItems = (
+        foreignTableId: string,
+        linkFieldId: string,
+        relationship: Relationship
+      ) => {
+        const foreignTableName = tableId2DbTableName[foreignTableId];
         const foreignTableRecords = dbTableName2records[foreignTableName];
         const dependentRecordItems = dependentRecordItemIndexed[foreignTableName];
-        const dependenciesArr = records.map((record) => {
-          if (field.options.relationship === Relationship.OneMany) {
-            return this.getOneManyDependencies({
-              record,
-              field,
-              foreignTableRecords,
-              dependentRecordItems,
-            });
-          }
-          if (field.options.relationship === Relationship.ManyOne) {
-            return this.getMany2OneDependency({
-              record,
-              field,
-              foreignTableRecords,
-              affectedRecordItems,
-            });
-          }
-          throw new Error('Unsupported relationship');
-        });
         return {
           ...order,
-          recordItems: records.map((record, i) => ({ record, dependencies: dependenciesArr[i] })),
+          recordItems: this.getDependencyRecordItems({
+            linkFieldId,
+            relationship,
+            records,
+            foreignTableRecords,
+            affectedRecordItems,
+            dependentRecordItems,
+          }),
         };
+      };
+
+      // update cross table dependency (from lookup or link field)
+      if (field.isLookup && field.lookupOptions) {
+        const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
+        return appendRecordItems(foreignTableId, linkFieldId, relationship);
+      }
+
+      if (field.type === FieldType.Link) {
+        const { foreignTableId, relationship } = field.options;
+        return appendRecordItems(foreignTableId, field.id, relationship);
       }
 
       return {
@@ -584,7 +641,6 @@ export class ReferenceService {
 
     visit(startNodeId);
 
-    // first item in the topological order should not include dependencies
     sortedNodes.pop();
     return sortedNodes.reverse();
   }
@@ -648,6 +704,11 @@ export class ReferenceService {
     return mergedChanges;
   }
 
+  /**
+   * affected record changes need extra dependent record to calculate result
+   * example: C = A + B
+   * A changed, C will be affected and B is the dependent record
+   */
   private async getDependentRecordItems(
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
@@ -737,6 +798,8 @@ export class ReferenceService {
         relationTo?: string;
       }[]
     >(finalQuery);
+
+    // console.log('getAffectedRecordItems:result:', results);
 
     if (!results.length) {
       return originRecordItems;

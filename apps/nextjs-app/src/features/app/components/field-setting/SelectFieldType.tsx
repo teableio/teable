@@ -57,7 +57,7 @@ export const SelectFieldType = (props: {
                 <SelectIcon
                   className={classNames(
                     'mr-2 h-4 w-4',
-                    value === type ? 'opacity-100' : 'opacity-0'
+                    !isLookup && value === type ? 'opacity-100' : 'opacity-0'
                   )}
                 />
                 <IconComponent className="mr-2 h-4 w-4" />

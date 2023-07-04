@@ -7151,7 +7151,6 @@ __metadata:
   resolution: "@teable-group/backend@workspace:apps/nestjs-backend"
   dependencies:
     "@babel/core": "npm:7.19.6"
-    "@belgattitude/http-exception": "npm:1.4.0"
     "@faker-js/faker": "npm:8.0.2"
     "@juicyllama/nestjs-redoc": "npm:2.3.10"
     "@nestjs/common": "npm:9.3.9"

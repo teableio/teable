@@ -31,6 +31,10 @@ export class NumberFieldCore extends FieldCore {
       return '';
     }
     const precision = this.options.formatting.precision;
+
+    if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      return cellValue.map((v) => v.toFixed(precision)).join(',');
+    }
     return cellValue.toFixed(precision);
   }
 

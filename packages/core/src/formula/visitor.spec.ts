@@ -120,7 +120,7 @@ describe('EvalVisitor', () => {
     expect(evalFormula('1 > 2')).toBe(false);
     expect(evalFormula('2 <= 2')).toBe(true);
     expect(evalFormula('2 >= 2')).toBe(true);
-    expect(evalFormula('1 == 1')).toBe(true);
+    expect(evalFormula('1 = 1')).toBe(true);
     expect(evalFormula('1 != 2')).toBe(true);
   });
 
@@ -161,7 +161,7 @@ describe('EvalVisitor', () => {
     };
 
     const result = evaluate(
-      'LOOKUP({values})',
+      'lookup({values})',
       { values: plainToInstance(FormulaFieldCore, virtualField) },
       { ...record, fields: { ...record.fields, values: ['CX, C2', 'C3'] } }
     );
