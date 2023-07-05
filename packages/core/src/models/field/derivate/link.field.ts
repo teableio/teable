@@ -20,43 +20,41 @@ export interface ILinkCellValue {
   id: string;
 }
 
-export class LinkFieldOptions {
+export const linkFieldOptionsDef = z.object({
   /**
    * describe the relationship from this table to the foreign table
    */
-  relationship!: Relationship;
-
+  relationship: z.nativeEnum(Relationship),
   /**
    * the table this field is linked to
    */
-  foreignTableId!: string;
-
+  foreignTableId: z.string(),
   /**
    * The value of the lookup Field in the associated table will be displayed as the current field.
    */
-  lookupFieldId!: string;
-
+  lookupFieldId: z.string(),
   /**
    * The foreign key field name used to store values in the db table.
    */
-  dbForeignKeyName!: string;
-
+  dbForeignKeyName: z.string(),
   /**
    * the symmetric field in the foreign table.
    */
-  symmetricFieldId!: string;
-}
+  symmetricFieldId: z.string(),
+});
 
-export type ILinkFieldOptionsRo = Pick<LinkFieldOptions, 'relationship' | 'foreignTableId'>;
+export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsDef>;
+
+export type ILinkFieldOptionsRo = Pick<ILinkFieldOptions, 'relationship' | 'foreignTableId'>;
 
 export class LinkFieldCore extends FieldCore {
-  static defaultOptions(): Partial<LinkFieldOptions> {
+  static defaultOptions(): Partial<ILinkFieldOptions> {
     return {};
   }
 
   type!: FieldType.Link;
 
-  options!: LinkFieldOptions;
+  options!: ILinkFieldOptions;
 
   defaultValue!: null;
 
@@ -80,15 +78,10 @@ export class LinkFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    return z
-      .object({
-        relationship: z.nativeEnum(Relationship),
-        foreignTableId: z.string(),
-        lookupFieldId: z.string(),
-        dbForeignKeyName: z.string(),
-        symmetricFieldId: z.string(),
-      })
-      .safeParse(this.options);
+    if (this.isLookup) {
+      return z.null().optional().safeParse(this.options);
+    }
+    return linkFieldOptionsDef.safeParse(this.options);
   }
 
   validateDefaultValue() {

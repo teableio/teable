@@ -1,24 +1,28 @@
-import type { IFieldRo, FieldType } from '@teable-group/core';
+import type { IFieldRo } from '@teable-group/core';
+import { FieldType } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk/model';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { useCounter } from 'react-use';
-import { Input } from '@/components/ui/input';
-import { fieldDefaultOptionMap } from '../../utils/field';
-import type { IFieldOptionsProps } from './FieldOptions';
+import { useFieldStaticGetter } from '../../utils';
 import { FieldOptions } from './FieldOptions';
-import { LookupOptions } from './lookupOptions';
+import type { IFieldOptionsProps } from './FieldOptions';
+import { LookupOptions } from './options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
-  field: IFieldRo;
+  field?: IFieldRo;
   onChange?: (field: IFieldRo, updateCount?: number) => void;
 }) => {
   const { field: currentField, onChange } = props;
   const [field, setField] = useState<IFieldRo>({
-    name: currentField.name,
-    description: currentField.description || '',
-    type: currentField.type,
-    options: currentField.options,
+    name: currentField?.name || '',
+    type: currentField?.type || FieldType.SingleLineText,
+    description: currentField?.description,
+    options: currentField?.options,
+    isLookup: currentField?.isLookup,
+    lookupOptions: currentField?.lookupOptions,
   });
   const [updateCount, { inc: incUpdateCount }] = useCounter(0);
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
@@ -31,6 +35,7 @@ export const FieldEditor = (props: {
     [incUpdateCount, onChange, updateCount]
   );
   const getFieldSubtitle = useFieldTypeSubtitle();
+  const getFieldStatic = useFieldStaticGetter();
 
   const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
@@ -50,6 +55,8 @@ export const FieldEditor = (props: {
     if (type === 'lookup') {
       return setFieldFn({
         ...field,
+        type: FieldType.SingleLineText, // reset fieldType to default
+        options: undefined, // reset fieldType to default
         isLookup: true,
       });
     }
@@ -58,7 +65,8 @@ export const FieldEditor = (props: {
       ...field,
       type,
       isLookup: undefined,
-      options: fieldDefaultOptionMap[type],
+      lookupOptions: undefined,
+      options: getFieldStatic(type, false).defaultOptions,
     });
   };
 
@@ -151,6 +159,7 @@ export const FieldEditor = (props: {
           options={field.options as IFieldOptionsProps['options']}
           type={field.type}
           isLookup={field.isLookup}
+          cellValueType={(field as IFieldInstance).cellValueType}
           updateFieldOptions={updateFieldOptions}
         />
       </div>

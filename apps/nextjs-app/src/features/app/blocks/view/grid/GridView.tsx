@@ -4,14 +4,14 @@ import { useConnection, useRowCount, useSSRRecords, useTable, useTableId } from 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
+import { useFieldStaticGetter } from '@/features/app/utils';
+import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { useViewStore } from '../store/view';
 import { AddField, BaseCell } from './components';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnResize, useColumns, useGridTheme } from './hooks';
 import { useGridViewStore } from './store/gridView';
 import { calculateCellPosition, calculateMenuPosition, getHeaderIcons } from './utils';
-
-const headerIcons = getHeaderIcons();
 
 export const GridView: React.FC = () => {
   const ref = useRef<DataEditorRef | null>(null);
@@ -107,6 +107,27 @@ export const GridView: React.FC = () => {
       },
     });
   };
+  const getFieldStatic = useFieldStaticGetter();
+  const headerIcons = useMemo(
+    () =>
+      getHeaderIcons(
+        FIELD_TYPE_ORDER.reduce<
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { type: string; IconComponent: React.JSXElementConstructor<any> }[]
+        >((pre, type) => {
+          const IconComponent = getFieldStatic(type, false)?.Icon;
+          const LookupIconComponent = getFieldStatic(type, true)?.Icon;
+          if (IconComponent) {
+            pre.push({ type: type, IconComponent });
+          }
+          if (LookupIconComponent) {
+            pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
+          }
+          return pre;
+        }, [])
+      ),
+    [getFieldStatic]
+  );
 
   return (
     <div ref={container} className="relative grow w-full overflow-y-auto overflow-x-hidden">

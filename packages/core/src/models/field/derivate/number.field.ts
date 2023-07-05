@@ -1,23 +1,28 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import { numberFormattingDef } from '../formatting';
 
-export class NumberFieldOptions {
-  precision!: number;
-}
+const numberOptionsDef = z.object({
+  formatting: numberFormattingDef,
+});
+
+export type INumberFieldOptions = z.infer<typeof numberOptionsDef>;
 
 export class NumberFieldCore extends FieldCore {
   type!: FieldType.Number;
 
-  options!: NumberFieldOptions;
+  options!: INumberFieldOptions;
 
   defaultValue: number | null = null;
 
   cellValueType!: CellValueType.Number;
 
-  static defaultOptions(): NumberFieldOptions {
+  static defaultOptions(): INumberFieldOptions {
     return {
-      precision: 0,
+      formatting: {
+        precision: 0,
+      },
     };
   }
 
@@ -25,7 +30,11 @@ export class NumberFieldCore extends FieldCore {
     if (cellValue == null) {
       return '';
     }
-    const precision = this.options?.precision || 0;
+    const precision = this.options.formatting.precision;
+
+    if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      return cellValue.map((v) => v.toFixed(precision)).join(', ');
+    }
     return cellValue.toFixed(precision);
   }
 
@@ -48,12 +57,11 @@ export class NumberFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    return z
-      .object({
-        precision: z.number().max(5).min(0),
-      })
-      .optional()
-      .safeParse(this.options);
+    // lookup field only need to validate formatting
+    if (this.isLookup) {
+      return numberFormattingDef.safeParse(this.options.formatting);
+    }
+    return numberOptionsDef.safeParse(this.options);
   }
 
   validateDefaultValue() {

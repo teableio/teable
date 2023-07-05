@@ -1,7 +1,7 @@
 import { useSpace } from '@teable-group/sdk/hooks';
 import AshBinIcon from '@teable-group/ui-lib/icons/app/ashbin.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useRouter } from 'next/router';
-import { Button } from '@/components/ui/button';
 export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
   tableId,
   className,

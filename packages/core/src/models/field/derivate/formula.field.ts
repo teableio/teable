@@ -1,6 +1,7 @@
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { z } from 'zod';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
+import { FormulaErrorListener } from '../../../formula/error.listener';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
 import type { RootContext } from '../../../formula/parser/Formula';
 import { Formula } from '../../../formula/parser/Formula';
@@ -8,18 +9,23 @@ import { FormulaLexer } from '../../../formula/parser/FormulaLexer';
 import type { IRecord } from '../../record';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import type { NumberFieldOptions } from './number.field';
+import { datetimeFormattingDef, numberFormattingDef } from '../formatting';
 
-export type IFormulaFormatting = NumberFieldOptions;
+export const formulaFormattingDef = z
+  .union([datetimeFormattingDef, numberFormattingDef])
+  .optional();
 
-export class FormulaFieldOptions {
-  expression!: string;
+export type IFormulaFormatting = z.infer<typeof formulaFormattingDef>;
 
-  formatting?: IFormulaFormatting;
-}
+export const formulaFieldOptionsDef = z.object({
+  expression: z.string(),
+  formatting: formulaFormattingDef,
+});
+
+export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsDef>;
 
 export class FormulaFieldCore extends FieldCore {
-  static defaultOptions(): Partial<FormulaFieldOptions> {
+  static defaultOptions(): IFormulaFieldOptions {
     return {
       expression: '',
     };
@@ -30,6 +36,9 @@ export class FormulaFieldCore extends FieldCore {
     const lexer = new FormulaLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new Formula(tokenStream);
+    parser.removeErrorListeners();
+    const errorListener = new FormulaErrorListener();
+    parser.addErrorListener(errorListener);
     return parser.root();
   }
 
@@ -85,7 +94,7 @@ export class FormulaFieldCore extends FieldCore {
 
   type!: FieldType.Formula;
 
-  options!: FormulaFieldOptions;
+  options!: IFormulaFieldOptions;
 
   defaultValue!: null;
 
@@ -120,16 +129,11 @@ export class FormulaFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    return z
-      .object({
-        expression: z.string(),
-        formatting: z
-          .object({
-            precision: z.number().max(5).min(0),
-          })
-          .optional(),
-      })
-      .safeParse(this.options);
+    // lookup field only need to validate formatting
+    if (this.isLookup) {
+      return formulaFormattingDef.safeParse(this.options.formatting);
+    }
+    return formulaFieldOptionsDef.safeParse(this.options);
   }
 
   validateDefaultValue() {

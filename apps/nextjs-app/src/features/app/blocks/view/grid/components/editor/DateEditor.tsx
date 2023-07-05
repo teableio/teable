@@ -1,4 +1,4 @@
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar } from '@teable-group/ui-lib/shadcn/ui/calendar';
 import type { IEditorProps } from './type';
 
 export const DateEditor = (props: IEditorProps) => {

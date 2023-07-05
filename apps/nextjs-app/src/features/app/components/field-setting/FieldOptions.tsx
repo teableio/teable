@@ -1,30 +1,32 @@
 import type {
-  DateFieldOptions,
-  FormulaFieldOptions,
+  IDateFieldOptions,
+  IFormulaFieldOptions,
   ILinkFieldOptionsRo,
-  LinkFieldOptions,
-  NumberFieldOptions,
-  SelectFieldOptions,
+  INumberFieldOptions,
+  ISelectFieldOptions,
+  CellValueType,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
-import { DateOptions } from './DateOptions';
-import { FormulaOptions } from './FormulaOptions';
-import { LinkOptions } from './LinkOptions';
-import { NumberOptions } from './NumberOptions';
-import { SelectOptions } from './SelectOptions';
+import { DateOptions } from './options/DateOptions';
+import { FormulaOptions } from './options/FormulaOptions';
+import { LinkOptions } from './options/LinkOptions';
+import { NumberOptions } from './options/NumberOptions';
+import { SelectOptions } from './options/SelectOptions';
 
 export interface IFieldOptionsProps {
   options: IFieldInstance['options'];
   type: FieldType;
   isLookup: boolean | undefined;
-  updateFieldOptions: (options: IFieldInstance['options'] | ILinkFieldOptionsRo) => void;
+  cellValueType?: CellValueType; // for formula field with lookup only
+  updateFieldOptions: (options: Partial<IFieldInstance['options'] | ILinkFieldOptionsRo>) => void;
 }
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({
   options,
   type,
   isLookup,
+  cellValueType,
   updateFieldOptions,
 }) => {
   switch (type) {
@@ -32,7 +34,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
     case FieldType.MultipleSelect:
       return (
         <SelectOptions
-          options={options as SelectFieldOptions}
+          options={options as ISelectFieldOptions}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />
@@ -40,7 +42,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
     case FieldType.Number:
       return (
         <NumberOptions
-          options={options as NumberFieldOptions}
+          options={options as INumberFieldOptions}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />
@@ -48,7 +50,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
     case FieldType.Link:
       return (
         <LinkOptions
-          options={options as LinkFieldOptions}
+          options={options as ILinkFieldOptionsRo}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />
@@ -56,15 +58,16 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
     case FieldType.Formula:
       return (
         <FormulaOptions
-          options={options as FormulaFieldOptions}
+          options={options as IFormulaFieldOptions}
           isLookup={isLookup}
+          cellValueType={cellValueType}
           onChange={updateFieldOptions}
         />
       );
     case FieldType.Date:
       return (
         <DateOptions
-          options={options as DateFieldOptions}
+          options={options as IDateFieldOptions}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />

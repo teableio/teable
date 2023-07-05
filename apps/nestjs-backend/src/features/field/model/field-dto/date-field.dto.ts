@@ -1,43 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  DateFormatting,
-  TimeFormatting,
-  DateFieldCore,
-  Relationship,
-  CellValueType,
-  DbFieldType,
-  DEFAULT_TIME_ZONE,
-} from '@teable-group/core';
-import type { DateFieldOptions } from '@teable-group/core';
+import { DateFieldCore, Relationship, CellValueType, DbFieldType } from '@teable-group/core';
+import type { IDateFieldOptions } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
+import { DatetimeFormattingDto } from './formatting.dto';
 
-export class DateOptionsDto implements DateFieldOptions {
-  @ApiProperty({
-    enum: DateFormatting,
-    example: DateFormatting.YMDWithSlash,
-    description:
-      'the display formatting of the date, caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
-  })
-  dateFormatting!: DateFormatting;
-
-  @ApiProperty({
-    enum: TimeFormatting,
-    example: TimeFormatting.Hour24,
-    description:
-      'the display formatting of the time, caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
-  })
-  timeFormatting!: TimeFormatting;
-
-  @ApiProperty({
-    type: 'string',
-    example: DEFAULT_TIME_ZONE,
-    description:
-      'the display time zone of the time, caveat: the timeZone is just a formatter, it dose not effect the storing value of the record',
-  })
-  timeZone!: string;
-
+export class DateOptionsDto implements IDateFieldOptions {
   @ApiProperty({
     type: 'boolean',
     example: false,
@@ -45,13 +14,18 @@ export class DateOptionsDto implements DateFieldOptions {
       'Whether the new row is automatically filled with the current time, caveat: the autoFill is just a formatter, it dose not effect the storing value of the record',
   })
   autoFill!: boolean;
+
+  @ApiProperty({
+    type: DatetimeFormattingDto,
+  })
+  formatting!: DatetimeFormattingDto;
 }
 
 export class DateFieldDto extends DateFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
 
     return plainToInstance(DateFieldDto, {
       ...fieldRo,

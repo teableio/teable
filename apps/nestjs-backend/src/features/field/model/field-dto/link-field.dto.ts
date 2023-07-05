@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CellValueType, DbFieldType, LinkFieldCore, Relationship } from '@teable-group/core';
-import type { LinkFieldOptions, ILinkCellValue } from '@teable-group/core';
+import type { ILinkFieldOptions, ILinkCellValue } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
-export class LinkOptionsDto implements LinkFieldOptions {
+export class LinkOptionsDto implements ILinkFieldOptions {
   @ApiProperty({
     description: 'describe the relationship from this table to the foreign table',
     enum: Relationship,
@@ -37,15 +37,15 @@ export class LinkOptionsDto implements LinkFieldOptions {
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
 
-    const options = fieldRo.options as LinkFieldOptions;
+    const options = fieldRo.options as ILinkFieldOptions | undefined;
 
     return plainToInstance(LinkFieldDto, {
       ...fieldRo,
       isComputed: true,
       cellValueType: CellValueType.String,
-      isMultipleCellValue: options.relationship !== Relationship.ManyOne || isMultipleCellValue,
+      isMultipleCellValue: options?.relationship !== Relationship.ManyOne || isMultipleCellValue,
       dbFieldType: DbFieldType.Text,
     } as LinkFieldDto);
   }
@@ -62,6 +62,7 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
     value: ILinkCellValue | ILinkCellValue[],
     title: string | null | (string | null)[]
   ) {
+    console.log('updateCellTitle', value, title);
     if (this.isMultipleCellValue) {
       const values = value as ILinkCellValue[];
       const titles = title as string[];

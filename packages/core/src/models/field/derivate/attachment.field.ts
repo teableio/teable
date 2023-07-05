@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
-export type IAttachment = {
+export type IAttachmentItem = {
   id: string;
   name: string;
   token: string;
@@ -13,7 +13,7 @@ export type IAttachment = {
   height?: number;
 };
 
-export type IAttachmentCellValue = IAttachment[];
+export type IAttachmentCellValue = IAttachmentItem[];
 
 export class AttachmentFieldCore extends FieldCore {
   type: FieldType.Attachment = FieldType.Attachment;

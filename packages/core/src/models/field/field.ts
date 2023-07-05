@@ -9,6 +9,8 @@ export class ILookupOptions {
   linkFieldId!: string;
   lookupFieldId!: string;
   relationship?: Relationship;
+  dbForeignKeyName?: string;
+  symmetricFieldId?: string;
 }
 
 export class ILookupOptionsVo {
@@ -16,6 +18,8 @@ export class ILookupOptionsVo {
   linkFieldId!: string;
   lookupFieldId!: string;
   relationship!: Relationship;
+  dbForeignKeyName!: string;
+  symmetricFieldId!: string;
 }
 
 export interface IFieldRo {

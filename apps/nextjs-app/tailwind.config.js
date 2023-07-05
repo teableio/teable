@@ -1,13 +1,11 @@
-const { merge } = require('lodash');
 const { join } = require('path');
-const shadcnuiConfig = require('./tailwind.shadcnui.config');
-
+const uiConfig = require('@teable-group/ui-lib/ui.config.js');
 const filePath = join(__dirname, './src/**/*.{js,ts,jsx,tsx}');
 
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+module.exports = uiConfig({
   content: [filePath],
   darkMode: ['class'],
-  theme: merge({}, shadcnuiConfig.theme),
-  plugins: [...shadcnuiConfig.plugins],
-};
+  theme: {},
+  plugins: [],
+});

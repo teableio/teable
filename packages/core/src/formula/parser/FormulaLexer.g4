@@ -68,7 +68,7 @@ FALSE                                : F A L S E;
 
 FIELD                                : F I E L D;
 
-LOOKUP : L O O K U P;
+// LOOKUP                               : L O O K U P;
 
 // language tokens
 COMMA                                : ',';

@@ -1,17 +1,17 @@
 import type { Table } from '@teable-group/sdk/model';
 import ArrowDownIcon from '@teable-group/ui-lib/icons/app/arrow-down.svg';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
-import classNames from 'classnames';
-import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+} from '@teable-group/ui-lib/shadcn/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import classNames from 'classnames';
+import { useRef, useState } from 'react';
 
 export const SelectTable = (props: {
   value?: string;

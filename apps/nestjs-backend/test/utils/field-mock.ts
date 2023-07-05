@@ -1,4 +1,4 @@
-import type { SelectFieldOptions } from '@teable-group/core';
+import type { INumberFieldOptions, ISelectFieldOptions } from '@teable-group/core';
 import { Colors, FieldType } from '@teable-group/core';
 import type { CreateFieldRo } from '../../src/features/field/model/create-field.ro';
 
@@ -26,13 +26,13 @@ export const FIELD_MOCK_DATA: CreateFieldRo[] = [
           color: Colors.Red,
         },
       ],
-    } as SelectFieldOptions,
+    } as ISelectFieldOptions,
   },
   {
     name: 'count',
     type: FieldType.Number,
     options: {
-      precision: 2,
-    },
+      formatting: { precision: 2 },
+    } as INumberFieldOptions,
   },
 ];

@@ -1,6 +1,8 @@
 import { useField } from '@teable-group/sdk';
-import { FieldSetting as FieldSettingInner } from '@/features/app/components/field-setting/FieldSetting';
-import { FieldOperator } from '@/features/app/components/field-setting/type';
+import {
+  FieldSetting as FieldSettingInner,
+  FieldOperator,
+} from '@/features/app/components/field-setting';
 import { useGridViewStore } from '../store/gridView';
 
 export const FieldSetting = () => {

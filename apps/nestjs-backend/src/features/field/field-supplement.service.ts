@@ -1,5 +1,5 @@
 import { HttpException, Injectable } from '@nestjs/common';
-import type { LinkFieldOptions } from '@teable-group/core';
+import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable-group/core';
 import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { HttpStatusCode } from 'axios';
@@ -73,7 +73,7 @@ export class FieldSupplementService implements ISupplementService {
       select: { options: true },
     });
     const optionsRaw = fieldRaw?.options || null;
-    const linkFieldOptions: LinkFieldOptions =
+    const linkFieldOptions: ILinkFieldOptions =
       (optionsRaw && JSON.parse(optionsRaw as string)) ||
       batchFieldRos?.find((field) => field.id === linkFieldId);
 
@@ -86,8 +86,9 @@ export class FieldSupplementService implements ISupplementService {
       lookupOptions: {
         ...lookupOptions,
         relationship: linkFieldOptions.relationship,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any,
+        dbForeignKeyName: linkFieldOptions.dbForeignKeyName,
+        symmetricFieldId: linkFieldOptions.symmetricFieldId,
+      } as ILookupOptionsVo,
     };
   }
 
@@ -122,7 +123,7 @@ export class FieldSupplementService implements ISupplementService {
     batchFieldRos?: CreateFieldRo[]
   ): Promise<CreateFieldRo> {
     if (fieldRo.isLookup) {
-      fieldRo = await this.prepareLookupField(fieldRo, batchFieldRos);
+      return await this.prepareLookupField(fieldRo, batchFieldRos);
     }
 
     if (fieldRo.type == FieldType.Link) {
@@ -213,12 +214,12 @@ export class FieldSupplementService implements ISupplementService {
 
   async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
     if (field.isLookup) {
-      return this.createLookupReference(prisma, field);
+      return await this.createLookupReference(prisma, field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return this.createFormulaReference(prisma, field);
+        return await this.createFormulaReference(prisma, field);
       case FieldType.Link:
         return await this.createLinkReference(prisma, field);
       default:
@@ -231,7 +232,7 @@ export class FieldSupplementService implements ISupplementService {
     if (!field.lookupOptions) {
       throw new Error('lookupOptions is required');
     }
-    const { lookupFieldId, linkFieldId } = field.lookupOptions;
+    const { lookupFieldId, symmetricFieldId } = field.lookupOptions;
 
     await prisma.reference.create({
       data: {
@@ -242,7 +243,7 @@ export class FieldSupplementService implements ISupplementService {
 
     await prisma.reference.create({
       data: {
-        fromFieldId: linkFieldId,
+        fromFieldId: symmetricFieldId,
         toFieldId,
       },
     });

@@ -2,34 +2,33 @@ import { z } from 'zod';
 import { Colors } from '../colors';
 import { FieldCore } from '../field';
 
-export class SelectFieldChoices {
-  name!: string;
-  color!: Colors;
-}
+export const selectFieldChoice = z.object({
+  name: z.string(),
+  color: z.nativeEnum(Colors),
+});
 
-export class SelectFieldOptions {
-  choices!: SelectFieldChoices[];
-}
+export type ISelectFieldChoice = z.infer<typeof selectFieldChoice>;
+
+export const selectFieldOptionsDef = z.object({
+  choices: z.array(selectFieldChoice),
+});
+
+export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsDef>;
 
 export abstract class SelectFieldCore extends FieldCore {
-  static defaultOptions(): SelectFieldOptions {
+  static defaultOptions(): ISelectFieldOptions {
     return {
       choices: [],
     };
   }
 
-  options!: SelectFieldOptions;
+  options!: ISelectFieldOptions;
 
   validateOptions() {
-    return z
-      .object({
-        choices: z.array(
-          z.object({
-            name: z.string(),
-            color: z.nativeEnum(Colors),
-          })
-        ),
-      })
-      .safeParse(this.options);
+    if (this.isLookup) {
+      return z.null().optional().safeParse(this.options);
+    }
+
+    return selectFieldOptionsDef.safeParse(this.options);
   }
 }

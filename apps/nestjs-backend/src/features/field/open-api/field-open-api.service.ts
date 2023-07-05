@@ -71,7 +71,7 @@ export class FieldOpenApiService {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     await this.fieldSupplementService.createReference(prisma, field);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link && !field.isLookup) {
       await this.generateSecondCreators(transactionKey, tableId, field);
     }
 

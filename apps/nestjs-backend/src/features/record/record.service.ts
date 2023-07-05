@@ -8,7 +8,7 @@ import {
 import type {
   FieldCore,
   IAggregateQueryResult,
-  IAttachment,
+  IAttachmentItem,
   IAttachmentCellValue,
   IRecordSnapshot,
   IRecordSnapshotQuery,
@@ -622,7 +622,7 @@ export class RecordService implements IAdapterService {
 
   transformAttachmentCellValue(
     cellValue: string[] | null,
-    attachmentsMap: { [key: string]: IAttachment }
+    attachmentsMap: { [key: string]: IAttachmentItem }
   ) {
     if (!cellValue) {
       return null;
