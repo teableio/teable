@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import type {
   FieldCore,
   IConjunction,
@@ -11,6 +12,7 @@ import {
   contains,
   doesNotContain,
   getValidFilterOperators,
+  hasAllOf,
   is,
   isAnyOf,
   isEmpty,
@@ -23,8 +25,7 @@ import {
   isNotEmpty,
 } from '@teable-group/core';
 import type { Knex } from 'knex';
-import { includes } from 'lodash';
-import { TError } from 'src/utils/catch-error';
+import { includes, isArray, size, get } from 'lodash';
 
 export class FilterQueryTranslator {
   constructor(
@@ -73,28 +74,6 @@ export class FilterQueryTranslator {
   }) {
     const { queryBuilder, field, value } = params;
     queryBuilder.whereNot(field.dbFieldName, 'like', `%${value}%`);
-
-    return queryBuilder;
-  }
-
-  private processIsAnyOfOperator(params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) {
-    const { queryBuilder, field, value } = params;
-    queryBuilder.whereIn(field.dbFieldName, value as Knex.Value[]);
-
-    return queryBuilder;
-  }
-
-  private processIsNoneOfOperator(params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) {
-    const { queryBuilder, field, value } = params;
-    queryBuilder.whereNotIn(field.dbFieldName, value as Knex.Value[]);
 
     return queryBuilder;
   }
@@ -165,6 +144,45 @@ export class FilterQueryTranslator {
     return queryBuilder;
   }
 
+  private processIsAnyOfOperator(params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: FieldCore;
+    value: IFilterMetaValue;
+  }) {
+    const { queryBuilder, field, value } = params;
+    queryBuilder.whereIn(field.dbFieldName, value as Knex.Value[]);
+
+    return queryBuilder;
+  }
+
+  private processIsNoneOfOperator(params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: FieldCore;
+    value: IFilterMetaValue;
+  }) {
+    const { queryBuilder, field, value } = params;
+    queryBuilder.whereNotIn(field.dbFieldName, value as Knex.Value[]);
+
+    return queryBuilder;
+  }
+
+  private processHasAllOfOperator(params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: FieldCore;
+    value: IFilterMetaValue;
+  }) {
+    const { queryBuilder, field, value } = params;
+
+    if (isArray(value)) {
+      const tableName = get(queryBuilder, ['_single', 'table']);
+      const placeholders = value.map(() => '?').join(',');
+      const hasAllSql = `(select count(distinct json_each.value) from json_each(${tableName}.${field.dbFieldName}) where json_each.value in (${placeholders})) = ?`;
+      queryBuilder.whereRaw(hasAllSql, [...value, size(value)]);
+    }
+
+    return queryBuilder;
+  }
+
   private filterStrategies(
     operator: IFilterMetaOperator,
     params: {
@@ -178,20 +196,21 @@ export class FilterQueryTranslator {
       [isNot.value]: this.processIsNotOperator,
       [contains.value]: this.processContainsNotOperator,
       [doesNotContain.value]: this.processDoesNotContainOperator,
-      [isAnyOf.value]: this.processIsAnyOfOperator,
-      [isNoneOf.value]: this.processIsNoneOfOperator,
       [isGreater.value]: this.processIsGreaterOperator,
       [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
       [isLess.value]: this.processIsLessOperator,
       [isLessEqual.value]: this.processIsLessEqualOperator,
       [isEmpty.value]: this.processIsEmptyOperator,
       [isNotEmpty.value]: this.processIsNotEmptyOperator,
+      [isAnyOf.value]: this.processIsAnyOfOperator,
+      [isNoneOf.value]: this.processIsNoneOfOperator,
+      [hasAllOf.value]: this.processHasAllOfOperator,
     };
 
     const chosenHandler = operatorHandlers[operator];
 
     if (!chosenHandler) {
-      TError.internalServerError(`Unknown operator ${operator} for filter`);
+      throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
     }
 
     return chosenHandler(params);
@@ -212,7 +231,7 @@ export class FilterQueryTranslator {
     const validFilterOperators = getValidFilterOperators(field);
 
     if (!includes(validFilterOperators, operator)) {
-      TError.internalServerError(
+      throw new InternalServerErrorException(
         `Unexpected operator received: '${operator}', Field valid Operators: [${validFilterOperators}]`
       );
     }

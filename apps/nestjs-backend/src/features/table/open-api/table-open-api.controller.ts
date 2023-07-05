@@ -30,7 +30,7 @@ export class TableController {
   })
   async getDefaultViewId(@Param('tableId') tableId: string): Promise<TableSSRDefaultViewIdVo> {
     const snapshot = await this.tableService.getDefaultViewId(tableId);
-    return responseWrap(snapshot);
+    return responseWrap(snapshot!);
   }
 
   @Get('/ssr/:tableId/:viewId')
@@ -43,7 +43,7 @@ export class TableController {
     @Param('viewId') viewId: string
   ): Promise<FullSSRSnapshotVo> {
     const snapshot = await this.tableService.getSSRSnapshot(tableId, viewId);
-    return responseWrap(snapshot);
+    return responseWrap(snapshot!);
   }
 
   @Get('/ssr')

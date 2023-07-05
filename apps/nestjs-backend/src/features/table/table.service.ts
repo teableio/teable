@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
@@ -11,7 +16,6 @@ import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
-import { TError } from '../../utils/catch-error';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldService } from '../field/field.service';
@@ -129,7 +133,7 @@ export class TableService implements IAdapterService {
         });
         viewId = view.id;
       } catch (e) {
-        throw new HttpException('No found', HttpStatus.NOT_FOUND);
+        throw new NotFoundException();
       }
     }
 
@@ -152,7 +156,7 @@ export class TableService implements IAdapterService {
       };
     } catch (e) {
       this.logger.error((e as Error).message, (e as Error).stack);
-      TError.notFound();
+      throw new NotFoundException();
     }
   }
 
@@ -163,7 +167,7 @@ export class TableService implements IAdapterService {
         select: { id: true },
       });
     } catch (e) {
-      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+      throw new NotFoundException();
     }
   }
 
@@ -226,7 +230,7 @@ export class TableService implements IAdapterService {
           return;
         }
       }
-      throw new Error(`Unknown context ${opContext} for table update`);
+      throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
     }
   }
 

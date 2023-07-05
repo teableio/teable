@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { remove } from 'lodash';
+import { pullAll } from 'lodash';
 import { z } from 'zod';
 import type { FieldCore } from '../../field';
 import { CellValueType, FieldType } from '../../field';
@@ -8,15 +8,15 @@ export const is = z.literal('is');
 export const isNot = z.literal('isNot');
 export const contains = z.literal('contains');
 export const doesNotContain = z.literal('doesNotContain');
-export const isAnyOf = z.literal('isAnyOf');
-export const isNoneOf = z.literal('isNoneOf');
 export const isEmpty = z.literal('isEmpty');
 export const isNotEmpty = z.literal('isNotEmpty');
 export const isGreater = z.literal('isGreater');
 export const isGreaterEqual = z.literal('isGreaterEqual');
 export const isLess = z.literal('isLess');
 export const isLessEqual = z.literal('isLessEqual');
-// export const isRepeat = z.literal('isRepeat');
+export const isAnyOf = z.literal('isAnyOf');
+export const isNoneOf = z.literal('isNoneOf');
+export const hasAllOf = z.literal('hasAllOf');
 
 /*  antlr4ts char  */
 export const $eq = z.literal('=');
@@ -26,10 +26,10 @@ export const $gt = z.literal('>');
 export const $gte = z.literal('>=');
 export const $lt = z.literal('<');
 export const $lte = z.literal('<=');
-export const $between = z.literal('BETWEEN');
 export const $like = z.literal('LIKE');
-export const $notLike = z.literal('NOT LIKE');
 export const $in = z.literal('IN');
+export const $has = z.literal('HAS');
+export const $notLike = z.literal('NOT LIKE');
 export const $notIn = z.literal('NOT IN');
 export const $isNull = z.literal('IS NULL');
 export const $isNotNull = z.literal('IS NOT NULL');
@@ -46,13 +46,13 @@ export const operatorCrossReferenceTable = new Map<string, string>([
   [$lt.value, isLess.value],
   [$lte.value, isLessEqual.value],
 
-  // [$between.value, between.value],
-
   [$like.value, contains.value],
   [$notLike.value, doesNotContain.value],
 
   [$in.value, isAnyOf.value],
   [$notIn.value, isNoneOf.value],
+
+  [$has.value, hasAllOf.value],
 
   [$isNull.value, isEmpty.value],
   [$isNotNull.value, isNotEmpty.value],
@@ -103,27 +103,9 @@ export const booleanFieldOperators = is;
 export type IBooleanFieldOperator = z.infer<typeof booleanFieldOperators>;
 export const booleanFieldValidOperators: IBooleanFieldOperator[] = [is.value];
 
-export const dateTimeFieldOperators = z.union([
-  is,
-  isNot,
-  isGreater,
-  isGreaterEqual,
-  isLess,
-  isLessEqual,
-  isEmpty,
-  isNotEmpty,
-]);
+export const dateTimeFieldOperators = numberFieldOperators;
 export type IDateTimeFieldOperator = z.infer<typeof dateTimeFieldOperators>;
-export const dateTimeFieldValidOperators: IDateTimeFieldOperator[] = [
-  is.value,
-  isNot.value,
-  isGreater.value,
-  isGreaterEqual.value,
-  isLess.value,
-  isLessEqual.value,
-  isEmpty.value,
-  isNotEmpty.value,
-];
+export const dateTimeFieldValidOperators: IDateTimeFieldOperator[] = numberFieldValidOperators;
 
 export const allFieldOperators = z.array(
   z.union([
@@ -131,14 +113,15 @@ export const allFieldOperators = z.array(
     isNot,
     contains,
     doesNotContain,
-    isAnyOf,
-    isNoneOf,
     isGreater,
     isGreaterEqual,
     isLess,
     isLessEqual,
     isEmpty,
     isNotEmpty,
+    isAnyOf,
+    isNoneOf,
+    hasAllOf,
   ])
 );
 export type IAllFieldOperators = z.infer<typeof allFieldOperators>;
@@ -171,10 +154,14 @@ export function getValidFilterOperators(field: FieldCore): IAllFieldOperators {
 
   // 2. Then repair the operator according to fieldType
   switch (field.type) {
-    case FieldType.SingleSelect:
-    case FieldType.MultipleSelect: {
-      remove(operationSet, [contains.value, doesNotContain.value]);
+    case FieldType.SingleSelect: {
+      pullAll(operationSet, [contains.value, doesNotContain.value]);
       operationSet.push(...[isAnyOf.value, isNoneOf.value]);
+      break;
+    }
+    case FieldType.MultipleSelect: {
+      pullAll(operationSet, [isNot.value, contains.value, doesNotContain.value]);
+      operationSet.push(...[hasAllOf.value, isNoneOf.value]);
     }
   }
 

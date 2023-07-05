@@ -1,24 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree';
-import { isArray, isBoolean } from 'lodash';
-import { $in, $isNotNull, $isNull, $notIn, operatorCrossReferenceTable } from '../models';
+import { operatorCrossReferenceTable } from '../models';
 import { JsonErrorStrategy } from './json-error.strategy';
-import { QueryLexer } from './parser/QueryLexer';
 import type {
-  BinaryExpressionContext,
-  BinaryOperatorContext,
+  BinaryExprContext,
   BooleanLiteralContext,
-  FieldComparisonContext,
+  FieldIdentifierContext,
+  NullLiteralContext,
   NumberLiteralContext,
-  ParenExpressionContext,
-  SimpleComparisonContext,
+  ParenQueryExprContext,
+  PredicateExprHasContext,
+  PredicateExprInContext,
+  PredicateExprLikeContext,
+  PrimaryExprCompareContext,
+  PrimaryExprIsNullContext,
+  PrimaryExprPredicateContext,
+  QueryExprContext,
   StartContext,
   StringLiteralContext,
   ValueContext,
-  NullLiteralContext,
-} from './parser/QueryParser';
-import { QueryParser } from './parser/QueryParser';
+  ValueListContext,
+} from './parser/Query';
+import { Query } from './parser/Query';
+import { QueryLexer } from './parser/QueryLexer';
 import type { QueryVisitor } from './parser/QueryVisitor';
 
 export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryVisitor<any> {
@@ -26,7 +31,11 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     return null;
   }
   visitStart(ctx: StartContext) {
-    let result = this.visit(ctx.expression());
+    let result = this.visit(ctx.expr());
+    if (!result) {
+      return this.defaultResult();
+    }
+
     // If the result does not contain the filterSet and conjunction properties, then we need to create a new object
     if (!result.filterSet) {
       result = {
@@ -37,14 +46,17 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     return result;
   }
 
-  visitParenExpression(ctx: ParenExpressionContext) {
-    // When the expression is surrounded by parentheses, we only need to access the expression inside it
-    return this.visit(ctx.expression());
+  visitQueryExpr(ctx: QueryExprContext): any {
+    return this.visit(ctx.queryStatement());
   }
 
-  visitBinaryExpression(ctx: BinaryExpressionContext) {
-    const binaryOperator = this.visit(ctx.binaryOperator());
-    const expressions = ctx.expression();
+  visitParenQueryExpr(ctx: ParenQueryExprContext): any {
+    return this.visit(ctx.expr());
+  }
+
+  visitBinaryExpr(ctx: BinaryExprContext): any {
+    const operator = ctx?._op?.text?.toLowerCase();
+    const expressions = ctx.expr();
     let leftExpr = this.visit(expressions[0]);
     const rightExpr = this.visit(expressions[1]);
 
@@ -52,17 +64,17 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     if (!leftExpr.conjunction) {
       leftExpr = {
         filterSet: [leftExpr],
-        conjunction: binaryOperator,
+        conjunction: operator,
       };
     }
 
     // If the operator of the current left-hand expression is not the same as the given operator
-    if (leftExpr.conjunction !== binaryOperator) {
+    if (leftExpr.conjunction !== operator) {
       // If inconsistent, create a new object that contains a filter set with the left and right expressions
       // and set the concatenation of the new object to the given operator
       leftExpr = {
         filterSet: [leftExpr, rightExpr],
-        conjunction: binaryOperator,
+        conjunction: operator,
       };
     } else if (leftExpr.conjunction === rightExpr.conjunction) {
       leftExpr.filterSet.push(...rightExpr.filterSet);
@@ -73,19 +85,39 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     return leftExpr;
   }
 
-  visitSimpleComparison(ctx: SimpleComparisonContext) {
-    return this.visit(ctx.comparisonExpression());
+  visitFieldIdentifier(ctx: FieldIdentifierContext): any {
+    return ctx.text.replace(/[{}]/g, '');
   }
 
-  visitFieldComparison(ctx: FieldComparisonContext) {
-    const fieldId = ctx.field().text.replace(/[{}]/g, '');
+  visitPrimaryExprPredicate(ctx: PrimaryExprPredicateContext): any {
+    return this.visit(ctx.predicate());
+  }
 
-    const upperCaseOperator = ctx.operator().text.toUpperCase();
+  visitPrimaryExprIsNull(ctx: PrimaryExprIsNullContext): any {
+    const fieldId = this.visit(ctx.fieldIdentifier());
+
+    const upperCaseOperator = (
+      !ctx.notRule()
+        ? [ctx.IS_SYMBOL().text, ctx.NULL_SYMBOL().text]
+        : [ctx.IS_SYMBOL().text, ctx.notRule()?.text, ctx.NULL_SYMBOL().text]
+    )
+      .join(' ')
+      .toUpperCase();
+    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
+    return {
+      fieldId: fieldId,
+      operator: operator,
+      value: null,
+    };
+  }
+
+  visitPrimaryExprCompare(ctx: PrimaryExprCompareContext): any {
+    const fieldId = this.visit(ctx.fieldIdentifier());
+
+    const upperCaseOperator = ctx.compOp().text.toUpperCase();
     const operator = operatorCrossReferenceTable.get(upperCaseOperator);
 
-    const value = ctx.value()?.isEmpty ? null : this.visitValue(ctx.value()!);
-    this.validateExpression(upperCaseOperator, value);
-
+    const value = this.visitValue(ctx.value());
     return {
       fieldId: fieldId,
       operator: operator,
@@ -93,20 +125,54 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     };
   }
 
-  visitValue(ctx: ValueContext): any {
-    if (!ctx || ctx.isEmpty) {
-      return null;
-    }
+  visitPredicateExprLike(ctx: PredicateExprLikeContext): any {
+    const fieldId = this.visit(ctx.fieldIdentifier());
 
-    if (ctx.OPEN_PAREN() && ctx.CLOSE_PAREN()) {
-      return ctx.literal().map((value) => this.visit(value));
-    }
+    const upperCaseOperator = ctx.likeOp().text.toUpperCase();
+    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
 
-    return this.visit(ctx.literal(0));
+    const value = this.visitValue(ctx.value());
+    return {
+      fieldId: fieldId,
+      operator: operator,
+      value: value,
+    };
   }
 
-  visitBinaryOperator(ctx: BinaryOperatorContext): any {
-    return ctx.text.toLowerCase();
+  visitPredicateExprIn(ctx: PredicateExprInContext): any {
+    const fieldId = this.visit(ctx.fieldIdentifier());
+
+    const upperCaseOperator = ctx.inOp().text.toUpperCase();
+    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
+
+    const valueList = this.visitValueList(ctx.valueList());
+    return {
+      fieldId: fieldId,
+      operator: operator,
+      value: valueList,
+    };
+  }
+
+  visitPredicateExprHas(ctx: PredicateExprHasContext): any {
+    const fieldId = this.visit(ctx.fieldIdentifier());
+
+    const upperCaseOperator = ctx.HAS_SYMBOL().text.toUpperCase();
+    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
+
+    const valueList = this.visitValueList(ctx.valueList());
+    return {
+      fieldId: fieldId,
+      operator: operator,
+      value: valueList,
+    };
+  }
+
+  visitValue(ctx: ValueContext): any {
+    return this.visit(ctx.literal());
+  }
+
+  visitValueList(ctx: ValueListContext): any {
+    return ctx.literal().map((value) => this.visit(value));
   }
 
   visitStringLiteral(ctx: StringLiteralContext): any {
@@ -124,29 +190,6 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
   visitNullLiteral(_ctx: NullLiteralContext): any {
     return null;
   }
-
-  private validateExpression(operator: string, value: any) {
-    if (
-      !value &&
-      !isBoolean(value) &&
-      operator !== $isNull.value &&
-      operator !== $isNotNull.value
-    ) {
-      throw new Error(`[${operator}] incomplete input`);
-    } else if (
-      value &&
-      !isBoolean(value) &&
-      (operator === $isNull.value || operator === $isNotNull.value)
-    ) {
-      throw new Error(`near "${value}": syntax error`);
-    }
-
-    if (isArray(value) && operator !== $in.value && operator !== $notIn.value) {
-      throw new Error(`[${operator}] row value misused`);
-    } else if (!isArray(value) && (operator === $in.value || operator === $notIn.value)) {
-      throw new Error(`[IN] near "${value}": syntax error`);
-    }
-  }
 }
 
 // parse Teable Query Language
@@ -154,7 +197,7 @@ export const parseTQL = (input: string) => {
   const inputStream = CharStreams.fromString(input);
   const lexer = new QueryLexer(inputStream);
   const tokenStream = new CommonTokenStream(lexer);
-  const parser = new QueryParser(tokenStream);
+  const parser = new Query(tokenStream);
 
   parser.errorHandler = new JsonErrorStrategy();
 

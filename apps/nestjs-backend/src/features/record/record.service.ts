@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   FieldCore,
   IAggregateQueryResult,
@@ -26,7 +32,6 @@ import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
-import { TError } from '../../utils/catch-error';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
@@ -90,7 +95,7 @@ export class RecordService implements IAdapterService {
     });
 
     if (userFields.length !== userFieldIds.length) {
-      throw new HttpException('some fields not found', 400);
+      throw new BadRequestException('some fields not found');
     }
 
     return userFields;
@@ -385,7 +390,7 @@ export class RecordService implements IAdapterService {
     const total = queryResult.extra?.rowCount;
 
     if (total == undefined) {
-      throw new HttpException('Can not get row count', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException('Can not get row count');
     }
 
     return {
@@ -408,7 +413,7 @@ export class RecordService implements IAdapterService {
     );
 
     if (!recordSnapshot.length) {
-      throw new HttpException('Can not get record', HttpStatus.NOT_FOUND);
+      throw new NotFoundException('Can not get record');
     }
 
     return recordSnapshot[0].data;
@@ -523,30 +528,22 @@ export class RecordService implements IAdapterService {
     projection?: { [fieldKey: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
-    const whereParams: { name?: { in: string[] }; id?: { in: string[] } } = {};
+    const whereParams: Prisma.FieldWhereInput = {};
     if (projection) {
       const projectionFieldKeys = Object.entries(projection)
         .filter(([, v]) => v)
         .map(([k]) => k);
       if (projectionFieldKeys.length) {
-        fieldKeyType === FieldKeyType.Id
-          ? (whereParams.id = { in: projectionFieldKeys })
-          : (whereParams.name = { in: projectionFieldKeys });
+        const key = fieldKeyType === FieldKeyType.Id ? 'id' : 'name';
+        whereParams[key] = { in: projectionFieldKeys };
       }
     }
 
-    const fieldIds = (
-      await prisma.field.findMany({
-        where: { tableId, deletedTime: null, ...whereParams },
-        select: { id: true },
-      })
-    ).map((f) => f.id);
-
-    const fieldRaws = await prisma.field.findMany({
-      where: { id: { in: fieldIds }, deletedTime: null },
+    const fields = await prisma.field.findMany({
+      where: { tableId, ...whereParams, deletedTime: null },
     });
 
-    return fieldRaws.map((field) => createFieldInstanceByRaw(field));
+    return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
   async getSnapshotBulk(
@@ -648,11 +645,11 @@ export class RecordService implements IAdapterService {
 
     const { limit = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
-      TError.internalServerError('query collection must be table id');
+      throw new InternalServerErrorException('query collection must be table id');
     }
 
     if (limit > 1000) {
-      TError.internalServerError("limit can't be greater than 1000");
+      throw new InternalServerErrorException("limit can't be greater than 1000");
     }
 
     // If you return `queryBuilder` directly and use `await` to receive it,

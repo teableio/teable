@@ -15,19 +15,19 @@ export class AjvError extends Error {
 }
 
 export class TError {
-  static badRequest(message = 'Bad Request') {
+  static badRequest(message = 'Bad Request'): never {
     throw new BadRequestException(message);
   }
 
-  static internalServerError(message = 'Internal Server Error') {
+  static internalServerError(message = 'Internal Server Error'): never {
     throw new InternalServerErrorException(message);
   }
 
-  static notFound(message = 'Not Found') {
+  static notFound(message = 'Not Found'): never {
     throw new NotFoundException(message);
   }
 
-  static ajvValidationError(param: { message: string; errors: ErrorObject[] }) {
+  static ajvValidationError(param: { message: string; errors: ErrorObject[] }): never {
     throw new AjvError(param);
   }
 }

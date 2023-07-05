@@ -1,8 +1,7 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { parseTQL } from '@teable-group/core/dist/query/json.visitor';
 import type { RecordsRo } from 'src/features/record/open-api/records.ro';
-import { TError } from '../../../utils/catch-error';
 
 @Injectable()
 export class RecordPipe implements PipeTransform {
@@ -16,7 +15,7 @@ export class RecordPipe implements PipeTransform {
       try {
         value.filter = parseTQL(value.filterByTql);
       } catch (e) {
-        TError.badRequest(`TQL parse error, ${(e as Error).message}`);
+        throw new BadRequestException(`TQL parse error, ${(e as Error).message}`);
       }
     }
   }

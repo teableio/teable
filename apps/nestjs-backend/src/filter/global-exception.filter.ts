@@ -14,7 +14,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     this.logger.error((exception as Error).message, (exception as Error).stack);
 
-    if (exception instanceof BadRequestException || exception.getStatus() === 400) {
+    if (exception instanceof BadRequestException || exception.getStatus?.() === 400) {
       const { error, message } = exception.getResponse();
       return response.status(400).json({ msg: error, errors: message });
     } else if (exception instanceof AjvError) {
