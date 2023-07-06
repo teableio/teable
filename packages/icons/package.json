@@ -9,10 +9,10 @@
     "url": "https://github.com/teable-group/teable",
     "directory": "packages/icons"
   },
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/src"
+    ".": "./dist"
   },
   "scripts": {
     "dev": "rm -rf dist && tsc --watch",
