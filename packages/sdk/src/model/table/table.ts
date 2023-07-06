@@ -9,6 +9,7 @@ import type {
   ITableSnapshot,
   IUpdateRecordByIndexRo,
   IViewRo,
+  IViewVo,
 } from '@teable-group/core';
 import { OpBuilder, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
@@ -70,6 +71,13 @@ export class Table extends TableCore {
     const response = await axios.put<IJsonApiSuccessResponse<void>>(
       `/api/table/${tableId}/field/${id}`,
       fieldRo
+    );
+    return response.data.data;
+  }
+
+  static async getViews(tableId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
+      `/api/table/${tableId}/view`
     );
     return response.data.data;
   }

@@ -48,20 +48,22 @@ export class Query extends Parser {
   public static readonly NOT_SYMBOL = 23;
   public static readonly NULL_SYMBOL = 24;
   public static readonly IS_SYMBOL = 25;
-  public static readonly LIKE_SYMBOL = 26;
-  public static readonly IN_SYMBOL = 27;
-  public static readonly HAS_SYMBOL = 28;
-  public static readonly NOT_LIKE_SYMBOL = 29;
-  public static readonly NOT_IN_SYMBOL = 30;
-  public static readonly WHITESPACE = 31;
-  public static readonly NOT_EQUAL2_OPERATOR = 32;
+  public static readonly LS_NULL_SYMBOL = 26;
+  public static readonly LS_NOT_NULL_SYMBOL = 27;
+  public static readonly LIKE_SYMBOL = 28;
+  public static readonly IN_SYMBOL = 29;
+  public static readonly HAS_SYMBOL = 30;
+  public static readonly NOT_LIKE_SYMBOL = 31;
+  public static readonly NOT_IN_SYMBOL = 32;
+  public static readonly WHITESPACE = 33;
+  public static readonly NOT_EQUAL2_OPERATOR = 34;
   public static readonly RULE_start = 0;
   public static readonly RULE_expr = 1;
   public static readonly RULE_queryStatement = 2;
   public static readonly RULE_predicate = 3;
-  public static readonly RULE_notRule = 4;
-  public static readonly RULE_fieldIdentifier = 5;
-  public static readonly RULE_compOp = 6;
+  public static readonly RULE_fieldIdentifier = 4;
+  public static readonly RULE_compOp = 5;
+  public static readonly RULE_isOp = 6;
   public static readonly RULE_likeOp = 7;
   public static readonly RULE_inOp = 8;
   public static readonly RULE_value = 9;
@@ -76,9 +78,9 @@ export class Query extends Parser {
     'expr',
     'queryStatement',
     'predicate',
-    'notRule',
     'fieldIdentifier',
     'compOp',
+    'isOp',
     'likeOp',
     'inOp',
     'value',
@@ -123,6 +125,8 @@ export class Query extends Parser {
     undefined,
     undefined,
     undefined,
+    undefined,
+    undefined,
     "'<>'",
   ];
   private static readonly _SYMBOLIC_NAMES: Array<string | undefined> = [
@@ -152,6 +156,8 @@ export class Query extends Parser {
     'NOT_SYMBOL',
     'NULL_SYMBOL',
     'IS_SYMBOL',
+    'LS_NULL_SYMBOL',
+    'LS_NOT_NULL_SYMBOL',
     'LIKE_SYMBOL',
     'IN_SYMBOL',
     'HAS_SYMBOL',
@@ -330,11 +336,10 @@ export class Query extends Parser {
   public queryStatement(): QueryStatementContext {
     let _localctx: QueryStatementContext = new QueryStatementContext(this._ctx, this.state);
     this.enterRule(_localctx, 4, Query.RULE_queryStatement);
-    let _la: number;
     try {
-      this.state = 63;
+      this.state = 59;
       this._errHandler.sync(this);
-      switch (this.interpreter.adaptivePredict(this._input, 3, this._ctx)) {
+      switch (this.interpreter.adaptivePredict(this._input, 2, this._ctx)) {
         case 1:
           _localctx = new PrimaryExprPredicateContext(_localctx);
           this.enterOuterAlt(_localctx, 1);
@@ -345,25 +350,13 @@ export class Query extends Parser {
           break;
 
         case 2:
-          _localctx = new PrimaryExprIsNullContext(_localctx);
+          _localctx = new PrimaryExprIsContext(_localctx);
           this.enterOuterAlt(_localctx, 2);
           {
             this.state = 52;
             this.fieldIdentifier();
             this.state = 53;
-            this.match(Query.IS_SYMBOL);
-            this.state = 55;
-            this._errHandler.sync(this);
-            _la = this._input.LA(1);
-            if (_la === Query.NOT_SYMBOL) {
-              {
-                this.state = 54;
-                this.notRule();
-              }
-            }
-
-            this.state = 57;
-            this.match(Query.NULL_SYMBOL);
+            this.isOp();
           }
           break;
 
@@ -371,11 +364,11 @@ export class Query extends Parser {
           _localctx = new PrimaryExprCompareContext(_localctx);
           this.enterOuterAlt(_localctx, 3);
           {
-            this.state = 59;
+            this.state = 55;
             this.fieldIdentifier();
-            this.state = 60;
+            this.state = 56;
             this.compOp();
-            this.state = 61;
+            this.state = 57;
             this.value();
           }
           break;
@@ -398,18 +391,18 @@ export class Query extends Parser {
     let _localctx: PredicateContext = new PredicateContext(this._ctx, this.state);
     this.enterRule(_localctx, 6, Query.RULE_predicate);
     try {
-      this.state = 77;
+      this.state = 73;
       this._errHandler.sync(this);
-      switch (this.interpreter.adaptivePredict(this._input, 4, this._ctx)) {
+      switch (this.interpreter.adaptivePredict(this._input, 3, this._ctx)) {
         case 1:
           _localctx = new PredicateExprLikeContext(_localctx);
           this.enterOuterAlt(_localctx, 1);
           {
-            this.state = 65;
+            this.state = 61;
             this.fieldIdentifier();
-            this.state = 66;
+            this.state = 62;
             this.likeOp();
-            this.state = 67;
+            this.state = 63;
             this.value();
           }
           break;
@@ -418,11 +411,11 @@ export class Query extends Parser {
           _localctx = new PredicateExprInContext(_localctx);
           this.enterOuterAlt(_localctx, 2);
           {
-            this.state = 69;
+            this.state = 65;
             this.fieldIdentifier();
-            this.state = 70;
+            this.state = 66;
             this.inOp();
-            this.state = 71;
+            this.state = 67;
             this.valueList();
           }
           break;
@@ -431,37 +424,14 @@ export class Query extends Parser {
           _localctx = new PredicateExprHasContext(_localctx);
           this.enterOuterAlt(_localctx, 3);
           {
-            this.state = 73;
+            this.state = 69;
             this.fieldIdentifier();
-            this.state = 74;
+            this.state = 70;
             this.match(Query.HAS_SYMBOL);
-            this.state = 75;
+            this.state = 71;
             this.valueList();
           }
           break;
-      }
-    } catch (re) {
-      if (re instanceof RecognitionException) {
-        _localctx.exception = re;
-        this._errHandler.reportError(this, re);
-        this._errHandler.recover(this, re);
-      } else {
-        throw re;
-      }
-    } finally {
-      this.exitRule();
-    }
-    return _localctx;
-  }
-  // @RuleVersion(0)
-  public notRule(): NotRuleContext {
-    const _localctx: NotRuleContext = new NotRuleContext(this._ctx, this.state);
-    this.enterRule(_localctx, 8, Query.RULE_notRule);
-    try {
-      this.enterOuterAlt(_localctx, 1);
-      {
-        this.state = 79;
-        this.match(Query.NOT_SYMBOL);
       }
     } catch (re) {
       if (re instanceof RecognitionException) {
@@ -479,11 +449,11 @@ export class Query extends Parser {
   // @RuleVersion(0)
   public fieldIdentifier(): FieldIdentifierContext {
     const _localctx: FieldIdentifierContext = new FieldIdentifierContext(this._ctx, this.state);
-    this.enterRule(_localctx, 10, Query.RULE_fieldIdentifier);
+    this.enterRule(_localctx, 8, Query.RULE_fieldIdentifier);
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 81;
+        this.state = 75;
         this.match(Query.SIMPLE_IDENTIFIER);
       }
     } catch (re) {
@@ -502,12 +472,12 @@ export class Query extends Parser {
   // @RuleVersion(0)
   public compOp(): CompOpContext {
     const _localctx: CompOpContext = new CompOpContext(this._ctx, this.state);
-    this.enterRule(_localctx, 12, Query.RULE_compOp);
+    this.enterRule(_localctx, 10, Query.RULE_compOp);
     let _la: number;
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 83;
+        this.state = 77;
         _la = this._input.LA(1);
         if (
           !(
@@ -547,6 +517,40 @@ export class Query extends Parser {
     return _localctx;
   }
   // @RuleVersion(0)
+  public isOp(): IsOpContext {
+    const _localctx: IsOpContext = new IsOpContext(this._ctx, this.state);
+    this.enterRule(_localctx, 12, Query.RULE_isOp);
+    let _la: number;
+    try {
+      this.enterOuterAlt(_localctx, 1);
+      {
+        this.state = 79;
+        _la = this._input.LA(1);
+        if (!(_la === Query.LS_NULL_SYMBOL || _la === Query.LS_NOT_NULL_SYMBOL)) {
+          this._errHandler.recoverInline(this);
+        } else {
+          if (this._input.LA(1) === Token.EOF) {
+            this.matchedEOF = true;
+          }
+
+          this._errHandler.reportMatch(this);
+          this.consume();
+        }
+      }
+    } catch (re) {
+      if (re instanceof RecognitionException) {
+        _localctx.exception = re;
+        this._errHandler.reportError(this, re);
+        this._errHandler.recover(this, re);
+      } else {
+        throw re;
+      }
+    } finally {
+      this.exitRule();
+    }
+    return _localctx;
+  }
+  // @RuleVersion(0)
   public likeOp(): LikeOpContext {
     const _localctx: LikeOpContext = new LikeOpContext(this._ctx, this.state);
     this.enterRule(_localctx, 14, Query.RULE_likeOp);
@@ -554,7 +558,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 85;
+        this.state = 81;
         _la = this._input.LA(1);
         if (!(_la === Query.LIKE_SYMBOL || _la === Query.NOT_LIKE_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -588,7 +592,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 87;
+        this.state = 83;
         _la = this._input.LA(1);
         if (!(_la === Query.IN_SYMBOL || _la === Query.NOT_IN_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -621,7 +625,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 89;
+        this.state = 85;
         this.literal();
       }
     } catch (re) {
@@ -645,9 +649,9 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 91;
+        this.state = 87;
         this.match(Query.OPEN_PAREN);
-        this.state = 100;
+        this.state = 96;
         this._errHandler.sync(this);
         _la = this._input.LA(1);
         if (
@@ -663,28 +667,28 @@ export class Query extends Parser {
             0
         ) {
           {
-            this.state = 92;
+            this.state = 88;
             this.literal();
-            this.state = 97;
+            this.state = 93;
             this._errHandler.sync(this);
             _la = this._input.LA(1);
             while (_la === Query.COMMA) {
               {
                 {
-                  this.state = 93;
+                  this.state = 89;
                   this.match(Query.COMMA);
-                  this.state = 94;
+                  this.state = 90;
                   this.literal();
                 }
               }
-              this.state = 99;
+              this.state = 95;
               this._errHandler.sync(this);
               _la = this._input.LA(1);
             }
           }
         }
 
-        this.state = 102;
+        this.state = 98;
         this.match(Query.CLOSE_PAREN);
       }
     } catch (re) {
@@ -705,14 +709,14 @@ export class Query extends Parser {
     const _localctx: LiteralContext = new LiteralContext(this._ctx, this.state);
     this.enterRule(_localctx, 22, Query.RULE_literal);
     try {
-      this.state = 108;
+      this.state = 104;
       this._errHandler.sync(this);
       switch (this._input.LA(1)) {
         case Query.SINGLEQ_STRING_LITERAL:
         case Query.DOUBLEQ_STRING_LITERAL:
           this.enterOuterAlt(_localctx, 1);
           {
-            this.state = 104;
+            this.state = 100;
             this.stringLiteral();
           }
           break;
@@ -720,7 +724,7 @@ export class Query extends Parser {
         case Query.NUMERIC_LITERAL:
           this.enterOuterAlt(_localctx, 2);
           {
-            this.state = 105;
+            this.state = 101;
             this.numberLiteral();
           }
           break;
@@ -728,14 +732,14 @@ export class Query extends Parser {
         case Query.FALSE_SYMBOL:
           this.enterOuterAlt(_localctx, 3);
           {
-            this.state = 106;
+            this.state = 102;
             this.booleanLiteral();
           }
           break;
         case Query.NULL_SYMBOL:
           this.enterOuterAlt(_localctx, 4);
           {
-            this.state = 107;
+            this.state = 103;
             this.nullLiteral();
           }
           break;
@@ -763,7 +767,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 110;
+        this.state = 106;
         _la = this._input.LA(1);
         if (!(_la === Query.SINGLEQ_STRING_LITERAL || _la === Query.DOUBLEQ_STRING_LITERAL)) {
           this._errHandler.recoverInline(this);
@@ -797,7 +801,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 112;
+        this.state = 108;
         _la = this._input.LA(1);
         if (!(_la === Query.INTEGER_LITERAL || _la === Query.NUMERIC_LITERAL)) {
           this._errHandler.recoverInline(this);
@@ -831,7 +835,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 114;
+        this.state = 110;
         _la = this._input.LA(1);
         if (!(_la === Query.TRUE_SYMBOL || _la === Query.FALSE_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -864,7 +868,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 116;
+        this.state = 112;
         this.match(Query.NULL_SYMBOL);
       }
     } catch (re) {
@@ -897,52 +901,51 @@ export class Query extends Parser {
   }
 
   public static readonly _serializedATN: string =
-    '\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03"y\x04\x02\t' +
-    '\x02\x04\x03\t\x03\x04\x04\t\x04\x04\x05\t\x05\x04\x06\t\x06\x04\x07\t' +
-    '\x07\x04\b\t\b\x04\t\t\t\x04\n\t\n\x04\v\t\v\x04\f\t\f\x04\r\t\r\x04\x0E' +
-    '\t\x0E\x04\x0F\t\x0F\x04\x10\t\x10\x04\x11\t\x11\x03\x02\x03\x02\x03\x02' +
+    '\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03$u\x04\x02\t\x02' +
+    '\x04\x03\t\x03\x04\x04\t\x04\x04\x05\t\x05\x04\x06\t\x06\x04\x07\t\x07' +
+    '\x04\b\t\b\x04\t\t\t\x04\n\t\n\x04\v\t\v\x04\f\t\f\x04\r\t\r\x04\x0E\t' +
+    '\x0E\x04\x0F\t\x0F\x04\x10\t\x10\x04\x11\t\x11\x03\x02\x03\x02\x03\x02' +
     '\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x05\x03,\n\x03\x03\x03' +
     '\x03\x03\x03\x03\x07\x031\n\x03\f\x03\x0E\x034\v\x03\x03\x04\x03\x04\x03' +
-    '\x04\x03\x04\x05\x04:\n\x04\x03\x04\x03\x04\x03\x04\x03\x04\x03\x04\x03' +
-    '\x04\x05\x04B\n\x04\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03' +
-    '\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x05\x05P\n\x05\x03\x06\x03' +
-    '\x06\x03\x07\x03\x07\x03\b\x03\b\x03\t\x03\t\x03\n\x03\n\x03\v\x03\v\x03' +
-    '\f\x03\f\x03\f\x03\f\x07\fb\n\f\f\f\x0E\fe\v\f\x05\fg\n\f\x03\f\x03\f' +
-    '\x03\r\x03\r\x03\r\x03\r\x05\ro\n\r\x03\x0E\x03\x0E\x03\x0F\x03\x0F\x03' +
-    '\x10\x03\x10\x03\x11\x03\x11\x03\x11\x02\x02\x03\x04\x12\x02\x02\x04\x02' +
-    '\x06\x02\b\x02\n\x02\f\x02\x0E\x02\x10\x02\x12\x02\x14\x02\x16\x02\x18' +
-    '\x02\x1A\x02\x1C\x02\x1E\x02 \x02\x02\t\x03\x02\x17\x18\x04\x02\x0F\x14' +
-    '""\x04\x02\x1C\x1C\x1F\x1F\x04\x02\x1D\x1D  \x03\x02\v\f\x03\x02\r\x0E' +
-    '\x03\x02\x15\x16\x02t\x02"\x03\x02\x02\x02\x04+\x03\x02\x02\x02\x06A' +
-    '\x03\x02\x02\x02\bO\x03\x02\x02\x02\nQ\x03\x02\x02\x02\fS\x03\x02\x02' +
-    '\x02\x0EU\x03\x02\x02\x02\x10W\x03\x02\x02\x02\x12Y\x03\x02\x02\x02\x14' +
-    '[\x03\x02\x02\x02\x16]\x03\x02\x02\x02\x18n\x03\x02\x02\x02\x1Ap\x03\x02' +
-    '\x02\x02\x1Cr\x03\x02\x02\x02\x1Et\x03\x02\x02\x02 v\x03\x02\x02\x02"' +
-    '#\x05\x04\x03\x02#$\x07\x02\x02\x03$\x03\x03\x02\x02\x02%&\b\x03\x01\x02' +
-    "&,\x05\x06\x04\x02'(\x07\x04\x02\x02()\x05\x04\x03\x02)*\x07\x05\x02" +
-    "\x02*,\x03\x02\x02\x02+%\x03\x02\x02\x02+'\x03\x02\x02\x02,2\x03\x02" +
-    '\x02\x02-.\f\x04\x02\x02./\t\x02\x02\x02/1\x05\x04\x03\x050-\x03\x02\x02' +
-    '\x0214\x03\x02\x02\x0220\x03\x02\x02\x0223\x03\x02\x02\x023\x05\x03\x02' +
-    '\x02\x0242\x03\x02\x02\x025B\x05\b\x05\x0267\x05\f\x07\x0279\x07\x1B\x02' +
-    '\x028:\x05\n\x06\x0298\x03\x02\x02\x029:\x03\x02\x02\x02:;\x03\x02\x02' +
-    '\x02;<\x07\x1A\x02\x02<B\x03\x02\x02\x02=>\x05\f\x07\x02>?\x05\x0E\b\x02' +
-    '?@\x05\x14\v\x02@B\x03\x02\x02\x02A5\x03\x02\x02\x02A6\x03\x02\x02\x02' +
-    'A=\x03\x02\x02\x02B\x07\x03\x02\x02\x02CD\x05\f\x07\x02DE\x05\x10\t\x02' +
-    'EF\x05\x14\v\x02FP\x03\x02\x02\x02GH\x05\f\x07\x02HI\x05\x12\n\x02IJ\x05' +
-    '\x16\f\x02JP\x03\x02\x02\x02KL\x05\f\x07\x02LM\x07\x1E\x02\x02MN\x05\x16' +
-    '\f\x02NP\x03\x02\x02\x02OC\x03\x02\x02\x02OG\x03\x02\x02\x02OK\x03\x02' +
-    '\x02\x02P\t\x03\x02\x02\x02QR\x07\x19\x02\x02R\v\x03\x02\x02\x02ST\x07' +
-    '\n\x02\x02T\r\x03\x02\x02\x02UV\t\x03\x02\x02V\x0F\x03\x02\x02\x02WX\t' +
-    '\x04\x02\x02X\x11\x03\x02\x02\x02YZ\t\x05\x02\x02Z\x13\x03\x02\x02\x02' +
-    '[\\\x05\x18\r\x02\\\x15\x03\x02\x02\x02]f\x07\x04\x02\x02^c\x05\x18\r' +
-    '\x02_`\x07\x03\x02\x02`b\x05\x18\r\x02a_\x03\x02\x02\x02be\x03\x02\x02' +
-    '\x02ca\x03\x02\x02\x02cd\x03\x02\x02\x02dg\x03\x02\x02\x02ec\x03\x02\x02' +
-    '\x02f^\x03\x02\x02\x02fg\x03\x02\x02\x02gh\x03\x02\x02\x02hi\x07\x05\x02' +
-    '\x02i\x17\x03\x02\x02\x02jo\x05\x1A\x0E\x02ko\x05\x1C\x0F\x02lo\x05\x1E' +
-    '\x10\x02mo\x05 \x11\x02nj\x03\x02\x02\x02nk\x03\x02\x02\x02nl\x03\x02' +
-    '\x02\x02nm\x03\x02\x02\x02o\x19\x03\x02\x02\x02pq\t\x06\x02\x02q\x1B\x03' +
-    '\x02\x02\x02rs\t\x07\x02\x02s\x1D\x03\x02\x02\x02tu\t\b\x02\x02u\x1F\x03' +
-    '\x02\x02\x02vw\x07\x1A\x02\x02w!\x03\x02\x02\x02\n+29AOcfn';
+    '\x04\x03\x04\x03\x04\x03\x04\x03\x04\x03\x04\x05\x04>\n\x04\x03\x05\x03' +
+    '\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03' +
+    '\x05\x03\x05\x05\x05L\n\x05\x03\x06\x03\x06\x03\x07\x03\x07\x03\b\x03' +
+    '\b\x03\t\x03\t\x03\n\x03\n\x03\v\x03\v\x03\f\x03\f\x03\f\x03\f\x07\f^' +
+    '\n\f\f\f\x0E\fa\v\f\x05\fc\n\f\x03\f\x03\f\x03\r\x03\r\x03\r\x03\r\x05' +
+    '\rk\n\r\x03\x0E\x03\x0E\x03\x0F\x03\x0F\x03\x10\x03\x10\x03\x11\x03\x11' +
+    '\x03\x11\x02\x02\x03\x04\x12\x02\x02\x04\x02\x06\x02\b\x02\n\x02\f\x02' +
+    '\x0E\x02\x10\x02\x12\x02\x14\x02\x16\x02\x18\x02\x1A\x02\x1C\x02\x1E\x02' +
+    ' \x02\x02\n\x03\x02\x17\x18\x04\x02\x0F\x14$$\x03\x02\x1C\x1D\x04\x02' +
+    '\x1E\x1E!!\x04\x02\x1F\x1F""\x03\x02\v\f\x03\x02\r\x0E\x03\x02\x15\x16' +
+    '\x02o\x02"\x03\x02\x02\x02\x04+\x03\x02\x02\x02\x06=\x03\x02\x02\x02' +
+    '\bK\x03\x02\x02\x02\nM\x03\x02\x02\x02\fO\x03\x02\x02\x02\x0EQ\x03\x02' +
+    '\x02\x02\x10S\x03\x02\x02\x02\x12U\x03\x02\x02\x02\x14W\x03\x02\x02\x02' +
+    '\x16Y\x03\x02\x02\x02\x18j\x03\x02\x02\x02\x1Al\x03\x02\x02\x02\x1Cn\x03' +
+    '\x02\x02\x02\x1Ep\x03\x02\x02\x02 r\x03\x02\x02\x02"#\x05\x04\x03\x02' +
+    '#$\x07\x02\x02\x03$\x03\x03\x02\x02\x02%&\b\x03\x01\x02&,\x05\x06\x04' +
+    "\x02'(\x07\x04\x02\x02()\x05\x04\x03\x02)*\x07\x05\x02\x02*,\x03\x02" +
+    "\x02\x02+%\x03\x02\x02\x02+'\x03\x02\x02\x02,2\x03\x02\x02\x02-.\f\x04" +
+    '\x02\x02./\t\x02\x02\x02/1\x05\x04\x03\x050-\x03\x02\x02\x0214\x03\x02' +
+    '\x02\x0220\x03\x02\x02\x0223\x03\x02\x02\x023\x05\x03\x02\x02\x0242\x03' +
+    '\x02\x02\x025>\x05\b\x05\x0267\x05\n\x06\x0278\x05\x0E\b\x028>\x03\x02' +
+    '\x02\x029:\x05\n\x06\x02:;\x05\f\x07\x02;<\x05\x14\v\x02<>\x03\x02\x02' +
+    '\x02=5\x03\x02\x02\x02=6\x03\x02\x02\x02=9\x03\x02\x02\x02>\x07\x03\x02' +
+    '\x02\x02?@\x05\n\x06\x02@A\x05\x10\t\x02AB\x05\x14\v\x02BL\x03\x02\x02' +
+    '\x02CD\x05\n\x06\x02DE\x05\x12\n\x02EF\x05\x16\f\x02FL\x03\x02\x02\x02' +
+    'GH\x05\n\x06\x02HI\x07 \x02\x02IJ\x05\x16\f\x02JL\x03\x02\x02\x02K?\x03' +
+    '\x02\x02\x02KC\x03\x02\x02\x02KG\x03\x02\x02\x02L\t\x03\x02\x02\x02MN' +
+    '\x07\n\x02\x02N\v\x03\x02\x02\x02OP\t\x03\x02\x02P\r\x03\x02\x02\x02Q' +
+    'R\t\x04\x02\x02R\x0F\x03\x02\x02\x02ST\t\x05\x02\x02T\x11\x03\x02\x02' +
+    '\x02UV\t\x06\x02\x02V\x13\x03\x02\x02\x02WX\x05\x18\r\x02X\x15\x03\x02' +
+    '\x02\x02Yb\x07\x04\x02\x02Z_\x05\x18\r\x02[\\\x07\x03\x02\x02\\^\x05\x18' +
+    '\r\x02][\x03\x02\x02\x02^a\x03\x02\x02\x02_]\x03\x02\x02\x02_`\x03\x02' +
+    '\x02\x02`c\x03\x02\x02\x02a_\x03\x02\x02\x02bZ\x03\x02\x02\x02bc\x03\x02' +
+    '\x02\x02cd\x03\x02\x02\x02de\x07\x05\x02\x02e\x17\x03\x02\x02\x02fk\x05' +
+    '\x1A\x0E\x02gk\x05\x1C\x0F\x02hk\x05\x1E\x10\x02ik\x05 \x11\x02jf\x03' +
+    '\x02\x02\x02jg\x03\x02\x02\x02jh\x03\x02\x02\x02ji\x03\x02\x02\x02k\x19' +
+    '\x03\x02\x02\x02lm\t\x07\x02\x02m\x1B\x03\x02\x02\x02no\t\b\x02\x02o\x1D' +
+    '\x03\x02\x02\x02pq\t\t\x02\x02q\x1F\x03\x02\x02\x02rs\x07\x1A\x02\x02' +
+    's!\x03\x02\x02\x02\t+2=K_bj';
   public static __ATN: ATN;
   public static get _ATN(): ATN {
     if (!Query.__ATN) {
@@ -1089,18 +1092,12 @@ export class PrimaryExprPredicateContext extends QueryStatementContext {
     }
   }
 }
-export class PrimaryExprIsNullContext extends QueryStatementContext {
+export class PrimaryExprIsContext extends QueryStatementContext {
   public fieldIdentifier(): FieldIdentifierContext {
     return this.getRuleContext(0, FieldIdentifierContext);
   }
-  public IS_SYMBOL(): TerminalNode {
-    return this.getToken(Query.IS_SYMBOL, 0);
-  }
-  public NULL_SYMBOL(): TerminalNode {
-    return this.getToken(Query.NULL_SYMBOL, 0);
-  }
-  public notRule(): NotRuleContext | undefined {
-    return this.tryGetRuleContext(0, NotRuleContext);
+  public isOp(): IsOpContext {
+    return this.getRuleContext(0, IsOpContext);
   }
   constructor(ctx: QueryStatementContext) {
     super(ctx.parent, ctx.invokingState);
@@ -1108,8 +1105,8 @@ export class PrimaryExprIsNullContext extends QueryStatementContext {
   }
   // @Override
   public accept<Result>(visitor: QueryVisitor<Result>): Result {
-    if (visitor.visitPrimaryExprIsNull) {
-      return visitor.visitPrimaryExprIsNull(this);
+    if (visitor.visitPrimaryExprIs) {
+      return visitor.visitPrimaryExprIs(this);
     } else {
       return visitor.visitChildren(this);
     }
@@ -1221,27 +1218,6 @@ export class PredicateExprHasContext extends PredicateContext {
   }
 }
 
-export class NotRuleContext extends ParserRuleContext {
-  public NOT_SYMBOL(): TerminalNode {
-    return this.getToken(Query.NOT_SYMBOL, 0);
-  }
-  constructor(parent: ParserRuleContext | undefined, invokingState: number) {
-    super(parent, invokingState);
-  }
-  // @Override
-  public get ruleIndex(): number {
-    return Query.RULE_notRule;
-  }
-  // @Override
-  public accept<Result>(visitor: QueryVisitor<Result>): Result {
-    if (visitor.visitNotRule) {
-      return visitor.visitNotRule(this);
-    } else {
-      return visitor.visitChildren(this);
-    }
-  }
-}
-
 export class FieldIdentifierContext extends ParserRuleContext {
   public SIMPLE_IDENTIFIER(): TerminalNode {
     return this.getToken(Query.SIMPLE_IDENTIFIER, 0);
@@ -1296,6 +1272,30 @@ export class CompOpContext extends ParserRuleContext {
   public accept<Result>(visitor: QueryVisitor<Result>): Result {
     if (visitor.visitCompOp) {
       return visitor.visitCompOp(this);
+    } else {
+      return visitor.visitChildren(this);
+    }
+  }
+}
+
+export class IsOpContext extends ParserRuleContext {
+  public LS_NULL_SYMBOL(): TerminalNode | undefined {
+    return this.tryGetToken(Query.LS_NULL_SYMBOL, 0);
+  }
+  public LS_NOT_NULL_SYMBOL(): TerminalNode | undefined {
+    return this.tryGetToken(Query.LS_NOT_NULL_SYMBOL, 0);
+  }
+  constructor(parent: ParserRuleContext | undefined, invokingState: number) {
+    super(parent, invokingState);
+  }
+  // @Override
+  public get ruleIndex(): number {
+    return Query.RULE_isOp;
+  }
+  // @Override
+  public accept<Result>(visitor: QueryVisitor<Result>): Result {
+    if (visitor.visitIsOp) {
+      return visitor.visitIsOp(this);
     } else {
       return visitor.visitChildren(this);
     }

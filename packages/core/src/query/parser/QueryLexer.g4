@@ -64,8 +64,10 @@ OR_SYMBOL                            : O R;
 
 NOT_SYMBOL                           : N O T;
 NULL_SYMBOL                          : N U L L;
-
 IS_SYMBOL                            : I S;
+
+LS_NULL_SYMBOL                       : I S SPACE N U L L;
+LS_NOT_NULL_SYMBOL                   : I S SPACE N O T SPACE N U L L;
 LIKE_SYMBOL                          : L I K E;
 IN_SYMBOL                            : I N;
 HAS_SYMBOL                           : H A S;

@@ -7,7 +7,7 @@ import type {
   PredicateExprInContext,
   PredicateExprHasContext,
   PrimaryExprPredicateContext,
-  PrimaryExprIsNullContext,
+  PrimaryExprIsContext,
   PrimaryExprCompareContext,
   QueryExprContext,
   BinaryExprContext,
@@ -16,9 +16,9 @@ import type {
   ExprContext,
   QueryStatementContext,
   PredicateContext,
-  NotRuleContext,
   FieldIdentifierContext,
   CompOpContext,
+  IsOpContext,
   LikeOpContext,
   InOpContext,
   ValueContext,
@@ -71,12 +71,12 @@ export interface QueryVisitor<Result> extends ParseTreeVisitor<Result> {
   visitPrimaryExprPredicate?: (ctx: PrimaryExprPredicateContext) => Result;
 
   /**
-   * Visit a parse tree produced by the `primaryExprIsNull`
+   * Visit a parse tree produced by the `primaryExprIs`
    * labeled alternative in `Query.queryStatement`.
    * @param ctx the parse tree
    * @return the visitor result
    */
-  visitPrimaryExprIsNull?: (ctx: PrimaryExprIsNullContext) => Result;
+  visitPrimaryExprIs?: (ctx: PrimaryExprIsContext) => Result;
 
   /**
    * Visit a parse tree produced by the `primaryExprCompare`
@@ -139,13 +139,6 @@ export interface QueryVisitor<Result> extends ParseTreeVisitor<Result> {
   visitPredicate?: (ctx: PredicateContext) => Result;
 
   /**
-   * Visit a parse tree produced by `Query.notRule`.
-   * @param ctx the parse tree
-   * @return the visitor result
-   */
-  visitNotRule?: (ctx: NotRuleContext) => Result;
-
-  /**
    * Visit a parse tree produced by `Query.fieldIdentifier`.
    * @param ctx the parse tree
    * @return the visitor result
@@ -158,6 +151,13 @@ export interface QueryVisitor<Result> extends ParseTreeVisitor<Result> {
    * @return the visitor result
    */
   visitCompOp?: (ctx: CompOpContext) => Result;
+
+  /**
+   * Visit a parse tree produced by `Query.isOp`.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  visitIsOp?: (ctx: IsOpContext) => Result;
 
   /**
    * Visit a parse tree produced by `Query.likeOp`.

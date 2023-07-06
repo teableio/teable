@@ -1,29 +1,33 @@
-import type { IJsonApiSuccessResponse, IViewSnapshot, IViewVo } from '@teable-group/core';
+import type { IFieldSnapshot, IFilter } from '@teable-group/core';
 import { OpBuilder, ViewCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
-export class ViewExtended {
-  static updateName(doc: Doc<IViewSnapshot>, name: string, oldName: string) {
-    const viewOperation = OpBuilder.editor.setViewName.build({
-      newName: name,
-      oldName: oldName,
-    });
 
+export abstract class ViewOperations extends ViewCore {
+  protected doc!: Doc<IFieldSnapshot>;
+
+  private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      doc.submitOp([viewOperation], undefined, (error) => {
+      this.doc.submitOp([operation], undefined, (error) => {
         error ? reject(error) : resolve(undefined);
       });
     });
   }
-}
 
-export abstract class View extends ViewCore {
-  static async getViews(tableId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
-      `/api/table/${tableId}/view`
-    );
-    return response.data.data;
+  async updateName(name: string): Promise<void> {
+    const viewOperation = OpBuilder.editor.setViewName.build({
+      newName: name,
+      oldName: this.name,
+    });
+
+    return await this.submitOperation(viewOperation);
   }
 
-  abstract updateName(_name: string): Promise<void>;
+  async setFilter(filter: IFilter): Promise<void> {
+    const viewOperation = OpBuilder.editor.setViewFilter.build({
+      newFilter: filter,
+      oldFilter: this.filter,
+    });
+
+    return await this.submitOperation(viewOperation);
+  }
 }

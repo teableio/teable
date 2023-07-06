@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FieldKeyType } from '@teable-group/core';
-import { Table, View } from '@teable-group/sdk/model';
+import { Table } from '@teable-group/sdk/model';
 import { Space } from '@teable-group/sdk/model/space';
 import router from 'next/router';
 import { createChart } from '../Chart/createChart';
@@ -30,7 +30,7 @@ export function createAISyntaxParser() {
           fields: [],
         });
         tableId = tableData.id;
-        const views = await View.getViews(tableId);
+        const views = await Table.getViews(tableId);
         viewId = views[0].id;
         router.push({
           pathname: '/space/[tableId]/[viewId]',

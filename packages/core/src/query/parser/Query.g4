@@ -14,7 +14,7 @@ expr
 
 queryStatement:
     predicate                                                           #primaryExprPredicate
-    | fieldIdentifier IS_SYMBOL notRule? NULL_SYMBOL                    #primaryExprIsNull
+    | fieldIdentifier isOp                                              #primaryExprIs
     | fieldIdentifier compOp value                                      #primaryExprCompare
     ;
 
@@ -22,10 +22,6 @@ predicate:
     fieldIdentifier likeOp value                                        #predicateExprLike
     | fieldIdentifier inOp valueList                                    #predicateExprIn
     | fieldIdentifier HAS_SYMBOL valueList                              #predicateExprHas
-    ;
-
-notRule:
-    NOT_SYMBOL
     ;
 
 fieldIdentifier:
@@ -40,6 +36,11 @@ compOp:
     | GTE_OPERATOR
     | LT_OPERATOR
     | LTE_OPERATOR
+    ;
+
+isOp:
+    LS_NULL_SYMBOL
+    | LS_NOT_NULL_SYMBOL
     ;
 
 likeOp:

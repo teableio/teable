@@ -14,7 +14,7 @@ import type {
   PredicateExprInContext,
   PredicateExprLikeContext,
   PrimaryExprCompareContext,
-  PrimaryExprIsNullContext,
+  PrimaryExprIsContext,
   PrimaryExprPredicateContext,
   QueryExprContext,
   StartContext,
@@ -93,17 +93,12 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
     return this.visit(ctx.predicate());
   }
 
-  visitPrimaryExprIsNull(ctx: PrimaryExprIsNullContext): any {
+  visitPrimaryExprIs(ctx: PrimaryExprIsContext): any {
     const fieldId = this.visit(ctx.fieldIdentifier());
 
-    const upperCaseOperator = (
-      !ctx.notRule()
-        ? [ctx.IS_SYMBOL().text, ctx.NULL_SYMBOL().text]
-        : [ctx.IS_SYMBOL().text, ctx.notRule()?.text, ctx.NULL_SYMBOL().text]
-    )
-      .join(' ')
-      .toUpperCase();
+    const upperCaseOperator = ctx.isOp().text.toUpperCase();
     const operator = operatorCrossReferenceTable.get(upperCaseOperator);
+
     return {
       fieldId: fieldId,
       operator: operator,

@@ -35,7 +35,7 @@ describe('JsonVisitor', () => {
     };
   };
 
-  describe('{field} [operators] value?', () => {
+  describe('{field} [operators] value', () => {
     it('should `=` convert `is`', () => {
       expect(parseTQL(`{field} = '1'`)).toStrictEqual(
         expect.objectContaining({
@@ -189,6 +189,21 @@ describe('JsonVisitor', () => {
 
       expect(parseTQL(`{field} NOT IN (1)`)).toStrictEqual(expected);
       expect(parseTQL(`{field} not In (1)`)).toStrictEqual(expected);
+    });
+
+    it('should `HAS` convert `hasAllOf`', () => {
+      const expected = expect.objectContaining({
+        filterSet: [
+          expect.objectContaining({
+            operator: 'hasAllOf',
+            value: [2],
+          }),
+        ],
+        conjunction: 'and',
+      });
+
+      expect(parseTQL(`{field} HAS (2)`)).toStrictEqual(expected);
+      expect(parseTQL(`{field} has (2)`)).toStrictEqual(expected);
     });
 
     it('should `IS NULL` convert `isEmpty`', () => {
