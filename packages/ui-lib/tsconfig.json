@@ -8,11 +8,13 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "react-jsx",
+    "rootDir": "./src",
     // "jsxImportSource": "@emotion/react",
     "noEmit": false,
     "incremental": true,
     "composite": true
   },
+  "references": [{ "path": "../icons" }],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
-  "include": ["src"]
+  "include": ["./src"]
 }
