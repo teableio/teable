@@ -1,4 +1,4 @@
-import type { FilterConjunction, FilterDuration, ViewType } from './constant';
+import type { FilterConjunction, FilterDuration, ViewType, FOperator } from './constant';
 
 export type IFilterCheckbox = [boolean] | null;
 export type IFilterText = [string] | null;
@@ -123,9 +123,24 @@ export type ISort = {
   keepSort: boolean;
 };
 
+interface IBaseFilterItem {
+  id: string;
+}
+
+export interface IFilterItem extends IBaseFilterItem {
+  columnId?: string;
+  operator: FOperator;
+  value: unknown;
+}
+export interface IFilterGroupItem extends IBaseFilterItem {
+  type: 'Nested';
+  conjunction: FilterConjunction;
+  filterSet: (IFilterItem | IFilterGroupItem)[];
+}
+
 export interface IFilter {
   conjunction: FilterConjunction;
-  conditions: unknown[];
+  filterSet: (IFilterItem | IFilterGroupItem)[];
 }
 
 export interface IViewRo {

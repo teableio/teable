@@ -1,3 +1,4 @@
+import type { IFilter } from '../models';
 import type { IdPrefix } from '../utils';
 
 export interface IFieldSnapshotQuery {
@@ -24,6 +25,7 @@ export interface IRecordSnapshotQuery {
   aggregate?: IAggregateQuery;
   offset?: number;
   limit?: number;
+  filters?: IFilter;
 }
 
 export interface IAggregateQueryResult {
