@@ -33,6 +33,10 @@
       "path": "packages/ui-lib"
     },
     {
+      "name": "icons",
+      "path": "packages/icons"
+    },
+    {
       "name": "root",
       "path": "."
     }
