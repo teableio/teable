@@ -52,10 +52,6 @@ export class DateFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    // lookup field only need to validate formatting
-    if (this.isLookup) {
-      return datetimeFormattingDef.safeParse(this.options.formatting);
-    }
     return dateFieldOptionsDef.safeParse(this.options);
   }
 

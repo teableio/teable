@@ -87,7 +87,7 @@ export class FieldSupplementService implements ISupplementService {
 
     const lookupFieldRaw = await this.prismaService.field.findFirst({
       where: { id: lookupFieldId, deletedTime: null },
-      select: { type: true },
+      select: { type: true, options: true },
     });
 
     if (!lookupFieldRaw) {
@@ -100,8 +100,16 @@ export class FieldSupplementService implements ISupplementService {
       );
     }
 
+    const lookupFieldOptions = JSON.parse(lookupFieldRaw.options as string) as object | null;
+
     return {
       ...field,
+      options: lookupFieldOptions
+        ? {
+            ...lookupFieldOptions,
+            formatting: field.options?.formatting ? field.options?.formatting : undefined,
+          }
+        : undefined,
       lookupOptions: {
         ...lookupOptions,
         relationship: linkFieldOptions.relationship,
