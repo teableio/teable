@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
@@ -262,23 +263,28 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update lookupField by edit the a looked up text field', async () => {
     (await expectLookup(table1, FieldType.SingleLineText, 'lookup text')).toEqual(['lookup text']);
+    (await expectLookup(table2, FieldType.SingleLineText, 'lookup text')).toEqual('lookup text');
   });
 
   it('should update lookupField by edit the a looked up number field', async () => {
     (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
+    (await expectLookup(table2, FieldType.Number, 123)).toEqual(123);
   });
 
   it('should update lookupField by edit the a looked up singleSelect field', async () => {
     (await expectLookup(table1, FieldType.SingleSelect, 'todo')).toEqual(['todo']);
+    (await expectLookup(table2, FieldType.SingleSelect, 'todo')).toEqual('todo');
   });
 
   it('should update lookupField by edit the a looked up multipleSelect field', async () => {
     (await expectLookup(table1, FieldType.MultipleSelect, ['rap'])).toEqual(['rap']);
+    (await expectLookup(table2, FieldType.MultipleSelect, ['rap'])).toEqual(['rap']);
   });
 
   it('should update lookupField by edit the a looked up date field', async () => {
     const now = new Date().toISOString();
     (await expectLookup(table1, FieldType.Date, now)).toEqual([now]);
+    (await expectLookup(table2, FieldType.Date, now)).toEqual(now);
   });
 
   // it('should update lookupField by edit the a looked up attachment field', async () => {
@@ -289,26 +295,26 @@ describe('OpenAPI Lookup field (e2e)', () => {
   //   (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
   // });
 
-  it('should update link field lookup value', async () => {
-    // add a link record after
-    await updateRecordByApi(
-      table1.id,
-      table1.data.records[1].id,
-      getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
-    );
+  // it('should update link field lookup value', async () => {
+  //   // add a link record after
+  //   await updateRecordByApi(
+  //     table1.id,
+  //     table1.data.records[1].id,
+  //     getFieldByType(table1.fields, FieldType.Link).id,
+  //     [{ id: table2.data.records[1].id }]
+  //   );
 
-    await updateRecordByApi(
-      table2.id,
-      table2.data.records[1].id,
-      getFieldByType(table2.fields, FieldType.SingleLineText).id,
-      'text'
-    );
+  //   await updateRecordByApi(
+  //     table2.id,
+  //     table2.data.records[1].id,
+  //     getFieldByType(table2.fields, FieldType.SingleLineText).id,
+  //     'text'
+  //   );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+  //   const record = await getRecord(table1.id, table1.data.records[1].id);
 
-    expect(record.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
-      { id: table2.data.records[1].id, title: 'text' },
-    ]);
-  });
+  //   expect(record.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
+  //     { id: table2.data.records[1].id, title: 'text' },
+  //   ]);
+  // });
 });

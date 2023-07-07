@@ -129,9 +129,9 @@ const createCellValue2GridDisplay =
         return {
           kind: GridCellKind.Custom,
           data: {
-            type: FieldType.SingleSelect,
+            type: field.isMultipleCellValue ? FieldType.MultipleSelect : FieldType.SingleSelect,
             options: field.options,
-            value: cellValue ? [cellValue as string] : [],
+            value: Array.isArray(cellValue) ? cellValue : cellValue ? [cellValue] : [],
           },
           copyData: `${col}`,
           allowOverlay: true,
