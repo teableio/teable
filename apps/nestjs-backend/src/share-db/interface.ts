@@ -18,7 +18,7 @@ export interface IAdapterService {
     prisma: Prisma.TransactionClient,
     collectionId: string,
     ids: string[],
-    projection?: { [fieldKey: string]: boolean },
+    projection?: { [fieldNameOrId: string]: boolean },
     extra?: unknown
   ): Promise<ISnapshotBase<unknown>[]>;
 

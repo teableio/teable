@@ -1,26 +1,30 @@
 import type { SafeParseReturnType } from 'zod';
+import { z } from 'zod';
 import type { StatisticsFunc } from '../view';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
-import type { Relationship } from './derivate';
+import { Relationship } from './derivate';
 import type { IColumnMeta } from './interface';
 
-export class ILookupOptions {
-  foreignTableId!: string;
-  linkFieldId!: string;
-  lookupFieldId!: string;
-  relationship?: Relationship;
-  dbForeignKeyName?: string;
-  symmetricFieldId?: string;
-}
+export const lookupOptionsRoDef = z.object({
+  foreignTableId: z.string(),
+  linkFieldId: z.string(),
+  lookupFieldId: z.string(),
+  relationship: z.nativeEnum(Relationship).optional(),
+  dbForeignKeyName: z.string().optional(),
+  symmetricFieldId: z.string().optional(),
+});
 
-export class ILookupOptionsVo {
-  foreignTableId!: string;
-  linkFieldId!: string;
-  lookupFieldId!: string;
-  relationship!: Relationship;
-  dbForeignKeyName!: string;
-  symmetricFieldId!: string;
-}
+export type ILookupOptions = z.infer<typeof lookupOptionsRoDef>;
+
+export const lookupOptionsVoDef = lookupOptionsRoDef.merge(
+  z.object({
+    relationship: z.nativeEnum(Relationship),
+    dbForeignKeyName: z.string(),
+    symmetricFieldId: z.string(),
+  })
+);
+
+export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoDef>;
 
 export interface IFieldRo {
   name: string;

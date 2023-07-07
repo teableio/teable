@@ -47,9 +47,15 @@ export class RecordOpenApiController {
   @Get(':recordId')
   async getRecord(
     @Param('tableId') tableId: string,
-    @Param('recordId') recordId: string
+    @Param('recordId') recordId: string,
+    @Query() query: RecordsRo
   ): Promise<ApiResponse<RecordVo>> {
-    const record = await this.recordService.getRecord(tableId, recordId);
+    const record = await this.recordService.getRecord(
+      tableId,
+      recordId,
+      query.projection,
+      query.fieldKeyType
+    );
     return responseWrap(record);
   }
 

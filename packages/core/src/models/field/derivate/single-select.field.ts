@@ -34,6 +34,10 @@ export class SingleSelectFieldCore extends SelectFieldCore {
   }
 
   validateDefaultValue() {
+    if (this.isLookup) {
+      return z.undefined().nullable().safeParse(this.defaultValue);
+    }
+
     const choiceNames = this.options.choices.map((v) => v.name);
     return z
       .string()
