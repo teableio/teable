@@ -1030,7 +1030,7 @@ export interface operations {
         /** @description value formate, you can set it to text if you only need simple string value */
         cellFormat?: "json" | "text";
         /** @description Set the key of record.fields[key], default is "name" */
-        fieldKey?: "id" | "name";
+        fieldKeyType?: "id" | "name";
       };
       path: {
         tableId: string;

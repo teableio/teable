@@ -49,7 +49,7 @@ export interface IRecordsVo {
   total: number;
 }
 
-export interface IRecordsRo {
+export interface IRecordsRo extends IRecordRo {
   take?: number;
 
   skip?: number;
@@ -57,10 +57,12 @@ export interface IRecordsRo {
   recordIds?: string[];
 
   viewId?: string;
+}
 
-  projection?: string[];
-
+export interface IRecordRo {
   cellFormat?: CellFormat;
 
-  fieldKey?: FieldKeyType;
+  fieldKeyType?: FieldKeyType;
+
+  projection?: { [fieldNameOrId: string]: boolean };
 }

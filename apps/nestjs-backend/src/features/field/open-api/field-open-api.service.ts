@@ -187,6 +187,18 @@ export class FieldOpenApiService {
               oldOptions: oldFieldInstance.options,
             });
           }
+          case 'isLookup': {
+            return OpBuilder.editor.setFieldOptions.build({
+              newOptions: newFieldInstance.isLookup,
+              oldOptions: oldFieldInstance.isLookup,
+            });
+          }
+          case 'lookupOptions': {
+            return OpBuilder.editor.setFieldOptions.build({
+              newOptions: newFieldInstance.lookupOptions,
+              oldOptions: oldFieldInstance.lookupOptions,
+            });
+          }
           default:
             return null;
         }

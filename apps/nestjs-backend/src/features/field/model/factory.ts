@@ -133,7 +133,7 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
-    isLookup: Boolean(fieldRaw.lookupFieldId) || undefined,
+    isLookup: Boolean(fieldRaw.lookupLinkedFieldId) || undefined,
     lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
     defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     cellValueType: fieldRaw.cellValueType as CellValueType,

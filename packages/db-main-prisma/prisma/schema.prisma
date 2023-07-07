@@ -42,7 +42,7 @@ model Field {
   unique               Boolean?
   isPrimary            Boolean?  @map("is_primary")
   isComputed           Boolean?  @map("is_computed")
-  lookupFieldId        String?   @map("lookup_field_id")
+  lookupLinkedFieldId  String?   @map("lookup_linked_field_id")
   lookupOptions        String?   @map("lookup_options")
   tableId              String    @map("table_id")
   columnMeta           String    @map("column_meta")
@@ -54,7 +54,7 @@ model Field {
   lastModifiedBy       String    @map("last_modified_by")
   table                TableMeta @relation(fields: [tableId], references: [id])
 
-  @@index([lookupFieldId])
+  @@index([lookupLinkedFieldId])
   @@map("field")
 }
 

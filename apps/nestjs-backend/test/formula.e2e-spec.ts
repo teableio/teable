@@ -21,24 +21,24 @@ describe('OpenAPI formula (e2e)', () => {
 
   beforeEach(async () => {
     numberFieldRo = {
-      id: 'fldNumber' + generateFieldId(),
+      id: generateFieldId(),
       name: 'Number field',
       description: 'the number field',
       type: FieldType.Number,
       options: {
-        precision: 1,
+        formatting: { precision: 1 },
       },
     };
 
     textFieldRo = {
-      id: 'fldText' + generateFieldId(),
+      id: generateFieldId(),
       name: 'text field',
       description: 'the text field',
       type: FieldType.SingleLineText,
     };
 
     formulaFieldRo = {
-      id: 'fldFormula' + generateFieldId(),
+      id: generateFieldId(),
       name: 'New field',
       description: 'the new field',
       type: FieldType.Formula,

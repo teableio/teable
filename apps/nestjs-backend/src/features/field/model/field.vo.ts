@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { IFieldVo } from '@teable-group/core';
-import { ILookupOptionsVo, CellValueType, DbFieldType, IColumnMeta } from '@teable-group/core';
+import type { IFieldVo, ILookupOptionsVo } from '@teable-group/core';
+import { CellValueType, DbFieldType, IColumnMeta } from '@teable-group/core';
 import { CreateFieldRo } from './create-field.ro';
 
 export class FieldVo extends CreateFieldRo implements IFieldVo {
@@ -31,7 +31,6 @@ export class FieldVo extends CreateFieldRo implements IFieldVo {
 
   @ApiPropertyOptional({
     description: 'Set the field is lookup field',
-    type: ILookupOptionsVo,
   })
   lookupOptions?: ILookupOptionsVo | undefined;
 
