@@ -58,6 +58,7 @@ interface IRecordItem {
 interface IRecordData {
   id: string;
   fieldId: string;
+  oldValue?: unknown;
   newValue: unknown;
 }
 
@@ -113,15 +114,18 @@ export class ReferenceService {
 
   private async getUndirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
     let startFieldIds = recordData.map((data) => data.fieldId);
-    const linkedData = recordData.filter((data) => isLinkCellValue(data.newValue));
+    const linkedData = recordData.filter(
+      (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
+    );
     const linkFieldIds = linkedData.map((data) => data.fieldId);
     // we need add extra record id items for lookup effect dependency update when link field change
     // only need a single one id in one linkedData item
     const effectedRecordIds: string[] = linkedData.reduce<string[]>((pre, data) => {
-      if (Array.isArray(data.newValue)) {
-        pre.push((data.newValue[0] as ILinkCellValue).id);
+      const linkValues = data.newValue || data.oldValue;
+      if (Array.isArray(linkValues)) {
+        pre.push((linkValues[0] as ILinkCellValue).id);
       } else {
-        pre.push((data.newValue as ILinkCellValue).id);
+        pre.push((linkValues as ILinkCellValue).id);
       }
       return pre;
     }, []);
@@ -152,7 +156,12 @@ export class ReferenceService {
     };
   }
 
-  async calculate(prisma: Prisma.TransactionClient, tableId: string, recordData: IRecordData[]) {
+  async calculate(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordData: IRecordData[],
+    fkRecordMap: IFkRecordMapByDbTableName
+  ) {
     if (!recordData.length) {
       return [];
     }
@@ -171,8 +180,9 @@ export class ReferenceService {
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
+    // nameConsole('recordData', recordData, fieldMap);
+    // nameConsole('allFieldIds', allFieldIds, fieldMap);
     // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
-    // console.log('tableId2DbTableName:', tableId2DbTableName);
 
     // topological sorting
     const topoOrdersByFieldId = startFieldIds.reduce<{
@@ -214,8 +224,9 @@ export class ReferenceService {
       // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
       // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
       const items = await this.getAffectedRecordItems(prisma, originRecordIdItems, linkOrders);
+      // nameConsole('fieldId:', { fieldId }, fieldMap);
+      // nameConsole('affectedRecordItems:', items, fieldMap);
       affectedRecordItems = affectedRecordItems.concat(items);
-      // nameConsole('affectedRecordItems:', affectedRecordItems, fieldMap);
     }
     // console.log('affectedRecordItems', JSON.stringify(affectedRecordItems, null, 2));
 
@@ -229,7 +240,7 @@ export class ReferenceService {
       dependentRecordItems,
       dbTableName2fields,
     });
-    // console.log('dbTableName2records', JSON.stringify(dbTableName2records, null, 2));
+    // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
 
     const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
       const orderWithRecords = this.createTopoItemWithRecords({
@@ -242,8 +253,15 @@ export class ReferenceService {
         dependentRecordItems,
       });
       // console.log('collectChanges:', topoOrders, orderWithRecords, fieldId2TableId);
-
-      return pre.concat(this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId));
+      return pre.concat(
+        this.collectChanges(
+          orderWithRecords,
+          fieldMap,
+          fieldId2TableId,
+          tableId2DbTableName,
+          fkRecordMap
+        )
+      );
     }, []);
 
     return this.mergeDuplicateChange(changes);
@@ -272,12 +290,21 @@ export class ReferenceService {
     const { recordDataMapWithDelete, recordDataMapRemains } =
       this.splitOpsMapToRecordDataMap(opsMap);
 
-    // console.log('recordDataMapWithDelete', recordDataMapWithDelete);
-    // console.log('recordDataMapRemains', recordDataMapRemains);
-    const cellChangesBefore = await this.calculateRecordDataMap(prisma, recordDataMapWithDelete);
+    // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
+    // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
     // console.log('updateForeignKey:', JSON.stringify(fkRecordMap, null, 2));
+    const cellChangesBefore = await this.calculateRecordDataMap(
+      prisma,
+      recordDataMapWithDelete,
+      fkRecordMap
+    );
+    // console.log('cellChangesBefore', cellChangesBefore);
     await this.updateForeignKey(prisma, fkRecordMap);
-    const cellChangesAfter = await this.calculateRecordDataMap(prisma, recordDataMapRemains);
+    const cellChangesAfter = await this.calculateRecordDataMap(
+      prisma,
+      recordDataMapRemains,
+      fkRecordMap
+    );
     const changes = cellChangesBefore.concat(cellChangesAfter);
     return this.formatOpsByChanges(changes);
   }
@@ -300,6 +327,7 @@ export class ReferenceService {
               recordDataWithDeleteLink.push({
                 id: recordId,
                 fieldId: ctx.fieldId,
+                oldValue: ctx.oldValue,
                 newValue: null,
               });
             ctx.newValue &&
@@ -312,6 +340,7 @@ export class ReferenceService {
             recordDataRemains.push({
               id: recordId,
               fieldId: ctx.fieldId,
+              oldValue: ctx.oldValue,
               newValue: ctx.newValue,
             });
           }
@@ -329,12 +358,13 @@ export class ReferenceService {
 
   private async calculateRecordDataMap(
     prisma: Prisma.TransactionClient,
-    recordDataMap: IRecordDataMap
+    recordDataMap: IRecordDataMap,
+    fkRecordMap: IFkRecordMapByDbTableName
   ) {
     const cellChanges: ICellChange[] = [];
     for (const tableId in recordDataMap) {
-      const recordData = recordDataMap[tableId];
-      const change = await this.calculate(prisma, tableId, recordData);
+      const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
+      const change = await this.calculate(prisma, tableId, recordData, fkRecordMap);
       cellChanges.push(...change);
     }
     return cellChanges;
@@ -343,7 +373,10 @@ export class ReferenceService {
   private calculateComputeField(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
-    recordItem: IRecordItem
+    recordItem: IRecordItem,
+    fieldId2TableId: { [fieldId: string]: string },
+    tableId2DbTableName: { [tableId: string]: string },
+    fkRecordMap: IFkRecordMapByDbTableName
   ) {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.isLookup) {
@@ -359,10 +392,18 @@ export class ReferenceService {
       }
 
       const lookupField = fieldMap[lookupFieldId];
-      const lookupValues = this.calculateLookup(lookupField, recordItem.dependencies);
+      // nameConsole('calculateLookup:dependencies', recordItem.dependencies, fieldMap);
+      const lookupValues = this.calculateLookup(
+        field,
+        lookupField,
+        recordItem,
+        fieldId2TableId,
+        tableId2DbTableName,
+        fkRecordMap
+      );
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      // console.log('calculateLookup:lookupValues', lookupValues);
+      console.log('calculateLookup:lookupValues', lookupValues);
 
       if (field.isLookup) {
         return lookupValues;
@@ -393,17 +434,43 @@ export class ReferenceService {
   }
 
   /**
-   * lookup values should filter by it's link field,
+   * lookup values should filter by foreignKey === null
    * because fkField is delete after calculation.
    * checkout calculateOpsMap for detail logic.
    */
-  private calculateLookup(lookupField: IFieldInstance, dependencies: IRecord | IRecord[]) {
+  private calculateLookup(
+    field: IFieldInstance,
+    lookupField: IFieldInstance,
+    recordItem: IRecordItem,
+    fieldId2TableId: { [fieldId: string]: string },
+    tableId2DbTableName: { [tableId: string]: string },
+    fkRecordTableMap: IFkRecordMapByDbTableName
+  ) {
+    const fieldId = lookupField.id;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const dependencies = recordItem.dependencies!;
+
+    const fkFieldId = Array.isArray(dependencies) ? lookupField.id : field.id;
+    const tableId = fieldId2TableId[fkFieldId];
+    const dbTableName = tableId2DbTableName[tableId];
+    const fkRecordMap = fkRecordTableMap[dbTableName];
+    const fkFieldName = field.lookupOptions?.dbForeignKeyName || '';
+
     if (Array.isArray(dependencies)) {
-      const lookupValues = dependencies.map((depRecord) => depRecord.fields[lookupField.id]);
+      const lookupValues = dependencies
+        .filter(
+          (depRecord) =>
+            fkRecordMap?.[depRecord.id]?.[fkFieldName] === undefined ||
+            fkRecordMap?.[depRecord.id]?.[fkFieldName] === recordItem.record.id
+        )
+        .map((depRecord) => depRecord.fields[fieldId]);
       return lookupValues.length ? lookupValues.flat() : null;
     }
 
-    return dependencies.fields[lookupField.id] || null;
+    if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
+      return null;
+    }
+    return dependencies.fields[fieldId] || null;
   }
 
   private calculateRollup(
@@ -431,17 +498,20 @@ export class ReferenceService {
     );
 
     const plain = result.toPlain();
+    if (!record.fields[field.id]) {
+      return null;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return field.updateCellTitle(record.fields[field.id] as any, plain);
   }
 
   private async updateForeignKey(
     prisma: Prisma.TransactionClient,
-    fkRecordMapByTableId: IFkRecordMapByDbTableName
+    fkRecordMap: IFkRecordMapByDbTableName
   ) {
-    for (const dbTableName in fkRecordMapByTableId) {
-      for (const recordId in fkRecordMapByTableId[dbTableName]) {
-        const updateParam = fkRecordMapByTableId[dbTableName][recordId];
+    for (const dbTableName in fkRecordMap) {
+      for (const recordId in fkRecordMap[dbTableName]) {
+        const updateParam = fkRecordMap[dbTableName][recordId];
         const nativeSql = this.knex(dbTableName)
           .update(updateParam)
           .where('__id', recordId)
@@ -544,7 +614,9 @@ export class ReferenceService {
   private collectChanges(
     orders: ITopoItemWithRecords[],
     fieldMap: { [fieldId: string]: IFieldInstance },
-    fieldId2TableId: { [fieldId: string]: string }
+    fieldId2TableId: { [fieldId: string]: string },
+    tableId2DbTableName: { [tableId: string]: string },
+    fkRecordMap: IFkRecordMapByDbTableName
   ) {
     // detail changes
     const changes: ICellChange[] = [];
@@ -557,7 +629,14 @@ export class ReferenceService {
           return;
         }
         const record = recordItem.record;
-        const value = this.calculateComputeField(field, fieldMap, recordItem);
+        const value = this.calculateComputeField(
+          field,
+          fieldMap,
+          recordItem,
+          fieldId2TableId,
+          tableId2DbTableName,
+          fkRecordMap
+        );
         // console.log(`calculated: ${field.id}.${record.id}`, recordItem.record.fields, value);
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
@@ -706,8 +785,9 @@ export class ReferenceService {
     affectedRecordItems: IRecordRefItem[];
   }): IRecord {
     const { record, affectedRecordItems, foreignTableRecords } = params;
-
-    const linkRecordRef = affectedRecordItems.find((item) => item.id === record.id);
+    const linkRecordRef = affectedRecordItems
+      .filter((item) => item.relationTo)
+      .find((item) => item.id === record.id);
     if (!linkRecordRef) {
       throw new Error('Can not find link record ref');
     }
@@ -936,7 +1016,7 @@ export class ReferenceService {
    * E will be calculated twice
    * so we need to merge duplicate change to reduce update times
    */
-  mergeDuplicateChange(changes: ICellChange[]) {
+  private mergeDuplicateChange(changes: ICellChange[]) {
     const indexCache: { [key: string]: number } = {};
     const mergedChanges: ICellChange[] = [];
 
@@ -947,6 +1027,22 @@ export class ReferenceService {
       } else {
         indexCache[key] = mergedChanges.length;
         mergedChanges.push(change);
+      }
+    }
+    return mergedChanges;
+  }
+
+  private mergeDuplicateRecordData(recordData: IRecordData[]) {
+    const indexCache: { [key: string]: number } = {};
+    const mergedChanges: IRecordData[] = [];
+
+    for (const record of recordData) {
+      const key = `${record.id}#${record.fieldId}`;
+      if (indexCache[key] !== undefined) {
+        mergedChanges[indexCache[key]] = record;
+      } else {
+        indexCache[key] = mergedChanges.length;
+        mergedChanges.push(record);
       }
     }
     return mergedChanges;
