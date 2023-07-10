@@ -19,9 +19,8 @@ interface IFieldSelectProps {
 }
 
 function FieldSelect(props: IFieldSelectProps) {
-  const { onSelect } = props;
+  const { fieldId: value, onSelect } = props;
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(props.fieldId);
 
   const fields = useFields();
 
@@ -51,8 +50,6 @@ function FieldSelect(props: IFieldSelectProps) {
               <CommandItem
                 key={field.id}
                 onSelect={() => {
-                  // setValue(field.id === value ? '' : field.id);
-                  setValue(field.id);
                   onSelect(field.id);
                   setOpen(false);
                 }}

@@ -14,12 +14,10 @@ interface IFilerDatePickerProps {
 }
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
-  const { value: _value, onSelect } = props;
+  const { value: date, onSelect } = props;
   const [open, setOpen] = React.useState(false);
-  const [date, setDate] = React.useState<Date>();
 
   const selectHandler = (date: Date) => {
-    setDate(date);
     onSelect(date);
     setOpen(false);
   };

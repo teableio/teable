@@ -1,5 +1,5 @@
 import type { IFilterMetaOperator } from '@teable-group/core';
-import { FieldType, getValidFilterOperators } from '@teable-group/core';
+import { getValidFilterOperators } from '@teable-group/core';
 
 import { useFields } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -12,7 +12,7 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IOperator {
@@ -51,22 +51,22 @@ const defaultOperator: IOperator[] = [
   ...commonOperator,
 ];
 
-const FieldOperatorTypeMap = {
-  [FieldType.SingleLineText]: [...commonOperator],
-  [FieldType.Attachment]: [...defaultOperator],
-  [FieldType.MultipleSelect]: [...defaultOperator],
-  [FieldType.SingleSelect]: [...defaultOperator],
-  [FieldType.Date]: [
-    {
-      value: 'isRepeat',
-      label: 'isRepeat',
-    },
-    ...defaultOperator,
-  ],
-  [FieldType.Number]: [...defaultOperator],
-  [FieldType.Formula]: [...defaultOperator],
-  [FieldType.Link]: [...defaultOperator],
-};
+// const FieldOperatorTypeMap = {
+//   [FieldType.SingleLineText]: [...commonOperator],
+//   [FieldType.Attachment]: [...defaultOperator],
+//   [FieldType.MultipleSelect]: [...defaultOperator],
+//   [FieldType.SingleSelect]: [...defaultOperator],
+//   [FieldType.Date]: [
+//     {
+//       value: 'isRepeat',
+//       label: 'isRepeat',
+//     },
+//     ...defaultOperator,
+//   ],
+//   [FieldType.Number]: [...defaultOperator],
+//   [FieldType.Formula]: [...defaultOperator],
+//   [FieldType.Link]: [...defaultOperator],
+// };
 
 interface IOperatorSelectProps {
   value?: string;
@@ -87,14 +87,15 @@ function OperatorSelect(props: IOperatorSelectProps) {
   // }, [fieldId, fields]);
   const operators = useMemo(() => {
     const fieldCore = fields.find((field) => field.id === fieldId);
-    return (
-      getValidFilterOperators(fieldCore).map((operator) => ({
+    if (fieldCore) {
+      return getValidFilterOperators(fieldCore).map((operator) => ({
         label: operator,
         value: operator,
-      })) || defaultOperator
-    );
+      }));
+    }
+    return defaultOperator;
   }, [fieldId, fields]);
-  const initValue = useMemo(() => {
+  const value = useMemo(() => {
     const index = operators.findIndex((operator) => operator.value === props.value);
     if (index > -1) {
       return props.value;
@@ -102,7 +103,6 @@ function OperatorSelect(props: IOperatorSelectProps) {
       return operators[0].value;
     }
   }, [operators, props.value]);
-  const [value, setValue] = useState(initValue || props.value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -132,7 +132,6 @@ function OperatorSelect(props: IOperatorSelectProps) {
               <CommandItem
                 key={operator.value}
                 onSelect={() => {
-                  setValue(operator.value);
                   onSelect(operator.value);
                   setOpen(false);
                 }}
