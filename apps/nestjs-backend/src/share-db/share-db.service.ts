@@ -120,7 +120,7 @@ export class ShareDbService extends ShareDBClass {
     }
     // prepare transaction
     await this.transactionService.getTransaction(tsMeta);
-    console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
+    console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
