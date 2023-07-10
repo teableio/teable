@@ -1,5 +1,6 @@
-import { FieldType } from '@teable-group/core';
 import type { IFilterMetaOperator } from '@teable-group/core';
+import { FieldType, getValidFilterOperators } from '@teable-group/core';
+
 import { useFields } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -11,13 +12,24 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IOperator {
   value: IFilterMetaOperator;
   label: string;
 }
+
+const commonOperator: IOperator[] = [
+  {
+    value: 'isNotEmpty',
+    label: 'isNotEmpty',
+  },
+  {
+    value: 'isEmpty',
+    label: 'isEmpty',
+  },
+];
 
 const defaultOperator: IOperator[] = [
   {
@@ -33,17 +45,14 @@ const defaultOperator: IOperator[] = [
     label: 'is',
   },
   {
-    value: 'isNotEmpty',
-    label: 'isNotEmpty',
+    value: 'isNot',
+    label: 'is not',
   },
-  {
-    value: 'isEmpty',
-    label: 'isEmpty',
-  },
+  ...commonOperator,
 ];
 
 const FieldOperatorTypeMap = {
-  [FieldType.SingleLineText]: [...defaultOperator],
+  [FieldType.SingleLineText]: [...commonOperator],
   [FieldType.Attachment]: [...defaultOperator],
   [FieldType.MultipleSelect]: [...defaultOperator],
   [FieldType.SingleSelect]: [...defaultOperator],
@@ -69,12 +78,21 @@ function OperatorSelect(props: IOperatorSelectProps) {
   const { onSelect, fieldId } = props;
   const [open, setOpen] = useState(false);
   const fields = useFields();
-  const operators = useMemo<IOperator[]>(() => {
-    const fieldType = fields.find((field) => field.id === fieldId)?.type;
-    if (fieldType) {
-      return FieldOperatorTypeMap[fieldType] as IOperator[];
-    }
-    return defaultOperator;
+  // const operators = useMemo<IOperator[]>(() => {
+  //   const fieldType = fields.find((field) => field.id === fieldId)?.type;
+  //   if (fieldType) {
+  //     return FieldOperatorTypeMap[fieldType] as IOperator[];
+  //   }
+  //   return defaultOperator;
+  // }, [fieldId, fields]);
+  const operators = useMemo(() => {
+    const fieldCore = fields.find((field) => field.id === fieldId);
+    return (
+      getValidFilterOperators(fieldCore).map((operator) => ({
+        label: operator,
+        value: operator,
+      })) || defaultOperator
+    );
   }, [fieldId, fields]);
   const initValue = useMemo(() => {
     const index = operators.findIndex((operator) => operator.value === props.value);

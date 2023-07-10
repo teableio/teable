@@ -21,6 +21,7 @@ export const ToolBar: React.FC = () => {
 
   const filterHandler = useCallback(
     (filters: IFilter) => {
+      console.log('filters', filters);
       view?.setFilter(filters);
     },
     [view]
