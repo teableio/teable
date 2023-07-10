@@ -1,4 +1,4 @@
-import type { MultipleSelectFieldCore } from '@teable-group/core';
+import type { MultipleSelectFieldCore, Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
@@ -48,11 +48,12 @@ const MultipleSelect = (props: IMutipleSelect) => {
   };
 
   const getColorByName = (name: string) => {
+    const defaultColor = 'blueBright' as Colors;
     const index = choices.findIndex((choice) => choice.name === name);
     if (index > -1) {
       return choices[index].color;
     }
-    return 'blueBright';
+    return defaultColor;
   };
 
   return (

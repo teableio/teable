@@ -7,7 +7,6 @@ interface InputProps {
 
 const FilterInput = (props: InputProps) => {
   const { onChange, placeholder = 'Enter a value', value } = props;
-  // const [value, setValue] = useState(props.value);
 
   return (
     <Input
@@ -15,7 +14,6 @@ const FilterInput = (props: InputProps) => {
       value={value}
       onChange={(e) => {
         onChange(e.target.value);
-        // setValue(e.target.value);
       }}
       className="m-1 bg-white"
     />

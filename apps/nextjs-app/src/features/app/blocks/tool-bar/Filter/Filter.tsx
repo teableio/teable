@@ -42,7 +42,7 @@ function Filter(props: IFilterProps) {
       });
     };
     preOrder(filters.filterSet);
-    text = filterIds.size ? 'filtered by ' : '';
+    text = filterIds.size ? 'Filtered by ' : '';
     [...filterIds.values()].forEach((id, index) => {
       const name = fields.find((field) => field.id === id)?.name;
       if (name) {
