@@ -8,7 +8,7 @@ import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
@@ -25,6 +25,14 @@ export const ToolBar: React.FC = () => {
     },
     [view]
   );
+
+  const initFilters = useMemo(() => {
+    const defaultFilters: IFilter = {
+      conjunction: 'and',
+      filterSet: [],
+    };
+    return view?.filter || defaultFilters;
+  }, [view]);
 
   const undo = useCallback(() => {
     const undo = undoManager?.undo();
@@ -55,7 +63,7 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      {view?.filter && <Filter filters={view?.filter} onChange={filterHandler} />}
+      {<Filter filters={initFilters} onChange={filterHandler} />}
       {/* <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <FilterIcon className="text-lg pr-1" />
         Filter

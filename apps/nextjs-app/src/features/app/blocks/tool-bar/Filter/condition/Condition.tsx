@@ -1,4 +1,4 @@
-import type { IAllFieldOperators } from '@teable-group/core';
+import type { IFilterMetaOperator } from '@teable-group/core';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep } from 'lodash';
@@ -31,7 +31,7 @@ function Condition(props: IConditionProps) {
     setFilters(newFilters);
   };
 
-  const updateOperator = (value: IAllFieldOperators[number]) => {
+  const updateOperator = (value: IFilterMetaOperator) => {
     filter.operator = value;
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
@@ -57,7 +57,7 @@ function Condition(props: IConditionProps) {
         <OperatorSelect
           value={filter.operator}
           onSelect={updateOperator}
-          fieldId={filter.fieldId as string}
+          fieldId={filter.fieldId}
         />
 
         <FieldValue filter={filter} onSelect={updateFieldValue}></FieldValue>

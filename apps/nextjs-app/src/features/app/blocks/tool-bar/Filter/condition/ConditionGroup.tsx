@@ -96,13 +96,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           <div>
             {filter?.filterSet?.map((item, index) =>
               isFilterMeta(item) ? (
-                <Condition
-                  key={index}
-                  index={index}
-                  filter={item}
-                  parent={filter}
-                  level={level + 1}
-                />
+                <Condition key={index} index={index} filter={item} parent={filter} />
               ) : (
                 <ConditionGroup
                   key={index}

@@ -3,7 +3,7 @@ import React from 'react';
 import type { IFilterProps } from './types/types';
 
 export interface IFilterContext {
-  filters: IFilterProps['filters'];
+  filters: IFilter;
   onChange: IFilterProps['onChange'];
   setFilters: (filter: IFilter) => void;
   addCondition: (filter: IFilter) => void;

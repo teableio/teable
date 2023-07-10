@@ -18,7 +18,7 @@ const emptyText = 'No filter conditions are applied';
 
 function Filter(props: IFilterProps) {
   const { onChange } = props;
-  const [filters, setFilters] = useState(() => props.filters);
+  const [filters, setFilters] = useState(props.filters || {});
   useEffect(() => {
     setFilters(props.filters);
   }, [props.filters]);
@@ -104,13 +104,7 @@ function Filter(props: IFilterProps) {
       <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterMeta(filterItem) ? (
-            <Condition
-              key={filterItem.fieldId}
-              filter={filterItem}
-              index={index}
-              parent={filters}
-              level={0}
-            />
+            <Condition key={index} filter={filterItem} index={index} parent={filters} />
           ) : (
             <ConditionGroup
               key={index}

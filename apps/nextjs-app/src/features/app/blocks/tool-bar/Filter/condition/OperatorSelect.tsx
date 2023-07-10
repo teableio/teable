@@ -1,5 +1,5 @@
 import { FieldType } from '@teable-group/core';
-import type { IAllFieldOperators } from '@teable-group/core';
+import type { IFilterMetaOperator } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -15,14 +15,18 @@ import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IOperator {
-  value: IAllFieldOperators[number];
-  label: IAllFieldOperators[number];
+  value: IFilterMetaOperator;
+  label: string;
 }
 
 const defaultOperator: IOperator[] = [
   {
     value: 'contains',
     label: 'contains',
+  },
+  {
+    value: 'doesNotContain',
+    label: 'does not contain',
   },
   {
     value: 'is',
@@ -58,7 +62,7 @@ const FieldOperatorTypeMap = {
 interface IOperatorSelectProps {
   value?: string;
   fieldId: string;
-  onSelect: (val: IAllFieldOperators[number]) => void;
+  onSelect: (val: IFilterMetaOperator) => void;
 }
 
 function OperatorSelect(props: IOperatorSelectProps) {

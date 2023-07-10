@@ -9,7 +9,7 @@ import type { SelectSingleEventHandler } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 
 interface IFilerDatePickerProps {
-  value?: Date;
+  value?: number;
   onSelect: (date: Date) => void;
 }
 

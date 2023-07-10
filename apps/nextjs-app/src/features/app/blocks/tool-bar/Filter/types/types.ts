@@ -38,7 +38,6 @@ interface IConditionProps {
   index: number;
   filter: IFilterMeta;
   parent: IFilter;
-  level: number;
 }
 
 interface IConditionGroupProps {
