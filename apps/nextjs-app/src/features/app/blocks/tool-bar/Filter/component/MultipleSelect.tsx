@@ -1,4 +1,4 @@
-import type { MultipleSelectFieldCore, Colors } from '@teable-group/core';
+import type { MultipleSelectFieldCore } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
@@ -17,14 +17,9 @@ import { ChevronsUpDown } from 'lucide-react';
 
 import { useMemo, useState } from 'react';
 
-interface IMultipleOption {
-  name: string;
-  color: Colors;
-}
-
 interface IMutipleSelect {
-  onSelect?: (names: IMultipleOption[]) => void;
-  value: IMultipleOption[];
+  onSelect?: (names: string[]) => void;
+  value: string[];
   fieldId?: string;
 }
 
@@ -40,24 +35,24 @@ const MultipleSelect = (props: IMutipleSelect) => {
     return curColumn?.options?.choices;
   }, [fieldId, fields]);
 
-  const selectHandler = (name: string, color: Colors) => {
+  const selectHandler = (name: string) => {
     let newCellValue = null;
-    const existIndex = values.findIndex((item) => item.name === name);
+    const existIndex = values.findIndex((item) => item === name);
     if (existIndex > -1) {
       newCellValue = values.slice();
       newCellValue.splice(existIndex, 1);
     } else {
-      newCellValue = [
-        ...values,
-        {
-          name: name,
-          color: color,
-        },
-      ];
+      newCellValue = [...values, name];
     }
     onSelect?.(newCellValue);
-    // if (field.type === FieldType.MultipleSelect) {
-    // }
+  };
+
+  const getColorByName = (name: string) => {
+    const index = choices.findIndex((choice) => choice.name === name);
+    if (index > -1) {
+      return choices[index].color;
+    }
+    return 'blueBright';
   };
 
   return (
@@ -76,13 +71,13 @@ const MultipleSelect = (props: IMutipleSelect) => {
                     key={index}
                     className={classNames('px-2 rounded-lg m-1')}
                     style={{
-                      backgroundColor: ColorUtils.getHexForColor(item.color),
-                      color: ColorUtils.shouldUseLightTextOnColor(item.color)
+                      backgroundColor: ColorUtils.getHexForColor(getColorByName(item)),
+                      color: ColorUtils.shouldUseLightTextOnColor(getColorByName(item))
                         ? '#ffffff'
                         : '#000000',
                     }}
                   >
-                    {item.name}
+                    {item}
                   </div>
                 ))
               : 'Select'}
@@ -98,13 +93,11 @@ const MultipleSelect = (props: IMutipleSelect) => {
             <CommandGroup aria-valuetext="name">
               {choices.length ? (
                 choices.map(({ color, name }) => (
-                  <CommandItem key={name} value={name} onSelect={() => selectHandler(name, color)}>
+                  <CommandItem key={name} value={name} onSelect={() => selectHandler(name)}>
                     <SelectIcon
                       className={classNames(
                         'mr-2 h-4 w-4',
-                        values?.map((item) => item.name)?.includes(name)
-                          ? 'opacity-100'
-                          : 'opacity-0'
+                        values?.map((name) => name)?.includes(name) ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                     <div

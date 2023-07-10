@@ -21,9 +21,8 @@ interface ISingleSelector {
 }
 
 function SingleSelector(props: ISingleSelector) {
-  const { onSelect, fieldId } = props;
+  const { onSelect, fieldId, value } = props;
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(props.value);
 
   const fields = useFields();
 
@@ -58,7 +57,6 @@ function SingleSelector(props: ISingleSelector) {
               <CommandItem
                 key={option.color}
                 onSelect={() => {
-                  setValue(option.name === value ? '' : option.name);
                   onSelect(option.name);
                   setOpen(false);
                 }}

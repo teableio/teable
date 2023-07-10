@@ -69,9 +69,8 @@ function Filter(props: IFilterProps) {
   const addCondition = useCallback(
     (curFilter: IFilterSet) => {
       const filterItem: IFilterMeta = {
-        // id: generateViewId(),
         operator: 'is',
-        value: '',
+        value: null,
         fieldId: defaultFieldId as string,
       };
       curFilter.filterSet.push(filterItem);
@@ -83,8 +82,6 @@ function Filter(props: IFilterProps) {
   const addConditionGroup = useCallback(
     (curFilter: IFilterSet) => {
       curFilter.filterSet.push({
-        // id: generateViewId(),
-        // type: 'Nested',
         filterSet: [],
         conjunction: 'and',
       });
