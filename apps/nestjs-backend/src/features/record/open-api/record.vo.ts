@@ -1,59 +1,5 @@
-import { ApiHideProperty, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IRecordFields } from '@teable-group/core';
-import type { IRecord, IRecordsVo, IRecordVo } from '@teable-group/core';
-
-export class Record implements IRecord {
-  @ApiProperty({
-    description: 'The record id.',
-  })
-  id!: string;
-
-  @ApiProperty({
-    description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
-    type: Object,
-  })
-  fields!: IRecordFields;
-
-  @ApiPropertyOptional({
-    description: 'Created time, date ISO string (new Date().toISOString).',
-  })
-  createdTime?: string;
-
-  @ApiPropertyOptional({
-    description: 'Last modified time, date ISO string (new Date().toISOString).',
-  })
-  lastModifiedTime?: string;
-
-  @ApiPropertyOptional({
-    description: 'Created by, user name',
-  })
-  createdBy?: string;
-
-  @ApiPropertyOptional({
-    description: 'Last modified by, user name',
-  })
-  lastModifiedBy?: string;
-
-  @ApiHideProperty()
-  recordOrder!: { [viewId: string]: number };
-}
-
-export class RecordVo implements IRecordVo {
-  @ApiProperty({
-    description:
-      'Array of objects with a fields key mapping fieldId or field name to value for that field.',
-    example: [
-      {
-        id: 'recXXXXXXX',
-        fields: {
-          fldXXXXXXXXXXXXXXX: 'text value',
-        },
-      },
-    ],
-    type: Record,
-  })
-  record!: Record;
-}
+import { ApiProperty } from '@nestjs/swagger';
+import type { IRecordsVo, IRecord } from '@teable-group/core';
 
 export class CreateRecordsVo implements Omit<IRecordsVo, 'total'> {
   @ApiProperty({
@@ -68,9 +14,8 @@ export class CreateRecordsVo implements Omit<IRecordsVo, 'total'> {
       },
     ],
     isArray: true,
-    type: Record,
   })
-  records!: Record[];
+  records!: IRecord[];
 }
 
 export class RecordsVo extends CreateRecordsVo implements IRecordsVo {
