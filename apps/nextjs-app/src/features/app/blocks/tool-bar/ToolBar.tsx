@@ -1,19 +1,30 @@
-import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
+import type { IFilter } from '@teable-group/core';
+import { useTable, useUndoManager, useViewId, useViews } from '@teable-group/sdk/hooks';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
-import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useCallback } from 'react';
+import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
   const table = useTable();
+  const views = useViews();
+  const viewId = useViewId();
+  const view = views.find((view) => view.id === viewId);
+
+  const filterHandler = useCallback(
+    (filters: IFilter) => {
+      view?.setFilter(filters);
+    },
+    [view]
+  );
 
   const undo = useCallback(() => {
     const undo = undoManager?.undo();
@@ -44,10 +55,11 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
+      {view?.filter && <Filter filters={view?.filter} onChange={filterHandler} />}
+      {/* <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <FilterIcon className="text-lg pr-1" />
         Filter
-      </Button>
+      </Button> */}
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort

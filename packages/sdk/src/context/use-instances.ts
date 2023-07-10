@@ -74,7 +74,7 @@ export function useInstances<T, R extends { id: string }>({
 
     query.on('ready', () => {
       console.log(`${collection}:ready:`, query.results);
-      setInstances(query.results.map((r) => factory(r.data, r)));
+      setInstances(query?.results?.map((r) => factory(r.data, r)));
       query.results.forEach((doc) => {
         const opListener = createOpListener(doc, (op) => {
           console.log(`${collection} on op:`, op);
