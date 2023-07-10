@@ -1,5 +1,5 @@
 export * from './SingleSelector';
-export * from './MultipleSelector';
+export * from './MultipleSelect';
 export * from './FilterInput';
 export * from './FilterDatePicker';
-export * from './FilterUserSelector';
+export * from './FilterUserSelect';

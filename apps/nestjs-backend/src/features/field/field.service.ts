@@ -427,7 +427,7 @@ export class FieldService implements IAdapterService {
     const handler = opHandlers[opContext.name];
 
     if (!handler) {
-      throw new Error(`Unknown context ${opContext} for field update`);
+      throw new Error(`Unknown context ${opContext.name} for field update`);
     }
 
     return handler.constructor.name === 'AsyncFunction' ? await handler(params) : handler(params);

@@ -1,5 +1,6 @@
 import type { IFilter } from '@teable-group/core';
-import { useTable, useUndoManager, useViewId, useViews } from '@teable-group/sdk/hooks';
+import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
+import { useView } from '@teable-group/sdk/hooks/use-view';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
@@ -15,13 +16,10 @@ import { FilterColumnsButton } from './FilterColumnsButton';
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
   const table = useTable();
-  const views = useViews();
-  const viewId = useViewId();
-  const view = views.find((view) => view.id === viewId);
+  const view = useView();
 
   const filterHandler = useCallback(
     (filters: IFilter) => {
-      console.log('filters', filters);
       view?.setFilter(filters);
     },
     [view]
@@ -65,10 +63,6 @@ export const ToolBar: React.FC = () => {
       </Button>
       <FilterColumnsButton />
       {<Filter filters={initFilters} onChange={filterHandler} />}
-      {/* <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <FilterIcon className="text-lg pr-1" />
-        Filter
-      </Button> */}
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort
