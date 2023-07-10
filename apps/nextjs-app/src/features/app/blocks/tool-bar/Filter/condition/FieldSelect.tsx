@@ -14,14 +14,14 @@ import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IFieldSelectProps {
-  columnId?: string;
+  fieldId?: string;
   onSelect: (type: string) => void;
 }
 
 function FieldSelect(props: IFieldSelectProps) {
   const { onSelect } = props;
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(props.columnId);
+  const [value, setValue] = useState(props.fieldId);
 
   const fields = useFields();
 

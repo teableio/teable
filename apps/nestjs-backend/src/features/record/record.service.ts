@@ -1,5 +1,12 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
+  FieldCore,
   IAggregateQueryResult,
   IAttachmentItem,
   IAttachmentCellValue,
@@ -9,8 +16,17 @@ import type {
   ISetRecordOrderOpContext,
   ISnapshotBase,
 } from '@teable-group/core';
-import { FieldType, FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
+import {
+  FieldKeyType,
+  FieldType,
+  generateRecordId,
+  identify,
+  IdPrefix,
+  mergeWithDefaultFilter,
+  OpName,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Knex } from 'knex';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../../../src/utils/view-order-field-name';
@@ -24,11 +40,13 @@ import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
 import type { RecordsVo, RecordVo } from './open-api/record.vo';
 import type { RecordsRo } from './open-api/records.ro';
+import { FilterQueryTranslator } from './translator/filter-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
 @Injectable()
 export class RecordService implements IAdapterService {
+  private logger = new Logger(RecordService.name);
   private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
@@ -77,21 +95,20 @@ export class RecordService implements IAdapterService {
     });
 
     if (userFields.length !== userFieldIds.length) {
-      throw new HttpException('some fields not found', 400);
+      throw new BadRequestException('some fields not found');
     }
 
     return userFields;
   }
 
   async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
-    const sqlNative = this.knex(dbTableName).max('__auto_number').toSQL().toNative();
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const queryResult = await prisma.$queryRawUnsafe<[{ 'max(`__auto_number`)': null | bigint }]>(
+    const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
+
+    const queryResult = await prisma.$queryRawUnsafe<{ count: number }[]>(
       sqlNative.sql,
       ...sqlNative.bindings
     );
-
-    return Number(queryResult[0]['max(`__auto_number`)']);
+    return Number(queryResult[0].count ?? 0);
   }
 
   async getDbValueMatrix(
@@ -195,21 +212,38 @@ export class RecordService implements IAdapterService {
   async buildQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    query: IRecordSnapshotQuery & { idOnly?: boolean; viewId: string }
+    query: IRecordSnapshotQuery & {
+      idOnly?: boolean;
+      viewId: string;
+    }
   ) {
-    const { viewId, where = {}, orderBy = [], offset = 0, limit = 10, idOnly } = query;
+    const { viewId, orderBy = [], offset = 0, limit = 10, idOnly, filter } = query;
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
-    return this.knex(dbTableName)
-      .where(where)
-      .select(idOnly ? '__id' : '*')
+
+    const queryBuilder = this.knex(dbTableName).select(idOnly ? '__id' : '*');
+
+    let fieldMap;
+    if (filter) {
+      // The field Meta is needed to construct the filter if it exists
+      const fields = await this.getFieldsByProjection(prisma, tableId);
+      fieldMap = fields.reduce((map, field) => {
+        map[field.id] = field;
+        map[field.name] = field;
+        return map;
+      }, {} as Record<string, FieldCore>);
+    }
+
+    // All `where` condition-related construction work
+    const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
+    filterQueryTranslator
+      .translateToSql()
       .orderBy(orderBy)
       .orderBy(orderFieldName, 'asc')
       .offset(offset)
-      .limit(limit)
-      .toSQL()
-      .toNative();
+      .limit(limit);
+    return { queryBuilder };
   }
 
   async setRecordOrder(
@@ -301,26 +335,45 @@ export class RecordService implements IAdapterService {
     }, []);
   }
 
-  async getRowCount(prisma: Prisma.TransactionClient, tableId: string, _viewId: string) {
+  async getRowCount(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    _viewId: string,
+    filterQueryBuilder?: Knex.QueryBuilder
+  ): Promise<number> {
+    if (filterQueryBuilder) {
+      filterQueryBuilder.clearSelect().clearCounters().clearGroup().clearHaving().clearOrder();
+      const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
+
+      const result = await prisma.$queryRawUnsafe<{ count: number }[]>(
+        sqlNative.sql,
+        ...sqlNative.bindings
+      );
+      return Number(result[0].count ?? 0);
+    }
+
     const dbTableName = await this.getDbTableName(prisma, tableId);
     return await this.getAllRecordCount(prisma, dbTableName);
   }
 
   async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const defaultView = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-      viewId = defaultView.id;
-    }
+    const defaultView = await this.prismaService.view.findFirstOrThrow({
+      select: { id: true, filter: true },
+      where: {
+        tableId,
+        ...(query.viewId ? { id: query.viewId } : {}),
+        deletedTime: null,
+      },
+      orderBy: { order: 'asc' },
+    });
+    const viewId = defaultView.id;
 
     const queryResult = await this.getDocIdsByQuery(this.prismaService, tableId, {
       type: IdPrefix.Record,
       viewId,
       offset: query.skip,
       limit: query.take,
+      filter: query.filter,
       aggregate: {
         rowCount: true,
       },
@@ -337,7 +390,7 @@ export class RecordService implements IAdapterService {
     const total = queryResult.extra?.rowCount;
 
     if (total == undefined) {
-      throw new HttpException('Can not get row count', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException('Can not get row count');
     }
 
     return {
@@ -360,7 +413,7 @@ export class RecordService implements IAdapterService {
     );
 
     if (!recordSnapshot.length) {
-      throw new HttpException('Can not get record', HttpStatus.NOT_FOUND);
+      throw new NotFoundException('Can not get record');
     }
 
     return recordSnapshot[0].data;
@@ -475,30 +528,22 @@ export class RecordService implements IAdapterService {
     projection?: { [fieldKey: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
-    const whereParams: { name?: { in: string[] }; id?: { in: string[] } } = {};
+    const whereParams: Prisma.FieldWhereInput = {};
     if (projection) {
       const projectionFieldKeys = Object.entries(projection)
         .filter(([, v]) => v)
         .map(([k]) => k);
       if (projectionFieldKeys.length) {
-        fieldKeyType === FieldKeyType.Id
-          ? (whereParams.id = { in: projectionFieldKeys })
-          : (whereParams.name = { in: projectionFieldKeys });
+        const key = fieldKeyType === FieldKeyType.Id ? 'id' : 'name';
+        whereParams[key] = { in: projectionFieldKeys };
       }
     }
 
-    const fieldIds = (
-      await prisma.field.findMany({
-        where: { tableId, deletedTime: null, ...whereParams },
-        select: { id: true },
-      })
-    ).map((f) => f.id);
-
-    const fieldRaws = await prisma.field.findMany({
-      where: { id: { in: fieldIds }, deletedTime: null },
+    const fields = await prisma.field.findMany({
+      where: { tableId, ...whereParams, deletedTime: null },
     });
 
-    return fieldRaws.map((field) => createFieldInstanceByRaw(field));
+    return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
   async getSnapshotBulk(
@@ -590,30 +635,32 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: IRecordSnapshotQuery
   ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-      viewId = view.id;
-    }
+    const defaultView = await prisma.view.findFirstOrThrow({
+      select: { id: true, filter: true },
+      where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
+      orderBy: { order: 'asc' },
+    });
+    const viewId = defaultView.id;
+    const dataFilter = await mergeWithDefaultFilter(defaultView.filter, query.filter);
 
     const { limit = 100 } = query;
-    const idPrefix = tableId.slice(0, 3);
-    if (idPrefix !== IdPrefix.Table) {
-      throw new Error('query collection must be table id');
+    if (identify(tableId) !== IdPrefix.Table) {
+      throw new InternalServerErrorException('query collection must be table id');
     }
 
     if (limit > 1000) {
-      throw new Error("limit can't be greater than 1000");
+      throw new InternalServerErrorException("limit can't be greater than 1000");
     }
 
-    const sqlNative = await this.buildQuery(prisma, tableId, {
+    // If you return `queryBuilder` directly and use `await` to receive it,
+    // it will perform a query DB operation, which we obviously don't want to see here
+    const { queryBuilder } = await this.buildQuery(prisma, tableId, {
       ...query,
+      filter: dataFilter,
       viewId,
       idOnly: true,
     });
+    const sqlNative = queryBuilder.toSQL().toNative();
 
     const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
       sqlNative.sql,
@@ -622,7 +669,7 @@ export class RecordService implements IAdapterService {
     const ids = result.map((r) => r.__id);
 
     if (query.aggregate?.rowCount) {
-      const rowCount = await this.getRowCount(prisma, tableId, viewId);
+      const rowCount = await this.getRowCount(prisma, tableId, viewId, queryBuilder);
       return { ids, extra: { rowCount } };
     }
 

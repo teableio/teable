@@ -1,5 +1,6 @@
 import type { ViewType } from './constant';
-import type { IFilter, ISort, IViewVo } from './interface';
+import type { IFilter } from './filter';
+import type { ISort, IViewVo } from './interface';
 
 export abstract class ViewCore implements IViewVo {
   id!: string;

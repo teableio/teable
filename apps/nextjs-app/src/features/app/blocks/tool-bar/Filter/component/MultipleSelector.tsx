@@ -16,16 +16,16 @@ import { useMemo } from 'react';
 interface IMutipleSelector {
   onSelect?: (names: string[]) => void;
   value: unknown;
-  columnId?: string;
+  fieldId?: string;
 }
 
 const MultipleSelector = (props: IMutipleSelector) => {
   const fields = useFields();
-  const { columnId, value } = props;
+  const { fieldId, value } = props;
   const choices = useMemo(() => {
-    const curColumn = fields.find((item) => item.id === columnId) as MultipleSelectFieldCore;
+    const curColumn = fields.find((item) => item.id === fieldId) as MultipleSelectFieldCore;
     return curColumn?.options?.choices;
-  }, [columnId, fields]);
+  }, [fieldId, fields]);
 
   const onSelect = () => {
     // let newCellValue = null;

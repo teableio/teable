@@ -73,11 +73,11 @@ export function useInstances<T, R extends { id: string }>({
     };
 
     query.on('ready', () => {
-      console.log(`${collection}:ready:`, query.results);
-      setInstances(query.results.map((r) => factory(r.data, r)));
+      console.log(`${ collection }:ready:`, query.results);
+      setInstances(query?.results?.map((r) => factory(r.data, r)));
       query.results.forEach((doc) => {
         const opListener = createOpListener(doc, (op) => {
-          console.log(`${collection} on op:`, op);
+          console.log(`${ collection } on op:`, op);
           updateInstance(doc);
         });
         opListeners.set(doc.id, opListener);
@@ -85,16 +85,16 @@ export function useInstances<T, R extends { id: string }>({
     });
 
     query.on('changed', (docs) => {
-      console.log(`${collection}:changed:`, docs);
+      console.log(`${ collection }:changed:`, docs);
     });
 
     query.on('insert', (docs, index) => {
-      console.log(`${collection}:insert:`, docs, index);
+      console.log(`${ collection }:insert:`, docs, index);
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
           const opListener = createOpListener(doc, (op: [unknown]) => {
-            console.log(`${collection} on op:`, op);
+            console.log(`${ collection } on op:`, op);
             updateInstance(doc);
           });
           opListeners.set(doc.id, opListener);
@@ -106,7 +106,7 @@ export function useInstances<T, R extends { id: string }>({
     });
 
     query.on('remove', (docs, index) => {
-      console.log(`${collection}:remove:`, docs, index);
+      console.log(`${ collection }:remove:`, docs, index);
       setInstances((instances) => {
         const newInstances = [...instances];
         docs.forEach((doc) => {
@@ -119,7 +119,7 @@ export function useInstances<T, R extends { id: string }>({
     });
 
     query.on('move', (docs, from, to) => {
-      console.log(`${collection}:move:`, docs, from, to);
+      console.log(`${ collection }:move:`, docs, from, to);
       setInstances((instances) => {
         return query.results.map((doc) => {
           const instance = instances.find((item) => item.id === doc.id);

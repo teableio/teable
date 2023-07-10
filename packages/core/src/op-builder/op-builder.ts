@@ -16,6 +16,7 @@ import { AddTableBuilder } from './table/add-table';
 import { SetTableNameBuilder } from './table/set-table-name';
 import { SetTableOrderBuilder } from './table/set-table-order';
 import { AddViewBuilder } from './view/add-view';
+import { SetViewFilterBuilder } from './view/set-view-filter';
 import { SetViewNameBuilder } from './view/set-view-name';
 
 export type { ISetRecordOrderOpContext } from './record/set-record-order';
@@ -25,6 +26,7 @@ export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 export type { IAddColumnMetaOpContext } from './field/add-column-meta';
 export type { ISetFieldNameOpContext } from './field/set-field-name';
 export type { ISetViewNameOpContext } from './view/set-view-name';
+export type { ISetViewFilterOpContext } from './view/set-view-filter';
 export type { ISetTableNameOpContext } from './table/set-table-name';
 export type { ISetTableOrderOpContext } from './table/set-table-order';
 
@@ -45,6 +47,7 @@ export class OpBuilder {
     setFieldType: new SetFieldTypeBuilder(),
 
     setViewName: new SetViewNameBuilder(),
+    setViewFilter: new SetViewFilterBuilder(),
 
     setTableName: new SetTableNameBuilder(),
     setTableOrder: new SetTableOrderBuilder(),

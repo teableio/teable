@@ -17,8 +17,8 @@ import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 import { cn } from '@/lib/utils';
 import { FilterContext } from '../context';
-import { isFilterGroupItem } from '../types';
-import type { IConditionGroupProps, IFilterItem } from '../types';
+import { isFilterMeta } from '../types';
+import type { IConditionGroupProps } from '../types';
 import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
 
@@ -95,19 +95,19 @@ function ConditionGroup(props: IConditionGroupProps) {
 
           <div>
             {filter?.filterSet?.map((item, index) =>
-              isFilterGroupItem(item) && item.type === 'Nested' ? (
-                <ConditionGroup
-                  key={item.id}
+              isFilterMeta(item) ? (
+                <Condition
+                  key={index}
                   index={index}
                   filter={item}
                   parent={filter}
                   level={level + 1}
                 />
               ) : (
-                <Condition
-                  key={item.id}
+                <ConditionGroup
+                  key={index}
                   index={index}
-                  filter={item as IFilterItem}
+                  filter={item}
                   parent={filter}
                   level={level + 1}
                 />

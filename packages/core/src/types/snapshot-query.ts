@@ -15,8 +15,7 @@ export interface IAggregateQuery {
 export interface IRecordSnapshotQuery {
   viewId?: string;
   type: IdPrefix.Record;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  where?: { [column: string]: string | number | boolean | null };
+  filter?: IFilter;
   orderBy?: {
     column: string; // db column name for queryBuilder
     order?: 'asc' | 'desc';
@@ -25,7 +24,6 @@ export interface IRecordSnapshotQuery {
   aggregate?: IAggregateQuery;
   offset?: number;
   limit?: number;
-  filters?: IFilter;
 }
 
 export interface IAggregateQueryResult {

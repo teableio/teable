@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem, IFilterGroupItem } from '@teable-group/core';
+import type { IFilter, IFilterMeta, IFilterSet } from '@teable-group/core';
 
 // enum OperatorType {
 //   // common
@@ -36,23 +36,16 @@ interface IFilterProps {
 
 interface IConditionProps {
   index: number;
-  filter: IFilterItem;
+  filter: IFilterMeta;
   parent: IFilter;
   level: number;
 }
 
 interface IConditionGroupProps {
   index: number;
-  filter: IFilterGroupItem;
+  filter: IFilterSet;
   parent: IFilter;
   level: number;
 }
 
-export type {
-  IFilterProps,
-  IFilterItem,
-  IFilterGroupItem,
-  IConditionProps,
-  IConditionGroupProps,
-  IFilter,
-};
+export type { IFilterProps, IConditionProps, IConditionGroupProps, IFilter };

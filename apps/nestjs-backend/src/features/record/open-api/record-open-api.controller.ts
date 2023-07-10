@@ -15,6 +15,7 @@ import { RecordService } from '../record.service';
 import { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import { UpdateRecordRo } from '../update-record.ro';
 import { RecordOpenApiService } from './record-open-api.service';
+import { RecordPipe } from './record.pipe';
 import type { CreateRecordsVo, RecordsVo, RecordVo } from './record.vo';
 import { RecordsRo } from './records.ro';
 
@@ -34,7 +35,7 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query() query: RecordsRo
+    @Query(RecordPipe) query: RecordsRo
   ): Promise<ApiResponse<RecordsVo>> {
     const records = await this.recordService.getRecords(tableId, query);
     return responseWrap(records);

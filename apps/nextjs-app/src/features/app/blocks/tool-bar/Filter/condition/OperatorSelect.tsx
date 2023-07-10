@@ -1,4 +1,5 @@
-import { FieldType, FOperator } from '@teable-group/core';
+import { FieldType } from '@teable-group/core';
+import type { IAllFieldOperators } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -13,22 +14,27 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
-const defaultOperator = [
+interface IOperator {
+  value: IAllFieldOperators[number];
+  label: IAllFieldOperators[number];
+}
+
+const defaultOperator: IOperator[] = [
   {
-    value: FOperator.Contains,
-    label: FOperator.Contains,
+    value: 'contains',
+    label: 'contains',
   },
   {
-    value: FOperator.Is,
-    label: FOperator.Is,
+    value: 'is',
+    label: 'is',
   },
   {
-    value: FOperator.IsNotEmpty,
-    label: FOperator.IsNotEmpty,
+    value: 'isNotEmpty',
+    label: 'isNotEmpty',
   },
   {
-    value: FOperator.IsEmpty,
-    label: FOperator.IsEmpty,
+    value: 'isEmpty',
+    label: 'isEmpty',
   },
 ];
 
@@ -39,8 +45,8 @@ const FieldOperatorTypeMap = {
   [FieldType.SingleSelect]: [...defaultOperator],
   [FieldType.Date]: [
     {
-      value: FOperator.IsRepeat,
-      label: FOperator.IsRepeat,
+      value: 'isRepeat',
+      label: 'isRepeat',
     },
     ...defaultOperator,
   ],
@@ -51,21 +57,21 @@ const FieldOperatorTypeMap = {
 
 interface IOperatorSelectProps {
   value?: string;
-  columnId: string;
-  onSelect: (val: FOperator) => void;
+  fieldId: string;
+  onSelect: (val: IAllFieldOperators[number]) => void;
 }
 
 function OperatorSelect(props: IOperatorSelectProps) {
-  const { onSelect, columnId } = props;
+  const { onSelect, fieldId } = props;
   const [open, setOpen] = useState(false);
   const fields = useFields();
-  const operators = useMemo(() => {
-    const fieldType = fields.find((field) => field.id === columnId)?.type;
+  const operators = useMemo<IOperator[]>(() => {
+    const fieldType = fields.find((field) => field.id === fieldId)?.type;
     if (fieldType) {
-      return FieldOperatorTypeMap[fieldType];
+      return FieldOperatorTypeMap[fieldType] as IOperator[];
     }
     return defaultOperator;
-  }, [columnId, fields]);
+  }, [fieldId, fields]);
   const initValue = useMemo(() => {
     const index = operators.findIndex((operator) => operator.value === props.value);
     if (index > -1) {

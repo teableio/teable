@@ -1,4 +1,3 @@
-import { FilterConjunction } from '@teable-group/core';
 import type { IFilter } from '@teable-group/core';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -14,12 +13,12 @@ import { cn } from '@/lib/utils';
 
 const ConjunctionOptions = [
   {
-    value: FilterConjunction.And,
-    label: FilterConjunction.And,
+    value: 'and',
+    label: 'and',
   },
   {
-    value: FilterConjunction.Or,
-    label: FilterConjunction.Or,
+    value: 'or',
+    label: 'or',
   },
 ];
 

@@ -1,27 +1,28 @@
-import { generateViewId, FilterConjunction, FOperator } from '@teable-group/core';
-import type { IFilter } from '@teable-group/core';
-import { useFields, useRecords, useViewId } from '@teable-group/sdk';
+import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
+
+import { useFields } from '@teable-group/sdk';
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { cloneDeep } from 'lodash';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Condition, ConditionGroup } from './condition';
 import { FilterContext } from './context';
-import type { IFilterProps, IFilterItem } from './types';
-import { isFilterGroupItem } from './types';
+import type { IFilterProps } from './types';
+import { isFilterMeta } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
 
 function Filter(props: IFilterProps) {
   const { onChange } = props;
-  const [filters, setFilters] = useState(props.filters);
+  const [filters, setFilters] = useState(() => props.filters);
+  useEffect(() => {
+    setFilters(props.filters);
+  }, [props.filters]);
   const fields = useFields();
-  const viewId = useViewId();
-  useRecords({ filters: filters, viewId: viewId });
 
   // calculate the filter text
   const filterText = useMemo(() => {
@@ -30,13 +31,13 @@ function Filter(props: IFilterProps) {
     let text = '';
     const preOrder = (filter: IFilter['filterSet']) => {
       filter.forEach((item) => {
-        if (isFilterGroupItem(item)) {
-          preOrder(item.filterSet);
-        } else {
+        if (isFilterMeta(item)) {
           // todo add `not-empty` and so on
           if (item.value) {
-            filterIds.add(item.columnId);
+            filterIds.add(item.fieldId);
           }
+        } else {
+          preOrder(item.filterSet);
         }
       });
     };
@@ -66,12 +67,12 @@ function Filter(props: IFilterProps) {
   }, [fields]);
 
   const addCondition = useCallback(
-    (curFilter: IFilter) => {
-      const filterItem: IFilterItem = {
-        id: generateViewId(),
-        operator: FOperator.Is,
-        value: undefined,
-        columnId: defaultFieldId,
+    (curFilter: IFilterSet) => {
+      const filterItem: IFilterMeta = {
+        // id: generateViewId(),
+        operator: 'is',
+        value: '',
+        fieldId: defaultFieldId as string,
       };
       curFilter.filterSet.push(filterItem);
       const newFilters = cloneDeep(filters);
@@ -80,12 +81,12 @@ function Filter(props: IFilterProps) {
     [defaultFieldId, filters, updateFilter]
   );
   const addConditionGroup = useCallback(
-    (curFilter: IFilter) => {
+    (curFilter: IFilterSet) => {
       curFilter.filterSet.push({
-        id: generateViewId(),
-        type: 'Nested',
+        // id: generateViewId(),
+        // type: 'Nested',
         filterSet: [],
-        conjunction: FilterConjunction.And,
+        conjunction: 'and',
       });
       const newFilters = cloneDeep(filters);
       updateFilter(newFilters);
@@ -102,21 +103,21 @@ function Filter(props: IFilterProps) {
     return (
       <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
-          isFilterGroupItem(filterItem) && filterItem.type === 'Nested' ? (
+          isFilterMeta(filterItem) ? (
+            <Condition
+              key={filterItem.fieldId}
+              filter={filterItem}
+              index={index}
+              parent={filters}
+              level={0}
+            />
+          ) : (
             <ConditionGroup
-              key={filterItem.id}
+              key={index}
               filter={filterItem}
               index={index}
               parent={filters}
               level={initLevel}
-            />
-          ) : (
-            <Condition
-              key={filterItem.id}
-              filter={filterItem as IFilterItem}
-              index={index}
-              parent={filters}
-              level={0}
             />
           )
         )}

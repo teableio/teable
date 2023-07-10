@@ -1,8 +1,7 @@
-import type { IFilterGroupItem } from './types';
+import type { IFilterMeta, IFilterSet } from '@teable-group/core';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isFilterGroupItem(item: any): item is IFilterGroupItem {
-  return !!item?.type;
+function isFilterMeta(item: unknown): item is IFilterMeta {
+  return !Array.isArray((item as IFilterSet)?.filterSet);
 }
 
-export { isFilterGroupItem };
+export { isFilterMeta };

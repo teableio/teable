@@ -7674,7 +7674,8 @@ __metadata:
     typescript: "npm:4.8.4"
     typescript-transform-paths: "npm:3.4.4"
     ws: "npm:8.11.0"
-    zod: "npm:3.19.1"
+    zod: "npm:3.21.4"
+    zod-to-ts: "npm:1.1.4"
   languageName: unknown
   linkType: soft
 
@@ -30912,6 +30913,16 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 63eceacd482622afd71290541a9823a0e5eed88a6b58a5d136a5fb8151ed4d1549c80f28d74d4ad351582f9890635d49e6cf70f8d3cc64948640f839f6a37c70
+  languageName: node
+  linkType: hard
+
+"zod-to-ts@npm:1.1.4":
+  version: 1.1.4
+  resolution: "zod-to-ts@npm:1.1.4"
+  peerDependencies:
+    typescript: ^4.9.4 || ^5.0.2
+    zod: ^3
+  checksum: 82d0bc760411643de195123f186212403efbd382e3569cf85d2c899b9d33a71b3021c294b69433b6be21f859adbc77133149e680774525bf3501cd3d73ccd2e7
   languageName: node
   linkType: hard
 

@@ -17,20 +17,20 @@ import { cn } from '@/lib/utils';
 interface ISingleSelector {
   onSelect: (id: string) => void;
   value: unknown;
-  columnId?: string;
+  fieldId?: string;
 }
 
 function SingleSelector(props: ISingleSelector) {
-  const { onSelect, columnId } = props;
+  const { onSelect, fieldId } = props;
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(props.value);
 
   const fields = useFields();
 
   const options = useMemo(() => {
-    const curColumn = fields.find((item) => item.id === columnId) as SingleSelectField;
+    const curColumn = fields.find((item) => item.id === fieldId) as SingleSelectField;
     return curColumn?.options?.choices;
-  }, [columnId, fields]);
+  }, [fieldId, fields]);
 
   const label = useMemo(() => {
     return options.find((option) => option.name === value)?.name;

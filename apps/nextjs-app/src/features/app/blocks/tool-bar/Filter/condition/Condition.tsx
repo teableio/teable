@@ -1,4 +1,4 @@
-import type { FOperator } from '@teable-group/core';
+import type { IAllFieldOperators } from '@teable-group/core';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep } from 'lodash';
@@ -25,13 +25,13 @@ function Condition(props: IConditionProps) {
     setFilters(newFilters);
   };
 
-  const selectField = (columnId: string) => {
-    filter.columnId = columnId;
+  const selectField = (fieldId: string) => {
+    filter.fieldId = fieldId;
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
   };
 
-  const updateOperator = (value: FOperator) => {
+  const updateOperator = (value: IAllFieldOperators[number]) => {
     filter.operator = value;
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
@@ -52,12 +52,12 @@ function Condition(props: IConditionProps) {
       ></Conjunction>
 
       <section className="flex items-center">
-        <FieldSelect columnId={filter.columnId} onSelect={selectField} />
+        <FieldSelect fieldId={filter.fieldId} onSelect={selectField} />
 
         <OperatorSelect
           value={filter.operator}
           onSelect={updateOperator}
-          columnId={filter.columnId as string}
+          fieldId={filter.fieldId as string}
         />
 
         <FieldValue filter={filter} onSelect={updateFieldValue}></FieldValue>

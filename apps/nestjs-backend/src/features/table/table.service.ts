@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
@@ -6,7 +11,7 @@ import type {
   ITableSnapshot,
   ITableVo,
 } from '@teable-group/core';
-import { OpName, generateTableId } from '@teable-group/core';
+import { generateTableId, OpName } from '@teable-group/core';
 import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
@@ -24,6 +29,8 @@ const tableNamePrefix = 'visual';
 
 @Injectable()
 export class TableService implements IAdapterService {
+  private logger = new Logger(TableService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,
@@ -126,7 +133,7 @@ export class TableService implements IAdapterService {
         });
         viewId = view.id;
       } catch (e) {
-        throw new HttpException('No found', HttpStatus.NOT_FOUND);
+        throw new NotFoundException();
       }
     }
 
@@ -148,7 +155,8 @@ export class TableService implements IAdapterService {
         rows,
       };
     } catch (e) {
-      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+      this.logger.error((e as Error).message, (e as Error).stack);
+      throw new NotFoundException();
     }
   }
 
@@ -159,7 +167,7 @@ export class TableService implements IAdapterService {
         select: { id: true },
       });
     } catch (e) {
-      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+      throw new NotFoundException();
     }
   }
 
@@ -222,7 +230,7 @@ export class TableService implements IAdapterService {
           return;
         }
       }
-      throw new Error(`Unknown context ${opContext} for table update`);
+      throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
     }
   }
 

@@ -1,6 +1,5 @@
 import type { IFilter } from '@teable-group/core';
-import { FilterConjunction } from '@teable-group/core';
-import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
+import { useTable, useUndoManager, useViewId, useViews } from '@teable-group/sdk/hooks';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
@@ -9,25 +8,22 @@ import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
   const table = useTable();
-
-  const [filters, setFilters] = useState<IFilter>({
-    filterSet: [],
-    conjunction: FilterConjunction.And,
-  });
+  const views = useViews();
+  const viewId = useViewId();
+  const view = views.find((view) => view.id === viewId);
 
   const filterHandler = useCallback(
     (filters: IFilter) => {
-      console.log('filters', filters);
-      // setFilters(filters);
+      view?.setFilter(filters);
     },
-    [setFilters]
+    [view]
   );
 
   const undo = useCallback(() => {
@@ -59,7 +55,7 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      <Filter filters={filters} onChange={filterHandler} />
+      {view?.filter && <Filter filters={view?.filter} onChange={filterHandler} />}
       {/* <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <FilterIcon className="text-lg pr-1" />
         Filter
