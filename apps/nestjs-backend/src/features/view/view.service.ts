@@ -138,7 +138,7 @@ export class ViewService implements IAdapterService {
           updateData['name'] = opContext.newName;
           break;
         case OpName.SetViewFilter:
-          updateData['filter'] = JSON.stringify(opContext.newFilter);
+          updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;
           break;
         default:
           throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, OpBuilder } from '@teable-group/core';
+import { IdPrefix, OpBuilder, OpName } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
@@ -41,21 +41,8 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
-    this.use('commit', (context, next) => {
-      const [docType, tableId] = context.collection.split('_');
-
-      if (docType === IdPrefix.View && context.op.op) {
-        const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
-        const isExist = ops2Contexts.findIndex((value) => value.name === 'setViewFilter') !== -1;
-        if (isExist) {
-          context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
-        }
-      }
-
-      next();
-    });
+    this.use('commit', this.onCommit);
     this.use('apply', this.onApply);
-    // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
@@ -187,11 +174,24 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
-  // private onCommit = (context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) => {
-  //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
+  private onCommit = (
+    context: ShareDBClass.middleware.CommitContext,
+    next: (err?: unknown) => void
+  ) => {
+    const [docType, tableId] = context.collection.split('_');
 
-  //   next();
-  // }
+    // Additional publish/subscribe `record channels` are required for changes to view properties
+    if (docType === IdPrefix.View && context.op.op) {
+      const listenOp = [OpName.SetViewFilter];
+      const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
+
+      if (ops2Contexts.some((value) => listenOp.includes(value.name))) {
+        context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+      }
+    }
+
+    next();
+  };
 
   // private onAfterWrite = (
   //   context: ShareDBClass.middleware.SubmitContext,
