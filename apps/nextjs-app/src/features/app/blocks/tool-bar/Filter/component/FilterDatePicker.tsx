@@ -9,13 +9,18 @@ import type { SelectSingleEventHandler } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 
 interface IFilerDatePickerProps {
-  value?: number;
+  value: string | number | null;
   onSelect: (date: Date) => void;
 }
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
-  const { value: date, onSelect } = props;
+  const { value, onSelect } = props;
   const [open, setOpen] = React.useState(false);
+  const date = React.useMemo(() => {
+    if (value) {
+      return new Date(value);
+    }
+  }, [value]);
 
   const selectHandler = (date: Date) => {
     onSelect(date);
