@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { OpBuilder, IdPrefix } from '@teable-group/core';
+import { IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { uniq, map, orderBy } from 'lodash';
+import { map, orderBy, uniq } from 'lodash';
 import { DerivateChangeService } from './derivate-change.service';
-import { EventEnums } from './events';
 import type { RecordEvent } from './events';
+import { EventEnums } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
-import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
+import { TransactionService } from './transaction.service';
 
 enum IEventType {
   Create = 'create',
@@ -41,6 +41,19 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
+    this.use('commit', (context, next) => {
+      const [docType, tableId] = context.collection.split('_');
+
+      if (docType === IdPrefix.View && context.op.op) {
+        const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
+        const isExist = ops2Contexts.findIndex((value) => value.name === 'setViewFilter') !== -1;
+        if (isExist) {
+          context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+        }
+      }
+
+      next();
+    });
     this.use('apply', this.onApply);
     // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);

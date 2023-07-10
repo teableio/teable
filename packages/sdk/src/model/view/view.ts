@@ -22,7 +22,7 @@ export abstract class ViewOperations extends ViewCore {
     return await this.submitOperation(viewOperation);
   }
 
-  async setFilter(filter: IFilter): Promise<void> {
+  async setFilter(filter?: IFilter): Promise<void> {
     const viewOperation = OpBuilder.editor.setViewFilter.build({
       newFilter: filter,
       oldFilter: this.filter,

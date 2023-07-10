@@ -133,21 +133,21 @@ export class ViewService implements IAdapterService {
   ) {
     for (const opContext of opContexts) {
       const updateData: Prisma.ViewUpdateInput = { version };
-      if (opContext.name === OpName.SetViewName) {
-        const { newName } = opContext;
-
-        updateData['name'] = newName;
-      } else if (opContext.name === OpName.SetViewFilter) {
-        const { newFilter } = opContext;
-
-        updateData['filter'] = JSON.stringify(newFilter);
+      switch (opContext.name) {
+        case OpName.SetViewName:
+          updateData['name'] = opContext.newName;
+          break;
+        case OpName.SetViewFilter:
+          updateData['filter'] = JSON.stringify(opContext.newFilter);
+          break;
+        default:
+          throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);
       }
 
       await prisma.view.update({
         where: { id: viewId },
         data: updateData,
       });
-      throw new InternalServerErrorException(`Unknown context ${opContext.name} for view update`);
     }
   }
 

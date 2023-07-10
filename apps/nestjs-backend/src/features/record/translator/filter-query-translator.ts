@@ -267,7 +267,7 @@ export class FilterQueryTranslator {
   }
 
   private filterNullValues(filter?: IFilter | null) {
-    if (!filter) {
+    if (!filter || !Object.keys(filter).length) {
       return;
     }
     filter.filterSet = filter.filterSet.filter((filterItem) => {
