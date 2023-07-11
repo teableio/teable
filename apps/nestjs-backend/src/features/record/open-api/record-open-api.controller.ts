@@ -22,7 +22,7 @@ import type { CreateRecordsVo } from './record.vo';
 
 @ApiBearerAuth()
 @ApiTags('record')
-@Controller('api/v1/table/:tableId/record')
+@Controller('api/table/:tableId/record')
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,

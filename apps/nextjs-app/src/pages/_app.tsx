@@ -1,4 +1,7 @@
 /* eslint-disable import/order */
+import { z } from 'zod';
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+extendZodWithOpenApi(z);
 import type { NextPage } from 'next';
 import { appWithTranslation } from 'next-i18next';
 import type { AppProps as NextAppProps } from 'next/app';
@@ -47,7 +50,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, pageProps, err } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
-
   return (
     <AppProviders>
       <Head>

@@ -7574,7 +7574,7 @@ __metadata:
     vite-plugin-svgr: "npm:2.2.2"
     vite-tsconfig-paths: "npm:3.5.2"
     vitest: "npm:0.24.3"
-    zod: "npm:3.19.1"
+    zod: "npm:3.21.4"
     zustand: "npm:4.3.7"
   languageName: unknown
   linkType: soft

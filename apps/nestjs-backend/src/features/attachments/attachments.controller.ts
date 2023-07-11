@@ -15,7 +15,7 @@ import { Response } from 'express';
 import { responseWrap } from '../../../src/utils';
 import { AttachmentsService } from './attachments.service';
 
-@Controller('api/v1/attachments')
+@Controller('api/attachments')
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
