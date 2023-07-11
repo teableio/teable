@@ -8,6 +8,9 @@ import type {
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
+  IRecordsRo,
+  IRecordsVo,
+  IRecordVo,
 } from '@teable-group/core';
 import { FieldType, FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -22,8 +25,6 @@ import { preservedFieldName } from '../field/constant';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
-import type { RecordsVo, RecordVo } from './open-api/record.vo';
-import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -306,7 +307,7 @@ export class RecordService implements IAdapterService {
     return await this.getAllRecordCount(prisma, dbTableName);
   }
 
-  async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
+  async getRecords(tableId: string, query: IRecordsRo): Promise<IRecordsVo> {
     let viewId = query.viewId;
     if (!viewId) {
       const defaultView = await this.prismaService.view.findFirstOrThrow({
@@ -351,7 +352,7 @@ export class RecordService implements IAdapterService {
     recordId: string,
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType = FieldKeyType.Name
-  ): Promise<RecordVo> {
+  ): Promise<IRecordVo> {
     const recordSnapshot = await this.getSnapshotBulk(
       this.prismaService,
       tableId,

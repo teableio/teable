@@ -1,7 +1,7 @@
+import type { AttachmentSchema } from '@teable-group/openapi';
+import { AttachmentApi } from '@teable-group/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
-import { AttachmentApi } from '../../api';
-import type { IGetNotifyResponse } from '../../api/attachment/attachment.types';
 
 interface IUploadTask {
   file: IFile;
@@ -17,7 +17,7 @@ export interface IFile {
   instance: File;
 }
 
-type ISuccessCallback = (file: IFile, attachment: IGetNotifyResponse) => void;
+type ISuccessCallback = (file: IFile, attachment: AttachmentSchema.NotifyVo) => void;
 
 type IErrorCallback = (file: IFile, error?: string) => void;
 
@@ -106,7 +106,7 @@ export class AttachmentManager {
     }
   }
 
-  completeUpload(uploadTask: IUploadTask, attachment: IGetNotifyResponse) {
+  completeUpload(uploadTask: IUploadTask, attachment: AttachmentSchema.NotifyVo) {
     uploadTask.status = Status.Completed;
     uploadTask.successCallback(uploadTask.file, attachment);
 

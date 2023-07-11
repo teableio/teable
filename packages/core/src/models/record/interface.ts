@@ -1,14 +1,5 @@
-import type { CellFormat, FieldKeyType } from './record';
-
-export interface IRecord {
-  id: string;
-  fields: IRecordFields;
-  createdTime?: string;
-  lastModifiedTime?: string;
-  createdBy?: string;
-  lastModifiedBy?: string;
-  recordOrder: { [viewId: string]: number };
-}
+import type { FieldKeyType } from './record';
+import type { IRecord } from './record.schema';
 
 export interface IRecordFields {
   [fieldId: string]: unknown;
@@ -37,32 +28,4 @@ export interface IUpdateRecordRo {
 export interface IUpdateRecordByIndexRo extends IUpdateRecordRo {
   viewId: string;
   index: number;
-}
-
-export interface IRecordVo {
-  record: IRecord;
-}
-
-export interface IRecordsVo {
-  records: IRecord[];
-
-  total: number;
-}
-
-export interface IRecordsRo extends IRecordRo {
-  take?: number;
-
-  skip?: number;
-
-  recordIds?: string[];
-
-  viewId?: string;
-}
-
-export interface IRecordRo {
-  cellFormat?: CellFormat;
-
-  fieldKeyType?: FieldKeyType;
-
-  projection?: { [fieldNameOrId: string]: boolean };
 }

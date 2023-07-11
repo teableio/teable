@@ -2,12 +2,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { ILookupOptions, LinkFieldCore } from '@teable-group/core';
+import type { ILookupOptions, IRecordVo, LinkFieldCore } from '@teable-group/core';
 import { FieldKeyType, Colors, FieldType, Relationship, TimeFormatting } from '@teable-group/core';
 import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { FieldVo } from '../src/features/field/model/field.vo';
-import type { RecordVo } from '../src/features/record/open-api/record.vo';
 import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import type { TableVo } from '../src/features/table/table.vo';
 import { initApp } from './utils/init-app';
@@ -186,7 +185,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     recordId: string,
     fieldId: string,
     newValues: any
-  ): Promise<RecordVo> {
+  ): Promise<IRecordVo> {
     return (
       await request(app.getHttpServer())
         .put(`/api/table/${tableId}/record/${recordId}`)
@@ -202,7 +201,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     ).body.data;
   }
 
-  async function getRecord(tableId: string, recordId: string): Promise<RecordVo['record']> {
+  async function getRecord(tableId: string, recordId: string): Promise<IRecordVo['record']> {
     return (
       await request(app.getHttpServer())
         .get(`/api/table/${tableId}/record/${recordId}`)

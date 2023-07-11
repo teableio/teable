@@ -1,12 +1,12 @@
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
+import type { AttachmentSchema } from '@teable-group/openapi';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
 import DownloadIcon from '@teable-group/ui-lib/icons/app/download.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Progress } from '@teable-group/ui-lib/shadcn/ui/progress';
 import { map, omit } from 'lodash';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { IGetNotifyResponse } from '../../api/attachment/attachment.types';
 import { getFileCover } from '../../utils';
 import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
@@ -42,7 +42,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   };
 
   const handleSuccess = useCallback(
-    (file: IFile, attachment: IGetNotifyResponse) => {
+    (file: IFile, attachment: AttachmentSchema.NotifyVo) => {
       const { id, instance } = file;
 
       const newAttachment: IAttachmentItem = {
