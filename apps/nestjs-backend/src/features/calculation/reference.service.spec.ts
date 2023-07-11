@@ -548,7 +548,13 @@ describe('ReferenceService', () => {
 
     it('should correctly collect changes for Link and Computed fields', () => {
       // 2. Act
-      const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
+      const changes = service['collectChanges'](
+        ordersWithRecords,
+        fieldMap,
+        fieldId2TableId,
+        {},
+        {}
+      );
       // 3. Assert
       // topoOrder Graph:
       // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
@@ -735,7 +741,13 @@ describe('ReferenceService', () => {
           ],
         },
       ];
-      const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
+      const changes = service['collectChanges'](
+        ordersWithRecords,
+        fieldMap,
+        fieldId2TableId,
+        {},
+        {}
+      );
       expect(changes).toEqual([
         {
           tableId: 'A',

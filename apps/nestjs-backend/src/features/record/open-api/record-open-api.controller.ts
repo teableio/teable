@@ -9,7 +9,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { IRecordVo } from '@teable-group/core';
+import type { IRecordRo, IRecordVo } from '@teable-group/core';
 import { recordsRoSchema, type IRecordsVo, IRecordsRo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -49,9 +49,15 @@ export class RecordOpenApiController {
   @Get(':recordId')
   async getRecord(
     @Param('tableId') tableId: string,
-    @Param('recordId') recordId: string
+    @Param('recordId') recordId: string,
+    @Query() query: IRecordRo
   ): Promise<ApiResponse<IRecordVo>> {
-    const record = await this.recordService.getRecord(tableId, recordId);
+    const record = await this.recordService.getRecord(
+      tableId,
+      recordId,
+      query.projection,
+      query.fieldKeyType
+    );
     return responseWrap(record);
   }
 

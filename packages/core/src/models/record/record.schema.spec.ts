@@ -7,9 +7,9 @@ describe('recordsRoSchema', () => {
     skip: 0,
     recordIds: ['recXXXXXXX'],
     viewId: 'viwXXXXXXX',
-    projection: ['field1', 'field2'],
+    projection: { field1: true, field2: true },
     cellFormat: CellFormat.Json,
-    fieldKey: FieldKeyType.Name,
+    fieldKeyType: FieldKeyType.Name,
   };
 
   it('validates successfully for correct data', () => {
@@ -44,17 +44,17 @@ describe('recordsRoSchema', () => {
   });
 
   it('validates successfully for empty projection', () => {
-    const data = { ...validData, projection: [] };
+    const data = { ...validData, projection: {} };
     const result = recordsRoSchema.safeParse(data);
     expect(result.success).toBe(true);
   });
 
   it('fails for invalid projection (non-string array)', () => {
-    const data = { ...validData, projection: [1, 2, 3] };
+    const data = { ...validData, projection: { field1: 1, field2: 2 } };
     const result = recordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
-      expect(result.error.errors[0].message).toEqual('Expected string, received number');
+      expect(result.error.errors[0].message).toEqual('Expected boolean, received number');
   });
 
   it('fails for invalid viewId', () => {
@@ -75,13 +75,13 @@ describe('recordsRoSchema', () => {
       );
   });
 
-  it('fails for invalid fieldKey', () => {
-    const data = { ...validData, fieldKey: 'invalidKey' };
+  it('fails for invalid fieldKeyType', () => {
+    const data = { ...validData, fieldKeyType: 'invalidKey' };
     const result = recordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual(
-        'Error fieldKey, You should set it to "name" or "id"'
+        'Error fieldKeyType, You should set it to "name" or "id"'
       );
   });
 });

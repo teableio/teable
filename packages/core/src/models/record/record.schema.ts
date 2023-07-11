@@ -29,10 +29,34 @@ export const recordSchema = z.object({
 
 export type IRecord = z.infer<typeof recordSchema>;
 
+export const recordRoSchema = z.object({
+  projection: z.record(z.boolean()).optional().openapi({
+    description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
+  }),
+  cellFormat: z
+    .nativeEnum(CellFormat, {
+      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
+    })
+    .default(CellFormat.Json)
+    .optional()
+    .openapi({
+      description: 'value formate, you can set it to text if you only need simple string value',
+    }),
+  fieldKeyType: z
+    .nativeEnum(FieldKeyType, {
+      errorMap: () => ({ message: 'Error fieldKeyType, You should set it to "name" or "id"' }),
+    })
+    .default(FieldKeyType.Name)
+    .optional()
+    .openapi({ description: 'Set the key of record.fields[key], default is "name"' }),
+});
+
+export type IRecordRo = z.infer<typeof recordRoSchema>;
+
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
-export const recordsRoSchema = z.object({
+export const recordsRoSchema = recordRoSchema.extend({
   take: z
     .number()
     .min(1, 'You should at least take 1 record')
@@ -64,23 +88,6 @@ export const recordsRoSchema = z.object({
     description:
       'Set the view you want to fetch, default is first view. result will influent by view options.',
   }),
-  projection: z.array(z.string()).optional(),
-  cellFormat: z
-    .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
-    })
-    .default(CellFormat.Json)
-    .optional()
-    .openapi({
-      description: 'value formate, you can set it to text if you only need simple string value',
-    }),
-  fieldKey: z
-    .nativeEnum(FieldKeyType, {
-      errorMap: () => ({ message: 'Error fieldKey, You should set it to "name" or "id"' }),
-    })
-    .default(FieldKeyType.Name)
-    .optional()
-    .openapi({ description: 'Set the key of record.fields[key], default is "name"' }),
 });
 
 export type IRecordsRo = z.infer<typeof recordsRoSchema>;

@@ -123,7 +123,7 @@ export class FieldService implements IAdapterService {
       defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
       isComputed,
-      lookupFieldId: lookupOptions?.lookupFieldId,
+      lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
       dbFieldType,
