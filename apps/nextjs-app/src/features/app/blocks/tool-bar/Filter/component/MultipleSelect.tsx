@@ -19,7 +19,7 @@ import { useMemo, useState } from 'react';
 
 interface IMutipleSelect {
   onSelect?: (names: string[]) => void;
-  value: string[];
+  value: string[] | null;
   fieldId?: string;
 }
 
@@ -66,7 +66,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
           className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 overflow-hidden"
         >
           <div className="shrink whitespace-nowrap overflow-hidden flex">
-            {Array.isArray(values)
+            {Array.isArray(values) && values.length
               ? values?.map((item, index) => (
                   <div
                     key={index}
