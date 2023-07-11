@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { SIGNATURE_URL } from '../path';
-import { signatureVoSchema } from '../schema.def';
+import { signatureVoSchema } from '../schema';
 
 export const SignatureRoute: RouteConfig = {
   method: 'post',

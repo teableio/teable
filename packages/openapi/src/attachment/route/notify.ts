@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { NOTIFY_URL } from '../path';
-import { notifyVoSchema } from '../schema.def';
+import { notifyVoSchema } from '../schema';
 
 export const NotifyRoute: RouteConfig = {
   method: 'post',

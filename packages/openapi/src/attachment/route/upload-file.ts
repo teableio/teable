@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { UPLOAD_FILE_URL } from '../path';
-import { uploadFileRoSchema } from '../schema.def';
+import { uploadFileRoSchema } from '../schema';
 
 export const UploadFileRoute: RouteConfig = {
   method: 'post',

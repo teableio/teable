@@ -1,5 +1,5 @@
 import type { FieldKeyType } from './record';
-import type { IRecord } from './record.def';
+import type { IRecord } from './record.schema';
 
 export interface IRecordFields {
   [fieldId: string]: unknown;

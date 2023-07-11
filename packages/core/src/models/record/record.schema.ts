@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { IdPrefix } from '../../utils';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
-  id: z.string().openapi({
+  id: z.string().startsWith(IdPrefix.Record).openapi({
     description: 'The record id.',
   }),
   fields: z.record(
@@ -52,13 +53,13 @@ export const recordsRoSchema = z.object({
       description: 'The records count you want to skip',
     }),
   recordIds: z
-    .array(z.string().startsWith('rec', 'Error recordIds, recordId is illegal'))
+    .array(z.string().startsWith(IdPrefix.Record, 'Error recordIds, recordId is illegal'))
     .optional()
     .openapi({
       example: ['recXXXXXXX'],
       description: 'Specify the records you want to fetch',
     }),
-  viewId: z.string().optional().openapi({
+  viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     example: 'viwXXXXXXX',
     description:
       'Set the view you want to fetch, default is first view. result will influent by view options.',
@@ -66,7 +67,7 @@ export const recordsRoSchema = z.object({
   projection: z.array(z.string()).optional(),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      invalid_type_error: 'Error cellFormate, You should set it to "json" or "text"',
+      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
     })
     .default(CellFormat.Json)
     .optional()
@@ -75,7 +76,7 @@ export const recordsRoSchema = z.object({
     }),
   fieldKey: z
     .nativeEnum(FieldKeyType, {
-      invalid_type_error: 'Error fieldKey, You should set it to "name" or "id"',
+      errorMap: () => ({ message: 'Error fieldKey, You should set it to "name" or "id"' }),
     })
     .default(FieldKeyType.Name)
     .optional()
