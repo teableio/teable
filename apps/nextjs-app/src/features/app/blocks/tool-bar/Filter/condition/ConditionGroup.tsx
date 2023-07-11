@@ -48,8 +48,8 @@ function ConditionGroup(props: IConditionGroupProps) {
         ></Conjunction>
         <div
           className={cn(
-            'm-h-20 w-full rounded-sm border-[1px] m-[4px]',
-            level > 0 ? 'bg-[#f2f2f2]' : 'bg-[#fafafa]'
+            'm-h-20 w-full rounded-sm border-[1px] m-[4px]'
+            // level > 0 ? 'bg-ring' : 'bg-secondary'
           )}
         >
           <div className="flex justify-between p-1">
@@ -60,7 +60,7 @@ function ConditionGroup(props: IConditionGroupProps) {
             <div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="hover:bg-white">
+                  <Button variant="ghost">
                     <Add className="h-4 w-4"></Add>
                   </Button>
                 </DropdownMenuTrigger>
@@ -87,7 +87,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteItem} className="hover:bg-white">
+              <Button variant="ghost" onClick={deleteItem}>
                 <AshBin className="h-4 w-4"></AshBin>
               </Button>
             </div>

@@ -62,7 +62,7 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={updateFieldValue}></FieldValue>
 
-        <Button variant="outline" onClick={deleteItem} className="bg-white">
+        <Button variant="outline" onClick={deleteItem} className="dark:bg-white">
           <AshBin className="h-4 w-4"></AshBin>
         </Button>
       </section>

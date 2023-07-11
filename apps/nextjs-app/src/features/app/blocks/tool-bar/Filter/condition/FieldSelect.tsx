@@ -35,7 +35,7 @@ function FieldSelect(props: IFieldSelectProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 bg-white"
+          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
         >
           {value ? <span className="truncate">{label}</span> : 'Select'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

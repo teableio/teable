@@ -63,10 +63,10 @@ const MultipleSelect = (props: IMutipleSelect) => {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 bg-white overflow-hidden"
+          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 overflow-hidden"
         >
           <div className="shrink whitespace-nowrap overflow-hidden flex">
-            {values?.length
+            {Array.isArray(values)
               ? values?.map((item, index) => (
                   <div
                     key={index}

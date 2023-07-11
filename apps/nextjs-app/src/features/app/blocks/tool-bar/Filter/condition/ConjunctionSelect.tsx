@@ -39,7 +39,7 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="justify-between p-1 bg-white"
+          className="justify-between p-1"
         >
           {value ? (
             <span className="truncate text-sm">

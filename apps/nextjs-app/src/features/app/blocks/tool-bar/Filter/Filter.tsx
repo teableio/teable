@@ -131,7 +131,7 @@ function Filter(props: IFilterProps) {
           <Button
             variant={'ghost'}
             size={'xs'}
-            className={cn('font-normal', filterText !== 'Filter' ? 'bg-[#fad2fc]' : '')}
+            className={cn('font-normal', filterText !== 'Filter' ? 'bg-secondary' : '')}
           >
             <FilterIcon className="text-lg pr-1" />
             <span>{filterText}</span>
@@ -149,7 +149,11 @@ function Filter(props: IFilterProps) {
               Add condition
             </Button>
 
-            <Button variant="ghost" onClick={() => addConditionGroup(filters)}>
+            <Button
+              variant="ghost"
+              onClick={() => addConditionGroup(filters)}
+              className="dark:bg-white"
+            >
               <AddBoldIcon className="h-4 w-4" />
               Add condition group
             </Button>

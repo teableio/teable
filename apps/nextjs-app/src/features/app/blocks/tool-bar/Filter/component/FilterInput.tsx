@@ -15,7 +15,7 @@ const FilterInput = (props: InputProps) => {
       onChange={(e) => {
         onChange(e.target.value);
       }}
-      className="m-1 bg-white"
+      className="m-1"
     />
   );
 };
