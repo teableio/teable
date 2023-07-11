@@ -175,12 +175,6 @@ export class FieldOpenApiService {
               oldType: oldFieldInstance.type,
             });
           }
-          case 'defaultValue': {
-            return OpBuilder.editor.setFieldDefaultValue.build({
-              newDefaultValue: newFieldInstance.defaultValue!,
-              oldDefaultValue: oldFieldInstance.defaultValue! || null,
-            });
-          }
           case 'options': {
             return OpBuilder.editor.setFieldOptions.build({
               newOptions: newFieldInstance.options,

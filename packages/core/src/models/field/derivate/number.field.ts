@@ -1,20 +1,22 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { numberFormattingDef } from '../formatting';
+import { numberFormattingSchema } from '../formatting';
 
-const numberOptionsDef = z.object({
-  formatting: numberFormattingDef,
+export const numberOptionsSchema = z.object({
+  formatting: numberFormattingSchema,
 });
 
-export type INumberFieldOptions = z.infer<typeof numberOptionsDef>;
+export type INumberFieldOptions = z.infer<typeof numberOptionsSchema>;
+
+export const numberCellValueSchema = z.number().nullable();
+
+export type INumberCellValue = z.infer<typeof numberCellValueSchema>;
 
 export class NumberFieldCore extends FieldCore {
   type!: FieldType.Number;
 
   options!: INumberFieldOptions;
-
-  defaultValue: number | null = null;
 
   cellValueType!: CellValueType.Number;
 
@@ -26,7 +28,7 @@ export class NumberFieldCore extends FieldCore {
     };
   }
 
-  cellValue2String(cellValue: number) {
+  cellValue2String(cellValue: number | number[] | undefined) {
     if (cellValue == null) {
       return '';
     }
@@ -35,10 +37,15 @@ export class NumberFieldCore extends FieldCore {
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
       return cellValue.map((v) => (v || 0).toFixed(precision)).join(', ');
     }
-    return cellValue.toFixed(precision);
+
+    return (cellValue as number).toFixed(precision);
   }
 
   convertStringToCellValue(value: string): number | null {
+    if (this.isLookup) {
+      return null;
+    }
+
     const num = Number(value);
     if (Number.isNaN(num)) {
       return null;
@@ -47,20 +54,27 @@ export class NumberFieldCore extends FieldCore {
   }
 
   repair(value: unknown) {
+    if (this.isLookup) {
+      return null;
+    }
+
     if (typeof value === 'number') {
       return value;
     }
     if (typeof value === 'string') {
       return this.convertStringToCellValue(value);
     }
-    throw new Error(`invalid value: ${value} for field: ${this.name}`);
+    throw null;
   }
 
   validateOptions() {
-    return numberOptionsDef.safeParse(this.options);
+    return numberOptionsSchema.safeParse(this.options);
   }
 
-  validateDefaultValue() {
-    return z.number().optional().nullable().safeParse(this.defaultValue);
+  validateCellValue(value: unknown) {
+    if (this.isMultipleCellValue) {
+      return z.array(numberCellValueSchema).nonempty().optional().safeParse(value);
+    }
+    return numberCellValueSchema.optional().safeParse(value);
   }
 }

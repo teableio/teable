@@ -34,13 +34,6 @@ function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
     case 'description':
     case 'type':
       return { success: true };
-    case 'defaultValue': {
-      const res = fieldInstance.validateDefaultValue();
-      return {
-        success: res.success,
-        error: res.success ? null : formatFieldErrorMessage(res.error),
-      };
-    }
     case 'options': {
       const res = fieldInstance.validateOptions();
       return {
@@ -108,7 +101,7 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
     }
   })();
 
-  const validateKeys = ['name', 'description', 'type', 'options', 'defaultValue'];
+  const validateKeys = ['name', 'description', 'type', 'options'];
 
   const validateErrors = validateKeys
     .map((key) => validateFieldByKey(key, instance))
@@ -135,7 +128,6 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     isPrimary: fieldRaw.isPrimary || undefined,
     isLookup: Boolean(fieldRaw.lookupLinkedFieldId) || undefined,
     lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
-    defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,

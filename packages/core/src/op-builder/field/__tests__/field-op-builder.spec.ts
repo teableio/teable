@@ -12,14 +12,14 @@ describe('field op builder tests', () => {
         oldMetaValue: { order: 2 },
       })
     ).toEqual({
-      p: ['columnMeta', 'viw123'],
+      p: ['field', 'columnMeta', 'viw123'],
       oi: { order: 1 },
       od: { order: 2 },
     });
 
     expect(
       addColumnMetaBuilder.detect({
-        p: ['columnMeta', 'viw123'],
+        p: ['field', 'columnMeta', 'viw123'],
         oi: { order: 1 },
         od: { order: 2 },
       })

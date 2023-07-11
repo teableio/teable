@@ -69,20 +69,6 @@ export class CreateFieldRo implements IFieldRo {
   options?: any;
 
   @ApiPropertyOptional({
-    description: `
-The defaultValue of the field. The datatype of the value depends on the field type.
-singleLineText, longText, singleSelect, date, phoneNumber, email, url: string, example: "hello".
-number, currency, percent, duration, rating: number, example: 1.
-checkbox: boolean, example: true.
-multipleSelect: string[], example: ["red", "blue"].
-other fields do not support defaultValue.
-`,
-    example: { name: 'light', color: 'yellow' },
-  })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  defaultValue?: any;
-
-  @ApiPropertyOptional({
     description: 'Set the field is lookup field',
   })
   isLookup?: boolean;

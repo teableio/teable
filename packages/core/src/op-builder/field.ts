@@ -8,7 +8,6 @@ enum FieldMetaKey {
   Options = 'options',
   NotNull = 'notNull',
   Unique = 'unique',
-  DefaultValue = 'defaultValue',
 }
 
 export class FieldOpBuilder {
@@ -96,13 +95,5 @@ export class FieldOpBuilder {
     newValue: true | null;
   }): IOtOperation {
     return this.setViewMeta({ ...params, key: FieldMetaKey.Unique });
-  }
-
-  static setFieldDefaultValue(params: {
-    id: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }): IOtOperation {
-    return this.setViewMeta({ ...params, key: FieldMetaKey.DefaultValue });
   }
 }

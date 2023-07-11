@@ -3,7 +3,6 @@ import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
 import { DeleteColumnMetaBuilder } from './field/delete-column-meta';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
-import { SetFieldDefaultValueBuilder } from './field/set-field-default-value';
 import { SetFieldDescriptionBuilder } from './field/set-field-description';
 import { SetFieldNameBuilder } from './field/set-field-name';
 import { SetFieldOptionsBuilder } from './field/set-field-options';
@@ -41,7 +40,6 @@ export class OpBuilder {
     setFieldName: new SetFieldNameBuilder(),
     setFieldDescription: new SetFieldDescriptionBuilder(),
     setFieldOptions: new SetFieldOptionsBuilder(),
-    setFieldDefaultValue: new SetFieldDefaultValueBuilder(),
     setFieldType: new SetFieldTypeBuilder(),
 
     setViewName: new SetViewNameBuilder(),

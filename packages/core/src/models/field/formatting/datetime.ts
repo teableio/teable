@@ -3,6 +3,7 @@ import { z } from 'zod';
 export enum DateFormattingPreset {
   US = 'M/D/YYYY',
   European = 'D/M/YYYY',
+  Asian = 'YYYY/MM/DD',
   ISO = 'YYYY-MM-DD',
   YM = 'YYYY-MM',
   MD = 'MM-DD',
@@ -29,13 +30,13 @@ const timeZoneStringSchema = z.string().refine(
   }
 );
 
-export const datetimeFormattingDef = z.object({
+export const datetimeFormattingSchema = z.object({
   date: z.string(),
   time: z.nativeEnum(TimeFormatting),
   timeZone: timeZoneStringSchema,
 });
 
-export type IDatetimeFormatting = z.infer<typeof datetimeFormattingDef>;
+export type IDatetimeFormatting = z.infer<typeof datetimeFormattingSchema>;
 
 export const defaultDatetimeFormatting: IDatetimeFormatting = {
   date: DateFormattingPreset.US,

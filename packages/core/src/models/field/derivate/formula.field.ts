@@ -9,20 +9,24 @@ import { FormulaLexer } from '../../../formula/parser/FormulaLexer';
 import type { IRecord } from '../../record';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { datetimeFormattingDef, numberFormattingDef } from '../formatting';
+import { datetimeFormattingSchema, numberFormattingSchema } from '../formatting';
 
-export const formulaFormattingDef = z
-  .union([datetimeFormattingDef, numberFormattingDef])
+export const formulaFormattingSchema = z
+  .union([datetimeFormattingSchema, numberFormattingSchema])
   .optional();
 
-export type IFormulaFormatting = z.infer<typeof formulaFormattingDef>;
+export type IFormulaFormatting = z.infer<typeof formulaFormattingSchema>;
 
-export const formulaFieldOptionsDef = z.object({
+export const formulaFieldOptionsSchema = z.object({
   expression: z.string(),
-  formatting: formulaFormattingDef,
+  formatting: formulaFormattingSchema,
 });
 
-export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsDef>;
+export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsSchema>;
+
+const formulaFieldCellValueSchema = z.any();
+
+export type IFormulaCellValue = z.infer<typeof formulaFieldCellValueSchema>;
 
 export class FormulaFieldCore extends FieldCore {
   static defaultOptions(): IFormulaFieldOptions {
@@ -96,8 +100,6 @@ export class FormulaFieldCore extends FieldCore {
 
   options!: IFormulaFieldOptions;
 
-  defaultValue!: null;
-
   cellValueType!: CellValueType;
 
   declare isMultipleCellValue?: boolean | undefined;
@@ -110,6 +112,16 @@ export class FormulaFieldCore extends FieldCore {
     }
     this._tree = FormulaFieldCore.parse(this.options.expression);
     return this._tree;
+  }
+
+  getReferenceFieldIds() {
+    const visitor = new FieldReferenceVisitor();
+    return Array.from(new Set(visitor.visit(this.tree)));
+  }
+
+  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: IRecord) {
+    const visitor = new EvalVisitor(dependFieldMap, record);
+    return visitor.visit(this.tree);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,20 +141,10 @@ export class FormulaFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    return formulaFieldOptionsDef.safeParse(this.options);
+    return formulaFieldOptionsSchema.safeParse(this.options);
   }
 
-  validateDefaultValue() {
-    return z.null().optional().safeParse(this.defaultValue);
-  }
-
-  getReferenceFieldIds() {
-    const visitor = new FieldReferenceVisitor();
-    return Array.from(new Set(visitor.visit(this.tree)));
-  }
-
-  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: IRecord) {
-    const visitor = new EvalVisitor(dependFieldMap, record);
-    return visitor.visit(this.tree);
+  validateCellValue(value: unknown) {
+    return formulaFieldCellValueSchema.safeParse(value);
   }
 }

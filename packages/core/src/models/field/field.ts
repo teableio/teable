@@ -2,7 +2,7 @@ import type { SafeParseReturnType } from 'zod';
 import { z } from 'zod';
 import type { StatisticsFunc } from '../view';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
-import { Relationship } from './derivate';
+import { Relationship } from './constant';
 import type { IColumnMeta } from './interface';
 
 export const lookupOptionsRoDef = z.object({
@@ -37,7 +37,6 @@ export interface IFieldRo {
   notNull?: boolean;
   unique?: boolean;
   isPrimary?: boolean;
-  defaultValue?: unknown;
   columnMeta?: IColumnMeta;
 }
 
@@ -82,9 +81,7 @@ export abstract class FieldCore implements IFieldVo {
 
   dbFieldType!: DbFieldType;
 
-  abstract options?: unknown;
-
-  abstract defaultValue?: unknown;
+  abstract options: unknown;
 
   // cellValue type enum (string, number, boolean, datetime)
   abstract cellValueType: CellValueType;
@@ -102,10 +99,14 @@ export abstract class FieldCore implements IFieldVo {
 
   abstract convertStringToCellValue(str: string): unknown;
 
-  // try parse cellValue and fix it
+  /**
+   * try parse cellValue as possible as it can
+   * if not match it would return null
+   * * computed field is always return null
+   */
   abstract repair(value: unknown): unknown;
 
   abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
 
-  abstract validateDefaultValue(): SafeParseReturnType<unknown, unknown> | undefined;
+  abstract validateCellValue(value: unknown): SafeParseReturnType<unknown, unknown> | undefined;
 }

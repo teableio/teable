@@ -10,7 +10,6 @@ import type {
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { IDeleteColumnMetaOpContext } from '@teable-group/core/dist/op-builder/field/delete-column-meta';
-import type { ISetFieldDefaultValueOpContext } from '@teable-group/core/src/op-builder/field/set-field-default-value';
 import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
 import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
 import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
@@ -38,7 +37,6 @@ type IOpContexts =
   | ISetFieldDescriptionOpContext
   | ISetFieldTypeOpContext
   | ISetFieldOptionsOpContext
-  | ISetFieldDefaultValueOpContext
   | IAddColumnMetaOpContext
   | ISetColumnMetaOpContext
   | IDeleteColumnMetaOpContext;
@@ -95,7 +93,6 @@ export class FieldService implements IAdapterService {
       type,
       options,
       lookupOptions,
-      defaultValue,
       notNull,
       unique,
       isPrimary,
@@ -120,7 +117,6 @@ export class FieldService implements IAdapterService {
       unique,
       isPrimary,
       version: 1,
-      defaultValue: JSON.stringify(defaultValue),
       columnMeta: JSON.stringify(columnMeta),
       isComputed,
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
@@ -348,13 +344,6 @@ export class FieldService implements IAdapterService {
     return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
   }
 
-  private handleFieldDefaultValue(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return {
-      defaultValue: JSON.stringify((opContext as ISetFieldDefaultValueOpContext).newDefaultValue),
-    };
-  }
-
   private async handleColumnMeta(params: {
     prisma: Prisma.TransactionClient;
     fieldId: string;
@@ -417,7 +406,6 @@ export class FieldService implements IAdapterService {
       [OpName.SetFieldDescription]: this.handleFieldDescription,
       [OpName.SetFieldType]: this.handleFieldType,
       [OpName.SetFieldOptions]: this.handleFieldOptions,
-      [OpName.SetFieldDefaultValue]: this.handleFieldDefaultValue,
 
       [OpName.AddColumnMeta]: this.handleColumnMeta,
       [OpName.SetColumnMeta]: this.handleColumnMeta,
