@@ -403,10 +403,10 @@ export class ReferenceService {
       );
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      console.log('calculateLookup:lookupValues', lookupValues);
+      // console.log('calculateLookup:lookupValues', lookupValues);
 
       if (field.isLookup) {
-        return lookupValues;
+        return Array.isArray(lookupValues) && !lookupValues.length ? null : lookupValues;
       }
 
       return this.calculateRollup(field, lookupField, record, lookupValues);
@@ -457,14 +457,15 @@ export class ReferenceService {
     const fkFieldName = field.lookupOptions?.dbForeignKeyName || '';
 
     if (Array.isArray(dependencies)) {
-      const lookupValues = dependencies
+      return dependencies
         .filter(
           (depRecord) =>
             fkRecordMap?.[depRecord.id]?.[fkFieldName] === undefined ||
             fkRecordMap?.[depRecord.id]?.[fkFieldName] === recordItem.record.id
         )
-        .map((depRecord) => depRecord.fields[fieldId]);
-      return lookupValues.length ? lookupValues.flat() : null;
+        .map((depRecord) => depRecord.fields[fieldId])
+        .flat()
+        .filter((value) => !field.isLookup || value != null);
     }
 
     if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
