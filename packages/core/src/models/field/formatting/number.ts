@@ -19,3 +19,7 @@ export const formatNumberToString = (cellValue: number, formatting: INumberForma
 
   return String(cellValue);
 };
+
+export const defaultNumberFormatting: INumberFormatting = {
+  precision: 2,
+};

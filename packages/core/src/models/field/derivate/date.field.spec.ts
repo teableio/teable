@@ -8,7 +8,7 @@ import type { IDateFieldOptions } from './date.field';
 import { DateFieldCore } from './date.field';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const DEFAULT_TIME_ZONE = 'America/Los_Angeles';
+const DEFAULT_TIME_ZONE = 'Etc/GMT';
 
 describe('DateFieldCore', () => {
   let field: DateFieldCore;
@@ -56,18 +56,18 @@ describe('DateFieldCore', () => {
 
   it('should convert cellValue to string', () => {
     expect(field.cellValue2String(null as any)).toBe('');
-    expect(field.cellValue2String('2023-06-19T06:50:48.017Z')).toBe('2023/06/19 14:50');
+    expect(field.cellValue2String('2023-06-19T06:50:48.017Z')).toBe('2023/06/19 06:50');
     expect(lookupField.cellValue2String(null as any)).toBe('');
-    expect(lookupField.cellValue2String(['2023-06-19T06:50:48.017Z'])).toBe('2023/06/19 14:50');
+    expect(lookupField.cellValue2String(['2023-06-19T06:50:48.017Z'])).toBe('2023/06/19 06:50');
     expect(
       lookupField.cellValue2String(['2023-06-19T06:50:48.017Z', '2023-06-19T06:50:48.017Z'])
-    ).toBe('2023/06/19 14:50, 2023/06/19 14:50');
+    ).toBe('2023/06/19 06:50, 2023/06/19 06:50');
   });
 
   it('should convert string to cellValue', () => {
-    expect(field.convertStringToCellValue('2023/06/19 14:50')).toBe('2023-06-19T06:50:00.000Z');
+    expect(field.convertStringToCellValue('2023/06/19 06:50')).toBe('2023-06-19T06:50:00.000Z');
     expect(field.convertStringToCellValue('abc')).toBeNull();
-    expect(lookupField.convertStringToCellValue('2023/06/19 14:50')).toBeNull();
+    expect(lookupField.convertStringToCellValue('2023/06/19 06:50')).toBeNull();
     expect(lookupField.convertStringToCellValue('abc')).toBeNull();
   });
 

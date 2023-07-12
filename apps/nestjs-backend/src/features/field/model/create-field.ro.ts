@@ -40,7 +40,7 @@ export class CreateFieldRo implements IFieldRo {
   })
   name!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The description of the field.',
     example: 'this is a summary',
   })

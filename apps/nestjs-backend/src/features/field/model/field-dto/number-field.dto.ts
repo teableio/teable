@@ -21,6 +21,7 @@ export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
 
     return plainToInstance(NumberFieldDto, {
       ...fieldRo,
+      options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.Number,
       dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Real,

@@ -23,9 +23,8 @@ export enum TimeFormatting {
 const timeZoneStringSchema = z.string().refine(
   (value) => {
     try {
-      const timeZone = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions()
-        .timeZone;
-      return timeZone === value;
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions();
+      return true;
     } catch (e) {
       return false;
     }
@@ -54,7 +53,9 @@ export const formatDateToString = (cellValue: string, formatting: IDatetimeForma
     return '';
   }
 
-  const { date, time } = formatting;
+  const { date, time, timeZone } = formatting;
   const format = time === TimeFormatting.None ? date : `${date} ${time}`;
-  return dayjs(cellValue as string).format(format);
+  return dayjs(cellValue as string)
+    .tz(timeZone)
+    .format(format);
 };

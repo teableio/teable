@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { formatNumberToString, numberFormattingSchema } from '../formatting';
+import {
+  defaultNumberFormatting,
+  formatNumberToString,
+  numberFormattingSchema,
+} from '../formatting';
 
 export const numberFieldOptionsSchema = z.object({
   formatting: numberFormattingSchema,
@@ -22,9 +26,7 @@ export class NumberFieldCore extends FieldCore {
 
   static defaultOptions(): INumberFieldOptions {
     return {
-      formatting: {
-        precision: 0,
-      },
+      formatting: defaultNumberFormatting,
     };
   }
 

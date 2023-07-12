@@ -49,9 +49,14 @@ export class DateFieldCore extends FieldCore {
     }
 
     if (value === '' || value == null) return null;
-    const formatValue = dayjs(value);
-    if (!formatValue.isValid()) return null;
-    return formatValue.toISOString();
+
+    try {
+      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
+      if (!formatValue.isValid()) return null;
+      return formatValue.toISOString();
+    } catch (e) {
+      return null;
+    }
   }
 
   repair(value: unknown) {

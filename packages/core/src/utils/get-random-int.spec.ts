@@ -1,4 +1,4 @@
-import { getRandomInt } from '../get-random-int';
+import { getRandomInt } from './get-random-int';
 
 describe('getRandomInt tests', () => {
   it('should return an integer between min and max', () => {
