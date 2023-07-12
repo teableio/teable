@@ -1,68 +1,68 @@
-import DataEditor, { GridCellKind, useCustomCells } from '@glideapps/glide-data-grid';
-import type { DataEditorRef, Rectangle, Item } from '@glideapps/glide-data-grid';
-import { useConnection, useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
+import { useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
+import { range, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
-import '@glideapps/glide-data-grid/dist/index.css';
-import { useViewStore } from '../store/view';
-import { AddField, BaseCell } from './components';
+import { FieldOperator } from '@/features/app/components/field-setting/type';
+import type { IRectangle, ISelectionState } from '../../grid';
+import { SelectionRegionType, Grid } from '../../grid';
+import type { IInnerCell } from '../../grid/renderers';
+import { CellType } from '../../grid/renderers';
 import { DomBox } from './DomBox';
-import { useAsyncData, useColumnResize, useColumns, useGridTheme } from './hooks';
+import { useAsyncData, useColumnOrder, useColumnResize, useColumns } from './hooks';
 import { useGridViewStore } from './store/gridView';
-import { calculateCellPosition, calculateMenuPosition, getHeaderIcons } from './utils';
-
-const headerIcons = getHeaderIcons();
+import { calculateMenuPosition } from './utils';
 
 export const GridView: React.FC = () => {
-  const ref = useRef<DataEditorRef | null>(null);
   const container = useRef<HTMLDivElement>(null);
-
-  const { connected } = useConnection();
   const tableId = useTableId() as string;
   const table = useTable();
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
-  const theme = useGridTheme();
   const { columns, onColumnResize } = useColumnResize(originalColumns);
-  const customRendererArgs = useCustomCells([BaseCell]);
+  const { onColumnOrdered } = useColumnOrder();
   const gridViewStore = useGridViewStore();
-  const viewStore = useViewStore();
 
-  const { getCellContent, onVisibleRegionChanged, onCellEdited, reset, records } = useAsyncData(
+  const { getCellContent, onCellEdited, reset } = useAsyncData(
     useCallback(
-      (rowData, col) => {
+      (record, col) => {
         const fieldId = columns[col]?.id;
         if (!fieldId) {
           return {
-            kind: GridCellKind.Loading,
-            allowOverlay: false,
+            type: CellType.Text,
+            data: '',
+            displayData: '',
           };
         }
-        const cellValue = rowData.getCellValue(fieldId);
+        const cellValue = record.getCellValue(fieldId);
         return cellValue2GridDisplay(cellValue, col);
       },
       [cellValue2GridDisplay, columns]
     ),
     useCallback(
-      (cell, newVal, rowData) => {
+      (cell, newVal, record) => {
         const [col] = cell;
         const fieldId = columns[col].id;
-        if (newVal.kind === GridCellKind.Custom) {
-          return;
+        const { type, data } = newVal;
+        let newCellValue = null;
+
+        switch (type) {
+          case CellType.Select:
+            newCellValue = data.value;
+            break;
+          case CellType.Text:
+          case CellType.Number:
+          default:
+            newCellValue = data === '' ? null : data;
         }
-        const newCellValue = newVal.data === '' ? null : newVal.data;
-        const oldCellValue = rowData.getCellValue(fieldId) ?? null;
-        if (newCellValue == oldCellValue) {
-          return;
-        }
-        console.log('endEdit', newVal.data);
-        rowData.updateCell(fieldId, newCellValue);
-        return rowData;
+        console.log('newCellValue', newCellValue);
+        const oldCellValue = record.getCellValue(fieldId) ?? null;
+        if (isEqual(newCellValue, oldCellValue)) return;
+        record.updateCell(fieldId, newCellValue);
+        return record;
       },
       [columns]
     ),
-    ref,
     useMemo(() => {
       return ssrRecords?.map((record) => {
         return { record };
@@ -78,8 +78,8 @@ export const GridView: React.FC = () => {
   }, [reset, tableId, preTableId]);
 
   const onHeaderMenuClick = useCallback(
-    (col: number, bounds: Rectangle) => {
-      const pos = calculateMenuPosition(container, ref, { col, bounds });
+    (col: number, bounds: IRectangle) => {
+      const pos = calculateMenuPosition(container, { col, bounds });
       gridViewStore.openHeaderMenu({ pos, fieldId: columns[col].id });
     },
     [columns, gridViewStore]
@@ -89,80 +89,58 @@ export const GridView: React.FC = () => {
     table?.createRecord({});
   };
 
-  const onCellActivated = (cell: Item) => {
-    const [col, row] = cell;
-    const rectangle = ref.current?.getBounds(col, row);
-    if (!rectangle || cellValue2GridDisplay(undefined, col).kind !== GridCellKind.Custom) {
-      return;
-    }
-    viewStore.activateCell({
-      recordId: records[row].id,
-      fieldId: columns[col].id,
-    });
-    gridViewStore.updateEditorPosition({
-      pos: calculateCellPosition(container, rectangle),
-      cell: {
-        width: rectangle.width,
-        height: rectangle.height,
-      },
+  const onColumnAppend = () => {
+    gridViewStore.openSetting({
+      operator: FieldOperator.Add,
     });
   };
 
+  const onDelete = (selection: ISelectionState) => {
+    const { type, ranges } = selection;
+
+    switch (type) {
+      case SelectionRegionType.Cells: {
+        const [startRange, endRange] = ranges;
+        const minColIndex = Math.min(startRange[0], endRange[0]);
+        const maxColIndex = Math.max(startRange[0], endRange[0]);
+        const minRowIndex = Math.min(startRange[1], endRange[1]);
+        const maxRowIndex = Math.max(startRange[1], endRange[1]);
+        range(minColIndex, maxColIndex + 1).forEach((colIndex) => {
+          range(minRowIndex, maxRowIndex + 1).forEach((rowIndex) => {
+            onCellEdited([colIndex, rowIndex], {
+              ...getCellContent([colIndex, rowIndex]),
+              data: null,
+            } as IInnerCell);
+          });
+        });
+        break;
+      }
+      case SelectionRegionType.Row:
+      case SelectionRegionType.Column:
+        return null;
+    }
+  };
+
   return (
-    <div ref={container} className="relative grow w-full overflow-y-auto overflow-x-hidden">
-      {connected ? (
-        <DataEditor
-          {...customRendererArgs}
-          ref={ref}
-          theme={theme}
-          smoothScrollX
-          smoothScrollY
-          getCellContent={getCellContent}
-          onVisibleRegionChanged={onVisibleRegionChanged}
-          onCellEdited={onCellEdited}
-          onCellActivated={onCellActivated}
-          onColumnResize={onColumnResize}
-          width={'100%'}
-          columns={columns}
-          rows={rowCount}
-          rowMarkers="both"
-          onHeaderMenuClick={onHeaderMenuClick}
-          freezeColumns={1}
-          headerIcons={headerIcons}
-          onRowAppended={onRowAppended}
-          trailingRowOptions={{
-            tint: true,
-            hint: 'New record',
-          }}
-          rightElement={<AddField />}
-          rightElementProps={{
-            fill: true,
-            sticky: false,
-          }}
-          isDraggable={false}
-        />
-      ) : (
-        <DataEditor
-          {...customRendererArgs}
-          ref={ref}
-          theme={theme}
-          smoothScrollX
-          smoothScrollY
-          getCellContent={getCellContent}
-          onVisibleRegionChanged={onVisibleRegionChanged}
-          width={'100%'}
-          columns={columns}
-          rows={rowCount}
-          rowMarkers="both"
-          freezeColumns={1}
-          headerIcons={headerIcons}
-          rightElement={<AddField disabled />}
-          rightElementProps={{
-            fill: true,
-            sticky: false,
-          }}
-        />
-      )}
+    <div ref={container} className="relative grow w-full overflow-hidden">
+      <Grid
+        rowCount={rowCount}
+        freezeColumnCount={0}
+        columns={columns}
+        smoothScrollX
+        smoothScrollY
+        // rowControls={[]}
+        style={{ marginLeft: -1, marginTop: -1 }}
+        getCellContent={getCellContent}
+        onDelete={onDelete}
+        onRowAppend={onRowAppended}
+        // onCellActivated={onCellActivated}
+        onCellEdited={onCellEdited}
+        onColumnAppend={onColumnAppend}
+        onColumnResize={onColumnResize}
+        onColumnOrdered={onColumnOrdered}
+        onColumnHeaderMenuClick={onHeaderMenuClick}
+      />
       <DomBox />
     </div>
   );

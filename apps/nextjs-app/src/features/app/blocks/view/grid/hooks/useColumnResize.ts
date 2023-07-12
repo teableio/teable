@@ -1,7 +1,7 @@
-import type { GridColumn } from '@glideapps/glide-data-grid';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import { useCallback, useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';
+import type { IColumn } from '../../../grid';
 
 export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   const fields = useFields();
@@ -34,7 +34,7 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   );
 
   const onColumnResize = useCallback(
-    (column: GridColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
+    (column: IColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
       setDragging(true);
       const fieldId = column.id;
       const field = fields[colIndex];

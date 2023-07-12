@@ -3399,6 +3399,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mapbox/node-pre-gyp@npm:^1.0.0":
+  version: 1.0.10
+  resolution: "@mapbox/node-pre-gyp@npm:1.0.10"
+  dependencies:
+    detect-libc: "npm:^2.0.0"
+    https-proxy-agent: "npm:^5.0.0"
+    make-dir: "npm:^3.1.0"
+    node-fetch: "npm:^2.6.7"
+    nopt: "npm:^5.0.0"
+    npmlog: "npm:^5.0.1"
+    rimraf: "npm:^3.0.2"
+    semver: "npm:^7.3.5"
+    tar: "npm:^6.1.11"
+  bin:
+    node-pre-gyp: bin/node-pre-gyp
+  checksum: e408e430752eed5a1e3603d87ed070d09ba7b1a3fed303da5522b04ce9b06da66a67ef064be350290d788483efc6b7bbf6cbc67a47d04feee4002e52a43bfbaf
+  languageName: node
+  linkType: hard
+
 "@mdx-js/mdx@npm:^1.6.22":
   version: 1.6.22
   resolution: "@mdx-js/mdx@npm:1.6.22"
@@ -7053,6 +7072,7 @@ __metadata:
     "@types/cors": "npm:2.8.12"
     "@types/express": "npm:4.17.14"
     "@types/jest": "npm:29.2.0"
+    "@types/mousetrap": "npm:1.6.11"
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-beautiful-dnd": "npm:13.1.4"
@@ -7067,6 +7087,7 @@ __metadata:
     apollo-server-micro: "npm:3.10.3"
     autoprefixer: "npm:10.4.13"
     axios: "npm:1.1.3"
+    canvas: "npm:2.9.1"
     class-variance-authority: "npm:0.6.1"
     classnames: "npm:2.3.2"
     clsx: "npm:1.2.1"
@@ -7097,11 +7118,13 @@ __metadata:
     jest: "npm:29.2.2"
     jest-css-modules-transform: "npm:4.4.2"
     jose: "npm:4.10.3"
+    konva: "npm:9.2.0"
     ky: "npm:0.31.4"
     lodash: "npm:4.17.21"
     lucide-react: "npm:0.244.0"
     marked: "npm:4.2.12"
     micro: "npm:9.4.1"
+    mousetrap: "npm:1.6.5"
     next: "npm:13.0.2"
     next-connect: "npm:0.13.0"
     next-i18next: "npm:12.1.0"
@@ -7122,6 +7145,7 @@ __metadata:
     react-grid-layout: "npm:1.3.4"
     react-hook-form: "npm:7.38.0"
     react-i18next: "npm:11.18.6"
+    react-konva: "npm:18.2.9"
     react-markdown: "npm:8.0.6"
     react-resizable-panels: "npm:0.0.39"
     react-responsive-carousel: "npm:3.2.23"
@@ -7149,6 +7173,8 @@ __metadata:
     tailwindcss: "npm:3.2.1"
     tailwindcss-animate: "npm:1.0.6"
     ts-jest: "npm:29.0.3"
+    ts-key-enum: "npm:2.0.12"
+    ts-keycode-enum: "npm:1.0.6"
     ts-node: "npm:10.9.1"
     type-fest: "npm:3.1.0"
     typescript: "npm:4.8.4"
@@ -8129,6 +8155,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/mousetrap@npm:1.6.11":
+  version: 1.6.11
+  resolution: "@types/mousetrap@npm:1.6.11"
+  checksum: 3ff525d7c3eac9d9b93a82cf89e9688c46a69cab4eab2462685111655a2a001c588174766f66498de6d634537a0992f53e094138a9ef8ab3db605d3a17720c80
+  languageName: node
+  linkType: hard
+
 "@types/ms@npm:*":
   version: 0.7.31
   resolution: "@types/ms@npm:0.7.31"
@@ -8303,6 +8336,15 @@ __metadata:
   dependencies:
     "@types/react": "npm:*"
   checksum: a0f5353fdd3e72149adbeedac78c31ff575134838c4bccfee8d1feb095c09f2bfd360377ae400d739cafd6b203a60a65fe718c125ec67bc5af16216cd3b2d8fa
+  languageName: node
+  linkType: hard
+
+"@types/react-reconciler@npm:^0.28.0, @types/react-reconciler@npm:^0.28.2":
+  version: 0.28.2
+  resolution: "@types/react-reconciler@npm:0.28.2"
+  dependencies:
+    "@types/react": "npm:*"
+  checksum: 656ae566414ebee8ec189087194d334b0737dbfdea666372b7180743d41ffc2dc51bcc9473aad50c7d4e23c9b32514aa70ffb734555b398a72d4319810d1a9e5
   languageName: node
   linkType: hard
 
@@ -11295,6 +11337,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"canvas@npm:2.9.1":
+  version: 2.9.1
+  resolution: "canvas@npm:2.9.1"
+  dependencies:
+    "@mapbox/node-pre-gyp": "npm:^1.0.0"
+    nan: "npm:^2.15.0"
+    node-gyp: "npm:latest"
+    simple-get: "npm:^3.0.3"
+  checksum: ad9bcc25e11677844611c947c185fad57364e29ee67b54f32a87494289312b8d355ab4ae422425b6270dd6bdec297be848265a95b24c09e58fef4b3b76b11964
+  languageName: node
+  linkType: hard
+
 "capture-exit@npm:^2.0.0":
   version: 2.0.0
   resolution: "capture-exit@npm:2.0.0"
@@ -13074,6 +13128,15 @@ __metadata:
   dependencies:
     mimic-response: "npm:^1.0.0"
   checksum: 6b6423eebde6911f2bcd1898df0c5b240efe820ebb08cd5e38b27f6962e496cea54d22c984efdcfb98f5b15dc1cdc141c1774e4ed6ea4e0cc1741a7de30a59cb
+  languageName: node
+  linkType: hard
+
+"decompress-response@npm:^4.2.0":
+  version: 4.2.1
+  resolution: "decompress-response@npm:4.2.1"
+  dependencies:
+    mimic-response: "npm:^2.0.0"
+  checksum: 8ef520663eef28e2249ea8de998e43dc506c38a2d6082954dd62385ee1c28c680d94821977467bf06191585315021d61e2e0aa4fc8dd7af38f04c01c3e023fec
   languageName: node
   linkType: hard
 
@@ -18251,6 +18314,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"its-fine@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "its-fine@npm:1.1.1"
+  dependencies:
+    "@types/react-reconciler": "npm:^0.28.0"
+  peerDependencies:
+    react: ">=18.0"
+  checksum: 79024f6796f8bcf7611682c5471d3216751db76d950f0d98388337a84fd419b7618f8b8098a5fbe74005701bdb5a759ac5b8a532d3466d056a25d9fb06c16225
+  languageName: node
+  linkType: hard
+
 "jake@npm:^10.8.5":
   version: 10.8.5
   resolution: "jake@npm:10.8.5"
@@ -19231,6 +19305,13 @@ __metadata:
   bin:
     knex: bin/cli.js
   checksum: 17456b5a0045d97fec8cc7751a84f89720ab12b2c5a8d804f75146c4f78e478f4bbf142961c5b7bb165255c2381295e60e6f36d7c508c7ff69f5270eba6490b8
+  languageName: node
+  linkType: hard
+
+"konva@npm:9.2.0":
+  version: 9.2.0
+  resolution: "konva@npm:9.2.0"
+  checksum: d406f8551e0a05a3e19a01a063dd6c4e16d3205bb93f4907f97584d032f48569d19b6152526f296d3b2daba1a40f2e62167c4cb64be66bfd4b51a63be9229818
   languageName: node
   linkType: hard
 
@@ -20875,6 +20956,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mimic-response@npm:^2.0.0":
+  version: 2.1.0
+  resolution: "mimic-response@npm:2.1.0"
+  checksum: 04c653f64fdfa6c11b9470e1a91fc40f518b5fec6931131d548f29eaa602ea59c688fc93ba98fc035c13eaabcebb59b7b38332145329245a49f2435939acf1cd
+  languageName: node
+  linkType: hard
+
 "mimic-response@npm:^3.1.0":
   version: 3.1.0
   resolution: "mimic-response@npm:3.1.0"
@@ -21107,6 +21195,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mousetrap@npm:1.6.5":
+  version: 1.6.5
+  resolution: "mousetrap@npm:1.6.5"
+  checksum: 0b4b1c53cca2c0c9165ac7094eb770997863fc036ea65f76353a45e02c447709f0ce2a40d98472110f924d6f31750eb3ae618b226b720dec4f8b4591f5959060
+  languageName: node
+  linkType: hard
+
 "move-concurrently@npm:^1.0.1":
   version: 1.0.1
   resolution: "move-concurrently@npm:1.0.1"
@@ -21195,6 +21290,15 @@ __metadata:
   dependencies:
     node-gyp: "npm:latest"
   checksum: 8e0cfc248c39f5e81af8d3654b9765a2f03bd4c634bf13f9d7121a814756e51022bc52b93787176b4a6b4a9217c00ed939221e6130586b13a880e423607067ce
+  languageName: node
+  linkType: hard
+
+"nan@npm:^2.15.0":
+  version: 2.17.0
+  resolution: "nan@npm:2.17.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: d424a730ee926fd928545c29ba19609bc1af03f8210c4465c825ba87070b83c546da2964a14d6acdacca847798184f48d5b8585f061dcb59459b300f2aff09c8
   languageName: node
   linkType: hard
 
@@ -24426,6 +24530,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-konva@npm:18.2.9":
+  version: 18.2.9
+  resolution: "react-konva@npm:18.2.9"
+  dependencies:
+    "@types/react-reconciler": "npm:^0.28.2"
+    its-fine: "npm:^1.1.1"
+    react-reconciler: "npm:~0.29.0"
+    scheduler: "npm:^0.23.0"
+  peerDependencies:
+    konva: ^8.0.1 || ^7.2.5 || ^9.0.0
+    react: ">=18.0.0"
+    react-dom: ">=18.0.0"
+  checksum: afeb605437ba66b0de1e586a31b1447ca35a8fd5b2e6480bdb874b0719d762a36de0bc176dcd76df4e7b9e2801eababbcb6f51375e57fe79ecb54b8e6eac61de
+  languageName: node
+  linkType: hard
+
 "react-markdown@npm:8.0.6":
   version: 8.0.6
   resolution: "react-markdown@npm:8.0.6"
@@ -24461,6 +24581,18 @@ __metadata:
     react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
     react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
   checksum: 1048dab5bac06684664cd68c7dca94250149291494bb17560915c2614bcbdb7e60d5361a5c000133b22be2648a0d947821f27e5650a91893f9baa0a52f91795e
+  languageName: node
+  linkType: hard
+
+"react-reconciler@npm:~0.29.0":
+  version: 0.29.0
+  resolution: "react-reconciler@npm:0.29.0"
+  dependencies:
+    loose-envify: "npm:^1.1.0"
+    scheduler: "npm:^0.23.0"
+  peerDependencies:
+    react: ^18.2.0
+  checksum: 0fce3934b98ba94af674754759627b392efb2f0f9385f000adcd7816adaf8cb8365db34da172f164095e58af8a4786f78969bd5bf6e30bb6678688e823f74620
   languageName: node
   linkType: hard
 
@@ -26210,6 +26342,17 @@ __metadata:
   version: 1.0.1
   resolution: "simple-concat@npm:1.0.1"
   checksum: 1a041737314d8b49247072adf25990fa56430c2f71f3c129013fa275e0d725d935c2e2ca33bd10c22f1391047a8a94e01db3c149bda30b8e2480a833c99b9a30
+  languageName: node
+  linkType: hard
+
+"simple-get@npm:^3.0.3":
+  version: 3.1.1
+  resolution: "simple-get@npm:3.1.1"
+  dependencies:
+    decompress-response: "npm:^4.2.0"
+    once: "npm:^1.3.1"
+    simple-concat: "npm:^1.0.0"
+  checksum: b10a96dc326f9eb1cdad3c2c934416883c244a047876742077b1da5499429efb278e7ca10dfda4ad12d0bea6058d240030216e50827f95b40fe955817cbb57ed
   languageName: node
   linkType: hard
 
@@ -28186,6 +28329,20 @@ __metadata:
   bin:
     ts-jest: cli.js
   checksum: ea0c993ed3054f3cf53410e63203ab432b492b209a489116fbe1a8754bef9a69454d9bf079f53d0e1c4e60ff08f2310712925e9ef4adc8f42f78a7e537208078
+  languageName: node
+  linkType: hard
+
+"ts-key-enum@npm:2.0.12":
+  version: 2.0.12
+  resolution: "ts-key-enum@npm:2.0.12"
+  checksum: 8326a333cba219e7a281ed2850c6dc0e3f37601dfa313cc7f24dbe9f762548cb2c2103b52d0285c8367eaa69ebcd31ee863d37b87427aa8f370e3d5d7ee3fa91
+  languageName: node
+  linkType: hard
+
+"ts-keycode-enum@npm:1.0.6":
+  version: 1.0.6
+  resolution: "ts-keycode-enum@npm:1.0.6"
+  checksum: 79a6ee59b157a87b59451389d8bf6d992a351079255942b957bc4cf2bf7e24057e6edca1c9356e186ebb66f48a50d0aa6b4a0964e1b4f7162c2c94a5e9e43e8c
   languageName: node
   linkType: hard
 

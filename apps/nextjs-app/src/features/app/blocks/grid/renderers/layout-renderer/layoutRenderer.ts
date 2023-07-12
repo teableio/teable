@@ -1,0 +1,607 @@
+import type Konva from 'konva';
+import { isEqual } from 'lodash';
+import { GRID_DEFAULT } from '../../configs';
+import { getDropTargetColumnIndex } from '../../hooks';
+import { DragRegionType, RegionType, RowControlType, SelectionRegionType } from '../../interface';
+import type { IRenderLayerProps } from '../../RenderLayer';
+import {
+  checkIfColumnActive,
+  checkIfFillHandleCell,
+  checkIfRowOrCellActive,
+  checkIfRowOrCellSelected,
+  inRange,
+} from '../../utils';
+import type { IRectProps } from '../base-renderer';
+import {
+  drawCheckbox,
+  drawLine,
+  drawMultiLineText,
+  drawRect,
+  drawRoundPoly,
+  drawSingleLineText,
+} from '../base-renderer';
+import { getCellRenderer } from '../cell-renderer';
+import type { ICellDrawerProps, IFieldHeadDrawerProps, IRowHeaderDrawerProps } from './interface';
+import { RenderRegion } from './interface';
+
+export const drawCell = (ctx: Konva.Context, props: ICellDrawerProps) => {
+  const { x, y, width, height, fill, stroke, cell, theme } = props;
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    stroke: stroke ?? theme.cellLineColor,
+    fill: fill ?? theme.cellBg,
+  });
+  const cellRenderer = getCellRenderer(cell.type);
+  cellRenderer.draw(cell as never, {
+    ctx,
+    x,
+    y,
+    width,
+    height,
+    theme,
+  });
+};
+
+export const drawCells = (
+  ctx: Konva.Context,
+  props: IRenderLayerProps,
+  renderRegion: RenderRegion
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+) => {
+  const {
+    coordInstance,
+    startRowIndex,
+    stopRowIndex: originStopRowIndex,
+    startColumnIndex: originStartColumnIndex,
+    stopColumnIndex: originStopColumnIndex,
+    scrollState,
+    mouseState,
+    selectionState,
+    rowControls,
+    onRowAppend,
+    getCellContent,
+    theme,
+    isEditing,
+  } = props;
+  const {
+    rowHeight,
+    freezeColumnCount,
+    freezeRegionWidth,
+    rowInitSize,
+    columnInitSize,
+    containerWidth,
+    containerHeight,
+  } = coordInstance;
+  const hasAppendRow = onRowAppend != null;
+  const { isSelecting, type: selectionType } = selectionState;
+  const { scrollLeft, scrollTop } = scrollState;
+  const isFreezeRegion = renderRegion === RenderRegion.Freeze;
+  const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
+  const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
+  const stopColumnIndex = isFreezeRegion
+    ? Math.max(freezeColumnCount - 1, 0)
+    : originStopColumnIndex;
+  const stopRowIndex = hasAppendRow ? Math.max(0, originStopRowIndex - 1) : originStopRowIndex;
+  const {
+    fontSizeMD,
+    fontFamily,
+    cellBg,
+    cellBgHovered,
+    cellBgSelected,
+    cellLineColorActived,
+    columnHeaderBgSelected,
+  } = theme;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth + scrollLeft + 1,
+    rowInitSize + scrollTop + 1,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize - 1
+  );
+  ctx.clip();
+  ctx.font = `normal ${fontSizeMD}px ${fontFamily}`;
+
+  let activeCellProps: ICellDrawerProps | null = null;
+  let fillHandlerProps: IRectProps | null = null;
+
+  for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
+    const x = coordInstance.getColumnOffset(columnIndex);
+    const columnWidth = coordInstance.getColumnWidth(columnIndex);
+    const isColumnActive = checkIfColumnActive(selectionState, columnIndex);
+
+    for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
+      const y = coordInstance.getRowOffset(rowIndex);
+      const isHover =
+        !isOutOfBounds &&
+        !isSelecting &&
+        [RegionType.Cell, RegionType.RowHeader, RegionType.RowHeaderCheckbox].includes(
+          hoverRegionType
+        ) &&
+        rowIndex === hoverRowIndex;
+      const { isRowActive, isCellActive } = checkIfRowOrCellActive(
+        selectionState,
+        rowIndex,
+        columnIndex
+      );
+      const { isRowSelected, isCellSelected } = checkIfRowOrCellSelected(
+        selectionState,
+        rowIndex,
+        columnIndex
+      );
+      let fill = cellBg;
+
+      if (isCellSelected || isRowSelected) {
+        fill = cellBgSelected;
+      } else if (isColumnActive) {
+        fill = columnHeaderBgSelected;
+      } else if (isHover || isRowActive) {
+        fill = cellBgHovered;
+      }
+
+      if (columnIndex === 0) {
+        drawRowHeader(ctx, {
+          x: 0.5,
+          y: y + 0.5,
+          width: columnInitSize,
+          height: rowHeight,
+          displayIndex: String(rowIndex + 1),
+          isHover: isHover || isRowActive,
+          isChecked: selectionType === SelectionRegionType.Row && isRowSelected,
+          rowControls,
+          theme,
+        });
+      }
+
+      if (
+        !isEditing &&
+        !isSelecting &&
+        checkIfFillHandleCell(selectionState, rowIndex, columnIndex)
+      ) {
+        const { fillHandlerSize } = GRID_DEFAULT;
+        fillHandlerProps = {
+          x: x + columnWidth - fillHandlerSize / 2 - 0.5,
+          y: y + rowHeight - fillHandlerSize / 2 - 0.5,
+          width: fillHandlerSize,
+          height: fillHandlerSize,
+          stroke: cellLineColorActived,
+          fill: cellBg,
+        };
+      }
+
+      if (isCellActive) {
+        activeCellProps = {
+          x: x + 0.5,
+          y: y + 0.5,
+          width: columnWidth,
+          height: rowHeight,
+          stroke: cellLineColorActived,
+          cell: getCellContent([columnIndex, rowIndex]),
+          theme,
+        };
+        continue;
+      }
+
+      drawCell(ctx, {
+        x: x + 0.5,
+        y: y + 0.5,
+        width: columnWidth,
+        height: rowHeight,
+        fill,
+        cell: getCellContent([columnIndex, rowIndex]),
+        theme,
+      });
+    }
+  }
+  activeCellProps && drawCell(ctx, activeCellProps);
+  fillHandlerProps && drawRect(ctx, fillHandlerProps);
+
+  ctx.restore();
+};
+
+export const drawRowHeader = (ctx: Konva.Context, props: IRowHeaderDrawerProps) => {
+  const { x, y, width, height, displayIndex, theme, isHover, isChecked, rowControls } = props;
+  const hasCheckbox = rowControls?.includes(RowControlType.Checkbox);
+  const {
+    cellBg,
+    cellBgHovered,
+    cellBgSelected,
+    cellLineColor,
+    rowHeaderTextColor,
+    iconSizeSM,
+    staticWhite,
+    cellLineColorActived,
+  } = theme;
+  let fill = cellBg;
+
+  if (isChecked) {
+    fill = cellBgSelected;
+  } else if (isHover) {
+    fill = cellBgHovered;
+  }
+
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    stroke: cellLineColor,
+    fill,
+  });
+  const halfSize = iconSizeSM / 2;
+
+  if (hasCheckbox && (isChecked || isHover)) {
+    return drawCheckbox(ctx, {
+      x: x + width / 2 - halfSize,
+      y: y + height / 2 - halfSize,
+      size: iconSizeSM,
+      stroke: isChecked ? staticWhite : rowHeaderTextColor,
+      fill: isChecked ? cellLineColorActived : undefined,
+      isChecked,
+    });
+  }
+  drawSingleLineText(ctx, {
+    x: x + width / 2,
+    y: y + height / 2,
+    text: displayIndex,
+    textAlign: 'center',
+    fill: rowHeaderTextColor,
+  });
+};
+
+export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProps) => {
+  const { x, y, width, height, theme, fill, column, hasMenu, spriteManager } = props;
+  const { name, icon, hasMenu: hasColumnMenu } = column;
+  const {
+    cellLineColor,
+    cellBg,
+    columnHeaderMenuBg,
+    columnHeaderNameColor,
+    fontSizeLG,
+    iconSizeSM,
+  } = theme;
+  const { columnHeadPadding, columnHeadMenuSize } = GRID_DEFAULT;
+  let maxTextWidth = width - columnHeadPadding * 2 - iconSizeSM;
+
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    stroke: cellLineColor,
+    fill: fill ?? cellBg,
+  });
+  icon &&
+    spriteManager.drawSprite(ctx, {
+      sprite: icon,
+      variant: 'normal',
+      x: x + columnHeadPadding,
+      y: y + (height - iconSizeSM) / 2,
+      size: iconSizeSM,
+    });
+  if (hasMenu && hasColumnMenu) {
+    maxTextWidth = maxTextWidth - columnHeadMenuSize - columnHeadPadding;
+    drawRoundPoly(ctx, {
+      points: [
+        {
+          x: x + width - columnHeadPadding - columnHeadMenuSize,
+          y: y + height / 2 - columnHeadMenuSize / 4,
+        },
+        {
+          x: x + width - columnHeadPadding,
+          y: y + height / 2 - columnHeadMenuSize / 4,
+        },
+        {
+          x: x + width - columnHeadPadding - columnHeadMenuSize / 2,
+          y: y + height / 2 + columnHeadMenuSize / 4,
+        },
+      ],
+      radiusAll: 1,
+      fill: columnHeaderMenuBg,
+    });
+  }
+  drawMultiLineText(ctx, {
+    x: x + iconSizeSM + columnHeadPadding + columnHeadPadding / 2,
+    y: y + height / 2 + 1,
+    text: name,
+    maxLines: 1,
+    maxWidth: maxTextWidth,
+    fill: columnHeaderNameColor,
+    fontSize: fontSizeLG,
+  });
+};
+
+export const drawColumnHeaders = (
+  ctx: Konva.Context,
+  props: IRenderLayerProps,
+  renderRegion: RenderRegion
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+) => {
+  const {
+    startColumnIndex: originStartColumnIndex,
+    stopColumnIndex: originStopColumnIndex,
+    coordInstance,
+    columns,
+    theme,
+    spriteManager,
+    mouseState,
+    scrollState,
+    selectionState,
+    rowControls,
+    onRowAppend,
+    onColumnHeaderMenuClick,
+  } = props;
+  const {
+    containerWidth,
+    freezeRegionWidth,
+    rowInitSize,
+    columnInitSize,
+    freezeColumnCount,
+    rowCount,
+  } = coordInstance;
+  const { scrollLeft } = scrollState;
+  const { type: selectionType, ranges: selectionRanges } = selectionState;
+  const { type: hoverRegionType, columnIndex: hoverColumnIndex } = mouseState;
+  const isFreezeRegion = renderRegion === RenderRegion.Freeze;
+  const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
+  const stopColumnIndex = isFreezeRegion
+    ? Math.max(freezeColumnCount - 1, 0)
+    : originStopColumnIndex;
+  const endRowIndex = onRowAppend != null ? rowCount - 2 : rowCount - 1;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? scrollLeft : freezeRegionWidth + scrollLeft + 1,
+    0,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    rowInitSize + 1
+  );
+  ctx.clip();
+  const {
+    iconSizeSM,
+    fontSizeLG,
+    fontFamily,
+    cellBg,
+    columnHeaderBgHovered,
+    columnHeaderBgSelected,
+    rowHeaderTextColor,
+    cellLineColor,
+    cellLineColorActived,
+    staticWhite,
+  } = theme;
+  ctx.font = `normal ${fontSizeLG}px ${fontFamily}`;
+
+  for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
+    let x = coordInstance.getColumnOffset(columnIndex);
+    x = isFreezeRegion ? scrollLeft + x : x;
+    const columnWidth = coordInstance.getColumnWidth(columnIndex);
+    const isActive = checkIfColumnActive(selectionState, columnIndex);
+    const isHover =
+      [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
+      hoverColumnIndex === columnIndex;
+    let fill = cellBg;
+
+    if (columnIndex === 0) {
+      const halfSize = iconSizeSM / 2;
+      drawRect(ctx, {
+        x: scrollLeft + 0.5,
+        y: 0.5,
+        width: columnInitSize,
+        height: rowInitSize,
+        fill: cellBg,
+        stroke: cellLineColor,
+      });
+
+      if (rowControls?.includes(RowControlType.Checkbox)) {
+        const isChecked =
+          selectionType === SelectionRegionType.Row &&
+          isEqual(selectionRanges[0], [0, endRowIndex]);
+        drawCheckbox(ctx, {
+          x: scrollLeft + columnInitSize / 2 - halfSize + 0.5,
+          y: rowInitSize / 2 - halfSize + 0.5,
+          size: iconSizeSM,
+          stroke: isChecked ? staticWhite : rowHeaderTextColor,
+          fill: isChecked ? cellLineColorActived : undefined,
+          isChecked,
+        });
+      }
+    }
+
+    if (isActive) {
+      fill = columnHeaderBgSelected;
+    } else if (isHover) {
+      fill = columnHeaderBgHovered;
+    }
+
+    drawColumnHeader(ctx, {
+      x: x + 0.5,
+      y: 0.5,
+      width: columnWidth,
+      height: rowInitSize,
+      column: columns[columnIndex],
+      fill,
+      hasMenu: onColumnHeaderMenuClick != null,
+      theme,
+      spriteManager,
+    });
+  }
+
+  ctx.restore();
+};
+
+export const drawAppendRow = (
+  ctx: Konva.Context,
+  props: IRenderLayerProps,
+  renderRegion: RenderRegion
+) => {
+  const { scrollState, coordInstance, mouseState, theme, onRowAppend } = props;
+  if (onRowAppend == null) return;
+
+  const { rowIndex, isOutOfBounds } = mouseState;
+  const isFreezeRegion = renderRegion === RenderRegion.Freeze;
+  const { scrollLeft } = scrollState;
+  const { totalWidth, rowHeight, freezeRegionWidth, freezeColumnCount, rowCount, columnInitSize } =
+    coordInstance;
+  const isHover = !isOutOfBounds && rowIndex === rowCount - 1;
+  const x = isFreezeRegion ? 0 : coordInstance.getColumnOffset(freezeColumnCount);
+  const y = coordInstance.getRowOffset(rowCount - 1);
+  const width = isFreezeRegion ? freezeRegionWidth + 1 : totalWidth - freezeRegionWidth;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth + scrollLeft + 1,
+    y,
+    isFreezeRegion ? width : totalWidth - scrollLeft - freezeRegionWidth + 1,
+    rowHeight + 1
+  );
+  ctx.clip();
+  const { iconSizeMD, fontFamily, cellBg, cellBgHovered, cellLineColor, cellTextColor } = theme;
+  ctx.font = `normal ${iconSizeMD}px ${fontFamily}`;
+  drawRect(ctx, {
+    x: x + 0.5,
+    y: y + 0.5,
+    width,
+    height: rowHeight,
+    fill: isHover ? cellBgHovered : cellBg,
+    stroke: cellLineColor,
+  });
+  if (isFreezeRegion) {
+    drawSingleLineText(ctx, {
+      x: x + columnInitSize / 2 + 0.5,
+      y: y + rowHeight / 2 + 0.5,
+      text: '+',
+      textAlign: 'center',
+      fill: cellTextColor,
+    });
+  }
+  ctx.restore();
+};
+
+export const drawAppendColumn = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  const { coordInstance, theme, mouseState, onColumnAppend } = props;
+  const { totalWidth } = coordInstance;
+  const { type: hoverRegionType } = mouseState;
+
+  if (onColumnAppend == null) return;
+
+  const { fontFamily, cellBg, cellLineColor, cellTextColor, columnHeaderBgHovered, iconSizeMD } =
+    theme;
+  const isHover = hoverRegionType === RegionType.AppendColumn;
+
+  drawRect(ctx, {
+    x: totalWidth + 0.5,
+    y: 0.5,
+    width: GRID_DEFAULT.columnAppendBtnWidth,
+    height: GRID_DEFAULT.columnHeadHeight,
+    fill: isHover ? columnHeaderBgHovered : cellBg,
+    stroke: cellLineColor,
+  });
+
+  const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
+  ctx.font = `normal ${iconSizeMD}px ${fontFamily}`;
+  drawSingleLineText(ctx, {
+    x: totalWidth + columnAppendBtnWidth / 2 + 0.5 - 5,
+    y: columnHeadHeight / 2 + 0.5,
+    text: '+',
+    fill: cellTextColor,
+  });
+};
+
+export const drawColumnResizeHandler = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  const { coordInstance, mouseState, scrollState, theme, columnResizeState, onColumnResize } =
+    props;
+  const { type: hoverRegionType, columnIndex: hoverColumnIndex, x: hoverX } = mouseState;
+  const { columnIndex: resizeColumnIndex } = columnResizeState;
+  const canResize = onColumnResize != null;
+  const isHover = canResize && hoverRegionType === RegionType.ColumnResizeHandler;
+  const isResize = resizeColumnIndex > -1;
+
+  if (!isHover && !isResize) return;
+
+  const { columnResizeHandlerBg } = theme;
+  const { columnResizeHandlerWidth } = GRID_DEFAULT;
+  const { scrollLeft } = scrollState;
+  const { rowInitSize, freezeColumnCount } = coordInstance;
+  const isFreezeColumn = hoverColumnIndex < freezeColumnCount;
+  let x = 0;
+
+  if (isResize) {
+    const offsetX = coordInstance.getColumnOffset(resizeColumnIndex);
+    const columnWidth = coordInstance.getColumnWidth(resizeColumnIndex);
+    x = isFreezeColumn ? scrollLeft + offsetX + columnWidth : offsetX + columnWidth;
+  } else {
+    const startOffsetX = coordInstance.getColumnOffset(hoverColumnIndex);
+    const realColumnIndex = inRange(
+      hoverX,
+      startOffsetX,
+      startOffsetX + columnResizeHandlerWidth / 2
+    )
+      ? hoverColumnIndex - 1
+      : hoverColumnIndex;
+    const realOffsetX = coordInstance.getColumnOffset(realColumnIndex);
+    const realColumnWidth = coordInstance.getColumnWidth(realColumnIndex);
+    x = isFreezeColumn ? scrollLeft + realOffsetX + realColumnWidth : realOffsetX + realColumnWidth;
+  }
+  const paddingTop = 4;
+
+  drawRect(ctx, {
+    x: x - columnResizeHandlerWidth / 2 + 0.5,
+    y: paddingTop + 0.5,
+    width: columnResizeHandlerWidth,
+    height: rowInitSize - paddingTop * 2,
+    fill: columnResizeHandlerBg,
+    radius: 3,
+  });
+};
+
+export const drawColumnDraggingRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
+  const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
+  const { type, isDragging, index: draggingColIndex, delta } = dragState;
+  const { containerHeight, freezeColumnCount } = coordInstance;
+  const { x } = mouseState;
+  const { scrollLeft } = scrollState;
+
+  if (!isDragging || type !== DragRegionType.Column) return;
+  drawRect(ctx, {
+    x: scrollLeft + x - delta,
+    y: 0.5,
+    width: columns[draggingColIndex].width as number,
+    height: containerHeight,
+    fill: columnDraggingPlaceholderBg,
+  });
+
+  const targetColumnIndex = getDropTargetColumnIndex(coordInstance, mouseState, scrollState);
+  const offsetX = coordInstance.getColumnOffset(targetColumnIndex);
+  const finalX = targetColumnIndex < freezeColumnCount ? scrollLeft + offsetX : offsetX;
+
+  drawLine(ctx, {
+    x: finalX + 0.5,
+    y: 0.5,
+    points: [0, 0, 0, containerHeight],
+    stroke: cellLineColorActived,
+  });
+};
+
+export const drawColumnHeadersRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnHeaders(ctx, props, r));
+  drawAppendColumn(ctx, props);
+  drawColumnResizeHandler(ctx, props);
+  drawColumnDraggingRegion(ctx, props);
+};
+
+export const drawFreezeRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  drawCells(ctx, props, RenderRegion.Freeze);
+  drawAppendRow(ctx, props, RenderRegion.Freeze);
+};
+
+export const drawOtherRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+  drawCells(ctx, props, RenderRegion.Other);
+  drawAppendRow(ctx, props, RenderRegion.Other);
+};

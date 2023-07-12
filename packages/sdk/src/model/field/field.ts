@@ -44,6 +44,17 @@ export abstract class FieldOperations extends FieldCore {
     return await this.submitOperation(fieldOperation);
   }
 
+  async updateColumnOrder(viewId: string, order: number): Promise<void> {
+    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'order',
+      newMetaValue: order,
+      oldMetaValue: this.columnMeta[viewId].order,
+    });
+
+    return await this.submitOperation(fieldOperation);
+  }
+
   async delete(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.doc.del({}, (error) => {

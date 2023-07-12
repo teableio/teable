@@ -1,35 +1,30 @@
-import type {
-  DataEditorProps,
-  DataEditorRef,
-  EditableGridCell,
-  GridCell,
-  Item,
-  Rectangle,
-} from '@glideapps/glide-data-grid';
-import { GridCellKind } from '@glideapps/glide-data-grid';
 import type { IRecordSnapshot, IRecordSnapshotQuery } from '@teable-group/core';
 import { useRecords } from '@teable-group/sdk/hooks';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ICellItem, IRectangle } from '../../../grid';
+import type { IInnerCell } from '../../../grid/renderers';
+import { CellType } from '../../../grid/renderers';
 
-export type IRowCallback<T> = (range: Item) => Promise<readonly T[]>;
-export type IRowToCell<T> = (row: T, col: number) => GridCell;
+export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
+export type IRowToCell<T> = (row: T, col: number) => IInnerCell;
 export type IRowEditedCallback<T> = (
-  cell: Item,
-  newVal: EditableGridCell,
-  rowData: T
+  cell: ICellItem,
+  newVal: IInnerCell,
+  record: T
 ) => T | undefined;
 
-type IRes = Pick<DataEditorProps, 'getCellContent' | 'onVisibleRegionChanged' | 'onCellEdited'> & {
+type IRes = {
   records: Record[];
   reset: () => void;
+  onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
+  getCellContent: (cell: ICellItem) => IInnerCell;
 };
 
 export const useAsyncData = (
   toCell: IRowToCell<Record>,
   onEdited: IRowEditedCallback<Record>,
-  gridRef: React.MutableRefObject<DataEditorRef | null>,
   initRecords?: IRecordSnapshot[]
 ): IRes => {
   const [query, setQuery] = useState<Omit<IRecordSnapshotQuery, 'type'>>({
@@ -41,25 +36,25 @@ export const useAsyncData = (
   const records = useRecords(query, initRecords);
   const recordsRef = useRef(records);
 
-  const [visiblePages, setVisiblePages] = useState<Rectangle>({ x: 0, y: 0, width: 0, height: 0 });
+  const [visiblePages] = useState<IRectangle>({ x: 0, y: 0, width: 0, height: 0 });
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
 
   useEffect(() => {
     const startIndex = queryRef.current.offset ?? 0;
-    const vr = visiblePagesRef.current;
-    const damageList: { cell: [number, number] }[] = [];
+    // const vr = visiblePagesRef.current;
+    // const damageList: { cell: [number, number] }[] = [];
     const data = records;
     for (let i = 0; i < data.length; i++) {
       recordsRef.current[startIndex + i] = records[i];
-      for (let col = Math.max(vr.x - 1, 0); col <= vr.x + vr.width; col++) {
-        damageList.push({
-          cell: [col, i + startIndex],
-        });
-      }
+      // for (let col = Math.max(vr.x - 1, 0); col <= vr.x + vr.width; col++) {
+      //   // damageList.push({
+      //   //   cell: [col, i + startIndex],
+      //   // });
+      // }
     }
-    gridRef.current?.updateCells(damageList);
-  }, [gridRef, records]);
+    // gridRef.current?.updateCells?.(damageList);
+  }, [records]);
 
   useEffect(() => {
     const { y, height } = visiblePages;
@@ -84,17 +79,29 @@ export const useAsyncData = (
     });
   }, [visiblePages]);
 
-  const onVisibleRegionChanged: NonNullable<DataEditorProps['onVisibleRegionChanged']> =
-    useCallback((r) => {
-      setVisiblePages((cv) => {
-        if (r.x === cv.x && r.y === cv.y && r.width === cv.width && r.height === cv.height)
-          return cv;
-        return r;
-      });
-    }, []);
+  // const onVisibleRegionChanged = useCallback((r) => {
+  //   setVisiblePages((cv) => {
+  //     if (r.x === cv.x && r.y === cv.y && r.width === cv.width && r.height === cv.height) return cv;
+  //     return r;
+  //   });
+  // }, []);
+
+  // const onCellEdited = useCallback(
+  //   (cell: ICellItem, newVal: EditableGridCell) => {
+  //     const [, row] = cell;
+  //     const current = recordsRef.current[row];
+  //     if (current === undefined) return;
+
+  //     const result = onEdited(cell, newVal, current);
+  //     if (result !== undefined) {
+  //       recordsRef.current[row] = result;
+  //     }
+  //   },
+  //   [onEdited]
+  // );
 
   const onCellEdited = useCallback(
-    (cell: Item, newVal: EditableGridCell) => {
+    (cell: ICellItem, newVal: IInnerCell) => {
       const [, row] = cell;
       const current = recordsRef.current[row];
       if (current === undefined) return;
@@ -107,7 +114,7 @@ export const useAsyncData = (
     [onEdited]
   );
 
-  const getCellContent = useCallback<DataEditorProps['getCellContent']>(
+  const getCellContent = useCallback<(cell: ICellItem) => IInnerCell>(
     (cell) => {
       const [col, row] = cell;
       const rowData = recordsRef.current[row];
@@ -115,10 +122,9 @@ export const useAsyncData = (
         return toCell(rowData, col);
       }
       return {
-        kind: GridCellKind.Custom,
-        data: {
-          type: 'loading',
-        },
+        type: CellType.Text,
+        data: '',
+        displayData: '',
         copyData: '#Loading',
         allowOverlay: false,
       };
@@ -132,7 +138,7 @@ export const useAsyncData = (
 
   return {
     getCellContent,
-    onVisibleRegionChanged,
+    // onVisibleRegionChanged,
     onCellEdited,
     records,
     reset,
