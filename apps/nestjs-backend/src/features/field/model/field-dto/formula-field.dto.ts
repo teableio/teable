@@ -59,7 +59,7 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
     return plainToInstance(FormulaFieldDto, {
       ...fieldRo,
       isComputed: true,
-      dbFieldType: isMultipleCellValue ? DbFieldType.Text : getDbFieldType(cellValueType),
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : getDbFieldType(cellValueType),
       isMultipleCellValue,
     } as FormulaFieldDto);
   }

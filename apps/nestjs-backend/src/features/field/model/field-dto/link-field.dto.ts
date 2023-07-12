@@ -46,7 +46,7 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
       isComputed: true,
       cellValueType: CellValueType.String,
       isMultipleCellValue: options?.relationship !== Relationship.ManyOne || isMultipleCellValue,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: DbFieldType.Json,
     } as LinkFieldDto);
   }
 

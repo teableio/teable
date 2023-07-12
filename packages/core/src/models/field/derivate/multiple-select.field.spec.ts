@@ -22,7 +22,7 @@ describe('MultipleSelectFieldCore', () => {
       ],
     },
     type: FieldType.SingleSelect,
-    dbFieldType: DbFieldType.Text,
+    dbFieldType: DbFieldType.Json,
     cellValueType: CellValueType.String,
     isMultipleCellValue: true,
     isComputed: false,

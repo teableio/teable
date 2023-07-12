@@ -16,7 +16,7 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements I
       isComputed: isLookup,
       cellValueType: CellValueType.String,
       isMultipleCellValue: true,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: DbFieldType.Json,
     } as MultipleSelectFieldDto);
   }
 

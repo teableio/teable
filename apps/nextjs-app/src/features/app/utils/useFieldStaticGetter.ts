@@ -8,8 +8,10 @@ import {
   FormulaField,
   DateField,
   AttachmentField,
+  CheckboxField,
 } from '@teable-group/sdk/model';
 import CalendarIcon from '@teable-group/ui-lib/icons/app/calendar.svg';
+import CheckboxIcon from '@teable-group/ui-lib/icons/app/check-item.svg';
 import CodeIcon from '@teable-group/ui-lib/icons/app/code.svg';
 import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
 import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
@@ -75,6 +77,12 @@ export const useFieldStaticGetter = () => {
             title: 'Attachment',
             defaultOptions: AttachmentField.defaultOptions(),
             Icon: isLookup ? SearchIcon : FieldAttachmentIcon,
+          };
+        case FieldType.Checkbox:
+          return {
+            title: 'Checkbox',
+            defaultOptions: CheckboxField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : CheckboxIcon,
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

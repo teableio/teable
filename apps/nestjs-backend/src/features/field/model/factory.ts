@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { isString } from 'lodash';
 import type { CreateFieldRo } from './create-field.ro';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
+import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
@@ -71,6 +72,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
         return AttachmentFieldDto.factory(fieldRo);
       case FieldType.Date:
         return DateFieldDto.factory(fieldRo);
+      case FieldType.Checkbox:
+        return CheckboxFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -87,7 +90,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
       case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
-      case FieldType.Checkbox:
       case FieldType.Rollup:
         return plainToInstance(SingleLineTextFieldDto, {
           ...fieldRo,
@@ -157,6 +159,8 @@ export function createFieldInstanceByVo(field: FieldVo) {
       return plainToInstance(AttachmentFieldDto, field);
     case FieldType.Date:
       return plainToInstance(DateFieldDto, field);
+    case FieldType.Checkbox:
+      return plainToInstance(CheckboxFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -173,7 +177,6 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Rating:
     case FieldType.Currency:
     case FieldType.Percent:
-    case FieldType.Checkbox:
     case FieldType.Rollup:
       throw new Error('did not implement yet');
     default:

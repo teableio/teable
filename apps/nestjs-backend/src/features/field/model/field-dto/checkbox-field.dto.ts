@@ -1,39 +1,34 @@
-import {
-  CellValueType,
-  DbFieldType,
-  Relationship,
-  SingleLineTextFieldCore,
-} from '@teable-group/core';
+import { CellValueType, DbFieldType, Relationship, CheckboxFieldCore } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
-export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements IFieldBase {
+export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
       fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
 
-    return plainToInstance(SingleLineTextFieldDto, {
+    return plainToInstance(CheckboxFieldDto, {
       ...fieldRo,
       isComputed: isLookup,
-      cellValueType: CellValueType.String,
-      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Text,
+      cellValueType: CellValueType.Boolean,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Integer,
       isMultipleCellValue,
-    } as SingleLineTextFieldDto);
+    } as CheckboxFieldDto);
   }
 
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return JSON.stringify(value);
     }
-    return value;
+    return value ? 1 : null;
   }
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value && JSON.parse(value as string);
     }
-    return value;
+    return value ? true : null;
   }
 }
