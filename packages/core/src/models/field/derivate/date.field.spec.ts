@@ -3,7 +3,7 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import { DateFormattingPreset, defaultDatetimeFormatting, TimeFormatting } from '../formatting';
 import type { IDateFieldOptions } from './date.field';
 import { DateFieldCore } from './date.field';
 
@@ -147,6 +147,12 @@ describe('DateFieldCore', () => {
           options,
         });
         expect(field.validateOptions().success).toBe(false);
+      });
+    });
+
+    it('should get default options', () => {
+      expect(DateFieldCore.defaultOptions()).toEqual({
+        formatting: defaultDatetimeFormatting,
       });
     });
   });

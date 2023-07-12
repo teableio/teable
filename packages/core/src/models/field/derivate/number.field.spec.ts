@@ -13,13 +13,8 @@ describe('NumberFieldCore', () => {
     id: 'test',
     name: 'Test Number Field',
     description: 'A test number field',
-    notNull: true,
-    unique: true,
     isPrimary: true,
-    columnMeta: {
-      index: 0,
-      columnIndex: 0,
-    },
+    columnMeta: {},
     type: FieldType.Number,
     dbFieldType: DbFieldType.Real,
     options: {

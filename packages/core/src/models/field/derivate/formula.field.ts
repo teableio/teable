@@ -1,5 +1,6 @@
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { z } from 'zod';
+import { assertNever } from '../../../asserts';
 import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FormulaErrorListener } from '../../../formula/error.listener';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
@@ -7,9 +8,20 @@ import type { RootContext } from '../../../formula/parser/Formula';
 import { Formula } from '../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../formula/parser/FormulaLexer';
 import type { IRecord } from '../../record';
-import type { FieldType, CellValueType } from '../constant';
+import type { FieldType } from '../constant';
+import { CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { datetimeFormattingSchema, numberFormattingSchema } from '../formatting';
+import type { IDatetimeFormatting, INumberFormatting } from '../formatting';
+import {
+  datetimeFormattingSchema,
+  formatDateToString,
+  formatNumberToString,
+  numberFormattingSchema,
+} from '../formatting';
+import { booleanCellValueSchema } from './checkbox.field';
+import { dataFieldCellValueSchema } from './date.field';
+import { numberCellValueSchema } from './number.field';
+import { singleLineTextCelValueSchema } from './single-line-text.field';
 
 export const formulaFormattingSchema = z
   .union([datetimeFormattingSchema, numberFormattingSchema])
@@ -124,27 +136,80 @@ export class FormulaFieldCore extends FieldCore {
     return visitor.visit(this.tree);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  cellValue2String(cellValue: any) {
-    if (Array.isArray(cellValue)) {
-      return cellValue.join(', ');
+  cellValue2String(cellValue: unknown) {
+    const formatting = this.options.formatting;
+    const formatter = (value: unknown) => {
+      switch (this.cellValueType) {
+        case CellValueType.Number:
+          return formatNumberToString(value as number, formatting as INumberFormatting);
+        case CellValueType.DateTime:
+          return formatDateToString(value as string, formatting as IDatetimeFormatting);
+      }
+      return String(value);
+    };
+
+    if (cellValue == null) {
+      return '';
     }
-    return cellValue ? String(cellValue) : '';
+
+    if (this.isMultipleCellValue) {
+      return (cellValue as unknown[]).map((v) => formatter(v)).join(', ');
+    }
+    return formatter(cellValue);
   }
 
-  convertStringToCellValue(_value: string): string[] | null {
+  // formula do not support
+  convertStringToCellValue(_value: string): null {
     return null;
   }
 
-  repair(value: unknown) {
-    return value;
+  // formula do not support
+  repair(_value: unknown): null {
+    return null;
   }
 
   validateOptions() {
-    return formulaFieldOptionsSchema.safeParse(this.options);
+    const getFormulaFormattingSchema = () => {
+      switch (this.cellValueType) {
+        case CellValueType.Number:
+          return numberFormattingSchema;
+        case CellValueType.DateTime:
+          return datetimeFormattingSchema;
+        default:
+          return z.undefined().openapi({
+            description: 'Only number and datetime cell value type support formatting',
+          });
+      }
+    };
+
+    return z
+      .object({
+        expression: z.string(),
+        formatting: getFormulaFormattingSchema(),
+      })
+      .safeParse(this.options);
   }
 
   validateCellValue(value: unknown) {
-    return formulaFieldCellValueSchema.safeParse(value);
+    const getFormulaCellValueSchema = () => {
+      switch (this.cellValueType) {
+        case CellValueType.Number:
+          return numberCellValueSchema;
+        case CellValueType.DateTime:
+          return dataFieldCellValueSchema;
+        case CellValueType.String:
+          return singleLineTextCelValueSchema;
+        case CellValueType.Boolean:
+          return booleanCellValueSchema;
+        default:
+          assertNever(this.cellValueType);
+      }
+    };
+    const schema = getFormulaCellValueSchema();
+
+    if (this.isMultipleCellValue) {
+      return z.array(schema).nullable().safeParse(value);
+    }
+    return schema.nullable().safeParse(value);
   }
 }

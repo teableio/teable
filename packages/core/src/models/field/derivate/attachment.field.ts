@@ -5,7 +5,7 @@ import { FieldCore } from '../field';
 
 export const attachmentFieldOptionsSchema = z.object({});
 
-export type IAttachmentOptions = z.infer<typeof attachmentFieldOptionsSchema>;
+export type IAttachmentFieldOptions = z.infer<typeof attachmentFieldOptionsSchema>;
 
 export const attachmentItemSchema = z.object({
   id: z.string().startsWith(IdPrefix.Attachment),
@@ -27,13 +27,17 @@ export type IAttachmentCellValue = z.infer<typeof attachmentCellValueSchema>;
 export class AttachmentFieldCore extends FieldCore {
   type: FieldType.Attachment = FieldType.Attachment;
 
-  options!: IAttachmentOptions;
+  options!: IAttachmentFieldOptions;
 
   cellValueType = CellValueType.String;
 
   isMultipleCellValue = true;
 
   isComputed = false;
+
+  static defaultOptions(): IAttachmentFieldOptions {
+    return {};
+  }
 
   cellValue2String(cellValue?: IAttachmentCellValue) {
     return cellValue ? cellValue.map((cv) => cv.name).join(', ') : '';

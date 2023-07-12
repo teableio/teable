@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { z } from 'zod';
 
 export enum DateFormattingPreset {
@@ -21,9 +22,13 @@ export enum TimeFormatting {
 // Define a Zod schema for time zone string
 const timeZoneStringSchema = z.string().refine(
   (value) => {
-    const timeZone = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions()
-      .timeZone;
-    return timeZone === value;
+    try {
+      const timeZone = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions()
+        .timeZone;
+      return timeZone === value;
+    } catch (e) {
+      return false;
+    }
   },
   {
     message: 'Invalid time zone string',
@@ -42,4 +47,14 @@ export const defaultDatetimeFormatting: IDatetimeFormatting = {
   date: DateFormattingPreset.US,
   time: TimeFormatting.None,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+};
+
+export const formatDateToString = (cellValue: string, formatting: IDatetimeFormatting) => {
+  if (cellValue == null) {
+    return '';
+  }
+
+  const { date, time } = formatting;
+  const format = time === TimeFormatting.None ? date : `${date} ${time}`;
+  return dayjs(cellValue as string).format(format);
 };

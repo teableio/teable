@@ -7,3 +7,4 @@ export * from './formula.field';
 export * from './abstract/select.field.abstract';
 export * from './attachment.field';
 export * from './date.field';
+export * from './checkbox.field';

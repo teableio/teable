@@ -142,5 +142,9 @@ describe('AttachmentFieldCore', () => {
       });
       expect(field.validateOptions().success).toBe(false);
     });
+
+    it('should get default options', () => {
+      expect(AttachmentFieldCore.defaultOptions()).toEqual({});
+    });
   });
 });

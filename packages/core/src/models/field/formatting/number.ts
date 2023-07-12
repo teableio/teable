@@ -5,3 +5,17 @@ export const numberFormattingSchema = z.object({
 });
 
 export type INumberFormatting = z.infer<typeof numberFormattingSchema>;
+
+export const formatNumberToString = (cellValue: number, formatting: INumberFormatting) => {
+  if (cellValue == null) {
+    return '';
+  }
+
+  const { precision } = formatting;
+
+  if (precision != null) {
+    return cellValue.toFixed(precision);
+  }
+
+  return String(cellValue);
+};

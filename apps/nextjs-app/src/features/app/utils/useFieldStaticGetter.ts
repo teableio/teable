@@ -7,6 +7,7 @@ import {
   LinkField,
   FormulaField,
   DateField,
+  AttachmentField,
 } from '@teable-group/sdk/model';
 import CalendarIcon from '@teable-group/ui-lib/icons/app/calendar.svg';
 import CodeIcon from '@teable-group/ui-lib/icons/app/code.svg';
@@ -72,7 +73,7 @@ export const useFieldStaticGetter = () => {
         case FieldType.Attachment:
           return {
             title: 'Attachment',
-            defaultOptions: null,
+            defaultOptions: AttachmentField.defaultOptions(),
             Icon: isLookup ? SearchIcon : FieldAttachmentIcon,
           };
         default:

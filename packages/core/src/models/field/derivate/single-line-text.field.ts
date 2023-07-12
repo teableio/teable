@@ -17,8 +17,8 @@ export class SingleLineTextFieldCore extends FieldCore {
 
   cellValueType!: CellValueType.String;
 
-  static defaultOptions() {
-    return null;
+  static defaultOptions(): ISingleLineTextFieldOptions {
+    return {};
   }
 
   cellValue2String(cellValue: string | string[] | undefined) {

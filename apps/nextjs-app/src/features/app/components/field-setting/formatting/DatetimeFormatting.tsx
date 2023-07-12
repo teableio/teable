@@ -73,6 +73,7 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
     optionsWithExample('Friendly', friendlyDateFormatting),
     optionsWithExample('US', DateFormattingPreset.US),
     optionsWithExample('European', DateFormattingPreset.European),
+    optionsWithExample('Asia', DateFormattingPreset.Asian),
     optionsWithExample('ISO', DateFormattingPreset.ISO),
     optionsWithExample('Year/Month', DateFormattingPreset.YM),
     optionsWithExample('Month/Day', DateFormattingPreset.MD),

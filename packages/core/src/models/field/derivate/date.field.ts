@@ -2,7 +2,11 @@ import dayjs from 'dayjs';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { datetimeFormattingSchema, defaultDatetimeFormatting, TimeFormatting } from '../formatting';
+import {
+  datetimeFormattingSchema,
+  defaultDatetimeFormatting,
+  formatDateToString,
+} from '../formatting';
 
 export const dateFieldOptionsSchema = z.object({
   formatting: datetimeFormattingSchema,
@@ -30,13 +34,13 @@ export class DateFieldCore extends FieldCore {
 
   cellValue2String(cellValue: string | string[] | undefined) {
     if (cellValue == null) return '';
-    const { date, time } = this.options.formatting;
-    const format = time === TimeFormatting.None ? date : `${date} ${time}`;
+    const formatting = this.options.formatting;
+
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
-      return cellValue.map((v) => dayjs(v).format(format)).join(', ');
+      return cellValue.map((v) => formatDateToString(v, formatting)).join(', ');
     }
 
-    return dayjs(cellValue as string).format(format);
+    return formatDateToString(cellValue as string, formatting);
   }
 
   convertStringToCellValue(value: string): string | null {
@@ -59,7 +63,7 @@ export class DateFieldCore extends FieldCore {
       return this.convertStringToCellValue(value as string);
     }
 
-    throw null;
+    return null;
   }
 
   validateOptions() {

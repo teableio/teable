@@ -1,15 +1,15 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { numberFormattingSchema } from '../formatting';
+import { formatNumberToString, numberFormattingSchema } from '../formatting';
 
-export const numberOptionsSchema = z.object({
+export const numberFieldOptionsSchema = z.object({
   formatting: numberFormattingSchema,
 });
 
-export type INumberFieldOptions = z.infer<typeof numberOptionsSchema>;
+export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;
 
-export const numberCellValueSchema = z.number().nullable();
+export const numberCellValueSchema = z.number();
 
 export type INumberCellValue = z.infer<typeof numberCellValueSchema>;
 
@@ -32,13 +32,13 @@ export class NumberFieldCore extends FieldCore {
     if (cellValue == null) {
       return '';
     }
-    const precision = this.options.formatting.precision;
+    const formatting = this.options.formatting;
 
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
-      return cellValue.map((v) => (v || 0).toFixed(precision)).join(', ');
+      return cellValue.map((v) => formatNumberToString(v, formatting)).join(', ');
     }
 
-    return (cellValue as number).toFixed(precision);
+    return formatNumberToString(cellValue as number, formatting);
   }
 
   convertStringToCellValue(value: string): number | null {
@@ -64,17 +64,17 @@ export class NumberFieldCore extends FieldCore {
     if (typeof value === 'string') {
       return this.convertStringToCellValue(value);
     }
-    throw null;
+    return null;
   }
 
   validateOptions() {
-    return numberOptionsSchema.safeParse(this.options);
+    return numberFieldOptionsSchema.safeParse(this.options);
   }
 
   validateCellValue(value: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(numberCellValueSchema).nonempty().optional().safeParse(value);
+      return z.array(numberCellValueSchema).nonempty().nullable().safeParse(value);
     }
-    return numberCellValueSchema.optional().safeParse(value);
+    return numberCellValueSchema.nullable().safeParse(value);
   }
 }

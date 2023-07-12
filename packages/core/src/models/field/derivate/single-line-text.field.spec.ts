@@ -12,13 +12,6 @@ describe('SingleLineTextFieldCore', () => {
     id: 'test',
     name: 'Test Single Line Text Field',
     description: 'A test Single Line Text field',
-    notNull: true,
-    unique: true,
-    isPrimary: true,
-    columnMeta: {
-      index: 0,
-      columnIndex: 0,
-    },
     type: FieldType.SingleLineText,
     dbFieldType: DbFieldType.Text,
     options: {},
@@ -82,6 +75,10 @@ describe('SingleLineTextFieldCore', () => {
       });
       const result = field.validateOptions();
       expect(result.success).toBe(false);
+    });
+
+    it('should get default options', () => {
+      expect(SingleLineTextFieldCore.defaultOptions()).toEqual({});
     });
   });
 });
