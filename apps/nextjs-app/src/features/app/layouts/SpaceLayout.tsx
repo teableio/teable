@@ -1,5 +1,5 @@
 import type { ITableVo } from '@teable-group/core';
-import { AnchorProvider, AppProvider, TableProvider } from '@teable-group/sdk/context';
+import { AnchorContext, AppProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { SideBar } from '@/features/app/components/SideBar';
@@ -17,7 +17,11 @@ export const SpaceLayout: React.FC<{
   return (
     <AppLayout>
       <AppProvider>
-        <AnchorProvider value={{ tableId: nodeId as string, viewId: viewId as string }}>
+        {/* To ensure proper SSR logic,
+         * we should use AnchorContext.Provider instead of AnchorProvider
+         * to prevent the default record and field provider being used within AnchorProvider
+         */}
+        <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
           <TableProvider serverData={tableServerData}>
             <div id="portal" className="h-screen flex items-start w-full relative">
               <PanelGroup direction="horizontal" autoSaveId="main-panel">
@@ -33,7 +37,7 @@ export const SpaceLayout: React.FC<{
               </PanelGroup>
             </div>
           </TableProvider>
-        </AnchorProvider>
+        </AnchorContext.Provider>
       </AppProvider>
     </AppLayout>
   );

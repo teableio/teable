@@ -2,7 +2,7 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import type { NumberFieldOptions } from './number.field';
+import type { INumberFieldOptions } from './number.field';
 import { NumberFieldCore } from './number.field';
 
 describe('NumberFieldCore', () => {
@@ -23,7 +23,7 @@ describe('NumberFieldCore', () => {
       type: FieldType.Number,
       dbFieldType: DbFieldType.Real,
       options: {
-        precision: 2,
+        formatting: { precision: 2 },
       },
       defaultValue: 0,
       cellValueType: CellValueType.Number,
@@ -64,8 +64,8 @@ describe('NumberFieldCore', () => {
 
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      const options: NumberFieldOptions = {
-        precision: 2,
+      const options: INumberFieldOptions = {
+        formatting: { precision: 2 },
       };
       const field = new NumberFieldCore();
       field.options = options;
@@ -74,8 +74,8 @@ describe('NumberFieldCore', () => {
     });
 
     it('should return failure if options are invalid', () => {
-      const options: NumberFieldOptions = {
-        precision: -1, // invalid precision value
+      const options: INumberFieldOptions = {
+        formatting: { precision: -1 }, // invalid precision value
       };
       const field = new NumberFieldCore();
       field.options = options;

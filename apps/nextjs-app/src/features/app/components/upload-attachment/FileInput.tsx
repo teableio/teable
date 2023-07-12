@@ -1,6 +1,6 @@
 import AddIcon from '@teable-group/ui-lib/icons/app/add.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useRef } from 'react';
-import { Button } from '@/components/ui/button';
 
 export const FileInput = (props: { onChange?: (files: FileList) => void }) => {
   const fileInput = useRef<HTMLInputElement>(null);

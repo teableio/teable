@@ -2,8 +2,12 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import type { DateFieldOptions } from './date.field';
-import { DateFieldCore, DateFormatting, TimeFormatting, DEFAULT_TIME_ZONE } from './date.field';
+import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import type { IDateFieldOptions } from './date.field';
+import { DateFieldCore } from './date.field';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const DEFAULT_TIME_ZONE = 'America/Los_Angeles';
 
 describe('DateFieldCore', () => {
   let field: DateFieldCore;
@@ -23,9 +27,11 @@ describe('DateFieldCore', () => {
       type: FieldType.Date,
       dbFieldType: DbFieldType.DateTime,
       options: {
-        dateFormatting: DateFormatting.YMDWithSlash,
-        timeFormatting: TimeFormatting.Hour24,
-        timeZone: DEFAULT_TIME_ZONE,
+        formatting: {
+          date: DateFormattingPreset.US,
+          time: TimeFormatting.Hour24,
+          timeZone: DEFAULT_TIME_ZONE,
+        },
         autoFill: true,
       },
       defaultValue: 0,
@@ -65,10 +71,12 @@ describe('DateFieldCore', () => {
 
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      const options: DateFieldOptions = {
-        dateFormatting: DateFormatting.Y,
-        timeFormatting: TimeFormatting.Hour24,
-        timeZone: DEFAULT_TIME_ZONE,
+      const options: IDateFieldOptions = {
+        formatting: {
+          date: DateFormattingPreset.Y,
+          time: TimeFormatting.Hour24,
+          timeZone: DEFAULT_TIME_ZONE,
+        },
         autoFill: true,
       };
       const field = new DateFieldCore();
@@ -78,29 +86,37 @@ describe('DateFieldCore', () => {
     });
 
     it('should return failure if options are invalid', () => {
-      const optionsList: DateFieldOptions[] = [
+      const optionsList: IDateFieldOptions[] = [
         {
-          dateFormatting: 'abc' as unknown as DateFormatting,
-          timeFormatting: TimeFormatting.Hour24,
-          timeZone: DEFAULT_TIME_ZONE,
+          formatting: {
+            date: 'abc' as unknown as DateFormattingPreset,
+            time: TimeFormatting.Hour24,
+            timeZone: DEFAULT_TIME_ZONE,
+          },
           autoFill: true,
         },
         {
-          dateFormatting: DateFormatting.DMY,
-          timeFormatting: 'abc' as unknown as TimeFormatting,
-          timeZone: DEFAULT_TIME_ZONE,
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: 'abc' as unknown as TimeFormatting,
+            timeZone: DEFAULT_TIME_ZONE,
+          },
           autoFill: false,
         },
         {
-          dateFormatting: DateFormatting.Y,
-          timeFormatting: TimeFormatting.Hour24,
-          timeZone: 123 as unknown as string,
+          formatting: {
+            date: DateFormattingPreset.Y,
+            time: TimeFormatting.Hour24,
+            timeZone: 123 as unknown as string,
+          },
           autoFill: true,
         },
         {
-          dateFormatting: DateFormatting.Y,
-          timeFormatting: TimeFormatting.Hour24,
-          timeZone: DEFAULT_TIME_ZONE,
+          formatting: {
+            date: DateFormattingPreset.Y,
+            time: TimeFormatting.Hour24,
+            timeZone: DEFAULT_TIME_ZONE,
+          },
           autoFill: 'abc' as unknown as boolean,
         },
       ];

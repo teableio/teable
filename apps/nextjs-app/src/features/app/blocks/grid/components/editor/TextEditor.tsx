@@ -1,6 +1,6 @@
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import type { ChangeEvent, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Input } from '@/components/ui/input';
 import type { INumberCell, ITextCell } from '../../renderers';
 import { CellType } from '../../renderers';
 import type { IEditorRef, IEditorProps } from './EditorContainer';

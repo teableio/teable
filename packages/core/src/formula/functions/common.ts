@@ -61,5 +61,5 @@ export abstract class FormulaFunc {
 
 export enum FunctionName {
   Sum = 'SUM',
-  Lookup = 'LOOKUP',
+  Rollup = 'ROLLUP',
 }

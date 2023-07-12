@@ -88,7 +88,7 @@ paths:
               - json
               - text
             type: string
-        - name: fieldKey
+        - name: fieldKeyType
           required: false
           in: query
           description: Set the key of record.fields[key], default is 'id'

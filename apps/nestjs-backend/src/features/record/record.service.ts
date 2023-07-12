@@ -1,13 +1,16 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type {
   IAggregateQueryResult,
-  IAttachment,
+  IAttachmentItem,
   IAttachmentCellValue,
   IRecordSnapshot,
   IRecordSnapshotQuery,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
+  IRecordsRo,
+  IRecordsVo,
+  IRecordVo,
 } from '@teable-group/core';
 import { FieldType, FieldKeyType, OpName, generateRecordId, IdPrefix } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -22,8 +25,6 @@ import { preservedFieldName } from '../field/constant';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
-import type { RecordsVo, RecordVo } from './open-api/record.vo';
-import type { RecordsRo } from './open-api/records.ro';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -306,7 +307,7 @@ export class RecordService implements IAdapterService {
     return await this.getAllRecordCount(prisma, dbTableName);
   }
 
-  async getRecords(tableId: string, query: RecordsRo): Promise<RecordsVo> {
+  async getRecords(tableId: string, query: IRecordsRo): Promise<IRecordsVo> {
     let viewId = query.viewId;
     if (!viewId) {
       const defaultView = await this.prismaService.view.findFirstOrThrow({
@@ -331,7 +332,7 @@ export class RecordService implements IAdapterService {
       tableId,
       queryResult.ids,
       undefined,
-      query.fieldKey
+      query.fieldKeyType || FieldKeyType.Name
     );
 
     const total = queryResult.extra?.rowCount;
@@ -349,14 +350,15 @@ export class RecordService implements IAdapterService {
   async getRecord(
     tableId: string,
     recordId: string,
-    fieldKey = FieldKeyType.Name
-  ): Promise<RecordVo> {
+    projection?: { [fieldNameOrId: string]: boolean },
+    fieldKeyType = FieldKeyType.Name
+  ): Promise<IRecordVo> {
     const recordSnapshot = await this.getSnapshotBulk(
       this.prismaService,
       tableId,
       [recordId],
       undefined,
-      fieldKey
+      fieldKeyType
     );
 
     if (!recordSnapshot.length) {
@@ -472,7 +474,7 @@ export class RecordService implements IAdapterService {
   private async getFieldsByProjection(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    projection?: { [fieldKey: string]: boolean },
+    projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
     const whereParams: { name?: { in: string[] }; id?: { in: string[] } } = {};
@@ -505,7 +507,7 @@ export class RecordService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
-    projection?: { [fieldKey: string]: boolean },
+    projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id // for convince of collaboration, getSnapshotBulk use id as field key by default.
   ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
     const dbTableName = await this.getDbTableName(prisma, tableId);
@@ -538,12 +540,12 @@ export class RecordService implements IAdapterService {
       })
       .map((record) => {
         const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-          const fieldKey = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
+          const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
           const dbCellValue = record[field.dbFieldName];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const cellValue = fieldMap[fieldKey].convertDBValue2CellValue(dbCellValue as any);
+          const cellValue = fieldMap[fieldNameOrId].convertDBValue2CellValue(dbCellValue as any);
           if (cellValue != null) {
-            acc[fieldKey] = cellValue;
+            acc[fieldNameOrId] = cellValue;
           }
           return acc;
         }, {});
@@ -577,7 +579,7 @@ export class RecordService implements IAdapterService {
 
   transformAttachmentCellValue(
     cellValue: string[] | null,
-    attachmentsMap: { [key: string]: IAttachment }
+    attachmentsMap: { [key: string]: IAttachmentItem }
   ) {
     if (!cellValue) {
       return null;

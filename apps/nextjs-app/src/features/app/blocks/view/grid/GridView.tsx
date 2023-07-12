@@ -3,6 +3,8 @@ import { range, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { useFieldStaticGetter } from '@/features/app/utils';
+import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import type { IRectangle, ISelectionState } from '../../grid';
 import { SelectionRegionType, Grid } from '../../grid';
 import type { IInnerCell } from '../../grid/renderers';
@@ -10,7 +12,7 @@ import { CellType } from '../../grid/renderers';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns } from './hooks';
 import { useGridViewStore } from './store/gridView';
-import { calculateMenuPosition } from './utils';
+import { calculateMenuPosition, getHeaderIcons } from './utils';
 
 export const GridView: React.FC = () => {
   const container = useRef<HTMLDivElement>(null);
@@ -94,6 +96,27 @@ export const GridView: React.FC = () => {
       operator: FieldOperator.Add,
     });
   };
+  const getFieldStatic = useFieldStaticGetter();
+  const headerIcons = useMemo(
+    () =>
+      getHeaderIcons(
+        FIELD_TYPE_ORDER.reduce<
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { type: string; IconComponent: React.JSXElementConstructor<any> }[]
+        >((pre, type) => {
+          const IconComponent = getFieldStatic(type, false)?.Icon;
+          const LookupIconComponent = getFieldStatic(type, true)?.Icon;
+          if (IconComponent) {
+            pre.push({ type: type, IconComponent });
+          }
+          if (LookupIconComponent) {
+            pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
+          }
+          return pre;
+        }, [])
+      ),
+    [getFieldStatic]
+  );
 
   const onDelete = (selection: ISelectionState) => {
     const { type, ranges } = selection;
@@ -129,6 +152,7 @@ export const GridView: React.FC = () => {
         columns={columns}
         smoothScrollX
         smoothScrollY
+        headerIcons={headerIcons}
         // rowControls={[]}
         style={{ marginLeft: -1, marginTop: -1 }}
         getCellContent={getCellContent}

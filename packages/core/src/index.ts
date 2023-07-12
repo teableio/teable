@@ -1,3 +1,7 @@
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+extendZodWithOpenApi(z);
+
 export * from './types';
 export * from './array';
 export * from './typeguards';

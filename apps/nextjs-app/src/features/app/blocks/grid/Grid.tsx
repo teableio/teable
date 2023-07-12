@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { getHeaderIcons } from '../view/grid/utils';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
@@ -10,11 +9,13 @@ import { InfiniteScroller } from './InfiniteScroller';
 import { InteractionLayer } from './InteractionLayer';
 import { RowControlType } from './interface';
 import type { IRectangle, IScrollState, ISelectionState, ICellItem, IColumn } from './interface';
+import type { ISpriteMap } from './managers';
 import { CoordinateManager, SpriteManager } from './managers';
 import type { IInnerCell } from './renderers';
 
 export interface IGridExternalProps {
   readonly theme?: IGridTheme;
+  readonly headerIcons?: ISpriteMap;
   readonly rowControls?: RowControlType[];
   readonly smoothScrollX?: boolean;
   readonly smoothScrollY?: boolean;
@@ -65,6 +66,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     smoothScrollX,
     smoothScrollY,
     style,
+    headerIcons,
     getCellContent,
     onDelete,
     onRowAppend,
@@ -142,8 +144,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   ]);
 
   const spriteManager = useMemo(() => {
-    return new SpriteManager(getHeaderIcons(), () => forceUpdate(Math.random()));
-  }, []);
+    return new SpriteManager(headerIcons, () => forceUpdate(Math.random()));
+  }, [headerIcons]);
 
   const scrollTo = useCallback((sl?: number, st?: number) => {
     scrollerRef.current?.scrollTo(sl, st);

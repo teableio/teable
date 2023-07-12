@@ -1,10 +1,6 @@
-import type { SelectFieldOptions } from '@teable-group/core';
+import type { ISelectFieldOptions } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
-import classNames from 'classnames';
-import { isString, noop } from 'lodash';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import type { ForwardRefRenderFunction } from 'react';
 import {
   Command,
   CommandEmpty,
@@ -12,7 +8,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
+} from '@teable-group/ui-lib/shadcn/ui/command';
+import classNames from 'classnames';
+import { isString, noop } from 'lodash';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
 import { useKeyboardNavigation } from '../../hooks';
 import type { ISelectCell, ISelectCellData } from '../../renderers';
 import type { IEditorProps, IEditorRef } from './EditorContainer';
@@ -30,7 +30,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const { data, isMultiple } = cell;
   const { options } = data;
   const [values, setValues] = useState(getFormatSelectValue(data));
-  const choices = (options as SelectFieldOptions)?.choices || [];
+  const choices = (options as ISelectFieldOptions)?.choices || [];
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const activeIndex = useKeyboardNavigation(choices.length, isEditing);

@@ -1,17 +1,17 @@
 import { useTableId } from '@teable-group/sdk/hooks';
 import type { View } from '@teable-group/sdk/model';
 import ElipsisIcon from '@teable-group/ui-lib/icons/app/elipsis.svg';
-import classnames from 'classnames';
-import Link from 'next/link';
-import { useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
+} from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
+import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import classnames from 'classnames';
+import Link from 'next/link';
+import { useState } from 'react';
 import { useDeleteView } from './useDeleteView';
 
 interface IProps {

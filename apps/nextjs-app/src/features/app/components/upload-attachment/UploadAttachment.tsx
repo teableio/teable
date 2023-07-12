@@ -1,12 +1,12 @@
-import type { IAttachment, IAttachmentCellValue } from '@teable-group/core';
+import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
+import type { AttachmentSchema } from '@teable-group/openapi';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
 import DownloadIcon from '@teable-group/ui-lib/icons/app/download.svg';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Progress } from '@teable-group/ui-lib/shadcn/ui/progress';
 import { map, omit } from 'lodash';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import type { IGetNotifyResponse } from '../../api/attachment/attachment.types';
 import { getFileCover } from '../../utils';
 import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
@@ -22,7 +22,7 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
 const attachmentManager = new AttachmentManager(2);
 
-export const getAttachmentUrl = (item: IAttachment) =>
+export const getAttachmentUrl = (item: IAttachmentItem) =>
   `${window.location.origin}/api/attachments/${item.token}`;
 
 export const UploadAttachment = (props: IUploadAttachment) => {
@@ -37,15 +37,15 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     onChange(attachments.filter((attachment) => attachment.id !== id));
   };
 
-  const downloadFile = (attachment: IAttachment) => {
+  const downloadFile = (attachment: IAttachmentItem) => {
     window.open(`${getAttachmentUrl(attachment)}?filename=${attachment.name}`);
   };
 
   const handleSuccess = useCallback(
-    (file: IFile, attachment: IGetNotifyResponse) => {
+    (file: IFile, attachment: AttachmentSchema.NotifyVo) => {
       const { id, instance } = file;
 
-      const newAttachment: IAttachment = {
+      const newAttachment: IAttachmentItem = {
         id,
         name: instance.name,
         ...attachment,

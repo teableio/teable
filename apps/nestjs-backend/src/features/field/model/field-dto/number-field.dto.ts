@@ -1,25 +1,23 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CellValueType, DbFieldType, NumberFieldCore, Relationship } from '@teable-group/core';
-import type { NumberFieldOptions } from '@teable-group/core';
+import type { INumberFieldOptions } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
+import { NumberFormattingDto } from './formatting.dto';
 
-export class NumberOptionsDto implements NumberFieldOptions {
+export class NumberOptionsDto implements INumberFieldOptions {
   @ApiProperty({
-    type: Number,
-    example: 2,
-    description:
-      'the display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
+    type: NumberFormattingDto,
   })
-  precision!: number;
+  formatting!: NumberFormattingDto;
 }
 
 export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationShip !== Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
 
     return plainToInstance(NumberFieldDto, {
       ...fieldRo,

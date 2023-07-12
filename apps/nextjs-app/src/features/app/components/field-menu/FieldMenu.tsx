@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 
 interface IFieldMenuProps {
   operations: {

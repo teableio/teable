@@ -14,17 +14,21 @@ const generateColumns = (
     return [];
   }
 
+  const iconString = (type: FieldType, isLookup: boolean | undefined) => {
+    return isLookup ? `${type}_lookup` : type;
+  };
+
   return fields.map((field) => {
     const columnMeta = field.columnMeta[viewId];
     const width = columnMeta?.width || 150;
-    const { id, type, name } = field;
+    const { id, type, name, isLookup } = field;
     switch (type) {
       case FieldType.SingleLineText:
         return {
           id,
           name,
           width,
-          icon: FieldType.SingleLineText,
+          icon: iconString(FieldType.SingleLineText, isLookup),
           hasMenu: true,
         };
       case FieldType.SingleSelect:
@@ -32,7 +36,7 @@ const generateColumns = (
           id,
           name,
           width,
-          icon: FieldType.SingleSelect,
+          icon: iconString(FieldType.SingleSelect, isLookup),
           hasMenu: true,
         };
       case FieldType.Number:
@@ -40,7 +44,7 @@ const generateColumns = (
           id,
           name,
           width,
-          icon: FieldType.Number,
+          icon: iconString(FieldType.Number, isLookup),
           hasMenu: true,
         };
       case FieldType.MultipleSelect:
@@ -48,7 +52,7 @@ const generateColumns = (
           id,
           name,
           width,
-          icon: FieldType.MultipleSelect,
+          icon: iconString(FieldType.MultipleSelect, isLookup),
           hasMenu: true,
         };
       case FieldType.Link:
@@ -56,7 +60,7 @@ const generateColumns = (
           id,
           name,
           width,
-          icon: FieldType.Link,
+          icon: iconString(FieldType.Link, isLookup),
           hasMenu: true,
         };
       case FieldType.Formula:
@@ -64,13 +68,13 @@ const generateColumns = (
           id,
           name,
           width,
-          icon: FieldType.Formula,
+          icon: iconString(FieldType.Formula, isLookup),
         };
       case FieldType.Attachment:
         return {
           id,
           name,
-          icon: FieldType.Attachment,
+          icon: iconString(FieldType.Attachment, isLookup),
           hasMenu: true,
           width,
         };
@@ -78,7 +82,7 @@ const generateColumns = (
         return {
           id,
           name,
-          icon: FieldType.Date,
+          icon: iconString(FieldType.Date, isLookup),
           hasMenu: true,
           width,
         };
@@ -97,6 +101,7 @@ const createNewCellValue2GridDisplay =
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: (cellValue as string) || '',
+          readonly: field.isComputed,
         };
       }
       case FieldType.Number: {
@@ -105,6 +110,7 @@ const createNewCellValue2GridDisplay =
           data: (cellValue as number) || undefined,
           displayData: field.cellValue2String(cellValue as number),
           contentAlign: 'right',
+          readonly: field.isComputed,
         };
       }
       case FieldType.MultipleSelect:
@@ -116,6 +122,7 @@ const createNewCellValue2GridDisplay =
             value: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
           },
           isMultiple: field.isMultipleCellValue,
+          readonly: field.isComputed,
         };
       }
       default: {

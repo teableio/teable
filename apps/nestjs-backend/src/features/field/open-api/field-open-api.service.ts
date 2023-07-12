@@ -71,7 +71,7 @@ export class FieldOpenApiService {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     await this.fieldSupplementService.createReference(prisma, field);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link && !field.isLookup) {
       await this.generateSecondCreators(transactionKey, tableId, field);
     }
 
@@ -185,6 +185,18 @@ export class FieldOpenApiService {
             return OpBuilder.editor.setFieldOptions.build({
               newOptions: newFieldInstance.options,
               oldOptions: oldFieldInstance.options,
+            });
+          }
+          case 'isLookup': {
+            return OpBuilder.editor.setFieldOptions.build({
+              newOptions: newFieldInstance.isLookup,
+              oldOptions: oldFieldInstance.isLookup,
+            });
+          }
+          case 'lookupOptions': {
+            return OpBuilder.editor.setFieldOptions.build({
+              newOptions: newFieldInstance.lookupOptions,
+              oldOptions: oldFieldInstance.lookupOptions,
             });
           }
           default:

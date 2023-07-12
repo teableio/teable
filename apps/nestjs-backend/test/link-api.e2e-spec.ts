@@ -39,7 +39,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -120,7 +120,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -204,7 +204,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 

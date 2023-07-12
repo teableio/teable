@@ -1,8 +1,7 @@
-import { HttpException, Injectable } from '@nestjs/common';
-import type { LinkFieldOptions } from '@teable-group/core';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable-group/core';
 import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { HttpStatusCode } from 'axios';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
@@ -64,30 +63,59 @@ export class FieldSupplementService implements ISupplementService {
   ): Promise<CreateFieldRo> {
     const { lookupOptions } = field;
     if (!lookupOptions) {
-      throw new HttpException('lookupOptions is required', HttpStatusCode.BadRequest);
+      throw new BadRequestException('lookupOptions is required');
     }
 
-    const linkFieldId = lookupOptions.linkFieldId;
-    const fieldRaw = await this.prismaService.field.findFirst({
+    const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
+    const linkFieldRaw = await this.prismaService.field.findFirst({
       where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
       select: { options: true },
     });
-    const optionsRaw = fieldRaw?.options || null;
-    const linkFieldOptions: LinkFieldOptions =
+
+    const optionsRaw = linkFieldRaw?.options || null;
+    const linkFieldOptions: ILinkFieldOptions =
       (optionsRaw && JSON.parse(optionsRaw as string)) ||
       batchFieldRos?.find((field) => field.id === linkFieldId);
 
     if (!linkFieldOptions) {
-      throw new HttpException('linkFieldId is invalid', HttpStatusCode.BadRequest);
+      throw new BadRequestException(`linkFieldId ${linkFieldId} is invalid`);
     }
+
+    if (foreignTableId !== linkFieldOptions.foreignTableId) {
+      throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
+    }
+
+    const lookupFieldRaw = await this.prismaService.field.findFirst({
+      where: { id: lookupFieldId, deletedTime: null },
+      select: { type: true, options: true },
+    });
+
+    if (!lookupFieldRaw) {
+      throw new BadRequestException(`Lookup field ${lookupFieldId} is not exist`);
+    }
+
+    if (lookupFieldRaw.type !== field.type) {
+      throw new BadRequestException(
+        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`
+      );
+    }
+
+    const lookupFieldOptions = JSON.parse(lookupFieldRaw.options as string) as object | null;
 
     return {
       ...field,
+      options: lookupFieldOptions
+        ? {
+            ...lookupFieldOptions,
+            formatting: field.options?.formatting ? field.options?.formatting : undefined,
+          }
+        : undefined,
       lookupOptions: {
         ...lookupOptions,
         relationship: linkFieldOptions.relationship,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any,
+        dbForeignKeyName: linkFieldOptions.dbForeignKeyName,
+        symmetricFieldId: linkFieldOptions.symmetricFieldId,
+      } as ILookupOptionsVo,
     };
   }
 
@@ -101,8 +129,9 @@ export class FieldSupplementService implements ISupplementService {
     const batchFields = batchFieldRos?.map((fieldRo) => createFieldInstanceByRo(fieldRo));
     const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
 
-    if (Object.keys(fieldMap).length !== fieldIds.length) {
-      throw new HttpException('formula field reference field not found', HttpStatusCode.BadRequest);
+    if (fieldRaws.length !== fieldIds.length) {
+      const fieldId = fieldIds.find((id) => !fieldMap[id]);
+      throw new BadRequestException(`formula field reference ${fieldId} not found`);
     }
 
     const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
@@ -122,7 +151,7 @@ export class FieldSupplementService implements ISupplementService {
     batchFieldRos?: CreateFieldRo[]
   ): Promise<CreateFieldRo> {
     if (fieldRo.isLookup) {
-      fieldRo = await this.prepareLookupField(fieldRo, batchFieldRos);
+      return await this.prepareLookupField(fieldRo, batchFieldRos);
     }
 
     if (fieldRo.type == FieldType.Link) {
@@ -148,7 +177,6 @@ export class FieldSupplementService implements ISupplementService {
     });
 
     // lookup field id is the primary field of the table to which it is linked
-    // console.log('tableId:', tableId);
     const { id: lookupFieldId } = await prisma.field.findFirstOrThrow({
       where: { tableId, isPrimary: true },
       select: { id: true },
@@ -213,12 +241,12 @@ export class FieldSupplementService implements ISupplementService {
 
   async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
     if (field.isLookup) {
-      return this.createLookupReference(prisma, field);
+      return await this.createLookupReference(prisma, field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return this.createFormulaReference(prisma, field);
+        return await this.createFormulaReference(prisma, field);
       case FieldType.Link:
         return await this.createLinkReference(prisma, field);
       default:
@@ -231,18 +259,11 @@ export class FieldSupplementService implements ISupplementService {
     if (!field.lookupOptions) {
       throw new Error('lookupOptions is required');
     }
-    const { lookupFieldId, linkFieldId } = field.lookupOptions;
+    const { lookupFieldId } = field.lookupOptions;
 
     await prisma.reference.create({
       data: {
         fromFieldId: lookupFieldId,
-        toFieldId,
-      },
-    });
-
-    await prisma.reference.create({
-      data: {
-        fromFieldId: linkFieldId,
         toFieldId,
       },
     });

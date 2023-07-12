@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
-import type { LookupOptionsVo } from '@teable-group/core';
+import type { ILookupOptionsVo } from '@teable-group/core';
 import {
   formatFieldErrorMessage,
   DbFieldType,
@@ -25,7 +25,7 @@ import type { FieldVo } from './field.vo';
 export interface IPreparedRo {
   cellValueType: CellValueType;
   isLookup?: boolean;
-  lookupOptions?: LookupOptionsVo;
+  lookupOptions?: ILookupOptionsVo;
 }
 
 function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
@@ -133,7 +133,7 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
-    isLookup: Boolean(fieldRaw.lookupFieldId) || undefined,
+    isLookup: Boolean(fieldRaw.lookupLinkedFieldId) || undefined,
     lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
     defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     cellValueType: fieldRaw.cellValueType as CellValueType,

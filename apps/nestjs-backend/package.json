@@ -81,7 +81,6 @@
   },
   "dependencies": {
     "@babel/core": "7.19.6",
-    "@belgattitude/http-exception": "1.4.0",
     "@juicyllama/nestjs-redoc": "2.3.10",
     "@nestjs/common": "9.3.9",
     "@nestjs/config": "2.2.0",
@@ -95,6 +94,7 @@
     "@teable-group/common-i18n": "workspace:^",
     "@teable-group/core": "workspace:^",
     "@teable-group/db-main-prisma": "workspace:^",
+    "@teable-group/openapi": "workspace:^",
     "@teable-group/sdk": "workspace:^",
     "@teable/sharedb": "3.3.11",
     "@teamwork/websocket-json-stream": "2.0.0",

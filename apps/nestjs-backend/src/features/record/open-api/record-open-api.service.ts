@@ -14,6 +14,7 @@ import { keyBy } from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
+import { composeMaps } from '../../calculation/compose-maps';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
@@ -63,21 +64,21 @@ export class RecordOpenApiService {
     prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
-    fieldKey: FieldKeyType,
-    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
+    fieldKeyType: FieldKeyType,
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
   ) {
     const fieldKeys = Array.from(
       records.reduce<Set<string>>((acc, record) => {
-        Object.keys(record.fields).forEach((fieldKey) => acc.add(fieldKey));
+        Object.keys(record.fields).forEach((fieldNameOrId) => acc.add(fieldNameOrId));
         return acc;
       }, new Set())
     );
 
     const fieldRaws = await prisma.field.findMany({
-      where: { tableId, [fieldKey]: { in: fieldKeys } },
+      where: { tableId, [fieldKeyType]: { in: fieldKeys } },
       select: { id: true, name: true },
     });
-    const fieldIdMap = keyBy(fieldRaws, fieldKey);
+    const fieldIdMap = keyBy(fieldRaws, fieldKeyType);
 
     const cellContexts: ICellContext[] = [];
     for (const record of records) {
@@ -89,8 +90,8 @@ export class RecordOpenApiService {
           resolve(doc.data);
         });
       });
-      Object.entries(record.fields).forEach(([fieldKey, value]) => {
-        const fieldId = fieldIdMap[fieldKey].id;
+      Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
+        const fieldId = fieldIdMap[fieldNameOrId].id;
         const oldCellValue = snapshot.record.fields[fieldId];
         cellContexts.push({
           recordId: record.id,
@@ -103,18 +104,10 @@ export class RecordOpenApiService {
     return cellContexts;
   }
 
-  private async getOpsMapByCalculation(prisma: Prisma.TransactionClient, opsMap: IOpsMap) {
-    const calculated = await this.referenceService.calculateOpsMap(prisma, opsMap);
-
-    opsMap = this.linkService.formatOpsByChanges(calculated);
-
-    return opsMap;
-  }
-
   private async getRecordSnapshotsAfterSubmit(
     connection: Connection,
     tableId: string,
-    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
   ): Promise<IRecordSnapshot[]> {
     const collection = `${IdPrefix.Record}_${tableId}`;
     return records.map((record) => {
@@ -125,27 +118,36 @@ export class RecordOpenApiService {
       return doc.data;
     });
   }
-  private async getOpsMapByLink(
+  private async getOpsMapByOrigin(
     prisma: Prisma.TransactionClient,
     tableId: string,
+    opsMapOrigin: IOpsMap,
     opContexts: ICellContext[]
   ) {
-    const derivateChangesByLink = await this.linkService.getDerivateChangesByLink(
+    const derivate = await this.linkService.getDerivateByLink(prisma, tableId, opContexts);
+
+    const cellChanges = derivate?.cellChanges || [];
+    const fkRecordMap = derivate?.fkRecordMap || {};
+
+    const opsMapByLink = cellChanges.length
+      ? this.referenceService.formatOpsByChanges(cellChanges)
+      : {};
+
+    // calculate by origin ops and link derivation
+    const opsMapByCalculation = await this.referenceService.calculateOpsMap(
       prisma,
-      tableId,
-      opContexts
+      composeMaps([opsMapOrigin, opsMapByLink]),
+      fkRecordMap
     );
 
-    return derivateChangesByLink.length
-      ? this.linkService.formatOpsByChanges(derivateChangesByLink)
-      : undefined;
+    return composeMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation]);
   }
 
   private async calculateAndSubmitOp(
     transactionKey: string,
     tableId: string,
-    fieldKey: FieldKeyType = FieldKeyType.Name,
-    records: { id: string; fields: { [fieldKey: string]: unknown } }[]
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
   ): Promise<IRecordSnapshot[]> {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     const connection = this.shareDbService.getConnection(transactionKey);
@@ -155,11 +157,11 @@ export class RecordOpenApiService {
       prisma,
       connection,
       tableId,
-      fieldKey,
+      fieldKeyType,
       records
     );
 
-    const opsMapOrigin = this.linkService.formatOpsByChanges(
+    const opsMapOrigin = this.referenceService.formatOpsByChanges(
       opsContexts.map((data) => {
         return {
           tableId,
@@ -171,23 +173,10 @@ export class RecordOpenApiService {
       })
     );
 
-    // 2. get cell changes by link derivation
-    const opsMayByLink = await this.getOpsMapByLink(prisma, tableId, opsContexts);
-    // console.log('submitOpByLinkDerivation', JSON.stringify(opsMap, null, 2));
+    // 2. get cell changes by derivation
+    const composedOpsMap = await this.getOpsMapByOrigin(prisma, tableId, opsMapOrigin, opsContexts);
 
-    // 3. calculate by origin ops and link derivation
-    const opsMapByCalculation = await this.getOpsMapByCalculation(
-      prisma,
-      this.linkService.composeMaps([opsMapOrigin, opsMayByLink])
-    );
-
-    const composedOpsMap = this.linkService.composeMaps([
-      opsMapOrigin,
-      opsMayByLink,
-      opsMapByCalculation,
-    ]);
-
-    // 4. send all ops
+    // 3. send all ops
     await this.sendOpsMap(connection, composedOpsMap);
 
     // return record result
@@ -225,8 +214,8 @@ export class RecordOpenApiService {
   private async sendAutoFillOps(
     transactionKey: string,
     tableId: string,
-    records: { id: string; fields: { [fieldKey: string]: unknown } }[],
-    fieldKey: FieldKeyType
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+    fieldKeyType: FieldKeyType
   ) {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     const fieldRaws = await prisma.field.findMany({
@@ -240,7 +229,7 @@ export class RecordOpenApiService {
         const { type, options } = fieldRaw;
         if (options == null) continue;
         const { autoFill, defaultValue: _defaultValue } = JSON.parse(options) || {};
-        const fieldIdOrName = fieldRaw[fieldKey];
+        const fieldIdOrName = fieldRaw[fieldKeyType];
         if (fields[fieldIdOrName] != null || !autoFill) continue;
         fields[fieldIdOrName] = this.getDefaultValue(type as FieldType, _defaultValue);
       }

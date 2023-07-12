@@ -1,22 +1,30 @@
 import type { SafeParseReturnType } from 'zod';
+import { z } from 'zod';
 import type { StatisticsFunc } from '../view';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
-import type { Relationship } from './derivate';
+import { Relationship } from './derivate';
 import type { IColumnMeta } from './interface';
 
-export class LookupOptions {
-  foreignTableId!: string;
-  linkFieldId!: string;
-  lookupFieldId!: string;
-  relationShip?: Relationship;
-}
+export const lookupOptionsRoDef = z.object({
+  foreignTableId: z.string(),
+  linkFieldId: z.string(),
+  lookupFieldId: z.string(),
+  relationship: z.nativeEnum(Relationship).optional(),
+  dbForeignKeyName: z.string().optional(),
+  symmetricFieldId: z.string().optional(),
+});
 
-export class LookupOptionsVo {
-  foreignTableId!: string;
-  linkFieldId!: string;
-  lookupFieldId!: string;
-  relationship!: Relationship;
-}
+export type ILookupOptions = z.infer<typeof lookupOptionsRoDef>;
+
+export const lookupOptionsVoDef = lookupOptionsRoDef.merge(
+  z.object({
+    relationship: z.nativeEnum(Relationship),
+    dbForeignKeyName: z.string(),
+    symmetricFieldId: z.string(),
+  })
+);
+
+export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoDef>;
 
 export interface IFieldRo {
   name: string;
@@ -25,7 +33,7 @@ export interface IFieldRo {
   description?: string;
   options?: unknown;
   isLookup?: boolean;
-  lookupOptions?: LookupOptions;
+  lookupOptions?: ILookupOptions;
   notNull?: boolean;
   unique?: boolean;
   isPrimary?: boolean;
@@ -38,7 +46,7 @@ export interface IFieldVo extends IFieldRo {
   isComputed?: boolean;
   cellValueType: CellValueType;
   isMultipleCellValue?: boolean;
-  lookupOptions?: LookupOptionsVo;
+  lookupOptions?: ILookupOptionsVo;
   dbFieldType: DbFieldType;
   dbFieldName: string;
   columnMeta: IColumnMeta;
@@ -88,7 +96,7 @@ export abstract class FieldCore implements IFieldVo {
   // if this field is lookup field
   isLookup?: boolean;
 
-  lookupOptions?: LookupOptionsVo;
+  lookupOptions?: ILookupOptionsVo;
 
   abstract cellValue2String(value?: unknown): string;
 

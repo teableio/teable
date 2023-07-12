@@ -120,7 +120,7 @@ describe('EvalVisitor', () => {
     expect(evalFormula('1 > 2')).toBe(false);
     expect(evalFormula('2 <= 2')).toBe(true);
     expect(evalFormula('2 >= 2')).toBe(true);
-    expect(evalFormula('1 == 1')).toBe(true);
+    expect(evalFormula('1 = 1')).toBe(true);
     expect(evalFormula('1 != 2')).toBe(true);
   });
 
@@ -142,7 +142,7 @@ describe('EvalVisitor', () => {
     expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
   });
 
-  it('lookup call', () => {
+  it('rollup call', () => {
     const virtualField = {
       id: 'values',
       type: FieldType.Formula,
@@ -161,10 +161,14 @@ describe('EvalVisitor', () => {
     };
 
     const result = evaluate(
-      'LOOKUP({values})',
+      'rollup({values})',
       { values: plainToInstance(FormulaFieldCore, virtualField) },
       { ...record, fields: { ...record.fields, values: ['CX, C2', 'C3'] } }
     );
     expect(result.toPlain()).toEqual(['CX, C2', 'C3']);
+  });
+
+  it('should throw exception', () => {
+    expect(() => evalFormula('{}', fieldContext, record)).toThrowError();
   });
 });

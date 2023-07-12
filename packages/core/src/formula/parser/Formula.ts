@@ -33,85 +33,84 @@ export class Formula extends Parser {
 	public static readonly TRUE = 4;
 	public static readonly FALSE = 5;
 	public static readonly FIELD = 6;
-	public static readonly LOOKUP = 7;
-	public static readonly COMMA = 8;
-	public static readonly COLON = 9;
-	public static readonly COLON_COLON = 10;
-	public static readonly DOLLAR = 11;
-	public static readonly DOLLAR_DOLLAR = 12;
-	public static readonly STAR = 13;
-	public static readonly OPEN_PAREN = 14;
-	public static readonly CLOSE_PAREN = 15;
-	public static readonly OPEN_BRACKET = 16;
-	public static readonly CLOSE_BRACKET = 17;
-	public static readonly L_CURLY = 18;
-	public static readonly R_CURLY = 19;
-	public static readonly BIT_STRING = 20;
-	public static readonly REGEX_STRING = 21;
-	public static readonly NUMERIC_LITERAL = 22;
-	public static readonly INTEGER_LITERAL = 23;
-	public static readonly HEX_INTEGER_LITERAL = 24;
-	public static readonly DOT = 25;
-	public static readonly SINGLEQ_STRING_LITERAL = 26;
-	public static readonly DOUBLEQ_STRING_LITERAL = 27;
-	public static readonly IDENTIFIER_UNICODE = 28;
-	public static readonly IDENTIFIER_UNICODE_BLANK = 29;
-	public static readonly IDENTIFIER = 30;
-	public static readonly AMP = 31;
-	public static readonly AMP_AMP = 32;
-	public static readonly AMP_LT = 33;
-	public static readonly AT_AT = 34;
-	public static readonly AT_GT = 35;
-	public static readonly AT_SIGN = 36;
-	public static readonly BANG = 37;
-	public static readonly BANG_BANG = 38;
-	public static readonly BANG_EQUAL = 39;
-	public static readonly CARET = 40;
-	public static readonly EQUAL = 41;
-	public static readonly EQUAL_GT = 42;
-	public static readonly GT = 43;
-	public static readonly GTE = 44;
-	public static readonly GT_GT = 45;
-	public static readonly HASH = 46;
-	public static readonly HASH_EQ = 47;
-	public static readonly HASH_GT = 48;
-	public static readonly HASH_GT_GT = 49;
-	public static readonly HASH_HASH = 50;
-	public static readonly HYPHEN_GT = 51;
-	public static readonly HYPHEN_GT_GT = 52;
-	public static readonly HYPHEN_PIPE_HYPHEN = 53;
-	public static readonly LT = 54;
-	public static readonly LTE = 55;
-	public static readonly LT_AT = 56;
-	public static readonly LT_CARET = 57;
-	public static readonly LT_GT = 58;
-	public static readonly LT_HYPHEN_GT = 59;
-	public static readonly LT_LT = 60;
-	public static readonly LT_LT_EQ = 61;
-	public static readonly LT_QMARK_GT = 62;
-	public static readonly MINUS = 63;
-	public static readonly PERCENT = 64;
-	public static readonly PIPE = 65;
-	public static readonly PIPE_PIPE = 66;
-	public static readonly PIPE_PIPE_SLASH = 67;
-	public static readonly PIPE_SLASH = 68;
-	public static readonly PLUS = 69;
-	public static readonly QMARK = 70;
-	public static readonly QMARK_AMP = 71;
-	public static readonly QMARK_HASH = 72;
-	public static readonly QMARK_HYPHEN = 73;
-	public static readonly QMARK_PIPE = 74;
-	public static readonly SLASH = 75;
-	public static readonly TIL = 76;
-	public static readonly TIL_EQ = 77;
-	public static readonly TIL_GTE_TIL = 78;
-	public static readonly TIL_GT_TIL = 79;
-	public static readonly TIL_LTE_TIL = 80;
-	public static readonly TIL_LT_TIL = 81;
-	public static readonly TIL_STAR = 82;
-	public static readonly TIL_TIL = 83;
-	public static readonly SEMI = 84;
-	public static readonly ErrorCharacter = 85;
+	public static readonly COMMA = 7;
+	public static readonly COLON = 8;
+	public static readonly COLON_COLON = 9;
+	public static readonly DOLLAR = 10;
+	public static readonly DOLLAR_DOLLAR = 11;
+	public static readonly STAR = 12;
+	public static readonly OPEN_PAREN = 13;
+	public static readonly CLOSE_PAREN = 14;
+	public static readonly OPEN_BRACKET = 15;
+	public static readonly CLOSE_BRACKET = 16;
+	public static readonly L_CURLY = 17;
+	public static readonly R_CURLY = 18;
+	public static readonly BIT_STRING = 19;
+	public static readonly REGEX_STRING = 20;
+	public static readonly NUMERIC_LITERAL = 21;
+	public static readonly INTEGER_LITERAL = 22;
+	public static readonly HEX_INTEGER_LITERAL = 23;
+	public static readonly DOT = 24;
+	public static readonly SINGLEQ_STRING_LITERAL = 25;
+	public static readonly DOUBLEQ_STRING_LITERAL = 26;
+	public static readonly IDENTIFIER_UNICODE = 27;
+	public static readonly IDENTIFIER_UNICODE_BLANK = 28;
+	public static readonly IDENTIFIER = 29;
+	public static readonly AMP = 30;
+	public static readonly AMP_AMP = 31;
+	public static readonly AMP_LT = 32;
+	public static readonly AT_AT = 33;
+	public static readonly AT_GT = 34;
+	public static readonly AT_SIGN = 35;
+	public static readonly BANG = 36;
+	public static readonly BANG_BANG = 37;
+	public static readonly BANG_EQUAL = 38;
+	public static readonly CARET = 39;
+	public static readonly EQUAL = 40;
+	public static readonly EQUAL_GT = 41;
+	public static readonly GT = 42;
+	public static readonly GTE = 43;
+	public static readonly GT_GT = 44;
+	public static readonly HASH = 45;
+	public static readonly HASH_EQ = 46;
+	public static readonly HASH_GT = 47;
+	public static readonly HASH_GT_GT = 48;
+	public static readonly HASH_HASH = 49;
+	public static readonly HYPHEN_GT = 50;
+	public static readonly HYPHEN_GT_GT = 51;
+	public static readonly HYPHEN_PIPE_HYPHEN = 52;
+	public static readonly LT = 53;
+	public static readonly LTE = 54;
+	public static readonly LT_AT = 55;
+	public static readonly LT_CARET = 56;
+	public static readonly LT_GT = 57;
+	public static readonly LT_HYPHEN_GT = 58;
+	public static readonly LT_LT = 59;
+	public static readonly LT_LT_EQ = 60;
+	public static readonly LT_QMARK_GT = 61;
+	public static readonly MINUS = 62;
+	public static readonly PERCENT = 63;
+	public static readonly PIPE = 64;
+	public static readonly PIPE_PIPE = 65;
+	public static readonly PIPE_PIPE_SLASH = 66;
+	public static readonly PIPE_SLASH = 67;
+	public static readonly PLUS = 68;
+	public static readonly QMARK = 69;
+	public static readonly QMARK_AMP = 70;
+	public static readonly QMARK_HASH = 71;
+	public static readonly QMARK_HYPHEN = 72;
+	public static readonly QMARK_PIPE = 73;
+	public static readonly SLASH = 74;
+	public static readonly TIL = 75;
+	public static readonly TIL_EQ = 76;
+	public static readonly TIL_GTE_TIL = 77;
+	public static readonly TIL_GT_TIL = 78;
+	public static readonly TIL_LTE_TIL = 79;
+	public static readonly TIL_LT_TIL = 80;
+	public static readonly TIL_STAR = 81;
+	public static readonly TIL_TIL = 82;
+	public static readonly SEMI = 83;
+	public static readonly ErrorCharacter = 84;
 	public static readonly RULE_root = 0;
 	public static readonly RULE_expr = 1;
 	public static readonly RULE_ws_or_comment = 2;
@@ -127,9 +126,9 @@ export class Formula extends Parser {
 
 	private static readonly _LITERAL_NAMES: Array<string | undefined> = [
 		undefined, undefined, undefined, undefined, undefined, undefined, undefined, 
-		undefined, "','", "':'", "'::'", "'$'", "'$$'", "'*'", "'('", "')'", "'['", 
-		"']'", "'{'", "'}'", undefined, undefined, undefined, undefined, undefined, 
-		"'.'", undefined, undefined, undefined, undefined, undefined, "'&'", "'&&'", 
+		"','", "':'", "'::'", "'$'", "'$$'", "'*'", "'('", "')'", "'['", "']'", 
+		"'{'", "'}'", undefined, undefined, undefined, undefined, undefined, "'.'", 
+		undefined, undefined, undefined, undefined, undefined, "'&'", "'&&'", 
 		"'&<'", "'@@'", "'@>'", "'@'", "'!'", "'!!'", "'!='", "'^'", "'='", "'=>'", 
 		"'>'", "'>='", "'>>'", "'#'", "'#='", "'#>'", "'#>>'", "'##'", "'->'", 
 		"'->>'", "'-|-'", "'<'", "'<='", "'<@'", "'<^'", "'<>'", "'<->'", "'<<'", 
@@ -139,20 +138,20 @@ export class Formula extends Parser {
 	];
 	private static readonly _SYMBOLIC_NAMES: Array<string | undefined> = [
 		undefined, "BLOCK_COMMENT", "LINE_COMMENT", "WHITESPACE", "TRUE", "FALSE", 
-		"FIELD", "LOOKUP", "COMMA", "COLON", "COLON_COLON", "DOLLAR", "DOLLAR_DOLLAR", 
-		"STAR", "OPEN_PAREN", "CLOSE_PAREN", "OPEN_BRACKET", "CLOSE_BRACKET", 
-		"L_CURLY", "R_CURLY", "BIT_STRING", "REGEX_STRING", "NUMERIC_LITERAL", 
-		"INTEGER_LITERAL", "HEX_INTEGER_LITERAL", "DOT", "SINGLEQ_STRING_LITERAL", 
-		"DOUBLEQ_STRING_LITERAL", "IDENTIFIER_UNICODE", "IDENTIFIER_UNICODE_BLANK", 
-		"IDENTIFIER", "AMP", "AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", 
-		"BANG", "BANG_BANG", "BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", 
-		"GTE", "GT_GT", "HASH", "HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", 
-		"HYPHEN_GT", "HYPHEN_GT_GT", "HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", 
-		"LT_CARET", "LT_GT", "LT_HYPHEN_GT", "LT_LT", "LT_LT_EQ", "LT_QMARK_GT", 
-		"MINUS", "PERCENT", "PIPE", "PIPE_PIPE", "PIPE_PIPE_SLASH", "PIPE_SLASH", 
-		"PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", "QMARK_HYPHEN", "QMARK_PIPE", 
-		"SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", "TIL_GT_TIL", "TIL_LTE_TIL", 
-		"TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", "ErrorCharacter",
+		"FIELD", "COMMA", "COLON", "COLON_COLON", "DOLLAR", "DOLLAR_DOLLAR", "STAR", 
+		"OPEN_PAREN", "CLOSE_PAREN", "OPEN_BRACKET", "CLOSE_BRACKET", "L_CURLY", 
+		"R_CURLY", "BIT_STRING", "REGEX_STRING", "NUMERIC_LITERAL", "INTEGER_LITERAL", 
+		"HEX_INTEGER_LITERAL", "DOT", "SINGLEQ_STRING_LITERAL", "DOUBLEQ_STRING_LITERAL", 
+		"IDENTIFIER_UNICODE", "IDENTIFIER_UNICODE_BLANK", "IDENTIFIER", "AMP", 
+		"AMP_AMP", "AMP_LT", "AT_AT", "AT_GT", "AT_SIGN", "BANG", "BANG_BANG", 
+		"BANG_EQUAL", "CARET", "EQUAL", "EQUAL_GT", "GT", "GTE", "GT_GT", "HASH", 
+		"HASH_EQ", "HASH_GT", "HASH_GT_GT", "HASH_HASH", "HYPHEN_GT", "HYPHEN_GT_GT", 
+		"HYPHEN_PIPE_HYPHEN", "LT", "LTE", "LT_AT", "LT_CARET", "LT_GT", "LT_HYPHEN_GT", 
+		"LT_LT", "LT_LT_EQ", "LT_QMARK_GT", "MINUS", "PERCENT", "PIPE", "PIPE_PIPE", 
+		"PIPE_PIPE_SLASH", "PIPE_SLASH", "PLUS", "QMARK", "QMARK_AMP", "QMARK_HASH", 
+		"QMARK_HYPHEN", "QMARK_PIPE", "SLASH", "TIL", "TIL_EQ", "TIL_GTE_TIL", 
+		"TIL_GT_TIL", "TIL_LTE_TIL", "TIL_LT_TIL", "TIL_STAR", "TIL_TIL", "SEMI", 
+		"ErrorCharacter",
 	];
 	public static readonly VOCABULARY: Vocabulary = new VocabularyImpl(Formula._LITERAL_NAMES, Formula._SYMBOLIC_NAMES, []);
 
@@ -446,7 +445,7 @@ export class Formula extends Parser {
 						this.state = 57;
 						(_localctx as BinaryOpContext)._op = this._input.LT(1);
 						_la = this._input.LA(1);
-						if (!(((((_la - 43)) & ~0x1F) === 0 && ((1 << (_la - 43)) & ((1 << (Formula.GT - 43)) | (1 << (Formula.GTE - 43)) | (1 << (Formula.LT - 43)) | (1 << (Formula.LTE - 43)))) !== 0))) {
+						if (!(((((_la - 42)) & ~0x1F) === 0 && ((1 << (_la - 42)) & ((1 << (Formula.GT - 42)) | (1 << (Formula.GTE - 42)) | (1 << (Formula.LT - 42)) | (1 << (Formula.LTE - 42)))) !== 0))) {
 							(_localctx as BinaryOpContext)._op = this._errHandler.recoverInline(this);
 						} else {
 							if (this._input.LA(1) === Token.EOF) {
@@ -763,7 +762,7 @@ export class Formula extends Parser {
 	}
 
 	public static readonly _serializedATN: string =
-		"\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03W[\x04\x02\t\x02" +
+		"\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03V[\x04\x02\t\x02" +
 		"\x04\x03\t\x03\x04\x04\t\x04\x04\x05\t\x05\x04\x06\t\x06\x04\x07\t\x07" +
 		"\x04\b\t\b\x03\x02\x03\x02\x03\x02\x03\x03\x03\x03\x03\x03\x03\x03\x03" +
 		"\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03" +
@@ -774,35 +773,35 @@ export class Formula extends Parser {
 		"\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x07\x03L\n\x03\f\x03" +
 		"\x0E\x03O\v\x03\x03\x04\x03\x04\x03\x05\x03\x05\x03\x06\x03\x06\x03\x07" +
 		"\x03\x07\x03\b\x03\b\x03\b\x02\x02\x03\x04\t\x02\x02\x04\x02\x06\x02\b" +
-		"\x02\n\x02\f\x02\x0E\x02\x02\n\x03\x02\x06\x07\x05\x02\x0F\x0FBBMM\x04" +
-		"\x02AAGG\x04\x02-.89\x04\x02))++\x03\x02\x03\x05\x03\x02\x1E\x1F\x04\x02" +
-		"\x1E\x1E  \x02e\x02\x10\x03\x02\x02\x02\x042\x03\x02\x02\x02\x06P\x03" +
-		"\x02\x02\x02\bR\x03\x02\x02\x02\nT\x03\x02\x02\x02\fV\x03\x02\x02\x02" +
-		"\x0EX\x03\x02\x02\x02\x10\x11\x05\x04\x03\x02\x11\x12\x07\x02\x02\x03" +
-		"\x12\x03\x03\x02\x02\x02\x13\x14\b\x03\x01\x02\x143\x07\x1C\x02\x02\x15" +
-		"3\x07\x1D\x02\x02\x163\x07\x19\x02\x02\x173\x07\x18\x02\x02\x183\t\x02" +
-		"\x02\x02\x19\x1A\x05\x06\x04\x02\x1A\x1B\x05\x04\x03\x0E\x1B3\x03\x02" +
-		"\x02\x02\x1C\x1D\x07\x10\x02\x02\x1D\x1E\x05\x04\x03\x02\x1E\x1F\x07\x11" +
-		"\x02\x02\x1F3\x03\x02\x02\x02 !\x07\x14\x02\x02!\"\x05\n\x06\x02\"#\x07" +
-		"\x15\x02\x02#3\x03\x02\x02\x02$%\x05\f\x07\x02%.\x07\x10\x02\x02&+\x05" +
-		"\x04\x03\x02\'(\x07\n\x02\x02(*\x05\x04\x03\x02)\'\x03\x02\x02\x02*-\x03" +
-		"\x02\x02\x02+)\x03\x02\x02\x02+,\x03\x02\x02\x02,/\x03\x02\x02\x02-+\x03" +
-		"\x02\x02\x02.&\x03\x02\x02\x02./\x03\x02\x02\x02/0\x03\x02\x02\x0201\x07" +
-		"\x11\x02\x0213\x03\x02\x02\x022\x13\x03\x02\x02\x022\x15\x03\x02\x02\x02" +
-		"2\x16\x03\x02\x02\x022\x17\x03\x02\x02\x022\x18\x03\x02\x02\x022\x19\x03" +
-		"\x02\x02\x022\x1C\x03\x02\x02\x022 \x03\x02\x02\x022$\x03\x02\x02\x02" +
-		"3M\x03\x02\x02\x0245\f\v\x02\x0256\t\x03\x02\x026L\x05\x04\x03\f78\f\n" +
-		"\x02\x0289\t\x04\x02\x029L\x05\x04\x03\v:;\f\t\x02\x02;<\t\x05\x02\x02" +
-		"<L\x05\x04\x03\n=>\f\b\x02\x02>?\t\x06\x02\x02?L\x05\x04\x03\t@A\f\x07" +
-		"\x02\x02AB\x07\"\x02\x02BL\x05\x04\x03\bCD\f\x06\x02\x02DE\x07D\x02\x02" +
-		"EL\x05\x04\x03\x07FG\f\x05\x02\x02GH\x07!\x02\x02HL\x05\x04\x03\x06IJ" +
-		"\f\r\x02\x02JL\x05\x06\x04\x02K4\x03\x02\x02\x02K7\x03\x02\x02\x02K:\x03" +
-		"\x02\x02\x02K=\x03\x02\x02\x02K@\x03\x02\x02\x02KC\x03\x02\x02\x02KF\x03" +
-		"\x02\x02\x02KI\x03\x02\x02\x02LO\x03\x02\x02\x02MK\x03\x02\x02\x02MN\x03" +
-		"\x02\x02\x02N\x05\x03\x02\x02\x02OM\x03\x02\x02\x02PQ\t\x07\x02\x02Q\x07" +
-		"\x03\x02\x02\x02RS\x07\x1E\x02\x02S\t\x03\x02\x02\x02TU\t\b\x02\x02U\v" +
-		"\x03\x02\x02\x02VW\x05\x0E\b\x02W\r\x03\x02\x02\x02XY\t\t\x02\x02Y\x0F" +
-		"\x03\x02\x02\x02\x07+.2KM";
+		"\x02\n\x02\f\x02\x0E\x02\x02\n\x03\x02\x06\x07\x05\x02\x0E\x0EAALL\x04" +
+		"\x02@@FF\x04\x02,-78\x04\x02((**\x03\x02\x03\x05\x03\x02\x1D\x1E\x04\x02" +
+		"\x1D\x1D\x1F\x1F\x02e\x02\x10\x03\x02\x02\x02\x042\x03\x02\x02\x02\x06" +
+		"P\x03\x02\x02\x02\bR\x03\x02\x02\x02\nT\x03\x02\x02\x02\fV\x03\x02\x02" +
+		"\x02\x0EX\x03\x02\x02\x02\x10\x11\x05\x04\x03\x02\x11\x12\x07\x02\x02" +
+		"\x03\x12\x03\x03\x02\x02\x02\x13\x14\b\x03\x01\x02\x143\x07\x1B\x02\x02" +
+		"\x153\x07\x1C\x02\x02\x163\x07\x18\x02\x02\x173\x07\x17\x02\x02\x183\t" +
+		"\x02\x02\x02\x19\x1A\x05\x06\x04\x02\x1A\x1B\x05\x04\x03\x0E\x1B3\x03" +
+		"\x02\x02\x02\x1C\x1D\x07\x0F\x02\x02\x1D\x1E\x05\x04\x03\x02\x1E\x1F\x07" +
+		"\x10\x02\x02\x1F3\x03\x02\x02\x02 !\x07\x13\x02\x02!\"\x05\n\x06\x02\"" +
+		"#\x07\x14\x02\x02#3\x03\x02\x02\x02$%\x05\f\x07\x02%.\x07\x0F\x02\x02" +
+		"&+\x05\x04\x03\x02\'(\x07\t\x02\x02(*\x05\x04\x03\x02)\'\x03\x02\x02\x02" +
+		"*-\x03\x02\x02\x02+)\x03\x02\x02\x02+,\x03\x02\x02\x02,/\x03\x02\x02\x02" +
+		"-+\x03\x02\x02\x02.&\x03\x02\x02\x02./\x03\x02\x02\x02/0\x03\x02\x02\x02" +
+		"01\x07\x10\x02\x0213\x03\x02\x02\x022\x13\x03\x02\x02\x022\x15\x03\x02" +
+		"\x02\x022\x16\x03\x02\x02\x022\x17\x03\x02\x02\x022\x18\x03\x02\x02\x02" +
+		"2\x19\x03\x02\x02\x022\x1C\x03\x02\x02\x022 \x03\x02\x02\x022$\x03\x02" +
+		"\x02\x023M\x03\x02\x02\x0245\f\v\x02\x0256\t\x03\x02\x026L\x05\x04\x03" +
+		"\f78\f\n\x02\x0289\t\x04\x02\x029L\x05\x04\x03\v:;\f\t\x02\x02;<\t\x05" +
+		"\x02\x02<L\x05\x04\x03\n=>\f\b\x02\x02>?\t\x06\x02\x02?L\x05\x04\x03\t" +
+		"@A\f\x07\x02\x02AB\x07!\x02\x02BL\x05\x04\x03\bCD\f\x06\x02\x02DE\x07" +
+		"C\x02\x02EL\x05\x04\x03\x07FG\f\x05\x02\x02GH\x07 \x02\x02HL\x05\x04\x03" +
+		"\x06IJ\f\r\x02\x02JL\x05\x06\x04\x02K4\x03\x02\x02\x02K7\x03\x02\x02\x02" +
+		"K:\x03\x02\x02\x02K=\x03\x02\x02\x02K@\x03\x02\x02\x02KC\x03\x02\x02\x02" +
+		"KF\x03\x02\x02\x02KI\x03\x02\x02\x02LO\x03\x02\x02\x02MK\x03\x02\x02\x02" +
+		"MN\x03\x02\x02\x02N\x05\x03\x02\x02\x02OM\x03\x02\x02\x02PQ\t\x07\x02" +
+		"\x02Q\x07\x03\x02\x02\x02RS\x07\x1D\x02\x02S\t\x03\x02\x02\x02TU\t\b\x02" +
+		"\x02U\v\x03\x02\x02\x02VW\x05\x0E\b\x02W\r\x03\x02\x02\x02XY\t\t\x02\x02" +
+		"Y\x0F\x03\x02\x02\x02\x07+.2KM";
 	public static __ATN: ATN;
 	public static get _ATN(): ATN {
 		if (!Formula.__ATN) {
