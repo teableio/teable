@@ -46,7 +46,7 @@ export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFiel
       ...fieldRo,
       isComputed: isLookup,
       cellValueType: CellValueType.String,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Text,
       isMultipleCellValue,
     } as SingleSelectFieldDto);
   }

@@ -94,6 +94,15 @@ const generateColumns = (
           hasMenu: true,
           width,
         };
+      case FieldType.Checkbox:
+        return {
+          id: field.id,
+          title: field.name,
+          icon: iconString(FieldType.Checkbox, field.isLookup),
+          kind: GridCellKind.Boolean,
+          hasMenu: true,
+          width,
+        };
     }
   });
 };
@@ -200,6 +209,25 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
+          readonly: field.isComputed,
+        };
+      }
+      case FieldType.Checkbox: {
+        if (field.isMultipleCellValue) {
+          const text = field.cellValue2String(cellValue);
+          return {
+            kind: GridCellKind.Text,
+            data: text,
+            allowOverlay: true,
+            displayData: text,
+            readonly: field.isComputed,
+          };
+        }
+        return {
+          kind: GridCellKind.Boolean,
+          data: (cellValue as boolean) || false,
+          allowOverlay: false,
+          contentAlign: 'center',
           readonly: field.isComputed,
         };
       }

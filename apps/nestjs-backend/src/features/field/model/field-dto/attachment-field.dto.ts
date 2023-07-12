@@ -12,7 +12,7 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
       isComputed: isLookup,
       cellValueType: CellValueType.String,
       isMultipleCellValue: true,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: DbFieldType.Json,
     } as AttachmentFieldDto);
   }
 

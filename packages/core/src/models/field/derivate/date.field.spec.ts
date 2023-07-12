@@ -1,8 +1,9 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import { DateFormattingPreset, defaultDatetimeFormatting, TimeFormatting } from '../formatting';
 import type { IDateFieldOptions } from './date.field';
 import { DateFieldCore } from './date.field';
 
@@ -11,35 +12,41 @@ const DEFAULT_TIME_ZONE = 'America/Los_Angeles';
 
 describe('DateFieldCore', () => {
   let field: DateFieldCore;
+  let lookupField: DateFieldCore;
+  const json = {
+    id: 'test',
+    name: 'Test Date Field',
+    description: 'A test date field',
+    columnMeta: {
+      index: 0,
+      columnIndex: 0,
+    },
+    type: FieldType.Date,
+    dbFieldType: DbFieldType.DateTime,
+    options: {
+      formatting: {
+        date: DateFormattingPreset.Asian,
+        time: TimeFormatting.Hour24,
+        timeZone: DEFAULT_TIME_ZONE,
+      },
+      defaultValue: 'now',
+    },
+    cellValueType: CellValueType.DateTime,
+    isComputed: false,
+  };
+  const lookupJson = {
+    isLookup: true,
+    isComputed: true,
+    isMultipleCellValue: true,
+    dbFieldType: DbFieldType.Json,
+  };
 
   beforeEach(() => {
-    const json = {
-      id: 'test',
-      name: 'Test Date Field',
-      description: 'A test date field',
-      notNull: true,
-      unique: true,
-      isPrimary: true,
-      columnMeta: {
-        index: 0,
-        columnIndex: 0,
-      },
-      type: FieldType.Date,
-      dbFieldType: DbFieldType.DateTime,
-      options: {
-        formatting: {
-          date: DateFormattingPreset.US,
-          time: TimeFormatting.Hour24,
-          timeZone: DEFAULT_TIME_ZONE,
-        },
-        autoFill: true,
-      },
-      defaultValue: 0,
-      cellValueType: CellValueType.DateTime,
-      isComputed: false,
-    };
-
     field = plainToInstance(DateFieldCore, json);
+    lookupField = plainToInstance(DateFieldCore, {
+      ...json,
+      ...lookupJson,
+    });
   });
 
   it('should extend parent class', () => {
@@ -47,26 +54,47 @@ describe('DateFieldCore', () => {
     expect(field).toBeInstanceOf(DateFieldCore);
   });
 
-  it('should have correct properties', () => {
-    expect(field.type).toBe(FieldType.Date);
-    expect(field.isComputed).toBe(false);
-    expect(field.dbFieldType).toBe(DbFieldType.DateTime);
-    expect(field.cellValueType).toBe(CellValueType.DateTime);
-  });
-
   it('should convert cellValue to string', () => {
     expect(field.cellValue2String(null as any)).toBe('');
     expect(field.cellValue2String('2023-06-19T06:50:48.017Z')).toBe('2023/06/19 14:50');
+    expect(lookupField.cellValue2String(null as any)).toBe('');
+    expect(lookupField.cellValue2String(['2023-06-19T06:50:48.017Z'])).toBe('2023/06/19 14:50');
+    expect(
+      lookupField.cellValue2String(['2023-06-19T06:50:48.017Z', '2023-06-19T06:50:48.017Z'])
+    ).toBe('2023/06/19 14:50, 2023/06/19 14:50');
   });
 
   it('should convert string to cellValue', () => {
     expect(field.convertStringToCellValue('2023/06/19 14:50')).toBe('2023-06-19T06:50:00.000Z');
     expect(field.convertStringToCellValue('abc')).toBeNull();
+    expect(lookupField.convertStringToCellValue('2023/06/19 14:50')).toBeNull();
+    expect(lookupField.convertStringToCellValue('abc')).toBeNull();
   });
 
   it('should repair invalid value', () => {
-    expect(() => field.repair(1687158022191)).not.toThrow();
-    expect(() => field.repair(true)).toThrowError('invalid value: true for field: Test Date Field');
+    expect(field.repair(1687158022191)).toBe('2023-06-19T07:00:22.191Z');
+    expect(field.repair('xxx')).toBe(null);
+    expect(lookupField.repair(1687158022191)).toBe(null);
+    expect(lookupField.repair('xxx')).toBe(null);
+  });
+
+  it('should valid cellValue', () => {
+    const date = new Date();
+    const cellValue = date.toISOString();
+    const lookupFieldOne = plainToInstance(DateFieldCore, {
+      ...json,
+      lookupJson,
+      isMultipleCellValue: false,
+    });
+    expect(field.validateCellValue(cellValue).success).toBe(true);
+    expect(field.validateCellValue(date.getTime()).success).toBe(false);
+    expect(field.validateCellValue('xxx').success).toBe(false);
+
+    expect(lookupField.validateCellValue([cellValue]).success).toBe(true);
+    expect(lookupField.validateCellValue(cellValue).success).toBe(false);
+    expect(lookupField.validateCellValue([{ id: 'actxxx' }]).success).toBe(false);
+
+    expect(lookupFieldOne.validateCellValue(cellValue).success).toBe(true);
   });
 
   describe('validateOptions', () => {
@@ -77,31 +105,23 @@ describe('DateFieldCore', () => {
           time: TimeFormatting.Hour24,
           timeZone: DEFAULT_TIME_ZONE,
         },
-        autoFill: true,
+        defaultValue: 'now',
       };
-      const field = new DateFieldCore();
-      field.options = options;
-      const result = field.validateOptions();
-      expect(result.success).toBe(true);
+      const field = plainToInstance(DateFieldCore, {
+        ...json,
+        options,
+      });
+      expect(field.validateOptions().success).toBe(true);
     });
 
     it('should return failure if options are invalid', () => {
       const optionsList: IDateFieldOptions[] = [
         {
           formatting: {
-            date: 'abc' as unknown as DateFormattingPreset,
-            time: TimeFormatting.Hour24,
-            timeZone: DEFAULT_TIME_ZONE,
-          },
-          autoFill: true,
-        },
-        {
-          formatting: {
             date: DateFormattingPreset.ISO,
-            time: 'abc' as unknown as TimeFormatting,
+            time: 'abc' as any,
             timeZone: DEFAULT_TIME_ZONE,
           },
-          autoFill: false,
         },
         {
           formatting: {
@@ -109,7 +129,7 @@ describe('DateFieldCore', () => {
             time: TimeFormatting.Hour24,
             timeZone: 123 as unknown as string,
           },
-          autoFill: true,
+          defaultValue: 'now',
         },
         {
           formatting: {
@@ -117,46 +137,23 @@ describe('DateFieldCore', () => {
             time: TimeFormatting.Hour24,
             timeZone: DEFAULT_TIME_ZONE,
           },
-          autoFill: 'abc' as unknown as boolean,
+          defaultValue: 'abc' as any,
         },
       ];
 
       optionsList.forEach((options) => {
-        const field = new DateFieldCore();
-        field.options = options;
-        const result = field.validateOptions();
-        expect(result.success).toBe(false);
+        const field = plainToInstance(DateFieldCore, {
+          ...json,
+          options,
+        });
+        expect(field.validateOptions().success).toBe(false);
       });
     });
-  });
 
-  describe('validateDefaultValue', () => {
-    it('should return success if default value is null', () => {
-      const field = new DateFieldCore();
-      field.defaultValue = null;
-      const result = field.validateDefaultValue();
-      expect(result.success).toBe(true);
-    });
-
-    it('should return success if default value is a string', () => {
-      const field = new DateFieldCore();
-      field.defaultValue = '2023-06-19T06:50:00.000Z';
-      const result = field.validateDefaultValue();
-      expect(result.success).toBe(true);
-    });
-
-    it('should return success if default value is a number', () => {
-      const field = new DateFieldCore();
-      field.defaultValue = 1687158022191;
-      const result = field.validateDefaultValue();
-      expect(result.success).toBe(true);
-    });
-
-    it('should return failure if default value is not a number or string', () => {
-      const field = new DateFieldCore();
-      field.defaultValue = true as any;
-      const result = field.validateDefaultValue();
-      expect(result.success).toBe(false);
+    it('should get default options', () => {
+      expect(DateFieldCore.defaultOptions()).toEqual({
+        formatting: defaultDatetimeFormatting,
+      });
     });
   });
 });

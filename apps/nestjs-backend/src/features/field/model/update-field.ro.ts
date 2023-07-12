@@ -36,20 +36,6 @@ export class UpdateFieldRo {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: any;
 
-  @ApiPropertyOptional({
-    description: `
-The defaultValue of the field. The datatype of the value depends on the field type.
-singleLineText, longText, singleSelect, date, phoneNumber, email, url: string, example: "hello".
-number, currency, percent, duration, rating: number, example: 1.
-checkbox: boolean, example: true.
-multipleSelect: string[], example: ["red", "blue"].
-other fields do not support defaultValue.
-`,
-    example: 'light',
-  })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  defaultValue?: any;
-
   @ApiProperty({
     description:
       'A mapping of view IDs to their corresponding column metadata, including order, width, and hidden status',

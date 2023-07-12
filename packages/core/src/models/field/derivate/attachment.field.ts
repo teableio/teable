@@ -1,28 +1,33 @@
 import { z } from 'zod';
-import { FieldType, DbFieldType, CellValueType } from '../constant';
+import { IdPrefix } from '../../../utils';
+import { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
-export type IAttachmentItem = {
-  id: string;
-  name: string;
-  token: string;
-  size: number;
-  mimetype: string;
-  path: string;
-  width?: number;
-  height?: number;
-};
+export const attachmentFieldOptionsSchema = z.object({});
 
-export type IAttachmentCellValue = IAttachmentItem[];
+export type IAttachmentFieldOptions = z.infer<typeof attachmentFieldOptionsSchema>;
+
+export const attachmentItemSchema = z.object({
+  id: z.string().startsWith(IdPrefix.Attachment),
+  name: z.string(),
+  token: z.string(),
+  size: z.number(),
+  mimetype: z.string(),
+  path: z.string(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+});
+
+export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;
+
+export const attachmentCellValueSchema = z.array(attachmentItemSchema).nonempty();
+
+export type IAttachmentCellValue = z.infer<typeof attachmentCellValueSchema>;
 
 export class AttachmentFieldCore extends FieldCore {
   type: FieldType.Attachment = FieldType.Attachment;
 
-  dbFieldType = DbFieldType.Text;
-
-  options = null;
-
-  defaultValue = null;
+  options!: IAttachmentFieldOptions;
 
   cellValueType = CellValueType.String;
 
@@ -30,8 +35,12 @@ export class AttachmentFieldCore extends FieldCore {
 
   isComputed = false;
 
+  static defaultOptions(): IAttachmentFieldOptions {
+    return {};
+  }
+
   cellValue2String(cellValue?: IAttachmentCellValue) {
-    return cellValue ? cellValue.map((cv) => cv.name).join(',') : '';
+    return cellValue ? cellValue.map((cv) => cv.name).join(', ') : '';
   }
 
   convertStringToCellValue(_value: string) {
@@ -39,14 +48,21 @@ export class AttachmentFieldCore extends FieldCore {
   }
 
   repair(value: unknown) {
-    return value;
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (this.validateCellValue(value).success) {
+      return value;
+    }
+    return null;
   }
 
   validateOptions() {
-    return z.undefined().nullable().safeParse(this.options);
+    return attachmentFieldOptionsSchema.safeParse(this.options);
   }
 
-  validateDefaultValue() {
-    return z.undefined().nullable().safeParse(this.defaultValue);
+  validateCellValue(cellValue: unknown) {
+    return attachmentCellValueSchema.nullable().safeParse(cellValue);
   }
 }

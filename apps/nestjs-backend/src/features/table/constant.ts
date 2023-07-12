@@ -4,7 +4,7 @@ import type { CreateRecordsRo } from '../record/create-records.ro';
 import type { CreateViewRo } from '../view/model/create-view.ro';
 
 export const DEFAULT_FIELDS: CreateFieldRo[] = [
-  { name: 'name', type: FieldType.SingleLineText, isPrimary: true },
+  { name: 'name', type: FieldType.SingleLineText, isPrimary: true, options: {} },
   { name: 'number', type: FieldType.Number, options: { formatting: { precision: 2 } } },
   {
     name: 'status',

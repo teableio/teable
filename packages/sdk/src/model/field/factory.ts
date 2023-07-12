@@ -3,6 +3,7 @@ import { assertNever, FieldType } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
 import { AttachmentField } from './attachment.field';
+import { CheckboxField } from './checkbox.field';
 import { DateField } from './date.field';
 import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
@@ -31,6 +32,8 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
         return plainToInstance(AttachmentField, field);
       case FieldType.Date:
         return plainToInstance(DateField, field);
+      case FieldType.Checkbox:
+        return plainToInstance(CheckboxField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -47,7 +50,6 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
-      case FieldType.Checkbox:
       case FieldType.Rollup:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:

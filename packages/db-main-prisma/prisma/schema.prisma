@@ -37,7 +37,6 @@ model Field {
   isMultipleCellValue  Boolean?  @map("is_multiple_cell_value")
   dbFieldType          String    @map("db_field_type")
   dbFieldName          String    @map("db_field_name")
-  defaultValue         String?   @map("default_value")
   notNull              Boolean?  @map("not_null")
   unique               Boolean?
   isPrimary            Boolean?  @map("is_primary")

@@ -8,6 +8,7 @@ import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo } from '../field/model/factory';
+import { CalculationModule } from './calculation.module';
 import type { ITopoItemWithRecords } from './reference.service';
 import { ReferenceService } from './reference.service';
 
@@ -25,9 +26,9 @@ describe('ReferenceService', () => {
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        providers: [ReferenceService, PrismaService],
+        providers: [PrismaService],
+        imports: [CalculationModule],
       }).compile();
-
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
       db = knex({
@@ -696,7 +697,7 @@ describe('ReferenceService', () => {
           name: 'fieldA',
           type: FieldType.Number,
           options: {
-            precision: 1,
+            formatting: { precision: 1 },
           },
           cellValueType: CellValueType.String,
         }),

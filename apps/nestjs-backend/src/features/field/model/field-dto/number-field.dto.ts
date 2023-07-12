@@ -23,7 +23,7 @@ export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
       ...fieldRo,
       isComputed: isLookup,
       cellValueType: CellValueType.Number,
-      dbFieldType: isMultipleCellValue ? DbFieldType.Text : DbFieldType.Real,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Real,
       isMultipleCellValue,
     } as NumberFieldDto);
   }

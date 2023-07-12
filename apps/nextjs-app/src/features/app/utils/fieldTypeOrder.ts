@@ -7,6 +7,7 @@ export const FIELD_TYPE_ORDER = [
   FieldType.MultipleSelect,
   FieldType.Date,
   FieldType.Attachment,
+  FieldType.Checkbox,
   FieldType.Formula,
   FieldType.Link,
 ];

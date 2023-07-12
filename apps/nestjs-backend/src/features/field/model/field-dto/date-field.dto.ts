@@ -31,7 +31,7 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
       ...fieldRo,
       isComputed: isLookup,
       cellValueType: CellValueType.DateTime,
-      dbFieldType: isMultipleCellValue ? DbFieldType.Text : DbFieldType.DateTime,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.DateTime,
       isMultipleCellValue,
     } as DateFieldDto);
   }

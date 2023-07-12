@@ -38,7 +38,6 @@ describe('EvalVisitor', () => {
       options: {
         precision: 2,
       },
-      defaultValue: 0,
       cellValueType: CellValueType.Number,
       isComputed: false,
     };
