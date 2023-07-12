@@ -2,8 +2,8 @@ import type { IFieldVo, IRecord, ITableVo, IViewVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
-import type { ITableProps } from '@/features/app/blocks/table/Table';
-import { Table } from '@/features/app/blocks/table/Table';
+import type { ITableProps } from '@/features/app/blocks/table-list/Table';
+import { Table } from '@/features/app/blocks/table-list/Table';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { NextPageWithLayout } from '../../_app';
 

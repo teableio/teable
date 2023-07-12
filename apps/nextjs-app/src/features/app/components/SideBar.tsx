@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
-import { TableList } from '../blocks/table/TableList';
+import { TableList } from '../blocks/table-list/TableList';
 import { ThemePicker } from './ThemePicker';
 
 export const SideBar: React.FC = () => {
