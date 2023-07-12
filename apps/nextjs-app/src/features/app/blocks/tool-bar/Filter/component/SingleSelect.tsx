@@ -14,17 +14,16 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
-interface ISingleSelector {
+interface ISingleSelect {
   onSelect: (id: string) => void;
   value: unknown;
   fieldId?: string;
 }
 
-function SingleSelector(props: ISingleSelector) {
+function SingleSelect(props: ISingleSelect) {
   const { onSelect, fieldId, value } = props;
+  const fields = useFields({ widthHidden: true });
   const [open, setOpen] = useState(false);
-
-  const fields = useFields();
 
   const options = useMemo(() => {
     const curColumn = fields.find((item) => item.id === fieldId) as SingleSelectField;
@@ -77,6 +76,6 @@ function SingleSelector(props: ISingleSelector) {
   );
 }
 
-SingleSelector.displayName = 'SingleSelector';
+SingleSelect.displayName = 'SingleSelect';
 
-export { SingleSelector };
+export { SingleSelect };

@@ -1,4 +1,4 @@
-export * from './SingleSelector';
+export * from './SingleSelect';
 export * from './MultipleSelect';
 export * from './FilterInput';
 export * from './FilterDatePicker';

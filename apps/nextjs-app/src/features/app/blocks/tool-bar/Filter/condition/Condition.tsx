@@ -1,7 +1,7 @@
 import type { IFilterMetaOperator, IFilterMeta } from '@teable-group/core';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isEqual } from 'lodash';
 import { useContext } from 'react';
 import { FilterContext } from '../context';
 import type { IConditionProps } from '../types';
@@ -37,9 +37,11 @@ function Condition(props: IConditionProps) {
     setFilters(newFilters);
   };
   const fieldValueHandler = (value: IFilterMeta['value']) => {
-    filter.value = value;
-    const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
+    if (!isEqual(filter.value, value)) {
+      filter.value = value;
+      const newFilters = cloneDeep(filters);
+      setFilters(newFilters);
+    }
   };
 
   return (

@@ -22,7 +22,7 @@ function FieldSelect(props: IFieldSelectProps) {
   const { fieldId: value, onSelect } = props;
   const [open, setOpen] = useState(false);
 
-  const fields = useFields();
+  const fields = useFields({ widthHidden: true });
 
   const label = useMemo(() => {
     return fields.find((field) => field.id === value)?.name;

@@ -1,7 +1,7 @@
 import type { IFilterMetaOperator } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
-import { useFields } from '@teable-group/sdk';
+import { useField } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,
@@ -51,23 +51,6 @@ const defaultOperator: IOperator[] = [
   ...commonOperator,
 ];
 
-// const FieldOperatorTypeMap = {
-//   [FieldType.SingleLineText]: [...commonOperator],
-//   [FieldType.Attachment]: [...defaultOperator],
-//   [FieldType.MultipleSelect]: [...defaultOperator],
-//   [FieldType.SingleSelect]: [...defaultOperator],
-//   [FieldType.Date]: [
-//     {
-//       value: 'isRepeat',
-//       label: 'isRepeat',
-//     },
-//     ...defaultOperator,
-//   ],
-//   [FieldType.Number]: [...defaultOperator],
-//   [FieldType.Formula]: [...defaultOperator],
-//   [FieldType.Link]: [...defaultOperator],
-// };
-
 interface IOperatorSelectProps {
   value?: string;
   fieldId: string;
@@ -77,24 +60,16 @@ interface IOperatorSelectProps {
 function OperatorSelect(props: IOperatorSelectProps) {
   const { onSelect, fieldId } = props;
   const [open, setOpen] = useState(false);
-  const fields = useFields();
-  // const operators = useMemo<IOperator[]>(() => {
-  //   const fieldType = fields.find((field) => field.id === fieldId)?.type;
-  //   if (fieldType) {
-  //     return FieldOperatorTypeMap[fieldType] as IOperator[];
-  //   }
-  //   return defaultOperator;
-  // }, [fieldId, fields]);
-  const operators = useMemo(() => {
-    const fieldCore = fields.find((field) => field.id === fieldId);
-    if (fieldCore) {
-      return getValidFilterOperators(fieldCore).map((operator) => ({
+  const field = useField(fieldId);
+  const operators = useMemo<IOperator[]>(() => {
+    if (field) {
+      return getValidFilterOperators(field).map((operator) => ({
         label: operator,
         value: operator,
-      }));
+      })) as IOperator[];
     }
     return defaultOperator;
-  }, [fieldId, fields]);
+  }, [field]);
   const value = useMemo(() => {
     const index = operators.findIndex((operator) => operator.value === props.value);
     if (index > -1) {

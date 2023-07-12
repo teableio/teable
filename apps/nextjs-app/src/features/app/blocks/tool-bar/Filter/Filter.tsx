@@ -1,4 +1,5 @@
 import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk';
 
 import { useFields } from '@teable-group/sdk';
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
@@ -9,6 +10,7 @@ import { cloneDeep } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Condition, ConditionGroup } from './condition';
+import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
 import type { IFilterProps } from './types';
 import { isFilterMeta } from './types';
@@ -17,62 +19,76 @@ const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
 
 function Filter(props: IFilterProps) {
-  const { onChange } = props;
-  const [filters, setFilters] = useState(props.filters || {});
-  useEffect(() => {
-    setFilters(props.filters);
-  }, [props.filters]);
-  const fields = useFields();
+  const { onChange, filters: initFilter } = props;
+  const [filters, setFilters] = useState(initFilter || {});
+  const fields = useFields({ widthHidden: true });
 
-  // calculate the filter text
-  const filterText = useMemo(() => {
-    const defaultText = `Filter`;
-    const filterIds = new Set();
-    let text = '';
-    const preOrder = (filter: IFilter['filterSet']) => {
-      filter.forEach((item) => {
-        if (isFilterMeta(item)) {
-          // todo add `not-empty` and so on
-          if (item.value) {
-            filterIds.add(item.fieldId);
-          }
-        } else {
-          preOrder(item.filterSet);
+  useEffect(() => {
+    setFilters(initFilter);
+  }, [initFilter]);
+
+  const defaultFieldId = useMemo(() => {
+    return fields.find((field) => field.isPrimary)?.id;
+  }, [fields]);
+
+  const preOrder = useCallback((filter: IFilter['filterSet']): Set<string> => {
+    const filterIds = new Set<string>();
+
+    filter.forEach((item) => {
+      if (isFilterMeta(item)) {
+        if (item.value || EMPTYOPERATORS.includes(item.operator)) {
+          filterIds.add(item.fieldId);
         }
-      });
-    };
-    preOrder(filters.filterSet);
-    text = filterIds.size ? 'Filtered by ' : '';
-    [...filterIds.values()].forEach((id, index) => {
+      } else {
+        const childFilterIds = preOrder(item.filterSet);
+        childFilterIds.forEach((id) => filterIds.add(id));
+      }
+    });
+
+    return filterIds;
+  }, []);
+
+  const generateFilterButtonText = (filterIds: Set<string>, fields: IFieldInstance[]): string => {
+    let text = filterIds.size ? 'Filtered by ' : '';
+    const defaultText = 'Filter';
+    const filterIdsArr = Array.from(filterIds);
+
+    filterIdsArr.forEach((id, index) => {
       const name = fields.find((field) => field.id === id)?.name;
       if (name) {
         text += `${index === 0 ? '' : ', '}${name}`;
       }
     });
+
+    if (filterIds.size > 2) {
+      const name = fields.find((field) => field.id === filterIdsArr?.[0])?.name;
+      text = `Filtered by ${name} and ${filterIds.size - 1} other field`;
+    }
+
     return text || defaultText;
-  }, [filters, fields]);
+  };
+
+  const filterButtonText = useMemo(() => {
+    const filteredIds = preOrder(filters.filterSet);
+    return generateFilterButtonText(filteredIds, fields);
+  }, [fields, filters.filterSet, preOrder]);
 
   const updateFilter = useCallback(
     (val: IFilterProps['filters']) => {
       setFilters(val);
       onChange?.(filters);
-      // todo sharedb servers
     },
     [filters, onChange]
   );
 
-  // get primary field id
-  const defaultFieldId = useMemo(() => {
-    return fields.find((field) => field.isPrimary)?.id;
-  }, [fields]);
-
   const addCondition = useCallback(
     (curFilter: IFilterSet) => {
-      const filterItem: IFilterMeta = {
+      const defaultIFilterMeta: IFilterMeta = {
         operator: 'is',
         value: null,
         fieldId: defaultFieldId as string,
       };
+      const filterItem: IFilterMeta = defaultIFilterMeta;
       curFilter.filterSet.push(filterItem);
       const newFilters = cloneDeep(filters);
       updateFilter(newFilters);
@@ -81,10 +97,11 @@ function Filter(props: IFilterProps) {
   );
   const addConditionGroup = useCallback(
     (curFilter: IFilterSet) => {
-      curFilter.filterSet.push({
+      const defaultIFilteSet: IFilterSet = {
         filterSet: [],
         conjunction: 'and',
-      });
+      };
+      curFilter.filterSet.push(defaultIFilteSet);
       const newFilters = cloneDeep(filters);
       updateFilter(newFilters);
     },
@@ -131,10 +148,13 @@ function Filter(props: IFilterProps) {
           <Button
             variant={'ghost'}
             size={'xs'}
-            className={cn('font-normal', filterText !== 'Filter' ? 'bg-secondary' : '')}
+            className={cn(
+              'font-normal max-w-sm truncate',
+              filterButtonText !== 'Filter' ? 'bg-secondary' : ''
+            )}
           >
-            <FilterIcon className="text-lg pr-1" />
-            <span>{filterText}</span>
+            <FilterIcon className="text-lg pr-1 shrink" />
+            <span className="truncate">{filterButtonText}</span>
           </Button>
         </PopoverTrigger>
 
