@@ -1,13 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecord, IRecordSnapshot } from '@teable-group/core';
-import {
-  FieldKeyType,
-  IdPrefix,
-  generateRecordId,
-  OpBuilder,
-  FieldType,
-  assertNever,
-} from '@teable-group/core';
+import { FieldKeyType, IdPrefix, generateRecordId, OpBuilder, FieldType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
@@ -211,7 +204,7 @@ export class RecordOpenApiService {
     }
   }
 
-  private async sendAutoFillOps(
+  private async appendDefaultValue(
     transactionKey: string,
     tableId: string,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
@@ -228,10 +221,11 @@ export class RecordOpenApiService {
       for (const fieldRaw of fieldRaws) {
         const { type, options } = fieldRaw;
         if (options == null) continue;
-        const { autoFill, defaultValue: _defaultValue } = JSON.parse(options) || {};
+        const { defaultValue } = JSON.parse(options) || {};
+        if (defaultValue == null) continue;
         const fieldIdOrName = fieldRaw[fieldKeyType];
-        if (fields[fieldIdOrName] != null || !autoFill) continue;
-        fields[fieldIdOrName] = this.getDefaultValue(type as FieldType, _defaultValue);
+        if (fields[fieldIdOrName] != null) continue;
+        fields[fieldIdOrName] = this.getDefaultValue(type as FieldType, defaultValue);
       }
 
       return {
@@ -242,19 +236,10 @@ export class RecordOpenApiService {
   }
 
   private getDefaultValue(type: FieldType, defaultValue: unknown) {
-    switch (type) {
-      case FieldType.Date:
-        return new Date().toISOString();
-      case FieldType.SingleLineText:
-      case FieldType.LongText:
-      case FieldType.Number:
-      case FieldType.Percent:
-      case FieldType.Currency: {
-        return defaultValue;
-      }
-      default:
-        assertNever(type as never);
+    if (type === FieldType.Date && defaultValue === 'now') {
+      return new Date().toISOString();
     }
+    return defaultValue;
   }
 
   private async submitOps<T>(doc: Doc<T>, ops: IOtOperation[]): Promise<T> {
@@ -296,7 +281,7 @@ export class RecordOpenApiService {
     }
 
     // submit auto fill changes
-    const filledRecords = await this.sendAutoFillOps(
+    const plainRecords = await this.appendDefaultValue(
       transactionKey,
       tableId,
       createRecordsRo.records.map((s, i) => ({ id: snapshots[i].record.id, fields: s.fields })),
@@ -309,7 +294,7 @@ export class RecordOpenApiService {
       tableId,
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       createRecordsRo.fieldKeyType!,
-      filledRecords
+      plainRecords
     );
 
     const fieldIds = Array.from(
