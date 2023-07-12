@@ -1,20 +1,13 @@
-import { Calendar } from '@teable-group/ui-lib/shadcn/ui/calendar';
+import { DateEditorMain } from '@teable-group/sdk';
 import type { IEditorProps } from './type';
 
 export const DateEditor = (props: IEditorProps) => {
   const { record, field } = props;
   const dateTime = record.getCellValue(field.id) as number;
-  const setDateTime = (day: Date | undefined, selectedDay: Date) => {
-    record.updateCell(field.id, selectedDay.toISOString());
+  const setDateTime = (selectedDay?: Date) => {
+    record.updateCell(field.id, selectedDay ? selectedDay.toISOString() : null);
   };
 
   // TODO: Replace Date Editor
-  return (
-    <Calendar
-      mode="single"
-      selected={new Date(dateTime)}
-      onSelect={setDateTime}
-      className="rounded-md border"
-    />
-  );
+  return <DateEditorMain value={new Date(dateTime)} onChange={setDateTime} />;
 };
