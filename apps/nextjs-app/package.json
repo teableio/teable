@@ -140,7 +140,7 @@
     "classnames": "2.3.2",
     "cors": "2.8.5",
     "date-fns": "2.30.0",
-    "dayjs": "1.11.7",
+    "dayjs": "1.11.8",
     "echarts": "5.4.2",
     "electron-is-dev": "^1.1.0",
     "electron-log": "4.4.8",
