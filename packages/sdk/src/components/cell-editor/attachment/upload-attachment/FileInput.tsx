@@ -1,5 +1,5 @@
-import AddIcon from '@teable-group/ui-lib/icons/app/add.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Plus } from '@teable-group/icons';
+import { Button } from '@teable-group/ui-lib';
 import { useRef } from 'react';
 
 export const FileInput = (props: { onChange?: (files: FileList) => void }) => {
@@ -17,7 +17,7 @@ export const FileInput = (props: { onChange?: (files: FileList) => void }) => {
       onClick={() => fileInput.current?.click()}
     >
       <input type="file" className="hidden" multiple ref={fileInput} onChange={handleSelectFiles} />
-      <AddIcon /> upload
+      <Plus /> upload
     </Button>
   );
 };

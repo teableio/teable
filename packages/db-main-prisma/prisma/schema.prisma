@@ -173,6 +173,7 @@ model Attachments {
   size           Int
   mimetype       String
   path           String
+  url            String
   width          Int?
   height         Int?
   deletedTime    DateTime? @map("deleted_time")
