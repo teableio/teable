@@ -1,6 +1,8 @@
 import { ConsoleLogger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
+import loadConfig from '../../../../configs/config';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import ajv from '../../engine/json-schema/ajv';
@@ -14,7 +16,12 @@ describe('Webhook Action Test', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AutomationModule, EventEmitterModule.forRoot()],
-    }).compile();
+    })
+      .overrideProvider(ConfigService)
+      .useValue({
+        get: () => loadConfig().mail,
+      })
+      .compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 

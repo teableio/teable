@@ -1,9 +1,7 @@
 import type { INestApplication, OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { ILoggerConfig } from './configs/config.interface';
 
 @Injectable()
 export class PrismaService
@@ -11,9 +9,8 @@ export class PrismaService
   implements OnModuleInit
 {
   private readonly logger = new Logger(PrismaService.name);
-  private loggerConfig: ILoggerConfig;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor() {
     const logConfig = {
       log: [
         {
@@ -37,8 +34,6 @@ export class PrismaService
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
 
     super(initialConfig);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.loggerConfig = this.configService.get<ILoggerConfig>('logger')!;
   }
 
   async onModuleInit() {
@@ -47,9 +42,7 @@ export class PrismaService
     if (process.env.NODE_ENV === 'production') return;
 
     this.$on('query', async (e) => {
-      if (this.loggerConfig.level?.prismaQueryLog === 'on') {
-        this.logger.debug(`Query: ${e.query} | ${e.params} | ${e.duration} ms`);
-      }
+      this.logger.debug(`Query: ${e.query} | ${e.params} | ${e.duration} ms`);
     });
   }
 

@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ConsoleLogger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@teable-group/core';
 import type { CreateRecordsVo } from 'src/features/record/open-api/record.vo';
 import type { ViewVo } from 'src/features/view/model/view.vo';
+import loadConfig from '../../../../../configs/config';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import type { FieldVo } from '../../../../field/model/field.vo';
@@ -43,7 +45,12 @@ describe('Create-Record Action Test', () => {
         FieldModule,
         EventEmitterModule.forRoot(),
       ],
-    }).compile();
+    })
+      .overrideProvider(ConfigService)
+      .useValue({
+        get: () => loadConfig().mail,
+      })
+      .compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 

@@ -47,7 +47,7 @@
     "share-static-hardlink": "rimraf ./public/shared-assets && syncdir ../../static/assets ./public/shared-assets --copy",
     "check-dist": "es-check -v",
     "check-size": "size-limit --highlight-less",
-    "test": "yarn test-unit",
+    "test": "run-s test-unit test-unit-jest",
     "test-unit": "vitest run",
     "test-unit-jest": "jest --config ./jest.config.js",
     "test-unit-watch": "vitest watch --ui",

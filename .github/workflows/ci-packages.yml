@@ -82,4 +82,4 @@ jobs:
       # Test packages that have changed (--include & --since)
       - name: Unit tests changed packages
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run test-unit
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run test

@@ -24,12 +24,13 @@ const getTsConfigBasePaths = (tsConfigFile) => {
 
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 const config = {
+  testPathIgnorePatterns: ['.controller.spec.ts$'],
   displayName: `${packageJson.name}:unit`,
   cacheDirectory: getJestCachePath(packageJson.name),
   testEnvironment: 'node',
   verbose: true,
   rootDir: './',
-  testMatch: ['<rootDir>/{src,test}/**/*.{spec,test,e2e-spec}.{js,jsx,ts,tsx}'],
+  testMatch: ['<rootDir>/{src,test}/**/*.{spec,test}.{js,jsx,ts,tsx}'],
   transform: {
     '^.+\\.m?[tj]sx?$': [
       'ts-jest',

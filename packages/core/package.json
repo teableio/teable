@@ -24,6 +24,7 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
     "check-size": "size-limit",
+    "test": "run test-unit-jest",
     "test-unit-jest": "jest --config ./jest.config.js",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
