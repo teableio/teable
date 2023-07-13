@@ -16,7 +16,7 @@ import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
 import type { FieldVo } from '../field/model/field.vo';
-import { isLinkCellValue } from './detect-link';
+import { isLinkCellValue } from './utils/detect-link';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity
 function replaceFieldIdsWithNames(obj: any, fieldMap: { [fieldId: string]: { name: string } }) {
@@ -112,48 +112,46 @@ interface IRecordRefItem {
 export class ReferenceService {
   private readonly knex = knex({ client: 'sqlite3' });
 
-  private async getUndirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
-    let startFieldIds = recordData.map((data) => data.fieldId);
-    const linkedData = recordData.filter(
-      (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
+  /**
+   * Strategy of calculation.
+   * update link field in a record is a special operation for calculation.
+   * when modify a link field in a record, we should update itself and the cells dependent it,
+   * there are 3 kinds of scene: add delete and replace
+   * 1. when delete a item we should calculate it [before] delete the foreignKey for reference retrieval.
+   * 2. when add a item we should calculate it [after] add the foreignKey for reference retrieval.
+   * So how do we handle replace?
+   * split the replace to [delete] and [others], then do it as same as above.
+   *
+   * Summarize:
+   * 1. calculate the delete operation
+   * 2. update foreignKey
+   * 3. calculate the others operation
+   */
+  async calculateOpsMap(
+    prisma: Prisma.TransactionClient,
+    opsMap: IOpsMap,
+    fkRecordMap: IFkRecordMapByDbTableName
+  ) {
+    const { recordDataMapWithDelete, recordDataMapRemains } =
+      this.splitOpsMapToRecordDataMap(opsMap);
+
+    // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
+    // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
+    // console.log('updateForeignKey:', JSON.stringify(fkRecordMap, null, 2));
+    const cellChangesBefore = await this.calculateRecordDataMap(
+      prisma,
+      recordDataMapWithDelete,
+      fkRecordMap
     );
-    const linkFieldIds = linkedData.map((data) => data.fieldId);
-    // we need add extra record id items for lookup effect dependency update when link field change
-    // only need a single one id in one linkedData item
-    const effectedRecordIds: string[] = linkedData.reduce<string[]>((pre, data) => {
-      const linkValues = data.newValue || data.oldValue;
-      if (Array.isArray(linkValues)) {
-        pre.push((linkValues[0] as ILinkCellValue).id);
-      } else {
-        pre.push((linkValues as ILinkCellValue).id);
-      }
-      return pre;
-    }, []);
-    let foreignTableId: string | undefined;
-
-    // when link cell change, we need to get all lookup field
-    if (linkFieldIds.length) {
-      const lookupFieldRaw = await prisma.field.findMany({
-        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
-        select: { id: true, lookupOptions: true },
-      });
-      lookupFieldRaw.forEach((field) => {
-        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
-        foreignTableId = lookupOptions.foreignTableId;
-        startFieldIds.push(lookupOptions.lookupFieldId);
-      });
-    }
-    startFieldIds = uniq(startFieldIds);
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
-
-    return {
-      undirectedGraph,
-      startFieldIds,
-      extraRecordIdItems: foreignTableId
-        ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          effectedRecordIds.map((id) => ({ id, tableId: foreignTableId! }))
-        : [],
-    };
+    // console.log('cellChangesBefore', cellChangesBefore);
+    await this.updateForeignKey(prisma, fkRecordMap);
+    const cellChangesAfter = await this.calculateRecordDataMap(
+      prisma,
+      recordDataMapRemains,
+      fkRecordMap
+    );
+    const changes = cellChangesBefore.concat(cellChangesAfter);
+    return this.formatOpsByChanges(changes);
   }
 
   async calculate(
@@ -267,48 +265,6 @@ export class ReferenceService {
     return this.mergeDuplicateChange(changes);
   }
 
-  /**
-   * Strategy of calculation.
-   * update link field in a record is a special operation for calculation.
-   * when modify a link field in a record, we should update itself and the cells dependent it,
-   * there are 3 kinds of scene: add delete and replace
-   * 1. when delete a item we should calculate it [before] delete the foreignKey for reference retrieval.
-   * 2. when add a item we should calculate it [after] add the foreignKey for reference retrieval.
-   * So how do we handle replace?
-   * split the replace to delete and add, then do it as same as above.
-   *
-   * Summarize:
-   * 1. calculate the delete operation
-   * 2. update foreignKey
-   * 3. calculate the others operation
-   */
-  async calculateOpsMap(
-    prisma: Prisma.TransactionClient,
-    opsMap: IOpsMap,
-    fkRecordMap: IFkRecordMapByDbTableName
-  ) {
-    const { recordDataMapWithDelete, recordDataMapRemains } =
-      this.splitOpsMapToRecordDataMap(opsMap);
-
-    // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
-    // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
-    // console.log('updateForeignKey:', JSON.stringify(fkRecordMap, null, 2));
-    const cellChangesBefore = await this.calculateRecordDataMap(
-      prisma,
-      recordDataMapWithDelete,
-      fkRecordMap
-    );
-    // console.log('cellChangesBefore', cellChangesBefore);
-    await this.updateForeignKey(prisma, fkRecordMap);
-    const cellChangesAfter = await this.calculateRecordDataMap(
-      prisma,
-      recordDataMapRemains,
-      fkRecordMap
-    );
-    const changes = cellChangesBefore.concat(cellChangesAfter);
-    return this.formatOpsByChanges(changes);
-  }
-
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private splitOpsMapToRecordDataMap(opsMap: IOpsMap) {
     const recordDataMapWithDelete: IRecordDataMap = {};
@@ -353,6 +309,50 @@ export class ReferenceService {
     return {
       recordDataMapWithDelete,
       recordDataMapRemains,
+    };
+  }
+
+  private async getUndirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
+    let startFieldIds = recordData.map((data) => data.fieldId);
+    const linkedData = recordData.filter(
+      (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
+    );
+    const linkFieldIds = linkedData.map((data) => data.fieldId);
+    // we need add extra record id items for lookup effect dependency update when link field change
+    // only need a single one id in one linkedData item
+    const effectedRecordIds: string[] = linkedData.reduce<string[]>((pre, data) => {
+      const linkValues = data.newValue || data.oldValue;
+      if (Array.isArray(linkValues)) {
+        pre.push((linkValues[0] as ILinkCellValue).id);
+      } else {
+        pre.push((linkValues as ILinkCellValue).id);
+      }
+      return pre;
+    }, []);
+    let foreignTableId: string | undefined;
+
+    // when link cell change, we need to get all lookup field
+    if (linkFieldIds.length) {
+      const lookupFieldRaw = await prisma.field.findMany({
+        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
+        select: { id: true, lookupOptions: true },
+      });
+      lookupFieldRaw.forEach((field) => {
+        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
+        foreignTableId = lookupOptions.foreignTableId;
+        startFieldIds.push(lookupOptions.lookupFieldId);
+      });
+    }
+    startFieldIds = uniq(startFieldIds);
+    const undirectedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
+
+    return {
+      undirectedGraph,
+      startFieldIds,
+      extraRecordIdItems: foreignTableId
+        ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          effectedRecordIds.map((id) => ({ id, tableId: foreignTableId! }))
+        : [],
     };
   }
 

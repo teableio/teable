@@ -27,13 +27,13 @@ export class FieldOpenApiService {
 
   async createField(tableId: string, fieldInstance: IFieldInstance, transactionKey?: string) {
     if (transactionKey) {
-      return await this.fieldCreator(transactionKey, tableId, fieldInstance);
+      return await this.createFieldInner(transactionKey, tableId, fieldInstance);
     }
 
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (_, transactionKey) => {
-        return await this.fieldCreator(transactionKey, tableId, fieldInstance);
+        return await this.createFieldInner(transactionKey, tableId, fieldInstance);
       }
     );
   }
@@ -88,7 +88,7 @@ export class FieldOpenApiService {
     });
   }
 
-  private async fieldCreator(
+  private async createFieldInner(
     transactionKey: string,
     tableId: string,
     field: IFieldInstance

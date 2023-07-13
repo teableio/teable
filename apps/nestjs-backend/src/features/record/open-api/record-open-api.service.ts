@@ -7,7 +7,7 @@ import { keyBy } from 'lodash';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import { composeMaps } from '../../calculation/compose-maps';
+import { composeMaps } from '../../calculation/utils/compose-maps';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
