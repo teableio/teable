@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { IFieldSnapshot, IOtOperation } from '@teable-group/core';
-import { FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
+import { getUniqName, FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { isEmpty, isEqual } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -26,18 +27,38 @@ export class FieldOpenApiService {
 
   async createField(tableId: string, fieldInstance: IFieldInstance, transactionKey?: string) {
     if (transactionKey) {
-      return await this.createCreators(transactionKey, tableId, fieldInstance);
+      return await this.createFieldInner(transactionKey, tableId, fieldInstance);
     }
 
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (_, transactionKey) => {
-        return await this.createCreators(transactionKey, tableId, fieldInstance);
+        return await this.createFieldInner(transactionKey, tableId, fieldInstance);
       }
     );
   }
 
-  private async generateSecondCreators(
+  async uniqFieldName(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
+    const fieldRaw = await prisma.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { name: true },
+    });
+
+    const names = fieldRaw.map((item) => item.name);
+    const uniqName = getUniqName(snapshot.field.name, names);
+    if (uniqName !== snapshot.field.name) {
+      return {
+        ...snapshot,
+        field: {
+          ...snapshot.field,
+          name: uniqName,
+        },
+      };
+    }
+    return snapshot;
+  }
+
+  private async createSupplementFields(
     transactionKey: string,
     brotherFieldTableId: string,
     brotherField: LinkFieldDto
@@ -51,7 +72,11 @@ export class FieldOpenApiService {
     );
     await this.fieldSupplementService.createReference(prisma, field);
 
-    const snapshot = this.createField2Ops(tableId, field);
+    const snapshot = await this.uniqFieldName(
+      prisma,
+      tableId,
+      this.createField2Ops(tableId, field)
+    );
     const id = snapshot.field.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
     const doc = this.shareDbService.getConnection(transactionKey).get(collection, id);
@@ -63,7 +88,7 @@ export class FieldOpenApiService {
     });
   }
 
-  private async createCreators(
+  private async createFieldInner(
     transactionKey: string,
     tableId: string,
     field: IFieldInstance
@@ -72,16 +97,21 @@ export class FieldOpenApiService {
     await this.fieldSupplementService.createReference(prisma, field);
 
     if (field.type === FieldType.Link && !field.isLookup) {
-      await this.generateSecondCreators(transactionKey, tableId, field);
+      await this.createSupplementFields(transactionKey, tableId, field);
     }
 
-    const createSnapshot = this.createField2Ops(tableId, field);
-    const id = createSnapshot.field.id;
+    const snapshot = await this.uniqFieldName(
+      prisma,
+      tableId,
+      this.createField2Ops(tableId, field)
+    );
+
+    const id = snapshot.field.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
 
-    await this.createDoc(transactionKey, collection, id, createSnapshot);
+    await this.createDoc(transactionKey, collection, id, snapshot);
 
-    return createSnapshot.field;
+    return snapshot.field;
   }
 
   private async createDoc(

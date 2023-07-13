@@ -1,6 +1,12 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
+
 extendZodWithOpenApi(z);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export * from './types';
 export * from './array';

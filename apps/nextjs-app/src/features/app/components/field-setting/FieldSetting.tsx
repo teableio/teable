@@ -1,9 +1,11 @@
 import type { IFieldRo } from '@teable-group/core';
+import { FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Table } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useFieldStaticGetter } from '../../utils/useFieldStaticGetter';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
 import { FieldOperator } from './type';
@@ -11,11 +13,30 @@ import { FieldOperator } from './type';
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
   const { operator } = props;
+  const getFieldStatic = useFieldStaticGetter();
   const onCancel = () => {
     props.onCancel?.();
   };
+
+  function appendDefaults(field: IFieldRo) {
+    if (!field.name) {
+      const defaultFieldName = getFieldStatic(field.type, field.isLookup)?.defaultName;
+      if (defaultFieldName) {
+        field = {
+          ...field,
+          name: defaultFieldName,
+        };
+      }
+    }
+
+    return field;
+  }
+
   const onConfirm = (field: IFieldRo) => {
     props.onConfirm?.(field);
+
+    field = appendDefaults(field);
+
     if (operator === FieldOperator.Add) {
       table?.createField(field);
       return;
@@ -39,15 +60,17 @@ export const FieldSetting = (props: IFieldSetting) => {
 };
 
 const FieldSettingBase = (props: IFieldSetting) => {
-  const { visible, field, operator, onConfirm, onCancel } = props;
-  const [currentVisible, setCurrentVisible] = useState<boolean | undefined>(visible);
+  const { visible, field: originField, operator, onConfirm, onCancel } = props;
+  const [field, setField] = useState<IFieldRo>({
+    name: originField?.name || '',
+    type: originField?.type || FieldType.SingleLineText,
+    description: originField?.description,
+    options: originField?.options,
+    isLookup: originField?.isLookup,
+    lookupOptions: originField?.lookupOptions,
+  });
 
-  const fieldRef = useRef<IFieldRo>();
   const [updateCount, setUpdateCount] = useState<number>(0);
-
-  useEffect(() => {
-    setCurrentVisible(visible);
-  }, [visible]);
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
@@ -56,31 +79,27 @@ const FieldSettingBase = (props: IFieldSetting) => {
     onCancel?.();
   };
 
-  const onFieldEditorChange = (field: IFieldRo, updateCount?: number) => {
-    updateCount != undefined && setUpdateCount(updateCount);
-    fieldRef.current = field;
+  const onFieldEditorChange = (field: IFieldRo) => {
+    setField(field);
+    setUpdateCount(1);
   };
 
   const onCancelInner = () => {
-    if (updateCount > 0) {
-      // confirm that update
+    const prompt = 'Are you sure you want to discard your changes?';
+    if (updateCount > 0 && !window.confirm(prompt)) {
+      return;
     }
-    setCurrentVisible(false);
-    setUpdateCount(0);
+    onCancel?.();
   };
 
   const onConfirmInner = () => {
-    setCurrentVisible(false);
-    if (!fieldRef.current) {
-      return;
-    }
-    onConfirm?.(fieldRef.current);
+    onConfirm?.(field);
   };
 
   const title = operator === FieldOperator.Add ? 'Add Field' : 'Edit Field';
 
   return (
-    <Sheet open={currentVisible} onOpenChange={onOpenChange}>
+    <Sheet open={visible} onOpenChange={onOpenChange}>
       <SheetContent className="p-2 w-[320px]" side="right">
         <div className="h-full flex flex-col gap-2">
           {/* Header */}

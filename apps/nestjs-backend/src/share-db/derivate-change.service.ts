@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
-import { composeMaps } from '../features/calculation/compose-maps';
+import { composeMaps } from '../features/calculation/utils/compose-maps';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import type { ICellChange, IOpsMap } from '../features/calculation/reference.service';

@@ -13,6 +13,8 @@ import { CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IDatetimeFormatting, INumberFormatting } from '../formatting';
 import {
+  defaultDatetimeFormatting,
+  defaultNumberFormatting,
   datetimeFormattingSchema,
   formatDateToString,
   formatNumberToString,
@@ -41,9 +43,19 @@ const formulaFieldCellValueSchema = z.any();
 export type IFormulaCellValue = z.infer<typeof formulaFieldCellValueSchema>;
 
 export class FormulaFieldCore extends FieldCore {
-  static defaultOptions(): IFormulaFieldOptions {
+  static defaultOptions(cellValueType: CellValueType): IFormulaFieldOptions {
+    const formatting = () => {
+      switch (cellValueType) {
+        case CellValueType.Number:
+          return defaultNumberFormatting;
+        case CellValueType.DateTime:
+          return defaultDatetimeFormatting;
+      }
+    };
+
     return {
       expression: '',
+      formatting: formatting(),
     };
   }
 

@@ -63,7 +63,7 @@ describe('FormulaFieldCore', () => {
       formatting: {
         date: DateFormattingPreset.US,
         time: TimeFormatting.None,
-        timeZone: 'America/Los_Angeles',
+        timeZone: 'Etc/GMT',
       },
     },
     cellValueType: CellValueType.DateTime,
@@ -220,6 +220,11 @@ describe('FormulaFieldCore', () => {
           ...numberFormulaJson,
           options: {
             expression: '',
+            formatting: {
+              date: DateFormattingPreset.US,
+              time: TimeFormatting.None,
+              timeZone: 'xxx/xxx',
+            },
           },
           cellValueType: CellValueType.DateTime,
           isMultipleCellValue: false,
@@ -256,8 +261,11 @@ describe('FormulaFieldCore', () => {
     });
 
     it('should get default options', () => {
-      expect(FormulaFieldCore.defaultOptions()).toEqual({
+      expect(FormulaFieldCore.defaultOptions(CellValueType.Number)).toEqual({
         expression: '',
+        formatting: {
+          precision: 2,
+        },
       });
     });
   });

@@ -141,6 +141,11 @@ export class FieldSupplementService implements ISupplementService {
 
     return {
       ...field,
+      options: {
+        ...field.options,
+        formatting:
+          field.options?.formatting ?? FormulaFieldDto.defaultOptions(cellValueType).formatting,
+      },
       cellValueType,
       isMultipleCellValue,
     };

@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { IDatetimeFormatting } from './datetime';
-import { DateFormattingPreset, formatDateToString, TimeFormatting } from './datetime';
+import {
+  datetimeFormattingSchema,
+  DateFormattingPreset,
+  formatDateToString,
+  TimeFormatting,
+} from './datetime';
 
-const timeZone = 'America/Los_Angeles';
+const timeZone = 'Etc/GMT';
 
 describe('formatDateToString', () => {
   it('should correctly format date string', () => {
@@ -34,5 +39,23 @@ describe('formatDateToString', () => {
       timeZone: timeZone,
     };
     expect(formatDateToString(dateStr, formatting)).toBe('2023-07-12 14:30');
+  });
+
+  it('should validate time zone', () => {
+    expect(
+      datetimeFormattingSchema.safeParse({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.Hour24,
+        timeZone: timeZone,
+      }).success
+    ).toBeTruthy();
+
+    expect(
+      datetimeFormattingSchema.safeParse({
+        date: DateFormattingPreset.ISO,
+        time: TimeFormatting.Hour24,
+        timeZone: 'xxx/xxx',
+      }).success
+    ).toBeFalsy();
   });
 });

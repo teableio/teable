@@ -11,6 +11,7 @@ export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {
 
     return plainToInstance(CheckboxFieldDto, {
       ...fieldRo,
+      options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.Boolean,
       dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Integer,
