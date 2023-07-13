@@ -45,7 +45,9 @@ function FieldValue(props: IFieldValue) {
           />
         );
       case FieldType.Date:
-        return <FilterDatePicker value={filter.value as string} onSelect={onSelect} />;
+        return (
+          <FilterDatePicker value={filter.value} onSelect={onSelect} operator={filter.operator} />
+        );
       case FieldType.SingleLineText:
         return InputComponent;
       default:

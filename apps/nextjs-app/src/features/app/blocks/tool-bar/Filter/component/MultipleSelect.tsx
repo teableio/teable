@@ -63,7 +63,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 overflow-hidden"
+          className="w-32 max-w-[128px] justify-between m-1 overflow-hidden"
         >
           <div className="shrink whitespace-nowrap overflow-hidden flex">
             {Array.isArray(values) && values.length
@@ -87,7 +87,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px]">
-        <Command className="rounded-sm shadow-sm">
+        <Command className="rounded-sm">
           <CommandList>
             <CommandInput placeholder="Search option" />
             <CommandEmpty>No found.</CommandEmpty>

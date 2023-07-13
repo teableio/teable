@@ -18,6 +18,13 @@ export const isAnyOf = z.literal('isAnyOf');
 export const isNoneOf = z.literal('isNoneOf');
 export const hasAllOf = z.literal('hasAllOf');
 
+// date
+export const isWithIn = z.literal('isWithIn');
+export const isBefore = z.literal('isBefore');
+export const isAfter = z.literal('isAfter');
+export const isOnOrBefore = z.literal('isOnOrBefore');
+export const isOnOrAfter = z.literal('isOnOrAfter');
+
 /*  antlr4ts char  */
 export const $eq = z.literal('=');
 export const $neq = z.literal('!=');
@@ -87,6 +94,18 @@ export const numberFieldOperators = z.union([
   isEmpty,
   isNotEmpty,
 ]);
+export const dateFieldOperators = z.union([
+  is,
+  isWithIn,
+  isBefore,
+  isAfter,
+  isOnOrBefore,
+  isOnOrAfter,
+  isNot,
+  isEmpty,
+  isNotEmpty,
+]);
+
 export type INumberFieldOperator = z.infer<typeof numberFieldOperators>;
 export const numberFieldValidOperators: INumberFieldOperator[] = [
   is.value,
@@ -98,14 +117,25 @@ export const numberFieldValidOperators: INumberFieldOperator[] = [
   isEmpty.value,
   isNotEmpty.value,
 ];
+export const dateTimeVaildOperators = [
+  is.value,
+  isWithIn.value,
+  isBefore.value,
+  isAfter.value,
+  isOnOrBefore.value,
+  isOnOrAfter.value,
+  isNot.value,
+  isEmpty.value,
+  isNotEmpty.value,
+];
 
 export const booleanFieldOperators = is;
 export type IBooleanFieldOperator = z.infer<typeof booleanFieldOperators>;
 export const booleanFieldValidOperators: IBooleanFieldOperator[] = [is.value];
 
 export const dateTimeFieldOperators = numberFieldOperators;
-export type IDateTimeFieldOperator = z.infer<typeof dateTimeFieldOperators>;
-export const dateTimeFieldValidOperators: IDateTimeFieldOperator[] = numberFieldValidOperators;
+export type IDateTimeFieldOperator = z.infer<typeof dateFieldOperators>;
+export const dateTimeFieldValidOperators: IDateTimeFieldOperator[] = dateTimeVaildOperators;
 
 export const allFieldOperators = z.array(
   z.union([
@@ -122,6 +152,13 @@ export const allFieldOperators = z.array(
     isAnyOf,
     isNoneOf,
     hasAllOf,
+
+    // date
+    isWithIn,
+    isBefore,
+    isAfter,
+    isOnOrBefore,
+    isOnOrAfter,
   ])
 );
 export type IAllFieldOperators = z.infer<typeof allFieldOperators>;
@@ -132,23 +169,25 @@ export type IAllFieldOperators = z.infer<typeof allFieldOperators>;
 export function getValidFilterOperators(field: FieldCore): IAllFieldOperators {
   const operationSet: IAllFieldOperators = [];
 
-  // 1. First determine the operator roughly according to cellValueType
-  switch (field.cellValueType) {
-    case CellValueType.String: {
-      operationSet.push(...textFieldValidOperators);
-      break;
-    }
-    case CellValueType.Number: {
-      operationSet.push(...numberFieldValidOperators);
-      break;
-    }
-    case CellValueType.Boolean: {
-      operationSet.push(...booleanFieldValidOperators);
-      break;
-    }
-    case CellValueType.DateTime: {
-      operationSet.push(...dateTimeFieldValidOperators);
-      break;
+  if (field.type !== 'date') {
+    // 1. First determine the operator roughly according to cellValueType
+    switch (field.cellValueType) {
+      case CellValueType.String: {
+        operationSet.push(...textFieldValidOperators);
+        break;
+      }
+      case CellValueType.Number: {
+        operationSet.push(...numberFieldValidOperators);
+        break;
+      }
+      case CellValueType.Boolean: {
+        operationSet.push(...booleanFieldValidOperators);
+        break;
+      }
+      case CellValueType.DateTime: {
+        operationSet.push(...dateTimeFieldValidOperators);
+        break;
+      }
     }
   }
 
@@ -162,6 +201,10 @@ export function getValidFilterOperators(field: FieldCore): IAllFieldOperators {
     case FieldType.MultipleSelect: {
       pullAll(operationSet, [isNot.value, contains.value, doesNotContain.value]);
       operationSet.push(...[hasAllOf.value, isNoneOf.value]);
+      break;
+    }
+    case FieldType.Date: {
+      operationSet.push(...dateTimeFieldValidOperators);
     }
   }
 

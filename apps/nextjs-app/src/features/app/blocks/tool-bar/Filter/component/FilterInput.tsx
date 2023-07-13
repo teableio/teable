@@ -1,7 +1,7 @@
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 interface InputProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string | null) => void;
   placeholder: string;
 }
 
@@ -11,9 +11,9 @@ const FilterInput = (props: InputProps) => {
   return (
     <Input
       placeholder={placeholder}
-      value={value}
+      value={value || ''}
       onChange={(e) => {
-        onChange(e.target.value);
+        onChange(e.target.value || null);
       }}
       className="m-1"
     />

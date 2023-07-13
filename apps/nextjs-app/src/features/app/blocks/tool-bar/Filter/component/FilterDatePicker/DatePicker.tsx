@@ -9,11 +9,11 @@ import type { SelectSingleEventHandler } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 
 interface IFilerDatePickerProps {
-  value: string | null;
+  value: string | null | undefined;
   onSelect: (date: string) => void;
 }
 
-function FilterDatePicker(props: IFilerDatePickerProps) {
+function DatePicker(props: IFilerDatePickerProps) {
   const { value, onSelect } = props;
   const [open, setOpen] = React.useState(false);
   const date = React.useMemo(() => {
@@ -33,7 +33,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         <Button
           variant={'outline'}
           className={cn(
-            'w-[240px] justify-start text-left font-normal m-[4px]',
+            'w-max justify-start text-left font-normal m-1',
             !date && 'text-muted-foreground'
           )}
         >
@@ -53,4 +53,4 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 }
 
-export { FilterDatePicker };
+export { DatePicker };
