@@ -1,5 +1,4 @@
 import type { DrawArgs } from '@glideapps/glide-data-grid/dist/ts/data-grid/cells/cell-types';
-import { getAttachmentUrl } from '@/features/app/components/upload-attachment/UploadAttachment';
 import { getFileCover } from '@/features/app/utils';
 import { INNER_PAD } from './constant';
 import { roundedRect } from './draw-fns';
@@ -15,8 +14,11 @@ export const attachmentCell = (args: DrawArgs<ICustomCellGridCell>, cell: ICusto
   let totalWidth = 0;
   for (let index = 0; index < value.length; index++) {
     const attachment = value[index];
-    const url = getAttachmentUrl(attachment);
-    const img = imageLoader.loadOrGetImage(getFileCover(attachment.mimetype, url), col, row);
+    const img = imageLoader.loadOrGetImage(
+      getFileCover(attachment.mimetype, attachment.url),
+      col,
+      row
+    );
 
     if (img !== undefined) {
       images[index] = img;

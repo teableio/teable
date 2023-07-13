@@ -12,6 +12,10 @@ export default class Local implements StorageAdapter {
     return '/api/attachments/upload';
   }
 
+  getUrl(token: string): string {
+    return `/api/attachments/${token}`;
+  }
+
   async save(file: Express.Multer.File, rename: string) {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, rename);

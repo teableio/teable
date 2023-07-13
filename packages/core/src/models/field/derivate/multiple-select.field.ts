@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './abstract/select.field.abstract';
 
-export const multipleSelectCelValueSchema = z.array(z.string()).nonempty().nullable();
+export const multipleSelectCelValueSchema = z.array(z.string());
 
 export type IMultipleSelectCellValue = z.infer<typeof multipleSelectCelValueSchema>;
 

@@ -20,9 +20,6 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
 const attachmentManager = new AttachmentManager(2);
 
-export const getAttachmentUrl = (item: IAttachmentItem) =>
-  `${window.location.origin}/api/attachments/${item.token}`;
-
 export const UploadAttachment = (props: IUploadAttachment) => {
   const { attachments, onChange } = props;
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
@@ -35,8 +32,8 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     onChange(attachments.filter((attachment) => attachment.id !== id));
   };
 
-  const downloadFile = (attachment: IAttachmentItem) => {
-    window.open(`${getAttachmentUrl(attachment)}?filename=${attachment.name}`);
+  const downloadFile = ({ url, name }: IAttachmentItem) => {
+    window.open(`${url}?filename=${name}`);
   };
 
   const handleSuccess = useCallback(
@@ -102,7 +99,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                 <div className="group flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden">
                   <img
                     className="w-full h-full"
-                    src={getFileCover(attachment.mimetype, getAttachmentUrl(attachment))}
+                    src={getFileCover(attachment.mimetype, attachment.url)}
                     alt={attachment.name}
                   />
                   <ul className="absolute top-0 right-0 opacity-0 flex justify-end group-hover:opacity-100 space-x-1 bg-foreground/50 p-1 w-full">

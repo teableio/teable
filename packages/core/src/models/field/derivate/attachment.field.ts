@@ -14,13 +14,14 @@ export const attachmentItemSchema = z.object({
   size: z.number(),
   mimetype: z.string(),
   path: z.string(),
+  url: z.string(),
   width: z.number().optional(),
   height: z.number().optional(),
 });
 
 export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;
 
-export const attachmentCellValueSchema = z.array(attachmentItemSchema).nonempty();
+export const attachmentCellValueSchema = z.array(attachmentItemSchema);
 
 export type IAttachmentCellValue = z.infer<typeof attachmentCellValueSchema>;
 
@@ -63,6 +64,6 @@ export class AttachmentFieldCore extends FieldCore {
   }
 
   validateCellValue(cellValue: unknown) {
-    return attachmentCellValueSchema.nullable().safeParse(cellValue);
+    return attachmentCellValueSchema.nonempty().nullable().safeParse(cellValue);
   }
 }

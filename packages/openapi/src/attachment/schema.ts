@@ -23,6 +23,7 @@ export const notifyVoSchema = z.object({
     .string()
     .openapi({ example: 'video/mp4', description: 'MIME type of the uploaded file' }),
   path: z.string().openapi({ example: '/attachments', description: 'URL of the uploaded file' }),
+  url: z.string().openapi({ description: 'Attachment url' }),
   width: z.number().openapi({ example: 100, description: 'Image width of the uploaded file' }),
   height: z.number().openapi({ example: 100, description: 'Image height of the uploaded file' }),
 });
