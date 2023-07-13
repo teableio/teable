@@ -17,6 +17,8 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
     "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
     "prisma-db-push": "dotenv-flow -- yarn prisma db push",
