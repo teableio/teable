@@ -49,7 +49,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -57,7 +58,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
     ];
     expect(field.cellValue2String(null as any)).toBe('');
@@ -74,7 +76,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -82,7 +85,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
     ];
     expect(field.validateCellValue(null as any).success).toBe(true);
@@ -109,7 +113,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -117,7 +122,8 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: 'https://airtable.com/xxxxx',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
       },
     ];
     expect(field.repair(cellValue)).toEqual(cellValue);

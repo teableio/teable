@@ -1,13 +1,11 @@
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
+import { X, Download } from '@teable-group/icons';
 import type { AttachmentSchema } from '@teable-group/openapi';
-import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
-import DownloadIcon from '@teable-group/ui-lib/icons/app/download.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Progress } from '@teable-group/ui-lib/shadcn/ui/progress';
+import { Button, Progress } from '@teable-group/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { getFileCover } from '../../utils';
+import { getFileCover } from '../utils';
 import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
@@ -22,9 +20,6 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
 const attachmentManager = new AttachmentManager(2);
 
-export const getAttachmentUrl = (item: IAttachmentItem) =>
-  `${window.location.origin}/api/attachments/${item.token}`;
-
 export const UploadAttachment = (props: IUploadAttachment) => {
   const { attachments, onChange } = props;
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
@@ -37,8 +32,8 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     onChange(attachments.filter((attachment) => attachment.id !== id));
   };
 
-  const downloadFile = (attachment: IAttachmentItem) => {
-    window.open(`${getAttachmentUrl(attachment)}?filename=${attachment.name}`);
+  const downloadFile = ({ url, name }: IAttachmentItem) => {
+    window.open(`${url}?filename=${name}`);
   };
 
   const handleSuccess = useCallback(
@@ -104,7 +99,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                 <div className="group flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden">
                   <img
                     className="w-full h-full"
-                    src={getFileCover(attachment.mimetype, getAttachmentUrl(attachment))}
+                    src={getFileCover(attachment.mimetype, attachment.url)}
                     alt={attachment.name}
                   />
                   <ul className="absolute top-0 right-0 opacity-0 flex justify-end group-hover:opacity-100 space-x-1 bg-foreground/50 p-1 w-full">
@@ -119,7 +114,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => downloadFile(attachment)}
                       >
-                        <DownloadIcon />
+                        <Download />
                       </Button>
                     </li>
                     <li>
@@ -128,7 +123,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         className="h-5 w-5 p-0 rounded-full focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => onDelete(attachment.id)}
                       >
-                        <CloseIcon />
+                        <X />
                       </Button>
                     </li>
                   </ul>
