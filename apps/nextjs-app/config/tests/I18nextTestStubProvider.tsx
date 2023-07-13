@@ -25,8 +25,6 @@ i18n.use(initReactI18next).init({
   },
 });
 
-export const I18nextTestStubProvider: FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const I18nextTestStubProvider: FC<{ children: ReactNode }> = ({ children }) => {
   return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
 };

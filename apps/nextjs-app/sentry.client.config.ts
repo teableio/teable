@@ -9,9 +9,7 @@ sentryInit({
 
   // Adjust this value in production, or use tracesSampler for greater control
   // @see https://develop.sentry.dev/sdk/performance/
-  tracesSampleRate: ['false', '0'].includes(
-    process.env.NEXTJS_SENTRY_TRACING ?? ''
-  )
+  tracesSampleRate: ['false', '0'].includes(process.env.NEXTJS_SENTRY_TRACING ?? '')
     ? undefined
     : 1.0,
 

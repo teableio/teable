@@ -16,13 +16,9 @@
   "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "prisma": {
-    "seed": "tsx ./prisma/seed.ts"
-  },
   "scripts": {
     "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
-    "prisma-db-seed": "dotenv-flow -- yarn prisma db seed",
     "prisma-db-push": "dotenv-flow -- yarn prisma db push",
     "prisma-studio": "dotenv-flow -- yarn prisma studio",
     "clean": "rimraf --no-glob ./tsconfig.tsbuildinfo",

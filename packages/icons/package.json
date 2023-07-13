@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "rm -rf dist && tsc --watch",
-    "build": "rm -rf dist && tsc --build tsconfig.json",
+    "build": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && tsc --build tsconfig.json",
     "test": "echo \"Error: no test specified\" && exit 1",
     "icons": "node ./scripts/generate.mjs"
   },

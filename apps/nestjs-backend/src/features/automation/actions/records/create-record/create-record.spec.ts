@@ -63,7 +63,7 @@ describe('Create-Record Action Test', () => {
       })
     );
 
-    jest.spyOn(fieldService, 'getFields').mockImplementation((tableId, query) =>
+    jest.spyOn(fieldService, 'getFields').mockImplementation((_tableId, _query) =>
       Promise.resolve([
         {
           id: 'fldHrMYez5yIwBdKEiK',
@@ -91,7 +91,7 @@ describe('Create-Record Action Test', () => {
 
     jest
       .spyOn(recordOpenApiService, 'multipleCreateRecords')
-      .mockImplementation((tableId, createRecordsRo, fieldName2IdMap) =>
+      .mockImplementation((_tableId, _createRecordsRo, _fieldName2IdMap) =>
         Promise.resolve({
           records: [
             {
@@ -120,6 +120,7 @@ describe('Create-Record Action Test', () => {
 
   it('should call onSuccess and create records', async () => {
     const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     const actionId = generateWorkflowActionId();

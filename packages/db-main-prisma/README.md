@@ -18,7 +18,6 @@ Start the database with `docker-compose up database` then run
 cd packages/db-main-prisma
 yarn prisma-db-push
 yarn prisma-migrate dev
-yarn prisma-db-seed
 yarn prisma-migrate-reset
 ```
 
@@ -67,14 +66,6 @@ To create the database, simply run
 
 ```bash
 yarn prisma-db-push
-```
-
-## DB Seeding
-
-Create and seed the database the first time or after a change.
-
-```bash
-yarn prisma-db-seed
 ```
 
 ## DB type generation

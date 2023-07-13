@@ -18,6 +18,7 @@ type IFilterNotOptional<T> = Pick<
   >
 >;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IPartialEither<T, K extends keyof any> = {
   [P in Exclude<keyof IFilterOptional<T>, K>]-?: T[P];
 } & { [P in Exclude<keyof IFilterNotOptional<T>, K>]?: T[P] } & {

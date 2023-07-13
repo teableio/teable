@@ -7683,8 +7683,6 @@ __metadata:
     "@teable-group/eslint-config-bases": "workspace:^"
     "@types/jest": "npm:29.2.0"
     "@types/node": "npm:18.11.7"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
     antlr4ts: "npm:0.5.0-alpha.4"
     antlr4ts-cli: "npm:0.5.0-alpha.4"
     class-transformer: "npm:0.5.1"
@@ -7702,9 +7700,6 @@ __metadata:
     ts-jest: "npm:29.0.3"
     tslib: "npm:2.4.0"
     typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
     zod: "npm:3.21.4"
   languageName: unknown
   linkType: soft
@@ -7848,9 +7843,6 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
-    "@vitejs/plugin-react": "npm:2.2.0"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
     class-transformer: "npm:0.5.1"
     classnames: "npm:2.3.2"
     cross-env: "npm:7.0.3"
@@ -7871,9 +7863,6 @@ __metadata:
     ts-jest: "npm:29.0.3"
     ts-mixer: "npm:6.0.3"
     typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
     zustand: "npm:4.3.7"
   peerDependencies:
     react: ^18.0.0

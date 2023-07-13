@@ -22,8 +22,8 @@ export class MetaKit {
     if (isEmpty(matchResults)) {
       return undefined;
     }
-    const result = matchResults![0];
-    return cancelSymbol ? result.slice(1) : result;
+    const result = matchResults?.[0];
+    return cancelSymbol ? result?.slice(1) : result;
   }
 
   private static queryPath(

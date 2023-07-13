@@ -32,7 +32,7 @@ describe('WorkflowController', () => {
       const bodyParam: CreateWorkflowRo = {
         name: 'Automation 1',
       };
-      jest.spyOn(workflowService, 'create').mockImplementation((workflowId, createWorkflowRo) =>
+      jest.spyOn(workflowService, 'create').mockImplementation(() =>
         Promise.resolve({
           id: 'id',
           workflowId: 'workflowId',

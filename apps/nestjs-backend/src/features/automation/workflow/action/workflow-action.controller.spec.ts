@@ -1,10 +1,6 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import {
-  generateWorkflowActionId,
-  generateWorkflowId,
-  generateWorkflowTriggerId,
-} from '@teable-group/core';
+import { generateWorkflowActionId, generateWorkflowId } from '@teable-group/core';
 import type { AutomationWorkflowAction as AutomationWorkflowActionModel } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../../../prisma.service';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
@@ -39,7 +35,7 @@ describe('WorkflowActionController', () => {
       const pathParamWorkflowActionId = generateWorkflowActionId();
       jest
         .spyOn(workflowActionService, 'create')
-        .mockImplementation((actionId, createWorkflowActionRo) =>
+        .mockImplementation((_actionId, _createWorkflowActionRo) =>
           Promise.resolve({
             workflowId: 'workflowId',
             description: 'description',

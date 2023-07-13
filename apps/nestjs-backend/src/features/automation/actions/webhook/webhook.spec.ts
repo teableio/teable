@@ -1,7 +1,6 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
-import { NextModule } from '../../../next/next.module';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import ajv from '../../engine/json-schema/ajv';
