@@ -60,6 +60,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
 
+      # to debug cache issues: ls ${{ github.workspace }}/.cache
+      # Build packages that have changed (--include & --since), assuming that
+      # apps build are done already. Otherwise --from & --since
+      - name: Run build for changed packages
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main run build
+
       # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
       # That allows to see if we're introducing "surface" regressions (just the types)
       - name: Typecheck
@@ -76,9 +83,3 @@ jobs:
       - name: Unit tests changed packages
         run: |
           yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run test-unit
-      # to debug cache issues: ls ${{ github.workspace }}/.cache
-      # Build packages that have changed (--include & --since), assuming that
-      # apps build are done already. Otherwise --from & --since
-      - name: Run build for changed packages
-        run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main run build
