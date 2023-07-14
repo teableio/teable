@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
+  IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
   IColumnMeta,
   IFieldSnapshot,
@@ -7,12 +8,11 @@ import type {
   ISetColumnMetaOpContext,
   ISetFieldNameOpContext,
   ISnapshotBase,
+  ISetFieldDescriptionOpContext,
+  ISetFieldTypeOpContext,
+  ISetFieldOptionsOpContext,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
-import type { IDeleteColumnMetaOpContext } from '@teable-group/core/dist/op-builder/field/delete-column-meta';
-import type { ISetFieldDescriptionOpContext } from '@teable-group/core/src/op-builder/field/set-field-description';
-import type { ISetFieldOptionsOpContext } from '@teable-group/core/src/op-builder/field/set-field-options';
-import type { ISetFieldTypeOpContext } from '@teable-group/core/src/op-builder/field/set-field-type';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';

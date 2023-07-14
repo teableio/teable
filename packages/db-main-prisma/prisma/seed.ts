@@ -28,7 +28,7 @@ async function generateFieldData(params: { mockDataNum: number, fields: Field[],
   return fields.reduce((pre: any, cur: any) => {
     const selectArray = selectOptions.choices.map(value => value.name);
 
-    let fieldData;
+    let fieldData = undefined;
     switch (cur.type as FieldType) {
       case FieldType.SingleLineText:
       case FieldType.LongText: {
@@ -45,6 +45,10 @@ async function generateFieldData(params: { mockDataNum: number, fields: Field[],
       }
       case FieldType.MultipleSelect: {
         fieldData = JSON.stringify(faker.helpers.arrayElements(selectArray, { min: 2, max: 9 }));
+        break;
+      }
+      case FieldType.Checkbox: {
+        fieldData = faker.helpers.arrayElement([1, 'null']);
         break;
       }
     }
@@ -64,8 +68,8 @@ async function generateViewRowIndex(params: { views: View[], rowCount: number, i
 }
 
 async function main() {
-  const mockDataNum = 500000;
-  const tableId = 'tblSkjxbqV1fGd0dui5';
+  const mockDataNum = 350000;
+  const tableId = 'tblRlrmU7DL1e6eKlMQ';
 
   console.log(`Start seeding ...`);
 
@@ -128,7 +132,7 @@ async function main() {
         REPLACE INTO ${dbTableName}
         (${Object.keys(page[0]).join(',')})
         VALUES
-        ${page.map(d => `('${Object.values(d).join(`', '`)}')`).join(', ')}
+        ${page.map(d => `('${Object.values(d).join(`', '`)}')`).join(', ').replace(/'null'/g,'null')} 
       `;
 
     const sql_op = `

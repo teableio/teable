@@ -1,16 +1,16 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { parseTQL } from '@teable-group/core/dist/query/json.visitor';
-import type { RecordsRo } from 'src/features/record/open-api/records.ro';
+import type { IRecordsRo } from '@teable-group/core';
+import { parseTQL } from '@teable-group/core';
 
 @Injectable()
 export class RecordPipe implements PipeTransform {
-  transform(value: RecordsRo, _metadata: ArgumentMetadata) {
+  transform(value: IRecordsRo, _metadata: ArgumentMetadata) {
     this.transformFilterTql(value);
     return value;
   }
 
-  private transformFilterTql(value: RecordsRo): void {
+  private transformFilterTql(value: IRecordsRo): void {
     if (value.filterByTql) {
       try {
         value.filter = parseTQL(value.filterByTql);

@@ -20,6 +20,11 @@ export const hasAnyOf = z.literal('hasAnyOf');
 export const hasAllOf = z.literal('hasAllOf');
 export const hasNoneOf = z.literal('hasNoneOf');
 export const isExactly = z.literal('isExactly');
+export const isWithIn = z.literal('isWithIn');
+export const isBefore = z.literal('isBefore');
+export const isAfter = z.literal('isAfter');
+export const isOnOrBefore = z.literal('isOnOrBefore');
+export const isOnOrAfter = z.literal('isOnOrAfter');
 
 export const operators = z.union([
   is,
@@ -38,6 +43,11 @@ export const operators = z.union([
   hasAllOf,
   hasNoneOf,
   isExactly,
+  isWithIn,
+  isBefore,
+  isAfter,
+  isOnOrBefore,
+  isOnOrAfter,
 ]);
 export type IOperator = z.infer<typeof operators>;
 
@@ -76,18 +86,30 @@ export type ISymbol = z.infer<typeof symbols>;
 const mappingOperatorSymbol = {
   [is.value]: $eq.value,
   [isExactly.value]: $eq.value,
+  // [isWithin.value]: $eq.value,
+
   [isNot.value]: $neq.value,
+
   [isGreater.value]: $gt.value,
+  [isAfter.value]: $gt.value,
   [isGreaterEqual.value]: $gte.value,
+  [isOnOrAfter.value]: $gte.value,
+
   [isLess.value]: $lt.value,
+  [isBefore.value]: $lt.value,
   [isLessEqual.value]: $lte.value,
+  [isOnOrBefore.value]: $lte.value,
+
   [contains.value]: $like.value,
   [doesNotContain.value]: $notLike.value,
+
   [isAnyOf.value]: $in.value,
   [hasAnyOf.value]: $in.value,
   [isNoneOf.value]: $notIn.value,
   [hasNoneOf.value]: $notIn.value,
+
   [hasAllOf.value]: $has.value,
+
   [isEmpty.value]: $isNull.value,
   [isNotEmpty.value]: $isNotNull.value,
 };

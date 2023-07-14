@@ -30973,13 +30973,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:3.19.1":
-  version: 3.19.1
-  resolution: "zod@npm:3.19.1"
-  checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
-  languageName: node
-  linkType: hard
-
 "zod@npm:3.21.4, zod@npm:^3.20.2":
   version: 3.21.4
   resolution: "zod@npm:3.21.4"

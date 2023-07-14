@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { filter } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -87,6 +88,14 @@ export const recordsRoSchema = recordRoSchema.extend({
     example: 'viwXXXXXXX',
     description:
       'Set the view you want to fetch, default is first view. result will influent by view options.',
+  }),
+  filterByTql: z.string().optional().openapi({
+    example: "{field} = 'Completed' AND {field} > 5",
+    description:
+      'A Teable Query Language (TQL) string used to filter results. It allows complex query conditions based on fields, operators, and values.',
+  }),
+  filter: filter.optional().openapi({
+    type: 'object',
   }),
 });
 

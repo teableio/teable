@@ -16,7 +16,9 @@ import {
   hasAnyOf,
   hasNoneOf,
   is,
+  isAfter,
   isAnyOf,
+  isBefore,
   isEmpty,
   isExactly,
   isGreater,
@@ -26,6 +28,9 @@ import {
   isNoneOf,
   isNot,
   isNotEmpty,
+  isOnOrAfter,
+  isOnOrBefore,
+  isWithIn,
 } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { get, includes, invert, isArray, size } from 'lodash';
@@ -245,24 +250,26 @@ export class FilterQueryTranslator {
     const operatorHandlers = {
       [is.value]: this.processIsOperator,
       [isExactly.value]: this.processIsOperator,
-
       [isNot.value]: this.processIsNotOperator,
       [contains.value]: this.processContainsNotOperator,
       [doesNotContain.value]: this.processDoesNotContainOperator,
       [isGreater.value]: this.processIsGreaterOperator,
+      [isAfter.value]: this.processIsGreaterOperator,
       [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
+      [isOnOrAfter.value]: this.processIsGreaterEqualOperator,
       [isLess.value]: this.processIsLessOperator,
+      [isBefore.value]: this.processIsLessOperator,
       [isLessEqual.value]: this.processIsLessEqualOperator,
+      [isOnOrBefore.value]: this.processIsLessEqualOperator,
+      [isAnyOf.value]: this.processIsAnyOfOperator,
+      [hasAnyOf.value]: this.processIsAnyOfOperator,
+      [isNoneOf.value]: this.processIsNoneOfOperator,
+      [hasNoneOf.value]: this.processIsNoneOfOperator,
+      [hasAllOf.value]: this.processHasAllOfOperator,
       [isEmpty.value]: this.processIsEmptyOperator,
       [isNotEmpty.value]: this.processIsNotEmptyOperator,
 
-      [isAnyOf.value]: this.processIsAnyOfOperator,
-      [hasAnyOf.value]: this.processIsAnyOfOperator,
-
-      [isNoneOf.value]: this.processIsNoneOfOperator,
-      [hasNoneOf.value]: this.processIsNoneOfOperator,
-
-      [hasAllOf.value]: this.processHasAllOfOperator,
+      [isWithIn.value]: this.processIsOperator,
     };
 
     const chosenHandler = operatorHandlers[operator];

@@ -24,9 +24,6 @@ const filterMetaOperatorBySymbol = z.object({
   operator: symbols,
 });
 
-export const filterMeta = z.discriminatedUnion('isSymbol', [
-  filterMetaOperator,
-  filterMetaOperatorBySymbol,
-]);
+export const filterMeta = z.union([filterMetaOperator, filterMetaOperatorBySymbol]);
 
 export type IFilterMeta = z.infer<typeof filterMeta>;
