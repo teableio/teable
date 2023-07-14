@@ -5,7 +5,6 @@ import {
   SingleLineTextField,
   SingleSelectField,
   LinkField,
-  FormulaField,
   DateField,
   AttachmentField,
   CheckboxField,
@@ -85,7 +84,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Formula',
             defaultName: 'Calculation',
-            defaultOptions: FormulaField.defaultOptions(),
+            defaultOptions: {},
             Icon: isLookup ? SearchIcon : CodeIcon,
           };
         case FieldType.Date:
