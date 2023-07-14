@@ -13,5 +13,6 @@ import { AttachmentsService } from './attachments.service';
       storage: multer.diskStorage({}),
     }),
   ],
+  exports: [AttachmentsService],
 })
 export class AttachmentsModule {}

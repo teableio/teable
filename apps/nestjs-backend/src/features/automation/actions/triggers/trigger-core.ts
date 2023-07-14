@@ -39,6 +39,7 @@ export abstract class TriggerCore<TEvent> {
     if (decisionNode) {
       actions = omit(workflowActions, decisionNode.id);
       const decisionInput = await new JsonSchemaParser<IDecisionSchema, IDecisionGroups>(
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         decisionNode.inputExpressions! as IDecisionSchema
       ).parse();
 

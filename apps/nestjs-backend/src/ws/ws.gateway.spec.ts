@@ -1,5 +1,8 @@
+import { ConfigService } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { ShareDbModule } from '../share-db/share-db.module';
 import { WsGateway } from './ws.gateway';
 
 describe('WSGateway', () => {
@@ -7,7 +10,8 @@ describe('WSGateway', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WsGateway],
+      imports: [ShareDbModule, EventEmitterModule.forRoot()],
+      providers: [WsGateway, ConfigService],
     }).compile();
 
     service = module.get<WsGateway>(WsGateway);

@@ -1,3 +1,5 @@
+import 'dayjs/plugin/timezone';
+import 'dayjs/plugin/utc';
 import type { INestApplication } from '@nestjs/common';
 import { bootstrap } from './bootstrap';
 

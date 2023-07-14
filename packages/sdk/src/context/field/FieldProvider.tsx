@@ -3,7 +3,7 @@ import { IdPrefix } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useMemo } from 'react';
 import { createFieldInstance } from '../../model';
-import { AnchorContext } from '../anchor';
+import { AnchorContext } from '../anchor/AnchorContext';
 import { useInstances } from '../use-instances';
 import { FieldContext } from './FieldContext';
 

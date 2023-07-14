@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Engine } from 'json-rules-engine';
 import type { Almanac } from 'json-rules-engine';
 import { JsonSchemaParser } from './parser';
@@ -293,6 +294,7 @@ describe('Json Schema Parser Test', () => {
   async function almanacTest(): Promise<Almanac> {
     const engine = new Engine();
     const facts = {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
       'trigger.wtrdS3OIXzjyRyvnP': {
         record: {
           fields: {

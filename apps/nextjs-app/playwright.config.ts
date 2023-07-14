@@ -10,8 +10,7 @@ const webServerModes = ['DEV', 'START', 'BUILD_AND_START'] as const;
 type IWebServerMode = typeof webServerModes[number];
 
 const isCI = ['true', '1'].includes(process.env?.CI ?? '');
-const webServerMode =
-  (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'NOT_SET';
+const webServerMode = (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'NOT_SET';
 
 const webServerPort = 3000;
 const outputDir = path.join(__dirname, 'e2e/.out');
@@ -37,15 +36,11 @@ const webServerConfigs: Record<IWebServerMode, IWebServerConfig> = {
 
 if (typeof webServerConfigs?.[webServerMode] !== 'object') {
   console.error(
-    `${pc.red(
-      'error'
-    )} - E2E_WEBSERVER_MODE must be one of '${webServerModes.join(', ')}'`
+    `${pc.red('error')} - E2E_WEBSERVER_MODE must be one of '${webServerModes.join(', ')}'`
   );
   process.exit(1);
 } else {
-  console.log(
-    `${pc.green('notice')} - Using E2E_WEBSERVER_MODE: '${webServerMode}'`
-  );
+  console.log(`${pc.green('notice')} - Using E2E_WEBSERVER_MODE: '${webServerMode}'`);
 }
 
 const webServerConfig = webServerConfigs[webServerMode];
@@ -53,9 +48,7 @@ const webServerConfig = webServerConfigs[webServerMode];
 function getNextJsEnv(): Record<string, string> {
   const { combinedEnv, loadedEnvFiles } = loadEnvConfig(__dirname);
   loadedEnvFiles.forEach((file) => {
-    console.log(
-      `${pc.green('notice')}- Loaded nextjs environment file: './${file.path}'`
-    );
+    console.log(`${pc.green('notice')}- Loaded nextjs environment file: './${file.path}'`);
   });
   return Object.keys(combinedEnv).reduce<Record<string, string>>((acc, key) => {
     const v = combinedEnv[key];

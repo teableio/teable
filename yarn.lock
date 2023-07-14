@@ -7495,7 +7495,7 @@ __metadata:
     cors: "npm:2.8.5"
     cross-env: "npm:7.0.3"
     date-fns: "npm:2.30.0"
-    dayjs: "npm:1.11.7"
+    dayjs: "npm:1.11.8"
     dotenv-flow: "npm:3.2.0"
     dotenv-flow-cli: "npm:1.0.0"
     echarts: "npm:5.4.2"
@@ -7655,7 +7655,7 @@ __metadata:
     typescript: "npm:4.8.4"
     typescript-transform-paths: "npm:3.4.4"
     ws: "npm:8.11.0"
-    zod: "npm:3.19.1"
+    zod: "npm:3.21.4"
   languageName: unknown
   linkType: soft
 
@@ -7683,8 +7683,6 @@ __metadata:
     "@teable-group/eslint-config-bases": "workspace:^"
     "@types/jest": "npm:29.2.0"
     "@types/node": "npm:18.11.7"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
     antlr4ts: "npm:0.5.0-alpha.4"
     antlr4ts-cli: "npm:0.5.0-alpha.4"
     class-transformer: "npm:0.5.1"
@@ -7702,9 +7700,6 @@ __metadata:
     ts-jest: "npm:29.0.3"
     tslib: "npm:2.4.0"
     typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
     zod: "npm:3.21.4"
   languageName: unknown
   linkType: soft
@@ -7810,6 +7805,7 @@ __metadata:
     figma-api-exporter: "npm:0.0.2"
     fs-extra: "npm:11.1.1"
     lodash: "npm:4.17.21"
+    rimraf: "npm:3.0.2"
     typescript: "npm:4.8.4"
   peerDependencies:
     react: ^18.2.0
@@ -7825,6 +7821,8 @@ __metadata:
     "@teable-group/core": "workspace:*"
     "@teable-group/eslint-config-bases": "workspace:^"
     axios: "npm:1.1.3"
+    eslint: "npm:8.26.0"
+    rimraf: "npm:3.0.2"
     typescript: "npm:4.8.4"
     zod: "npm:3.21.4"
   languageName: unknown
@@ -7848,13 +7846,10 @@ __metadata:
     "@types/node": "npm:18.11.7"
     "@types/react": "npm:18.0.24"
     "@types/react-dom": "npm:18.0.8"
-    "@vitejs/plugin-react": "npm:2.2.0"
-    "@vitest/coverage-istanbul": "npm:0.24.3"
-    "@vitest/ui": "npm:0.24.3"
     class-transformer: "npm:0.5.1"
     classnames: "npm:2.3.2"
     cross-env: "npm:7.0.3"
-    dayjs: "npm:1.11.7"
+    dayjs: "npm:1.11.8"
     dequal: "npm:^2.0.3"
     eslint: "npm:8.26.0"
     jest: "npm:29.2.2"
@@ -7871,9 +7866,6 @@ __metadata:
     ts-jest: "npm:29.0.3"
     ts-mixer: "npm:6.0.3"
     typescript: "npm:4.8.4"
-    vite: "npm:3.2.1"
-    vite-tsconfig-paths: "npm:3.5.2"
-    vitest: "npm:0.24.3"
     zustand: "npm:4.3.7"
   peerDependencies:
     react: ^18.0.0
@@ -13549,13 +13541,6 @@ __metadata:
   dependencies:
     "@babel/runtime": "npm:^7.21.0"
   checksum: 1edbb6ae2e10008de7f5ef37faee6c993926b008c98ca1d0cb4b0263c8448f2d3db5d84ac9475044f2295dee5d0d80bf6e92fe289f7f397420f0c8ad4bd7c069
-  languageName: node
-  linkType: hard
-
-"dayjs@npm:1.11.7":
-  version: 1.11.7
-  resolution: "dayjs@npm:1.11.7"
-  checksum: e4befd8f695eeb2fbe2f887c0f6e2a8a498dfba89eb4b4d87c036167e4ae36871dda584a24c15db9b68fcf19688199f934c38095c629abcc30f8adb60f0723ce
   languageName: node
   linkType: hard
 
@@ -30927,13 +30912,6 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: 63eceacd482622afd71290541a9823a0e5eed88a6b58a5d136a5fb8151ed4d1549c80f28d74d4ad351582f9890635d49e6cf70f8d3cc64948640f839f6a37c70
-  languageName: node
-  linkType: hard
-
-"zod@npm:3.19.1":
-  version: 3.19.1
-  resolution: "zod@npm:3.19.1"
-  checksum: 67b0f6d39002e19d56a55daf78ab278f1c958f76cb09602f810090162fbc179f40725b1a1bae22a6b08cc9691d81227b8ea94a21ae6a221e997fa537384f71f5
   languageName: node
   linkType: hard
 

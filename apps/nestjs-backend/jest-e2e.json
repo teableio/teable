@@ -1,4 +1,5 @@
 {
+  "bail": true,
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "maxWorkers": 1,
@@ -7,6 +8,5 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "collectCoverage": true,
   "coverageReporters": ["text"]
 }

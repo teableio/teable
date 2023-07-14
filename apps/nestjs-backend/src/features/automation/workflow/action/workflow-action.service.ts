@@ -37,6 +37,7 @@ export class WorkflowActionService {
 
     while (currentObj) {
       sortedActions.push(currentObj);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       currentObj = cacheById[currentObj.nextNodeId!] || null;
     }
 
@@ -190,9 +191,9 @@ export class WorkflowActionService {
   }
 
   async move(
-    newNextNodeId: string,
-    newParentNodeId: string,
-    parentDecisionArrayIndex?: number
+    _newNextNodeId: string,
+    _newParentNodeId: string,
+    _parentDecisionArrayIndex?: number
   ): Promise<void> {
     return;
   }
@@ -257,6 +258,7 @@ export class WorkflowActionService {
     const decision = await (tx || this.prisma).automationWorkflowAction.findUniqueOrThrow({
       where: { actionId },
     });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const inputExpressions = JSON.parse(decision.inputExpressions!);
 
     const propPath = MetaKit.queryPathOfProp(inputExpressions, shortPath, propKey);
