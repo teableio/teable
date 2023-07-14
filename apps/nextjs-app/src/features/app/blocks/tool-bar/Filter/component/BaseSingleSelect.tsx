@@ -1,6 +1,3 @@
-import type { SingleSelectField } from '@teable-group/sdk';
-import { useFields } from '@teable-group/sdk';
-
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,
@@ -11,29 +8,28 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
-interface ISingleSelector {
-  onSelect: (id: string) => void;
-  value: unknown;
-  fieldId?: string;
+interface IOption {
+  label: string;
+  value: string;
 }
 
-function SingleSelector(props: ISingleSelector) {
-  const { onSelect, fieldId } = props;
+interface IBaseSelect {
+  options: IOption[];
+  value: string | null;
+  classNames?: string;
+  popoverClassNames?: string;
+  onSelect: (value: string) => void;
+}
+
+function BaseSingleSelect(props: IBaseSelect) {
+  const { onSelect, value, options, classNames, popoverClassNames } = props;
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(props.value);
-
-  const fields = useFields();
-
-  const options = useMemo(() => {
-    const curColumn = fields.find((item) => item.id === fieldId) as SingleSelectField;
-    return curColumn?.options?.choices;
-  }, [fieldId, fields]);
 
   const label = useMemo(() => {
-    return options.find((option) => option.name === value)?.name;
+    return options.find((option) => option.value === value)?.label;
   }, [options, value]);
 
   return (
@@ -43,33 +39,32 @@ function SingleSelector(props: ISingleSelector) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 bg-white"
+          className={cn('justify-between m-1', classNames)}
         >
           {value ? <span className="truncate">{label}</span> : 'Select'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px]">
+      <PopoverContent className={cn('w-52', popoverClassNames)}>
         <Command>
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
             {options?.map((option) => (
               <CommandItem
-                key={option.color}
+                key={option.label}
                 onSelect={() => {
-                  setValue(option.name === value ? '' : option.name);
-                  onSelect(option.name);
+                  onSelect(option.value);
                   setOpen(false);
                 }}
               >
                 <Check
                   className={cn(
                     'mr-2 h-4 w-4',
-                    value === option.name ? 'opacity-100' : 'opacity-0'
+                    value === option.value ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {option.name}
+                {option.label}
               </CommandItem>
             ))}
           </CommandGroup>
@@ -79,6 +74,6 @@ function SingleSelector(props: ISingleSelector) {
   );
 }
 
-SingleSelector.displayName = 'SingleSelector';
+BaseSingleSelect.displayName = 'BaseSingleSelect';
 
-export { SingleSelector };
+export { BaseSingleSelect };

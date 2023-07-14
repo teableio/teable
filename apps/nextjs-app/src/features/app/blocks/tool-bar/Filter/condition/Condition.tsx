@@ -1,11 +1,10 @@
-import type { IFilterMetaOperator } from '@teable-group/core';
+import type { IFilterMetaOperator, IFilterMeta } from '@teable-group/core';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isEqual } from 'lodash';
 import { useContext } from 'react';
 import { FilterContext } from '../context';
-import type { IConditionProps } from '../types/types';
-
+import type { IConditionProps } from '../types';
 import { Conjunction } from './Conjunction';
 import { FieldSelect } from './FieldSelect';
 import { FieldValue } from './FieldValue';
@@ -19,27 +18,30 @@ function Condition(props: IConditionProps) {
   }
   const { setFilters, filters } = context;
 
-  const deleteItem = () => {
+  const deleteFilter = () => {
     parent.filterSet.splice(index, 1);
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
   };
 
-  const selectField = (fieldId: string) => {
+  const fieldTypeHandler = (fieldId: string) => {
     filter.fieldId = fieldId;
+    // TODO: allow the same type field to remain the value
+    filter.value = null;
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
   };
-
-  const updateOperator = (value: IFilterMetaOperator) => {
+  const operatorHandler = (value: IFilterMetaOperator) => {
     filter.operator = value;
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
   };
-  const updateFieldValue = (value: unknown) => {
-    filter.value = value;
-    const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
+  const fieldValueHandler = (value: IFilterMeta['value']) => {
+    if (!isEqual(filter.value, value)) {
+      filter.value = value;
+      const newFilters = cloneDeep(filters);
+      setFilters(newFilters);
+    }
   };
 
   return (
@@ -52,17 +54,17 @@ function Condition(props: IConditionProps) {
       ></Conjunction>
 
       <section className="flex items-center">
-        <FieldSelect fieldId={filter.fieldId} onSelect={selectField} />
+        <FieldSelect fieldId={filter.fieldId} onSelect={fieldTypeHandler} />
 
         <OperatorSelect
           value={filter.operator}
-          onSelect={updateOperator}
+          onSelect={operatorHandler}
           fieldId={filter.fieldId}
         />
 
-        <FieldValue filter={filter} onSelect={updateFieldValue}></FieldValue>
+        <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteItem} className="bg-white">
+        <Button variant="outline" onClick={deleteFilter} className="dark:bg-white">
           <AshBin className="h-4 w-4"></AshBin>
         </Button>
       </section>

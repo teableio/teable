@@ -1,23 +1,21 @@
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 interface InputProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string | null) => void;
   placeholder: string;
 }
 
 const FilterInput = (props: InputProps) => {
   const { onChange, placeholder = 'Enter a value', value } = props;
-  // const [value, setValue] = useState(props.value);
 
   return (
     <Input
       placeholder={placeholder}
-      value={value}
+      value={value || ''}
       onChange={(e) => {
-        onChange(e.target.value);
-        // setValue(e.target.value);
+        onChange(e.target.value || null);
       }}
-      className="m-1 bg-white"
+      className="m-1"
     />
   );
 };

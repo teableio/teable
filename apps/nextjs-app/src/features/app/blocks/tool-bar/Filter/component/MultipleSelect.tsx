@@ -17,14 +17,9 @@ import { ChevronsUpDown } from 'lucide-react';
 
 import { useMemo, useState } from 'react';
 
-interface IMultipleOption {
-  name: string;
-  color: Colors;
-}
-
 interface IMutipleSelect {
-  onSelect?: (names: IMultipleOption[]) => void;
-  value: IMultipleOption[];
+  onSelect?: (names: string[]) => void;
+  value: string[] | null;
   fieldId?: string;
 }
 
@@ -40,24 +35,25 @@ const MultipleSelect = (props: IMutipleSelect) => {
     return curColumn?.options?.choices;
   }, [fieldId, fields]);
 
-  const selectHandler = (name: string, color: Colors) => {
+  const selectHandler = (name: string) => {
     let newCellValue = null;
-    const existIndex = values.findIndex((item) => item.name === name);
+    const existIndex = values.findIndex((item) => item === name);
     if (existIndex > -1) {
       newCellValue = values.slice();
       newCellValue.splice(existIndex, 1);
     } else {
-      newCellValue = [
-        ...values,
-        {
-          name: name,
-          color: color,
-        },
-      ];
+      newCellValue = [...values, name];
     }
     onSelect?.(newCellValue);
-    // if (field.type === FieldType.MultipleSelect) {
-    // }
+  };
+
+  const getColorByName = (name: string) => {
+    const defaultColor = 'blueBright' as Colors;
+    const index = choices.findIndex((choice) => choice.name === name);
+    if (index > -1) {
+      return choices[index].color;
+    }
+    return defaultColor;
   };
 
   return (
@@ -67,22 +63,22 @@ const MultipleSelect = (props: IMutipleSelect) => {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1 bg-white overflow-hidden"
+          className="w-32 max-w-[128px] justify-between m-1 overflow-hidden"
         >
           <div className="shrink whitespace-nowrap overflow-hidden flex">
-            {values?.length
+            {Array.isArray(values) && values.length
               ? values?.map((item, index) => (
                   <div
                     key={index}
                     className={classNames('px-2 rounded-lg m-1')}
                     style={{
-                      backgroundColor: ColorUtils.getHexForColor(item.color),
-                      color: ColorUtils.shouldUseLightTextOnColor(item.color)
+                      backgroundColor: ColorUtils.getHexForColor(getColorByName(item)),
+                      color: ColorUtils.shouldUseLightTextOnColor(getColorByName(item))
                         ? '#ffffff'
                         : '#000000',
                     }}
                   >
-                    {item.name}
+                    {item}
                   </div>
                 ))
               : 'Select'}
@@ -91,20 +87,18 @@ const MultipleSelect = (props: IMutipleSelect) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px]">
-        <Command className="rounded-sm shadow-sm">
+        <Command className="rounded-sm">
           <CommandList>
             <CommandInput placeholder="Search option" />
             <CommandEmpty>No found.</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {choices.length ? (
                 choices.map(({ color, name }) => (
-                  <CommandItem key={name} value={name} onSelect={() => selectHandler(name, color)}>
+                  <CommandItem key={name} value={name} onSelect={() => selectHandler(name)}>
                     <SelectIcon
                       className={classNames(
                         'mr-2 h-4 w-4',
-                        values?.map((item) => item.name)?.includes(name)
-                          ? 'opacity-100'
-                          : 'opacity-0'
+                        values?.map((name) => name)?.includes(name) ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                     <div

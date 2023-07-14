@@ -1,3 +1,4 @@
+import type { SingleSelectField } from '@teable-group/sdk';
 import { useFields } from '@teable-group/sdk';
 
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -11,24 +12,27 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useFieldStaticGetter } from '@/features/app/utils';
 import { cn } from '@/lib/utils';
 
-interface IFieldSelectProps {
+interface ISingleSelect {
+  onSelect: (id: string) => void;
+  value: unknown;
   fieldId?: string;
-  onSelect: (type: string) => void;
 }
 
-function FieldSelect(props: IFieldSelectProps) {
-  const { fieldId: value, onSelect } = props;
+function SingleSelect(props: ISingleSelect) {
+  const { onSelect, fieldId, value } = props;
+  const fields = useFields({ widthHidden: true });
   const [open, setOpen] = useState(false);
 
-  const fields = useFields({ widthHidden: true });
-  // const fieldStaticGetter = useFieldStaticGetter();
+  const options = useMemo(() => {
+    const curColumn = fields.find((item) => item.id === fieldId) as SingleSelectField;
+    return curColumn?.options?.choices;
+  }, [fieldId, fields]);
 
   const label = useMemo(() => {
-    return fields.find((field) => field.id === value)?.name;
-  }, [value, fields]);
+    return options.find((option) => option.name === value)?.name;
+  }, [options, value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,19 +52,21 @@ function FieldSelect(props: IFieldSelectProps) {
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
-            {fields.map((field) => (
+            {options?.map((option) => (
               <CommandItem
-                key={field.id}
+                key={option.color}
                 onSelect={() => {
-                  onSelect(field.id);
+                  onSelect(option.name);
                   setOpen(false);
                 }}
               >
                 <Check
-                  className={cn('mr-2 h-4 w-4', value === field.id ? 'opacity-100' : 'opacity-0')}
+                  className={cn(
+                    'mr-2 h-4 w-4',
+                    value === option.name ? 'opacity-100' : 'opacity-0'
+                  )}
                 />
-                {/* {fieldStaticGetter(field.type, true).Icon()} */}
-                <span className="pl-1">{field.name}</span>
+                {option.name}
               </CommandItem>
             ))}
           </CommandGroup>
@@ -70,6 +76,6 @@ function FieldSelect(props: IFieldSelectProps) {
   );
 }
 
-FieldSelect.displayName = 'FieldSelect';
+SingleSelect.displayName = 'SingleSelect';
 
-export { FieldSelect };
+export { SingleSelect };

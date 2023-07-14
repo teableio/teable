@@ -1,4 +1,4 @@
-// import { CalendarIcon } from '@radix-ui/react-icons';
+import { CalendarIcon } from '@radix-ui/react-icons';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Calendar } from '@teable-group/ui-lib/shadcn/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
@@ -9,11 +9,11 @@ import type { SelectSingleEventHandler } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 
 interface IFilerDatePickerProps {
-  value: string | number | null;
-  onSelect: (date: Date) => void;
+  value: string | null | undefined;
+  onSelect: (date: string) => void;
 }
 
-function FilterDatePicker(props: IFilerDatePickerProps) {
+function DatePicker(props: IFilerDatePickerProps) {
   const { value, onSelect } = props;
   const [open, setOpen] = React.useState(false);
   const date = React.useMemo(() => {
@@ -23,7 +23,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   }, [value]);
 
   const selectHandler = (date: Date) => {
-    onSelect(date);
+    onSelect?.(date.toString());
     setOpen(false);
   };
 
@@ -33,11 +33,11 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         <Button
           variant={'outline'}
           className={cn(
-            'w-[240px] justify-start text-left font-normal m-[4px]',
+            'w-max justify-start text-left font-normal m-1',
             !date && 'text-muted-foreground'
           )}
         >
-          {/* <CalendarIcon className="mr-2 h-4 w-4" /> */}
+          <CalendarIcon className="mr-2 h-4 w-4" />
           {date ? format(date, 'PPP') : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>
@@ -53,4 +53,4 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 }
 
-export { FilterDatePicker };
+export { DatePicker };
