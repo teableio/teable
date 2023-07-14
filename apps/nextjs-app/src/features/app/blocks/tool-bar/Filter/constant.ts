@@ -1,3 +1,8 @@
 const EMPTYOPERATORS = ['isNotEmpty', 'isEmpty'];
 
-export { EMPTYOPERATORS };
+const defaultFilter = {
+  conjunction: 'and',
+  filterSet: [],
+};
+
+export { EMPTYOPERATORS, defaultFilter };

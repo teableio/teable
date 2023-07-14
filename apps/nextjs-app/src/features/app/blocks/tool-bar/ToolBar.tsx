@@ -9,8 +9,9 @@ import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
-import { Filter } from './Filter';
+import { Filter, defaultFilter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
@@ -18,19 +19,16 @@ export const ToolBar: React.FC = () => {
   const table = useTable();
   const view = useView();
 
-  const filterHandler = useCallback(
+  const onFilterChange = useCallback(
     (filters: IFilter) => {
       view?.setFilter(filters);
     },
     [view]
   );
 
-  const initFilters = useMemo(() => {
-    const defaultFilters: IFilter = {
-      conjunction: 'and',
-      filterSet: [],
-    };
-    return view?.filter || defaultFilters;
+  const initFilters = useMemo<IFilter>(() => {
+    const newFilters = cloneDeep(view?.filter) as IFilter;
+    return newFilters || defaultFilter;
   }, [view]);
 
   const undo = useCallback(() => {
@@ -62,7 +60,7 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      {<Filter filters={initFilters} onChange={filterHandler} />}
+      <Filter filters={initFilters} onChange={onFilterChange} />
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort

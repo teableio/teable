@@ -11,7 +11,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useFieldStaticGetter } from '@/features/app/utils';
+// import { useFieldStaticGetter } from '@/features/app/utils';
 import { cn } from '@/lib/utils';
 
 interface IFieldSelectProps {
