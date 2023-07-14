@@ -66,4 +66,11 @@ export class AttachmentFieldCore extends FieldCore {
   validateCellValue(cellValue: unknown) {
     return attachmentCellValueSchema.nonempty().nullable().safeParse(cellValue);
   }
+
+  item2String(value: unknown) {
+    if (value == null) {
+      return '';
+    }
+    return (value as { name?: string }).name || '';
+  }
 }

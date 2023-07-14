@@ -1,7 +1,9 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
 import type { FieldCore, IRecord } from '../models';
 import {
+  LinkFieldCore,
   FormulaFieldCore,
   FieldType,
   DbFieldType,
@@ -16,35 +18,56 @@ describe('EvalVisitor', () => {
     id: 'recTest',
     fields: {
       fldNumber: 8,
+      fldMultipleNumber: [1, 2, 3],
+      fldMultipleLink: [{ id: 'recxxxxxxx' }, { id: 'recyyyyyyy', title: 'A2' }],
     },
     createdTime: new Date().toISOString(),
     recordOrder: { viwTest: 1 },
   };
 
   beforeAll(() => {
-    const numberFieldJon = {
+    const numberFieldJson = {
       id: 'fldNumber',
-      name: 'f1',
+      name: 'fldNumberName',
       description: 'A test number field',
-      notNull: true,
-      unique: true,
-      isPrimary: true,
-      columnMeta: {
-        index: 0,
-        columnIndex: 0,
-      },
       type: FieldType.Number,
-      dbFieldType: DbFieldType.Real,
       options: {
         precision: 2,
       },
       cellValueType: CellValueType.Number,
-      isComputed: false,
     };
 
-    const numberField = plainToInstance(NumberFieldCore, numberFieldJon);
+    const multipleNumberFieldJson = {
+      id: 'fldMultipleNumber',
+      name: 'fldMultipleNumberName',
+      description: 'A test number field',
+      type: FieldType.Number,
+      options: {
+        precision: 2,
+      },
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: true,
+    };
+
+    const multipleLinkFieldJson = {
+      id: 'fldMultipleLink',
+      name: 'fldMultipleLinkName',
+      description: 'A test number field',
+      type: FieldType.Link,
+      options: {
+        precision: 2,
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: true,
+    };
+
+    const numberField = plainToInstance(NumberFieldCore, numberFieldJson);
+    const multipleNumberField = plainToInstance(NumberFieldCore, multipleNumberFieldJson);
+    const multipleLinkField = plainToInstance(LinkFieldCore, multipleLinkFieldJson);
     fieldContext = {
       [numberField.id]: numberField,
+      [multipleNumberField.id]: multipleNumberField,
+      [multipleLinkField.id]: multipleLinkField,
     };
   });
 
@@ -169,5 +192,13 @@ describe('EvalVisitor', () => {
 
   it('should throw exception', () => {
     expect(() => evalFormula('{}', fieldContext, record)).toThrowError();
+  });
+
+  it('should calculate multiple number field', () => {
+    expect(evalFormula('{fldMultipleNumber}', fieldContext, record)).toEqual([1, 2, 3]);
+  });
+
+  it('should calculate multiple link field', () => {
+    expect(evalFormula('{fldMultipleLink} & "x"', fieldContext, record)).toEqual(',A2x');
   });
 });

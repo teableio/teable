@@ -233,8 +233,7 @@ export class EvalVisitor
 
     // some field like link or attachment may contain json object cellValue, that need to be converted to string.
     if (field.isMultipleCellValue && value[0] && typeof value[0] === 'object') {
-      // fallback by levels.
-      value = value.map((v: any) => v.title || v.text || v.name || v.str || v.string || v.id || v);
+      value = value.map((v: object) => (field.item2String ? field.item2String(v) : v));
     }
 
     if (!field.isMultipleCellValue && typeof value === 'object') {

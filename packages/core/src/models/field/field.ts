@@ -95,6 +95,18 @@ export abstract class FieldCore implements IFieldVo {
 
   lookupOptions?: ILookupOptionsVo;
 
+  /**
+   * some field may store a json type item, we need to know how to convert it to string
+   * it has those difference between cellValue2String
+   * item is the fundamental element of a cellValue, but cellValue may be a Array
+   * example a link cellValue: [{title: 'A1', id: 'rec1'}, {title: 'A2', id: 'rec2'}]
+   * in this case, {title: 'A1', id: 'rec1'} is the item in cellValue.
+   *
+   * caution:
+   * this function should handle the case that item is undefined
+   */
+  item2String?(value?: unknown): string;
+
   abstract cellValue2String(value?: unknown): string;
 
   abstract convertStringToCellValue(str: string): unknown;
