@@ -12,7 +12,7 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IOperator {
@@ -70,14 +70,18 @@ function OperatorSelect(props: IOperatorSelectProps) {
     }
     return defaultOperator;
   }, [field]);
+  const shouldDisabled = useMemo(() => {
+    return field?.type === 'checkbox';
+  }, [field]);
   const value = useMemo(() => {
     const index = operators.findIndex((operator) => operator.value === props.value);
     if (index > -1) {
       return props.value;
     } else {
+      onSelect(operators[0].value);
       return operators[0].value;
     }
-  }, [operators, props.value]);
+  }, [onSelect, operators, props.value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -87,6 +91,7 @@ function OperatorSelect(props: IOperatorSelectProps) {
           role="combobox"
           aria-expanded={open}
           className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
+          disabled={shouldDisabled}
         >
           {value ? (
             <span className="truncate">

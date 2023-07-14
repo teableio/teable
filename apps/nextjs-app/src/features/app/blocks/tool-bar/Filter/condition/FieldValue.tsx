@@ -3,7 +3,13 @@ import type { IFilterMeta } from '@teable-group/core';
 import { useField } from '@teable-group/sdk';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useEffect, useMemo } from 'react';
-import { SingleSelect, MultipleSelect, FilterInput, FilterDatePicker } from '../component';
+import {
+  SingleSelect,
+  MultipleSelect,
+  FilterInput,
+  FilterDatePicker,
+  FilterCheckbox,
+} from '../component';
 import { EMPTYOPERATORS } from '../constant';
 
 interface IFieldValue {
@@ -50,6 +56,8 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.SingleLineText:
         return InputComponent;
+      case FieldType.Checkbox:
+        return <FilterCheckbox onChange={onSelect} />;
       default:
         return InputComponent;
     }
