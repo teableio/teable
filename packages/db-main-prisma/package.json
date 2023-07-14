@@ -26,7 +26,7 @@
     "clean": "rimraf --no-glob ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test": "run-s test:unit",
+    "test": "run-s test-unit",
     "test-unit": "echo \"No unit tests yet\"",
     "test-e2e": "jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "debug-test-e2e": "cross-env DEBUG=testcontainers jest --config e2e/jest.config.js --maxWorkers=50% --color $@",

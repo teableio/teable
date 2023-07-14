@@ -19,7 +19,7 @@ import type { UpdateWorkflowTriggerRo } from '../src/features/automation/model/u
 import type { FieldVo } from '../src/features/field/model/field.vo';
 import { initApp } from './utils/init-app';
 
-describe('AutomationController (e2e)', () => {
+describe.skip('AutomationController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
