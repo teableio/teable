@@ -2,7 +2,7 @@ import type { IRecord, IRecordSnapshot, IRecordSnapshotQuery } from '@teable-gro
 import { IdPrefix } from '@teable-group/core';
 import type { ReactNode } from 'react';
 import { useContext, useEffect, useMemo, useState } from 'react';
-import { AnchorContext } from '../anchor';
+import { AnchorContext } from '../anchor/AnchorContext';
 import { AppContext } from '../app/AppContext';
 import { RecordContext } from './RecordContext';
 
