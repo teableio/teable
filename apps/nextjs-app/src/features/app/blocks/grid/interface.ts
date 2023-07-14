@@ -1,4 +1,5 @@
 import type { IGridTheme } from './configs';
+export * from './renderers/cell-renderer/interface';
 
 export interface IScrollState {
   scrollTop: number;

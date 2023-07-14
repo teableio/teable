@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { ColorUtils } from '@teable-group/core';
 import type { IRectangle } from '../../interface';
 import { drawRect, drawSingleLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
@@ -7,24 +6,23 @@ import type { IInternalCellRenderer, ICellRenderProps, ISelectCell } from './int
 
 const OPTION_HEIGHT = 20;
 const OPTION_INNER_PADDING = 6;
-const defaultOptionBg = '#EDEDF3';
 
 export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   type: CellType.Select,
   needsHover: false,
   needsHoverPosition: false,
   draw: (cell: ISelectCell, props: ICellRenderProps) => {
-    const { ctx, x: _x, y: _y, width, height, theme } = props;
+    const { ctx, rect, theme } = props;
+    const { data: value, choices } = cell;
+    const { x: _x, y: _y, width, height } = rect;
     const {
-      fontSizeSM,
+      fontSizeXS,
       fontFamily,
       cellTextColor,
-      staticBlack,
-      staticWhite,
       cellHorizontalPadding,
       cellVerticalPadding,
+      cellOptionBgDefault,
     } = theme;
-    const { value, options } = cell.data;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
@@ -42,7 +40,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       ctx.clip();
     }
 
-    ctx.font = `${fontSizeSM}px ${fontFamily}`;
+    ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
     let x = drawArea.x;
     let row = 1;
@@ -59,21 +57,17 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         y += OPTION_HEIGHT + OPTION_INNER_PADDING;
         x = drawArea.x;
       }
-      const color = options?.choices.find((choice) => choice.name === text)?.color;
-      const optionBg = color ? ColorUtils.getHexForColor(color) : defaultOptionBg;
-      const textColor = color
-        ? ColorUtils.shouldUseLightTextOnColor(color)
-          ? staticWhite
-          : staticBlack
-        : cellTextColor;
+      const choice = choices?.find(({ name }) => name === text);
+      const bgColor = choice?.bgColor || cellOptionBgDefault;
+      const textColor = choice?.textColor || cellTextColor;
 
       drawRect(ctx, {
         x,
         y,
         width,
         height: OPTION_HEIGHT,
-        radius: OPTION_HEIGHT / 2,
-        fill: optionBg,
+        radius: 8,
+        fill: bgColor,
       });
       drawSingleLineText(ctx, {
         text,

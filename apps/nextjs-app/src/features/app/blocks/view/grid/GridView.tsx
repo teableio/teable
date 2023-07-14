@@ -5,12 +5,10 @@ import { usePrevious } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { useFieldStaticGetter } from '@/features/app/utils';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import type { IRectangle, ISelectionState } from '../../grid';
-import { SelectionRegionType, Grid } from '../../grid';
-import type { IInnerCell } from '../../grid/renderers';
-import { CellType } from '../../grid/renderers';
+import { SelectionRegionType, Grid, CellType } from '../../grid';
+import type { IRectangle, ISelectionState, IInnerCell } from '../../grid';
 import { DomBox } from './DomBox';
-import { useAsyncData, useColumnOrder, useColumnResize, useColumns } from './hooks';
+import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
 import { useGridViewStore } from './store/gridView';
 import { calculateMenuPosition, getHeaderIcons } from './utils';
 
@@ -20,24 +18,23 @@ export const GridView: React.FC = () => {
   const table = useTable();
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
+  const theme = useGridTheme();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
   const { columns, onColumnResize } = useColumnResize(originalColumns);
   const { onColumnOrdered } = useColumnOrder();
   const gridViewStore = useGridViewStore();
 
-  const { getCellContent, onCellEdited, reset } = useAsyncData(
+  const { getCellContent, onVisibleRegionChanged, onCellEdited, reset } = useAsyncData(
     useCallback(
       (record, col) => {
         const fieldId = columns[col]?.id;
         if (!fieldId) {
           return {
-            type: CellType.Text,
-            data: '',
-            displayData: '',
+            type: CellType.Loading,
           };
         }
-        const cellValue = record.getCellValue(fieldId);
-        return cellValue2GridDisplay(cellValue, col);
+        // const cellValue = record.getCellValue(fieldId);
+        return cellValue2GridDisplay(record, col);
       },
       [cellValue2GridDisplay, columns]
     ),
@@ -47,17 +44,18 @@ export const GridView: React.FC = () => {
         const fieldId = columns[col].id;
         const { type, data } = newVal;
         let newCellValue = null;
+        console.log('data', data);
 
         switch (type) {
           case CellType.Select:
-            newCellValue = data.value;
+            newCellValue = data?.length ? data : null;
             break;
           case CellType.Text:
+          case CellType.Date:
           case CellType.Number:
           default:
             newCellValue = data === '' ? null : data;
         }
-        console.log('newCellValue', newCellValue);
         const oldCellValue = record.getCellValue(fieldId) ?? null;
         if (isEqual(newCellValue, oldCellValue)) return;
         record.updateCell(fieldId, newCellValue);
@@ -79,7 +77,7 @@ export const GridView: React.FC = () => {
     }
   }, [reset, tableId, preTableId]);
 
-  const onHeaderMenuClick = useCallback(
+  const onColumnHeaderMenuClick = useCallback(
     (col: number, bounds: IRectangle) => {
       const pos = calculateMenuPosition(container, { col, bounds });
       gridViewStore.openHeaderMenu({ pos, fieldId: columns[col].id });
@@ -147,6 +145,7 @@ export const GridView: React.FC = () => {
   return (
     <div ref={container} className="relative grow w-full overflow-hidden">
       <Grid
+        theme={theme}
         rowCount={rowCount}
         freezeColumnCount={0}
         columns={columns}
@@ -158,12 +157,12 @@ export const GridView: React.FC = () => {
         getCellContent={getCellContent}
         onDelete={onDelete}
         onRowAppend={onRowAppended}
-        // onCellActivated={onCellActivated}
         onCellEdited={onCellEdited}
         onColumnAppend={onColumnAppend}
         onColumnResize={onColumnResize}
         onColumnOrdered={onColumnOrdered}
-        onColumnHeaderMenuClick={onHeaderMenuClick}
+        onVisibleRegionChanged={onVisibleRegionChanged}
+        onColumnHeaderMenuClick={onColumnHeaderMenuClick}
       />
       <DomBox />
     </div>

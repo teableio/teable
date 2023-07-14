@@ -1,9 +1,15 @@
 export interface IGridTheme {
   staticWhite: string;
   staticBlack: string;
+  iconBgCommon: string;
+  iconFgCommon: string;
+  iconBgSelected: string;
+  iconFgSelected: string;
+  iconSizeXS: number;
   iconSizeSM: number;
   iconSizeMD: number;
   iconSizeLG: number;
+  fontSizeXS: number;
   fontSizeSM: number;
   fontSizeMD: number;
   fontSizeLG: number;
@@ -11,14 +17,15 @@ export interface IGridTheme {
   cellBg: string;
   cellBgHovered: string;
   cellBgSelected: string;
+  cellBgLoading: string;
   cellLineColor: string;
   cellLineColorActived: string;
   cellTextColor: string;
   cellHorizontalPadding: number;
   cellVerticalPadding: number;
+  cellOptionBgDefault: string;
   columnHeaderBgHovered: string;
   columnHeaderBgSelected: string;
-  columnHeaderMenuBg: string;
   columnHeaderNameColor: string;
   columnResizeHandlerBg: string;
   columnDraggingPlaceholderBg: string;
@@ -29,12 +36,18 @@ export const gridTheme: IGridTheme = {
   // Common
   staticWhite: '#FFFFFF',
   staticBlack: '#000000',
+  iconBgCommon: '#737383',
+  iconFgCommon: '#009CA6',
+  iconBgSelected: '#FFFFFF',
+  iconFgSelected: '#4F5DFF',
+  iconSizeXS: 12,
   iconSizeSM: 16,
   iconSizeMD: 24,
   iconSizeLG: 32,
-  fontSizeSM: 12,
-  fontSizeMD: 13,
-  fontSizeLG: 14,
+  fontSizeXS: 12,
+  fontSizeSM: 13,
+  fontSizeMD: 14,
+  fontSizeLG: 16,
   fontFamily:
     'Inter, Roboto, -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Ubuntu, noto, arial, sans-serif',
 
@@ -42,16 +55,17 @@ export const gridTheme: IGridTheme = {
   cellBg: '#FFFFFF',
   cellBgHovered: '#F5F7FA',
   cellBgSelected: '#F2F6FE',
+  cellBgLoading: 'rgba(202, 206, 255, 0.253)',
   cellLineColor: '#E0E0E0',
   cellLineColorActived: '#306FD9',
   cellTextColor: '#262626',
   cellHorizontalPadding: 8,
   cellVerticalPadding: 3,
+  cellOptionBgDefault: '#666666',
 
   // Column Header
   columnHeaderBgHovered: '#F5F7FA',
   columnHeaderBgSelected: '#F2F6FE',
-  columnHeaderMenuBg: '#636363',
   columnHeaderNameColor: '#262626',
   columnResizeHandlerBg: '#306FD9',
   columnDraggingPlaceholderBg: 'rgba(0, 0, 0, 0.2)',

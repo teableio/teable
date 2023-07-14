@@ -12,6 +12,9 @@ import {
   CommandList,
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import classNames from 'classnames';
+import { forwardRef, useMemo } from 'react';
+import type { ForwardRefRenderFunction, Ref } from 'react';
+import type { IEditorRef, IEditorProps } from '../../../../grid/components';
 
 export interface ILinkEditorProps {
   field: LinkField;
@@ -20,14 +23,22 @@ export interface ILinkEditorProps {
   onCancel?: () => void;
 }
 
-const SimpleLinkEditor = (props: ILinkEditorProps) => {
+const LinkEditorBase: ForwardRefRenderFunction<
+  IEditorRef,
+  Omit<IEditorProps, 'cell'> & ILinkEditorProps
+> = (props) => {
   const { field, record, style } = props;
   const cellValue = record.getCellValue(field.id) as ILinkCellValue | ILinkCellValue[] | undefined;
-  const values = Array.isArray(cellValue)
-    ? cellValue.map((v) => v.id)
-    : cellValue
-    ? [cellValue.id]
-    : undefined;
+
+  const values = useMemo(
+    () =>
+      Array.isArray(cellValue)
+        ? cellValue.map((v) => v.id)
+        : cellValue
+        ? [cellValue.id]
+        : undefined,
+    [cellValue]
+  );
   // many <> one relation ship only allow select record that has not been selected
   const records = useRecords(
     field.options.relationship === Relationship.OneMany
@@ -38,7 +49,6 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
         }
       : undefined
   );
-  const choices = records;
 
   const onSelect = (value: string) => {
     let newCellValue = null;
@@ -72,7 +82,7 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
         <CommandInput placeholder="Search option" />
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
-          {choices.map(({ name, id }) => (
+          {records.map(({ name, id }) => (
             <CommandItem key={id} value={id} onSelect={() => onSelect(id)}>
               <SelectIcon
                 className={classNames(
@@ -99,11 +109,14 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
   );
 };
 
-export const LinkEditor = (props: ILinkEditorProps) => {
+const LinkEditorInner = forwardRef(LinkEditorBase);
+
+export const LinkEditor = (props: ILinkEditorProps & { editorRef: Ref<IEditorRef> }) => {
+  const { editorRef } = props;
   const tableId = props.field.options.foreignTableId;
   return (
-    <AnchorProvider tableId={tableId} fallback={<h1>Empty</h1>}>
-      <SimpleLinkEditor {...props} />
+    <AnchorProvider tableId={tableId}>
+      <LinkEditorInner ref={editorRef} {...props} />
     </AnchorProvider>
   );
 };

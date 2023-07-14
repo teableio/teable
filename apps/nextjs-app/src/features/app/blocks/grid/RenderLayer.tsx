@@ -13,7 +13,8 @@ const Layer = dynamic(() => import('./components/base/Layer'), { ssr: false });
 const Group = dynamic(() => import('./components/base/Group'), { ssr: false });
 const Shape = dynamic(() => import('./components/base/Shape'), { ssr: false });
 
-export interface IRenderLayerProps extends Omit<IInteractionLayerProps, 'scrollTo' | 'scrollBy'> {
+export interface IRenderLayerProps
+  extends Omit<IInteractionLayerProps, 'scrollTo' | 'scrollBy' | 'setMouseState'> {
   isEditing: boolean;
   startRowIndex: number;
   stopRowIndex: number;

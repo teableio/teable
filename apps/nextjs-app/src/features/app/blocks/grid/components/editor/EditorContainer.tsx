@@ -1,47 +1,53 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { clamp } from 'lodash';
-import type { CSSProperties } from 'react';
-import { useEffect, useRef } from 'react';
-import type { IGridTheme } from '../../configs';
+import type { CSSProperties, ForwardRefRenderFunction } from 'react';
+import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { useKeyboardSelection } from '../../hooks';
+import type { IInteractionLayerProps } from '../../InteractionLayer';
 import type { ICellItem, IScrollState, ISelectionState } from '../../interface';
 import { SelectionRegionType } from '../../interface';
-import type { CoordinateManager } from '../../managers';
-import type { IInnerCell } from '../../renderers';
+import type { ICell, IInnerCell } from '../../renderers';
 import { CellType } from '../../renderers';
 import { isPrintableKey } from '../../utils';
+import { DateEditor } from './DateEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
-export interface IEditorContainerProps {
-  theme: IGridTheme;
+export interface IEditorContainerProps
+  extends Pick<
+    IInteractionLayerProps,
+    'theme' | 'coordInstance' | 'scrollTo' | 'getCellContent' | 'onDelete' | 'onCellActivated'
+  > {
   isEditing?: boolean;
   scrollState: IScrollState;
-  coordInstance: CoordinateManager;
   selectionState: ISelectionState;
-  scrollTo: (sl?: number, st?: number) => void;
   setSelectionState: React.Dispatch<React.SetStateAction<ISelectionState>>;
-  getCellContent: (cell: ICellItem) => IInnerCell;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (cell: ICellItem, cellValue: IInnerCell) => void;
-  onDelete?: (selectionState: ISelectionState) => void;
-  onCellActivated?: (cell: ICellItem) => void;
 }
 
 export interface IEditorRef<T extends IInnerCell = IInnerCell> {
-  focus: () => void;
-  setValue: (data: T['data']) => void;
-  saveValue: () => void;
+  focus?: () => void;
+  setValue?: (data: T['data']) => void;
+  saveValue?: () => void;
 }
 
-export interface IEditorProps<T extends IInnerCell> {
+export interface IEditorProps<T extends IInnerCell = IInnerCell> {
   cell: T;
   style?: CSSProperties;
   isEditing?: boolean;
   onChange?: (value: unknown) => void;
 }
 
-export const EditorContainer = (props: IEditorContainerProps) => {
+export interface IEditorContainerRef {
+  focus?: () => void;
+  saveValue?: () => void;
+}
+
+export const EditorContainerBase: ForwardRefRenderFunction<
+  IEditorContainerRef,
+  IEditorContainerProps
+> = (props: IEditorContainerProps, ref) => {
   const {
     theme,
     isEditing,
@@ -61,10 +67,18 @@ export const EditorContainer = (props: IEditorContainerProps) => {
   const isCellSelection = selectionType === SelectionRegionType.Cells;
   const [columnIndex, rowIndex] = isCellSelection ? selectionRanges[0] : [-1, -1];
   const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
-  const editingEnable = isEditing && columnIndex > -1 && rowIndex > -1;
-  const cell = getCellContent([columnIndex, rowIndex]);
-  const { data: cellValue, type: cellType } = cell;
+  const cell = useMemo(
+    () => getCellContent([columnIndex, rowIndex]) as ICell,
+    [columnIndex, getCellContent, rowIndex]
+  );
+  const { type: cellType, readonly } = cell;
+  const editingEnable = !readonly && isEditing && columnIndex > -1 && rowIndex > -1;
   const editorRef = useRef<IEditorRef | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => editorRef.current?.focus?.(),
+    saveValue: () => editorRef.current?.saveValue?.(),
+  }));
 
   const onChangeInner = (value: unknown) => {
     onChange?.([columnIndex, rowIndex], {
@@ -74,10 +88,11 @@ export const EditorContainer = (props: IEditorContainerProps) => {
   };
 
   useEffect(() => {
+    if (cell.type === CellType.Loading) return;
     if (!isCellSelection || columnIndex < 0 || rowIndex < 0) return;
-    editorRef.current?.setValue(cellValue);
-    requestAnimationFrame(() => editorRef.current?.focus());
-  }, [columnIndex, rowIndex, cellValue, isCellSelection]);
+    editorRef.current?.setValue?.(cell.data);
+    requestAnimationFrame(() => editorRef.current?.focus?.());
+  }, [columnIndex, rowIndex, isCellSelection, cell]);
 
   useKeyboardSelection({
     isEditing,
@@ -96,17 +111,19 @@ export const EditorContainer = (props: IEditorContainerProps) => {
     if (!isCellSelection || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
     setEditing(true);
-    editorRef.current?.setValue('');
+    editorRef.current?.setValue?.('');
   };
 
   const width = coordInstance.getColumnWidth(columnIndex) + 4;
   const height = coordInstance.getRowHeight(rowIndex) + 4;
 
-  const style = (
-    editingEnable
-      ? { pointerEvents: 'auto', minWidth: width, minHeight: height }
-      : { pointerEvents: 'none', opacity: 0, minWidth: width, minHeight: height }
-  ) as React.CSSProperties;
+  const style = useMemo(
+    () =>
+      (editingEnable
+        ? { pointerEvents: 'auto', minWidth: width, minHeight: height }
+        : { pointerEvents: 'none', opacity: 0, width: 0, height: 0 }) as React.CSSProperties,
+    [editingEnable, height, width]
+  );
 
   function Editor() {
     switch (cellType) {
@@ -116,10 +133,16 @@ export const EditorContainer = (props: IEditorContainerProps) => {
           <TextEditor
             ref={editorRef}
             cell={cell}
-            style={{ ...style, borderColor: theme.cellLineColorActived }}
+            style={{
+              ...style,
+              borderColor: theme.cellLineColorActived,
+              textAlign: cellType === CellType.Number ? 'right' : 'left',
+            }}
             onChange={onChangeInner}
           />
         );
+      case CellType.Date:
+        return <DateEditor ref={editorRef} cell={cell} style={style} onChange={onChangeInner} />;
       case CellType.Select:
         return (
           <SelectEditor
@@ -135,7 +158,7 @@ export const EditorContainer = (props: IEditorContainerProps) => {
     }
   }
 
-  const cellOffsetY = new Set([CellType.Select]).has(cellType)
+  const cellOffsetY = new Set([CellType.Select, CellType.Date]).has(cellType)
     ? coordInstance.getRowHeight(columnIndex) + 3
     : 0;
   const top = coordInstance.getRowOffset(rowIndex) - scrollTop - 1.5 + cellOffsetY;
@@ -151,8 +174,18 @@ export const EditorContainer = (props: IEditorContainerProps) => {
         }}
         onKeyDown={onKeyDown}
       >
-        {Editor()}
+        {cell.customEditor
+          ? cell.customEditor(
+              {
+                style,
+                cell: cell as unknown as IInnerCell,
+              },
+              editorRef
+            )
+          : Editor()}
       </div>
     </div>
   );
 };
+
+export const EditorContainer = forwardRef(EditorContainerBase);

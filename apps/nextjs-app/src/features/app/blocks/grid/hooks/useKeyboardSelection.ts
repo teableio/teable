@@ -154,15 +154,20 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       if (!isCellSelection) return;
       const { ranges } = selectionState;
       if (isEditing) {
-        editorRef.current?.saveValue();
+        editorRef.current?.saveValue?.();
         const [columnIndex, rowIndex] = ranges[0];
         const newRange = [columnIndex, Math.min(rowIndex + 1, pureRowCount - 1)];
         setEditing(false);
         setSelectionState({ ...selectionState, ranges: <IRange[]>[newRange, newRange] });
-        scrollToCell(newRange as never);
+        scrollToCell(newRange as IRange);
       } else {
         setEditing(true);
       }
+    });
+
+    mousetrap.bind('esc', () => {
+      if (!isCellSelection) return;
+      setEditing(false);
     });
 
     return () => {

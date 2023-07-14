@@ -1,5 +1,3 @@
-import type { ISelectFieldOptions } from '@teable-group/core';
-import { ColorUtils } from '@teable-group/core';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import {
   Command,
@@ -14,11 +12,10 @@ import { isString, noop } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
 import { useKeyboardNavigation } from '../../hooks';
-import type { ISelectCell, ISelectCellData } from '../../renderers';
+import type { ISelectCell } from '../../renderers';
 import type { IEditorProps, IEditorRef } from './EditorContainer';
 
-const getFormatSelectValue = (data: ISelectCellData) => {
-  const { value } = data;
+const getFormatSelectValue = (value: string | string[]) => {
   return isString(value) ? [value] : ((value ?? []) as string[]);
 };
 
@@ -27,10 +24,8 @@ const SelectEditorBase: ForwardRefRenderFunction<
   IEditorProps<ISelectCell>
 > = (props, ref) => {
   const { isEditing, cell, style, onChange } = props;
-  const { data, isMultiple } = cell;
-  const { options } = data;
+  const { data, isMultiple, choices = [] } = cell;
   const [values, setValues] = useState(getFormatSelectValue(data));
-  const choices = (options as ISelectFieldOptions)?.choices || [];
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const activeIndex = useKeyboardNavigation(choices.length, isEditing);
@@ -38,7 +33,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   useImperativeHandle(ref, () => ({
     // focus: () => inputRef.current?.focus(),
     focus: noop,
-    setValue: (data: ISelectCellData) => {
+    setValue: (data: string[]) => {
       const value = getFormatSelectValue(data);
       setValues(value);
     },
@@ -53,11 +48,11 @@ const SelectEditorBase: ForwardRefRenderFunction<
     if (!isMultiple) {
       const value = newCellValue.length ? newCellValue[newCellValue.length - 1] : null;
       setValues(value ? [value] : []);
-      return onChange?.({ options, value });
+      return onChange?.(value);
     }
     const value = newCellValue.length ? newCellValue : null;
     setValues(value || []);
-    return onChange?.({ options, value });
+    return onChange?.(value);
   };
 
   return (
@@ -66,7 +61,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
         <CommandInput ref={inputRef} placeholder="Search" />
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
-          {choices.map(({ color, name }, index) => (
+          {choices.map(({ bgColor, textColor, name }, index) => (
             <CommandItem
               key={name}
               value={name}
@@ -82,8 +77,8 @@ const SelectEditorBase: ForwardRefRenderFunction<
               <div
                 className={classNames('px-2 rounded-lg')}
                 style={{
-                  backgroundColor: ColorUtils.getHexForColor(color),
-                  color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+                  backgroundColor: bgColor,
+                  color: textColor,
                 }}
               >
                 {name}

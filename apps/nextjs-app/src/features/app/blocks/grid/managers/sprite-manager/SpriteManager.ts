@@ -1,31 +1,17 @@
 import type Konva from 'konva';
+import type { IGridTheme } from '../../configs';
 import type { IHeaderIconMap, ISpriteProps } from './sprites';
 import { sprites } from './sprites';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const COLOR_MAP = {
-  iconCommonBg: '#737383',
-  iconCommonFg: '#009CA6',
-  iconSelectedBg: '#FFFFFF',
-  iconSelectedFg: '#4F5DFF',
-  iconOtherBg: '#4F5DFF',
-  iconOtherFg: '#F7F7F8',
-};
-
-const getColors = (variant: ISpriteVariant): readonly [string, string] => {
-  if (variant === 'normal') {
-    return [COLOR_MAP.iconCommonBg, COLOR_MAP.iconCommonFg];
-  } else if (variant === 'selected') {
-    return [COLOR_MAP.iconSelectedBg, COLOR_MAP.iconSelectedFg];
-  } else {
-    return [COLOR_MAP.iconOtherBg, COLOR_MAP.iconOtherFg];
-  }
+const getColors = (variant: ISpriteVariant, theme: IGridTheme): readonly [string, string] => {
+  const { iconBgCommon, iconBgSelected, iconFgCommon, iconFgSelected } = theme;
+  return variant === 'selected' ? [iconBgSelected, iconFgSelected] : [iconBgCommon, iconFgCommon];
 };
 
 export type IHeaderIcon = keyof IHeaderIconMap;
 export type ISprite = (props: ISpriteProps) => string;
 export type ISpriteMap = Record<string | IHeaderIcon, ISprite>;
-export type ISpriteVariant = 'normal' | 'selected' | 'special';
+export type ISpriteVariant = 'normal' | 'selected';
 
 interface ISpriteDrawerProps {
   sprite: IHeaderIcon | string;
@@ -33,6 +19,7 @@ interface ISpriteDrawerProps {
   x: number;
   y: number;
   size: number;
+  theme: IGridTheme;
   alpha?: number;
 }
 
@@ -49,8 +36,8 @@ export class SpriteManager {
   }
 
   public drawSprite(ctx: Konva.Context, props: ISpriteDrawerProps) {
-    const { sprite, variant, x, y, size, alpha = 1 } = props;
-    const [bgColor, fgColor] = getColors(variant);
+    const { sprite, variant, x, y, size, alpha = 1, theme } = props;
+    const [bgColor, fgColor] = getColors(variant, theme);
     const rSize = size * Math.ceil(window.devicePixelRatio);
     const key = `${bgColor}_${fgColor}_${rSize}_${sprite}`;
 

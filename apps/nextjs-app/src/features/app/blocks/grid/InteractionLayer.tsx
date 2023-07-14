@@ -2,8 +2,9 @@ import Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { isEqual } from 'lodash';
 import dynamic from 'next/dynamic';
-import type { FC } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
 import { useState, useRef, useCallback } from 'react';
+import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
 import { DEFAULT_SELECTION_STATE, DEFAULT_MOUSE_STATE, GRID_DEFAULT } from './configs';
@@ -30,6 +31,8 @@ export interface IInteractionLayerProps
   > {
   theme: IGridTheme;
   scrollState: IScrollState;
+  mouseState: IMouseState;
+  setMouseState: Dispatch<SetStateAction<IMouseState>>;
   spriteManager: SpriteManager;
   coordInstance: CoordinateManager;
   scrollTo: (sl?: number, st?: number) => void;
@@ -44,6 +47,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     scrollState,
     spriteManager,
     coordInstance,
+    mouseState,
+    setMouseState,
     scrollTo,
     scrollBy,
     getCellContent,
@@ -54,10 +59,11 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
+    onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
-  const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const stageRef = useRef<Konva.Stage>();
+  const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
   const { containerWidth, containerHeight, freezeColumnCount, rowCount } = coordInstance;
@@ -69,7 +75,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
 
   const { startRowIndex, stopRowIndex, startColumnIndex, stopColumnIndex } = useVisibleRegion(
     coordInstance,
-    scrollState
+    scrollState,
+    onVisibleRegionChanged
   );
   const { columnResizeState, onColumnResizeStart, onColumnResizeChange, onColumnResizeEnd } =
     useColumnResize(coordInstance);
@@ -188,6 +195,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     if (mouseState == null || selectionType !== SelectionRegionType.Cells) return;
     const { rowIndex, columnIndex } = mouseState;
     if (isEqual(selectionRanges[0], [columnIndex, rowIndex])) {
+      editorContainerRef.current?.focus?.();
       setEditing(true);
     }
   };
@@ -211,6 +219,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         isEqual(selectionRanges[0], [columnIndex, rowIndex])
       )
     ) {
+      editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
     onSmartMouseDown();
@@ -293,6 +302,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         />
       </Stage>
       <EditorContainer
+        ref={editorContainerRef}
         theme={theme}
         isEditing={isEditing}
         scrollTo={scrollTo}

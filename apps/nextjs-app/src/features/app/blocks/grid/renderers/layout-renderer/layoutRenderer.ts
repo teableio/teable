@@ -26,22 +26,25 @@ import { RenderRegion } from './interface';
 
 export const drawCell = (ctx: Konva.Context, props: ICellDrawerProps) => {
   const { x, y, width, height, fill, stroke, cell, theme } = props;
+  const { cellLineColor, cellBg } = theme;
   drawRect(ctx, {
     x,
     y,
     width,
     height,
-    stroke: stroke ?? theme.cellLineColor,
-    fill: fill ?? theme.cellBg,
+    fill: fill ?? cellBg,
+    stroke: stroke ?? cellLineColor,
   });
   const cellRenderer = getCellRenderer(cell.type);
   cellRenderer.draw(cell as never, {
     ctx,
-    x,
-    y,
-    width,
-    height,
     theme,
+    rect: {
+      x,
+      y,
+      width,
+      height,
+    },
   });
 };
 
@@ -86,7 +89,8 @@ export const drawCells = (
     : originStopColumnIndex;
   const stopRowIndex = hasAppendRow ? Math.max(0, originStopRowIndex - 1) : originStopRowIndex;
   const {
-    fontSizeMD,
+    fontSizeXS,
+    fontSizeSM,
     fontFamily,
     cellBg,
     cellBgHovered,
@@ -95,19 +99,10 @@ export const drawCells = (
     columnHeaderBgSelected,
   } = theme;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(
-    isFreezeRegion ? 0 : freezeRegionWidth + scrollLeft + 1,
-    rowInitSize + scrollTop + 1,
-    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
-    containerHeight - rowInitSize - 1
-  );
-  ctx.clip();
-  ctx.font = `normal ${fontSizeMD}px ${fontFamily}`;
-
   let activeCellProps: ICellDrawerProps | null = null;
   let fillHandlerProps: IRectProps | null = null;
+  const cellPropsCollection = [];
+  const rowHeaderPropsCollection = [];
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnOffset(columnIndex);
@@ -144,7 +139,7 @@ export const drawCells = (
       }
 
       if (columnIndex === 0) {
-        drawRowHeader(ctx, {
+        rowHeaderPropsCollection.push({
           x: 0.5,
           y: y + 0.5,
           width: columnInitSize,
@@ -186,7 +181,7 @@ export const drawCells = (
         continue;
       }
 
-      drawCell(ctx, {
+      cellPropsCollection.push({
         x: x + 0.5,
         y: y + 0.5,
         width: columnWidth,
@@ -197,7 +192,26 @@ export const drawCells = (
       });
     }
   }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth + scrollLeft + 1,
+    rowInitSize + scrollTop + 1,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize - 1
+  );
+  ctx.clip();
+
+  ctx.font = `${fontSizeSM}px ${fontFamily}`;
+  cellPropsCollection.forEach((cellProps) => drawCell(ctx, cellProps));
+
+  ctx.font = `${fontSizeXS}px ${fontFamily}`;
+  rowHeaderPropsCollection.forEach((rowHeaderProps) => drawRowHeader(ctx, rowHeaderProps));
+
+  ctx.font = `${fontSizeSM}px ${fontFamily}`;
   activeCellProps && drawCell(ctx, activeCellProps);
+
   fillHandlerProps && drawRect(ctx, fillHandlerProps);
 
   ctx.restore();
@@ -256,14 +270,8 @@ export const drawRowHeader = (ctx: Konva.Context, props: IRowHeaderDrawerProps) 
 export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProps) => {
   const { x, y, width, height, theme, fill, column, hasMenu, spriteManager } = props;
   const { name, icon, hasMenu: hasColumnMenu } = column;
-  const {
-    cellLineColor,
-    cellBg,
-    columnHeaderMenuBg,
-    columnHeaderNameColor,
-    fontSizeLG,
-    iconSizeSM,
-  } = theme;
+  const { cellLineColor, cellBg, iconBgCommon, columnHeaderNameColor, fontSizeMD, iconSizeSM } =
+    theme;
   const { columnHeadPadding, columnHeadMenuSize } = GRID_DEFAULT;
   let maxTextWidth = width - columnHeadPadding * 2 - iconSizeSM;
 
@@ -282,6 +290,7 @@ export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProp
       x: x + columnHeadPadding,
       y: y + (height - iconSizeSM) / 2,
       size: iconSizeSM,
+      theme,
     });
   if (hasMenu && hasColumnMenu) {
     maxTextWidth = maxTextWidth - columnHeadMenuSize - columnHeadPadding;
@@ -301,7 +310,7 @@ export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProp
         },
       ],
       radiusAll: 1,
-      fill: columnHeaderMenuBg,
+      fill: iconBgCommon,
     });
   }
   drawMultiLineText(ctx, {
@@ -311,7 +320,7 @@ export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProp
     maxLines: 1,
     maxWidth: maxTextWidth,
     fill: columnHeaderNameColor,
-    fontSize: fontSizeLG,
+    fontSize: fontSizeMD,
   });
 };
 
@@ -364,7 +373,7 @@ export const drawColumnHeaders = (
   ctx.clip();
   const {
     iconSizeSM,
-    fontSizeLG,
+    fontSizeMD,
     fontFamily,
     cellBg,
     columnHeaderBgHovered,
@@ -374,7 +383,7 @@ export const drawColumnHeaders = (
     cellLineColorActived,
     staticWhite,
   } = theme;
-  ctx.font = `normal ${fontSizeLG}px ${fontFamily}`;
+  ctx.font = `normal ${fontSizeMD}px ${fontFamily}`;
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     let x = coordInstance.getColumnOffset(columnIndex);
@@ -520,9 +529,9 @@ export const drawColumnResizeHandler = (ctx: Konva.Context, props: IRenderLayerP
   const { columnIndex: resizeColumnIndex } = columnResizeState;
   const canResize = onColumnResize != null;
   const isHover = canResize && hoverRegionType === RegionType.ColumnResizeHandler;
-  const isResize = resizeColumnIndex > -1;
+  const isResizing = resizeColumnIndex > -1;
 
-  if (!isHover && !isResize) return;
+  if (!isHover && !isResizing) return;
 
   const { columnResizeHandlerBg } = theme;
   const { columnResizeHandlerWidth } = GRID_DEFAULT;
@@ -531,7 +540,7 @@ export const drawColumnResizeHandler = (ctx: Konva.Context, props: IRenderLayerP
   const isFreezeColumn = hoverColumnIndex < freezeColumnCount;
   let x = 0;
 
-  if (isResize) {
+  if (isResizing) {
     const offsetX = coordInstance.getColumnOffset(resizeColumnIndex);
     const columnWidth = coordInstance.getColumnWidth(resizeColumnIndex);
     x = isFreezeColumn ? scrollLeft + offsetX + columnWidth : offsetX + columnWidth;

@@ -10,7 +10,7 @@ export const DomBox = () => {
       {<FieldMenu />}
       {/* field setting */}
       {<FieldSetting />}
-      {editorCtx && <EditorContainer />}
+      {/* {editorCtx && <EditorContainer />} */}
     </>
   );
 };

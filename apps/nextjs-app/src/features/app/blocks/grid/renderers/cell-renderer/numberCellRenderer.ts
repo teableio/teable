@@ -9,11 +9,13 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
   needsHoverPosition: false,
   draw: (cell: INumberCell, props: ICellRenderProps) => {
     const { displayData } = cell;
-    const { ctx, x, y, width, height, theme } = props;
+
     if (displayData == null || displayData === '') return;
 
-    const { columnHeaderNameColor, fontSizeMD } = theme;
+    const { ctx, rect, theme } = props;
+    const { x, y, width, height } = rect;
     const { cellPadding } = GRID_DEFAULT;
+    const { cellTextColor } = theme;
 
     drawMultiLineText(ctx, {
       x: x + width - cellPadding,
@@ -21,8 +23,7 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
       text: displayData,
       maxLines: 1,
       maxWidth: width - cellPadding * 2,
-      fill: columnHeaderNameColor,
-      fontSize: fontSizeMD,
+      fill: cellTextColor,
       textAlign: 'right',
     });
   },

@@ -2,27 +2,35 @@
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import type { IGridTheme } from './configs';
-import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE } from './configs';
+import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
 import { InteractionLayer } from './InteractionLayer';
-import { RowControlType } from './interface';
-import type { IRectangle, IScrollState, ISelectionState, ICellItem, IColumn } from './interface';
+import { RegionType, RowControlType } from './interface';
+import type {
+  IRectangle,
+  IScrollState,
+  ISelectionState,
+  ICellItem,
+  IColumn,
+  IMouseState,
+} from './interface';
 import type { ISpriteMap } from './managers';
 import { CoordinateManager, SpriteManager } from './managers';
-import type { IInnerCell } from './renderers';
+import type { ICell, IInnerCell } from './renderers';
 
 export interface IGridExternalProps {
-  readonly theme?: IGridTheme;
+  readonly theme?: Partial<IGridTheme>;
   readonly headerIcons?: ISpriteMap;
   readonly rowControls?: RowControlType[];
   readonly smoothScrollX?: boolean;
   readonly smoothScrollY?: boolean;
   readonly onDelete?: (selectionState: ISelectionState) => void;
   readonly onRowAppend?: () => void;
-  readonly onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   readonly onColumnAppend?: () => void;
+  readonly onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
+  readonly onVisibleRegionChanged?: (rect: IRectangle) => void;
   readonly onCellActivated?: (cell: ICellItem) => void;
   readonly onColumnOrdered?: (column: IColumn, colIndex: number, newOrder: number) => void;
   readonly onColumnResize?: (
@@ -40,7 +48,7 @@ export interface IGridProps extends IGridExternalProps {
   readonly rowCount: number;
   readonly rowHeight?: number;
   readonly style?: CSSProperties;
-  readonly getCellContent: (cell: ICellItem) => IInnerCell;
+  readonly getCellContent: (cell: ICellItem) => ICell;
 }
 
 export interface IGridRef {
@@ -75,6 +83,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
+    onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
 
@@ -103,6 +112,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   );
 
   const [, forceUpdate] = useState(0);
+  const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -179,6 +189,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           rowControls={rowControls}
           coordInstance={coordInstance}
           scrollState={scrollState}
+          mouseState={mouseState}
+          setMouseState={setMouseState}
           spriteManager={spriteManager}
           getCellContent={getCellContent}
           scrollTo={scrollTo}
@@ -190,6 +202,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
+          onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />
       </div>
@@ -205,8 +218,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         totalHeight={totalHeight}
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
-        containerRef={containerRef.current}
+        containerRef={containerRef}
         setScrollState={setScrollState}
+        scrollEnable={mouseState.type !== RegionType.None}
       />
     </div>
   );

@@ -1,8 +1,13 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import type { IGridProps } from '../Grid';
 import type { IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
-export const useVisibleRegion = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
+export const useVisibleRegion = (
+  coordInstance: CoordinateManager,
+  scrollState: IScrollState,
+  onVisibleRegionChanged: IGridProps['onVisibleRegionChanged']
+) => {
   const { scrollTop, scrollLeft } = scrollState;
   const { rowCount, columnCount } = coordInstance;
 
@@ -29,13 +34,21 @@ export const useVisibleRegion = (coordInstance: CoordinateManager, scrollState: 
   const { startRowIndex, stopRowIndex } = getVerticalRangeInfo();
   const { startColumnIndex, stopColumnIndex } = getHorizontalRangeInfo();
 
-  return useMemo(
-    () => ({
+  useEffect(() => {
+    onVisibleRegionChanged?.({
+      x: startColumnIndex,
+      y: startRowIndex,
+      width: stopColumnIndex - startColumnIndex,
+      height: stopRowIndex - stopColumnIndex,
+    });
+  }, [onVisibleRegionChanged, startColumnIndex, startRowIndex, stopColumnIndex, stopRowIndex]);
+
+  return useMemo(() => {
+    return {
       startRowIndex,
       stopRowIndex,
       startColumnIndex,
       stopColumnIndex,
-    }),
-    [startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex]
-  );
+    };
+  }, [startColumnIndex, startRowIndex, stopColumnIndex, stopRowIndex]);
 };

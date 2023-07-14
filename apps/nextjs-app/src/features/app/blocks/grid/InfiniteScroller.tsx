@@ -1,4 +1,4 @@
-import type { ForwardRefRenderFunction, ReactNode, UIEvent } from 'react';
+import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useEventListener } from './hooks';
 import type { IScrollState } from './interface';
@@ -12,11 +12,12 @@ export interface ScrollerProps {
   containerHeight: number;
   totalWidth: number;
   totalHeight: number;
-  containerRef: HTMLDivElement | null;
+  containerRef: MutableRefObject<HTMLDivElement | null>;
   left?: number;
   top?: number;
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
+  scrollEnable?: boolean;
   setScrollState: React.Dispatch<React.SetStateAction<IScrollState>>;
 }
 
@@ -37,6 +38,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     containerRef,
     smoothScrollX,
     smoothScrollY,
+    scrollEnable = true,
     setScrollState,
   } = props;
 
@@ -122,15 +124,18 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     resetScrollingTimeoutID.current = requestTimeout(resetScrolling, 200);
   }, [resetScrolling]);
 
-  const scrollHandler = useCallback((deltaX: number, deltaY: number) => {
-    if (horizontalScrollRef.current) {
-      horizontalScrollRef.current.scrollLeft = horizontalScrollRef.current.scrollLeft + deltaX;
-    }
-    if (verticalScrollRef.current) {
-      const realDeltaY = deltaY;
-      verticalScrollRef.current.scrollTop = verticalScrollRef.current.scrollTop + realDeltaY;
-    }
-  }, []);
+  const scrollHandler = useCallback(
+    (deltaX: number, deltaY: number) => {
+      if (scrollEnable && horizontalScrollRef.current) {
+        horizontalScrollRef.current.scrollLeft = horizontalScrollRef.current.scrollLeft + deltaX;
+      }
+      if (scrollEnable && verticalScrollRef.current) {
+        const realDeltaY = deltaY;
+        verticalScrollRef.current.scrollTop = verticalScrollRef.current.scrollTop + realDeltaY;
+      }
+    },
+    [scrollEnable]
+  );
 
   const onWheel = useCallback(
     (event: Event) => {
@@ -156,7 +161,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     return res;
   }, [totalHeight]);
 
-  useEventListener('wheel', onWheel, containerRef, false);
+  useEventListener('wheel', onWheel, containerRef.current, false);
 
   return (
     <>

@@ -9,10 +9,11 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
   needsHoverPosition: false,
   draw: (cell: ITextCell, props: ICellRenderProps) => {
     const { displayData } = cell;
-    const { ctx, x, y, width, height, theme } = props;
+    const { ctx, rect, theme } = props;
+    const { x, y, width, height } = rect;
     if (displayData == null || displayData === '') return;
 
-    const { columnHeaderNameColor, fontSizeMD } = theme;
+    const { cellTextColor } = theme;
     const { cellPadding } = GRID_DEFAULT;
 
     drawMultiLineText(ctx, {
@@ -21,8 +22,7 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
       text: displayData,
       maxLines: 1,
       maxWidth: width - cellPadding * 2,
-      fill: columnHeaderNameColor,
-      fontSize: fontSizeMD,
+      fill: cellTextColor,
     });
   },
 };

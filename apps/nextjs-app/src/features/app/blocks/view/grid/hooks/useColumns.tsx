@@ -1,10 +1,10 @@
-import { FieldType } from '@teable-group/core';
+import { ColorUtils, FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
-import type { IColumn } from '../../../grid';
-import type { IInnerCell } from '../../../grid/renderers';
-import { CellType } from '../../../grid/renderers';
+import type { IColumn, ICell } from '../../../grid';
+import { CellType } from '../../../grid';
+import { LinkEditor } from '../components';
 
 const generateColumns = (
   fields: IFieldInstance[],
@@ -90,46 +90,75 @@ const generateColumns = (
   });
 };
 
-const createNewCellValue2GridDisplay =
+const createCellValue2GridDisplay =
   (fields: IFieldInstance[]) =>
-  (cellValue: unknown, col: number): IInnerCell => {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  (record: Record, col: number): ICell => {
     const field = fields[col];
+    const { id, type, isComputed, isMultipleCellValue } = field;
+    const cellValue = record.getCellValue(id);
 
-    switch (field?.type) {
+    switch (type) {
       case FieldType.SingleLineText: {
         return {
           type: CellType.Text,
           data: (cellValue as string) || '',
-          displayData: (cellValue as string) || '',
-          readonly: field.isComputed,
+          displayData: field.cellValue2String(cellValue),
+          readonly: isComputed,
+        };
+      }
+      case FieldType.Date: {
+        return {
+          type: CellType.Date,
+          data: (cellValue as string) || '',
+          displayData: field.cellValue2String(cellValue),
+          readonly: isComputed,
         };
       }
       case FieldType.Number: {
         return {
           type: CellType.Number,
           data: (cellValue as number) || undefined,
-          displayData: field.cellValue2String(cellValue as number),
-          contentAlign: 'right',
-          readonly: field.isComputed,
+          displayData: field.cellValue2String(cellValue),
+          readonly: isComputed,
         };
       }
       case FieldType.MultipleSelect:
       case FieldType.SingleSelect: {
+        const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+        const choices = field.options.choices.map(({ name, color }) => {
+          return {
+            name,
+            bgColor: ColorUtils.getHexForColor(color),
+            textColor: ColorUtils.shouldUseLightTextOnColor(color) ? '#FFFFFF' : '#000000',
+          };
+        });
         return {
           type: CellType.Select,
-          data: {
-            options: field.options,
-            value: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
-          },
-          isMultiple: field.isMultipleCellValue,
-          readonly: field.isComputed,
+          data,
+          choices,
+          isMultiple: isMultipleCellValue,
+          readonly: isComputed,
+        };
+      }
+      case FieldType.Link: {
+        const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+        const data = cv.map(({ title }) => title || 'Untitled');
+        const choices = cv.map(({ id, title }) => ({ id, name: title }));
+        return {
+          type: CellType.Select,
+          data,
+          choices,
+          isMultiple: isMultipleCellValue,
+          readonly: false,
+          customEditor: (props, ref) => (
+            <LinkEditor editorRef={ref} field={field} record={record} {...props} />
+          ),
         };
       }
       default: {
         return {
-          type: CellType.Text,
-          data: '',
-          displayData: '',
+          type: CellType.Loading,
         };
       }
     }
@@ -142,7 +171,7 @@ export function useColumns() {
   return useMemo(
     () => ({
       columns: generateColumns(fields, viewId),
-      cellValue2GridDisplay: createNewCellValue2GridDisplay(fields),
+      cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
     [fields, viewId]
   );

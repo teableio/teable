@@ -26,8 +26,8 @@ const TextEditorBase: ForwardRefRenderFunction<
   };
 
   const onChangeInner = (e: ChangeEvent<HTMLInputElement>) => {
-    const value1 = e.target.value;
-    setValueInner(value1);
+    const value = e.target.value;
+    setValueInner(value);
   };
 
   return (
@@ -37,7 +37,7 @@ const TextEditorBase: ForwardRefRenderFunction<
       value={values}
       width={'100%'}
       height={'100%'}
-      className="border-2 shadow-none h-full w-full focus-visible:ring-transparent"
+      className="border-2 shadow-none h-full w-full focus-visible:ring-transparent px-2"
       onChange={onChangeInner}
     />
   );
