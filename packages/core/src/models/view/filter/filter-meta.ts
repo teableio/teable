@@ -1,28 +1,32 @@
 import { z } from 'zod';
-import {
-  booleanFieldOperators,
-  dateTimeFieldOperators,
-  numberFieldOperators,
-  textFieldOperators,
-} from './operator';
+import type { IOperator, ISymbol } from './operator';
+import { operators, symbols } from './operator';
 
 const filterMetaValue = z
   .union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))])
   .nullable();
 export type IFilterMetaValue = z.infer<typeof filterMetaValue>;
 
-const filterMetaOperator = z.union([
-  textFieldOperators,
-  numberFieldOperators,
-  booleanFieldOperators,
-  dateTimeFieldOperators,
-]);
-export type IFilterMetaOperator = z.infer<typeof filterMetaOperator>;
+export type IFilterMetaOperator = IOperator;
+export type IFilterMetaOperatorBySymbol = ISymbol;
 
-export const filterMeta = z.object({
+const filterMetaOperator = z.object({
+  isSymbol: z.literal(false).optional(),
   fieldId: z.string(),
-  operator: filterMetaOperator,
   value: filterMetaValue,
+  operator: operators,
 });
+
+const filterMetaOperatorBySymbol = z.object({
+  isSymbol: z.literal(true),
+  fieldId: z.string(),
+  value: filterMetaValue,
+  operator: symbols,
+});
+
+export const filterMeta = z.discriminatedUnion('isSymbol', [
+  filterMetaOperator,
+  filterMetaOperatorBySymbol,
+]);
 
 export type IFilterMeta = z.infer<typeof filterMeta>;

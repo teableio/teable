@@ -22,6 +22,7 @@ predicate:
     fieldIdentifier likeOp value                                        #predicateExprLike
     | fieldIdentifier inOp valueList                                    #predicateExprIn
     | fieldIdentifier HAS_SYMBOL valueList                              #predicateExprHas
+    | fieldIdentifier EQUAL_OPERATOR valueList                          #predicateExprEqArray
     ;
 
 fieldIdentifier:

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { pullAll } from 'lodash';
+import { pick, pullAll } from 'lodash';
 import { z } from 'zod';
 import type { FieldCore } from '../../field';
 import { CellValueType, FieldType } from '../../field';
@@ -16,12 +16,34 @@ export const isLess = z.literal('isLess');
 export const isLessEqual = z.literal('isLessEqual');
 export const isAnyOf = z.literal('isAnyOf');
 export const isNoneOf = z.literal('isNoneOf');
+export const hasAnyOf = z.literal('hasAnyOf');
 export const hasAllOf = z.literal('hasAllOf');
+export const hasNoneOf = z.literal('hasNoneOf');
+export const isExactly = z.literal('isExactly');
+
+export const operators = z.union([
+  is,
+  isNot,
+  contains,
+  doesNotContain,
+  isGreater,
+  isGreaterEqual,
+  isLess,
+  isLessEqual,
+  isEmpty,
+  isNotEmpty,
+  isAnyOf,
+  isNoneOf,
+  hasAnyOf,
+  hasAllOf,
+  hasNoneOf,
+  isExactly,
+]);
+export type IOperator = z.infer<typeof operators>;
 
 /*  antlr4ts char  */
 export const $eq = z.literal('=');
 export const $neq = z.literal('!=');
-export const $neq2 = z.literal('<>');
 export const $gt = z.literal('>');
 export const $gte = z.literal('>=');
 export const $lt = z.literal('<');
@@ -34,41 +56,44 @@ export const $notIn = z.literal('NOT IN');
 export const $isNull = z.literal('IS NULL');
 export const $isNotNull = z.literal('IS NOT NULL');
 
-export const operatorCrossReferenceTable = new Map<string, string>([
-  [$eq.value, is.value],
-
-  [$neq.value, isNot.value],
-  [$neq2.value, isNot.value],
-
-  [$gt.value, isGreater.value],
-  [$gte.value, isGreaterEqual.value],
-
-  [$lt.value, isLess.value],
-  [$lte.value, isLessEqual.value],
-
-  [$like.value, contains.value],
-  [$notLike.value, doesNotContain.value],
-
-  [$in.value, isAnyOf.value],
-  [$notIn.value, isNoneOf.value],
-
-  [$has.value, hasAllOf.value],
-
-  [$isNull.value, isEmpty.value],
-  [$isNotNull.value, isNotEmpty.value],
+export const symbols = z.union([
+  $eq,
+  $neq,
+  $gt,
+  $gte,
+  $lt,
+  $lte,
+  $like,
+  $in,
+  $has,
+  $notLike,
+  $notIn,
+  $isNull,
+  $isNotNull,
 ]);
+export type ISymbol = z.infer<typeof symbols>;
+
+const mappingOperatorSymbol = {
+  [is.value]: $eq.value,
+  [isExactly.value]: $eq.value,
+  [isNot.value]: $neq.value,
+  [isGreater.value]: $gt.value,
+  [isGreaterEqual.value]: $gte.value,
+  [isLess.value]: $lt.value,
+  [isLessEqual.value]: $lte.value,
+  [contains.value]: $like.value,
+  [doesNotContain.value]: $notLike.value,
+  [isAnyOf.value]: $in.value,
+  [hasAnyOf.value]: $in.value,
+  [isNoneOf.value]: $notIn.value,
+  [hasNoneOf.value]: $notIn.value,
+  [hasAllOf.value]: $has.value,
+  [isEmpty.value]: $isNull.value,
+  [isNotEmpty.value]: $isNotNull.value,
+};
 /*  antlr4ts char  */
 
-export const textFieldOperators = z.union([
-  is,
-  isNot,
-  contains,
-  doesNotContain,
-  isEmpty,
-  isNotEmpty,
-]);
-export type ITextFieldOperator = z.infer<typeof textFieldOperators>;
-export const textFieldValidOperators: ITextFieldOperator[] = [
+const textFieldValidOperators = [
   is.value,
   isNot.value,
   contains.value,
@@ -77,18 +102,7 @@ export const textFieldValidOperators: ITextFieldOperator[] = [
   isNotEmpty.value,
 ];
 
-export const numberFieldOperators = z.union([
-  is,
-  isNot,
-  isGreater,
-  isGreaterEqual,
-  isLess,
-  isLessEqual,
-  isEmpty,
-  isNotEmpty,
-]);
-export type INumberFieldOperator = z.infer<typeof numberFieldOperators>;
-export const numberFieldValidOperators: INumberFieldOperator[] = [
+const numberFieldValidOperators = [
   is.value,
   isNot.value,
   isGreater.value,
@@ -99,55 +113,38 @@ export const numberFieldValidOperators: INumberFieldOperator[] = [
   isNotEmpty.value,
 ];
 
-export const booleanFieldOperators = is;
-export type IBooleanFieldOperator = z.infer<typeof booleanFieldOperators>;
-export const booleanFieldValidOperators: IBooleanFieldOperator[] = [is.value];
+const booleanFieldValidOperators = [is.value];
 
-export const dateTimeFieldOperators = numberFieldOperators;
-export type IDateTimeFieldOperator = z.infer<typeof dateTimeFieldOperators>;
-export const dateTimeFieldValidOperators: IDateTimeFieldOperator[] = numberFieldValidOperators;
+const dateTimeFieldValidOperators = numberFieldValidOperators;
 
-export const allFieldOperators = z.array(
-  z.union([
-    is,
-    isNot,
-    contains,
-    doesNotContain,
-    isGreater,
-    isGreaterEqual,
-    isLess,
-    isLessEqual,
-    isEmpty,
-    isNotEmpty,
-    isAnyOf,
-    isNoneOf,
-    hasAllOf,
-  ])
-);
-export type IAllFieldOperators = z.infer<typeof allFieldOperators>;
+export function getFilterOperatorMapping(field: FieldCore) {
+  const validFilterOperators = getValidFilterOperators(field);
+
+  return pick(mappingOperatorSymbol, validFilterOperators);
+}
 
 /**
  * Returns the valid filter operators for a given field value type.
  */
-export function getValidFilterOperators(field: FieldCore): IAllFieldOperators {
-  const operationSet: IAllFieldOperators = [];
+export function getValidFilterOperators(field: FieldCore): IOperator[] {
+  let operationSet: IOperator[] = [];
 
   // 1. First determine the operator roughly according to cellValueType
   switch (field.cellValueType) {
     case CellValueType.String: {
-      operationSet.push(...textFieldValidOperators);
+      operationSet = [...textFieldValidOperators];
       break;
     }
     case CellValueType.Number: {
-      operationSet.push(...numberFieldValidOperators);
+      operationSet = [...numberFieldValidOperators];
       break;
     }
     case CellValueType.Boolean: {
-      operationSet.push(...booleanFieldValidOperators);
+      operationSet = [...booleanFieldValidOperators];
       break;
     }
     case CellValueType.DateTime: {
-      operationSet.push(...dateTimeFieldValidOperators);
+      operationSet = [...dateTimeFieldValidOperators];
       break;
     }
   }
@@ -156,12 +153,18 @@ export function getValidFilterOperators(field: FieldCore): IAllFieldOperators {
   switch (field.type) {
     case FieldType.SingleSelect: {
       pullAll(operationSet, [contains.value, doesNotContain.value]);
-      operationSet.push(...[isAnyOf.value, isNoneOf.value]);
+      operationSet.splice(2, 0, ...[isAnyOf.value, isNoneOf.value]);
       break;
     }
     case FieldType.MultipleSelect: {
-      pullAll(operationSet, [isNot.value, contains.value, doesNotContain.value]);
-      operationSet.push(...[hasAllOf.value, isNoneOf.value]);
+      operationSet = [
+        isAnyOf.value,
+        hasAllOf.value,
+        isExactly.value,
+        isNoneOf.value,
+        isEmpty.value,
+        isNotEmpty.value,
+      ];
     }
   }
 

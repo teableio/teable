@@ -342,7 +342,13 @@ export class RecordService implements IAdapterService {
     filterQueryBuilder?: Knex.QueryBuilder
   ): Promise<number> {
     if (filterQueryBuilder) {
-      filterQueryBuilder.clearSelect().clearCounters().clearGroup().clearHaving().clearOrder();
+      filterQueryBuilder
+        .clearSelect()
+        .clearCounters()
+        .clearGroup()
+        .clearHaving()
+        .clearOrder()
+        .clear('limit');
       const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
 
       const result = await prisma.$queryRawUnsafe<{ count: number }[]>(

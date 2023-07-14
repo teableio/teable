@@ -1,5 +1,11 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
-import { ViewProvider, FieldProvider, RecordProvider, useTable } from '@teable-group/sdk';
+import {
+  ViewProvider,
+  FieldProvider,
+  RecordProvider,
+  useTable,
+  useViewId,
+} from '@teable-group/sdk';
 import { useTitle } from 'react-use';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { ToolBar } from '../tool-bar/ToolBar';
@@ -20,13 +26,14 @@ export const Table: React.FC<ITableProps> = ({
   const isHydrated = useIsHydrated();
   const table = useTable();
   useTitle(`${table?.icon ? table.icon + ' ' : ''}${table?.name}`);
+  const viewId = useViewId();
   return (
     <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
       <div className="grow flex flex-col h-full">
         <ViewList />
         <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
           <ToolBar />
-          <RecordProvider serverData={recordServerData}>
+          <RecordProvider viewId={viewId} serverData={recordServerData}>
             {isHydrated && <GridView />}
           </RecordProvider>
         </FieldProvider>
