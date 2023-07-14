@@ -20,6 +20,7 @@ module.exports = {
     '.out',
     'main',
     'tailwind.shadcnui.config.js',
+    'electron-src',
   ],
   extends: [
     '@teable-group/eslint-config-bases/typescript',

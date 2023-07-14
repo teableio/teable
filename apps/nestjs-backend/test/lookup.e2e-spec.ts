@@ -134,7 +134,6 @@ describe('OpenAPI Lookup field (e2e)', () => {
   afterAll(async () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`).expect(200);
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`).expect(200);
-    console.log('clear table: ', table1.name, table2.name);
   });
 
   beforeEach(async () => {

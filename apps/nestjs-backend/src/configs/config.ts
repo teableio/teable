@@ -25,7 +25,9 @@ const loadConfig: IConfig = {
     port: parseInt(process.env.BACKEND_MAIL_PORT || '465', 10),
     secure: Object.is(process.env.BACKEND_MAIL_SECURE || 'true', 'true'),
     auth: {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       user: process.env.BACKEND_MAIL_AUTH_USER!,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       pass: process.env.BACKEND_MAIL_AUTH_PASS!,
     },
   },

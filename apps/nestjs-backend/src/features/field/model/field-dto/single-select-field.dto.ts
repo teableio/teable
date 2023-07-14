@@ -44,9 +44,10 @@ export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFiel
 
     return plainToInstance(SingleSelectFieldDto, {
       ...fieldRo,
+      options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Text,
       isMultipleCellValue,
     } as SingleSelectFieldDto);
   }

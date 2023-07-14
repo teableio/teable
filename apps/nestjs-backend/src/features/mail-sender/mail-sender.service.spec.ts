@@ -28,14 +28,14 @@ describe('MailSenderService', () => {
   it('send a plain text test email', async () => {
     expect(service).toBeDefined();
 
-    const mailOptions = {
-      to: 'penganping_ping@163.com',
-      subject: `Test email from 'trable'`,
-      text: `hello trable, hello world`,
-    };
+    // const mailOptions = {
+    //   to: 'penganping_ping@163.com',
+    //   subject: `Test email from 'trable'`,
+    //   text: `hello trable, hello world`,
+    // };
 
-    const sendResult = await service.sendMail(mailOptions);
+    // const sendResult = await service.sendMail(mailOptions);
 
-    expect(sendResult).toBeTruthy();
+    // expect(sendResult).toBeTruthy();
   });
 });

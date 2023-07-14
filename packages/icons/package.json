@@ -16,9 +16,11 @@
   },
   "scripts": {
     "dev": "rm -rf dist && tsc --watch",
-    "build": "rm -rf dist && tsc --build tsconfig.json",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "icons": "node ./scripts/generate.mjs"
+    "build": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && tsc --build tsconfig.json",
+    "test": "echo \"Error: no test specified\"",
+    "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "lint": "echo \"No ESLint script defined\"",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "peerDependencies": {
     "react": "^18.2.0",
@@ -41,6 +43,7 @@
     "eslint": "8.26.0",
     "figma-api-exporter": "0.0.2",
     "fs-extra": "11.1.1",
-    "lodash": "4.17.21"
+    "lodash": "4.17.21",
+    "rimraf": "3.0.2"
   }
 }

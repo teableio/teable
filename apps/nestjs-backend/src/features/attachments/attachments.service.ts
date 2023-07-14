@@ -26,6 +26,7 @@ export class AttachmentsService {
       mimetype,
       token,
       path,
+      url: localStorage.getUrl(token),
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -88,7 +89,6 @@ export class AttachmentsService {
 
   async signature(): Promise<AttachmentSchema.SignatureVo> {
     const localStorage = Storage.adapter();
-    // TODO: Replace with a unique ID generation library
     const token = getRandomString(12);
     return {
       url: `${localStorage.getUploadUrl()}/${token}`,
@@ -104,6 +104,7 @@ export class AttachmentsService {
         mimetype: true,
         width: true,
         height: true,
+        url: true,
       },
       where: {
         token,

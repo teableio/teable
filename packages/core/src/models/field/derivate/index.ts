@@ -4,6 +4,7 @@ export * from './single-select.field';
 export * from './multiple-select.field';
 export * from './link.field';
 export * from './formula.field';
-export * from './select.field.abstract';
+export * from './abstract/select.field.abstract';
 export * from './attachment.field';
 export * from './date.field';
+export * from './checkbox.field';

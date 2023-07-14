@@ -8,6 +8,7 @@ import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo } from '../field/model/factory';
+import { CalculationModule } from './calculation.module';
 import type { ITopoItemWithRecords } from './reference.service';
 import { ReferenceService } from './reference.service';
 
@@ -25,9 +26,9 @@ describe('ReferenceService', () => {
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        providers: [ReferenceService, PrismaService],
+        providers: [PrismaService],
+        imports: [CalculationModule],
       }).compile();
-
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
       db = knex({
@@ -373,7 +374,9 @@ describe('ReferenceService', () => {
             expression: '{oneToManyC}',
           },
           cellValueType: CellValueType.String,
-        }),
+          isMultipleCellValue: true,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any),
         manyToOneA: createFieldInstanceByRo({
           id: 'manyToOneA',
           name: 'manyToOneA',
@@ -460,7 +463,7 @@ describe('ReferenceService', () => {
         idB1: {
           id: 'idB1',
           fields: {
-            fieldB: 'C1, C2',
+            fieldB: ['C1', 'C2'],
             manyToOneA: { title: 'A1', id: 'idA1' },
             oneToManyC: [
               { title: 'C1', id: 'idC1' },
@@ -562,7 +565,7 @@ describe('ReferenceService', () => {
       // change from: idC1.fieldC      = 'C1' -> 'CX'
       // change affected:
       // idB1.oneToManyC  = ['C1', 'C2'] -> ['CX', 'C2']
-      // idB1.fieldB      = 'C1, C2' -> 'CX, C2'
+      // idB1.fieldB      = ['C1', 'C2'] -> ['CX', 'C2']
       // idA1.oneToManyB  = ['C1, C2', 'C3'] -> ['CX, C2', 'C3']
       // idC1.manyToOneB  = 'C1, C2' -> 'CX, C2'
       // idC2.manyToOneB  = 'C1, C2' -> 'CX, C2'
@@ -584,8 +587,8 @@ describe('ReferenceService', () => {
           tableId: 'B',
           recordId: 'idB1',
           fieldId: 'fieldB',
-          oldValue: 'C1, C2',
-          newValue: 'CX, C2',
+          oldValue: ['C1', 'C2'],
+          newValue: ['CX', 'C2'],
         },
         {
           tableId: 'A',
@@ -696,7 +699,7 @@ describe('ReferenceService', () => {
           name: 'fieldA',
           type: FieldType.Number,
           options: {
-            precision: 1,
+            formatting: { precision: 1 },
           },
           cellValueType: CellValueType.String,
         }),

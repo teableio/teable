@@ -1,7 +1,7 @@
 import type { IAttachmentCellValue } from '@teable-group/core';
+import { AttachmentEditorMain } from '@teable-group/sdk';
 import { Dialog, DialogContent } from '@teable-group/ui-lib/shadcn/ui/dialog';
 import { useEffect, useRef, useState } from 'react';
-import { UploadAttachment } from '@/features/app/components/upload-attachment/UploadAttachment';
 import type { IEditorProps } from './type';
 
 export const AttachmentEditor = (props: IEditorProps) => {
@@ -27,7 +27,7 @@ export const AttachmentEditor = (props: IEditorProps) => {
           container={containerRef.current}
           className="click-outside-ignore h-80 flex-1 overflow-hidden"
         >
-          <UploadAttachment attachments={attachments || []} onChange={setAttachments} />
+          <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
         </DialogContent>
       </Dialog>
     </>

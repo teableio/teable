@@ -3,9 +3,7 @@
  * @see https://github.com/teable-group/teable/blob/main/docs/about-linters.md
  */
 
-const {
-  getDefaultIgnorePatterns,
-} = require('@teable-group/eslint-config-bases/helpers');
+const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/helpers');
 
 module.exports = {
   root: true,

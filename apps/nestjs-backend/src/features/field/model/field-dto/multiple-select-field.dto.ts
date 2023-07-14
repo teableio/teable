@@ -13,10 +13,11 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements I
 
     return plainToInstance(MultipleSelectFieldDto, {
       ...fieldRo,
+      options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,
       isMultipleCellValue: true,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: DbFieldType.Json,
     } as MultipleSelectFieldDto);
   }
 

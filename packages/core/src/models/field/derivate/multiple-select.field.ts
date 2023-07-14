@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
-import { SelectFieldCore } from './select.field.abstract';
+import { SelectFieldCore } from './abstract/select.field.abstract';
+
+export const multipleSelectCelValueSchema = z.array(z.string());
+
+export type IMultipleSelectCellValue = z.infer<typeof multipleSelectCelValueSchema>;
 
 export class MultipleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.MultipleSelect;
-
-  defaultValue!: string[] | null;
 
   cellValueType!: CellValueType.String;
 
@@ -45,24 +47,5 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
     }
 
     throw new Error(`invalid value: ${value} for field: ${this.name}`);
-  }
-
-  validateDefaultValue() {
-    if (this.isLookup) {
-      return z.undefined().nullable().safeParse(this.defaultValue);
-    }
-
-    const choiceNames = this.options.choices.map((v) => v.name);
-    return z
-      .string()
-      .nullable()
-      .optional()
-      .refine(
-        (value) => {
-          return value == null || choiceNames.includes(value);
-        },
-        { message: `${this.defaultValue} is not one of the choice names` }
-      )
-      .safeParse(this.defaultValue);
   }
 }

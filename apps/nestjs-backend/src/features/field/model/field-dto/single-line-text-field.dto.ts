@@ -16,9 +16,10 @@ export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements I
 
     return plainToInstance(SingleLineTextFieldDto, {
       ...fieldRo,
+      options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Text,
       isMultipleCellValue,
     } as SingleLineTextFieldDto);
   }

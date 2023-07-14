@@ -9,7 +9,7 @@ export const DateOptions = (props: {
   onChange?: (options: IDateFieldOptions) => void;
 }) => {
   const { options, isLookup, onChange } = props;
-  const { autoFill } = options;
+  const { defaultValue } = options;
 
   const onFormattingChange = (formatting: IDatetimeFormatting) => {
     onChange?.({
@@ -18,10 +18,10 @@ export const DateOptions = (props: {
     });
   };
 
-  const onAutoFillChange = (checked: boolean) => {
+  const onDefaultValueChange = (checked: boolean) => {
     onChange?.({
       ...options,
-      autoFill: checked,
+      defaultValue: checked ? 'now' : undefined,
     });
   };
 
@@ -37,8 +37,8 @@ export const DateOptions = (props: {
             className="h-6 w-12"
             classNameThumb="w-5 h-5 data-[state=checked]:translate-x-6"
             id="field-options-auto-fill"
-            checked={autoFill}
-            onCheckedChange={onAutoFillChange}
+            checked={Boolean(defaultValue)}
+            onCheckedChange={onDefaultValueChange}
           />
         </div>
       )}
