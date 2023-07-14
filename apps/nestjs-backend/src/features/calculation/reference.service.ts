@@ -370,6 +370,15 @@ export class ReferenceService {
     return cellChanges;
   }
 
+  // for lookup field, cellValues should be flat
+  private flatOriginLookup(lookupValues: unknown[] | unknown) {
+    if (Array.isArray(lookupValues)) {
+      const filtered = lookupValues.flat().filter((value) => value != null);
+      return filtered.length ? filtered : null;
+    }
+    return lookupValues;
+  }
+
   private calculateComputeField(
     field: IFieldInstance,
     fieldMap: { [fieldId: string]: IFieldInstance },
@@ -406,7 +415,7 @@ export class ReferenceService {
       // console.log('calculateLookup:lookupValues', lookupValues);
 
       if (field.isLookup) {
-        return Array.isArray(lookupValues) && !lookupValues.length ? null : lookupValues;
+        return this.flatOriginLookup(lookupValues);
       }
 
       return this.calculateRollup(field, lookupField, record, lookupValues);
@@ -426,9 +435,6 @@ export class ReferenceService {
   ) {
     if (field.type === FieldType.Formula) {
       const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
-      if (typedValue.isMultiple) {
-        return field.cellValue2String(typedValue.toPlain());
-      }
       return typedValue.toPlain();
     }
   }
@@ -463,9 +469,7 @@ export class ReferenceService {
             fkRecordMap?.[depRecord.id]?.[fkFieldName] === undefined ||
             fkRecordMap?.[depRecord.id]?.[fkFieldName] === recordItem.record.id
         )
-        .map((depRecord) => depRecord.fields[fieldId])
-        .flat()
-        .filter((value) => !field.isLookup || value != null);
+        .map((depRecord) => depRecord.fields[fieldId]);
     }
 
     if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
@@ -490,7 +494,7 @@ export class ReferenceService {
       ...fieldVo,
       id: 'values',
       cellValueType: field.cellValueType,
-      isMultipleCellValue: field.isMultipleCellValue,
+      isMultipleCellValue: fieldVo.isMultipleCellValue || field.isMultipleCellValue,
     });
     const result = evaluate(
       'rollup({values})',
@@ -498,9 +502,13 @@ export class ReferenceService {
       { ...record, fields: { ...record.fields, values: lookupValues } }
     );
 
-    const plain = result.toPlain();
     if (!record.fields[field.id]) {
       return null;
+    }
+
+    let plain = result.toPlain();
+    if (!field.isMultipleCellValue && virtualField.isMultipleCellValue) {
+      plain = virtualField.cellValue2String(plain);
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return field.updateCellTitle(record.fields[field.id] as any, plain);
