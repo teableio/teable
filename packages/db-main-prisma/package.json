@@ -31,7 +31,7 @@
     "test-e2e": "jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "debug-test-e2e": "cross-env DEBUG=testcontainers jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
-    "postinstall": "prisma generate"
+    "postinstall": "yarn prisma-db-push && yarn prisma generate"
   },
   "dependencies": {
     "@prisma/client": "4.7.1",
