@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { OpBuilder } from '@teable-group/core';
+import { composeMaps } from '../features/calculation/utils/compose-maps';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import type { ICellChange, IOpsMap } from '../features/calculation/reference.service';
@@ -19,7 +20,6 @@ export class DerivateChangeService {
     string,
     {
       changes: ICellChange[];
-      opsMaps: IOpsMap[];
       counter: number;
     }
   > = new Map();
@@ -32,7 +32,6 @@ export class DerivateChangeService {
       this.transactions.set(tsMeta.transactionKey, {
         counter: 1,
         changes: [],
-        opsMaps: [],
       });
     }
   }
@@ -48,30 +47,36 @@ export class DerivateChangeService {
     }
 
     if (transaction.counter === tsMeta.opCount) {
-      const { changes, opsMaps } = transaction;
+      const { changes } = transaction;
       this.cleanTransaction(tsMeta);
       if (new Set(changes.map((c) => c.tableId)).size > 1) {
         throw new Error('Invalid changes, contains multiple tableId in 1 transaction');
       }
 
       const prisma = await this.transactionService.getTransaction(tsMeta);
+      const opsMaps: IOpsMap[] = [];
 
       if (changes.length) {
-        const derivateChanges = await this.linkService.getDerivateChangesByLink(
+        const derivate = await this.linkService.getDerivateByLink(
           prisma,
           changes[0].tableId,
           changes
         );
+        const cellChanges = derivate?.cellChanges || [];
+        const fkRecordMap = derivate?.fkRecordMap || {};
 
-        const derivateOpsMap = this.linkService.formatOpsByChanges(derivateChanges);
-        opsMaps.push(derivateOpsMap);
-        const calculated = await this.referenceService.calculateOpsMap(prisma, derivateOpsMap);
-        const calculatedOpsMap = this.linkService.formatOpsByChanges(calculated);
-        opsMaps.push(calculatedOpsMap);
+        const opsMapOrigin = this.referenceService.formatOpsByChanges(changes);
+        const opsMapByLink = this.referenceService.formatOpsByChanges(cellChanges);
+        const opsMapByCalculate = await this.referenceService.calculateOpsMap(
+          prisma,
+          composeMaps([opsMapOrigin, opsMapByLink]),
+          fkRecordMap
+        );
+        opsMaps.push(opsMapByLink, opsMapByCalculate);
       }
 
       // compose opsMap from origin calculation and derivateChanges calculation
-      const finalOpsMap = this.linkService.composeMaps(opsMaps);
+      const finalOpsMap = composeMaps(opsMaps);
       tsMeta = this.refreshTransactionCache(tsMeta, finalOpsMap);
 
       return {
@@ -81,14 +86,7 @@ export class DerivateChangeService {
     }
   }
 
-  async getFixupOps(
-    tsMeta: ITransactionMeta,
-    tableId: string,
-    recordId: string,
-    ops: IOtOperation[]
-  ): Promise<IOtOperation[] | undefined> {
-    const prisma = await this.transactionService.getTransaction(tsMeta);
-
+  cacheChanges(tsMeta: ITransactionMeta, tableId: string, recordId: string, ops: IOtOperation[]) {
     const changes = ops.map<ICellChange>((op) => {
       const context = OpBuilder.editor.setRecord.detect(op);
       if (!context) {
@@ -101,31 +99,11 @@ export class DerivateChangeService {
       };
     });
 
-    const calculated = await this.referenceService.calculateOpsMap(
-      prisma,
-      this.linkService.formatOpsByChanges(changes)
-    );
-
-    const calculatedOpsMap = this.linkService.formatOpsByChanges(calculated);
-
     const transaction = this.transactions.get(tsMeta.transactionKey);
     if (!transaction) {
       throw new Error('Transaction not found');
     }
     transaction.changes.push(...changes);
-
-    if (!calculated.length) {
-      return;
-    }
-
-    // we should cache ops from other snapshot and return ops from current snapshot
-    const fixUpOps: IOtOperation[] | undefined = calculatedOpsMap[tableId]?.[recordId];
-    if (fixUpOps) {
-      delete calculatedOpsMap[tableId][recordId];
-    }
-    transaction.opsMaps.push(calculatedOpsMap);
-
-    return fixUpOps;
   }
 
   refreshTransactionCache(

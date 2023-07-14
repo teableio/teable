@@ -84,7 +84,7 @@ export function createAISyntaxParser() {
         const result = await Table.getRecords({
           tableId: nodeId as string,
           viewId: viewId as string,
-          fieldKey: FieldKeyType.Name,
+          fieldKeyType: FieldKeyType.Name,
         });
         const chartInstance = createChart(chartTypeArray[parsedLine.index], {
           options: parsedLine.value,

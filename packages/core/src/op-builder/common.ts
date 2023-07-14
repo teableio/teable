@@ -19,7 +19,6 @@ export enum OpName {
   SetFieldOptions = 'setFieldOptions',
   SetFieldNotNull = 'setFieldNotNull',
   SetFieldUnique = 'setFieldUnique',
-  SetFieldDefaultValue = 'setFieldDefaultValue',
   SetFieldType = 'setFieldType',
 
   AddView = 'addView',

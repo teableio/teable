@@ -7,7 +7,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { openApiDocumentation } from '@teable-group/openapi';
 import { json, urlencoded } from 'express';
 import isPortReachable from 'is-port-reachable';
 import { AppModule } from './app.module';
@@ -23,19 +24,10 @@ export async function setUpAppMiddleware(app: INestApplication) {
   );
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
-  // app.setGlobalPrefix('api');
-
-  const options = new DocumentBuilder()
-    .setTitle('Teable App')
-    .setDescription('Manage Data as easy as drink a cup of tea')
-    // .setVersion('1.0')
-    // .setBasePath('api')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, options);
-  const jsonString = JSON.stringify(document);
+  const jsonString = JSON.stringify(openApiDocumentation);
   fs.writeFileSync(path.join(__dirname, '../openapi.json'), jsonString);
-  SwaggerModule.setup('/docs', app, document);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  SwaggerModule.setup('/docs', app, openApiDocumentation as any);
 
   const redocOptions: RedocOptions = {
     logo: {
@@ -44,7 +36,8 @@ export async function setUpAppMiddleware(app: INestApplication) {
     },
   };
   // Instead of using SwaggerModule.setup() you call this module
-  await RedocModule.setup('/redocs', app, document, redocOptions);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
 }
 
 export async function bootstrap() {

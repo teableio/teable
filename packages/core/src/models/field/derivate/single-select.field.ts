@@ -1,19 +1,33 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
-import { SelectFieldCore } from './select.field.abstract';
+import { SelectFieldCore } from './abstract/select.field.abstract';
+
+export const singleSelectCelValueSchema = z.string().nullable();
+
+export type ISingleSelectCellValue = z.infer<typeof singleSelectCelValueSchema>;
 
 export class SingleSelectFieldCore extends SelectFieldCore {
   type!: FieldType.SingleSelect;
 
-  defaultValue: string | null = null;
-
   cellValueType!: CellValueType.String;
 
   cellValue2String(cellValue?: string) {
-    return cellValue ?? '';
+    if (cellValue == null) {
+      return '';
+    }
+
+    if (Array.isArray(cellValue)) {
+      return cellValue.join(', ');
+    }
+
+    return cellValue;
   }
 
   convertStringToCellValue(value: string): string | null {
+    if (this.isLookup) {
+      return null;
+    }
+
     if (value === '' || value == null) {
       return null;
     }
@@ -26,25 +40,14 @@ export class SingleSelectFieldCore extends SelectFieldCore {
   }
 
   repair(value: unknown) {
+    if (this.isLookup) {
+      return null;
+    }
+
     if (typeof value === 'string') {
       return this.convertStringToCellValue(value);
     }
 
-    throw new Error(`invalid value: ${value} for field: ${this.name}`);
-  }
-
-  validateDefaultValue() {
-    const choiceNames = this.options.choices.map((v) => v.name);
-    return z
-      .string()
-      .refine(
-        (value) => {
-          return value == null || choiceNames.includes(value);
-        },
-        { message: `${this.defaultValue} is not one of the choice names` }
-      )
-      .nullable()
-      .optional()
-      .safeParse(this.defaultValue);
+    return null;
   }
 }

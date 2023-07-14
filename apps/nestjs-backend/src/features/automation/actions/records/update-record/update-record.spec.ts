@@ -12,6 +12,8 @@ import {
   generateTableId,
   generateWorkflowActionId,
 } from '@teable-group/core';
+import type { CreateRecordsVo } from 'src/features/record/open-api/record.vo';
+import type { ViewVo } from 'src/features/view/model/view.vo';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import type { FieldVo } from '../../../../field/model/field.vo';
@@ -58,9 +60,9 @@ describe('Update-Record Action Test', () => {
         name: `table1-${faker.string.nanoid()}`,
         id: tableId,
         order: faker.number.int(),
-        views: tableRo.views,
-        fields: tableRo.fields,
-        data: tableRo.data,
+        views: tableRo.views as ViewVo[],
+        fields: tableRo.fields as FieldVo[],
+        data: tableRo.data as CreateRecordsVo,
       })
     );
 

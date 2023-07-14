@@ -3,7 +3,6 @@ import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
-import { useCounter } from 'react-use';
 import { useFieldStaticGetter } from '../../utils';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
@@ -11,28 +10,14 @@ import { LookupOptions } from './options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
-export const FieldEditor = (props: {
-  field?: IFieldRo;
-  onChange?: (field: IFieldRo, updateCount?: number) => void;
-}) => {
-  const { field: currentField, onChange } = props;
-  const [field, setField] = useState<IFieldRo>({
-    name: currentField?.name || '',
-    type: currentField?.type || FieldType.SingleLineText,
-    description: currentField?.description,
-    options: currentField?.options,
-    isLookup: currentField?.isLookup,
-    lookupOptions: currentField?.lookupOptions,
-  });
-  const [updateCount, { inc: incUpdateCount }] = useCounter(0);
+export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldRo) => void }) => {
+  const { field, onChange } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldRo) => {
-      incUpdateCount();
-      setField(field);
-      onChange?.(field, updateCount);
+      onChange?.(field);
     },
-    [incUpdateCount, onChange, updateCount]
+    [onChange]
   );
   const getFieldSubtitle = useFieldTypeSubtitle();
   const getFieldStatic = useFieldStaticGetter();

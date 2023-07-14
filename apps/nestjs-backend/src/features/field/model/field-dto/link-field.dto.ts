@@ -37,7 +37,7 @@ export class LinkOptionsDto implements ILinkFieldOptions {
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
   static factory(fieldRo: CreateFieldRo) {
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship === Relationship.ManyOne;
+      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
 
     const options = fieldRo.options as ILinkFieldOptions | undefined;
 
@@ -46,7 +46,7 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
       isComputed: true,
       cellValueType: CellValueType.String,
       isMultipleCellValue: options?.relationship !== Relationship.ManyOne || isMultipleCellValue,
-      dbFieldType: DbFieldType.Text,
+      dbFieldType: DbFieldType.Json,
     } as LinkFieldDto);
   }
 
@@ -62,7 +62,6 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
     value: ILinkCellValue | ILinkCellValue[],
     title: string | null | (string | null)[]
   ) {
-    console.log('updateCellTitle', value, title);
     if (this.isMultipleCellValue) {
       const values = value as ILinkCellValue[];
       const titles = title as string[];

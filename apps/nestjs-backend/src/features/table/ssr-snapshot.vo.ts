@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { IFullSsrSnapshot } from '@teable-group/core';
+import type { IFullSsrSnapshot, ITableVo } from '@teable-group/core';
 import { ApiResponse } from '../../utils/api-response';
 import { FieldVo } from '../field/model/field.vo';
 import { RecordsVo } from '../record/open-api/record.vo';
@@ -11,7 +11,7 @@ export class FullSnapshotVo implements IFullSsrSnapshot {
   rows!: RecordsVo;
 
   @ApiProperty({ type: TableVo, isArray: true })
-  tables!: TableVo[];
+  tables!: ITableVo[];
 
   @ApiProperty({ type: ViewVo, isArray: true })
   views!: ViewVo[];
@@ -27,7 +27,7 @@ export class FullSSRSnapshotVo extends ApiResponse<FullSnapshotVo> {
 
 export class TableSnapshotVo implements Pick<IFullSsrSnapshot, 'tables'> {
   @ApiProperty({ type: TableVo, isArray: true })
-  tables!: TableVo[];
+  tables!: ITableVo[];
 }
 
 export class TableSSRSnapshotVo extends ApiResponse<TableSnapshotVo> {

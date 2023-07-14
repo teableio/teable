@@ -5,8 +5,8 @@ import {
   ApiPropertyOptional,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { CellValueType, FieldType, ILookupOptions, IColumnMeta } from '@teable-group/core';
-import type { IFieldRo } from '@teable-group/core';
+import { CellValueType, FieldType, IColumnMeta } from '@teable-group/core';
+import type { IFieldRo, ILookupOptions } from '@teable-group/core';
 import { IsOptional, ValidateIf } from 'class-validator';
 import { DateOptionsDto } from './field-dto/date-field.dto';
 import { FormulaOptionsDto } from './field-dto/formula-field.dto';
@@ -40,7 +40,7 @@ export class CreateFieldRo implements IFieldRo {
   })
   name!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The description of the field.',
     example: 'this is a summary',
   })
@@ -69,27 +69,12 @@ export class CreateFieldRo implements IFieldRo {
   options?: any;
 
   @ApiPropertyOptional({
-    description: `
-The defaultValue of the field. The datatype of the value depends on the field type.
-singleLineText, longText, singleSelect, date, phoneNumber, email, url: string, example: "hello".
-number, currency, percent, duration, rating: number, example: 1.
-checkbox: boolean, example: true.
-multipleSelect: string[], example: ["red", "blue"].
-other fields do not support defaultValue.
-`,
-    example: { name: 'light', color: 'yellow' },
-  })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  defaultValue?: any;
-
-  @ApiPropertyOptional({
     description: 'Set the field is lookup field',
   })
   isLookup?: boolean;
 
   @ApiPropertyOptional({
     description: 'Set the field is lookup field',
-    type: ILookupOptions,
   })
   lookupOptions?: ILookupOptions | undefined;
 

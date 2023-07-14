@@ -1,14 +1,24 @@
-/* eslint-disable import/order */
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+extendZodWithOpenApi(z);
+
 import type { NextPage } from 'next';
 import { appWithTranslation } from 'next-i18next';
 import type { AppProps as NextAppProps } from 'next/app';
 import Head from 'next/head';
 import type { ReactElement, ReactNode } from 'react';
+import { z } from 'zod';
+
+import { colors } from '@/themes/colors';
+import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config';
 import { AppProviders } from '../AppProviders';
-import { INITIAL_THEME } from '@/themes/initial';
-import { colors } from '@/themes/colors';
 
 /**
  * Import global styles, global css or polyfills here
@@ -47,7 +57,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, pageProps, err } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
-
   return (
     <AppProviders>
       <Head>

@@ -37,12 +37,11 @@ model Field {
   isMultipleCellValue  Boolean?  @map("is_multiple_cell_value")
   dbFieldType          String    @map("db_field_type")
   dbFieldName          String    @map("db_field_name")
-  defaultValue         String?   @map("default_value")
   notNull              Boolean?  @map("not_null")
   unique               Boolean?
   isPrimary            Boolean?  @map("is_primary")
   isComputed           Boolean?  @map("is_computed")
-  lookupFieldId        String?   @map("lookup_field_id")
+  lookupLinkedFieldId  String?   @map("lookup_linked_field_id")
   lookupOptions        String?   @map("lookup_options")
   tableId              String    @map("table_id")
   columnMeta           String    @map("column_meta")
@@ -54,7 +53,7 @@ model Field {
   lastModifiedBy       String    @map("last_modified_by")
   table                TableMeta @relation(fields: [tableId], references: [id])
 
-  @@index([lookupFieldId])
+  @@index([lookupLinkedFieldId])
   @@map("field")
 }
 
@@ -174,6 +173,7 @@ model Attachments {
   size           Int
   mimetype       String
   path           String
+  url            String
   width          Int?
   height         Int?
   deletedTime    DateTime? @map("deleted_time")

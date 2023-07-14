@@ -6,6 +6,7 @@
     "baseUrl": "./src",
     "target": "esnext",
     "outDir": "./dist",
+    "rootDir": "./src",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "noEmit": false,
@@ -15,5 +16,5 @@
     "esModuleInterop": true
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
-  "include": ["src"]
+  "include": ["./src"]
 }

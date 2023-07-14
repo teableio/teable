@@ -21,7 +21,7 @@ export interface ICollectionSnapshot {
   data: IRecord;
 }
 type IOptions = { agentCustom?: ITransactionMeta & { isBackend?: boolean } } & ITransactionMeta;
-type IProjection = { [fieldKey: string]: boolean };
+type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
 export class SqliteDbAdapter extends ShareDb.DB {

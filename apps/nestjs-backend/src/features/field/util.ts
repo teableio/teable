@@ -7,7 +7,7 @@ export function dbType2knexFormat(dbFieldType: DbFieldType) {
     case DbFieldType.Integer:
       return 'integer';
     case DbFieldType.Json:
-      return 'json';
+      return 'text'; // use text in sqlite
     case DbFieldType.Real:
       return 'float';
     case DbFieldType.Text:

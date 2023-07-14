@@ -9,15 +9,16 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
+import type { IRecordRo, IRecordVo } from '@teable-group/core';
+import { recordsRoSchema, type IRecordsVo, IRecordsRo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
 import { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
 import { UpdateRecordRo } from '../update-record.ro';
 import { RecordOpenApiService } from './record-open-api.service';
-import { RecordPipe } from './record.pipe';
-import type { CreateRecordsVo, RecordsVo, RecordVo } from './record.vo';
-import { RecordsRo } from './records.ro';
+import type { CreateRecordsVo } from './record.vo';
 
 @ApiBearerAuth()
 @ApiTags('record')
@@ -30,34 +31,40 @@ export class RecordOpenApiController {
 
   @ApiOkResponse({
     description: 'list of records',
-    type: ApiResponse<RecordsVo>,
+    type: ApiResponse<IRecordsVo>,
   })
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(RecordPipe) query: RecordsRo
-  ): Promise<ApiResponse<RecordsVo>> {
+    @Query(new ZodValidationPipe(recordsRoSchema)) query: IRecordsRo
+  ): Promise<ApiResponse<IRecordsVo>> {
     const records = await this.recordService.getRecords(tableId, query);
     return responseWrap(records);
   }
 
   @ApiOkResponse({
     description: 'Get record by id.',
-    type: ApiResponse<RecordsVo>,
+    type: ApiResponse<IRecordsVo>,
   })
   @Get(':recordId')
   async getRecord(
     @Param('tableId') tableId: string,
-    @Param('recordId') recordId: string
-  ): Promise<ApiResponse<RecordVo>> {
-    const record = await this.recordService.getRecord(tableId, recordId);
+    @Param('recordId') recordId: string,
+    @Query() query: IRecordRo
+  ): Promise<ApiResponse<IRecordVo>> {
+    const record = await this.recordService.getRecord(
+      tableId,
+      recordId,
+      query.projection,
+      query.fieldKeyType
+    );
     return responseWrap(record);
   }
 
   @ApiOperation({ summary: 'Update records by id.' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: ApiResponse<RecordVo>,
+    type: ApiResponse<IRecordVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -70,7 +77,7 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body() updateRecordRo: UpdateRecordRo
-  ): Promise<ApiResponse<RecordVo>> {
+  ): Promise<ApiResponse<IRecordVo>> {
     const record = await this.recordOpenApiService.updateRecordById(
       tableId,
       recordId,
@@ -82,7 +89,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Update records by row index' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: ApiResponse<RecordVo>,
+    type: ApiResponse<IRecordVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -94,7 +101,7 @@ export class RecordOpenApiController {
   async updateRecordByIndex(
     @Param('tableId') tableId: string,
     @Body() updateRecordRoByIndexRo: UpdateRecordRoByIndexRo
-  ): Promise<ApiResponse<RecordVo>> {
+  ): Promise<ApiResponse<IRecordVo>> {
     const record = await this.recordOpenApiService.updateRecordByIndex(
       tableId,
       updateRecordRoByIndexRo

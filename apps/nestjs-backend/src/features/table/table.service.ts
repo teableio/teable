@@ -11,7 +11,7 @@ import type {
   ITableSnapshot,
   ITableVo,
 } from '@teable-group/core';
-import { generateTableId, OpName } from '@teable-group/core';
+import { FieldKeyType, OpName, generateTableId } from '@teable-group/core';
 import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
@@ -146,6 +146,7 @@ export class TableService implements IAdapterService {
         viewId,
         skip: 0,
         take: 50,
+        fieldKeyType: FieldKeyType.Id,
       });
 
       return {

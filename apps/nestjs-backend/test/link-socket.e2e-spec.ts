@@ -62,7 +62,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -341,9 +341,10 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B2', id: ctx.table2Records[1].id },
       ]);
 
-      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual(
-        'B1, B2'
-      );
+      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual([
+        'B1',
+        'B2',
+      ]);
     });
 
     it('should update oneMany formula field when change oneMany link cell', async () => {
@@ -395,8 +396,8 @@ describe('OpenAPI link (e2e)', () => {
         await request(app.getHttpServer()).get(`/api/table/${table2Id}/record`).expect(200)
       ).body.data.records;
 
-      expect(table1RecordResult[0].fields[table1FormulaFieldRo.name]).toEqual('B1, B2');
-      expect(table1RecordResult[1].fields[table1FormulaFieldRo.name]).toEqual('');
+      expect(table1RecordResult[0].fields[table1FormulaFieldRo.name]).toEqual(['B1', 'B2']);
+      expect(table1RecordResult[1].fields[table1FormulaFieldRo.name]).toEqual(undefined);
       expect(table2RecordResult[0].fields[table2FormulaFieldRo.name]).toEqual('A1');
       expect(table2RecordResult[1].fields[table2FormulaFieldRo.name]).toEqual('A1');
     });

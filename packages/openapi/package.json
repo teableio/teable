@@ -1,0 +1,27 @@
+{
+  "name": "@teable-group/openapi",
+  "version": "1.0.0",
+  "license": "AGPL-3.0",
+  "private": true,
+  "homepage": "https://github.com/teable-group/teable",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teable-group/teable",
+    "directory": "packages/openapi"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "5.2.0",
+    "@teable-group/core": "workspace:*",
+    "axios": "1.1.3",
+    "zod": "3.21.4"
+  },
+  "devDependencies": {
+    "@teable-group/eslint-config-bases": "workspace:^",
+    "typescript": "4.8.4"
+  }
+}
