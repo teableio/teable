@@ -1,1 +1,1 @@
-export * from './InfoCard';
+export * from './cell-editor';

@@ -2,10 +2,10 @@ import { createHash } from 'crypto';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { AttachmentSchema } from '@teable-group/openapi';
 import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
 import { PrismaService } from '../../prisma.service';
-import type { AttachmentSignatureRo } from './modal/attachment-signature.ro';
 import { Storage } from './plugins/storage';
 
 @Injectable()
@@ -26,6 +26,7 @@ export class AttachmentsService {
       mimetype,
       token,
       path,
+      url: localStorage.getUrl(token),
       createdBy: 'admin',
       lastModifiedBy: 'admin',
     };
@@ -86,9 +87,8 @@ export class AttachmentsService {
     });
   }
 
-  async signature(): Promise<AttachmentSignatureRo> {
+  async signature(): Promise<AttachmentSchema.SignatureVo> {
     const localStorage = Storage.adapter();
-    // TODO: Replace with a unique ID generation library
     const token = getRandomString(12);
     return {
       url: `${localStorage.getUploadUrl()}/${token}`,
@@ -104,6 +104,7 @@ export class AttachmentsService {
         mimetype: true,
         width: true,
         height: true,
+        url: true,
       },
       where: {
         token,

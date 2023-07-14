@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree';
-import { operatorCrossReferenceTable } from '../models';
 import { JsonErrorStrategy } from './json-error.strategy';
 import type {
   BinaryExprContext,
@@ -10,6 +9,7 @@ import type {
   NullLiteralContext,
   NumberLiteralContext,
   ParenQueryExprContext,
+  PredicateExprEqArrayContext,
   PredicateExprHasContext,
   PredicateExprInContext,
   PredicateExprLikeContext,
@@ -20,9 +20,8 @@ import type {
   StartContext,
   StringLiteralContext,
   ValueContext,
-  ValueListContext,
 } from './parser/Query';
-import { Query } from './parser/Query';
+import { Query, ValueListContext } from './parser/Query';
 import { QueryLexer } from './parser/QueryLexer';
 import type { QueryVisitor } from './parser/QueryVisitor';
 
@@ -30,6 +29,7 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
   defaultResult() {
     return null;
   }
+
   visitStart(ctx: StartContext) {
     let result = this.visit(ctx.expr());
     if (!result) {
@@ -94,72 +94,27 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
   }
 
   visitPrimaryExprIs(ctx: PrimaryExprIsContext): any {
-    const fieldId = this.visit(ctx.fieldIdentifier());
-
-    const upperCaseOperator = ctx.isOp().text.toUpperCase();
-    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
-
-    return {
-      fieldId: fieldId,
-      operator: operator,
-      value: null,
-    };
+    return this.createResult(ctx.fieldIdentifier(), ctx.isOp().text);
   }
 
   visitPrimaryExprCompare(ctx: PrimaryExprCompareContext): any {
-    const fieldId = this.visit(ctx.fieldIdentifier());
-
-    const upperCaseOperator = ctx.compOp().text.toUpperCase();
-    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
-
-    const value = this.visitValue(ctx.value());
-    return {
-      fieldId: fieldId,
-      operator: operator,
-      value: value,
-    };
+    return this.createResult(ctx.fieldIdentifier(), ctx.compOp().text, ctx.value());
   }
 
   visitPredicateExprLike(ctx: PredicateExprLikeContext): any {
-    const fieldId = this.visit(ctx.fieldIdentifier());
-
-    const upperCaseOperator = ctx.likeOp().text.toUpperCase();
-    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
-
-    const value = this.visitValue(ctx.value());
-    return {
-      fieldId: fieldId,
-      operator: operator,
-      value: value,
-    };
+    return this.createResult(ctx.fieldIdentifier(), ctx.likeOp().text, ctx.value());
   }
 
   visitPredicateExprIn(ctx: PredicateExprInContext): any {
-    const fieldId = this.visit(ctx.fieldIdentifier());
-
-    const upperCaseOperator = ctx.inOp().text.toUpperCase();
-    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
-
-    const valueList = this.visitValueList(ctx.valueList());
-    return {
-      fieldId: fieldId,
-      operator: operator,
-      value: valueList,
-    };
+    return this.createResult(ctx.fieldIdentifier(), ctx.inOp().text, ctx.valueList());
   }
 
   visitPredicateExprHas(ctx: PredicateExprHasContext): any {
-    const fieldId = this.visit(ctx.fieldIdentifier());
+    return this.createResult(ctx.fieldIdentifier(), ctx.HAS_SYMBOL().text, ctx.valueList());
+  }
 
-    const upperCaseOperator = ctx.HAS_SYMBOL().text.toUpperCase();
-    const operator = operatorCrossReferenceTable.get(upperCaseOperator);
-
-    const valueList = this.visitValueList(ctx.valueList());
-    return {
-      fieldId: fieldId,
-      operator: operator,
-      value: valueList,
-    };
+  visitPredicateExprEqArray(ctx: PredicateExprEqArrayContext): any {
+    return this.createResult(ctx.fieldIdentifier(), ctx.EQUAL_OPERATOR().text, ctx.valueList());
   }
 
   visitValue(ctx: ValueContext): any {
@@ -184,6 +139,32 @@ export class JsonVisitor extends AbstractParseTreeVisitor<any> implements QueryV
 
   visitNullLiteral(_ctx: NullLiteralContext): any {
     return null;
+  }
+
+  private createResult(
+    fieldCtx: FieldIdentifierContext,
+    operatorCtx: string,
+    valueCtx?: ValueContext | ValueListContext
+  ) {
+    const fieldId = this.visit(fieldCtx);
+
+    const operator = operatorCtx.toUpperCase() === '<>' ? '!=' : operatorCtx.toUpperCase();
+
+    let value = null;
+    if (valueCtx) {
+      if (valueCtx instanceof ValueListContext) {
+        value = this.visitValueList(valueCtx);
+      } else {
+        value = this.visitValue(valueCtx);
+      }
+    }
+
+    return {
+      isSymbol: true,
+      fieldId: fieldId,
+      operator: operator,
+      value: value,
+    };
   }
 }
 

@@ -53,6 +53,7 @@ const config = {
     '!**/*.{spec,test}.{js,ts}',
     '!**/__mock__/*',
   ],
+  setupFiles: ['<rootDir>/../jest.setup.js'],
 };
 
 module.exports = config;

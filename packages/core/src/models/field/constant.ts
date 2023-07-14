@@ -42,3 +42,16 @@ export enum CellValueType {
   Boolean = 'boolean',
   DateTime = 'dateTime',
 }
+
+export enum Relationship {
+  ManyMany = 'manyMany',
+  OneMany = 'oneMany',
+  ManyOne = 'manyOne',
+}
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const RelationshipRevert = {
+  [Relationship.OneMany]: Relationship.ManyOne,
+  [Relationship.ManyOne]: Relationship.OneMany,
+  [Relationship.ManyMany]: Relationship.ManyMany,
+};

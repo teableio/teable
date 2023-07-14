@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { isString } from 'lodash';
 import type { CreateFieldRo } from './create-field.ro';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
+import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
@@ -34,13 +35,6 @@ function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
     case 'description':
     case 'type':
       return { success: true };
-    case 'defaultValue': {
-      const res = fieldInstance.validateDefaultValue();
-      return {
-        success: res.success,
-        error: res.success ? null : formatFieldErrorMessage(res.error),
-      };
-    }
     case 'options': {
       const res = fieldInstance.validateOptions();
       return {
@@ -78,6 +72,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
         return AttachmentFieldDto.factory(fieldRo);
       case FieldType.Date:
         return DateFieldDto.factory(fieldRo);
+      case FieldType.Checkbox:
+        return CheckboxFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -94,7 +90,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
       case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
-      case FieldType.Checkbox:
       case FieldType.Rollup:
         return plainToInstance(SingleLineTextFieldDto, {
           ...fieldRo,
@@ -108,7 +103,7 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
     }
   })();
 
-  const validateKeys = ['name', 'description', 'type', 'options', 'defaultValue'];
+  const validateKeys = ['name', 'description', 'type', 'options'];
 
   const validateErrors = validateKeys
     .map((key) => validateFieldByKey(key, instance))
@@ -133,9 +128,8 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
-    isLookup: Boolean(fieldRaw.lookupFieldId) || undefined,
+    isLookup: Boolean(fieldRaw.lookupLinkedFieldId) || undefined,
     lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
-    defaultValue: fieldRaw.defaultValue && JSON.parse(fieldRaw.defaultValue as string),
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
@@ -165,6 +159,8 @@ export function createFieldInstanceByVo(field: FieldVo) {
       return plainToInstance(AttachmentFieldDto, field);
     case FieldType.Date:
       return plainToInstance(DateFieldDto, field);
+    case FieldType.Checkbox:
+      return plainToInstance(CheckboxFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -181,7 +177,6 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Rating:
     case FieldType.Currency:
     case FieldType.Percent:
-    case FieldType.Checkbox:
     case FieldType.Rollup:
       throw new Error('did not implement yet');
     default:

@@ -26,10 +26,17 @@ export class Rollup extends SystemFunc {
     return { type: CellValueType.String };
   }
 
-  eval(params: TypedValue[]): boolean | number | string | string[] | null {
+  eval(params: TypedValue[]): boolean | number | string | (string | null)[] | null {
     const param = params[0];
     if (param.isMultiple) {
-      return param.value ? (param.value as string[]).map((p) => p || '') : null;
+      return param.value
+        ? (param.value as string[]).map((p) => {
+            if (Array.isArray(p)) {
+              return p.join(', ');
+            }
+            return p;
+          })
+        : null;
     }
 
     return param.value || null;

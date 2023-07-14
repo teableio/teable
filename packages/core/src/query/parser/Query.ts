@@ -391,7 +391,7 @@ export class Query extends Parser {
     let _localctx: PredicateContext = new PredicateContext(this._ctx, this.state);
     this.enterRule(_localctx, 6, Query.RULE_predicate);
     try {
-      this.state = 73;
+      this.state = 77;
       this._errHandler.sync(this);
       switch (this.interpreter.adaptivePredict(this._input, 3, this._ctx)) {
         case 1:
@@ -432,6 +432,19 @@ export class Query extends Parser {
             this.valueList();
           }
           break;
+
+        case 4:
+          _localctx = new PredicateExprEqArrayContext(_localctx);
+          this.enterOuterAlt(_localctx, 4);
+          {
+            this.state = 73;
+            this.fieldIdentifier();
+            this.state = 74;
+            this.match(Query.EQUAL_OPERATOR);
+            this.state = 75;
+            this.valueList();
+          }
+          break;
       }
     } catch (re) {
       if (re instanceof RecognitionException) {
@@ -453,7 +466,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 75;
+        this.state = 79;
         this.match(Query.SIMPLE_IDENTIFIER);
       }
     } catch (re) {
@@ -477,7 +490,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 77;
+        this.state = 81;
         _la = this._input.LA(1);
         if (
           !(
@@ -524,7 +537,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 79;
+        this.state = 83;
         _la = this._input.LA(1);
         if (!(_la === Query.LS_NULL_SYMBOL || _la === Query.LS_NOT_NULL_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -558,7 +571,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 81;
+        this.state = 85;
         _la = this._input.LA(1);
         if (!(_la === Query.LIKE_SYMBOL || _la === Query.NOT_LIKE_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -592,7 +605,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 83;
+        this.state = 87;
         _la = this._input.LA(1);
         if (!(_la === Query.IN_SYMBOL || _la === Query.NOT_IN_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -625,7 +638,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 85;
+        this.state = 89;
         this.literal();
       }
     } catch (re) {
@@ -649,9 +662,9 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 87;
+        this.state = 91;
         this.match(Query.OPEN_PAREN);
-        this.state = 96;
+        this.state = 100;
         this._errHandler.sync(this);
         _la = this._input.LA(1);
         if (
@@ -667,28 +680,28 @@ export class Query extends Parser {
             0
         ) {
           {
-            this.state = 88;
+            this.state = 92;
             this.literal();
-            this.state = 93;
+            this.state = 97;
             this._errHandler.sync(this);
             _la = this._input.LA(1);
             while (_la === Query.COMMA) {
               {
                 {
-                  this.state = 89;
+                  this.state = 93;
                   this.match(Query.COMMA);
-                  this.state = 90;
+                  this.state = 94;
                   this.literal();
                 }
               }
-              this.state = 95;
+              this.state = 99;
               this._errHandler.sync(this);
               _la = this._input.LA(1);
             }
           }
         }
 
-        this.state = 98;
+        this.state = 102;
         this.match(Query.CLOSE_PAREN);
       }
     } catch (re) {
@@ -709,14 +722,14 @@ export class Query extends Parser {
     const _localctx: LiteralContext = new LiteralContext(this._ctx, this.state);
     this.enterRule(_localctx, 22, Query.RULE_literal);
     try {
-      this.state = 104;
+      this.state = 108;
       this._errHandler.sync(this);
       switch (this._input.LA(1)) {
         case Query.SINGLEQ_STRING_LITERAL:
         case Query.DOUBLEQ_STRING_LITERAL:
           this.enterOuterAlt(_localctx, 1);
           {
-            this.state = 100;
+            this.state = 104;
             this.stringLiteral();
           }
           break;
@@ -724,7 +737,7 @@ export class Query extends Parser {
         case Query.NUMERIC_LITERAL:
           this.enterOuterAlt(_localctx, 2);
           {
-            this.state = 101;
+            this.state = 105;
             this.numberLiteral();
           }
           break;
@@ -732,14 +745,14 @@ export class Query extends Parser {
         case Query.FALSE_SYMBOL:
           this.enterOuterAlt(_localctx, 3);
           {
-            this.state = 102;
+            this.state = 106;
             this.booleanLiteral();
           }
           break;
         case Query.NULL_SYMBOL:
           this.enterOuterAlt(_localctx, 4);
           {
-            this.state = 103;
+            this.state = 107;
             this.nullLiteral();
           }
           break;
@@ -767,7 +780,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 106;
+        this.state = 110;
         _la = this._input.LA(1);
         if (!(_la === Query.SINGLEQ_STRING_LITERAL || _la === Query.DOUBLEQ_STRING_LITERAL)) {
           this._errHandler.recoverInline(this);
@@ -801,7 +814,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 108;
+        this.state = 112;
         _la = this._input.LA(1);
         if (!(_la === Query.INTEGER_LITERAL || _la === Query.NUMERIC_LITERAL)) {
           this._errHandler.recoverInline(this);
@@ -835,7 +848,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 110;
+        this.state = 114;
         _la = this._input.LA(1);
         if (!(_la === Query.TRUE_SYMBOL || _la === Query.FALSE_SYMBOL)) {
           this._errHandler.recoverInline(this);
@@ -868,7 +881,7 @@ export class Query extends Parser {
     try {
       this.enterOuterAlt(_localctx, 1);
       {
-        this.state = 112;
+        this.state = 116;
         this.match(Query.NULL_SYMBOL);
       }
     } catch (re) {
@@ -901,7 +914,7 @@ export class Query extends Parser {
   }
 
   public static readonly _serializedATN: string =
-    '\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03$u\x04\x02\t\x02' +
+    '\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03$y\x04\x02\t\x02' +
     '\x04\x03\t\x03\x04\x04\t\x04\x04\x05\t\x05\x04\x06\t\x06\x04\x07\t\x07' +
     '\x04\b\t\b\x04\t\t\t\x04\n\t\n\x04\v\t\v\x04\f\t\f\x04\r\t\r\x04\x0E\t' +
     '\x0E\x04\x0F\t\x0F\x04\x10\t\x10\x04\x11\t\x11\x03\x02\x03\x02\x03\x02' +
@@ -909,43 +922,44 @@ export class Query extends Parser {
     '\x03\x03\x03\x03\x07\x031\n\x03\f\x03\x0E\x034\v\x03\x03\x04\x03\x04\x03' +
     '\x04\x03\x04\x03\x04\x03\x04\x03\x04\x03\x04\x05\x04>\n\x04\x03\x05\x03' +
     '\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03' +
-    '\x05\x03\x05\x05\x05L\n\x05\x03\x06\x03\x06\x03\x07\x03\x07\x03\b\x03' +
-    '\b\x03\t\x03\t\x03\n\x03\n\x03\v\x03\v\x03\f\x03\f\x03\f\x03\f\x07\f^' +
-    '\n\f\f\f\x0E\fa\v\f\x05\fc\n\f\x03\f\x03\f\x03\r\x03\r\x03\r\x03\r\x05' +
-    '\rk\n\r\x03\x0E\x03\x0E\x03\x0F\x03\x0F\x03\x10\x03\x10\x03\x11\x03\x11' +
-    '\x03\x11\x02\x02\x03\x04\x12\x02\x02\x04\x02\x06\x02\b\x02\n\x02\f\x02' +
-    '\x0E\x02\x10\x02\x12\x02\x14\x02\x16\x02\x18\x02\x1A\x02\x1C\x02\x1E\x02' +
-    ' \x02\x02\n\x03\x02\x17\x18\x04\x02\x0F\x14$$\x03\x02\x1C\x1D\x04\x02' +
-    '\x1E\x1E!!\x04\x02\x1F\x1F""\x03\x02\v\f\x03\x02\r\x0E\x03\x02\x15\x16' +
-    '\x02o\x02"\x03\x02\x02\x02\x04+\x03\x02\x02\x02\x06=\x03\x02\x02\x02' +
-    '\bK\x03\x02\x02\x02\nM\x03\x02\x02\x02\fO\x03\x02\x02\x02\x0EQ\x03\x02' +
-    '\x02\x02\x10S\x03\x02\x02\x02\x12U\x03\x02\x02\x02\x14W\x03\x02\x02\x02' +
-    '\x16Y\x03\x02\x02\x02\x18j\x03\x02\x02\x02\x1Al\x03\x02\x02\x02\x1Cn\x03' +
-    '\x02\x02\x02\x1Ep\x03\x02\x02\x02 r\x03\x02\x02\x02"#\x05\x04\x03\x02' +
-    '#$\x07\x02\x02\x03$\x03\x03\x02\x02\x02%&\b\x03\x01\x02&,\x05\x06\x04' +
-    "\x02'(\x07\x04\x02\x02()\x05\x04\x03\x02)*\x07\x05\x02\x02*,\x03\x02" +
-    "\x02\x02+%\x03\x02\x02\x02+'\x03\x02\x02\x02,2\x03\x02\x02\x02-.\f\x04" +
-    '\x02\x02./\t\x02\x02\x02/1\x05\x04\x03\x050-\x03\x02\x02\x0214\x03\x02' +
-    '\x02\x0220\x03\x02\x02\x0223\x03\x02\x02\x023\x05\x03\x02\x02\x0242\x03' +
-    '\x02\x02\x025>\x05\b\x05\x0267\x05\n\x06\x0278\x05\x0E\b\x028>\x03\x02' +
-    '\x02\x029:\x05\n\x06\x02:;\x05\f\x07\x02;<\x05\x14\v\x02<>\x03\x02\x02' +
-    '\x02=5\x03\x02\x02\x02=6\x03\x02\x02\x02=9\x03\x02\x02\x02>\x07\x03\x02' +
-    '\x02\x02?@\x05\n\x06\x02@A\x05\x10\t\x02AB\x05\x14\v\x02BL\x03\x02\x02' +
-    '\x02CD\x05\n\x06\x02DE\x05\x12\n\x02EF\x05\x16\f\x02FL\x03\x02\x02\x02' +
-    'GH\x05\n\x06\x02HI\x07 \x02\x02IJ\x05\x16\f\x02JL\x03\x02\x02\x02K?\x03' +
-    '\x02\x02\x02KC\x03\x02\x02\x02KG\x03\x02\x02\x02L\t\x03\x02\x02\x02MN' +
-    '\x07\n\x02\x02N\v\x03\x02\x02\x02OP\t\x03\x02\x02P\r\x03\x02\x02\x02Q' +
-    'R\t\x04\x02\x02R\x0F\x03\x02\x02\x02ST\t\x05\x02\x02T\x11\x03\x02\x02' +
-    '\x02UV\t\x06\x02\x02V\x13\x03\x02\x02\x02WX\x05\x18\r\x02X\x15\x03\x02' +
-    '\x02\x02Yb\x07\x04\x02\x02Z_\x05\x18\r\x02[\\\x07\x03\x02\x02\\^\x05\x18' +
-    '\r\x02][\x03\x02\x02\x02^a\x03\x02\x02\x02_]\x03\x02\x02\x02_`\x03\x02' +
-    '\x02\x02`c\x03\x02\x02\x02a_\x03\x02\x02\x02bZ\x03\x02\x02\x02bc\x03\x02' +
-    '\x02\x02cd\x03\x02\x02\x02de\x07\x05\x02\x02e\x17\x03\x02\x02\x02fk\x05' +
-    '\x1A\x0E\x02gk\x05\x1C\x0F\x02hk\x05\x1E\x10\x02ik\x05 \x11\x02jf\x03' +
-    '\x02\x02\x02jg\x03\x02\x02\x02jh\x03\x02\x02\x02ji\x03\x02\x02\x02k\x19' +
-    '\x03\x02\x02\x02lm\t\x07\x02\x02m\x1B\x03\x02\x02\x02no\t\b\x02\x02o\x1D' +
-    '\x03\x02\x02\x02pq\t\t\x02\x02q\x1F\x03\x02\x02\x02rs\x07\x1A\x02\x02' +
-    's!\x03\x02\x02\x02\t+2=K_bj';
+    '\x05\x03\x05\x03\x05\x03\x05\x03\x05\x03\x05\x05\x05P\n\x05\x03\x06\x03' +
+    '\x06\x03\x07\x03\x07\x03\b\x03\b\x03\t\x03\t\x03\n\x03\n\x03\v\x03\v\x03' +
+    '\f\x03\f\x03\f\x03\f\x07\fb\n\f\f\f\x0E\fe\v\f\x05\fg\n\f\x03\f\x03\f' +
+    '\x03\r\x03\r\x03\r\x03\r\x05\ro\n\r\x03\x0E\x03\x0E\x03\x0F\x03\x0F\x03' +
+    '\x10\x03\x10\x03\x11\x03\x11\x03\x11\x02\x02\x03\x04\x12\x02\x02\x04\x02' +
+    '\x06\x02\b\x02\n\x02\f\x02\x0E\x02\x10\x02\x12\x02\x14\x02\x16\x02\x18' +
+    '\x02\x1A\x02\x1C\x02\x1E\x02 \x02\x02\n\x03\x02\x17\x18\x04\x02\x0F\x14' +
+    '$$\x03\x02\x1C\x1D\x04\x02\x1E\x1E!!\x04\x02\x1F\x1F""\x03\x02\v\f\x03' +
+    '\x02\r\x0E\x03\x02\x15\x16\x02t\x02"\x03\x02\x02\x02\x04+\x03\x02\x02' +
+    '\x02\x06=\x03\x02\x02\x02\bO\x03\x02\x02\x02\nQ\x03\x02\x02\x02\fS\x03' +
+    '\x02\x02\x02\x0EU\x03\x02\x02\x02\x10W\x03\x02\x02\x02\x12Y\x03\x02\x02' +
+    '\x02\x14[\x03\x02\x02\x02\x16]\x03\x02\x02\x02\x18n\x03\x02\x02\x02\x1A' +
+    'p\x03\x02\x02\x02\x1Cr\x03\x02\x02\x02\x1Et\x03\x02\x02\x02 v\x03\x02' +
+    '\x02\x02"#\x05\x04\x03\x02#$\x07\x02\x02\x03$\x03\x03\x02\x02\x02%&\b' +
+    "\x03\x01\x02&,\x05\x06\x04\x02'(\x07\x04\x02\x02()\x05\x04\x03\x02)*" +
+    "\x07\x05\x02\x02*,\x03\x02\x02\x02+%\x03\x02\x02\x02+'\x03\x02\x02\x02" +
+    ',2\x03\x02\x02\x02-.\f\x04\x02\x02./\t\x02\x02\x02/1\x05\x04\x03\x050' +
+    '-\x03\x02\x02\x0214\x03\x02\x02\x0220\x03\x02\x02\x0223\x03\x02\x02\x02' +
+    '3\x05\x03\x02\x02\x0242\x03\x02\x02\x025>\x05\b\x05\x0267\x05\n\x06\x02' +
+    '78\x05\x0E\b\x028>\x03\x02\x02\x029:\x05\n\x06\x02:;\x05\f\x07\x02;<\x05' +
+    '\x14\v\x02<>\x03\x02\x02\x02=5\x03\x02\x02\x02=6\x03\x02\x02\x02=9\x03' +
+    '\x02\x02\x02>\x07\x03\x02\x02\x02?@\x05\n\x06\x02@A\x05\x10\t\x02AB\x05' +
+    '\x14\v\x02BP\x03\x02\x02\x02CD\x05\n\x06\x02DE\x05\x12\n\x02EF\x05\x16' +
+    '\f\x02FP\x03\x02\x02\x02GH\x05\n\x06\x02HI\x07 \x02\x02IJ\x05\x16\f\x02' +
+    'JP\x03\x02\x02\x02KL\x05\n\x06\x02LM\x07\x0F\x02\x02MN\x05\x16\f\x02N' +
+    'P\x03\x02\x02\x02O?\x03\x02\x02\x02OC\x03\x02\x02\x02OG\x03\x02\x02\x02' +
+    'OK\x03\x02\x02\x02P\t\x03\x02\x02\x02QR\x07\n\x02\x02R\v\x03\x02\x02\x02' +
+    'ST\t\x03\x02\x02T\r\x03\x02\x02\x02UV\t\x04\x02\x02V\x0F\x03\x02\x02\x02' +
+    'WX\t\x05\x02\x02X\x11\x03\x02\x02\x02YZ\t\x06\x02\x02Z\x13\x03\x02\x02' +
+    '\x02[\\\x05\x18\r\x02\\\x15\x03\x02\x02\x02]f\x07\x04\x02\x02^c\x05\x18' +
+    '\r\x02_`\x07\x03\x02\x02`b\x05\x18\r\x02a_\x03\x02\x02\x02be\x03\x02\x02' +
+    '\x02ca\x03\x02\x02\x02cd\x03\x02\x02\x02dg\x03\x02\x02\x02ec\x03\x02\x02' +
+    '\x02f^\x03\x02\x02\x02fg\x03\x02\x02\x02gh\x03\x02\x02\x02hi\x07\x05\x02' +
+    '\x02i\x17\x03\x02\x02\x02jo\x05\x1A\x0E\x02ko\x05\x1C\x0F\x02lo\x05\x1E' +
+    '\x10\x02mo\x05 \x11\x02nj\x03\x02\x02\x02nk\x03\x02\x02\x02nl\x03\x02' +
+    '\x02\x02nm\x03\x02\x02\x02o\x19\x03\x02\x02\x02pq\t\x07\x02\x02q\x1B\x03' +
+    '\x02\x02\x02rs\t\b\x02\x02s\x1D\x03\x02\x02\x02tu\t\t\x02\x02u\x1F\x03' +
+    '\x02\x02\x02vw\x07\x1A\x02\x02w!\x03\x02\x02\x02\t+2=Ocfn';
   public static __ATN: ATN;
   public static get _ATN(): ATN {
     if (!Query.__ATN) {
@@ -1212,6 +1226,29 @@ export class PredicateExprHasContext extends PredicateContext {
   public accept<Result>(visitor: QueryVisitor<Result>): Result {
     if (visitor.visitPredicateExprHas) {
       return visitor.visitPredicateExprHas(this);
+    } else {
+      return visitor.visitChildren(this);
+    }
+  }
+}
+export class PredicateExprEqArrayContext extends PredicateContext {
+  public fieldIdentifier(): FieldIdentifierContext {
+    return this.getRuleContext(0, FieldIdentifierContext);
+  }
+  public EQUAL_OPERATOR(): TerminalNode {
+    return this.getToken(Query.EQUAL_OPERATOR, 0);
+  }
+  public valueList(): ValueListContext {
+    return this.getRuleContext(0, ValueListContext);
+  }
+  constructor(ctx: PredicateContext) {
+    super(ctx.parent, ctx.invokingState);
+    this.copyFrom(ctx);
+  }
+  // @Override
+  public accept<Result>(visitor: QueryVisitor<Result>): Result {
+    if (visitor.visitPredicateExprEqArray) {
+      return visitor.visitPredicateExprEqArray(this);
     } else {
       return visitor.visitChildren(this);
     }

@@ -39,7 +39,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -120,7 +120,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -204,7 +204,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          precision: 1,
+          formatting: { precision: 1 },
         },
       };
 
@@ -542,9 +542,10 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'table2_2', id: ctx.table2Records[1].id },
       ]);
 
-      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual(
-        'table2_1, table2_2'
-      );
+      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual([
+        'table2_1',
+        'table2_2',
+      ]);
     });
   });
 });

@@ -78,6 +78,7 @@ export class TableOpenApiService {
         const data = await this.createRecord(transactionKey, tableId, tableRo.data);
         return {
           ...tableVo,
+          total: 1,
           fields: fieldVos,
           views: viewVos,
           data,

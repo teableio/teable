@@ -3,7 +3,6 @@ import { AddColumnMetaBuilder } from './field/add-column-meta';
 import { AddFieldBuilder } from './field/add-field';
 import { DeleteColumnMetaBuilder } from './field/delete-column-meta';
 import { SetColumnMetaBuilder } from './field/set-column-meta';
-import { SetFieldDefaultValueBuilder } from './field/set-field-default-value';
 import { SetFieldDescriptionBuilder } from './field/set-field-description';
 import { SetFieldNameBuilder } from './field/set-field-name';
 import { SetFieldOptionsBuilder } from './field/set-field-options';
@@ -22,9 +21,13 @@ import { SetViewNameBuilder } from './view/set-view-name';
 export type { ISetRecordOrderOpContext } from './record/set-record-order';
 export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
-export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 export type { IAddColumnMetaOpContext } from './field/add-column-meta';
+export type { IDeleteColumnMetaOpContext } from './field/delete-column-meta';
+export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 export type { ISetFieldNameOpContext } from './field/set-field-name';
+export type { ISetFieldDescriptionOpContext } from './field/set-field-description';
+export type { ISetFieldOptionsOpContext } from './field/set-field-options';
+export type { ISetFieldTypeOpContext } from './field/set-field-type';
 export type { ISetViewNameOpContext } from './view/set-view-name';
 export type { ISetViewFilterOpContext } from './view/set-view-filter';
 export type { ISetTableNameOpContext } from './table/set-table-name';
@@ -43,7 +46,6 @@ export class OpBuilder {
     setFieldName: new SetFieldNameBuilder(),
     setFieldDescription: new SetFieldDescriptionBuilder(),
     setFieldOptions: new SetFieldOptionsBuilder(),
-    setFieldDefaultValue: new SetFieldDefaultValueBuilder(),
     setFieldType: new SetFieldTypeBuilder(),
 
     setViewName: new SetViewNameBuilder(),

@@ -18,7 +18,7 @@
     "sourceMap": true,
     "incremental": true
   },
-  "references": [{ "path": "../core" }, { "path": "../ui-lib" }],
+  "references": [{ "path": "../core" }, { "path": "../ui-lib" }, { "path": "../icons" }],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
   "include": ["./src"]
 }

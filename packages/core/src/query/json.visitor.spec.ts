@@ -2,8 +2,9 @@
 import { parseTQL } from './json.visitor';
 
 describe('JsonVisitor', () => {
-  const mockFilterData = (value: any = null, operator = 'is') => {
+  const mockFilterData = (value: any = null, operator = '=') => {
     return {
+      isSymbol: true,
       fieldId: 'field',
       operator: operator,
       value: value,
@@ -18,7 +19,7 @@ describe('JsonVisitor', () => {
       b?: boolean;
       bArray?: boolean[];
     }[],
-    operator = 'is',
+    operator = '=',
     conjunction = 'and'
   ) => {
     const filterSet: any[] = [];
@@ -36,12 +37,13 @@ describe('JsonVisitor', () => {
   };
 
   describe('{field} [operators] value', () => {
-    it('should `=` convert `is`', () => {
+    it('should operator `=`', () => {
       expect(parseTQL(`{field} = '1'`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'is',
+              isSymbol: true,
+              operator: '=',
               value: '1',
             }),
           ],
@@ -50,12 +52,12 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `!=` convert `is`', () => {
+    it('should operator `!=`', () => {
       expect(parseTQL(`{field} != '1'`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isNot',
+              operator: '!=',
               value: '1',
             }),
           ],
@@ -66,7 +68,8 @@ describe('JsonVisitor', () => {
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isNot',
+              isSymbol: true,
+              operator: '!=',
               value: '1',
             }),
           ],
@@ -75,12 +78,13 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `>` convert `is`', () => {
+    it('should operator `>`', () => {
       expect(parseTQL(`{field} > 1`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isGreater',
+              isSymbol: true,
+              operator: '>',
               value: 1,
             }),
           ],
@@ -89,12 +93,13 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `>=` convert `is`', () => {
+    it('should operator `>=`', () => {
       expect(parseTQL(`{field} >= 1`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isGreaterEqual',
+              isSymbol: true,
+              operator: '>=',
               value: 1,
             }),
           ],
@@ -103,12 +108,13 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `<` convert `is`', () => {
+    it('should operator `<`', () => {
       expect(parseTQL(`{field} < 1`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isLess',
+              isSymbol: true,
+              operator: '<',
               value: 1,
             }),
           ],
@@ -117,12 +123,13 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `<=` convert `is`', () => {
+    it('should operator `<=`', () => {
       expect(parseTQL(`{field} <= 1`)).toStrictEqual(
         expect.objectContaining({
           filterSet: [
             expect.objectContaining({
-              operator: 'isLessEqual',
+              isSymbol: true,
+              operator: '<=',
               value: 1,
             }),
           ],
@@ -131,11 +138,12 @@ describe('JsonVisitor', () => {
       );
     });
 
-    it('should `LIKE` convert `is`', () => {
+    it('should operator `LIKE`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'contains',
+            isSymbol: true,
+            operator: 'LIKE',
             value: '1%',
           }),
         ],
@@ -146,11 +154,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} like '1%'`)).toStrictEqual(expected);
     });
 
-    it('should `NOT LIKE` convert `is`', () => {
+    it('should operator `NOT LIKE`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'doesNotContain',
+            isSymbol: true,
+            operator: 'NOT LIKE',
             value: '1%',
           }),
         ],
@@ -161,11 +170,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} not like '1%'`)).toStrictEqual(expected);
     });
 
-    it('should `IN` convert `is`', () => {
+    it('should operator `IN`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'isAnyOf',
+            isSymbol: true,
+            operator: 'IN',
             value: [1, 'a', 3.6, true, null],
           }),
         ],
@@ -176,11 +186,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} in (1, 'a', 3.6, true, null)`)).toStrictEqual(expected);
     });
 
-    it('should `NOT IN` convert `is`', () => {
+    it('should operator `NOT IN`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'isNoneOf',
+            isSymbol: true,
+            operator: 'NOT IN',
             value: [1],
           }),
         ],
@@ -191,11 +202,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} not In (1)`)).toStrictEqual(expected);
     });
 
-    it('should `HAS` convert `hasAllOf`', () => {
+    it('should operator `HAS`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'hasAllOf',
+            isSymbol: true,
+            operator: 'HAS',
             value: [2],
           }),
         ],
@@ -206,11 +218,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} has (2)`)).toStrictEqual(expected);
     });
 
-    it('should `IS NULL` convert `isEmpty`', () => {
+    it('should operator `IS NULL`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'isEmpty',
+            isSymbol: true,
+            operator: 'IS NULL',
           }),
         ],
         conjunction: 'and',
@@ -220,11 +233,12 @@ describe('JsonVisitor', () => {
       expect(parseTQL(`{field} is null`)).toStrictEqual(expected);
     });
 
-    it('should `IS NOT NULL` convert `isNotEmpty`', () => {
+    it('should operator `IS NOT NULL`', () => {
       const expected = expect.objectContaining({
         filterSet: [
           expect.objectContaining({
-            operator: 'isNotEmpty',
+            isSymbol: true,
+            operator: 'IS NOT NULL',
           }),
         ],
         conjunction: 'and',
@@ -240,11 +254,11 @@ describe('JsonVisitor', () => {
     expect(parseTQL(`{field} = 'abc'`)).toStrictEqual(mockData([{ s: 'abc' }]));
 
     expect(parseTQL(`{field} IN ('a','b', 'c')`)).toStrictEqual(
-      mockData([{ sArray: ['a', 'b', 'c'] }], 'isAnyOf')
+      mockData([{ sArray: ['a', 'b', 'c'] }], 'IN')
     );
 
     expect(parseTQL(`{field} NOT IN ('a','b', 'c')`)).toStrictEqual(
-      mockData([{ sArray: ['a', 'b', 'c'] }], 'isNoneOf')
+      mockData([{ sArray: ['a', 'b', 'c'] }], 'NOT IN')
     );
   });
 
@@ -252,14 +266,14 @@ describe('JsonVisitor', () => {
     expect(parseTQL(`{field} = 1`)).toStrictEqual(mockData([{ n: 1 }]));
     expect(parseTQL(`{field} = 1.1`)).toStrictEqual(mockData([{ n: 1.1 }]));
 
-    expect(parseTQL(`{field} IN (2)`)).toStrictEqual(mockData([{ nArray: [2] }], 'isAnyOf'));
-    expect(parseTQL(`{field} IN (2.2)`)).toStrictEqual(mockData([{ nArray: [2.2] }], 'isAnyOf'));
+    expect(parseTQL(`{field} IN (2)`)).toStrictEqual(mockData([{ nArray: [2] }], 'IN'));
+    expect(parseTQL(`{field} IN (2.2)`)).toStrictEqual(mockData([{ nArray: [2.2] }], 'IN'));
 
     expect(parseTQL(`{field} NOT IN (3,4)`)).toStrictEqual(
-      mockData([{ nArray: [3, 4] }], 'isNoneOf')
+      mockData([{ nArray: [3, 4] }], 'NOT IN')
     );
     expect(parseTQL(`{field} NOT IN (3.3, 4.4)`)).toStrictEqual(
-      mockData([{ nArray: [3.3, 4.4] }], 'isNoneOf')
+      mockData([{ nArray: [3.3, 4.4] }], 'NOT IN')
     );
   });
 
@@ -268,7 +282,7 @@ describe('JsonVisitor', () => {
     expect(parseTQL(`{field} = false`)).toStrictEqual(mockData([{ b: false }]));
 
     expect(parseTQL(`{field} IN (true, false)`)).toStrictEqual(
-      mockData([{ bArray: [true, false] }], 'isAnyOf')
+      mockData([{ bArray: [true, false] }], 'IN')
     );
   });
 
@@ -286,7 +300,7 @@ describe('JsonVisitor', () => {
     );
 
     expect(parseTQL(`{field} IN ('a','b') AND {field} IN (1, 2.2)`)).toStrictEqual(
-      mockData([{ sArray: ['a', 'b'] }, { nArray: [1, 2.2] }], 'isAnyOf')
+      mockData([{ sArray: ['a', 'b'] }, { nArray: [1, 2.2] }], 'IN')
     );
   });
 
@@ -296,21 +310,24 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 1,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 2,
             },
           ],
           conjunction: 'and',
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 3,
         },
       ],
@@ -330,13 +347,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 1,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 2,
             },
           ],
@@ -345,13 +364,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 3,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 4,
             },
           ],
@@ -372,13 +393,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 1,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 2,
             },
           ],
@@ -387,13 +410,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 3,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 4,
             },
           ],
@@ -412,23 +437,27 @@ describe('JsonVisitor', () => {
     const data = {
       filterSet: [
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 1,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 2,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 3,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 4,
         },
       ],
@@ -446,13 +475,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 1,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 2,
             },
           ],
@@ -461,13 +492,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 3,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 4,
             },
           ],
@@ -488,13 +521,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 1,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 2,
             },
           ],
@@ -503,13 +538,15 @@ describe('JsonVisitor', () => {
         {
           filterSet: [
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 3,
             },
             {
+              isSymbol: true,
               fieldId: 'field',
-              operator: 'is',
+              operator: '=',
               value: 4,
             },
           ],
@@ -528,23 +565,27 @@ describe('JsonVisitor', () => {
     const data = {
       filterSet: [
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 1,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 2,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 3,
         },
         {
+          isSymbol: true,
           fieldId: 'field',
-          operator: 'is',
+          operator: '=',
           value: 4,
         },
       ],

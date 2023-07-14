@@ -118,7 +118,9 @@ export class ShareDbService extends ShareDBClass {
     if (docType !== IdPrefix.Record || !context.op.op || !tsMeta || tsMeta.skipCalculate) {
       return;
     }
-    console.log('ShareDb:apply:', context.id, context.op.op, context.extra);
+    // prepare transaction
+    await this.transactionService.getTransaction(tsMeta);
+    console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = OpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
@@ -131,16 +133,7 @@ export class ShareDbService extends ShareDBClass {
       return;
     }
 
-    let fixupOps: IOtOperation[] | undefined = undefined;
-    fixupOps = await this.derivateChangeService.getFixupOps(tsMeta, tableId, recordId, ops);
-
-    if (!fixupOps || !fixupOps.length) {
-      return;
-    }
-
-    console.log('fixUps:', fixupOps);
-
-    fixupOps && context.$fixup(fixupOps);
+    this.derivateChangeService.cacheChanges(tsMeta, tableId, recordId, ops);
   }
 
   private async sendOpsMap(

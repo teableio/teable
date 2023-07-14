@@ -6,6 +6,7 @@ import type {
   PredicateExprLikeContext,
   PredicateExprInContext,
   PredicateExprHasContext,
+  PredicateExprEqArrayContext,
   PrimaryExprPredicateContext,
   PrimaryExprIsContext,
   PrimaryExprCompareContext,
@@ -61,6 +62,14 @@ export interface QueryVisitor<Result> extends ParseTreeVisitor<Result> {
    * @return the visitor result
    */
   visitPredicateExprHas?: (ctx: PredicateExprHasContext) => Result;
+
+  /**
+   * Visit a parse tree produced by the `predicateExprEqArray`
+   * labeled alternative in `Query.predicate`.
+   * @param ctx the parse tree
+   * @return the visitor result
+   */
+  visitPredicateExprEqArray?: (ctx: PredicateExprEqArrayContext) => Result;
 
   /**
    * Visit a parse tree produced by the `primaryExprPredicate`

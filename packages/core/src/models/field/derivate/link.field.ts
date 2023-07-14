@@ -1,26 +1,10 @@
 import { z } from 'zod';
+import { IdPrefix } from '../../../utils';
 import type { FieldType, CellValueType } from '../constant';
+import { Relationship } from '../constant';
 import { FieldCore } from '../field';
 
-export enum Relationship {
-  ManyMany = 'manyMany',
-  OneMany = 'oneMany',
-  ManyOne = 'manyOne',
-}
-
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const RelationshipRevert = {
-  [Relationship.OneMany]: Relationship.ManyOne,
-  [Relationship.ManyOne]: Relationship.OneMany,
-  [Relationship.ManyMany]: Relationship.ManyMany,
-};
-
-export interface ILinkCellValue {
-  title?: string;
-  id: string;
-}
-
-export const linkFieldOptionsDef = z.object({
+export const linkFieldOptionsSchema = z.object({
   /**
    * describe the relationship from this table to the foreign table
    */
@@ -43,9 +27,16 @@ export const linkFieldOptionsDef = z.object({
   symmetricFieldId: z.string(),
 });
 
-export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsDef>;
+export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
 export type ILinkFieldOptionsRo = Pick<ILinkFieldOptions, 'relationship' | 'foreignTableId'>;
+
+export const linkCellValueSchema = z.object({
+  id: z.string().startsWith(IdPrefix.Record),
+  title: z.string().optional(),
+});
+
+export type ILinkCellValue = z.infer<typeof linkCellValueSchema>;
 
 export class LinkFieldCore extends FieldCore {
   static defaultOptions(): Partial<ILinkFieldOptions> {
@@ -55,8 +46,6 @@ export class LinkFieldCore extends FieldCore {
   type!: FieldType.Link;
 
   options!: ILinkFieldOptions;
-
-  defaultValue!: null;
 
   cellValueType!: CellValueType.String;
 
@@ -74,17 +63,25 @@ export class LinkFieldCore extends FieldCore {
   }
 
   repair(value: unknown) {
-    return value;
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (this.validateCellValue(value).success) {
+      return value;
+    }
+    return null;
   }
 
   validateOptions() {
-    if (this.isLookup) {
-      return z.null().optional().safeParse(this.options);
-    }
-    return linkFieldOptionsDef.safeParse(this.options);
+    return linkFieldOptionsSchema.safeParse(this.options);
   }
 
-  validateDefaultValue() {
-    return z.null().optional().safeParse(this.defaultValue);
+  validateCellValue(value: unknown) {
+    if (this.isMultipleCellValue) {
+      return z.array(linkCellValueSchema).nonempty().nullable().safeParse(value);
+    }
+
+    return linkCellValueSchema.nullable().safeParse(value);
   }
 }
