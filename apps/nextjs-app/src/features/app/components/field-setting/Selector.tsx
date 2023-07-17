@@ -20,7 +20,7 @@ type IProps<T = { id: string; name: string; icon?: React.ReactNode }> = {
 };
 
 export const Selector: React.FC<IProps> = (props) => {
-  const { selectedId = '', onChange, candidates = [] } = props;
+  const { selectedId = '', onChange, placeholder, candidates = [] } = props;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
 
@@ -49,7 +49,7 @@ export const Selector: React.FC<IProps> = (props) => {
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: ref.current?.offsetWidth }}>
         <Command>
-          <CommandInput placeholder="Find a field..." />
+          <CommandInput placeholder={placeholder || 'type...'} />
           <CommandEmpty>No found.</CommandEmpty>
           <CommandGroup>
             {candidates.map(({ id, name, icon }) => (

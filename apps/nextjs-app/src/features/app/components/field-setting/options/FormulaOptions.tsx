@@ -8,12 +8,12 @@ import { useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 
 export const FormulaOptions = (props: {
-  options: IFormulaFieldOptions;
+  options: Partial<IFormulaFieldOptions> | undefined;
   isLookup?: boolean;
   cellValueType?: CellValueType;
-  onChange?: (options: IFormulaFieldOptions) => void;
+  onChange?: (options: Partial<IFormulaFieldOptions>) => void;
 }) => {
-  const { options, isLookup, onChange } = props;
+  const { options = {}, isLookup, onChange } = props;
   const { formatting, expression } = options;
   const fields = useFields();
   const [errMsg, setErrMsg] = useState('');
@@ -37,7 +37,6 @@ export const FormulaOptions = (props: {
       );
       onChange?.({
         expression,
-        formatting,
       });
       setExpressionByName(expressionByName);
       setErrMsg('');
@@ -50,7 +49,7 @@ export const FormulaOptions = (props: {
 
   const onFormattingChange = (value?: IUnionFormatting) => {
     const formatting = value;
-    onChange?.({ expression, formatting });
+    onChange?.({ formatting });
   };
 
   return (

@@ -3,7 +3,7 @@ import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable } from '@teable-group/sdk/hooks';
 import type { LinkField } from '@teable-group/sdk/model';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useFieldStaticGetter } from '@/features/app/utils';
 import { Selector } from '../Selector';
 
@@ -20,6 +20,7 @@ const SelectFieldByTableId: React.FC<{
         {table?.name} field you want to look up
       </span>
       <Selector
+        placeholder="Select a field..."
         selectedId={selectedId}
         onChange={(id) => {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -39,36 +40,14 @@ const SelectFieldByTableId: React.FC<{
 };
 
 export const LookupOptions = (props: {
-  options: ILookupOptions | undefined;
-  onChange?: (options: ILookupOptions, fieldType: FieldType) => void;
+  options: Partial<ILookupOptions> | undefined;
+  onChange?: (options: Partial<ILookupOptions> & { type?: FieldType }) => void;
 }) => {
-  const { options, onChange } = props;
+  const { options = {}, onChange } = props;
   const fields = useFields();
   const linkFields = useMemo(
     () => fields.filter((f) => f.type === FieldType.Link && !f.isLookup) as LinkField[],
     [fields]
-  );
-  const [localLookupOptions, privateSetLocalLookupOptions] = useState<
-    Partial<ILookupOptions & { fieldType: FieldType }>
-  >(options || {});
-  const setLocalLookupOptions = useCallback(
-    (props: typeof localLookupOptions) => {
-      const fullOptions = {
-        ...localLookupOptions,
-        ...props,
-      };
-
-      privateSetLocalLookupOptions(fullOptions);
-
-      // TODO: validate
-      if (
-        Object.keys(fullOptions).filter((key) => (fullOptions as Record<string, unknown>)[key])
-          .length === 5
-      ) {
-        onChange?.(fullOptions as ILookupOptions, fullOptions.fieldType as FieldType);
-      }
-    },
-    [localLookupOptions, onChange]
   );
   const existLinkField = linkFields.length > 0;
 
@@ -81,10 +60,11 @@ export const LookupOptions = (props: {
               Linked record field to use for lookup
             </span>
             <Selector
-              selectedId={localLookupOptions.linkFieldId}
+              placeholder="Select a table..."
+              selectedId={options.linkFieldId}
               onChange={(selected: string) => {
                 const selectedLinkField = linkFields.find((l) => l.id === selected);
-                setLocalLookupOptions({
+                onChange?.({
                   linkFieldId: selected,
                   foreignTableId: selectedLinkField?.options.foreignTableId,
                   relationship: selectedLinkField?.options.relationship,
@@ -93,12 +73,12 @@ export const LookupOptions = (props: {
               candidates={linkFields}
             />
           </div>
-          {localLookupOptions.foreignTableId && (
-            <AnchorProvider tableId={localLookupOptions.foreignTableId}>
+          {options.foreignTableId && (
+            <AnchorProvider tableId={options.foreignTableId}>
               <SelectFieldByTableId
-                selectedId={localLookupOptions.lookupFieldId}
+                selectedId={options.lookupFieldId}
                 onChange={(fieldId: string, fieldType: FieldType) =>
-                  setLocalLookupOptions({ lookupFieldId: fieldId, fieldType })
+                  onChange?.({ lookupFieldId: fieldId, type: fieldType })
                 }
               />
             </AnchorProvider>
