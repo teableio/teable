@@ -19,6 +19,7 @@ import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
+import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
 import type { FieldVo } from './field.vo';
@@ -74,6 +75,8 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
         return DateFieldDto.factory(fieldRo);
       case FieldType.Checkbox:
         return CheckboxFieldDto.factory(fieldRo);
+      case FieldType.Rollup:
+        return RollupFieldDto.factory(fieldRo);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -90,7 +93,6 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
       case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
-      case FieldType.Rollup:
         return plainToInstance(SingleLineTextFieldDto, {
           ...fieldRo,
           type: FieldType.SingleLineText,
@@ -128,7 +130,7 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
-    isLookup: Boolean(fieldRaw.lookupLinkedFieldId) || undefined,
+    isLookup: fieldRaw.isLookup || undefined,
     lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
@@ -161,6 +163,8 @@ export function createFieldInstanceByVo(field: FieldVo) {
       return plainToInstance(DateFieldDto, field);
     case FieldType.Checkbox:
       return plainToInstance(CheckboxFieldDto, field);
+    case FieldType.Rollup:
+      return plainToInstance(RollupFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -177,7 +181,6 @@ export function createFieldInstanceByVo(field: FieldVo) {
     case FieldType.Rating:
     case FieldType.Currency:
     case FieldType.Percent:
-    case FieldType.Rollup:
       throw new Error('did not implement yet');
     default:
       assertNever(field.type);

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { FieldCore, CellValueType } from '../models';
+
+import type { CellValueType } from '../models/field/constant';
+import type { FieldCore } from '../models/field/field';
 
 export class TypedValue<T = any> {
   constructor(

@@ -10,4 +10,5 @@ export const FIELD_TYPE_ORDER = [
   FieldType.Checkbox,
   FieldType.Formula,
   FieldType.Link,
+  FieldType.Rollup,
 ];

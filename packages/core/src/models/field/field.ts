@@ -1,6 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import { z } from 'zod';
-import type { StatisticsFunc } from '../view';
+import type { StatisticsFunc } from '../view/constant';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import { Relationship } from './constant';
 import type { IColumnMeta } from './interface';
@@ -11,7 +11,6 @@ export const lookupOptionsRoDef = z.object({
   lookupFieldId: z.string(),
   relationship: z.nativeEnum(Relationship).optional(),
   dbForeignKeyName: z.string().optional(),
-  symmetricFieldId: z.string().optional(),
 });
 
 export type ILookupOptions = z.infer<typeof lookupOptionsRoDef>;
@@ -20,7 +19,6 @@ export const lookupOptionsVoDef = lookupOptionsRoDef.merge(
   z.object({
     relationship: z.nativeEnum(Relationship),
     dbForeignKeyName: z.string(),
-    symmetricFieldId: z.string(),
   })
 );
 

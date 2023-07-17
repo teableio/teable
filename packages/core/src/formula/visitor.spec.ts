@@ -1,15 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
-import type { FieldCore, IRecord } from '../models';
-import {
-  LinkFieldCore,
-  FormulaFieldCore,
-  FieldType,
-  DbFieldType,
-  CellValueType,
-  NumberFieldCore,
-} from '../models';
+import { CellValueType, DbFieldType, FieldType } from '../models/field/constant';
+import { LinkFieldCore, FormulaFieldCore, NumberFieldCore } from '../models/field/derivate';
+import type { FieldCore } from '../models/field/field';
+import type { IRecord } from '../models/record/record.schema';
 import { evaluate } from './evaluate';
 
 describe('EvalVisitor', () => {

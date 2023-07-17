@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-import type { FieldCore, IRecord } from '../models';
-import { CellValueType } from '../models';
+import { CellValueType } from '../models/field/constant';
+import type { FieldCore } from '../models/field/field';
+import type { IRecord } from '../models/record/record.schema';
 import type { FormulaFunc, FunctionName } from './functions/common';
 import { FUNCTIONS } from './functions/factory';
 import type {

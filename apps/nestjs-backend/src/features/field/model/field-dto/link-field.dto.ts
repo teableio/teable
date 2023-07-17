@@ -43,7 +43,7 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
 
     return plainToInstance(LinkFieldDto, {
       ...fieldRo,
-      isComputed: true,
+      isComputed: fieldRo.isLookup,
       cellValueType: CellValueType.String,
       isMultipleCellValue: options?.relationship !== Relationship.ManyOne || isMultipleCellValue,
       dbFieldType: DbFieldType.Json,

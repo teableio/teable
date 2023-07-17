@@ -25,6 +25,7 @@ export const SelectFieldType = (props: {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const getFieldStatic = useFieldStaticGetter();
+  const { Icon, title } = getFieldStatic(value, isLookup) || {};
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -34,9 +35,10 @@ export const SelectFieldType = (props: {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className="w-full justify-start font-normal"
         >
-          {isLookup ? 'Lookup to other table' : getFieldStatic(value, false)?.title}
+          {Icon && <Icon />}
+          <span className="grow text-left ml-2">{isLookup ? 'Lookup to other table' : title}</span>
           <ArrowDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

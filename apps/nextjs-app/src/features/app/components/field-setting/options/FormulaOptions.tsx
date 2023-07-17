@@ -1,40 +1,11 @@
-import type { IFormulaFieldOptions, IFormulaFormatting } from '@teable-group/core';
+import type { IFormulaFieldOptions, IUnionFormatting } from '@teable-group/core';
 import { CellValueType } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
 import { FormulaField } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { keyBy } from 'lodash';
 import { useMemo, useState } from 'react';
-import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
-import { NumberFormatting } from '../formatting/NumberFormatting';
-
-export const FormulaFormatting = (props: {
-  cellValueType: string;
-  formatting?: IFormulaFormatting;
-  onChange?: (formatting: IFormulaFormatting) => void;
-}) => {
-  const { cellValueType, formatting, onChange } = props;
-
-  const FormattingComponent = useMemo(
-    function getFormattingComponent() {
-      switch (cellValueType) {
-        case CellValueType.DateTime:
-          return DatetimeFormatting;
-        case CellValueType.Number:
-          return NumberFormatting;
-        default:
-          return null;
-      }
-    },
-    [cellValueType]
-  );
-  if (!FormattingComponent) {
-    return <></>;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <FormattingComponent formatting={formatting as any} onChange={onChange} />;
-};
+import { UnionFormatting } from '../formatting/UnionFormatting';
 
 export const FormulaOptions = (props: {
   options: IFormulaFieldOptions;
@@ -42,7 +13,7 @@ export const FormulaOptions = (props: {
   cellValueType?: CellValueType;
   onChange?: (options: IFormulaFieldOptions) => void;
 }) => {
-  const { options, isLookup, cellValueType: privateCellValueType, onChange } = props;
+  const { options, isLookup, onChange } = props;
   const { formatting, expression } = options;
   const fields = useFields();
   const [errMsg, setErrMsg] = useState('');
@@ -53,10 +24,10 @@ export const FormulaOptions = (props: {
   });
 
   const cellValueType = useMemo(() => {
-    return privateCellValueType || expression
+    return expression
       ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id')).cellValueType
       : CellValueType.String;
-  }, [expression, fields, privateCellValueType]);
+  }, [expression, fields]);
 
   const onExpressionChange = (expressionByName: string) => {
     try {
@@ -77,7 +48,7 @@ export const FormulaOptions = (props: {
     }
   };
 
-  const onFormattingChange = (value?: IFormulaFormatting) => {
+  const onFormattingChange = (value?: IUnionFormatting) => {
     const formatting = value;
     onChange?.({ expression, formatting });
   };
@@ -98,7 +69,7 @@ export const FormulaOptions = (props: {
       )}
       {!errMsg && (
         <div className="space-y-2">
-          <FormulaFormatting
+          <UnionFormatting
             cellValueType={cellValueType}
             formatting={formatting}
             onChange={onFormattingChange}

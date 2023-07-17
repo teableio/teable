@@ -1,7 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ILinkFieldOptions, ILookupOptionsVo } from '@teable-group/core';
-import { FieldType, generateFieldId, Relationship, RelationshipRevert } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import type {
+  CellValueType,
+  ILinkFieldOptions,
+  ILookupOptionsVo,
+  IRollupFieldOptions,
+} from '@teable-group/core';
+import {
+  getDefaultFormatting,
+  FieldType,
+  generateFieldId,
+  Relationship,
+  RelationshipRevert,
+} from '@teable-group/core';
+import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
@@ -11,6 +22,7 @@ import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
 import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from './model/field-dto/link-field.dto';
+import { RollupFieldDto } from './model/field-dto/rollup-field.dto';
 
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
@@ -57,10 +69,10 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareLookupField(
+  private async prepareLookupOptions(
     field: CreateFieldRo,
     batchFieldRos?: CreateFieldRo[]
-  ): Promise<CreateFieldRo> {
+  ): Promise<{ lookupOptions: ILookupOptionsVo; lookupFieldRaw: Field }> {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new BadRequestException('lookupOptions is required');
@@ -87,12 +99,29 @@ export class FieldSupplementService implements ISupplementService {
 
     const lookupFieldRaw = await this.prismaService.field.findFirst({
       where: { id: lookupFieldId, deletedTime: null },
-      select: { type: true, options: true },
     });
 
     if (!lookupFieldRaw) {
       throw new BadRequestException(`Lookup field ${lookupFieldId} is not exist`);
     }
+
+    return {
+      lookupOptions: {
+        linkFieldId,
+        lookupFieldId,
+        foreignTableId,
+        relationship: linkFieldOptions.relationship,
+        dbForeignKeyName: linkFieldOptions.dbForeignKeyName,
+      },
+      lookupFieldRaw,
+    };
+  }
+
+  private async prepareLookupField(
+    field: CreateFieldRo,
+    batchFieldRos?: CreateFieldRo[]
+  ): Promise<CreateFieldRo> {
+    const { lookupOptions, lookupFieldRaw } = await this.prepareLookupOptions(field, batchFieldRos);
 
     if (lookupFieldRaw.type !== field.type) {
       throw new BadRequestException(
@@ -107,20 +136,24 @@ export class FieldSupplementService implements ISupplementService {
       options: lookupFieldOptions
         ? {
             ...lookupFieldOptions,
-            formatting: field.options?.formatting ? field.options?.formatting : undefined,
+            formatting:
+              field.options?.formatting ??
+              getDefaultFormatting(lookupFieldRaw.cellValueType as CellValueType),
           }
         : undefined,
-      lookupOptions: {
-        ...lookupOptions,
-        relationship: linkFieldOptions.relationship,
-        dbForeignKeyName: linkFieldOptions.dbForeignKeyName,
-        symmetricFieldId: linkFieldOptions.symmetricFieldId,
-      } as ILookupOptionsVo,
+      lookupOptions,
     };
   }
 
   private async prepareFormulaField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
-    const fieldIds = FormulaFieldDto.getReferenceFieldIds(field.options.expression);
+    let fieldIds;
+    try {
+      fieldIds = FormulaFieldDto.getReferenceFieldIds(field.options.expression);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new BadRequestException(e.message);
+    }
+
     const fieldRaws = await this.prismaService.field.findMany({
       where: { id: { in: fieldIds } },
     });
@@ -143,9 +176,38 @@ export class FieldSupplementService implements ISupplementService {
       ...field,
       options: {
         ...field.options,
-        formatting:
-          field.options?.formatting ?? FormulaFieldDto.defaultOptions(cellValueType).formatting,
+        formatting: field.options?.formatting ?? getDefaultFormatting(cellValueType),
       },
+      cellValueType,
+      isMultipleCellValue,
+    };
+  }
+
+  private async prepareRollupField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
+    const { lookupOptions } = await this.prepareLookupOptions(field, batchFieldRos);
+    const options: IRollupFieldOptions = field.options;
+
+    if (!options) {
+      throw new BadRequestException('rollup field options is required');
+    }
+
+    let valueType;
+    try {
+      valueType = RollupFieldDto.getParsedValueType(options.expression);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new BadRequestException(e.message);
+    }
+
+    const { cellValueType, isMultipleCellValue } = valueType;
+
+    return {
+      ...field,
+      options: {
+        ...options,
+        formatting: options.formatting ?? getDefaultFormatting(cellValueType),
+      },
+      lookupOptions,
       cellValueType,
       isMultipleCellValue,
     };
@@ -157,6 +219,10 @@ export class FieldSupplementService implements ISupplementService {
   ): Promise<CreateFieldRo> {
     if (fieldRo.isLookup) {
       return await this.prepareLookupField(fieldRo, batchFieldRos);
+    }
+
+    if (fieldRo.type === FieldType.Rollup) {
+      return await this.prepareRollupField(fieldRo, batchFieldRos);
     }
 
     if (fieldRo.type == FieldType.Link) {
@@ -252,6 +318,9 @@ export class FieldSupplementService implements ISupplementService {
     switch (field.type) {
       case FieldType.Formula:
         return await this.createFormulaReference(prisma, field);
+      case FieldType.Rollup:
+        // rollup use same reference logic as lookup
+        return await this.createLookupReference(prisma, field);
       case FieldType.Link:
         return await this.createLinkReference(prisma, field);
       default:
