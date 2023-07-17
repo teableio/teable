@@ -21,11 +21,12 @@ interface IBaseSelect {
   value: string | null;
   classNames?: string;
   popoverClassNames?: string;
-  onSelect: (value: string) => void;
+  disabled?: boolean;
+  onSelect: <T = string>(value: T) => void;
 }
 
 function BaseSingleSelect(props: IBaseSelect) {
-  const { onSelect, value, options, classNames, popoverClassNames } = props;
+  const { onSelect, value, options, classNames, popoverClassNames, disabled = false } = props;
   const [open, setOpen] = useState(false);
 
   const label = useMemo(() => {
@@ -39,6 +40,7 @@ function BaseSingleSelect(props: IBaseSelect) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          disabled={disabled}
           className={cn('justify-between m-1', classNames)}
         >
           {value ? <span className="truncate">{label}</span> : 'Select'}

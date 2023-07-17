@@ -48,7 +48,7 @@ function ConditionGroup(props: IConditionGroupProps) {
         ></Conjunction>
         <div
           className={cn(
-            'm-h-20 w-full rounded-sm border-[1px] m-[4px]'
+            'm-h-20 w-full rounded-sm border m-1'
             // level > 0 ? 'bg-ring' : 'bg-secondary'
           )}
         >

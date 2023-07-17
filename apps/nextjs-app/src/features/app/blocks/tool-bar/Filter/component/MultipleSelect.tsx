@@ -1,6 +1,6 @@
-import type { MultipleSelectFieldCore, Colors } from '@teable-group/core';
+import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import { useFields } from '@teable-group/sdk';
+import type { MultipleSelectField } from '@teable-group/sdk';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -20,20 +20,18 @@ import { useMemo, useState } from 'react';
 interface IMutipleSelect {
   onSelect?: (names: string[]) => void;
   value: string[] | null;
-  fieldId?: string;
+  field: MultipleSelectField;
 }
 
 const MultipleSelect = (props: IMutipleSelect) => {
-  const fields = useFields();
-  const { fieldId, value, onSelect } = props;
+  const { field, value, onSelect } = props;
   const values = useMemo(() => {
     return value || [];
   }, [value]);
   const [open, setOpen] = useState(false);
   const choices = useMemo(() => {
-    const curColumn = fields.find((item) => item.id === fieldId) as MultipleSelectFieldCore;
-    return curColumn?.options?.choices;
-  }, [fieldId, fields]);
+    return field?.options?.choices;
+  }, [field]);
 
   const selectHandler = (name: string) => {
     let newCellValue = null;
@@ -86,7 +84,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px]">
+      <PopoverContent className="max-w-xs">
         <Command className="rounded-sm">
           <CommandList>
             <CommandInput placeholder="Search option" />
@@ -97,7 +95,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
                   <CommandItem key={name} value={name} onSelect={() => selectHandler(name)}>
                     <SelectIcon
                       className={classNames(
-                        'mr-2 h-4 w-4',
+                        'mr-2 h-4 w-4 shrink-0',
                         values?.map((name) => name)?.includes(name) ? 'opacity-100' : 'opacity-0'
                       )}
                     />

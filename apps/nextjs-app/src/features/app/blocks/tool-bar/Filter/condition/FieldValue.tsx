@@ -9,6 +9,7 @@ import {
   FilterInput,
   FilterDatePicker,
   FilterCheckbox,
+  FilterLinkSelect,
 } from '../component';
 import { EMPTYOPERATORS } from '../constant';
 
@@ -41,14 +42,10 @@ function FieldValue(props: IFieldValue) {
       case FieldType.Number:
         return InputComponent;
       case FieldType.SingleSelect:
-        return <SingleSelect fieldId={filter.fieldId} value={filter.value} onSelect={onSelect} />;
+        return <SingleSelect field={field} value={filter.value as string} onSelect={onSelect} />;
       case FieldType.MultipleSelect:
         return (
-          <MultipleSelect
-            fieldId={filter.fieldId}
-            value={filter.value as string[]}
-            onSelect={onSelect}
-          />
+          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
         );
       case FieldType.Date:
         return (
@@ -57,7 +54,16 @@ function FieldValue(props: IFieldValue) {
       case FieldType.SingleLineText:
         return InputComponent;
       case FieldType.Checkbox:
-        return <FilterCheckbox onChange={onSelect} />;
+        return <FilterCheckbox value={filter.value} onChange={onSelect} />;
+      case FieldType.Link:
+        return (
+          <FilterLinkSelect
+            field={field}
+            onSelect={onSelect}
+            value={filter.value as string[]}
+            operator={filter.operator}
+          />
+        );
       default:
         return InputComponent;
     }

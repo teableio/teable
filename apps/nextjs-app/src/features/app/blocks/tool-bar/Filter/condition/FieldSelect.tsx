@@ -11,7 +11,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
-// import { useFieldStaticGetter } from '@/features/app/utils';
+import { useFieldStaticGetter } from '@/features/app/utils';
 import { cn } from '@/lib/utils';
 
 interface IFieldSelectProps {
@@ -24,7 +24,7 @@ function FieldSelect(props: IFieldSelectProps) {
   const [open, setOpen] = useState(false);
 
   const fields = useFields({ widthHidden: true });
-  // const fieldStaticGetter = useFieldStaticGetter();
+  const fieldStaticGetter = useFieldStaticGetter();
 
   const label = useMemo(() => {
     return fields.find((field) => field.id === value)?.name;
@@ -48,21 +48,24 @@ function FieldSelect(props: IFieldSelectProps) {
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
-            {fields.map((field) => (
-              <CommandItem
-                key={field.id}
-                onSelect={() => {
-                  onSelect(field.id);
-                  setOpen(false);
-                }}
-              >
-                <Check
-                  className={cn('mr-2 h-4 w-4', value === field.id ? 'opacity-100' : 'opacity-0')}
-                />
-                {/* {fieldStaticGetter(field.type, true).Icon()} */}
-                <span className="pl-1">{field.name}</span>
-              </CommandItem>
-            ))}
+            {fields.map((field) => {
+              const { title, Icon } = fieldStaticGetter(field.type, false);
+              return (
+                <CommandItem
+                  key={field.id}
+                  onSelect={() => {
+                    onSelect(field.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn('mr-2 h-4 w-4', value === field.id ? 'opacity-100' : 'opacity-0')}
+                  />
+                  <Icon></Icon>
+                  <span className="pl-1">{title}</span>
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         </Command>
       </PopoverContent>

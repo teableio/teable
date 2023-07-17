@@ -1,6 +1,5 @@
+import { ColorUtils } from '@teable-group/core';
 import type { SingleSelectField } from '@teable-group/sdk';
-import { useFields } from '@teable-group/sdk';
-
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,
@@ -16,19 +15,17 @@ import { cn } from '@/lib/utils';
 
 interface ISingleSelect {
   onSelect: (id: string) => void;
-  value: unknown;
-  fieldId?: string;
+  value: string | null;
+  field: SingleSelectField;
 }
 
 function SingleSelect(props: ISingleSelect) {
-  const { onSelect, fieldId, value } = props;
-  const fields = useFields({ widthHidden: true });
+  const { onSelect, field, value } = props;
   const [open, setOpen] = useState(false);
 
   const options = useMemo(() => {
-    const curColumn = fields.find((item) => item.id === fieldId) as SingleSelectField;
-    return curColumn?.options?.choices;
-  }, [fieldId, fields]);
+    return field?.options?.choices;
+  }, [field]);
 
   const label = useMemo(() => {
     return options.find((option) => option.name === value)?.name;
@@ -47,26 +44,34 @@ function SingleSelect(props: ISingleSelect) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px]">
+      <PopoverContent className="w-52 max-w-xs">
         <Command>
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
-            {options?.map((option) => (
+            {options?.map(({ color, name }) => (
               <CommandItem
-                key={option.color}
+                key={color}
                 onSelect={() => {
-                  onSelect(option.name);
+                  onSelect(name);
                   setOpen(false);
                 }}
               >
                 <Check
                   className={cn(
-                    'mr-2 h-4 w-4',
-                    value === option.name ? 'opacity-100' : 'opacity-0'
+                    'mr-2 h-4 w-4 shrink-0',
+                    value === name ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {option.name}
+                <div
+                  className="px-2 rounded-lg truncate"
+                  style={{
+                    backgroundColor: ColorUtils.getHexForColor(color),
+                    color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+                  }}
+                >
+                  {name}
+                </div>
               </CommandItem>
             ))}
           </CommandGroup>
