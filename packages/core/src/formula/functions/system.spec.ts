@@ -1,38 +1,44 @@
 import { CellValueType } from '../../models/field/constant';
-import type { TypedValue } from '../typed-value';
-import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
+import { TypedValue } from '../typed-value';
+import { TextAll } from './system';
 
-abstract class TextFunc extends FormulaFunc {
-  readonly type = FormulaFuncType.Text;
-}
+describe('SystemFunc', () => {
+  describe('TextAll', () => {
+    it('should process single string correctly', () => {
+      const textAllFunc = new TextAll();
 
-export class Concatenate extends TextFunc {
-  name = FunctionName.Concatenate;
+      const result = textAllFunc.eval([new TypedValue('Hello', CellValueType.String, false)]);
 
-  acceptValueType = new Set([CellValueType.String, CellValueType.Number, CellValueType.Boolean]);
+      expect(result).toBe('Hello');
+    });
 
-  validateParams(params: TypedValue[]) {
-    if (params.length < 1) {
-      throw new Error('Concatenate needs at least 1 param');
-    }
-  }
+    it('should process array of strings correctly', () => {
+      const textAllFunc = new TextAll();
 
-  getReturnType(params?: TypedValue[]) {
-    params && this.validateParams(params);
-    return { type: CellValueType.String };
-  }
+      const result = textAllFunc.eval([
+        new TypedValue(['Hello', 'World'], CellValueType.String, true),
+      ]);
 
-  eval(params: TypedValue<string | number | null[]>[]): string | null {
-    return params.reduce((result, param) => {
-      if (param.isMultiple) {
-        if (!Array.isArray(param.value)) {
-          return result;
-        }
-        result += param.value.join('');
-        return result;
-      }
-      result += (param.value as string) || '';
-      return result;
-    }, '');
-  }
-}
+      expect(result).toEqual(['Hello', 'World']);
+    });
+
+    it('should return null for null input', () => {
+      const textAllFunc = new TextAll();
+
+      const result = textAllFunc.eval([new TypedValue(null, CellValueType.String, false)]);
+
+      expect(result).toBeNull();
+    });
+
+    it('should throw an error when more than 1 param provided', () => {
+      const textAllFunc = new TextAll();
+
+      expect(() =>
+        textAllFunc.validateParams([
+          new TypedValue('Hello', CellValueType.String, false),
+          new TypedValue('World', CellValueType.String, false),
+        ])
+      ).toThrowError(`${textAllFunc.name} only allow 1 param`);
+    });
+  });
+});

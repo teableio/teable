@@ -178,7 +178,7 @@ describe('EvalVisitor', () => {
     };
 
     const result = evaluate(
-      'rollup({values})',
+      'text_all({values})',
       { values: plainToInstance(FormulaFieldCore, virtualField) },
       { ...record, fields: { ...record.fields, values: ['CX, C2', 'C3'] } }
     );

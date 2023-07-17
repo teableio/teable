@@ -130,17 +130,18 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     const lookupFieldOptions = JSON.parse(lookupFieldRaw.options as string) as object | null;
+    const formatting =
+      field.options?.formatting ??
+      getDefaultFormatting(lookupFieldRaw.cellValueType as CellValueType);
+    const options = lookupFieldOptions
+      ? formatting
+        ? { ...lookupFieldOptions, formatting }
+        : lookupFieldOptions
+      : undefined;
 
     return {
       ...field,
-      options: lookupFieldOptions
-        ? {
-            ...lookupFieldOptions,
-            formatting:
-              field.options?.formatting ??
-              getDefaultFormatting(lookupFieldRaw.cellValueType as CellValueType),
-          }
-        : undefined,
+      options,
       lookupOptions,
     };
   }
@@ -172,12 +173,11 @@ export class FieldSupplementService implements ISupplementService {
       fieldMap
     );
 
+    const formatting = field.options?.formatting ?? getDefaultFormatting(cellValueType);
+    const options = formatting ? field.options : { ...field.options, formatting };
     return {
       ...field,
-      options: {
-        ...field.options,
-        formatting: field.options?.formatting ?? getDefaultFormatting(cellValueType),
-      },
+      options,
       cellValueType,
       isMultipleCellValue,
     };
@@ -201,12 +201,11 @@ export class FieldSupplementService implements ISupplementService {
 
     const { cellValueType, isMultipleCellValue } = valueType;
 
+    const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
+    const fulfilledOptions = formatting ? field.options : { ...field.options, formatting };
     return {
       ...field,
-      options: {
-        ...options,
-        formatting: options.formatting ?? getDefaultFormatting(cellValueType),
-      },
+      options: fulfilledOptions,
       lookupOptions,
       cellValueType,
       isMultipleCellValue,
