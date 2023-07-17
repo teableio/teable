@@ -150,6 +150,7 @@ export class ReferenceService {
       recordDataMapRemains,
       fkRecordMap
     );
+    // console.log('cellChangesAfter', cellChangesAfter);
     const changes = cellChangesBefore.concat(cellChangesAfter);
     return this.formatOpsByChanges(changes);
   }
@@ -388,16 +389,23 @@ export class ReferenceService {
     fkRecordMap: IFkRecordMapByDbTableName
   ) {
     const record = recordItem.record;
-    if (field.type === FieldType.Link || field.isLookup) {
+    if (field.type === FieldType.Link || field.lookupOptions) {
       if (!recordItem.dependencies) {
         throw new Error(`Dependency should not be undefined when contains a computed field`);
       }
-      const lookupFieldId = field.isLookup
-        ? field.lookupOptions?.lookupFieldId
+      const lookupFieldId = field.lookupOptions
+        ? field.lookupOptions.lookupFieldId
         : (field.options as ILinkFieldOptions).lookupFieldId;
+      const relationship = field.lookupOptions
+        ? field.lookupOptions.relationship
+        : (field.options as ILinkFieldOptions).relationship;
 
       if (!lookupFieldId) {
         throw new Error('lookupFieldId should not be undefined');
+      }
+
+      if (!relationship) {
+        throw new Error('relationship should not be undefined');
       }
 
       const lookupField = fieldMap[lookupFieldId];
@@ -418,7 +426,7 @@ export class ReferenceService {
         return this.flatOriginLookup(lookupValues);
       }
 
-      return this.calculateRollup(field, lookupField, record, lookupValues);
+      return this.calculateRollup(field, relationship, lookupField, record, lookupValues);
     }
 
     if (field.type === FieldType.Formula) {
@@ -480,38 +488,50 @@ export class ReferenceService {
 
   private calculateRollup(
     field: IFieldInstance,
+    relationship: Relationship,
     lookupField: IFieldInstance,
     record: IRecord,
     lookupValues: unknown
   ): unknown {
-    const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as FieldVo;
-
-    if (field.type !== FieldType.Link) {
-      throw new Error('rollup only support link field currently');
+    if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
+      throw new Error('rollup only support link and rollup field currently');
     }
 
+    const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as FieldVo;
     const virtualField = createFieldInstanceByVo({
       ...fieldVo,
       id: 'values',
-      cellValueType: field.cellValueType,
-      isMultipleCellValue: fieldVo.isMultipleCellValue || field.isMultipleCellValue,
+      isMultipleCellValue: fieldVo.isMultipleCellValue || relationship !== Relationship.ManyOne,
     });
-    const result = evaluate(
-      'rollup({values})',
-      { values: virtualField },
-      { ...record, fields: { ...record.fields, values: lookupValues } }
-    );
 
-    if (!record.fields[field.id]) {
-      return null;
+    if (field.type === FieldType.Rollup) {
+      // console.log('calculateRollup', field, lookupField, record, lookupValues);
+      return field
+        .evaluate(
+          { values: virtualField },
+          { ...record, fields: { ...record.fields, values: lookupValues } }
+        )
+        .toPlain();
     }
 
-    let plain = result.toPlain();
-    if (!field.isMultipleCellValue && virtualField.isMultipleCellValue) {
-      plain = virtualField.cellValue2String(plain);
+    if (field.type === FieldType.Link) {
+      if (!record.fields[field.id]) {
+        return null;
+      }
+
+      const result = evaluate(
+        'TEXT_ALL({values})',
+        { values: virtualField },
+        { ...record, fields: { ...record.fields, values: lookupValues } }
+      );
+
+      let plain = result.toPlain();
+      if (!field.isMultipleCellValue && virtualField.isMultipleCellValue) {
+        plain = virtualField.cellValue2String(plain);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return field.updateCellTitle(record.fields[field.id] as any, plain);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return field.updateCellTitle(record.fields[field.id] as any, plain);
   }
 
   private async updateForeignKey(
@@ -634,7 +654,7 @@ export class ReferenceService {
       item.recordItems.forEach((recordItem) => {
         const field = fieldMap[item.id];
         // console.log('collectChanges:recordItems:', field, recordItem);
-        if (!field.isComputed) {
+        if (!field.isComputed && field.type !== FieldType.Link) {
           return;
         }
         const record = recordItem.record;
@@ -695,7 +715,7 @@ export class ReferenceService {
       const field = fieldMap[item.id];
       const tableId = fieldId2TableId[field.id];
       const dbTableName = tableId2DbTableName[tableId];
-      if (field.isLookup && field.lookupOptions) {
+      if (field.lookupOptions) {
         const { dbForeignKeyName, relationship, foreignTableId, linkFieldId } = field.lookupOptions;
         const linkedTable = tableId2DbTableName[foreignTableId];
 
@@ -896,7 +916,7 @@ export class ReferenceService {
       };
 
       // update cross table dependency (from lookup or link field)
-      if (field.isLookup && field.lookupOptions) {
+      if (field.lookupOptions) {
         const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
         return appendRecordItems(foreignTableId, linkFieldId, relationship);
       }

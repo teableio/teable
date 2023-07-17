@@ -52,7 +52,8 @@ describe.skip('OpenAPI formula (e2e)', () => {
       .send({
         name: 'table1',
         fields: [numberFieldRo, textFieldRo, formulaFieldRo],
-      });
+      })
+      .expect(201);
     table1Id = result1.body.data.id;
   });
 

@@ -9,6 +9,7 @@ import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
+import { RollupField } from './rollup.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
 
@@ -34,6 +35,8 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
         return plainToInstance(DateField, field);
       case FieldType.Checkbox:
         return plainToInstance(CheckboxField, field);
+      case FieldType.Rollup:
+        return plainToInstance(RollupField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -50,7 +53,6 @@ export function createFieldInstance(fieldSnapshot: IFieldSnapshot, doc?: Doc<IFi
       case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
-      case FieldType.Rollup:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);

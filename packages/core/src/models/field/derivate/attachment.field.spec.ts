@@ -132,6 +132,12 @@ describe('AttachmentFieldCore', () => {
     expect(lookupField.repair([{ id: 'actxxx' }])).toEqual(null);
   });
 
+  it('should convert item to string', () => {
+    expect(field.item2String({ id: 'actxxxxxxxx' })).toBe('');
+    expect(field.item2String({ id: 'actxxxxxxxx', name: 'test.txt' })).toBe('test.txt');
+    expect(field.item2String(null)).toBe('');
+  });
+
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
       const field = plainToInstance(AttachmentFieldCore, {
