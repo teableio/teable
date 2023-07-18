@@ -24,6 +24,8 @@ export interface IRecordSnapshotQuery {
   aggregate?: IAggregateQuery;
   offset?: number;
   limit?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  where?: any;
 }
 
 export interface IAggregateQueryResult {
