@@ -1,6 +1,6 @@
 import type { IGridTheme } from '../../configs';
 import type { IColumn, RowControlType } from '../../interface';
-import type { SpriteManager } from '../../managers';
+import type { ImageManager, SpriteManager } from '../../managers';
 import type { ICell } from '../cell-renderer';
 
 export interface ICellPosition {
@@ -15,6 +15,9 @@ export interface ICellDrawerProps extends ICellPosition {
   theme: IGridTheme;
   fill?: string;
   stroke?: string;
+  rowIndex: number;
+  columnIndex: number;
+  imageManager: ImageManager;
 }
 
 export interface IRowHeaderDrawerProps extends ICellPosition {

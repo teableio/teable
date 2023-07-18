@@ -23,7 +23,8 @@ export interface IGridTheme {
   cellTextColor: string;
   cellHorizontalPadding: number;
   cellVerticalPadding: number;
-  cellOptionBgDefault: string;
+  cellOptionBg: string;
+  cellOptionTextColor: string;
   columnHeaderBgHovered: string;
   columnHeaderBgSelected: string;
   columnHeaderNameColor: string;
@@ -40,8 +41,8 @@ export const gridTheme: IGridTheme = {
   iconFgCommon: '#009CA6',
   iconBgSelected: '#FFFFFF',
   iconFgSelected: '#4F5DFF',
-  iconSizeXS: 12,
-  iconSizeSM: 16,
+  iconSizeXS: 16,
+  iconSizeSM: 20,
   iconSizeMD: 24,
   iconSizeLG: 32,
   fontSizeXS: 12,
@@ -61,7 +62,8 @@ export const gridTheme: IGridTheme = {
   cellTextColor: '#262626',
   cellHorizontalPadding: 8,
   cellVerticalPadding: 3,
-  cellOptionBgDefault: '#666666',
+  cellOptionBg: '#666666',
+  cellOptionTextColor: '#FFFFFF',
 
   // Column Header
   columnHeaderBgHovered: '#F5F7FA',

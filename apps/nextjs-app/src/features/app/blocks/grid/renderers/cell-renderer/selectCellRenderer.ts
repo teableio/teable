@@ -2,9 +2,13 @@
 import type { IRectangle } from '../../interface';
 import { drawRect, drawSingleLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
-import type { IInternalCellRenderer, ICellRenderProps, ISelectCell } from './interface';
+import type {
+  IInternalCellRenderer,
+  ICellRenderProps,
+  ISelectCell,
+  ISelectChoice,
+} from './interface';
 
-const OPTION_HEIGHT = 20;
 const OPTION_INNER_PADDING = 6;
 
 export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
@@ -18,10 +22,11 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const {
       fontSizeXS,
       fontFamily,
-      cellTextColor,
+      iconSizeSM,
       cellHorizontalPadding,
       cellVerticalPadding,
-      cellOptionBgDefault,
+      cellOptionBg,
+      cellOptionTextColor,
     } = theme;
 
     const drawArea: IRectangle = {
@@ -30,7 +35,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       width: width - 2 * cellHorizontalPadding,
       height: height - 2 * cellVerticalPadding,
     };
-    const rows = Math.max(1, Math.floor(drawArea.height / (OPTION_HEIGHT + OPTION_INNER_PADDING)));
+    const rows = Math.max(1, Math.floor(drawArea.height / (iconSizeSM + OPTION_INNER_PADDING)));
 
     ctx.save();
     ctx.beginPath();
@@ -45,27 +50,36 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     let x = drawArea.x;
     let row = 1;
     let y =
-      drawArea.y + (drawArea.height - rows * OPTION_HEIGHT - (rows - 1) * OPTION_INNER_PADDING) / 2;
+      drawArea.y + (drawArea.height - rows * iconSizeSM - (rows - 1) * OPTION_INNER_PADDING) / 2;
+    const choiceMap: Record<string, ISelectChoice> = {};
+    choices?.forEach(({ id, name, bgColor, textColor }) => {
+      choiceMap[id || name] = {
+        id,
+        name,
+        bgColor,
+        textColor,
+      };
+    });
 
     for (const text of value) {
       const metrics = ctx.measureText(text);
       const width = metrics.width + OPTION_INNER_PADDING * 2;
-      const textY = OPTION_HEIGHT / 2;
+      const textY = iconSizeSM / 2 + 1;
 
       if (x !== drawArea.x && x + width > drawArea.x + drawArea.width && row < rows) {
         row++;
-        y += OPTION_HEIGHT + OPTION_INNER_PADDING;
+        y += iconSizeSM + OPTION_INNER_PADDING;
         x = drawArea.x;
       }
-      const choice = choices?.find(({ name }) => name === text);
-      const bgColor = choice?.bgColor || cellOptionBgDefault;
-      const textColor = choice?.textColor || cellTextColor;
+      const choice = choiceMap[text];
+      const bgColor = choice?.bgColor || cellOptionBg;
+      const textColor = choice?.textColor || cellOptionTextColor;
 
       drawRect(ctx, {
         x,
         y,
         width,
-        height: OPTION_HEIGHT,
+        height: iconSizeSM,
         radius: 8,
         fill: bgColor,
       });
@@ -73,7 +87,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         text,
         x: x + OPTION_INNER_PADDING,
         y: y + textY,
-        fontSize: 12,
+        fontSize: fontSizeXS,
         fill: textColor,
       });
 

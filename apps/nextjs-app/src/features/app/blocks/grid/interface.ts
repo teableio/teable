@@ -56,6 +56,8 @@ export interface ISelectionState {
 
 export interface IMouseState extends IRegionPosition {
   type: RegionType;
+  hoverCellX: number;
+  hoverCellY: number;
   isOutOfBounds: boolean;
 }
 

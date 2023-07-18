@@ -3,14 +3,16 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
 import type { IRectangle } from '../../interface';
+import type { ImageManager } from '../../managers';
 
 export enum CellType {
-  Loading = 'Loading',
-  Url = 'Url',
   Text = 'Text',
-  Date = 'Date',
+  Url = 'Url',
   Number = 'Number',
   Select = 'Select',
+  Image = 'Image',
+  Boolean = 'Boolean',
+  Loading = 'Loading',
 }
 
 export enum EditorType {
@@ -20,42 +22,48 @@ export enum EditorType {
   Custom = 'Custom',
 }
 
+export enum EditorPosition {
+  Above = 'Above',
+  Overlap = 'Overlap',
+  Below = 'Below',
+}
+
 type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;
 
 export interface IBaseCell {
-  readonly readonly?: boolean;
-  readonly cursor?: CSSProperties['cursor'];
-  readonly contentAlign?: 'left' | 'right' | 'center';
-  readonly themeOverride?: IGridTheme;
-  readonly customEditor?: ICustomEditor;
+  readonly?: boolean;
+  cursor?: CSSProperties['cursor'];
+  contentAlign?: 'left' | 'right' | 'center';
+  themeOverride?: IGridTheme;
+  customEditor?: ICustomEditor;
+  editorPosition?: EditorPosition;
 }
 
 export interface ILoadingCell extends IBaseCell {
-  readonly type: CellType.Loading;
+  type: CellType.Loading;
 }
 
 export interface ITextCell extends IBaseCell {
-  readonly type: CellType.Text;
-  readonly data: string;
-  readonly displayData: string;
-}
-
-export interface IDateCell extends IBaseCell {
-  readonly type: CellType.Date;
-  readonly data: string;
-  readonly displayData: string;
+  type: CellType.Text;
+  data: string;
+  displayData: string;
 }
 
 export interface IUrlCell extends IBaseCell {
-  readonly type: CellType.Url;
-  readonly data: string;
-  readonly displayData: string;
+  type: CellType.Url;
+  data: string;
+  displayData: string;
 }
 
 export interface INumberCell extends IBaseCell {
-  readonly type: CellType.Number;
-  readonly data: number | null | undefined;
-  readonly displayData: string;
+  type: CellType.Number;
+  data: number | null | undefined;
+  displayData: string;
+}
+
+export interface IBooleanCell extends IBaseCell {
+  type: CellType.Boolean;
+  data: boolean;
 }
 
 export interface ISelectChoice {
@@ -66,37 +74,68 @@ export interface ISelectChoice {
 }
 
 export interface ISelectCell extends IBaseCell {
-  readonly type: CellType.Select;
-  readonly data: string[];
-  readonly choices?: ISelectChoice[];
-  readonly displayData?: string;
-  readonly isMultiple?: boolean;
+  type: CellType.Select;
+  data: string[];
+  choices?: ISelectChoice[];
+  displayData?: string;
+  isMultiple?: boolean;
 }
 
-export type IInnerCell = ITextCell | INumberCell | ISelectCell | IUrlCell | IDateCell;
+export interface IImageData {
+  id: string;
+  url: string;
+}
+
+export interface IImageCell extends IBaseCell {
+  type: CellType.Image;
+  data: IImageData[];
+  displayData: string[];
+}
+
+export type IInnerCell =
+  | ITextCell
+  | INumberCell
+  | ISelectCell
+  | IUrlCell
+  | IImageCell
+  | IBooleanCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 
 export type ICellRenderProps = {
   ctx: Konva.Context;
-  rect: IRectangle;
   theme: IGridTheme;
+  rect: IRectangle;
+  columnIndex: number;
+  rowIndex: number;
+  imageManager: ImageManager;
 };
+
+export interface ICellClickProps {
+  width: number;
+  height: number;
+  hoverCellX: number;
+  hoverCellY: number;
+  theme: IGridTheme;
+}
 
 export interface IBaseCellRenderer<T extends ICell> {
   // Rendering
-  readonly type: T['type'];
-  readonly draw: (cell: T, props: ICellRenderProps) => void;
-  readonly needsHover?: boolean;
-  readonly needsHoverPosition?: boolean;
+  type: T['type'];
+  draw: (cell: T, props: ICellRenderProps) => void;
+  needsHover?: boolean;
+  needsHoverPosition?: boolean;
+
+  // Interaction
+  onClick?: (cell: T, props: ICellClickProps) => void;
 
   // Editing
-  readonly provideEditor?: IProvideEditorCallback<T>;
+  provideEditor?: IProvideEditorCallback<T>;
 }
 
 export type IProvideEditorCallback<T extends ICell> = (cell: T) => void;
 
 export interface IInternalCellRenderer<T extends ICell> extends IBaseCellRenderer<T> {
-  readonly getAccessibilityString?: (cell: T) => string;
-  readonly onPaste?: (val: string, cell: T) => T | undefined;
+  getAccessibilityString?: (cell: T) => string;
+  onPaste?: (val: string, cell: T) => T | undefined;
 }

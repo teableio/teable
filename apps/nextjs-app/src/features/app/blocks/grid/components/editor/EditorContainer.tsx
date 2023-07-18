@@ -7,9 +7,8 @@ import type { IInteractionLayerProps } from '../../InteractionLayer';
 import type { ICellItem, IScrollState, ISelectionState } from '../../interface';
 import { SelectionRegionType } from '../../interface';
 import type { ICell, IInnerCell } from '../../renderers';
-import { CellType } from '../../renderers';
+import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
-import { DateEditor } from './DateEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
@@ -66,12 +65,11 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const { type: selectionType, ranges: selectionRanges } = selectionState;
   const isCellSelection = selectionType === SelectionRegionType.Cells;
   const [columnIndex, rowIndex] = isCellSelection ? selectionRanges[0] : [-1, -1];
-  const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
   const cell = useMemo(
     () => getCellContent([columnIndex, rowIndex]) as ICell,
     [columnIndex, getCellContent, rowIndex]
   );
-  const { type: cellType, readonly } = cell;
+  const { type: cellType, readonly, customEditor, editorPosition = EditorPosition.Overlap } = cell;
   const editingEnable = !readonly && isEditing && columnIndex > -1 && rowIndex > -1;
   const editorRef = useRef<IEditorRef | null>(null);
 
@@ -141,8 +139,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
             onChange={onChangeInner}
           />
         );
-      case CellType.Date:
-        return <DateEditor ref={editorRef} cell={cell} style={style} onChange={onChangeInner} />;
       case CellType.Select:
         return (
           <SelectEditor
@@ -158,27 +154,52 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     }
   }
 
-  const cellOffsetY = new Set([CellType.Select, CellType.Date]).has(cellType)
-    ? coordInstance.getRowHeight(columnIndex) + 3
-    : 0;
-  const top = coordInstance.getRowOffset(rowIndex) - scrollTop - 1.5 + cellOffsetY;
-  const left = coordInstance.getColumnOffset(columnIndex) - scrollLeft - 1.5;
+  const wrapStyle = useMemo(() => {
+    if (!editingEnable) return;
+    const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
+    const rowHeight = coordInstance.getRowHeight(columnIndex);
+    const verticalPositionMap = {
+      [EditorPosition.Overlap]: -1.5,
+      [EditorPosition.Below]: rowHeight + 1.5,
+      [EditorPosition.Above]: -rowHeight - 1.5,
+    };
+    const top = clamp(
+      coordInstance.getRowOffset(rowIndex) - scrollTop + verticalPositionMap[editorPosition],
+      rowInitSize,
+      containerHeight - height + 1
+    );
+    const left = clamp(
+      coordInstance.getColumnOffset(columnIndex) - scrollLeft - 1.5,
+      columnInitSize - 1,
+      containerWidth - width
+    );
+
+    return {
+      top,
+      left,
+    };
+  }, [
+    coordInstance,
+    editorPosition,
+    columnIndex,
+    rowIndex,
+    scrollLeft,
+    scrollTop,
+    width,
+    height,
+    editingEnable,
+  ]);
 
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
-      <div
-        className="absolute z-10"
-        style={{
-          top: clamp(top, rowInitSize, containerHeight - height + 1),
-          left: clamp(left, columnInitSize - 1, containerWidth - width),
-        }}
-        onKeyDown={onKeyDown}
-      >
-        {cell.customEditor
-          ? cell.customEditor(
+      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
+        {customEditor
+          ? customEditor(
               {
                 style,
                 cell: cell as unknown as IInnerCell,
+                isEditing,
+                onChange: onChangeInner,
               },
               editorRef
             )

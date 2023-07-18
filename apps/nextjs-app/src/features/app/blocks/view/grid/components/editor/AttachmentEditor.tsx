@@ -2,22 +2,19 @@ import type { IAttachmentCellValue } from '@teable-group/core';
 import { AttachmentEditorMain } from '@teable-group/sdk';
 import { Dialog, DialogContent } from '@teable-group/ui-lib/shadcn/ui/dialog';
 import { useEffect, useRef, useState } from 'react';
-import type { IEditorProps } from './type';
+import type { IEditorProps } from '@/features/app/blocks/grid/components';
+import type { IEditorProps as IWrapperEditorProps } from './type';
 
-export const AttachmentEditor = (props: IEditorProps) => {
-  const { record, field, onCancel } = props;
+export const AttachmentEditor = (props: IWrapperEditorProps & IEditorProps) => {
+  const { record, field, isEditing } = props;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(isEditing);
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const setAttachments = (attachments: IAttachmentCellValue) => {
     record.updateCell(field.id, attachments);
   };
 
-  useEffect(() => {
-    if (!open) {
-      onCancel?.();
-    }
-  }, [onCancel, open]);
+  useEffect(() => setOpen(isEditing), [isEditing]);
 
   return (
     <>

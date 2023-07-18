@@ -17,42 +17,43 @@ import type {
   IMouseState,
 } from './interface';
 import type { ISpriteMap } from './managers';
-import { CoordinateManager, SpriteManager } from './managers';
+import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import type { ICell, IInnerCell } from './renderers';
 
 export interface IGridExternalProps {
-  readonly theme?: Partial<IGridTheme>;
-  readonly headerIcons?: ISpriteMap;
-  readonly rowControls?: RowControlType[];
-  readonly smoothScrollX?: boolean;
-  readonly smoothScrollY?: boolean;
-  readonly onDelete?: (selectionState: ISelectionState) => void;
-  readonly onRowAppend?: () => void;
-  readonly onColumnAppend?: () => void;
-  readonly onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
-  readonly onVisibleRegionChanged?: (rect: IRectangle) => void;
-  readonly onCellActivated?: (cell: ICellItem) => void;
-  readonly onColumnOrdered?: (column: IColumn, colIndex: number, newOrder: number) => void;
-  readonly onColumnResize?: (
+  theme?: Partial<IGridTheme>;
+  headerIcons?: ISpriteMap;
+  rowControls?: RowControlType[];
+  smoothScrollX?: boolean;
+  smoothScrollY?: boolean;
+  onDelete?: (selectionState: ISelectionState) => void;
+  onRowAppend?: () => void;
+  onColumnAppend?: () => void;
+  onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
+  onVisibleRegionChanged?: (rect: IRectangle) => void;
+  onCellActivated?: (cell: ICellItem) => void;
+  onColumnOrdered?: (column: IColumn, colIndex: number, newOrder: number) => void;
+  onColumnResize?: (
     column: IColumn,
     newSize: number,
     colIndex: number,
     newSizeWithGrow: number
   ) => void;
-  readonly onColumnHeaderMenuClick?: (colIndex: number, position: IRectangle) => void;
+  onColumnHeaderMenuClick?: (colIndex: number, position: IRectangle) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
-  readonly columns: IColumn[];
-  readonly freezeColumnCount?: number;
-  readonly rowCount: number;
-  readonly rowHeight?: number;
-  readonly style?: CSSProperties;
-  readonly getCellContent: (cell: ICellItem) => ICell;
+  columns: IColumn[];
+  freezeColumnCount?: number;
+  rowCount: number;
+  rowHeight?: number;
+  style?: CSSProperties;
+  getCellContent: (cell: ICellItem) => ICell;
 }
 
 export interface IGridRef {
   getBounds: (colIndex: number, rowIndex: number) => IRectangle | null;
+  forceUpdate: () => void;
 }
 
 const {
@@ -99,6 +100,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         height: coordInstance.getRowHeight(rowIndex),
       };
     },
+    forceUpdate,
   }));
 
   const hasAppendRow = onRowAppend != null;
@@ -111,7 +113,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
   );
 
-  const [, forceUpdate] = useState(0);
+  const [, forceUpdateInner] = useState(0);
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
@@ -153,9 +155,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     iconSizeMD,
   ]);
 
-  const spriteManager = useMemo(() => {
-    return new SpriteManager(headerIcons, () => forceUpdate(Math.random()));
-  }, [headerIcons]);
+  const forceUpdate = useCallback(() => forceUpdateInner(Math.random()), []);
+
+  const spriteManager = useMemo(
+    () => new SpriteManager(headerIcons, () => forceUpdate()),
+    [headerIcons, forceUpdate]
+  );
+
+  const imageManager = useMemo<ImageManager>(() => new ImageManager(), []);
 
   const scrollTo = useCallback((sl?: number, st?: number) => {
     scrollerRef.current?.scrollTo(sl, st);
@@ -187,11 +194,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           theme={theme}
           columns={columns}
           rowControls={rowControls}
+          imageManager={imageManager}
+          spriteManager={spriteManager}
           coordInstance={coordInstance}
           scrollState={scrollState}
           mouseState={mouseState}
           setMouseState={setMouseState}
-          spriteManager={spriteManager}
           getCellContent={getCellContent}
           scrollTo={scrollTo}
           scrollBy={scrollBy}
@@ -214,8 +222,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         left={columnInitSize}
         containerWidth={width}
         containerHeight={height}
-        totalWidth={totalWidth}
-        totalHeight={totalHeight}
+        scrollWidth={totalWidth}
+        scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
         containerRef={containerRef}

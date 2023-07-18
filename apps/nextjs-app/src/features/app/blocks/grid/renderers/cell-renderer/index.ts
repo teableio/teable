@@ -1,3 +1,5 @@
+import { booleanCellRenderer } from './booleanCellRenderer';
+import { imageCellRenderer } from './imageCellRenderer';
 import { CellType } from './interface';
 import { loadingCellRenderer } from './loadingCellRenderer';
 import { numberCellRenderer } from './numberCellRenderer';
@@ -8,14 +10,18 @@ export * from './interface';
 
 export const getCellRenderer = (cellType: CellType) => {
   switch (cellType) {
-    case CellType.Select:
-      return selectCellRenderer;
+    case CellType.Text:
+      return textCellRenderer;
     case CellType.Number:
       return numberCellRenderer;
+    case CellType.Boolean:
+      return booleanCellRenderer;
+    case CellType.Select:
+      return selectCellRenderer;
+    case CellType.Image:
+      return imageCellRenderer;
     case CellType.Loading:
-      return loadingCellRenderer;
-    case CellType.Text:
     default:
-      return textCellRenderer;
+      return loadingCellRenderer;
   }
 };
