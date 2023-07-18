@@ -4,7 +4,6 @@ import { FieldKeyType, IdPrefix, generateRecordId, OpBuilder, FieldType } from '
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { LinkService } from '../../calculation/link.service';
@@ -28,7 +27,6 @@ interface ICreateRecordOpMeta {
 @Injectable()
 export class RecordOpenApiService {
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly recordService: RecordService,
@@ -123,7 +121,7 @@ export class RecordOpenApiService {
     const fkRecordMap = derivate?.fkRecordMap || {};
 
     const opsMapByLink = cellChanges.length
-      ? this.referenceService.formatOpsByChanges(cellChanges)
+      ? this.referenceService.formatChangesToOps(cellChanges)
       : {};
 
     // calculate by origin ops and link derivation
@@ -154,7 +152,7 @@ export class RecordOpenApiService {
       records
     );
 
-    const opsMapOrigin = this.referenceService.formatOpsByChanges(
+    const opsMapOrigin = this.referenceService.formatChangesToOps(
       opsContexts.map((data) => {
         return {
           tableId,
@@ -188,13 +186,10 @@ export class RecordOpenApiService {
     });
   }
 
-  private async sendOpsMap(
-    connection: Connection,
-    opsMapByTableId: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
-  ) {
-    // console.log('sendOpsAfterApply:', JSON.stringify(opsMapByTableId, null, 2));
-    for (const tableId in opsMapByTableId) {
-      const data = opsMapByTableId[tableId];
+  async sendOpsMap(connection: Connection, opsMap: IOpsMap) {
+    // console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
+    for (const tableId in opsMap) {
+      const data = opsMap[tableId];
       const collection = `${IdPrefix.Record}_${tableId}`;
       for (const recordId in data) {
         const ops = data[recordId];
