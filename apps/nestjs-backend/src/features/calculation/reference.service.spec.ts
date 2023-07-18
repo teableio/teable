@@ -122,6 +122,7 @@ describe('ReferenceService', () => {
       const sortedNodes = service['getTopologicalOrder']('a', graph);
 
       expect(sortedNodes).toEqual([
+        { id: 'a', dependencies: [] },
         { id: 'c', dependencies: ['a', 'b'] },
         { id: 'd', dependencies: ['c'] },
       ]);
@@ -191,11 +192,9 @@ describe('ReferenceService', () => {
         },
       ];
 
-      const records = await service['getAffectedRecordItems'](
-        prisma,
-        [{ id: 'idA1', dbTableName: 'A' }],
-        topoOrder
-      );
+      const records = await service['getAffectedRecordItems'](prisma, topoOrder, [
+        { id: 'idA1', dbTableName: 'A' },
+      ]);
 
       expect(records).toEqual([
         { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
@@ -205,14 +204,10 @@ describe('ReferenceService', () => {
         { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB2' },
       ]);
 
-      const recordsWithMultiInput = await service['getAffectedRecordItems'](
-        prisma,
-        [
-          { id: 'idA1', dbTableName: 'A' },
-          { id: 'idA2', dbTableName: 'A' },
-        ],
-        topoOrder
-      );
+      const recordsWithMultiInput = await service['getAffectedRecordItems'](prisma, topoOrder, [
+        { id: 'idA1', dbTableName: 'A' },
+        { id: 'idA2', dbTableName: 'A' },
+      ]);
 
       expect(recordsWithMultiInput).toEqual([
         { id: 'idB1', dbTableName: 'B', relationTo: 'idA1', fieldId: 'manyToOneA' },
@@ -283,11 +278,9 @@ describe('ReferenceService', () => {
         },
       ];
 
-      const records = await service['getAffectedRecordItems'](
-        prisma,
-        [{ id: 'idC1', dbTableName: 'C' }],
-        topoOrder
-      );
+      const records = await service['getAffectedRecordItems'](prisma, topoOrder, [
+        { id: 'idC1', dbTableName: 'C' },
+      ]);
 
       // manyToOneB: ['B1', 'B2']
       expect(records).toEqual([

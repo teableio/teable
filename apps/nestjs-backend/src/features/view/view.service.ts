@@ -22,6 +22,10 @@ export class ViewService implements IAdapterService {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
   }
 
+  getRowIndexFieldIndexName(viewId: string) {
+    return `idx_${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
+  }
+
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -69,6 +73,7 @@ export class ViewService implements IAdapterService {
     });
 
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
+    const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
 
     // 1. create a new view in view model
     const viewData = await prisma.view.create({
@@ -84,6 +89,11 @@ export class ViewService implements IAdapterService {
     // 3. fill initial order for every record, with auto increment integer
     await prisma.$executeRawUnsafe(`
       UPDATE ${dbTableName} SET ${rowIndexFieldName} = __row_default;
+    `);
+
+    // 4. create index
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX ${rowIndexFieldIndexName} ON  ${dbTableName}(${rowIndexFieldName});
     `);
 
     // set strick not null and unique type for safety（sqlite cannot do that)
@@ -117,10 +127,16 @@ export class ViewService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {
+    const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
+
     await prisma.view.update({
       where: { id: viewId },
       data: { deletedTime: new Date() },
     });
+
+    await prisma.$executeRawUnsafe(`
+      DROP INDEX IF EXISTS ${rowIndexFieldIndexName};
+    `);
   }
 
   async update(

@@ -3,10 +3,13 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { IFieldSnapshot, IOtOperation } from '@teable-group/core';
 import { getUniqName, FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import { isEmpty, isEqual } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
+import { FieldBatchCalculationService } from '../../calculation/field-batch-calculation.service';
+import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -22,7 +25,9 @@ export class FieldOpenApiService {
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldService: FieldService
+    private readonly fieldService: FieldService,
+    private readonly fieldBatchCalculationService: FieldBatchCalculationService,
+    private readonly recordOpenApiService: RecordOpenApiService
   ) {}
 
   async createField(tableId: string, fieldInstance: IFieldInstance, transactionKey?: string) {
@@ -108,20 +113,21 @@ export class FieldOpenApiService {
 
     const id = snapshot.field.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
+    const connection = this.shareDbService.getConnection(transactionKey);
 
-    await this.createDoc(transactionKey, collection, id, snapshot);
-
+    await this.createDoc(connection, collection, id, snapshot);
+    const opsMap = await this.fieldBatchCalculationService.calculateFields(prisma, tableId, [id]);
+    await this.recordOpenApiService.sendOpsMap(connection, opsMap);
     return snapshot.field;
   }
 
   private async createDoc(
-    transactionKey: string,
+    connection: Connection,
     collection: string,
     id: string,
     createSnapshot: IFieldSnapshot
   ): Promise<IFieldSnapshot> {
-    const doc = this.shareDbService.getConnection(transactionKey).get(collection, id);
-
+    const doc = connection.get(collection, id);
     return new Promise<IFieldSnapshot>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
