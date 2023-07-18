@@ -51,6 +51,10 @@ async function generateFieldData(params: { mockDataNum: number, fields: Field[],
         fieldData = faker.helpers.arrayElement([1, 'null']);
         break;
       }
+      case FieldType.Date: {
+        fieldData = faker.date.anytime().toISOString();
+        break;
+      }
     }
 
     fieldData && (pre[cur.dbFieldName] = fieldData);
@@ -69,7 +73,7 @@ async function generateViewRowIndex(params: { views: View[], rowCount: number, i
 
 async function main() {
   const mockDataNum = 350000;
-  const tableId = 'tblRlrmU7DL1e6eKlMQ';
+  const tableId = 'tblXlclBXy8lvjcKIlp';
 
   console.log(`Start seeding ...`);
 
@@ -150,7 +154,7 @@ async function main() {
 
   const result = await prisma.$transaction(flatten(promises));
   console.log(result);
-  console.time(`Table: ${tableName}, Install Data Num: ${mockDataNum}`);
+  console.timeEnd(`Table: ${tableName}, Install Data Num: ${mockDataNum}`);
 }
 
 main()

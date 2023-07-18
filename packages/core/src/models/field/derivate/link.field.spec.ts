@@ -100,6 +100,12 @@ describe('LinkFieldCore', () => {
     expect(lookupField.convertStringToCellValue('text')).toBeNull();
   });
 
+  it('should convert item to string', () => {
+    expect(field.item2String({ id: 'rec' })).toBe('');
+    expect(field.item2String({ id: 'rec', title: 'A1' })).toBe('A1');
+    expect(field.item2String(null)).toBe('');
+  });
+
   it('should repair invalid value', () => {
     const cellValue: ILinkCellValue = {
       id: 'recxxxxxxxx',

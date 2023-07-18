@@ -218,7 +218,7 @@ export class RecordService implements IAdapterService {
       viewId: string;
     }
   ) {
-    const { viewId, orderBy = [], offset = 0, limit = 10, idOnly, filter } = query;
+    const { viewId, orderBy = [], offset = 0, limit = 10, idOnly, filter, where = {} } = query;
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
@@ -240,10 +240,12 @@ export class RecordService implements IAdapterService {
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
     filterQueryTranslator
       .translateToSql()
+      .andWhere(where)
       .orderBy(orderBy)
       .orderBy(orderFieldName, 'asc')
       .offset(offset)
       .limit(limit);
+    console.log(queryBuilder.toQuery());
     return { queryBuilder };
   }
 

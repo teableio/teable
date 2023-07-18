@@ -41,6 +41,7 @@ model Field {
   unique               Boolean?
   isPrimary            Boolean?  @map("is_primary")
   isComputed           Boolean?  @map("is_computed")
+  isLookup             Boolean?  @map("is_lookup")
   lookupLinkedFieldId  String?   @map("lookup_linked_field_id")
   lookupOptions        String?   @map("lookup_options")
   tableId              String    @map("table_id")

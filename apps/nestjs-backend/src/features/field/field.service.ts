@@ -100,6 +100,7 @@ export class FieldService implements IAdapterService {
       dbFieldType,
       cellValueType,
       isMultipleCellValue,
+      isLookup,
     } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
@@ -119,6 +120,7 @@ export class FieldService implements IAdapterService {
       version: 1,
       columnMeta: JSON.stringify(columnMeta),
       isComputed,
+      isLookup,
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,

@@ -1,3 +1,11 @@
+import {
+  daysAgo,
+  daysFromNow,
+  exactDate,
+  nextNumberOfDays,
+  pastNumberOfDays,
+} from '@teable-group/core';
+
 const defaultMapping = {
   today: 'today',
   tomorrow: 'tomorrow',
@@ -22,22 +30,22 @@ const withinMapping = {
   pastNumberOfDays: 'the past number of days',
 };
 
-const INPUTOPTIONS = [
-  'numberOfDaysAge',
-  'numberOfDaysFromNow',
-  'pastNumberOfDays',
-  'nextNumberOfDays',
+const INPUTOPTIONS: string[] = [
+  daysAgo.value,
+  daysFromNow.value,
+  pastNumberOfDays.value,
+  nextNumberOfDays.value,
 ];
 
-const DATEPICKEROPTIONS = ['exactDate'];
+const DATEPICKEROPTIONS: string[] = [exactDate.value];
 
 const defaultValue = {
-  mode: 'exactDate',
+  mode: exactDate.value,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 
 const withInDefaultValue = {
-  mode: 'nextNumberOfDays',
+  mode: nextNumberOfDays.value,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 

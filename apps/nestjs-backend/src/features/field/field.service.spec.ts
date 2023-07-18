@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { FieldModule } from './field.module';
 import { FieldService } from './field.service';
 
 describe('FieldService', () => {
@@ -7,7 +8,7 @@ describe('FieldService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [FieldService],
+      imports: [FieldModule],
     }).compile();
 
     service = module.get<FieldService>(FieldService);

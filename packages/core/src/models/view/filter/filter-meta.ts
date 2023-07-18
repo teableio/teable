@@ -1,9 +1,22 @@
 import { z } from 'zod';
 import type { IOperator, ISymbol } from './operator';
-import { operators, symbols } from './operator';
+import { operators, subOperators, symbols } from './operator';
+
+const filterMetaValueByDate = z.object({
+  mode: subOperators,
+  numberOfDays: z.number().int().nonnegative().optional(),
+  exactDate: z.string().datetime({ precision: 3 }).optional(),
+  timeZone: z.string(),
+});
+export type IFilterMetaValueByDate = z.infer<typeof filterMetaValueByDate>;
 
 const filterMetaValue = z
-  .union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))])
+  .union([
+    z.string(),
+    z.number(),
+    z.array(z.union([z.string(), z.number()])),
+    filterMetaValueByDate,
+  ])
   .nullable();
 export type IFilterMetaValue = z.infer<typeof filterMetaValue>;
 

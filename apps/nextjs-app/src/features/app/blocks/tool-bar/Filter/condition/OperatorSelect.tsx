@@ -1,10 +1,10 @@
-import type { ISymbol } from '@teable-group/core';
-import { getValidFilterOperators, getFilterOperatorMapping } from '@teable-group/core';
+import type { IFilterMetaOperator } from '@teable-group/core';
+import { getValidFilterOperators } from '@teable-group/core';
 import { useField, operatorLabelMapping } from '@teable-group/sdk';
 import { useMemo } from 'react';
 import { BaseSingleSelect } from '../component/BaseSingleSelect';
 interface IOperatorOptions {
-  value: ISymbol;
+  value: IFilterMetaOperator;
   label: string;
 }
 
@@ -19,10 +19,9 @@ function OperatorSelect(props: IOperatorSelectProps) {
   const field = useField(fieldId);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {
-      const valueMapping = getFilterOperatorMapping(field);
       return getValidFilterOperators(field).map((operator) => ({
         label: operatorLabelMapping[operator],
-        value: valueMapping[operator] as ISymbol,
+        value: operator,
       }));
     }
     return [] as IOperatorOptions[];

@@ -5,6 +5,7 @@ import knex from 'knex';
 import { FilterQueryTranslator } from './filter-query-translator';
 
 describe('FilterQueryTranslator', () => {
+  const queryBuilder = knex({ client: 'sqlite3' })('table_name');
   let fieldContext: { [fieldId: string]: FieldCore } = {};
 
   beforeAll(() => {
@@ -78,10 +79,9 @@ describe('FilterQueryTranslator', () => {
       conjunction: 'or',
     });
 
-    const query = knex({ client: 'sqlite3' })('table_name');
-    new FilterQueryTranslator(query, fieldContext, jsonFilter).translateToSql();
+    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
 
-    expect(query.toQuery()).toMatch(
+    expect(queryBuilder.toQuery()).toMatch(
       '(`f1_fldXPZs9lFMvAIo2E` = 1 and not `f1_fldXPZs9lFMvAIo2E` = 2) or (`f1_fldXPZs9lFMvAIo2E` = 3 and `f1_fldXPZs9lFMvAIo2E` is null)'
     );
   });

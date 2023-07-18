@@ -1,3 +1,5 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type {
   ICreateRecordSchema,
   IMailSenderSchema,

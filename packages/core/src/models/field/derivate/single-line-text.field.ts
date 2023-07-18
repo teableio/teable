@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
-export const singlelineTextFieldOptionsSchema = z.object({});
+export const singlelineTextFieldOptionsSchema = z.object({}).strict();
 
 export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;
 

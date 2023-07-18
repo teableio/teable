@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ConsoleLogger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@teable-group/core';
 import type { CreateRecordsVo } from 'src/features/record/open-api/record.vo';
 import type { ViewVo } from 'src/features/view/model/view.vo';
+import loadConfig from '../../../../../configs/config';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import type { FieldVo } from '../../../../field/model/field.vo';
@@ -43,7 +45,12 @@ describe('Create-Record Action Test', () => {
         FieldModule,
         EventEmitterModule.forRoot(),
       ],
-    }).compile();
+    })
+      .overrideProvider(ConfigService)
+      .useValue({
+        get: () => loadConfig().mail,
+      })
+      .compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 
@@ -63,7 +70,7 @@ describe('Create-Record Action Test', () => {
       })
     );
 
-    jest.spyOn(fieldService, 'getFields').mockImplementation((tableId, query) =>
+    jest.spyOn(fieldService, 'getFields').mockImplementation((_tableId, _query) =>
       Promise.resolve([
         {
           id: 'fldHrMYez5yIwBdKEiK',
@@ -91,7 +98,7 @@ describe('Create-Record Action Test', () => {
 
     jest
       .spyOn(recordOpenApiService, 'multipleCreateRecords')
-      .mockImplementation((tableId, createRecordsRo, fieldName2IdMap) =>
+      .mockImplementation((_tableId, _createRecordsRo, _fieldName2IdMap) =>
         Promise.resolve({
           records: [
             {
@@ -120,6 +127,7 @@ describe('Create-Record Action Test', () => {
 
   it('should call onSuccess and create records', async () => {
     const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     const actionId = generateWorkflowActionId();

@@ -1,14 +1,9 @@
+import type { IDateTimeFieldOperator } from '@teable-group/core';
+import { exactDate, FieldType, getValidFilterSubOperators, ISubOperator } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BaseSingleSelect } from '../BaseSingleSelect';
-import {
-  defaultMapping,
-  withinMapping,
-  DATEPICKEROPTIONS,
-  INPUTOPTIONS,
-  defaultValue,
-  withInDefaultValue,
-} from './constant';
+import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 
 interface IDateValue {
@@ -59,7 +54,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   const datePickerSelect = useCallback(
     (val: string) => {
       const mergedValue = {
-        mode: 'exactDate',
+        mode: exactDate.value,
         exactDate: val,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
@@ -69,14 +64,14 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 
   const selectOptions = useMemo(() => {
-    const optionMapping = operator === 'isWithIn' ? withinMapping : defaultMapping;
-    const options = [];
-    for (const [key, value] of Object.entries(optionMapping)) {
-      options.push({
-        label: value,
-        value: key,
-      });
-    }
+    const optionMapping = getValidFilterSubOperators(
+      FieldType.Date,
+      operator as IDateTimeFieldOperator
+    );
+    const options = optionMapping!.map((operator) => ({
+      label: operator,
+      value: operator,
+    }));
     // change the operator to another type
     if (innerValue && !options.some((option) => option.value === innerValue?.mode)) {
       const newValue = { ...innerValue };

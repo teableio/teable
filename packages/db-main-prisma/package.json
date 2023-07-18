@@ -16,30 +16,29 @@
   "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "prisma": {
-    "seed": "tsx ./prisma/seed.ts"
-  },
   "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
     "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
-    "prisma-db-seed": "dotenv-flow -- yarn prisma db seed",
     "prisma-db-push": "dotenv-flow -- yarn prisma db push",
     "prisma-studio": "dotenv-flow -- yarn prisma studio",
     "clean": "rimraf --no-glob ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test": "run-s test:unit",
+    "test": "run-s test-unit",
     "test-unit": "echo \"No unit tests yet\"",
     "test-e2e": "jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "debug-test-e2e": "cross-env DEBUG=testcontainers jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
-    "postinstall": "prisma generate"
+    "postinstall": "yarn prisma-db-push && yarn prisma generate"
   },
   "dependencies": {
     "@prisma/client": "4.7.1",
     "better-sqlite3": "8.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "8.0.2",
     "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/better-sqlite3": "7.6.2",

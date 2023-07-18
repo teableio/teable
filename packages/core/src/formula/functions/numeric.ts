@@ -20,23 +20,24 @@ export class Sum extends NumericFunc {
         throw new Error(`Sum can'\t process string type param at ${i + 1}`);
       }
     });
-    return true;
   }
 
   getReturnType() {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<number | number[]>[]): number | null {
+  eval(params: TypedValue<number | null | (number | null)[]>[]): number | null {
     return params.reduce((result, param) => {
       if (param.isMultiple) {
         if (!Array.isArray(param.value)) {
           return result;
         }
-        result += param.value.reduce((r, p) => {
-          r += p || 0;
-          return r;
-        }, 0);
+        result += param.value
+          ? (param.value as (number | null)[]).reduce<number>((r, p) => {
+              r += p || 0;
+              return r;
+            }, 0)
+          : 0;
         return result;
       }
       result += (param.value as number) || 0;

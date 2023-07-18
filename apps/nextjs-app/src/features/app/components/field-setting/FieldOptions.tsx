@@ -5,6 +5,7 @@ import type {
   INumberFieldOptions,
   ISelectFieldOptions,
   CellValueType,
+  IRollupFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -12,6 +13,7 @@ import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
 import { LinkOptions } from './options/LinkOptions';
 import { NumberOptions } from './options/NumberOptions';
+import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
 
 export interface IFieldOptionsProps {
@@ -19,14 +21,13 @@ export interface IFieldOptionsProps {
   type: FieldType;
   isLookup: boolean | undefined;
   cellValueType?: CellValueType; // for formula field with lookup only
-  updateFieldOptions: (options: Partial<IFieldInstance['options'] | ILinkFieldOptionsRo>) => void;
+  updateFieldOptions: (options: Partial<IFieldInstance['options']>) => void;
 }
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({
   options,
   type,
   isLookup,
-  cellValueType,
   updateFieldOptions,
 }) => {
   switch (type) {
@@ -60,7 +61,6 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <FormulaOptions
           options={options as IFormulaFieldOptions}
           isLookup={isLookup}
-          cellValueType={cellValueType}
           onChange={updateFieldOptions}
         />
       );
@@ -68,6 +68,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
       return (
         <DateOptions
           options={options as IDateFieldOptions}
+          isLookup={isLookup}
+          onChange={updateFieldOptions}
+        />
+      );
+    case FieldType.Rollup:
+      return (
+        <RollupOptions
+          options={options as IRollupFieldOptions}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />

@@ -38,7 +38,8 @@
     "start:debug": "nest start --debug --watch",
     "check-dist": "es-check -v",
     "check-size": "size-limit --highlight-less",
-    "test": "jest",
+    "test": "run-s test-unit-jest test:e2e",
+    "test-unit-jest": "jest --config ./jest.config.js --testPathIgnorePatterns='test/' --testPathIgnorePatterns='.controller.spec.ts$'",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -106,6 +107,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.0",
     "cors": "2.8.5",
+    "dayjs": "1.11.8",
     "express": "4.18.2",
     "fs-extra": "11.1.1",
     "is-port-reachable": "3.1.0",
@@ -123,7 +125,6 @@
     "supertest": "6.3.3",
     "ts-loader": "9.4.2",
     "ws": "8.11.0",
-    "zod": "3.21.4",
-    "zod-to-ts": "1.1.4"
+    "zod": "3.21.4"
   }
 }

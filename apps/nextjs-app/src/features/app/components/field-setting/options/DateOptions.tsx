@@ -4,23 +4,21 @@ import { Switch } from '@teable-group/ui-lib/shadcn/ui/switch';
 import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
 
 export const DateOptions = (props: {
-  options: IDateFieldOptions;
+  options: Partial<IDateFieldOptions> | undefined;
   isLookup?: boolean;
-  onChange?: (options: IDateFieldOptions) => void;
+  onChange?: (options: Partial<IDateFieldOptions>) => void;
 }) => {
-  const { options, isLookup, onChange } = props;
+  const { options = {}, isLookup, onChange } = props;
   const { defaultValue } = options;
 
   const onFormattingChange = (formatting: IDatetimeFormatting) => {
     onChange?.({
-      ...options,
       formatting,
     });
   };
 
   const onDefaultValueChange = (checked: boolean) => {
     onChange?.({
-      ...options,
       defaultValue: checked ? 'now' : undefined,
     });
   };

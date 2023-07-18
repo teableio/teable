@@ -12,6 +12,7 @@ export class MailSenderService {
   private mailConfig: IMailConfig;
 
   constructor(private configService: ConfigService) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.mailConfig = this.configService.get<IMailConfig>('mail')!;
 
     this.transporter = createTransport({
