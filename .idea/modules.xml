@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/nextjs-monorepo-example.iml" filepath="$PROJECT_DIR$/.idea/nextjs-monorepo-example.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/teable.iml" filepath="$PROJECT_DIR$/.idea/teable.iml" />
     </modules>
   </component>
 </project>
