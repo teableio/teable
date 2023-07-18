@@ -13,7 +13,7 @@ import { SelectTable } from '../SelectTable';
 const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 
 export const LinkOptions = (props: {
-  options?: Partial<ILinkFieldOptionsRo>;
+  options: Partial<ILinkFieldOptionsRo> | undefined;
   isLookup?: boolean;
   onChange?: (options: Partial<ILinkFieldOptionsRo>) => void;
 }) => {
@@ -25,12 +25,12 @@ export const LinkOptions = (props: {
 
   const onForeignTableIdChange = (value: string) => {
     const foreignTableId = value;
-    onChange?.({ foreignTableId, relationship });
+    onChange?.({ foreignTableId });
   };
 
   const onRelationshipChange = (value: Relationship) => {
     const relationship = value;
-    onChange?.({ foreignTableId, relationship });
+    onChange?.({ relationship });
   };
 
   if (isLookup) {

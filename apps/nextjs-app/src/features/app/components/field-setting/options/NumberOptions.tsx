@@ -2,9 +2,9 @@ import type { INumberFieldOptions, INumberFormatting } from '@teable-group/core'
 import { NumberFormatting } from '../formatting/NumberFormatting';
 
 export const NumberOptions = (props: {
-  options?: INumberFieldOptions;
+  options: Partial<INumberFieldOptions> | undefined;
   isLookup?: boolean;
-  onChange?: (options: INumberFieldOptions) => void;
+  onChange?: (options: Partial<INumberFieldOptions>) => void;
 }) => {
   const { options, onChange } = props;
 
