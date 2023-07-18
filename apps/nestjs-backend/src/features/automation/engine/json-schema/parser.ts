@@ -61,7 +61,7 @@ interface IParser {
 class NullParser implements IParser {
   private parserType: IParserType = 'null';
 
-  async parse(options: IOptions): Promise<null> {
+  async parse(_options: IOptions): Promise<null> {
     return null;
   }
 }

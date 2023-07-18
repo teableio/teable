@@ -56,7 +56,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
 
     return (
       <ReactMarkdown
-        className="w-auto max-w-full bg-base-300 px-2 py-1 rounded-lg prose prose-slate text-sm"
+        className="bg-base-300 prose prose-slate w-auto max-w-full px-2 py-1 rounded-lg text-sm"
         remarkPlugins={[remarkGfm]}
         components={{
           pre({ node, className, children, ...props }) {

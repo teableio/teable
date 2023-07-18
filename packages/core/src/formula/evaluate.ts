@@ -1,5 +1,6 @@
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
-import type { FieldCore, IRecord } from '../models';
+import type { FieldCore } from '../models/field/field';
+import type { IRecord } from '../models/record/record.schema';
 import { FormulaErrorListener } from './error.listener';
 import { Formula } from './parser/Formula';
 import { FormulaLexer } from './parser/FormulaLexer';

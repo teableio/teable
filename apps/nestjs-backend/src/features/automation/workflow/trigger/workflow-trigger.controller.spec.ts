@@ -34,7 +34,7 @@ describe('WorkflowTriggerController', () => {
       };
       jest
         .spyOn(workflowTriggerService, 'create')
-        .mockImplementation((triggerId, createWorkflowTriggerRo) =>
+        .mockImplementation((_triggerId, _createWorkflowTriggerRo) =>
           Promise.resolve({
             id: 'id',
             workflowId: 'workflowId',

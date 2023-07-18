@@ -1,6 +1,6 @@
 import type { GridCell, GridColumn } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
-import { FieldType } from '@teable-group/core';
+import { CellValueType, FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
@@ -103,9 +103,66 @@ const generateColumns = (
           hasMenu: true,
           width,
         };
+      case FieldType.Rollup:
+        return {
+          id: field.id,
+          title: field.name,
+          width,
+          icon: iconString(FieldType.Rollup, field.isLookup),
+          kind: GridCellKind.Text,
+          hasMenu: true,
+        };
     }
   });
 };
+
+function getBasicCell(field: IFieldInstance, cellValue: unknown): GridCell {
+  const isNumberCell = field.cellValueType === CellValueType.Number && !field.isMultipleCellValue;
+  const isDateCell = field.cellValueType === CellValueType.Boolean && !field.isMultipleCellValue;
+  const isBooleanCell = field.cellValueType === CellValueType.Boolean && !field.isMultipleCellValue;
+  if (isNumberCell) {
+    return {
+      kind: GridCellKind.Number,
+      data: (cellValue as number) || undefined,
+      allowOverlay: true,
+      displayData: field.cellValue2String(cellValue as number),
+      contentAlign: 'right',
+      themeOverride: { fontFamily: '"everson mono", courier, consolas, monaco, monospace' },
+      readonly: field.isComputed,
+    };
+  }
+  if (isDateCell) {
+    const text = field.cellValue2String(cellValue as number);
+    return {
+      kind: GridCellKind.Custom,
+      data: {
+        type: FieldType.Date,
+        value: text,
+      },
+      copyData: text,
+      allowOverlay: true,
+      readonly: field.isComputed,
+    };
+  }
+  if (isBooleanCell) {
+    return {
+      kind: GridCellKind.Boolean,
+      data: (cellValue as boolean) || false,
+      allowOverlay: false,
+      contentAlign: 'center',
+      readonly: field.isComputed,
+    };
+  }
+
+  const text = field.cellValue2String(cellValue);
+  return {
+    kind: GridCellKind.Text,
+    data: text,
+    allowOverlay: true,
+    displayData: text,
+    readonly: field.isComputed,
+  };
+}
 
 const createCellValue2GridDisplay =
   (fields: IFieldInstance[]) =>
@@ -113,26 +170,16 @@ const createCellValue2GridDisplay =
   (cellValue: unknown, col: number): GridCell => {
     const field = fields[col];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     switch (field.type) {
-      case FieldType.SingleLineText: {
-        return {
-          kind: GridCellKind.Text,
-          data: (cellValue as string) || '',
-          allowOverlay: true,
-          displayData: (cellValue as string) || '',
-          readonly: field.isComputed,
-        };
-      }
-      case FieldType.Number: {
-        return {
-          kind: GridCellKind.Number,
-          data: (cellValue as number) || undefined,
-          allowOverlay: true,
-          displayData: field.cellValue2String(cellValue as number),
-          contentAlign: 'right',
-          themeOverride: { fontFamily: '"everson mono", courier, consolas, monaco, monospace' },
-          readonly: field.isComputed,
-        };
+      case FieldType.SingleLineText:
+      case FieldType.Number:
+      case FieldType.Rollup:
+      case FieldType.Formula:
+      case FieldType.Date:
+      case FieldType.Checkbox: {
+        return getBasicCell(field, cellValue);
       }
       case FieldType.SingleSelect: {
         return {
@@ -178,15 +225,6 @@ const createCellValue2GridDisplay =
           readonly: field.isLookup,
         };
       }
-      case FieldType.Formula: {
-        return {
-          kind: GridCellKind.Text,
-          data: cellValue ? (String(cellValue) as string) : '',
-          allowOverlay: true,
-          displayData: cellValue ? (String(cellValue) as string) : '',
-          readonly: field.isComputed,
-        };
-      }
       case FieldType.Attachment: {
         return {
           kind: GridCellKind.Custom,
@@ -197,37 +235,6 @@ const createCellValue2GridDisplay =
           },
           copyData: `${col}`,
           allowOverlay: true,
-          readonly: field.isComputed,
-        };
-      }
-      case FieldType.Date: {
-        return {
-          kind: GridCellKind.Custom,
-          data: {
-            type: FieldType.Date,
-            value: field.cellValue2String(cellValue as number),
-          },
-          copyData: `${col}`,
-          allowOverlay: true,
-          readonly: field.isComputed,
-        };
-      }
-      case FieldType.Checkbox: {
-        if (field.isMultipleCellValue) {
-          const text = field.cellValue2String(cellValue);
-          return {
-            kind: GridCellKind.Text,
-            data: text,
-            allowOverlay: true,
-            displayData: text,
-            readonly: field.isComputed,
-          };
-        }
-        return {
-          kind: GridCellKind.Boolean,
-          data: (cellValue as boolean) || false,
-          allowOverlay: false,
-          contentAlign: 'center',
           readonly: field.isComputed,
         };
       }

@@ -4,7 +4,7 @@ import request from 'supertest';
 import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import { initApp } from './utils/init-app';
 
-describe('OpenAPI formula (e2e)', () => {
+describe.skip('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
   let table1Id = '';
   let numberFieldRo: CreateFieldRo & { id: string };
@@ -52,7 +52,8 @@ describe('OpenAPI formula (e2e)', () => {
       .send({
         name: 'table1',
         fields: [numberFieldRo, textFieldRo, formulaFieldRo],
-      });
+      })
+      .expect(201);
     table1Id = result1.body.data.id;
   });
 

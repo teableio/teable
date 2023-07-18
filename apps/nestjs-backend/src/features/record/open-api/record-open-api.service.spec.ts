@@ -1,5 +1,7 @@
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { RecordOpenApiModule } from './record-open-api.module';
 import { RecordOpenApiService } from './record-open-api.service';
 
 describe('RecordOpenApiService', () => {
@@ -7,7 +9,7 @@ describe('RecordOpenApiService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RecordOpenApiService],
+      imports: [RecordOpenApiModule, EventEmitterModule.forRoot()],
     }).compile();
 
     service = module.get<RecordOpenApiService>(RecordOpenApiService);

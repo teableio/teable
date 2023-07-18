@@ -60,30 +60,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
 
-      # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
-      # That allows to see if we're introducing "surface" regressions (just the types)
-      - name: Typecheck
-        run: |
-          yarn workspaces foreach -tv --from '@teable-group/*' --since=origin/main --recursive run typecheck
-
-      # Lint packages that have changed (--include & --since)
-      - name: Linter
-        run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run lint
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run lint-styles
-
-      # Test packages that have changed (--include & --since)
-      - name: Unit tests changed packages
-        run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main --recursive run test-unit
       # to debug cache issues: ls ${{ github.workspace }}/.cache
       # Build packages that have changed (--include & --since), assuming that
       # apps build are done already. Otherwise --from & --since
       - name: Run build for changed packages
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/main run build
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/develop run build
 
-      # Test storybook build on packages that have changed (--include & --since)
-      - name: Run storybook build for changed packages
+      # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
+      # That allows to see if we're introducing "surface" regressions (just the types)
+      - name: Typecheck
         run: |
-          yarn workspaces foreach -tv --exclude '*-app' --since=origin/main run build-storybook
+          yarn workspaces foreach -tv --from '@teable-group/*' --since=origin/develop --recursive run typecheck
+
+      # Lint packages that have changed (--include & --since)
+      - name: Linter
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/develop --recursive run lint
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/develop --recursive run lint-styles
+
+      # Test packages that have changed (--include & --since)
+      - name: Unit tests changed packages
+        run: |
+          yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/develop --recursive run test

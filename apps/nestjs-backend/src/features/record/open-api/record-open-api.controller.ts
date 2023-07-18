@@ -9,8 +9,8 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { IRecordRo, IRecordVo } from '@teable-group/core';
-import { recordsRoSchema, type IRecordsVo, IRecordsRo } from '@teable-group/core';
+import type { IRecordVo } from '@teable-group/core';
+import { recordsRoSchema, type IRecordsVo, IRecordsRo, IRecordRo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { CreateRecordsRo } from '../create-records.ro';

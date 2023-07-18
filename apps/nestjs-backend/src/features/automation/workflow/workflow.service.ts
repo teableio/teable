@@ -78,7 +78,7 @@ export class WorkflowService {
 
     // FIXME: This is a bad taste
     const result: WorkflowVo[] | null = [];
-    for (const { workflowId } of queryResult!) {
+    for (const { workflowId } of queryResult) {
       const data = await this.getWorkflow(workflowId);
       if (data) {
         result.push(data);

@@ -59,9 +59,15 @@ const maxPageSize = 10000;
 
 export const recordsRoSchema = recordRoSchema.extend({
   take: z
-    .number()
-    .min(1, 'You should at least take 1 record')
-    .max(maxPageSize, `Can't take more than ${maxPageSize} records, please reduce take count`)
+    .string()
+    .or(z.number())
+    .transform(Number)
+    .pipe(
+      z
+        .number()
+        .min(1, 'You should at least take 1 record')
+        .max(maxPageSize, `Can't take more than ${maxPageSize} records, please reduce take count`)
+    )
     .default(defaultPageSize)
     .optional()
     .openapi({
@@ -69,8 +75,10 @@ export const recordsRoSchema = recordRoSchema.extend({
       description: 'The record count you want to take',
     }),
   skip: z
-    .number()
-    .min(0, 'You can not skip a negative count of records')
+    .string()
+    .or(z.number())
+    .transform(Number)
+    .pipe(z.number().min(0, 'You can not skip a negative count of records'))
     .default(0)
     .optional()
     .openapi({

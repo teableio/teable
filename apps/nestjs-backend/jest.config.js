@@ -45,7 +45,11 @@ const config = {
   collectCoverage: false,
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text'],
-  collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.{js,ts}', '!**/__mock__/*'],
+  collectCoverageFrom: [
+    '<rootDir>/src/**/*.{ts,tsx,js,jsx}',
+    '!**/*.(test|spec).{js,ts}',
+    '!**/__mock__/*',
+  ],
 };
 
 module.exports = config;

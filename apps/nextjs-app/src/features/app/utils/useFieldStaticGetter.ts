@@ -5,7 +5,6 @@ import {
   SingleLineTextField,
   SingleSelectField,
   LinkField,
-  FormulaField,
   DateField,
   AttachmentField,
   CheckboxField,
@@ -18,6 +17,7 @@ import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
 import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
 import FieldAttachmentIcon from '@teable-group/ui-lib/icons/app/file.svg';
 import UnknownIcon from '@teable-group/ui-lib/icons/app/help.svg';
+import FieldRollupIcon from '@teable-group/ui-lib/icons/app/layers.svg';
 import LinkIcon from '@teable-group/ui-lib/icons/app/link.svg';
 import MenuIcon from '@teable-group/ui-lib/icons/app/menu.svg';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
@@ -85,7 +85,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Formula',
             defaultName: 'Calculation',
-            defaultOptions: FormulaField.defaultOptions(),
+            defaultOptions: {},
             Icon: isLookup ? SearchIcon : CodeIcon,
           };
         case FieldType.Date:
@@ -108,6 +108,13 @@ export const useFieldStaticGetter = () => {
             defaultName: 'Done',
             defaultOptions: CheckboxField.defaultOptions(),
             Icon: isLookup ? SearchIcon : CheckboxIcon,
+          };
+        case FieldType.Rollup:
+          return {
+            title: 'Rollup',
+            defaultName: 'Rollup',
+            defaultOptions: {},
+            Icon: isLookup ? SearchIcon : FieldRollupIcon,
           };
         case FieldType.User:
           return {

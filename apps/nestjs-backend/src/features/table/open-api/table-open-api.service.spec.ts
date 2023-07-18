@@ -1,5 +1,7 @@
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { TableOpenApiModule } from './table-open-api.module';
 import { TableOpenApiService } from './table-open-api.service';
 
 describe('TableOpenApiService', () => {
@@ -7,7 +9,7 @@ describe('TableOpenApiService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TableOpenApiService],
+      imports: [TableOpenApiModule, EventEmitterModule.forRoot()],
     }).compile();
 
     service = module.get<TableOpenApiService>(TableOpenApiService);

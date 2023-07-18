@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-import type { FieldCore, IRecord } from '../models';
-import { CellValueType } from '../models';
+import { CellValueType } from '../models/field/constant';
+import type { FieldCore } from '../models/field/field';
+import type { IRecord } from '../models/record/record.schema';
 import type { FormulaFunc, FunctionName } from './functions/common';
 import { FUNCTIONS } from './functions/factory';
 import type {
@@ -233,8 +234,7 @@ export class EvalVisitor
 
     // some field like link or attachment may contain json object cellValue, that need to be converted to string.
     if (field.isMultipleCellValue && value[0] && typeof value[0] === 'object') {
-      // fallback by levels.
-      value = value.map((v: any) => v.title || v.text || v.name || v.str || v.string || v.id || v);
+      value = value.map((v: object) => (field.item2String ? field.item2String(v) : v));
     }
 
     if (!field.isMultipleCellValue && typeof value === 'object') {
