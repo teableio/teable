@@ -33,7 +33,6 @@ export const GridView: React.FC = () => {
             type: CellType.Loading,
           };
         }
-        // const cellValue = record.getCellValue(fieldId);
         return cellValue2GridDisplay(record, col);
       },
       [cellValue2GridDisplay, columns]
@@ -44,14 +43,12 @@ export const GridView: React.FC = () => {
         const fieldId = columns[col].id;
         const { type, data } = newVal;
         let newCellValue = null;
-        console.log('data', data);
 
         switch (type) {
           case CellType.Select:
             newCellValue = data?.length ? data : null;
             break;
           case CellType.Text:
-          case CellType.Date:
           case CellType.Number:
           default:
             newCellValue = data === '' ? null : data;
