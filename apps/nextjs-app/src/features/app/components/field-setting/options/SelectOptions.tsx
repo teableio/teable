@@ -8,9 +8,9 @@ import classNames from 'classnames';
 import { useRef, useState } from 'react';
 
 export const SelectOptions = (props: {
-  options?: ISelectFieldOptions;
+  options: Partial<ISelectFieldOptions> | undefined;
   isLookup?: boolean;
-  onChange?: (options: ISelectFieldOptions) => void;
+  onChange?: (options: Partial<ISelectFieldOptions>) => void;
 }) => {
   const { options, isLookup, onChange } = props;
   const choices = options?.choices || [];

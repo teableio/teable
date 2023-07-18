@@ -484,8 +484,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   it('should update lookupField by edit the a looked up number field', async () => {
-    // (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
-    console.log('--------------');
+    (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
     (await expectLookup(table2, FieldType.Number, 123)).toEqual(123);
   });
 

@@ -118,7 +118,7 @@ const generateColumns = (
 
 function getBasicCell(field: IFieldInstance, cellValue: unknown): GridCell {
   const isNumberCell = field.cellValueType === CellValueType.Number && !field.isMultipleCellValue;
-  const isDateCell = field.cellValueType === CellValueType.Boolean && !field.isMultipleCellValue;
+  const isDateCell = field.cellValueType === CellValueType.DateTime && !field.isMultipleCellValue;
   const isBooleanCell = field.cellValueType === CellValueType.Boolean && !field.isMultipleCellValue;
   if (isNumberCell) {
     return {

@@ -21,7 +21,7 @@ export interface IFieldOptionsProps {
   type: FieldType;
   isLookup: boolean | undefined;
   cellValueType?: CellValueType; // for formula field with lookup only
-  updateFieldOptions: (options: Partial<IFieldInstance['options'] | ILinkFieldOptionsRo>) => void;
+  updateFieldOptions: (options: Partial<IFieldInstance['options']>) => void;
 }
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({

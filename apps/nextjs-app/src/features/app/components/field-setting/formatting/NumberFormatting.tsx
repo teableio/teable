@@ -1,4 +1,5 @@
 import type { INumberFormatting } from '@teable-group/core';
+import { defaultNumberFormatting } from '@teable-group/core';
 import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import {
   Select,
@@ -38,11 +39,13 @@ interface IProps {
 }
 
 export const NumberFormatting: React.FC<IProps> = ({ formatting = { precision: 0 }, onChange }) => {
-  const precision = formatting.precision;
+  const precision = formatting.precision ?? defaultNumberFormatting.precision;
 
   const onPrecisionChange = (value: string) => {
-    const precision = Number(value) || 0;
-    onChange?.({ precision: Number.isNaN(precision) ? 0 : precision });
+    const precision = Number(value) ?? defaultNumberFormatting.precision;
+    onChange?.({
+      precision: Number.isNaN(precision) ? defaultNumberFormatting.precision : precision,
+    });
   };
 
   return (
