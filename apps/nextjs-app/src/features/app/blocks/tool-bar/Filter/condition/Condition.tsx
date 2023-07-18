@@ -41,11 +41,9 @@ function Condition(props: IConditionProps) {
   );
   const fieldValueHandler = useCallback(
     (value: IFilterMeta['value']) => {
-      if (!isEqual(filter.value, value)) {
-        filter.value = value;
-        const newFilters = cloneDeep(filters);
-        setFilters(newFilters);
-      }
+      filter.value = value;
+      const newFilters = cloneDeep(filters);
+      setFilters(newFilters);
     },
     [filter, filters, setFilters]
   );

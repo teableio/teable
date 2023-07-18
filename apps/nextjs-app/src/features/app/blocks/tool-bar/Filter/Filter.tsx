@@ -6,8 +6,9 @@ import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
-import { cloneDeep } from 'lodash';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneDeep, isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { cn } from '@/lib/utils';
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
@@ -20,33 +21,55 @@ const emptyText = 'No filter conditions are applied';
 
 function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter } = props;
-  const [filters, setFilters] = useState(initFilter || {});
+  const [filters, setFilters] = useState(initFilter);
   const fields = useFields({ widthHidden: true });
 
   useEffect(() => {
-    setFilters(initFilter);
+    const newFilter = cloneDeep(initFilter);
+    setFilters(newFilter);
   }, [initFilter]);
+
+  useDebounce(
+    () => {
+      if (!isEqual(filters, initFilter)) {
+        onChange?.(filters);
+      }
+    },
+    500,
+    [filters]
+  );
 
   const defaultFieldId = useMemo(() => {
     return fields.find((field) => field.isPrimary)?.id;
   }, [fields]);
 
-  const preOrder = useCallback((filter: IFilter['filterSet']): Set<string> => {
-    const filterIds = new Set<string>();
+  const isCheckBox = useCallback(
+    (fieldId: string) => {
+      return fields.find((field) => field.id === fieldId)?.type === 'checkbox';
+    },
+    [fields]
+  );
 
-    filter.forEach((item) => {
-      if (isFilterMeta(item)) {
-        if (item.value || EMPTYOPERATORS.includes(item.operator)) {
-          filterIds.add(item.fieldId);
+  const preOrder = useCallback(
+    (filter: IFilter['filterSet']): Set<string> => {
+      const filterIds = new Set<string>();
+
+      filter.forEach((item) => {
+        if (isFilterMeta(item)) {
+          // checkbox's default value is null, but it does work
+          if (item.value || EMPTYOPERATORS.includes(item.operator) || isCheckBox(item.fieldId)) {
+            filterIds.add(item.fieldId);
+          }
+        } else {
+          const childFilterIds = preOrder(item.filterSet);
+          childFilterIds.forEach((id) => filterIds.add(id));
         }
-      } else {
-        const childFilterIds = preOrder(item.filterSet);
-        childFilterIds.forEach((id) => filterIds.add(id));
-      }
-    });
+      });
 
-    return filterIds;
-  }, []);
+      return filterIds;
+    },
+    [isCheckBox]
+  );
 
   const generateFilterButtonText = (filterIds: Set<string>, fields: IFieldInstance[]): string => {
     let text = filterIds.size ? 'Filtered by ' : '';
@@ -73,13 +96,10 @@ function Filter(props: IFilterProps) {
     return generateFilterButtonText(filteredIds, fields);
   }, [fields, filters.filterSet, preOrder]);
 
-  const updateFilter = useCallback(
-    (val: IFilterProps['filters']) => {
-      setFilters(val);
-      onChange?.(filters);
-    },
-    [filters, onChange]
-  );
+  // const setFilters = useCallback((val: IFilterProps['filters']) => {
+  //   setFilters(val);
+  //   // onChange?.(filters);
+  // }, []);
 
   const addCondition = useCallback(
     (curFilter: IFilterSet) => {
@@ -91,9 +111,9 @@ function Filter(props: IFilterProps) {
       const filterItem: IFilterMeta = defaultIFilterMeta;
       curFilter.filterSet.push(filterItem);
       const newFilters = cloneDeep(filters);
-      updateFilter(newFilters);
+      setFilters(newFilters);
     },
-    [defaultFieldId, filters, updateFilter]
+    [defaultFieldId, filters, setFilters]
   );
   const addConditionGroup = useCallback(
     (curFilter: IFilterSet) => {
@@ -103,9 +123,9 @@ function Filter(props: IFilterProps) {
       };
       curFilter.filterSet.push(defaultIFilteSet);
       const newFilters = cloneDeep(filters);
-      updateFilter(newFilters);
+      setFilters(newFilters);
     },
-    [filters, updateFilter]
+    [filters, setFilters]
   );
 
   const conditionCreator = () => {
@@ -137,7 +157,7 @@ function Filter(props: IFilterProps) {
     <FilterContext.Provider
       value={{
         filters: filters,
-        setFilters: updateFilter,
+        setFilters: setFilters,
         onChange: onChange,
         addCondition: addCondition,
         addConditionGroup: addConditionGroup,

@@ -53,6 +53,7 @@ function FieldSelect(props: IFieldSelectProps) {
               return (
                 <CommandItem
                   key={field.id}
+                  value={field.id}
                   onSelect={() => {
                     onSelect(field.id);
                     setOpen(false);

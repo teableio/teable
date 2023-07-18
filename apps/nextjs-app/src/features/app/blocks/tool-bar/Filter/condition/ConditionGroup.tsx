@@ -26,9 +26,6 @@ function ConditionGroup(props: IConditionGroupProps) {
   const { index, filter, parent, level } = props;
 
   const context = useContext(FilterContext);
-  if (!context) {
-    return null;
-  }
   const { setFilters, filters, addCondition, addConditionGroup } = context;
 
   const deleteItem = () => {
