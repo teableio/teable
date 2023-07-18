@@ -40,6 +40,7 @@
     "better-sqlite3": "8.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "8.0.2",
     "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/better-sqlite3": "7.6.2",

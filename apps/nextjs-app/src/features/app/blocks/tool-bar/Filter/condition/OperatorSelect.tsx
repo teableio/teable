@@ -12,7 +12,7 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface IOperator {
