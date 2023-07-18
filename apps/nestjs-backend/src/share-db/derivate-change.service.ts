@@ -65,8 +65,8 @@ export class DerivateChangeService {
         const cellChanges = derivate?.cellChanges || [];
         const fkRecordMap = derivate?.fkRecordMap || {};
 
-        const opsMapOrigin = this.referenceService.formatOpsByChanges(changes);
-        const opsMapByLink = this.referenceService.formatOpsByChanges(cellChanges);
+        const opsMapOrigin = this.referenceService.formatChangesToOps(changes);
+        const opsMapByLink = this.referenceService.formatChangesToOps(cellChanges);
         const opsMapByCalculate = await this.referenceService.calculateOpsMap(
           prisma,
           composeMaps([opsMapOrigin, opsMapByLink]),
