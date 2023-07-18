@@ -1,6 +1,5 @@
 import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { useFieldStaticGetter } from '../../utils';
@@ -41,7 +40,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
       return setFieldFn({
         ...field,
         type: FieldType.SingleLineText, // reset fieldType to default
-        options: undefined, // reset fieldType to default
+        options: undefined, // reset options
         isLookup: true,
       });
     }
@@ -140,11 +139,21 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             }}
           />
         )}
+        {field.type === FieldType.Rollup && !field.isLookup && (
+          <LookupOptions
+            options={field.lookupOptions}
+            onChange={(options) => {
+              setFieldFn({
+                ...field,
+                lookupOptions: options,
+              });
+            }}
+          />
+        )}
         <FieldOptions
           options={field.options as IFieldOptionsProps['options']}
           type={field.type}
           isLookup={field.isLookup}
-          cellValueType={(field as IFieldInstance).cellValueType}
           updateFieldOptions={updateFieldOptions}
         />
       </div>

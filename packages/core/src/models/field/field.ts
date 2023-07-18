@@ -1,6 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import { z } from 'zod';
-import type { StatisticsFunc } from '../view';
+import type { StatisticsFunc } from '../view/constant';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
 import { Relationship } from './constant';
 import type { IColumnMeta } from './interface';
@@ -11,7 +11,6 @@ export const lookupOptionsRoDef = z.object({
   lookupFieldId: z.string(),
   relationship: z.nativeEnum(Relationship).optional(),
   dbForeignKeyName: z.string().optional(),
-  symmetricFieldId: z.string().optional(),
 });
 
 export type ILookupOptions = z.infer<typeof lookupOptionsRoDef>;
@@ -20,7 +19,6 @@ export const lookupOptionsVoDef = lookupOptionsRoDef.merge(
   z.object({
     relationship: z.nativeEnum(Relationship),
     dbForeignKeyName: z.string(),
-    symmetricFieldId: z.string(),
   })
 );
 
@@ -94,6 +92,18 @@ export abstract class FieldCore implements IFieldVo {
   isLookup?: boolean;
 
   lookupOptions?: ILookupOptionsVo;
+
+  /**
+   * some field may store a json type item, we need to know how to convert it to string
+   * it has those difference between cellValue2String
+   * item is the fundamental element of a cellValue, but cellValue may be a Array
+   * example a link cellValue: [{title: 'A1', id: 'rec1'}, {title: 'A2', id: 'rec2'}]
+   * in this case, {title: 'A1', id: 'rec1'} is the item in cellValue.
+   *
+   * caution:
+   * this function should handle the case that item is undefined
+   */
+  item2String?(value?: unknown): string;
 
   abstract cellValue2String(value?: unknown): string;
 

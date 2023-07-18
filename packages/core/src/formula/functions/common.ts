@@ -1,5 +1,6 @@
-import type { FieldCore, IRecord } from '../../models';
 import { CellValueType } from '../../models/field/constant';
+import type { FieldCore } from '../../models/field/field';
+import type { IRecord } from '../../models/record/record.schema';
 import type { TypedValue } from '../typed-value';
 
 export enum FormulaFuncType {
@@ -43,7 +44,7 @@ export abstract class FormulaFunc {
    * 3. The function name should be clearly stated in the error message
    * 4. Arabic numerals such as "3" should be used instead of Chinese characters such as "三" in error messages regarding numbers.
    */
-  abstract validateParams(params: TypedValue[]): boolean;
+  abstract validateParams(params: TypedValue[]): void;
 
   /**
    * @param params The parameter is optional. When the parameter is not passed, it returns a static default type. When the parameter is passed, different functions dynamically calculate the return type based on the parameter type.
@@ -61,5 +62,8 @@ export abstract class FormulaFunc {
 
 export enum FunctionName {
   Sum = 'SUM',
-  Rollup = 'ROLLUP',
+  TextAll = 'TEXT_ALL',
+  CountAll = 'COUNTALL',
+  Concatenate = 'CONCATENATE',
+  And = 'AND',
 }

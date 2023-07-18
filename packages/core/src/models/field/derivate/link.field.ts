@@ -84,4 +84,11 @@ export class LinkFieldCore extends FieldCore {
 
     return linkCellValueSchema.nullable().safeParse(value);
   }
+
+  item2String(value: unknown) {
+    if (value == null) {
+      return '';
+    }
+    return (value as { title?: string }).title || '';
+  }
 }

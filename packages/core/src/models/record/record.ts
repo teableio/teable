@@ -1,4 +1,4 @@
-import type { FieldCore } from '../field';
+import type { FieldCore } from '../field/field';
 import type { IRecordFields } from './interface';
 
 export enum FieldKeyType {
