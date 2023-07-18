@@ -1,21 +1,24 @@
 import { useState } from 'react';
 import { DEFAULT_COLUMN_RESIZE_STATE, GRID_DEFAULT } from '../configs';
-import type { IMouseState, IColumnResizeState } from '../interface';
+import type { IMouseState, IColumnResizeState, IScrollState } from '../interface';
 import { RegionType } from '../interface';
 import type { CoordinateManager } from '../managers';
 import { inRange } from '../utils';
 
-export const useColumnResize = (coordInstance: CoordinateManager) => {
+export const useColumnResize = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
   const [columnResizeState, setColumnResizeState] = useState<IColumnResizeState>(
     DEFAULT_COLUMN_RESIZE_STATE
   );
 
   const onColumnResizeStart = (mouseState: IMouseState) => {
     const { type, columnIndex, x } = mouseState;
+    const { freezeColumnCount } = coordInstance;
+    const { scrollLeft } = scrollState;
 
     if (type === RegionType.ColumnResizeHandler) {
       const { columnResizeHandlerWidth } = GRID_DEFAULT;
-      const startOffsetX = coordInstance.getColumnOffset(columnIndex);
+      let startOffsetX = coordInstance.getColumnOffset(columnIndex);
+      startOffsetX = columnIndex < freezeColumnCount ? startOffsetX : startOffsetX - scrollLeft;
       const realColumnIndex = inRange(x, startOffsetX, startOffsetX + columnResizeHandlerWidth / 2)
         ? columnIndex - 1
         : columnIndex;

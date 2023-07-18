@@ -35,7 +35,7 @@ export const useAsyncData = (
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(query, initRecords);
-  const recordsRef = useRef(records);
+  const [loadedRecords, setLoadedRecords] = useState<Record[]>(records);
 
   const [visiblePages, setVisiblePages] = useState<IRectangle>({ x: 0, y: 0, width: 0, height: 0 });
   const visiblePagesRef = useRef(visiblePages);
@@ -44,9 +44,13 @@ export const useAsyncData = (
   useEffect(() => {
     const startIndex = queryRef.current.offset ?? 0;
     const data = records;
-    for (let i = 0; i < data.length; i++) {
-      recordsRef.current[startIndex + i] = records[i];
-    }
+    setLoadedRecords((prevLoadedRecords) => {
+      const newRecordsState: Record[] = [...prevLoadedRecords];
+      for (let i = 0; i < data.length; i++) {
+        newRecordsState[startIndex + i] = records[i];
+      }
+      return newRecordsState;
+    });
   }, [records]);
 
   useEffect(() => {
@@ -86,21 +90,17 @@ export const useAsyncData = (
   const onCellEdited = useCallback(
     (cell: ICellItem, newVal: IInnerCell) => {
       const [, row] = cell;
-      const current = recordsRef.current[row];
-      if (current === undefined) return;
-
-      const result = onEdited(cell, newVal, current);
-      if (result !== undefined) {
-        recordsRef.current[row] = result;
-      }
+      const record = loadedRecords[row];
+      if (record === undefined) return;
+      onEdited(cell, newVal, record);
     },
-    [onEdited]
+    [onEdited, loadedRecords]
   );
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [col, row] = cell;
-      const rowData = recordsRef.current[row];
+      const rowData = loadedRecords[row];
       if (rowData !== undefined) {
         return toCell(rowData, col);
       }
@@ -108,11 +108,11 @@ export const useAsyncData = (
         type: CellType.Loading,
       };
     },
-    [toCell]
+    [toCell, loadedRecords]
   );
 
   const reset = useCallback(() => {
-    recordsRef.current = [];
+    setLoadedRecords([]);
   }, []);
 
   return {

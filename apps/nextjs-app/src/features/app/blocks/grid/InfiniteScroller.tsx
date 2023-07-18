@@ -10,8 +10,8 @@ export interface ScrollerProps {
   coordInstance: CoordinateManager;
   containerWidth: number;
   containerHeight: number;
-  totalWidth: number;
-  totalHeight: number;
+  scrollWidth: number;
+  scrollHeight: number;
   containerRef: MutableRefObject<HTMLDivElement | null>;
   left?: number;
   top?: number;
@@ -31,8 +31,8 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     coordInstance,
     containerWidth,
     containerHeight,
-    totalWidth,
-    totalHeight,
+    scrollWidth,
+    scrollHeight,
     left = 0,
     top = 0,
     containerRef,
@@ -80,10 +80,10 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         if (
           scrollableHeight > 0 &&
           (Math.abs(delta) > 2000 || newScrollTop === 0 || newScrollTop === scrollableHeight) &&
-          totalHeight > el.scrollHeight + 5
+          scrollHeight > el.scrollHeight + 5
         ) {
           const prog = newScrollTop / scrollableHeight;
-          const recomputed = (totalHeight - el.clientHeight) * prog;
+          const recomputed = (scrollHeight - el.clientHeight) * prog;
           offsetY.current = recomputed - newScrollTop;
         }
         const scrollTop = newScrollTop + offsetY.current;
@@ -124,42 +124,40 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     resetScrollingTimeoutID.current = requestTimeout(resetScrolling, 200);
   }, [resetScrolling]);
 
-  const scrollHandler = useCallback(
-    (deltaX: number, deltaY: number) => {
-      if (scrollEnable && horizontalScrollRef.current) {
-        horizontalScrollRef.current.scrollLeft = horizontalScrollRef.current.scrollLeft + deltaX;
-      }
-      if (scrollEnable && verticalScrollRef.current) {
-        const realDeltaY = deltaY;
-        verticalScrollRef.current.scrollTop = verticalScrollRef.current.scrollTop + realDeltaY;
-      }
-    },
-    [scrollEnable]
-  );
+  const scrollHandler = useCallback((deltaX: number, deltaY: number) => {
+    if (horizontalScrollRef.current) {
+      horizontalScrollRef.current.scrollLeft = horizontalScrollRef.current.scrollLeft + deltaX;
+    }
+    if (verticalScrollRef.current) {
+      const realDeltaY = deltaY;
+      verticalScrollRef.current.scrollTop = verticalScrollRef.current.scrollTop + realDeltaY;
+    }
+  }, []);
 
   const onWheel = useCallback(
     (event: Event) => {
+      if (!scrollEnable) return;
       event.preventDefault();
       const { deltaX, deltaY, shiftKey } = event as WheelEvent;
       const fixedDeltaY = shiftKey && isWindowsOS() ? 0 : deltaY;
       const fixedDeltaX = shiftKey && isWindowsOS() ? deltaY : deltaX;
       scrollHandler(fixedDeltaX, fixedDeltaY);
     },
-    [scrollHandler]
+    [scrollEnable, scrollHandler]
   );
 
-  const placeHolderElemList: ReactNode[] = useMemo(() => {
+  const placeholderElements: ReactNode[] = useMemo(() => {
     let h = 0;
     let key = 0;
     const res = [];
 
-    while (h < totalHeight) {
-      const curH = Math.min(5000000, totalHeight - h);
+    while (h < scrollHeight) {
+      const curH = Math.min(5000000, scrollHeight - h);
       res.push(<div key={key++} style={{ width: 0, height: curH }} />);
       h += curH;
     }
     return res;
-  }, [totalHeight]);
+  }, [scrollHeight]);
 
   useEventListener('wheel', onWheel, containerRef.current, false);
 
@@ -177,7 +175,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         <div
           className="absolute"
           style={{
-            width: totalWidth,
+            width: scrollWidth,
             height: 1,
           }}
         />
@@ -191,7 +189,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         }}
         onScroll={(e) => onScroll(e, 'vertical')}
       >
-        <div className="flex flex-col shrink-0">{placeHolderElemList}</div>
+        <div className="flex flex-col shrink-0">{placeholderElements}</div>
       </div>
     </>
   );

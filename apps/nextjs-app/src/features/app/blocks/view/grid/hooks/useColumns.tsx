@@ -1,10 +1,13 @@
+import type { IAttachmentCellValue } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
+import { getFileCover } from '@/features/app/utils';
 import type { IColumn, ICell } from '../../../grid';
-import { CellType } from '../../../grid';
-import { LinkEditor } from '../components';
+import { CellType, EditorPosition } from '../../../grid';
+import { DateEditor, LinkEditor } from '../components';
+import { AttachmentEditor } from '../components/editor/AttachmentEditor';
 
 const generateColumns = (
   fields: IFieldInstance[],
@@ -86,6 +89,14 @@ const generateColumns = (
           hasMenu: true,
           width,
         };
+      case FieldType.Checkbox:
+        return {
+          id,
+          name,
+          icon: iconString(FieldType.Checkbox, isLookup),
+          hasMenu: true,
+          width,
+        };
     }
   });
 };
@@ -99,20 +110,18 @@ const createCellValue2GridDisplay =
     const cellValue = record.getCellValue(id);
 
     switch (type) {
+      case FieldType.Date:
       case FieldType.SingleLineText: {
+        const isDateField = type === FieldType.Date;
         return {
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
-        };
-      }
-      case FieldType.Date: {
-        return {
-          type: CellType.Date,
-          data: (cellValue as string) || '',
-          displayData: field.cellValue2String(cellValue),
-          readonly: isComputed,
+          editorPosition: isDateField ? EditorPosition.Below : EditorPosition.Overlap,
+          customEditor: isDateField
+            ? (props) => <DateEditor field={field} record={record} {...props} />
+            : undefined,
         };
       }
       case FieldType.Number: {
@@ -137,8 +146,9 @@ const createCellValue2GridDisplay =
           type: CellType.Select,
           data,
           choices,
-          isMultiple: isMultipleCellValue,
           readonly: isComputed,
+          isMultiple: isMultipleCellValue,
+          editorPosition: EditorPosition.Below,
         };
       }
       case FieldType.Link: {
@@ -149,11 +159,31 @@ const createCellValue2GridDisplay =
           type: CellType.Select,
           data,
           choices,
-          isMultiple: isMultipleCellValue,
           readonly: false,
+          isMultiple: isMultipleCellValue,
+          editorPosition: EditorPosition.Below,
           customEditor: (props, ref) => (
             <LinkEditor editorRef={ref} field={field} record={record} {...props} />
           ),
+        };
+      }
+      case FieldType.Attachment: {
+        const cv = (cellValue ?? []) as IAttachmentCellValue;
+        const data = cv.map(({ id, mimetype, url }) => ({ id, url: getFileCover(mimetype, url) }));
+        const displayData = data.map(({ url }) => url);
+        return {
+          type: CellType.Image,
+          data,
+          displayData,
+          readonly: isComputed,
+          customEditor: (props) => <AttachmentEditor field={field} record={record} {...props} />,
+        };
+      }
+      case FieldType.Checkbox: {
+        return {
+          type: CellType.Boolean,
+          data: (cellValue as boolean) || false,
+          readonly: isComputed,
         };
       }
       default: {

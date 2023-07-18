@@ -77,9 +77,9 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const { x, y, rowIndex, columnIndex } = position;
   if (rowIndex >= -1 && columnIndex === -1) {
     if (!rowControls?.includes(RowControlType.Checkbox)) return RegionType.RowHeader;
-    const { iconSizeSM } = theme;
+    const { iconSizeXS } = theme;
     const { rowInitSize, columnInitSize } = coordInstance;
-    const halfIconSize = iconSizeSM / 2;
+    const halfIconSize = iconSizeXS / 2;
     if (
       inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize) &&
       inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)
