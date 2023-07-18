@@ -22,7 +22,7 @@ interface IBaseSelect {
   classNames?: string;
   popoverClassNames?: string;
   disabled?: boolean;
-  onSelect: <T = string>(value: T) => void;
+  onSelect: (value: string) => void;
 }
 
 function BaseSingleSelect(props: IBaseSelect) {

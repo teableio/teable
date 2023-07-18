@@ -65,6 +65,7 @@ export const $notLike = z.literal('NOT LIKE');
 export const $notIn = z.literal('NOT IN');
 export const $isNull = z.literal('IS NULL');
 export const $isNotNull = z.literal('IS NOT NULL');
+export const $isWithIn = z.literal('IS WITH IN');
 
 export const symbols = z.union([
   $eq,
@@ -112,6 +113,8 @@ const mappingOperatorSymbol = {
 
   [isEmpty.value]: $isNull.value,
   [isNotEmpty.value]: $isNotNull.value,
+
+  [isWithIn.value]: $isWithIn.value,
 };
 /*  antlr4ts char  */
 

@@ -1,8 +1,8 @@
-import type { IFilterMetaOperator, IFilterMeta } from '@teable-group/core';
+import type { IFilterMeta, ISymbol } from '@teable-group/core';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep, isEqual } from 'lodash';
-import { useContext } from 'react';
+import { useCallback, useContext } from 'react';
 import { FilterContext } from '../context';
 import type { IConditionProps } from '../types';
 import { Conjunction } from './Conjunction';
@@ -13,36 +13,42 @@ import { OperatorSelect } from './OperatorSelect';
 function Condition(props: IConditionProps) {
   const { index, filter, parent } = props;
   const context = useContext(FilterContext);
-  if (!context) {
-    return null;
-  }
   const { setFilters, filters } = context;
 
-  const deleteFilter = () => {
+  const deleteCurrentFilter = () => {
     parent.filterSet.splice(index, 1);
     const newFilters = cloneDeep(filters);
     setFilters(newFilters);
   };
 
-  const fieldTypeHandler = (fieldId: string) => {
-    filter.fieldId = fieldId;
-    // TODO: allow the same type field to remain the value
-    filter.value = null;
-    const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
-  };
-  const operatorHandler = (value: IFilterMetaOperator) => {
-    filter.operator = value;
-    const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
-  };
-  const fieldValueHandler = (value: IFilterMeta['value']) => {
-    if (!isEqual(filter.value, value)) {
-      filter.value = value;
+  const fieldTypeHandler = useCallback(
+    (fieldId: string) => {
+      filter.fieldId = fieldId;
+      // TODO: allow the same type field to remain the value
+      filter.value = null;
       const newFilters = cloneDeep(filters);
       setFilters(newFilters);
-    }
-  };
+    },
+    [filter, filters, setFilters]
+  );
+  const operatorHandler = useCallback(
+    (value: string) => {
+      filter.operator = value as ISymbol;
+      const newFilters = cloneDeep(filters);
+      setFilters(newFilters);
+    },
+    [filter, filters, setFilters]
+  );
+  const fieldValueHandler = useCallback(
+    (value: IFilterMeta['value']) => {
+      if (!isEqual(filter.value, value)) {
+        filter.value = value;
+        const newFilters = cloneDeep(filters);
+        setFilters(newFilters);
+      }
+    },
+    [filter, filters, setFilters]
+  );
 
   return (
     <div className="flex items-center p-1">
@@ -64,7 +70,7 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteFilter} className="dark:bg-white">
+        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white">
           <AshBin className="h-4 w-4"></AshBin>
         </Button>
       </section>

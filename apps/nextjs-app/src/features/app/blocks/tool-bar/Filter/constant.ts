@@ -1,4 +1,4 @@
-const EMPTYOPERATORS = ['isNotEmpty', 'isEmpty'];
+const EMPTYOPERATORS = ['IS NULL', 'IS NOT NULL'];
 
 const defaultFilter = {
   conjunction: 'and',

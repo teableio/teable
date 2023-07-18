@@ -2,7 +2,7 @@ import { FieldType } from '@teable-group/core';
 import type { IFilterMeta } from '@teable-group/core';
 import { useField } from '@teable-group/sdk';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   SingleSelect,
   MultipleSelect,
@@ -29,11 +29,7 @@ function FieldValue(props: IFieldValue) {
     return showEmpty;
   }, [filter.operator, onSelect]);
 
-  useEffect(() => {
-    showEmptyComponent && onSelect(null);
-  }, [onSelect, showEmptyComponent]);
-
-  const dynamicComponent = () => {
+  const dynamicComponent = useCallback(() => {
     const InputComponent = (
       <FilterInput placeholder="Enter a value" value={filter.value as string} onChange={onSelect} />
     );
@@ -67,7 +63,7 @@ function FieldValue(props: IFieldValue) {
       default:
         return InputComponent;
     }
-  };
+  }, [field, filter.operator, filter.value, onSelect]);
   return <>{showEmptyComponent ? emptyComponent : dynamicComponent()}</>;
 }
 

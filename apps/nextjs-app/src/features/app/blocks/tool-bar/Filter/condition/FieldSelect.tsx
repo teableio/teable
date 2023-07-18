@@ -49,7 +49,7 @@ function FieldSelect(props: IFieldSelectProps) {
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
             {fields.map((field) => {
-              const { title, Icon } = fieldStaticGetter(field.type, false);
+              const { Icon } = fieldStaticGetter(field.type, false);
               return (
                 <CommandItem
                   key={field.id}
@@ -62,7 +62,7 @@ function FieldSelect(props: IFieldSelectProps) {
                     className={cn('mr-2 h-4 w-4', value === field.id ? 'opacity-100' : 'opacity-0')}
                   />
                   <Icon></Icon>
-                  <span className="pl-1">{title}</span>
+                  <span className="pl-1">{field.name}</span>
                 </CommandItem>
               );
             })}
