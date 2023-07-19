@@ -1,4 +1,5 @@
 import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
+import { getValidFilterOperators } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
 import { useFields } from '@teable-group/sdk';
 
@@ -50,8 +51,15 @@ function Filter(props: IFilterProps) {
     [filters]
   );
 
-  const defaultFieldId = useMemo(() => {
-    return fields.find((field) => field.isPrimary)?.id;
+  // use the primary to be default metadata
+  const defaultIFilterMeta = useMemo<IFilterMeta>(() => {
+    const defaultField = fields.find((field) => field.isPrimary);
+    const defaultOpertor = getValidFilterOperators(defaultField!);
+    return {
+      operator: defaultOpertor?.[0],
+      value: null,
+      fieldId: defaultField?.id,
+    } as IFilterMeta;
   }, [fields]);
 
   const isCheckBox = useCallback(
@@ -112,11 +120,6 @@ function Filter(props: IFilterProps) {
 
   const addCondition = useCallback(
     (curFilter: IFilterSet | null) => {
-      const defaultIFilterMeta: IFilterMeta = {
-        operator: 'is',
-        value: null,
-        fieldId: defaultFieldId as string,
-      };
       let newFilters = null;
       if (!curFilter) {
         newFilters = cloneDeep(defaultFilter);
@@ -127,7 +130,7 @@ function Filter(props: IFilterProps) {
       }
       setFilters(newFilters);
     },
-    [defaultFieldId, filters, setFilters]
+    [defaultIFilterMeta, filters]
   );
   const addConditionGroup = useCallback(
     (curFilter: IFilterSet | null) => {
