@@ -1,15 +1,12 @@
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import type {
-  FieldCore,
   IConjunction,
   IDateFieldOptions,
-  IDateTimeFieldSubOperator,
-  IDateTimeFieldSubOperatorByIsWithin,
+  IDateTimeFieldOperator,
   IFilter,
   IFilterMeta,
   IFilterMetaOperator,
   IFilterMetaValue,
-  IFilterMetaValueByDate,
   IFilterSet,
 } from '@teable-group/core';
 import {
@@ -17,7 +14,10 @@ import {
   contains,
   DateUtil,
   doesNotContain,
+  FieldType,
+  filterMetaValueByDate,
   getFilterOperatorMapping,
+  getValidFilterSubOperators,
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
@@ -40,28 +40,428 @@ import {
 } from '@teable-group/core';
 import type dayjs from 'dayjs';
 import type { Knex } from 'knex';
-import { get, includes, invert, isArray, size } from 'lodash';
+import { get, includes, invert, isArray, isObject, size } from 'lodash';
+import type { IFieldInstance } from '../../field/model/factory';
 
 export class FilterQueryTranslator {
   private readonly _table: string;
 
   constructor(
     private readonly queryBuilder: Knex.QueryBuilder,
-    private readonly fields?: { [fieldId: string]: FieldCore },
+    private readonly fields?: { [fieldId: string]: IFieldInstance },
     private readonly filter?: IFilter | null
   ) {
     this._table = get(queryBuilder, ['_single', 'table']);
   }
 
-  private getDateTimeRange(
-    dateTimeFieldOperator: IDateTimeFieldSubOperator | IDateTimeFieldSubOperatorByIsWithin,
-    params: {
-      timeZone: string;
-      numberOfDays?: number;
-      exactDate?: string;
+  private processIsOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+
+    if (field.isMultipleCellValue && isArray(value)) {
+      const placeholders = value.map(() => '?').join(',');
+      const isExactlySql = `(
+        select count(distinct json_each.value) from 
+          json_each(${this._table}.${field.dbFieldName}) 
+        where json_each.value in (${placeholders})
+          and json_array_length(${this._table}.${field.dbFieldName}) = ?
+      ) = ?`;
+      const vLength = value.length;
+      queryBuilder.whereRaw(isExactlySql, [...value, vLength, vLength]);
+    } else if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
+    } else if (field.cellValueType === CellValueType.Boolean) {
+      (value ? this.processIsNotEmptyOperator : this.processIsEmptyOperator)(params);
+    } else {
+      queryBuilder.where(field.dbFieldName, value);
     }
+
+    return queryBuilder;
+  };
+
+  private processIsNotOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
+    } else {
+      queryBuilder.whereNot(field.dbFieldName, value);
+    }
+
+    return queryBuilder;
+  };
+
+  private processContainsNotOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+
+    if (field.isMultipleCellValue) {
+      if (field.type === FieldType.Link) {
+        const hasAnyOfSql = `exists (
+                      select 1 from
+                        json_each(${this._table}.${field.dbFieldName})
+                      where json_extract(json_each.value, '$.title') like ?
+                    )`;
+        queryBuilder.whereRaw(hasAnyOfSql, [`%${value}%`]);
+      }
+    } else {
+      queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
+    }
+
+    return queryBuilder;
+  };
+
+  private processDoesNotContainOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    queryBuilder.whereNot(field.dbFieldName, 'like', `%${value}%`);
+
+    return queryBuilder;
+  };
+
+  private processIsGreaterOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    let newValue = value;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      newValue = dateTimeRange[1];
+    }
+
+    queryBuilder.where(field.dbFieldName, '>', newValue);
+    return queryBuilder;
+  };
+
+  private processIsGreaterEqualOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    let newValue = value;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      newValue = dateTimeRange[0];
+    }
+
+    queryBuilder.where(field.dbFieldName, '>=', newValue);
+    return queryBuilder;
+  };
+
+  private processIsLessOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    let newValue = value;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      newValue = dateTimeRange[0];
+    }
+
+    queryBuilder.where(field.dbFieldName, '<', newValue);
+    return queryBuilder;
+  };
+
+  private processIsLessEqualOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    let newValue = value;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      newValue = dateTimeRange[1];
+    }
+
+    queryBuilder.where(field.dbFieldName, '<=', newValue);
+    return queryBuilder;
+  };
+
+  private processIsWithInOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+
+    if (field.cellValueType === CellValueType.DateTime) {
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+      queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
+    }
+
+    return queryBuilder;
+  };
+
+  private processIsEmptyOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field } = params;
+    queryBuilder.whereNull(field.dbFieldName);
+
+    return queryBuilder;
+  };
+
+  private processIsNotEmptyOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field } = params;
+    queryBuilder.whereNotNull(field.dbFieldName);
+
+    return queryBuilder;
+  };
+
+  private processIsAnyOfOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    if (!isArray(value)) {
+      throw new BadRequestException('value must be an array');
+    }
+
+    if (field.isMultipleCellValue) {
+      const placeholders = value.map(() => '?').join(',');
+      const hasAnyOfSql = `exists (
+              select 1 from
+                json_each(${this._table}.${field.dbFieldName})
+              where json_each.value in (${placeholders})
+            )`;
+      queryBuilder.whereRaw(hasAnyOfSql, [...value]);
+    } else {
+      queryBuilder.whereIn(field.dbFieldName, [...value]);
+    }
+
+    return queryBuilder;
+  };
+
+  private processIsNoneOfOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+    if (!isArray(value)) {
+      throw new BadRequestException('value must be an array');
+    }
+
+    if (field.isMultipleCellValue) {
+      const placeholders = value.map(() => '?').join(',');
+      const hasNoneOfSql = `not exists (
+              select 1 from
+                json_each(${this._table}.${field.dbFieldName})
+              where json_each.value in (${placeholders})
+            )`;
+      queryBuilder.whereRaw(hasNoneOfSql, [...value]);
+    } else {
+      queryBuilder.whereNotIn(field.dbFieldName, [...value]);
+    }
+
+    return queryBuilder;
+  };
+
+  private processHasAllOfOperator = (params: {
+    queryBuilder: Knex.QueryBuilder;
+    field: IFieldInstance;
+    value: IFilterMetaValue;
+  }) => {
+    const { queryBuilder, field, value } = params;
+
+    if (field.isMultipleCellValue && isArray(value)) {
+      const placeholders = value.map(() => '?').join(',');
+      const hasAllSql = `(
+          select count(distinct json_each.value) from 
+            json_each(${this._table}.${field.dbFieldName}) 
+          where json_each.value in (${placeholders})
+        ) = ?`;
+      queryBuilder.whereRaw(hasAllSql, [...value, size(value)]);
+    }
+
+    return queryBuilder;
+  };
+
+  private filterStrategies(
+    operator: IFilterMetaOperator,
+    params: {
+      queryBuilder: Knex.QueryBuilder;
+      field: IFieldInstance;
+      value: IFilterMetaValue;
+    }
+  ) {
+    const operatorHandlers = {
+      [is.value]: this.processIsOperator,
+      [isExactly.value]: this.processIsOperator,
+      [isNot.value]: this.processIsNotOperator,
+      [contains.value]: this.processContainsNotOperator,
+      [doesNotContain.value]: this.processDoesNotContainOperator,
+      [isGreater.value]: this.processIsGreaterOperator,
+      [isAfter.value]: this.processIsGreaterOperator,
+      [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
+      [isOnOrAfter.value]: this.processIsGreaterEqualOperator,
+      [isLess.value]: this.processIsLessOperator,
+      [isBefore.value]: this.processIsLessOperator,
+      [isLessEqual.value]: this.processIsLessEqualOperator,
+      [isOnOrBefore.value]: this.processIsLessEqualOperator,
+      [isAnyOf.value]: this.processIsAnyOfOperator,
+      [hasAnyOf.value]: this.processIsAnyOfOperator,
+      [isNoneOf.value]: this.processIsNoneOfOperator,
+      [hasNoneOf.value]: this.processIsNoneOfOperator,
+      [hasAllOf.value]: this.processHasAllOfOperator,
+      [isWithIn.value]: this.processIsWithInOperator,
+      [isEmpty.value]: this.processIsEmptyOperator,
+      [isNotEmpty.value]: this.processIsNotEmptyOperator,
+    };
+
+    const chosenHandler = operatorHandlers[operator];
+
+    if (!chosenHandler) {
+      throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
+    }
+
+    return chosenHandler(params);
+  }
+
+  private parseFilter(
+    queryBuilder: Knex.QueryBuilder,
+    filterMeta: IFilterMeta,
+    conjunction: IConjunction
+  ) {
+    const { fieldId, operator, value, isSymbol } = filterMeta;
+
+    const field = this.fields && this.fields[fieldId];
+    if (!field) {
+      return queryBuilder;
+    }
+
+    let convertOperator = operator;
+    const filterOperatorMapping = getFilterOperatorMapping(field);
+    const validFilterOperators = Object.keys(filterOperatorMapping);
+    if (isSymbol) {
+      convertOperator = invert(filterOperatorMapping)[operator] as IFilterMetaOperator;
+    }
+
+    if (!includes(validFilterOperators, operator)) {
+      throw new BadRequestException(
+        `Invalid value provided for the '${convertOperator}' operation. Only the following types are allowed: [${validFilterOperators}]`
+      );
+    }
+
+    const validFilterSubOperators = getValidFilterSubOperators(
+      field.type,
+      operator as IDateTimeFieldOperator
+    );
+
+    if (
+      validFilterSubOperators &&
+      isObject(value) &&
+      'mode' in value &&
+      !includes(validFilterSubOperators, value.mode)
+    ) {
+      throw new BadRequestException(
+        `Invalid value provided for the '${convertOperator}' operation. Only the following subtypes are allowed: [${validFilterSubOperators}]`
+      );
+    }
+
+    queryBuilder = queryBuilder[conjunction];
+    this.filterStrategies(convertOperator as IFilterMetaOperator, { queryBuilder, field, value });
+
+    return queryBuilder;
+  }
+
+  private parseFilters(
+    queryBuilder: Knex.QueryBuilder,
+    filter?: IFilter | null,
+    parentConjunction?: IConjunction
+  ): Knex.QueryBuilder {
+    if (!filter || !filter.filterSet) {
+      return queryBuilder;
+    }
+    const { filterSet, conjunction } = filter;
+
+    filterSet.forEach((filterItem) => {
+      if ('fieldId' in filterItem) {
+        this.parseFilter(queryBuilder, filterItem as IFilterMeta, conjunction);
+      } else {
+        queryBuilder = queryBuilder[parentConjunction || conjunction];
+        queryBuilder.where((builder) => {
+          this.parseFilters(builder, filterItem as IFilterSet, conjunction);
+        });
+      }
+    });
+
+    return queryBuilder;
+  }
+
+  private filterNullValues(filter?: IFilter | null) {
+    // If the filter is not defined or has no keys, exit the function
+    if (!filter || !Object.keys(filter).length) {
+      return;
+    }
+    filter.filterSet = filter.filterSet.filter((filterItem) => {
+      // If 'filterSet' exists in filterItem, recursively call filterNullValues
+      // Always keep the filterItem, as we are modifying it in-place
+      if ('filterSet' in filterItem) {
+        this.filterNullValues(filterItem as IFilter);
+        return true;
+      }
+      const { fieldId, operator, value } = filterItem;
+      // Get the corresponding field from the fields object using fieldId
+      // If it doesn't exist, filter out the item
+      const field = this.fields?.[fieldId];
+      if (!field) return false;
+
+      // Keep the filterItem if any of the following conditions are met:
+      // - The value is not null
+      // - The field type is a checkbox
+      // - The operator is either 'isEmpty' or 'isNotEmpty'
+      return (
+        value !== null ||
+        field.type === FieldType.Checkbox ||
+        ['isEmpty', 'isNotEmpty'].includes(operator)
+      );
+    });
+  }
+
+  private getFilterDateTimeRange(
+    dateFieldOptions: IDateFieldOptions,
+    filterValue: IFilterMetaValue
   ): [string, string] {
-    const { timeZone, numberOfDays, exactDate } = params;
+    const filterValueByDate = filterMetaValueByDate.parse(filterValue);
+
+    const { mode, numberOfDays, exactDate } = filterValueByDate;
+    const {
+      formatting: { timeZone },
+    } = dateFieldOptions;
+
     const dateUtil = new DateUtil(timeZone);
     const computeDateRangeForFixedDays = (
       methodName:
@@ -134,391 +534,9 @@ export class FilterQueryTranslator {
       pastNumberOfDays: () => generateOffsetDateRange(true, 'day', numberOfDays),
       nextNumberOfDays: () => generateOffsetDateRange(false, 'day', numberOfDays),
     };
-    const [startDate, endDate] = operationMap[dateTimeFieldOperator]();
+    const [startDate, endDate] = operationMap[mode]();
 
     return [startDate.toISOString(), endDate.toISOString()];
-  }
-
-  private processIsOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-
-    if (field.isMultipleCellValue && isArray(value)) {
-      const placeholders = value.map(() => '?').join(',');
-      const isExactlySql = `(
-        select count(distinct json_each.value) from 
-          json_each(${this._table}.${field.dbFieldName}) 
-        where json_each.value in (${placeholders})
-          and json_array_length(${this._table}.${field.dbFieldName}) = ?
-      ) = ?`;
-      const vLength = value.length;
-      queryBuilder.whereRaw(isExactlySql, [...value, vLength, vLength]);
-    } else if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
-    } else {
-      queryBuilder.where(field.dbFieldName, value);
-    }
-
-    return queryBuilder;
-  };
-
-  private processIsNotOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
-    } else {
-      queryBuilder.whereNot(field.dbFieldName, value);
-    }
-
-    return queryBuilder;
-  };
-
-  private processContainsNotOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
-
-    return queryBuilder;
-  };
-
-  private processDoesNotContainOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    queryBuilder.whereNot(field.dbFieldName, 'like', `%${value}%`);
-
-    return queryBuilder;
-  };
-
-  private processIsGreaterOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    let newValue = value;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      newValue = dateTimeRange[1];
-    }
-
-    queryBuilder.where(field.dbFieldName, '>', newValue);
-    return queryBuilder;
-  };
-
-  private processIsGreaterEqualOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    let newValue = value;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      newValue = dateTimeRange[0];
-    }
-
-    queryBuilder.where(field.dbFieldName, '>=', newValue);
-    return queryBuilder;
-  };
-
-  private processIsLessOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    let newValue = value;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      newValue = dateTimeRange[0];
-    }
-
-    queryBuilder.where(field.dbFieldName, '<', newValue);
-    return queryBuilder;
-  };
-
-  private processIsLessEqualOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    let newValue = value;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      newValue = dateTimeRange[1];
-    }
-
-    queryBuilder.where(field.dbFieldName, '<=', newValue);
-    return queryBuilder;
-  };
-
-  private processIsWithInOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-
-    if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
-      queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
-    }
-
-    return queryBuilder;
-  };
-
-  private processIsEmptyOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field } = params;
-    queryBuilder.whereNull(field.dbFieldName);
-
-    return queryBuilder;
-  };
-
-  private processIsNotEmptyOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field } = params;
-    queryBuilder.whereNotNull(field.dbFieldName);
-
-    return queryBuilder;
-  };
-
-  private processIsAnyOfOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
-    }
-
-    if (field.isMultipleCellValue) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasAnyOfSql = `exists (
-              select 1 from
-                json_each(${this._table}.${field.dbFieldName})
-              where json_each.value in (${placeholders})
-            )`;
-      queryBuilder.whereRaw(hasAnyOfSql, [...value]);
-    } else {
-      queryBuilder.whereIn(field.dbFieldName, value);
-    }
-
-    return queryBuilder;
-  };
-
-  private processIsNoneOfOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-    if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
-    }
-
-    if (field.isMultipleCellValue) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasNoneOfSql = `not exists (
-              select 1 from
-                json_each(${this._table}.${field.dbFieldName})
-              where json_each.value in (${placeholders})
-            )`;
-      queryBuilder.whereRaw(hasNoneOfSql, [...value]);
-    } else {
-      queryBuilder.whereNotIn(field.dbFieldName, value);
-    }
-
-    return queryBuilder;
-  };
-
-  private processHasAllOfOperator = (params: {
-    queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
-    value: IFilterMetaValue;
-  }) => {
-    const { queryBuilder, field, value } = params;
-
-    if (field.isMultipleCellValue && isArray(value)) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasAllSql = `(
-          select count(distinct json_each.value) from 
-            json_each(${this._table}.${field.dbFieldName}) 
-          where json_each.value in (${placeholders})
-        ) = ?`;
-      queryBuilder.whereRaw(hasAllSql, [...value, size(value)]);
-    }
-
-    return queryBuilder;
-  };
-
-  private filterStrategies(
-    operator: IFilterMetaOperator,
-    params: {
-      queryBuilder: Knex.QueryBuilder;
-      field: FieldCore;
-      value: IFilterMetaValue;
-    }
-  ) {
-    const operatorHandlers = {
-      [is.value]: this.processIsOperator,
-      [isExactly.value]: this.processIsOperator,
-      [isNot.value]: this.processIsNotOperator,
-      [contains.value]: this.processContainsNotOperator,
-      [doesNotContain.value]: this.processDoesNotContainOperator,
-      [isGreater.value]: this.processIsGreaterOperator,
-      [isAfter.value]: this.processIsGreaterOperator,
-      [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
-      [isOnOrAfter.value]: this.processIsGreaterEqualOperator,
-      [isLess.value]: this.processIsLessOperator,
-      [isBefore.value]: this.processIsLessOperator,
-      [isLessEqual.value]: this.processIsLessEqualOperator,
-      [isOnOrBefore.value]: this.processIsLessEqualOperator,
-      [isAnyOf.value]: this.processIsAnyOfOperator,
-      [hasAnyOf.value]: this.processIsAnyOfOperator,
-      [isNoneOf.value]: this.processIsNoneOfOperator,
-      [hasNoneOf.value]: this.processIsNoneOfOperator,
-      [hasAllOf.value]: this.processHasAllOfOperator,
-      [isWithIn.value]: this.processIsWithInOperator,
-      [isEmpty.value]: this.processIsEmptyOperator,
-      [isNotEmpty.value]: this.processIsNotEmptyOperator,
-    };
-
-    const chosenHandler = operatorHandlers[operator];
-
-    if (!chosenHandler) {
-      throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
-    }
-
-    return chosenHandler(params);
-  }
-
-  private parseFilter(
-    queryBuilder: Knex.QueryBuilder,
-    filterMeta: IFilterMeta,
-    conjunction: IConjunction
-  ) {
-    const { fieldId, operator, value, isSymbol } = filterMeta;
-
-    const field = this.fields && this.fields[fieldId];
-    if (!field) {
-      return queryBuilder;
-    }
-
-    let convertOperator = operator;
-    const filterOperatorMapping = getFilterOperatorMapping(field);
-    const validFilterOperators = Object.keys(filterOperatorMapping);
-    if (isSymbol) {
-      convertOperator = invert(filterOperatorMapping)[operator] as IFilterMetaOperator;
-    }
-
-    if (!includes(validFilterOperators, operator)) {
-      throw new InternalServerErrorException(
-        `Unexpected operator received: '${convertOperator}', Field valid Operators: [${validFilterOperators}]`
-      );
-    }
-
-    queryBuilder = queryBuilder[conjunction];
-    this.filterStrategies(convertOperator as IFilterMetaOperator, { queryBuilder, field, value });
-
-    return queryBuilder;
-  }
-
-  private parseFilters(
-    queryBuilder: Knex.QueryBuilder,
-    filter?: IFilter | null,
-    parentConjunction?: IConjunction
-  ): Knex.QueryBuilder {
-    if (!filter || !filter.filterSet) {
-      return queryBuilder;
-    }
-    const { filterSet, conjunction } = filter;
-
-    filterSet.forEach((filterItem) => {
-      if ('fieldId' in filterItem) {
-        this.parseFilter(queryBuilder, filterItem as IFilterMeta, conjunction);
-      } else {
-        queryBuilder = queryBuilder[parentConjunction || conjunction];
-        queryBuilder.where((builder) => {
-          this.parseFilters(builder, filterItem as IFilterSet, conjunction);
-        });
-      }
-    });
-
-    return queryBuilder;
-  }
-
-  private filterNullValues(filter?: IFilter | null) {
-    if (!filter || !Object.keys(filter).length) {
-      return;
-    }
-    filter.filterSet = filter.filterSet.filter((filterItem) => {
-      if ('filterSet' in filterItem) {
-        this.filterNullValues(filterItem as IFilter);
-        return true;
-      }
-      return (
-        filterItem.value !== null ||
-        filterItem.operator === 'isEmpty' ||
-        filterItem.operator === 'isNotEmpty'
-      );
-    });
   }
 
   translateToSql(): Knex.QueryBuilder {

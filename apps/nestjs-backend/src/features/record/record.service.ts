@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  FieldCore,
   IAggregateQueryResult,
   IAttachmentItem,
   IAttachmentCellValue,
@@ -38,6 +37,7 @@ import type { IAdapterService } from '../../share-db/interface';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
+import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import type { CreateRecordsRo } from './create-records.ro';
@@ -233,7 +233,7 @@ export class RecordService implements IAdapterService {
         map[field.id] = field;
         map[field.name] = field;
         return map;
-      }, {} as Record<string, FieldCore>);
+      }, {} as Record<string, IFieldInstance>);
     }
 
     // All `where` condition-related construction work
@@ -245,7 +245,6 @@ export class RecordService implements IAdapterService {
       .orderBy(orderFieldName, 'asc')
       .offset(offset)
       .limit(limit);
-    console.log(queryBuilder.toQuery());
     return { queryBuilder };
   }
 

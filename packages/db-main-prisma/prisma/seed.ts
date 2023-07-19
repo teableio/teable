@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 async function rectifyField(fields: Field[], selectOptions: any) {
   const fieldByType = groupBy(fields, 'type');
 
-  const rectifySelectField = [...fieldByType['singleSelect'], ...fieldByType['multipleSelect']]
+  const rectifySelectField = [...(fieldByType['singleSelect'] || []), ...(fieldByType['multipleSelect'] || [])]
     .filter(value => value)
     .map(value => value.id);
 
@@ -26,7 +26,7 @@ async function generateFieldData(params: { mockDataNum: number, fields: Field[],
   const { fields, selectOptions, mockDataNum } = params;
 
   return fields.reduce((pre: any, cur: any) => {
-    const selectArray = selectOptions.choices.map(value => value.name);
+    const selectArray = selectOptions.choices.map((value: any) => value.name);
 
     let fieldData = undefined;
     switch (cur.type as FieldType) {
@@ -72,8 +72,10 @@ async function generateViewRowIndex(params: { views: View[], rowCount: number, i
 }
 
 async function main() {
-  const mockDataNum = 350000;
-  const tableId = 'tblXlclBXy8lvjcKIlp';
+  const [, , tableId, mockDataNum = 350000] = (process.argv as any[]);
+  if (!tableId) {
+    throw new Error('💥No bugs. No bugs at all.💥');
+  }
 
   console.log(`Start seeding ...`);
 
@@ -110,8 +112,8 @@ async function main() {
 
   console.time(`Table: ${tableName}, Ready Install Data`)
   const data = [];
-  for (let i = 1; i <= mockDataNum; i++) {
-    const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
+  for (let i = 1; i <= Number(mockDataNum); i++) {
+    const fieldData = await generateFieldData({ mockDataNum: Number(mockDataNum), fields, selectOptions });
     const viewRowIndex = await generateViewRowIndex({ views, rowCount, i });
 
     data.push(

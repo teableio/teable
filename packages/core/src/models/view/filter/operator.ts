@@ -296,8 +296,10 @@ export function getFilterOperatorMapping(field: FieldCore) {
 export function getValidFilterOperators(field: FieldCore): IOperator[] {
   let operationSet: IOperator[] = [];
 
+  const { cellValueType, type, isMultipleCellValue } = field;
+
   // 1. First determine the operator roughly according to cellValueType
-  switch (field.cellValueType) {
+  switch (cellValueType) {
     case CellValueType.String: {
       operationSet = [...textFieldValidOperators];
       break;
@@ -317,7 +319,7 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
   }
 
   // 2. Then repair the operator according to fieldType
-  switch (field.type) {
+  switch (type) {
     case FieldType.SingleSelect: {
       pullAll(operationSet, [contains.value, doesNotContain.value]);
       operationSet.splice(2, 0, ...[isAnyOf.value, isNoneOf.value]);
@@ -334,6 +336,19 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
       ];
       break;
     }
+    case FieldType.Link: {
+      operationSet = [
+        contains.value,
+        doesNotContain.value,
+        hasAnyOf.value,
+        hasAllOf.value,
+        isExactly.value,
+        hasNoneOf.value,
+        isEmpty.value,
+        isNotEmpty.value,
+      ];
+      break;
+    }
     case FieldType.Attachment: {
       operationSet = [isEmpty.value, isNotEmpty.value];
       break;
@@ -341,7 +356,7 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
   }
 
   // 3. Finally, the operator is determined according to isMultipleCellValue
-  // if (field.isMultipleCellValue) {
+  // if (isMultipleCellValue) {
   // }
 
   return operationSet;

@@ -15,7 +15,7 @@ export const dateFieldOptionsSchema = z.object({
 
 export type IDateFieldOptions = z.infer<typeof dateFieldOptionsSchema>;
 
-export const dataFieldCellValueSchema = z.string().datetime({ offset: true });
+export const dataFieldCellValueSchema = z.string().datetime({ precision: 3, offset: true });
 
 export type IDateCellValue = z.infer<typeof dataFieldCellValueSchema>;
 

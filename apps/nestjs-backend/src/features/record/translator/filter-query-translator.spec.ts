@@ -1,88 +1,746 @@
-import type { FieldCore } from '@teable-group/core';
-import { CellValueType, DbFieldType, FieldType, filter, NumberFieldCore } from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
+import type { IFieldVo } from '@teable-group/core';
+import { CellValueType, DateFieldCore, DbFieldType, FieldType, filter } from '@teable-group/core';
+import dayjs from 'dayjs';
 import knex from 'knex';
+import { keyBy } from 'lodash';
+import type { IFieldInstance } from '../../field/model/factory';
+import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FilterQueryTranslator } from './filter-query-translator';
 
 describe('FilterQueryTranslator', () => {
   const queryBuilder = knex({ client: 'sqlite3' })('table_name');
-  let fieldContext: { [fieldId: string]: FieldCore } = {};
+  const timeZone = 'Asia/Shanghai';
+  let fieldContext: { [fieldId: string]: IFieldInstance } = {};
 
   beforeAll(() => {
-    const fieldJson = {
-      id: 'fldXPZs9lFMvAIo2E',
-      name: 'f1',
-      description: 'A test number field',
-      notNull: true,
-      unique: true,
-      isPrimary: true,
-      columnMeta: {
-        index: 0,
-        columnIndex: 0,
+    const fieldsJson: IFieldVo[] = [
+      {
+        id: 'fld1',
+        name: 'name',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'name_fld1',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: false,
+        columnMeta: {},
       },
-      type: FieldType.Number,
-      dbFieldName: 'f1_fldXPZs9lFMvAIo2E',
-      dbFieldType: DbFieldType.Real,
-      options: {
-        precision: 2,
+      {
+        id: 'fld2',
+        name: 'number',
+        type: FieldType.Number,
+        dbFieldName: 'number_fld2',
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        isMultipleCellValue: false,
+        columnMeta: {},
       },
-      defaultValue: 0,
-      cellValueType: CellValueType.Number,
-      isComputed: false,
-    };
+      {
+        id: 'fld3',
+        name: 'status',
+        type: FieldType.SingleSelect,
+        dbFieldName: 'status_fld3',
+        dbFieldType: DbFieldType.Text,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: false,
+        columnMeta: {},
+      },
+      {
+        id: 'fld4',
+        name: 'tags',
+        type: FieldType.MultipleSelect,
+        dbFieldName: 'tags_fld4',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        columnMeta: {},
+      },
+      {
+        id: 'fld5',
+        name: 'done',
+        type: FieldType.Checkbox,
+        dbFieldName: 'done_fld5',
+        dbFieldType: DbFieldType.Integer,
+        cellValueType: CellValueType.Boolean,
+        isMultipleCellValue: false,
+        columnMeta: {},
+      },
+      {
+        id: 'fld6',
+        name: 'date',
+        type: FieldType.Date,
+        dbFieldName: 'date_fld6',
+        dbFieldType: DbFieldType.DateTime,
+        cellValueType: CellValueType.DateTime,
+        isMultipleCellValue: false,
+        columnMeta: {},
+        options: DateFieldCore.defaultOptions(),
+      },
+    ];
 
-    const field = plainToInstance(NumberFieldCore, fieldJson);
-    fieldContext = {
-      [field.id]: field,
-    };
+    const fields = fieldsJson.map((field) => createFieldInstanceByVo(field));
+    fieldContext = keyBy(fields, 'id');
   });
 
-  it('should to parse correctly SQL Where', async () => {
+  it('should parse all `SingleLineText` conditions', () => {
     const jsonFilter = filter.parse({
       filterSet: [
         {
-          fieldId: 'fldXPZs9lFMvAIo2E',
+          fieldId: 'fld1',
+          operator: 'is',
+          value: 'a',
+        },
+        {
+          fieldId: 'fld1',
           operator: 'isNot',
+          value: 'b',
+        },
+        {
+          fieldId: 'fld1',
+          operator: 'contains',
+          value: 'c',
+        },
+        {
+          fieldId: 'fld1',
+          operator: 'doesNotContain',
+          value: 'd',
+        },
+        {
+          fieldId: 'fld1',
+          operator: 'isEmpty',
           value: null,
         },
         {
-          filterSet: [
-            {
-              fieldId: 'fldXPZs9lFMvAIo2E',
-              operator: 'is',
-              value: 1,
-            },
-            {
-              fieldId: 'fldXPZs9lFMvAIo2E',
-              operator: 'isNot',
-              value: 2,
-            },
-          ],
-          conjunction: 'and',
-        },
-        {
-          filterSet: [
-            {
-              fieldId: 'fldXPZs9lFMvAIo2E',
-              operator: 'is',
-              value: 3,
-            },
-            {
-              fieldId: 'fldXPZs9lFMvAIo2E',
-              operator: 'isEmpty',
-              value: null,
-            },
-          ],
-          conjunction: 'and',
+          fieldId: 'fld1',
+          operator: 'isNotEmpty',
+          value: null,
         },
       ],
-      conjunction: 'or',
+      conjunction: 'and',
     });
 
     new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
 
     expect(queryBuilder.toQuery()).toMatch(
-      '(`f1_fldXPZs9lFMvAIo2E` = 1 and not `f1_fldXPZs9lFMvAIo2E` = 2) or (`f1_fldXPZs9lFMvAIo2E` = 3 and `f1_fldXPZs9lFMvAIo2E` is null)'
+      "`name_fld1` = 'a' and not `name_fld1` = 'b' and `name_fld1` like '%c%' and not `name_fld1` like '%d%' and `name_fld1` is null and `name_fld1` is not null"
     );
+  });
+
+  it('should parse all `Number` conditions', () => {
+    const jsonFilter = filter.parse({
+      filterSet: [
+        {
+          fieldId: 'fld2',
+          operator: 'is',
+          value: 1,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isNot',
+          value: 2,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isGreater',
+          value: 3,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isGreaterEqual',
+          value: 4,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isLess',
+          value: 5,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isLessEqual',
+          value: 6,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isEmpty',
+          value: null,
+        },
+        {
+          fieldId: 'fld2',
+          operator: 'isNotEmpty',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    });
+
+    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+
+    expect(queryBuilder.toQuery()).toMatch(
+      'number_fld2` = 1 and not `number_fld2` = 2 and `number_fld2` > 3 and `number_fld2` >= 4 and `number_fld2` < 5 and `number_fld2` <= 6 and `number_fld2` is null and `number_fld2` is not null'
+    );
+  });
+
+  it('should parse all `SingleSelect` conditions', () => {
+    const jsonFilter = filter.parse({
+      filterSet: [
+        {
+          fieldId: 'fld3',
+          operator: 'is',
+          value: 'value1',
+        },
+        {
+          fieldId: 'fld3',
+          operator: 'isNot',
+          value: 'value2',
+        },
+        {
+          fieldId: 'fld3',
+          operator: 'isAnyOf',
+          value: ['value3', 'value1'],
+        },
+        {
+          fieldId: 'fld3',
+          operator: 'isNoneOf',
+          value: ['value4'],
+        },
+        {
+          fieldId: 'fld3',
+          operator: 'isEmpty',
+          value: null,
+        },
+        {
+          fieldId: 'fld3',
+          operator: 'isNotEmpty',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    });
+
+    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+
+    expect(queryBuilder.toQuery()).toMatch(
+      "`status_fld3` = 'value1' and not `status_fld3` = 'value2' and `status_fld3` in ('value3', 'value1') and `status_fld3` not in ('value4') and `status_fld3` is null and `status_fld3` is not null"
+    );
+  });
+
+  describe('should parse all `MultipleSelect` conditions', () => {
+    it('isEmpty , isNotEmpty', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld4',
+              operator: 'isEmpty',
+              value: null,
+            },
+            {
+              fieldId: 'fld4',
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch('`tags_fld4` is null and `tags_fld4` is not null');
+    });
+
+    it('hasAnyOf', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld4',
+              operator: 'hasAnyOf',
+              value: ['value1'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery().replace(/\s+/g, ' ')).toMatch(
+        `exists ( select 1 from json_each(table_name.tags_fld4) where json_each.value in ('value1') )`
+      );
+    });
+
+    it('hasAllOf', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld4',
+              operator: 'hasAllOf',
+              value: ['value1', 'value2'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery().replace(/\s+/g, ' ')).toMatch(
+        `( select count(distinct json_each.value) from json_each(table_name.tags_fld4) where json_each.value in ('value1','value2') ) = 2`
+      );
+    });
+
+    it('isExactly', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld4',
+              operator: 'isExactly',
+              value: ['value1'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery().replace(/\s+/g, ' ')).toMatch(
+        `( select count(distinct json_each.value) from json_each(table_name.tags_fld4) where json_each.value in ('value1') and json_array_length(table_name.tags_fld4) = 1 ) = 1`
+      );
+    });
+
+    it('hasNoneOf', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld4',
+              operator: 'hasNoneOf',
+              value: ['value1'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery().replace(/\s+/g, ' ')).toMatch(
+        `not exists ( select 1 from json_each(table_name.tags_fld4) where json_each.value in ('value1') )`
+      );
+    });
+  });
+
+  it('should parse all `Checkbox` conditions', () => {
+    const jsonFilter = filter.parse({
+      filterSet: [
+        {
+          fieldId: 'fld5',
+          operator: 'is',
+          value: true,
+        },
+        {
+          fieldId: 'fld5',
+          operator: 'is',
+          value: null,
+        },
+      ],
+      conjunction: 'and',
+    });
+
+    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+
+    expect(queryBuilder.toQuery()).toMatch('`done_fld5` is not null and `done_fld5` is null');
+  });
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  describe('should parse all `Date` conditions', () => {
+    it('isEmpty , isNotEmpty', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filter.parse({
+          filterSet: [
+            {
+              fieldId: 'fld6',
+              operator: 'isEmpty',
+              value: null,
+            },
+            {
+              fieldId: 'fld6',
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch('`date_fld6` is null and `date_fld6` is not null');
+    });
+
+    describe('comparison operations', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let queryBuilder: any;
+      const date = dayjs().utc().tz(timeZone);
+      const numberOfDays = 10;
+      const exactDate = '2023-07-15T16:00:00.000Z';
+
+      const subOps = [
+        'today',
+        'tomorrow',
+        'yesterday',
+        'oneWeekAgo',
+        'oneWeekFromNow',
+        'oneMonthAgo',
+        'oneMonthFromNow',
+        'daysAgo',
+        'daysFromNow',
+        'exactDate',
+      ];
+
+      const ops: Record<string, string[]> = {
+        is: subOps,
+        isNot: subOps,
+        isBefore: subOps,
+        isAfter: subOps,
+        isOnOrBefore: subOps,
+        isOnOrAfter: subOps,
+      };
+
+      beforeEach(() => {
+        queryBuilder = knex({ client: 'sqlite3' })('table_name');
+      });
+
+      Object.entries(ops).forEach(([key, values]) => {
+        values.forEach((value) => {
+          test(`given operator '${key}', tests sub operator '${value}'`, () => {
+            new FilterQueryTranslator(
+              queryBuilder,
+              fieldContext,
+              filter.parse({
+                filterSet: [
+                  {
+                    fieldId: 'fld6',
+                    operator: key,
+                    value: {
+                      mode: value,
+                      timeZone,
+                      numberOfDays,
+                      exactDate,
+                    },
+                  },
+                ],
+                conjunction: 'and',
+              })
+            ).translateToSql();
+
+            let testDate: string[];
+            let matchSql: string;
+
+            if (value === 'today') {
+              testDate = [date.startOf('day').toISOString(), date.endOf('day').toISOString()];
+            } else if (value === 'tomorrow') {
+              testDate = [
+                date.add(1, 'day').startOf('day').toISOString(),
+                date.add(1, 'day').endOf('day').toISOString(),
+              ];
+            } else if (value === 'yesterday') {
+              testDate = [
+                date.subtract(1, 'day').startOf('day').toISOString(),
+                date.subtract(1, 'day').endOf('day').toISOString(),
+              ];
+            } else if (value === 'oneWeekAgo') {
+              testDate = [
+                date.subtract(1, 'week').startOf('day').toISOString(),
+                date.subtract(1, 'week').endOf('day').toISOString(),
+              ];
+            } else if (value === 'oneWeekFromNow') {
+              testDate = [
+                date.add(1, 'week').startOf('day').toISOString(),
+                date.add(1, 'week').endOf('day').toISOString(),
+              ];
+            } else if (value === 'oneMonthAgo') {
+              testDate = [
+                date.subtract(1, 'month').startOf('day').toISOString(),
+                date.subtract(1, 'month').endOf('day').toISOString(),
+              ];
+            } else if (value === 'oneMonthFromNow') {
+              testDate = [
+                date.add(1, 'month').startOf('day').toISOString(),
+                date.add(1, 'month').endOf('day').toISOString(),
+              ];
+            } else if (value === 'daysAgo') {
+              testDate = [
+                date.subtract(numberOfDays, 'day').startOf('day').toISOString(),
+                date.subtract(numberOfDays, 'day').endOf('day').toISOString(),
+              ];
+            } else if (value === 'daysFromNow') {
+              testDate = [
+                date.add(numberOfDays, 'day').startOf('day').toISOString(),
+                date.add(numberOfDays, 'day').endOf('day').toISOString(),
+              ];
+            } else {
+              const ed = dayjs(exactDate).utc().tz(timeZone);
+              testDate = [ed.startOf('day').toISOString(), ed.endOf('day').toISOString()];
+            }
+
+            if (key === 'is') {
+              matchSql = `\`date_fld6\` between '${testDate[0]}' and '${testDate[1]}'`;
+            } else if (key === 'isNot') {
+              matchSql = `\`date_fld6\` not between '${testDate[0]}' and '${testDate[1]}'`;
+            } else if (key === 'isBefore') {
+              matchSql = `\`date_fld6\` < '${testDate[0]}'`;
+            } else if (key === 'isAfter') {
+              matchSql = `\`date_fld6\` > '${testDate[1]}'`;
+            } else if (key === 'isOnOrBefore') {
+              matchSql = `\`date_fld6\` <= '${testDate[1]}'`;
+            } else {
+              matchSql = `\`date_fld6\` >= '${testDate[0]}'`;
+            }
+
+            expect(queryBuilder.toQuery()).toMatch(matchSql);
+          });
+        });
+      });
+    });
+
+    describe('isWithIn', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let queryBuilder: any;
+      const date = dayjs().utc().tz(timeZone);
+
+      beforeEach(() => {
+        queryBuilder = knex({ client: 'sqlite3' })('table_name');
+      });
+
+      it('pastWeek', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'pastWeek',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const pastWeek = date.subtract(1, 'week');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${pastWeek.startOf('day').toISOString()}' and '${date
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('pastMonth', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'pastMonth',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const pastMonth = date.subtract(1, 'month');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${pastMonth.startOf('day').toISOString()}' and '${date
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('pastYear', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'pastYear',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const pastYear = date.subtract(1, 'year');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${pastYear.startOf('day').toISOString()}' and '${date
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('nextWeek', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'nextWeek',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const nextWeek = date.add(1, 'week');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${date.startOf('day').toISOString()}' and '${nextWeek
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('nextMonth', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'nextMonth',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const nextMonth = date.add(1, 'month');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${date.startOf('day').toISOString()}' and '${nextMonth
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('nextYear', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'nextYear',
+                  timeZone,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const nextYear = date.add(1, 'year');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${date.startOf('day').toISOString()}' and '${nextYear
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('pastNumberOfDays', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'pastNumberOfDays',
+                  timeZone,
+                  numberOfDays: 10,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const pastNumberOfDays = date.subtract(10, 'day');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${pastNumberOfDays.startOf('day').toISOString()}' and '${date
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+
+      it('nextNumberOfDays', () => {
+        new FilterQueryTranslator(
+          queryBuilder,
+          fieldContext,
+          filter.parse({
+            filterSet: [
+              {
+                fieldId: 'fld6',
+                operator: 'isWithIn',
+                value: {
+                  mode: 'nextNumberOfDays',
+                  timeZone,
+                  numberOfDays: 10,
+                },
+              },
+            ],
+            conjunction: 'and',
+          })
+        ).translateToSql();
+
+        const nextNumberOfDays = date.add(10, 'day');
+
+        expect(queryBuilder.toQuery()).toMatch(
+          `\`date_fld6\` between '${date.startOf('day').toISOString()}' and '${nextNumberOfDays
+            .endOf('day')
+            .toISOString()}'`
+        );
+      });
+    });
   });
 });
