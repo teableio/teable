@@ -12,7 +12,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   draw: (cell: IImageCell, props: ICellRenderProps) => {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager } = props;
     const { cellVerticalPadding, cellHorizontalPadding } = theme;
-    const { x, y, height } = rect;
+    const { x, y, width, height } = rect;
     const urls = cell.displayData;
 
     const imgHeight = height - cellVerticalPadding * 2;
@@ -34,6 +34,14 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
 
     let drawX = x + cellHorizontalPadding;
 
+    ctx.save();
+    ctx.beginPath();
+
+    if (images.length) {
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+    }
+
     for (const img of images) {
       if (img === undefined) continue;
       const imgWidth = img.width * (imgHeight / img.height);
@@ -53,5 +61,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
 
       drawX += imgWidth + INNER_PAD;
     }
+
+    ctx.restore();
   },
 };

@@ -15,6 +15,7 @@ export interface ICellDrawerProps extends ICellPosition {
   theme: IGridTheme;
   fill?: string;
   stroke?: string;
+  isActive?: boolean;
   rowIndex: number;
   columnIndex: number;
   imageManager: ImageManager;

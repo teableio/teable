@@ -1,4 +1,3 @@
-import type Konva from 'konva';
 import { gridTheme } from '../../configs';
 import type {
   ILineProps,
@@ -9,10 +8,11 @@ import type {
   IVector,
   IPoint,
   ICheckboxProps,
+  ITextProps,
 } from './interface';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
-export const drawMultiLineText = (ctx: Konva.Context, props: IMultiLineTextProps) => {
+export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
     x,
     y,
@@ -94,7 +94,7 @@ export const drawMultiLineText = (ctx: Konva.Context, props: IMultiLineTextProps
   }
 };
 
-export const drawSingleLineText = (ctx: Konva.Context, props: ISingleLineTextProps) => {
+export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingleLineTextProps) => {
   const {
     x,
     y,
@@ -128,7 +128,61 @@ export const drawSingleLineText = (ctx: Konva.Context, props: ISingleLineTextPro
   ctx.fillText(text, x, y);
 };
 
-export const drawLine = (ctx: Konva.Context, props: ILineProps) => {
+export const drawText = (ctx: CanvasRenderingContext2D, props: ITextProps) => {
+  const {
+    x,
+    y,
+    text,
+    maxWidth,
+    lineHeight = 20,
+    needRender = true,
+    fill,
+    textAlign = 'left',
+    verticalAlign = 'top',
+  } = props;
+
+  ctx.textAlign = textAlign;
+  ctx.textBaseline = verticalAlign;
+  if (fill) ctx.fillStyle = fill;
+
+  const lines = text.split('\n');
+  let lineCount = 0;
+  let totalLineHeight = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    while (ctx.measureText(line).width > maxWidth) {
+      let left = 0;
+      let right = line.length - 1;
+      while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const breakpoint = ctx.measureText(text.slice(0, mid)).width;
+
+        if (breakpoint <= maxWidth) {
+          left = mid + 1;
+        } else {
+          right = mid - 1;
+        }
+      }
+      const breakIndex = left - 1;
+      const breakLine = line.slice(0, breakIndex);
+
+      needRender && ctx.fillText(breakLine, x, y + totalLineHeight);
+      totalLineHeight += lineHeight;
+      lineCount++;
+
+      line = line.slice(breakIndex);
+    }
+
+    needRender && ctx.fillText(line, x, y + totalLineHeight);
+    totalLineHeight += lineHeight;
+    lineCount++;
+  }
+
+  return lineCount * lineHeight;
+};
+
+export const drawLine = (ctx: CanvasRenderingContext2D, props: ILineProps) => {
   const { x, y, points, stroke, lineWidth = 1, closed = false } = props;
   const length = points.length;
 
@@ -151,7 +205,7 @@ export const drawLine = (ctx: Konva.Context, props: ILineProps) => {
   ctx.restore();
 };
 
-export const drawRect = (ctx: Konva.Context, props: IRectProps) => {
+export const drawRect = (ctx: CanvasRenderingContext2D, props: IRectProps) => {
   const { x, y, width, height, fill, stroke, radius: _radius } = props;
 
   ctx.beginPath();
@@ -184,7 +238,7 @@ export const drawRect = (ctx: Konva.Context, props: IRectProps) => {
 };
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
-export const drawRoundPoly = (ctx: Konva.Context, props: IRoundPolyProps) => {
+export const drawRoundPoly = (ctx: CanvasRenderingContext2D, props: IRoundPolyProps) => {
   const { points, radiusAll, fill, stroke } = props;
   const asVec = function (p: IPoint, pp: IPoint): IVector {
     const vx = pp.x - p.x;
@@ -270,7 +324,7 @@ export const drawRoundPoly = (ctx: Konva.Context, props: IRoundPolyProps) => {
   if (stroke) ctx.stroke();
 };
 
-export const drawCheckbox = (ctx: Konva.Context, props: ICheckboxProps) => {
+export const drawCheckbox = (ctx: CanvasRenderingContext2D, props: ICheckboxProps) => {
   const { x, y, size, radius = 4, fill, stroke, isChecked = false } = props;
   const dynamicSize = isChecked ? size : size - 1;
 
@@ -300,3 +354,44 @@ export const drawCheckbox = (ctx: Konva.Context, props: ICheckboxProps) => {
     ctx.restore();
   }
 };
+
+let metricsSize = 0;
+let metricsCache: Record<string, TextMetrics | undefined> = {};
+
+const makeCacheKey = (ctx: CanvasRenderingContext2D, text: string, font?: string) => {
+  return `${text}_${font ?? ctx.font}`;
+};
+
+export const measureTextCached = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font?: string
+): TextMetrics => {
+  const key = makeCacheKey(ctx, text, font);
+  let metrics = metricsCache[key];
+
+  if (metrics === undefined) {
+    metrics = ctx.measureText(text);
+    metricsCache[key] = metrics;
+    metricsSize++;
+  }
+  if (metricsSize > 10000) {
+    metricsCache = {};
+    metricsSize = 0;
+  }
+
+  return metrics;
+};
+
+const canUseDOM = !!(
+  typeof window !== 'undefined' &&
+  window.document &&
+  window.document.createElement
+);
+
+export const bufferContext = () => {
+  const canvas = canUseDOM && <HTMLCanvasElement>document.createElement('canvas');
+  return canvas ? canvas.getContext('2d') : null;
+};
+
+export const bufferCtx = bufferContext();

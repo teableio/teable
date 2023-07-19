@@ -13,18 +13,19 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
     if (displayData == null || displayData === '') return;
 
     const { ctx, rect, theme } = props;
-    const { x, y, width, height } = rect;
-    const { cellPadding } = GRID_DEFAULT;
+    const { x, y, width } = rect;
+    const { cellHorizontalPadding, cellVerticalPadding } = GRID_DEFAULT;
     const { cellTextColor } = theme;
 
     drawMultiLineText(ctx, {
-      x: x + width - cellPadding,
-      y: y + height / 2 + 1,
+      x: x + width - cellHorizontalPadding,
+      y: y + cellVerticalPadding,
       text: displayData,
       maxLines: 1,
-      maxWidth: width - cellPadding * 2,
+      maxWidth: width - cellHorizontalPadding * 2,
       fill: cellTextColor,
       textAlign: 'right',
+      verticalAlign: 'top',
     });
   },
 };

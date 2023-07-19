@@ -46,7 +46,11 @@ export const SelectEditorMain = (props: ISelectEditorMain) => {
                   originValue?.includes(value) ? 'opacity-100' : 'opacity-0'
                 )}
               />
-              <SelectTag label={label} backgroundColor={backgroundColor} color={color} />
+              <SelectTag
+                label={label || 'Untitled'}
+                backgroundColor={backgroundColor}
+                color={color}
+              />
             </CommandItem>
           ))}
         </CommandGroup>

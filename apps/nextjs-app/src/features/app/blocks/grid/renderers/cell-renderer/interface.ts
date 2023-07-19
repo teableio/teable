@@ -1,4 +1,3 @@
-import type Konva from 'konva';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
@@ -64,6 +63,7 @@ export interface INumberCell extends IBaseCell {
 export interface IBooleanCell extends IBaseCell {
   type: CellType.Boolean;
   data: boolean;
+  isMultiple?: boolean;
 }
 
 export interface ISelectChoice {
@@ -103,12 +103,13 @@ export type IInnerCell =
 export type ICell = IInnerCell | ILoadingCell;
 
 export type ICellRenderProps = {
-  ctx: Konva.Context;
+  ctx: CanvasRenderingContext2D;
   theme: IGridTheme;
   rect: IRectangle;
   columnIndex: number;
   rowIndex: number;
   imageManager: ImageManager;
+  isActive?: boolean;
 };
 
 export interface ICellClickProps {
@@ -119,12 +120,19 @@ export interface ICellClickProps {
   theme: IGridTheme;
 }
 
+export interface ICellMeasureProps {
+  ctx: CanvasRenderingContext2D;
+  theme: IGridTheme;
+  width: number;
+}
+
 export interface IBaseCellRenderer<T extends ICell> {
   // Rendering
   type: T['type'];
   draw: (cell: T, props: ICellRenderProps) => void;
   needsHover?: boolean;
   needsHoverPosition?: boolean;
+  measure?: (cell: T, props: ICellMeasureProps) => number | null;
 
   // Interaction
   onClick?: (cell: T, props: ICellClickProps) => void;
