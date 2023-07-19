@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
 import type { Dispatch, FC, SetStateAction } from 'react';
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
@@ -12,10 +12,10 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useDrag } from './hooks/useDrag';
 import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
-import type { IActiveCellData, IInnerCell, IMouseState, IScrollState } from './interface';
+import type { IInnerCell, IMouseState, IScrollState } from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { bufferCtx, getCellRenderer } from './renderers';
+import { getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { getRegionType } from './utils';
 
@@ -88,27 +88,31 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
 
   const { type: selectionType, ranges: selectionRanges } = selectionState;
 
-  const activeCellData: IActiveCellData | null = useMemo(() => {
-    const { type, ranges } = selectionState;
-    if (type !== SelectionRegionType.Cells) return null;
-    const cell = getCellContent(ranges[0]);
-    const cellRenderer = getCellRenderer(cell.type);
-    const [columnIndex, rowIndex] = ranges[0];
-    const width = coordInstance.getColumnWidth(columnIndex);
-    let height = coordInstance.getRowHeight(rowIndex);
-    if (cellRenderer.measure && bufferCtx) {
-      height = Math.max(
-        cellRenderer.measure(cell as never, { ctx: bufferCtx, width, theme }) || height,
-        height
-      );
-    }
-    return {
-      rowIndex,
-      columnIndex,
-      width,
-      height,
-    };
-  }, [coordInstance, selectionState, getCellContent, theme]);
+  /**
+   * Keep the logic first and see if it's needed for product functionality afterward
+   */
+  // const activeCellData: IActiveCellData | null = useMemo(() => {
+  //   const { type, ranges } = selectionState;
+  //   if (type !== SelectionRegionType.Cells) return null;
+  //   const cell = getCellContent(ranges[0]);
+  //   const cellRenderer = getCellRenderer(cell.type);
+  //   const [columnIndex, rowIndex] = ranges[0];
+  //   const width = coordInstance.getColumnWidth(columnIndex);
+  //   let height = coordInstance.getRowHeight(rowIndex);
+  //   if (cellRenderer.measure && bufferCtx) {
+  //     height = Math.max(
+  //       cellRenderer.measure(cell as never, { ctx: bufferCtx, width, theme }) || height,
+  //       height
+  //     );
+  //   }
+  //   return {
+  //     rowIndex,
+  //     columnIndex,
+  //     width,
+  //     height,
+  //   };
+  // }, [coordInstance, selectionState, getCellContent, theme]);
+  const activeCellData = null;
 
   const getPosition = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {

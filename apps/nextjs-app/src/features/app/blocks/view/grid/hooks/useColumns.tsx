@@ -4,7 +4,7 @@ import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
 import { getFileCover } from '@/features/app/utils';
-import type { IColumn, ICell } from '../../../grid';
+import type { IGridColumn, ICell } from '../../../grid';
 import { CellType, EditorPosition } from '../../../grid';
 import { DateEditor, LinkEditor } from '../components';
 import { AttachmentEditor } from '../components/editor/AttachmentEditor';
@@ -12,7 +12,7 @@ import { AttachmentEditor } from '../components/editor/AttachmentEditor';
 const generateColumns = (
   fields: IFieldInstance[],
   viewId?: string
-): (IColumn & { id: string })[] => {
+): (IGridColumn & { id: string })[] => {
   if (!viewId) {
     return [];
   }
@@ -35,7 +35,7 @@ const generateColumns = (
         icon: iconString(type, isLookup),
       };
     })
-    .filter(Boolean) as (IColumn & { id: string })[];
+    .filter(Boolean) as (IGridColumn & { id: string })[];
 };
 
 const createCellValue2GridDisplay =

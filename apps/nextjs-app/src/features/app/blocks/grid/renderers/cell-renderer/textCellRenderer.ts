@@ -9,31 +9,30 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
   needsHoverPosition: false,
   draw: (cell: ITextCell, props: ICellRenderProps) => {
     const { displayData } = cell;
-    const { ctx, rect, theme, isActive } = props;
+    const { ctx, rect, theme } = props;
     const { x, y, width } = rect;
     if (displayData == null || displayData === '') return;
 
     const { cellTextColor } = theme;
     const { cellHorizontalPadding, cellVerticalPadding } = GRID_DEFAULT;
 
-    if (!isActive) {
-      return drawMultiLineText(ctx, {
-        x: x + cellHorizontalPadding,
-        y: y + cellVerticalPadding,
-        text: displayData,
-        maxLines: 1,
-        maxWidth: width - cellHorizontalPadding * 2,
-        fill: cellTextColor,
-        verticalAlign: 'top',
-      });
-    }
-
-    drawText(ctx, {
+    // if (isActive) {
+    //   return drawText(ctx, {
+    //     x: x + cellHorizontalPadding,
+    //     y: y + cellVerticalPadding,
+    //     text: displayData,
+    //     maxWidth: width - 2 * cellHorizontalPadding,
+    //     fill: cellTextColor,
+    //   });
+    // }
+    drawMultiLineText(ctx, {
       x: x + cellHorizontalPadding,
       y: y + cellVerticalPadding,
       text: displayData,
-      maxWidth: width - 2 * cellHorizontalPadding,
+      maxLines: 1,
+      maxWidth: width - cellHorizontalPadding * 2,
       fill: cellTextColor,
+      verticalAlign: 'top',
     });
   },
   measure: (cell, props) => {

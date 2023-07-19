@@ -89,7 +89,7 @@ interface IGroupHeaderRow extends IRowBase {
   type: RowType.GroupHeader;
 }
 
-export interface IColumn {
+export interface IGridColumn {
   id?: string;
   width?: number;
   name: string;

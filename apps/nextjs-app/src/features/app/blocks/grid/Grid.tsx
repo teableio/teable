@@ -13,7 +13,7 @@ import type {
   IScrollState,
   ISelectionState,
   ICellItem,
-  IColumn,
+  IGridColumn,
   IMouseState,
 } from './interface';
 import type { ISpriteMap } from './managers';
@@ -32,9 +32,9 @@ export interface IGridExternalProps {
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
-  onColumnOrdered?: (column: IColumn, colIndex: number, newOrder: number) => void;
+  onColumnOrdered?: (column: IGridColumn, colIndex: number, newOrder: number) => void;
   onColumnResize?: (
-    column: IColumn,
+    column: IGridColumn,
     newSize: number,
     colIndex: number,
     newSizeWithGrow: number
@@ -43,7 +43,7 @@ export interface IGridExternalProps {
 }
 
 export interface IGridProps extends IGridExternalProps {
-  columns: IColumn[];
+  columns: IGridColumn[];
   freezeColumnCount?: number;
   rowCount: number;
   rowHeight?: number;

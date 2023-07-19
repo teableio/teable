@@ -117,7 +117,6 @@
     "@babel/core": "7.19.6",
     "@belgattitude/http-exception": "1.4.0",
     "@fontsource/inter": "4.5.14",
-    "@glideapps/glide-data-grid": "5.2.1",
     "@graphql-yoga/node": "2.13.13",
     "@hookform/resolvers": "2.9.10",
     "@sentry/nextjs": "7.17.2",

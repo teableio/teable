@@ -2933,22 +2933,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@glideapps/glide-data-grid@npm:5.2.1":
-  version: 5.2.1
-  resolution: "@glideapps/glide-data-grid@npm:5.2.1"
-  dependencies:
-    canvas-hypertxt: "npm:^0.0.7"
-    react-number-format: "npm:^5.0.0"
-  peerDependencies:
-    lodash: ^4.17.19
-    marked: ^4.0.10
-    react: ^16.12.0 || 17.x || 18.x
-    react-dom: ^16.12.0 || 17.x || 18.x
-    react-responsive-carousel: ^3.2.7
-  checksum: cf8edb1acdf5e2bf79b28fcfd7c3949d1ff861055f4d4fddf0eb7c5593f0cfdf56d40782ac8290889bb15f32485899966eccdf6900e16ee52e864c45ae74d58b
-  languageName: node
-  linkType: hard
-
 "@graphql-tools/merge@npm:8.3.1":
   version: 8.3.1
   resolution: "@graphql-tools/merge@npm:8.3.1"
@@ -7467,7 +7451,6 @@ __metadata:
     "@babel/core": "npm:7.19.6"
     "@belgattitude/http-exception": "npm:1.4.0"
     "@fontsource/inter": "npm:4.5.14"
-    "@glideapps/glide-data-grid": "npm:5.2.1"
     "@graphql-yoga/node": "npm:2.13.13"
     "@hookform/resolvers": "npm:2.9.10"
     "@nem035/gpt-3-encoder": "npm:1.1.7"
@@ -11845,13 +11828,6 @@ __metadata:
   version: 1.0.30001512
   resolution: "caniuse-lite@npm:1.0.30001512"
   checksum: 8d9579c5dc360f9cea7c486dbc9284b7b23c87ec697908ec768862d2abf3f3728099fb586363dd6affe99717192b821e235d885121aa02ba219809ef05c97dc0
-  languageName: node
-  linkType: hard
-
-"canvas-hypertxt@npm:^0.0.7":
-  version: 0.0.7
-  resolution: "canvas-hypertxt@npm:0.0.7"
-  checksum: 1c8eadbccd12e8c460e22e7dd612926d536a5b10a4eb07e692e9b73efddd808a3734f2ad504ce3b76ba031d6a76e1f3f9a3f5f38abfe2a7d23a945d043c52089
   languageName: node
   linkType: hard
 
@@ -25225,18 +25201,6 @@ __metadata:
     "@types/react": ">=16"
     react: ">=16"
   checksum: 13f1d951995ceedfcd55377fd3312d4b5dff41484c7e5b6cd0336ec281803f7d5ca3fdd3da8e50e00cb184446cff14733fce1b352916e40c7b462455768265ad
-  languageName: node
-  linkType: hard
-
-"react-number-format@npm:^5.0.0":
-  version: 5.1.2
-  resolution: "react-number-format@npm:5.1.2"
-  dependencies:
-    prop-types: "npm:^15.7.2"
-  peerDependencies:
-    react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
-    react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
-  checksum: 1048dab5bac06684664cd68c7dca94250149291494bb17560915c2614bcbdb7e60d5361a5c000133b22be2648a0d947821f27e5650a91893f9baa0a52f91795e
   languageName: node
   linkType: hard
 

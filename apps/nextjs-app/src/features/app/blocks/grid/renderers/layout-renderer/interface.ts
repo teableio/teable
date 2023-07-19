@@ -1,5 +1,5 @@
 import type { IGridTheme } from '../../configs';
-import type { IColumn, RowControlType } from '../../interface';
+import type { IGridColumn, RowControlType } from '../../interface';
 import type { ImageManager, SpriteManager } from '../../managers';
 import type { ICell } from '../cell-renderer';
 
@@ -32,7 +32,7 @@ export interface IRowHeaderDrawerProps extends ICellPosition {
 }
 
 export interface IFieldHeadDrawerProps extends ICellPosition {
-  column: IColumn;
+  column: IGridColumn;
   theme: IGridTheme;
   spriteManager: SpriteManager;
   fill?: string;

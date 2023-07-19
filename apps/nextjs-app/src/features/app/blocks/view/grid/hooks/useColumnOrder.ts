@@ -1,13 +1,13 @@
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import { useCallback } from 'react';
-import type { IColumn } from '../../../grid';
+import type { IGridColumn } from '../../../grid';
 
 export function useColumnOrder() {
   const fields = useFields();
   const viewId = useViewId();
 
   const onColumnOrdered = useCallback(
-    (column: IColumn, columnIndex: number, newColumnIndex: number) => {
+    (column: IGridColumn, columnIndex: number, newColumnIndex: number) => {
       const columnId = column.id;
       const field = fields[columnIndex];
       const targetField = fields[newColumnIndex];

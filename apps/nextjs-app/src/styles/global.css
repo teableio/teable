@@ -7,11 +7,6 @@ svg.icon {
   fill: currentColor;
 }
 
-/* Clear the style affected by tailwind in glide-data-grid */
-.gdg-input:focus {
-  box-shadow: none;
-}
-
 [type='search']:focus {
   box-shadow: inherit;
 }

@@ -101,12 +101,7 @@ export const drawCells = (
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
-  const {
-    rowIndex: activeRowIndex,
-    columnIndex: activeColumnIndex,
-    width: activeWidth,
-    height: activeHeight,
-  } = activeCellData || {};
+  const { width: activeWidth, height: activeHeight } = activeCellData || {};
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
@@ -142,7 +137,11 @@ export const drawCells = (
           hoverRegionType
         ) &&
         rowIndex === hoverRowIndex;
-      const { isRowActive } = checkIfRowOrCellActive(selectionState, rowIndex, columnIndex);
+      const { isRowActive, isCellActive } = checkIfRowOrCellActive(
+        selectionState,
+        rowIndex,
+        columnIndex
+      );
       const { isRowSelected, isCellSelected } = checkIfRowOrCellSelected(
         selectionState,
         rowIndex,
@@ -172,7 +171,7 @@ export const drawCells = (
         });
       }
 
-      const isCellActive = rowIndex === activeRowIndex && columnIndex === activeColumnIndex;
+      // const isCellActive = rowIndex === activeRowIndex && columnIndex === activeColumnIndex;
       if (
         !isEditing &&
         !isSelecting &&

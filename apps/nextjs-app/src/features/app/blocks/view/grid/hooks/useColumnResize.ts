@@ -1,7 +1,7 @@
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import { useCallback, useState, useEffect } from 'react';
 import { useDebounce } from 'react-use';
-import type { IColumn } from '../../../grid';
+import type { IGridColumn } from '../../../grid';
 
 export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   const fields = useFields();
@@ -27,7 +27,7 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   );
 
   const onColumnResize = useCallback(
-    (column: IColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
+    (column: IGridColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
       const fieldId = column.id;
       const field = fields[colIndex];
       if (!field) {
