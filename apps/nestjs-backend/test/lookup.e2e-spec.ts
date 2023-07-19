@@ -211,7 +211,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     ).body.data.record;
   }
 
-  async function lookupTo(table: TableVo, lookupFieldId: string) {
+  async function lookupFrom(table: TableVo, lookupFieldId: string) {
     const linkField = getFieldByType(table.fields, FieldType.Link) as LinkFieldCore;
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
     const lookupField = foreignTable.fields.find((f) => f.id === lookupFieldId)!;
@@ -246,7 +246,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
 
     const lookedUpToField = getFieldByType(foreignTable.fields, fieldType);
-    const lookupFieldVo = await lookupTo(table, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table, lookedUpToField.id);
 
     // update a field that be lookup by previous field
     await updateRecordByApi(
@@ -262,7 +262,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update lookupField by remove a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
-    const lookupFieldVo = await lookupTo(table1, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
     await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
@@ -315,7 +315,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update many - one lookupField by remove a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table1.fields, FieldType.Number);
-    const lookupFieldVo = await lookupTo(table2, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table2, lookedUpToField.id);
 
     // update a field that will be lookup by after field
     await updateRecordByApi(table1.id, table1.data.records[1].id, lookedUpToField.id, 123);
@@ -371,7 +371,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update many - one lookupField by replace a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
-    const lookupFieldVo = await lookupTo(table1, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
     await updateRecordByApi(
@@ -417,7 +417,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update one - many lookupField by add a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
-    const lookupFieldVo = await lookupTo(table1, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
     await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
@@ -449,7 +449,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   it('should update one -many lookupField by replace a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
-    const lookupFieldVo = await lookupTo(table1, lookedUpToField.id);
+    const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
     await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
@@ -484,8 +484,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   it('should update lookupField by edit the a looked up number field', async () => {
-    // (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
-    console.log('--------------');
+    (await expectLookup(table1, FieldType.Number, 123)).toEqual([123]);
     (await expectLookup(table2, FieldType.Number, 123)).toEqual(123);
   });
 
@@ -534,5 +533,28 @@ describe('OpenAPI Lookup field (e2e)', () => {
     expect(record.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
       { id: table2.data.records[1].id, title: 'text' },
     ]);
+  });
+
+  it('should calculate when add a lookup field', async () => {
+    const textField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(table1.id, table1.data.records[0].id, textField.id, 'A1');
+    await updateRecordByApi(table1.id, table1.data.records[1].id, textField.id, 'A2');
+    await updateRecordByApi(table1.id, table1.data.records[2].id, textField.id, 'A3');
+
+    const lookedUpToField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(
+      table1.id,
+      table1.data.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+    );
+
+    const lookupFieldVo = await lookupFrom(table2, lookedUpToField.id);
+    const record1 = await getRecord(table2.id, table2.data.records[1].id);
+    expect(record1.fields[lookupFieldVo.id]).toEqual('A2');
+    const record2 = await getRecord(table2.id, table2.data.records[2].id);
+    expect(record2.fields[lookupFieldVo.id]).toEqual('A2');
   });
 });

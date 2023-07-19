@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ComputeFieldService } from './compute-field.service';
+import { FieldBatchCalculationService } from './field-batch-calculation.service';
 import { LinkService } from './link.service';
 import { ReferenceService } from './reference.service';
 
 @Module({
-  providers: [ReferenceService, LinkService, ComputeFieldService],
-  exports: [ReferenceService, LinkService, ComputeFieldService],
+  providers: [ReferenceService, LinkService, FieldBatchCalculationService],
+  exports: [ReferenceService, LinkService, FieldBatchCalculationService],
 })
 export class CalculationModule {}

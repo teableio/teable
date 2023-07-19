@@ -6,11 +6,11 @@ import { UnionFormatting } from '../formatting/UnionFormatting';
 import { Selector } from '../Selector';
 
 export const RollupOptions = (props: {
-  options: IRollupFieldOptions;
+  options: Partial<IRollupFieldOptions> | undefined;
   isLookup?: boolean;
-  onChange?: (options: IRollupFieldOptions) => void;
+  onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
-  const { options, isLookup, onChange } = props;
+  const { options = {}, isLookup, onChange } = props;
   const { formatting, expression } = options;
 
   const cellValueType = useMemo(() => {
@@ -27,7 +27,7 @@ export const RollupOptions = (props: {
 
   const onFormattingChange = (value?: IUnionFormatting) => {
     const formatting = value;
-    onChange?.({ expression, formatting });
+    onChange?.({ formatting });
   };
 
   const candidates = useMemo(() => {
@@ -62,6 +62,7 @@ export const RollupOptions = (props: {
         <div className="space-y-2">
           <span className="neutral-content label-text">Rollup</span>
           <Selector
+            placeholder="Select a rollup function"
             selectedId={expression}
             onChange={(id) => {
               onExpressionChange(id as IRollupFieldOptions['expression']);

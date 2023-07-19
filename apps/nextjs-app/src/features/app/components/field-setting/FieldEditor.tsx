@@ -1,4 +1,4 @@
-import type { IFieldRo } from '@teable-group/core';
+import type { IFieldRo, ILookupOptions } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
@@ -58,11 +58,77 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
     (options) => {
       setFieldFn({
         ...field,
-        options,
+        options: {
+          ...(field.options || {}),
+          ...options,
+        },
       });
     },
     [field, setFieldFn]
   );
+
+  const updateLookupOptions = useCallback(
+    (options: Partial<ILookupOptions> & { type?: FieldType }) => {
+      const { type, ...lookupOptions } = options;
+      setFieldFn({
+        ...field,
+        type: type ?? field.type,
+        lookupOptions: {
+          ...field.lookupOptions,
+          ...(lookupOptions || {}),
+        } as ILookupOptions,
+      });
+    },
+    [field, setFieldFn]
+  );
+
+  const getUnionOptions = () => {
+    if (field.isLookup) {
+      return (
+        <>
+          <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
+          <FieldOptions
+            options={field.options as IFieldOptionsProps['options']}
+            type={field.type}
+            isLookup={field.isLookup}
+            updateFieldOptions={updateFieldOptions}
+          />
+        </>
+      );
+    }
+
+    if (field.type === FieldType.Rollup) {
+      return (
+        <>
+          <LookupOptions
+            options={field.lookupOptions}
+            onChange={(options) => {
+              // ignore type in rollup lookup options
+              const { type, ...lookupOptions } = options;
+              updateLookupOptions(lookupOptions);
+            }}
+          />
+          {field.lookupOptions && (
+            <FieldOptions
+              options={field.options as IFieldOptionsProps['options']}
+              type={field.type}
+              isLookup={field.isLookup}
+              updateFieldOptions={updateFieldOptions}
+            />
+          )}
+        </>
+      );
+    }
+
+    return (
+      <FieldOptions
+        options={field.options as IFieldOptionsProps['options']}
+        type={field.type}
+        isLookup={field.isLookup}
+        updateFieldOptions={updateFieldOptions}
+      />
+    );
+  };
 
   return (
     <div className="flex-1 w-full overflow-y-auto gap-2 px-2 text-sm">
@@ -127,35 +193,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
           </p>
         </div>
         <hr className="border-slate-200" />
-        {field.isLookup && (
-          <LookupOptions
-            options={field.lookupOptions}
-            onChange={(options, fieldType) => {
-              setFieldFn({
-                ...field,
-                lookupOptions: options,
-                type: fieldType,
-              });
-            }}
-          />
-        )}
-        {field.type === FieldType.Rollup && !field.isLookup && (
-          <LookupOptions
-            options={field.lookupOptions}
-            onChange={(options) => {
-              setFieldFn({
-                ...field,
-                lookupOptions: options,
-              });
-            }}
-          />
-        )}
-        <FieldOptions
-          options={field.options as IFieldOptionsProps['options']}
-          type={field.type}
-          isLookup={field.isLookup}
-          updateFieldOptions={updateFieldOptions}
-        />
+        {getUnionOptions()}
       </div>
     </div>
   );
