@@ -28,10 +28,14 @@ function ConditionGroup(props: IConditionGroupProps) {
   const context = useContext(FilterContext);
   const { setFilters, filters, addCondition, addConditionGroup } = context;
 
-  const deleteItem = () => {
+  const deleteCurrentItem = () => {
     parent.filterSet.splice(index, 1);
     const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
+    if (level === 0 && !parent.filterSet.length) {
+      setFilters(null);
+    } else {
+      setFilters(newFilters);
+    }
   };
 
   return (
@@ -84,7 +88,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteItem}>
+              <Button variant="ghost" onClick={deleteCurrentItem}>
                 <AshBin className="h-4 w-4"></AshBin>
               </Button>
             </div>
@@ -93,7 +97,13 @@ function ConditionGroup(props: IConditionGroupProps) {
           <div>
             {filter?.filterSet?.map((item, index) =>
               isFilterMeta(item) ? (
-                <Condition key={index} index={index} filter={item} parent={filter} />
+                <Condition
+                  key={index}
+                  index={index}
+                  filter={item}
+                  parent={filter}
+                  level={level + 1}
+                />
               ) : (
                 <ConditionGroup
                   key={index}

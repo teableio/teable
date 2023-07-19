@@ -1,26 +1,20 @@
-import type { IDateTimeFieldOperator } from '@teable-group/core';
-import { exactDate, FieldType, getValidFilterSubOperators, ISubOperator } from '@teable-group/core';
+import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-group/core';
+import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BaseSingleSelect } from '../BaseSingleSelect';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 
-interface IDateValue {
-  mode: string | null;
-  exactDate?: string | null;
-  numberOfDays?: string;
-  timeZone?: string;
-}
 interface IFilerDatePickerProps {
-  value: IDateValue | null;
+  value: IFilterMetaValueByDate | null;
   operator: string;
-  onSelect: (value: IDateValue | null) => void;
+  onSelect: (value: IFilterMetaValueByDate | null) => void;
 }
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect } = props;
-  const [innerValue, setInnerValue] = useState<IDateValue | null>(initValue);
+  const [innerValue, setInnerValue] = useState<IFilterMetaValueByDate | null>(initValue);
 
   const defaultConfig = useMemo(() => {
     if (operator !== 'isWithIn') {
@@ -40,7 +34,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   const mergedOnSelect = useCallback(
     (val: string) => {
       const mergedValue = {
-        mode: val,
+        mode: val as IFilterMetaValueByDate['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue);
@@ -92,16 +86,14 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           <Input
             placeholder="Enter days"
             className="w-24 m-1"
+            type="number"
             value={innerValue?.numberOfDays || ''}
             onChange={(e) => {
-              const newValue: IDateValue = innerValue
-                ? { ...innerValue }
-                : {
-                    mode: null,
-                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                  };
-              newValue.numberOfDays = e.target.value;
-              onSelect?.(newValue);
+              if (innerValue) {
+                const newValue: IFilterMetaValueByDate = { ...innerValue };
+                newValue.numberOfDays = Number(e.target.value);
+                onSelect?.(newValue);
+              }
             }}
           />
         );

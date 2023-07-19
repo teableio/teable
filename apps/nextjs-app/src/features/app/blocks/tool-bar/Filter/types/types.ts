@@ -2,13 +2,14 @@ import type { IFilter, IFilterMeta, IFilterSet } from '@teable-group/core';
 
 interface IFilterProps {
   filters: IFilter;
-  onChange?: (filters: IFilter) => void;
+  onChange?: (filters: IFilter | null) => void;
 }
 
 interface IConditionProps {
   index: number;
   filter: IFilterMeta;
   parent: IFilter;
+  level: number;
 }
 
 interface IConditionGroupProps {

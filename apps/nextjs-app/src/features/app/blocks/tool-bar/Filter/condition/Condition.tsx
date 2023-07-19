@@ -11,14 +11,18 @@ import { FieldValue } from './FieldValue';
 import { OperatorSelect } from './OperatorSelect';
 
 function Condition(props: IConditionProps) {
-  const { index, filter, parent } = props;
+  const { index, filter, parent, level } = props;
   const context = useContext(FilterContext);
   const { setFilters, filters } = context;
 
   const deleteCurrentFilter = () => {
     parent.filterSet.splice(index, 1);
     const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
+    if (level === 0 && !parent.filterSet.length) {
+      setFilters(null);
+    } else {
+      setFilters(newFilters);
+    }
   };
 
   const fieldTypeHandler = useCallback(
@@ -41,9 +45,11 @@ function Condition(props: IConditionProps) {
   );
   const fieldValueHandler = useCallback(
     (value: IFilterMeta['value']) => {
-      filter.value = value;
-      const newFilters = cloneDeep(filters);
-      setFilters(newFilters);
+      if (!isEqual(filter.value, value)) {
+        filter.value = value;
+        const newFilters = cloneDeep(filters);
+        setFilters(newFilters);
+      }
     },
     [filter, filters, setFilters]
   );

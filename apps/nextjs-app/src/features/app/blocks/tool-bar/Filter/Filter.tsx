@@ -18,10 +18,14 @@ import { isFilterMeta } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
+const defaultFilter = {
+  conjunction: 'and',
+  filterSet: [],
+} as IFilter;
 
 function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter } = props;
-  const [filters, setFilters] = useState(initFilter);
+  const [filters, setFilters] = useState<IFilter | null>(initFilter);
   const fields = useFields({ widthHidden: true });
 
   useEffect(() => {
@@ -92,38 +96,44 @@ function Filter(props: IFilterProps) {
   };
 
   const filterButtonText = useMemo(() => {
-    const filteredIds = preOrder(filters.filterSet);
+    let filteredIds = new Set<string>();
+    if (filters) {
+      filteredIds = preOrder(filters?.filterSet);
+    }
     return generateFilterButtonText(filteredIds, fields);
-  }, [fields, filters.filterSet, preOrder]);
-
-  // const setFilters = useCallback((val: IFilterProps['filters']) => {
-  //   setFilters(val);
-  //   // onChange?.(filters);
-  // }, []);
+  }, [fields, filters, preOrder]);
 
   const addCondition = useCallback(
-    (curFilter: IFilterSet) => {
+    (curFilter: IFilterSet | null) => {
       const defaultIFilterMeta: IFilterMeta = {
         operator: 'is',
         value: null,
         fieldId: defaultFieldId as string,
       };
-      const filterItem: IFilterMeta = defaultIFilterMeta;
-      curFilter.filterSet.push(filterItem);
-      const newFilters = cloneDeep(filters);
+      let newFilters = null;
+      if (!curFilter) {
+        newFilters = cloneDeep(defaultFilter);
+        newFilters.filterSet.push(defaultIFilterMeta);
+      } else {
+        curFilter.filterSet.push(defaultIFilterMeta);
+        newFilters = cloneDeep(filters);
+      }
       setFilters(newFilters);
     },
     [defaultFieldId, filters, setFilters]
   );
   const addConditionGroup = useCallback(
-    (curFilter: IFilterSet) => {
-      const defaultIFilteSet: IFilterSet = {
-        filterSet: [],
-        conjunction: 'and',
-      };
-      curFilter.filterSet.push(defaultIFilteSet);
-      const newFilters = cloneDeep(filters);
-      setFilters(newFilters);
+    (curFilter: IFilterSet | null) => {
+      let newFilters = null;
+      if (!curFilter) {
+        newFilters = cloneDeep(defaultFilter);
+        newFilters.filterSet.push(defaultFilter);
+        setFilters(newFilters);
+      } else {
+        curFilter.filterSet.push(defaultFilter);
+        newFilters = cloneDeep(filters);
+        setFilters(newFilters);
+      }
     },
     [filters, setFilters]
   );
@@ -138,7 +148,13 @@ function Filter(props: IFilterProps) {
       <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterMeta(filterItem) ? (
-            <Condition key={index} filter={filterItem} index={index} parent={filters} />
+            <Condition
+              key={index}
+              filter={filterItem}
+              index={index}
+              parent={filters}
+              level={initLevel}
+            />
           ) : (
             <ConditionGroup
               key={index}

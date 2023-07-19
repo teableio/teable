@@ -10,7 +10,7 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useFieldStaticGetter } from '@/features/app/utils';
 import { cn } from '@/lib/utils';
 
@@ -24,11 +24,32 @@ function FieldSelect(props: IFieldSelectProps) {
   const [open, setOpen] = useState(false);
 
   const fields = useFields({ widthHidden: true });
+  const fieldsIdNameMap = useMemo(() => {
+    return new Map(
+      fields.map((field) => [
+        // todo: shadcn bug, id will be toLowerCase in Commond components
+        field.id.toLowerCase(),
+        field.name,
+      ])
+    );
+  }, [fields]);
   const fieldStaticGetter = useFieldStaticGetter();
 
   const label = useMemo(() => {
     return fields.find((field) => field.id === value)?.name;
   }, [value, fields]);
+
+  const commandFilter = useCallback(
+    (id: string, searchValue: string) => {
+      const name = fieldsIdNameMap.get(id);
+      if (!name) {
+        return 0;
+      }
+      const containWord = name.indexOf(searchValue) > -1;
+      return Number(containWord);
+    },
+    [fieldsIdNameMap]
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -44,12 +65,12 @@ function FieldSelect(props: IFieldSelectProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px]">
-        <Command>
+        <Command filter={commandFilter}>
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>No field found.</CommandEmpty>
           <CommandGroup>
             {fields.map((field) => {
-              const { Icon } = fieldStaticGetter(field.type, false);
+              const { Icon } = fieldStaticGetter(field.type, field.isLookup);
               return (
                 <CommandItem
                   key={field.id}

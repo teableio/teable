@@ -4,14 +4,14 @@ import type { IOpBuilder } from '../interface';
 
 export interface ISetViewFilterOpContext {
   name: OpName.SetViewFilter;
-  newFilter?: IFilter;
-  oldFilter?: IFilter;
+  newFilter?: IFilter | null;
+  oldFilter?: IFilter | null;
 }
 
 export class SetViewFilterBuilder implements IOpBuilder {
   name: OpName.SetViewFilter = OpName.SetViewFilter;
 
-  build(params: { newFilter?: IFilter; oldFilter?: IFilter }): IOtOperation {
+  build(params: { newFilter?: IFilter | null; oldFilter?: IFilter | null }): IOtOperation {
     const { newFilter, oldFilter } = params;
 
     return {

@@ -14,6 +14,7 @@ const filterMetaValue = z
   .union([
     z.string(),
     z.number(),
+    z.boolean(),
     z.array(z.union([z.string(), z.number()])),
     filterMetaValueByDate,
   ])

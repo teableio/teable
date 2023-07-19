@@ -11,7 +11,7 @@ import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
-import { Filter, defaultFilter } from './Filter';
+import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
@@ -20,15 +20,14 @@ export const ToolBar: React.FC = () => {
   const view = useView();
 
   const onFilterChange = useCallback(
-    (filters: IFilter) => {
+    (filters: IFilter | null) => {
       view?.setFilter(filters);
     },
     [view]
   );
 
   const initFilters = useMemo<IFilter>(() => {
-    const newFilters = cloneDeep(view?.filter) as IFilter;
-    return newFilters || defaultFilter;
+    return cloneDeep(view?.filter) as IFilter;
   }, [view]);
 
   const undo = useCallback(() => {

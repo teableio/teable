@@ -23,7 +23,7 @@ function DatePicker(props: IFilerDatePickerProps) {
   }, [value]);
 
   const selectHandler = (date: Date) => {
-    onSelect?.(date.toString());
+    onSelect?.(date.toISOString());
     setOpen(false);
   };
 

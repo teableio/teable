@@ -1,6 +1,6 @@
 import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import type { MultipleSelectField } from '@teable-group/sdk';
+import type { MultipleSelectField, SingleSelectField } from '@teable-group/sdk';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
@@ -20,13 +20,17 @@ import { useMemo, useState } from 'react';
 interface IMutipleSelect {
   onSelect?: (names: string[]) => void;
   value: string[] | null;
-  field: MultipleSelectField;
+  // SingleSelectField used in MultipleSelect in filter scenario
+  field: MultipleSelectField | SingleSelectField;
 }
 
 const MultipleSelect = (props: IMutipleSelect) => {
   const { field, value, onSelect } = props;
   const values = useMemo(() => {
-    return value || [];
+    if (Array.isArray(value) && value.length) {
+      return value;
+    }
+    return [];
   }, [value]);
   const [open, setOpen] = useState(false);
   const choices = useMemo(() => {

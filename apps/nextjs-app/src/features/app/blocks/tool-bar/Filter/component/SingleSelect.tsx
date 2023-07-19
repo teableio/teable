@@ -10,18 +10,26 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ISingleSelect {
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
+  operator: string;
   value: string | null;
   field: SingleSelectField;
 }
 
 function SingleSelect(props: ISingleSelect) {
-  const { onSelect, field, value } = props;
+  const { onSelect, field, value, operator } = props;
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    // other type value comes, adapter or reset
+    if (typeof value !== 'string' && value !== null) {
+      onSelect?.(null);
+    }
+  }, [onSelect, value, operator]);
 
   const options = useMemo(() => {
     return field?.options?.choices;
