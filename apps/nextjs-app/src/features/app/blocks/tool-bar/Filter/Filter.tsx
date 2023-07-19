@@ -1,15 +1,18 @@
 import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
-
 import { useFields } from '@teable-group/sdk';
+
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
+
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+
 import { cloneDeep, isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { cn } from '@/lib/utils';
+
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
@@ -18,10 +21,14 @@ import { isFilterMeta } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
-const defaultFilter = {
+const defaultFilter: IFilter = {
   conjunction: 'and',
   filterSet: [],
-} as IFilter;
+};
+const defaultGroupFilter: IFilter = {
+  ...defaultFilter,
+  conjunction: 'or',
+};
 
 function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter } = props;
@@ -126,11 +133,11 @@ function Filter(props: IFilterProps) {
     (curFilter: IFilterSet | null) => {
       let newFilters = null;
       if (!curFilter) {
-        newFilters = cloneDeep(defaultFilter);
-        newFilters.filterSet.push(defaultFilter);
+        newFilters = cloneDeep(defaultGroupFilter);
+        newFilters.filterSet.push(defaultGroupFilter);
         setFilters(newFilters);
       } else {
-        curFilter.filterSet.push(defaultFilter);
+        curFilter.filterSet.push(defaultGroupFilter);
         newFilters = cloneDeep(filters);
         setFilters(newFilters);
       }
