@@ -43,6 +43,7 @@ export enum RegionType {
   RowHeaderCheckbox = 'RowHeaderCheckbox',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
+  Blank = 'Blank',
   None = 'None',
 }
 
@@ -134,3 +135,10 @@ export enum RowControlType {
 }
 
 export type ICellItem = [colIndex: number, rowIndex: number];
+
+export interface IActiveCellData {
+  rowIndex: number;
+  columnIndex: number;
+  width: number;
+  height: number;
+}

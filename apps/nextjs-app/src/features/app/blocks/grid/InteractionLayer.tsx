@@ -1,9 +1,7 @@
-import Konva from 'konva';
-import type { KonvaEventObject } from 'konva/lib/Node';
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
-import dynamic from 'next/dynamic';
 import type { Dispatch, FC, SetStateAction } from 'react';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
@@ -14,16 +12,12 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useDrag } from './hooks/useDrag';
 import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
-import type { IInnerCell, IMouseState, IScrollState } from './interface';
+import type { IActiveCellData, IInnerCell, IMouseState, IScrollState } from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { getCellRenderer } from './renderers';
+import { bufferCtx, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { getRegionType } from './utils';
-
-Konva.pixelRatio = 2;
-
-const Stage = dynamic(() => import('./components/base/Stage'), { ssr: false });
 
 export interface IInteractionLayerProps
   extends Omit<
@@ -65,16 +59,15 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
-  const stageRef = useRef<Konva.Stage>();
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
-  const { containerWidth, containerHeight, freezeColumnCount, rowCount } = coordInstance;
-  const { isScrolling, scrollTop, scrollLeft } = scrollState;
+  const { containerWidth, containerHeight, freezeColumnCount, pureRowCount } = coordInstance;
+  const { scrollTop, scrollLeft } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
-  const pureRowCount = hasAppendRow ? rowCount - 1 : rowCount;
 
   const { startRowIndex, stopRowIndex, startColumnIndex, stopColumnIndex } = useVisibleRegion(
     coordInstance,
@@ -91,47 +84,72 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onSelectionChange,
     onSelectionEnd,
     onSelectionClick,
-  } = useSelection(pureRowCount);
+  } = useSelection();
 
   const { type: selectionType, ranges: selectionRanges } = selectionState;
 
-  const getPosition = useCallback(() => {
-    const pos = stageRef.current?.getPointerPosition();
-    if (pos == null) return null;
-    const { x, y } = pos;
-    const { columnAppendBtnWidth } = GRID_DEFAULT;
-    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
-      coordInstance;
-    const rowIndex = y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
-    const columnIndex =
-      scrollLeft + x > totalWidth && scrollLeft + x < totalWidth + columnAppendBtnWidth
-        ? -2
-        : x <= freezeRegionWidth
-        ? x <= columnInitSize
-          ? -1
-          : coordInstance.getColumnStartIndex(x)
-        : coordInstance.getColumnStartIndex(scrollLeft + x);
-    const offsetX = coordInstance.getColumnOffset(columnIndex);
-    const isCellRange = columnIndex > -1 && rowIndex > -1;
-    const hoverCellX = isCellRange
-      ? columnIndex < freezeColumnCount
-        ? x - offsetX
-        : x - offsetX + scrollLeft
-      : 0;
-    const hoverCellY = isCellRange ? y - coordInstance.getRowOffset(rowIndex) + scrollTop : 0;
-    return { x, y, rowIndex, columnIndex, hoverCellX, hoverCellY };
-  }, [coordInstance, scrollLeft, scrollTop]);
+  const activeCellData: IActiveCellData | null = useMemo(() => {
+    const { type, ranges } = selectionState;
+    if (type !== SelectionRegionType.Cells) return null;
+    const cell = getCellContent(ranges[0]);
+    const cellRenderer = getCellRenderer(cell.type);
+    const [columnIndex, rowIndex] = ranges[0];
+    const width = coordInstance.getColumnWidth(columnIndex);
+    let height = coordInstance.getRowHeight(rowIndex);
+    if (cellRenderer.measure && bufferCtx) {
+      height = Math.max(
+        cellRenderer.measure(cell as never, { ctx: bufferCtx, width, theme }) || height,
+        height
+      );
+    }
+    return {
+      rowIndex,
+      columnIndex,
+      width,
+      height,
+    };
+  }, [coordInstance, selectionState, getCellContent, theme]);
 
-  const { onAutoScroll, onAutoScrollStop } = useAutoScroll(
+  const getPosition = useCallback(
+    (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (rect == null) return;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const { columnAppendBtnWidth } = GRID_DEFAULT;
+      const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
+        coordInstance;
+      const rowIndex = y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
+      const columnIndex =
+        scrollLeft + x > totalWidth && scrollLeft + x < totalWidth + columnAppendBtnWidth
+          ? -2
+          : x <= freezeRegionWidth
+          ? x <= columnInitSize
+            ? -1
+            : coordInstance.getColumnStartIndex(x)
+          : coordInstance.getColumnStartIndex(scrollLeft + x);
+      const offsetX = coordInstance.getColumnOffset(columnIndex);
+      const isCellRange = columnIndex > -1 && rowIndex > -1;
+      const hoverCellX = isCellRange
+        ? columnIndex < freezeColumnCount
+          ? x - offsetX
+          : x - offsetX + scrollLeft
+        : 0;
+      const hoverCellY = isCellRange ? y - coordInstance.getRowOffset(rowIndex) + scrollTop : 0;
+      return { x, y, rowIndex, columnIndex, hoverCellX, hoverCellY };
+    },
+    [coordInstance, scrollLeft, scrollTop]
+  );
+
+  const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
     coordInstance,
     selectionState,
     setSelectionState,
-    getPosition,
-    scrollBy
-  );
+    scrollBy,
+  });
 
-  const getMouseState = () => {
-    const position = getPosition();
+  const getMouseState = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const position = getPosition(event);
     if (position == null) return;
     const { x, y } = position;
     const { columnAppendBtnWidth } = GRID_DEFAULT;
@@ -178,10 +196,10 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     }
   };
 
-  const onClick = () => {
-    const mouseState = getMouseState();
+  const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const mouseState = getMouseState(event);
     if (mouseState == null) return;
-    onSelectionClick(mouseState);
+    onSelectionClick(mouseState, pureRowCount);
     const { type, columnIndex, hoverCellX, hoverCellY } = mouseState;
     if (regionType !== type) return;
 
@@ -202,6 +220,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       case RegionType.Cell: {
         const { columnIndex, rowIndex } = mouseState;
         const cell = getCellContent([columnIndex, rowIndex]);
+        if (cell.readonly) return;
         const cellRenderer = getCellRenderer(cell.type);
         const cellClick = cellRenderer.onClick;
         if (cellClick) {
@@ -221,8 +240,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     }
   };
 
-  const onDblClick = () => {
-    const mouseState = getMouseState();
+  const onDblClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const mouseState = getMouseState(event);
     if (mouseState == null || selectionType !== SelectionRegionType.Cells) return;
     const { rowIndex, columnIndex } = mouseState;
     if (isEqual(selectionRanges[0], [columnIndex, rowIndex])) {
@@ -237,11 +256,10 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onDblClick
   );
 
-  const onMouseDown = (e: KonvaEventObject<MouseEvent>) => {
-    const mouseEvent = e.evt;
-    mouseEvent.preventDefault();
-    if (mouseEvent.button === MouseButtonType.Right) return;
-    const mouseState = getMouseState();
+  const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    event.preventDefault();
+    if (event.button === MouseButtonType.Right) return;
+    const mouseState = getMouseState(event);
     if (mouseState == null) return;
     const { rowIndex, columnIndex } = mouseState;
     if (
@@ -253,7 +271,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
-    onSmartMouseDown();
+    onSmartMouseDown(mouseState);
     setMouseState(mouseState);
     onDragStart(mouseState);
     onSelectionStart(mouseState);
@@ -264,13 +282,13 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     const { columnIndex, rowIndex } = mouseState;
     const cell = getCellContent([columnIndex, rowIndex]);
     const cellRenderer = getCellRenderer(cell.type);
-    if (cellRenderer.needsHover) {
+    if (!cell.readonly && cellRenderer.needsHover) {
       setCursor('pointer');
     }
   };
 
-  const onMouseMove = () => {
-    const mouseState = getMouseState();
+  const onMouseMove = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const mouseState = getMouseState(event);
     if (mouseState == null) return;
     const { type } = mouseState;
     setMouseState(mouseState);
@@ -284,12 +302,12 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     });
   };
 
-  const onMouseUp = () => {
-    const mouseState = getMouseState();
+  const onMouseUp = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const mouseState = getMouseState(event);
     if (mouseState == null) return;
     setMouseState(mouseState);
     onAutoScrollStop();
-    onSmartMouseUp();
+    onSmartMouseUp(mouseState);
     onDragEnd(mouseState, (columnIndex, targetColumnIndex) => {
       onColumnOrdered?.(columns[columnIndex], columnIndex, targetColumnIndex);
       setSelectionState(DEFAULT_SELECTION_STATE);
@@ -305,17 +323,18 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
 
   return (
     <>
-      <Stage
-        stageRef={stageRef}
-        width={containerWidth}
-        height={containerHeight}
-        listening={!isScrolling}
+      <div
+        ref={stageRef}
+        style={{
+          width: containerWidth,
+          height: containerHeight,
+          cursor,
+        }}
         onClick={onSmartClick}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
-        style={{ cursor }}
       >
         <RenderLayer
           theme={theme}
@@ -331,9 +350,10 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           startColumnIndex={startColumnIndex}
           stopColumnIndex={stopColumnIndex}
           mouseState={mouseState}
-          selectionState={selectionState}
           dragState={dragState}
+          selectionState={selectionState}
           columnResizeState={columnResizeState}
+          activeCellData={activeCellData}
           onDelete={onDelete}
           onColumnOrdered={onColumnOrdered}
           getCellContent={getCellContent}
@@ -342,7 +362,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           onColumnAppend={onColumnAppend}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />
-      </Stage>
+      </div>
       <EditorContainer
         ref={editorContainerRef}
         theme={theme}

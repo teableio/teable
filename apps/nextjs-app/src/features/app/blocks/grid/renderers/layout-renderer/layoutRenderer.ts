@@ -1,4 +1,3 @@
-import type Konva from 'konva';
 import { isEqual } from 'lodash';
 import { GRID_DEFAULT } from '../../configs';
 import { getDropTargetColumnIndex } from '../../hooks';
@@ -24,9 +23,21 @@ import { getCellRenderer } from '../cell-renderer';
 import type { ICellDrawerProps, IFieldHeadDrawerProps, IRowHeaderDrawerProps } from './interface';
 import { RenderRegion } from './interface';
 
-export const drawCell = (ctx: Konva.Context, props: ICellDrawerProps) => {
-  const { x, y, width, height, fill, stroke, cell, theme, rowIndex, columnIndex, imageManager } =
-    props;
+export const drawCell = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    fill,
+    stroke,
+    cell,
+    theme,
+    rowIndex,
+    columnIndex,
+    imageManager,
+    isActive,
+  } = props;
   const { cellLineColor, cellBg } = theme;
   drawRect(ctx, {
     x,
@@ -49,11 +60,12 @@ export const drawCell = (ctx: Konva.Context, props: ICellDrawerProps) => {
     rowIndex,
     columnIndex,
     imageManager,
+    isActive,
   });
 };
 
 export const drawCells = (
-  ctx: Konva.Context,
+  ctx: CanvasRenderingContext2D,
   props: IRenderLayerProps,
   renderRegion: RenderRegion
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -73,6 +85,7 @@ export const drawCells = (
     theme,
     isEditing,
     imageManager,
+    activeCellData,
   } = props;
   const {
     rowHeight,
@@ -88,6 +101,12 @@ export const drawCells = (
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
+  const {
+    rowIndex: activeRowIndex,
+    columnIndex: activeColumnIndex,
+    width: activeWidth,
+    height: activeHeight,
+  } = activeCellData || {};
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
@@ -123,11 +142,7 @@ export const drawCells = (
           hoverRegionType
         ) &&
         rowIndex === hoverRowIndex;
-      const { isRowActive, isCellActive } = checkIfRowOrCellActive(
-        selectionState,
-        rowIndex,
-        columnIndex
-      );
+      const { isRowActive } = checkIfRowOrCellActive(selectionState, rowIndex, columnIndex);
       const { isRowSelected, isCellSelected } = checkIfRowOrCellSelected(
         selectionState,
         rowIndex,
@@ -157,15 +172,17 @@ export const drawCells = (
         });
       }
 
+      const isCellActive = rowIndex === activeRowIndex && columnIndex === activeColumnIndex;
       if (
         !isEditing &&
         !isSelecting &&
         checkIfFillHandleCell(selectionState, rowIndex, columnIndex)
       ) {
         const { fillHandlerSize } = GRID_DEFAULT;
+        const height = isCellActive ? activeHeight || rowHeight : rowHeight;
         fillHandlerProps = {
           x: x + columnWidth - fillHandlerSize / 2 - 0.5,
-          y: y + rowHeight - fillHandlerSize / 2 - 0.5,
+          y: y + height - fillHandlerSize / 2 - 0.5,
           width: fillHandlerSize,
           height: fillHandlerSize,
           stroke: cellLineColorActived,
@@ -186,7 +203,13 @@ export const drawCells = (
       };
 
       if (isCellActive) {
-        activeCellProps = { ...cellProps, stroke: cellLineColorActived };
+        activeCellProps = {
+          ...cellProps,
+          width: activeWidth || columnWidth,
+          height: activeHeight || rowHeight,
+          stroke: cellLineColorActived,
+          isActive: true,
+        };
         continue;
       }
 
@@ -218,7 +241,7 @@ export const drawCells = (
   ctx.restore();
 };
 
-export const drawRowHeader = (ctx: Konva.Context, props: IRowHeaderDrawerProps) => {
+export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDrawerProps) => {
   const { x, y, width, height, displayIndex, theme, isHover, isChecked, rowControls } = props;
   const hasCheckbox = rowControls?.includes(RowControlType.Checkbox);
   const {
@@ -268,7 +291,7 @@ export const drawRowHeader = (ctx: Konva.Context, props: IRowHeaderDrawerProps) 
   });
 };
 
-export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProps) => {
+export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHeadDrawerProps) => {
   const { x, y, width, height, theme, fill, column, hasMenu, spriteManager } = props;
   const { name, icon, hasMenu: hasColumnMenu } = column;
   const { cellLineColor, cellBg, iconBgCommon, columnHeaderNameColor, fontSizeMD, iconSizeXS } =
@@ -326,7 +349,7 @@ export const drawColumnHeader = (ctx: Konva.Context, props: IFieldHeadDrawerProp
 };
 
 export const drawColumnHeaders = (
-  ctx: Konva.Context,
+  ctx: CanvasRenderingContext2D,
   props: IRenderLayerProps,
   renderRegion: RenderRegion
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -445,7 +468,7 @@ export const drawColumnHeaders = (
 };
 
 export const drawAppendRow = (
-  ctx: Konva.Context,
+  ctx: CanvasRenderingContext2D,
   props: IRenderLayerProps,
   renderRegion: RenderRegion
 ) => {
@@ -493,7 +516,7 @@ export const drawAppendRow = (
   ctx.restore();
 };
 
-export const drawAppendColumn = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
   const { coordInstance, theme, mouseState, onColumnAppend } = props;
   const { totalWidth } = coordInstance;
   const { type: hoverRegionType } = mouseState;
@@ -523,7 +546,10 @@ export const drawAppendColumn = (ctx: Konva.Context, props: IRenderLayerProps) =
   });
 };
 
-export const drawColumnResizeHandler = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawColumnResizeHandler = (
+  ctx: CanvasRenderingContext2D,
+  props: IRenderLayerProps
+) => {
   const { coordInstance, mouseState, scrollState, theme, columnResizeState, onColumnResize } =
     props;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex, x: hoverX } = mouseState;
@@ -571,7 +597,10 @@ export const drawColumnResizeHandler = (ctx: Konva.Context, props: IRenderLayerP
   });
 };
 
-export const drawColumnDraggingRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawColumnDraggingRegion = (
+  ctx: CanvasRenderingContext2D,
+  props: IRenderLayerProps
+) => {
   const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
   const { type, isDragging, index: draggingColIndex, delta } = dragState;
@@ -621,20 +650,68 @@ const setVisibleImageRegion = (props: IRenderLayerProps) => {
   );
 };
 
-export const drawColumnHeadersRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawColumnHeadersRegion = (
+  ctx: CanvasRenderingContext2D,
+  props: IRenderLayerProps
+) => {
   [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnHeaders(ctx, props, r));
   drawAppendColumn(ctx, props);
   drawColumnResizeHandler(ctx, props);
   drawColumnDraggingRegion(ctx, props);
 };
 
-export const drawFreezeRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawFreezeRegion = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
   drawCells(ctx, props, RenderRegion.Freeze);
   drawAppendRow(ctx, props, RenderRegion.Freeze);
   setVisibleImageRegion(props);
 };
 
-export const drawOtherRegion = (ctx: Konva.Context, props: IRenderLayerProps) => {
+export const drawOtherRegion = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
   drawCells(ctx, props, RenderRegion.Other);
   drawAppendRow(ctx, props, RenderRegion.Other);
+};
+
+export const drawGrid = (canvas: HTMLCanvasElement, props: IRenderLayerProps) => {
+  const { coordInstance, scrollState } = props;
+  const { scrollLeft, scrollTop } = scrollState;
+  const { containerWidth, containerHeight } = coordInstance;
+  const pixelRatio = Math.ceil(window.devicePixelRatio ?? 1);
+  const width = Math.ceil(containerWidth * pixelRatio);
+  const height = Math.ceil(containerHeight * pixelRatio);
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = containerWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (ctx == null) return;
+
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.save();
+
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.beginPath();
+  ctx.rect(0, 0, containerWidth, containerHeight);
+  ctx.clip();
+
+  ctx.save();
+  ctx.translate(-scrollLeft, -scrollTop);
+  drawOtherRegion(ctx, props);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(0, -scrollTop);
+  drawFreezeRegion(ctx, props);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(-scrollLeft, 0);
+  drawColumnHeadersRegion(ctx, props);
+  ctx.restore();
+
+  ctx.restore();
 };

@@ -1,17 +1,14 @@
-import type Konva from 'konva';
-import dynamic from 'next/dynamic';
 import type { FC } from 'react';
+import { useRef, useEffect } from 'react';
 import type { IInteractionLayerProps } from './InteractionLayer';
-import type { IColumnResizeState, IDragState, IMouseState, ISelectionState } from './interface';
-import {
-  drawColumnHeadersRegion,
-  drawOtherRegion,
-  drawFreezeRegion,
-} from './renderers/layout-renderer/layoutRenderer';
-
-const Layer = dynamic(() => import('./components/base/Layer'), { ssr: false });
-const Group = dynamic(() => import('./components/base/Group'), { ssr: false });
-const Shape = dynamic(() => import('./components/base/Shape'), { ssr: false });
+import type {
+  IActiveCellData,
+  IColumnResizeState,
+  IDragState,
+  IMouseState,
+  ISelectionState,
+} from './interface';
+import { drawGrid } from './renderers';
 
 export interface IRenderLayerProps
   extends Omit<IInteractionLayerProps, 'scrollTo' | 'scrollBy' | 'setMouseState'> {
@@ -24,40 +21,28 @@ export interface IRenderLayerProps
   mouseState: IMouseState;
   selectionState: ISelectionState;
   columnResizeState: IColumnResizeState;
+  activeCellData: IActiveCellData | null;
 }
 
-const defaultShapeConfig = {
-  listening: false,
-  perfectDrawEnabled: false,
-};
-
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {
-  const { coordInstance, scrollState } = props;
-  const { scrollLeft, scrollTop } = scrollState;
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { coordInstance } = props;
   const { containerWidth, containerHeight } = coordInstance;
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas == null) return;
+    drawGrid(canvas, props);
+  }, [props]);
+
   return (
-    <Layer listening={false}>
-      <Group clipX={0} clipY={0} clipWidth={containerWidth} clipHeight={containerHeight}>
-        <Group offsetX={scrollLeft} offsetY={scrollTop}>
-          <Shape
-            {...defaultShapeConfig}
-            sceneFunc={(ctx: Konva.Context) => drawOtherRegion(ctx, props)}
-          />
-        </Group>
-        <Group offsetY={scrollTop}>
-          <Shape
-            {...defaultShapeConfig}
-            sceneFunc={(ctx: Konva.Context) => drawFreezeRegion(ctx, props)}
-          />
-        </Group>
-        <Group offsetX={scrollLeft}>
-          <Shape
-            {...defaultShapeConfig}
-            sceneFunc={(ctx: Konva.Context) => drawColumnHeadersRegion(ctx, props)}
-          />
-        </Group>
-      </Group>
-    </Layer>
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none"
+      style={{
+        width: containerWidth,
+        height: containerHeight,
+      }}
+    />
   );
 };

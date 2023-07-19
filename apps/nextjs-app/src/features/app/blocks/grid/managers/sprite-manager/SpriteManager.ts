@@ -1,4 +1,3 @@
-import type Konva from 'konva';
 import type { IGridTheme } from '../../configs';
 import type { IHeaderIconMap, ISpriteProps } from './sprites';
 import { sprites } from './sprites';
@@ -35,7 +34,7 @@ export class SpriteManager {
     };
   }
 
-  public drawSprite(ctx: Konva.Context, props: ISpriteDrawerProps) {
+  public drawSprite(ctx: CanvasRenderingContext2D, props: ISpriteDrawerProps) {
     const { sprite, variant, x, y, size, alpha = 1, theme } = props;
     const [bgColor, fgColor] = getColors(variant, theme);
     const rSize = size * Math.ceil(window.devicePixelRatio);

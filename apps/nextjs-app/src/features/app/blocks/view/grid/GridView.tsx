@@ -1,7 +1,7 @@
 import { useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
 import { range, isEqual } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { usePrevious } from 'react-use';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePrevious, useMount } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { useFieldStaticGetter } from '@/features/app/utils';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
@@ -67,12 +67,17 @@ export const GridView: React.FC = () => {
     }, [ssrRecords])
   );
 
+  const [canRender, setCanRender] = useState(false);
   const preTableId = usePrevious(tableId);
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
       reset();
     }
   }, [reset, tableId, preTableId]);
+
+  useMount(() => {
+    setCanRender(true);
+  });
 
   const onColumnHeaderMenuClick = useCallback(
     (col: number, bounds: IRectangle) => {
@@ -141,26 +146,28 @@ export const GridView: React.FC = () => {
 
   return (
     <div ref={container} className="relative grow w-full overflow-hidden">
-      <Grid
-        theme={theme}
-        rowCount={rowCount}
-        freezeColumnCount={0}
-        columns={columns}
-        smoothScrollX
-        smoothScrollY
-        headerIcons={headerIcons}
-        // rowControls={[]}
-        style={{ marginLeft: -1, marginTop: -1 }}
-        getCellContent={getCellContent}
-        onDelete={onDelete}
-        onRowAppend={onRowAppended}
-        onCellEdited={onCellEdited}
-        onColumnAppend={onColumnAppend}
-        onColumnResize={onColumnResize}
-        onColumnOrdered={onColumnOrdered}
-        onVisibleRegionChanged={onVisibleRegionChanged}
-        onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-      />
+      {canRender && (
+        <Grid
+          theme={theme}
+          rowCount={rowCount}
+          freezeColumnCount={0}
+          columns={columns}
+          smoothScrollX
+          smoothScrollY
+          headerIcons={headerIcons}
+          // rowControls={[]}
+          style={{ marginLeft: -1, marginTop: -1 }}
+          getCellContent={getCellContent}
+          onDelete={onDelete}
+          onRowAppend={onRowAppended}
+          onCellEdited={onCellEdited}
+          onColumnAppend={onColumnAppend}
+          onColumnResize={onColumnResize}
+          onColumnOrdered={onColumnOrdered}
+          onVisibleRegionChanged={onVisibleRegionChanged}
+          onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+        />
+      )}
       <DomBox />
     </div>
   );

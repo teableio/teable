@@ -33,13 +33,13 @@ export const getRegionType = (props: ICheckRegionProps): RegionType => {
     checkIsFillHandler(props) ||
     checkIsCell(props) ||
     checkIsColumnHeader(props) ||
-    RegionType.None
+    RegionType.Blank
   );
 };
 
 const checkIsOutOfBounds = (props: ICheckRegionProps): RegionType | null => {
   const { isOutOfBounds } = props;
-  return isOutOfBounds ? RegionType.None : null;
+  return isOutOfBounds ? RegionType.Blank : null;
 };
 
 const checkIfSelecting = (props: ICheckRegionProps): RegionType | null => {

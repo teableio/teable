@@ -16,7 +16,8 @@ export const GRID_DEFAULT = {
   columnResizeHandlerWidth: 5,
 
   // Cell
-  cellPadding: 8,
+  cellHorizontalPadding: 8,
+  cellVerticalPadding: 10,
   fillHandlerSize: 5,
 
   // Others
@@ -58,3 +59,10 @@ export const DEFAULT_SELECTION_STATE = {
   ranges: [],
   isSelecting: false,
 };
+
+// export const DEFAULT_ACTIVE_CELL_DATA = {
+//   rowIndex: -Infinity,
+//   columnIndex: -Infinity,
+//   width: 0,
+//   height: 0,
+// };

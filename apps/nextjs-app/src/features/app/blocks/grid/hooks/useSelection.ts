@@ -5,7 +5,7 @@ import type { IMouseState, IRange, ISelectionState } from '../interface';
 import { RegionType, SelectionRegionType } from '../interface';
 import { mergeRowRanges } from '../utils';
 
-export const useSelection = (rowCount: number) => {
+export const useSelection = () => {
   const [selectionState, setSelectionState] = useState<ISelectionState>(DEFAULT_SELECTION_STATE);
   const [prevSelectionState, setPrevSelectionState] = useState<Omit<
     ISelectionState,
@@ -71,7 +71,7 @@ export const useSelection = (rowCount: number) => {
     setSelectionState((prev) => ({ ...prev, isSelecting: false }));
   };
 
-  const onSelectionClick = (mouseState: IMouseState) => {
+  const onSelectionClick = (mouseState: IMouseState, rowCount: number) => {
     const { type, rowIndex } = mouseState;
 
     if (type === RegionType.AllCheckbox) {

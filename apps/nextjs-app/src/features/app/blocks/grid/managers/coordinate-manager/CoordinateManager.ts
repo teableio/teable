@@ -1,7 +1,7 @@
 import type { IIndicesMap, ICoordinate, ICellMetaData, ICellMetaDataMap } from './interface';
 import { RowHeightLevel, ItemType } from './interface';
 
-export class CoordinateManager {
+export class CoordinateManager implements ICoordinate {
   protected defaultRowHeight: number;
   protected defaultColumnWidth: number;
   public pureRowCount: number;
@@ -127,10 +127,6 @@ export class CoordinateManager {
     return cellMetadataMap[index] || { size: 0, offset: 0 };
   }
 
-  /**
-   * Find the nearest cell index
-   * Poor performance, but can be found in any case
-   */
   private findNearestCellIndexLinear(index: number, offset: number, itemType: ItemType) {
     const itemCount = itemType === ItemType.Column ? this.columnCount : this.rowCount;
     let interval = 1;
@@ -148,10 +144,6 @@ export class CoordinateManager {
     );
   }
 
-  /**
-   * Dichotomy to find the nearest cell index
-   * Better performance, but requires data to be loaded
-   */
   private findNearestCellIndexBinary(
     offset: number,
     low: number,

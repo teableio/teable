@@ -1,21 +1,21 @@
-import { isEqual } from 'lodash';
 import { useState, useRef, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { IMouseState, IRegionPosition, IScrollDirection, ISelectionState } from '../interface';
-import { SelectionRegionType } from '../interface';
+import type { IMouseState, IScrollDirection, ISelectionState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
 const threshold = 30;
 const maxPxPerMs = 2;
 const msToFullSpeed = 1200;
 
-export const useAutoScroll = (
-  coordInstance: CoordinateManager,
-  selectionState: ISelectionState,
-  setSelectionState: Dispatch<SetStateAction<ISelectionState>>,
-  getPosition: () => IRegionPosition | null,
-  scrollBy: (deltaX: number, deltaY: number) => void
-) => {
+interface IUseAutoScroll {
+  coordInstance: CoordinateManager;
+  selectionState: ISelectionState;
+  setSelectionState: Dispatch<SetStateAction<ISelectionState>>;
+  scrollBy: (deltaX: number, deltaY: number) => void;
+}
+
+export const useAutoScroll = (props: IUseAutoScroll) => {
+  const { coordInstance, selectionState, setSelectionState, scrollBy } = props;
   const speedScalar = useRef(0);
   const { isSelecting } = selectionState;
   const { containerWidth, containerHeight, freezeRegionWidth, rowInitSize } = coordInstance;
@@ -57,23 +57,26 @@ export const useAutoScroll = (
 
     let lastTime = 0;
 
-    const updateSelectionRanges = () => {
-      const pos = getPosition();
-      if (selectionType === SelectionRegionType.Cells && pos != null) {
-        const { columnIndex, rowIndex } = pos;
-        const newRange = [columnIndex, rowIndex];
-        if (!isEqual(selectionRanges[1], newRange)) {
-          setSelectionState((prev) => ({ ...prev, ranges: [selectionRanges[0], newRange] }));
-        }
-      }
-    };
+    // const updateSelectionRanges = () => {
+    //   const pos = getPosition();
+    //   if (selectionType === SelectionRegionType.Cells && pos != null) {
+    //     const { columnIndex, rowIndex } = pos;
+    //     const newRange = [columnIndex, rowIndex];
+    //     if (!isEqual(selectionRanges[1], newRange)) {
+    //       setSelectionState((prev) => ({
+    //         ...prev,
+    //         ranges: [selectionRanges[0], newRange] as IRange[],
+    //       }));
+    //     }
+    //   }
+    // };
     const processFrame = (curTime: number) => {
       if (lastTime !== 0) {
         const step = curTime - lastTime;
         speedScalar.current = Math.min(1, speedScalar.current + step / msToFullSpeed);
         const motion = Math.floor(speedScalar.current * step * maxPxPerMs);
         scrollBy(xDirection * motion, yDirection * motion);
-        updateSelectionRanges();
+        // updateSelectionRanges();
       }
       lastTime = curTime;
       requestFrameId = window.requestAnimationFrame(processFrame);
@@ -85,7 +88,6 @@ export const useAutoScroll = (
     setSelectionState,
     xDirection,
     yDirection,
-    getPosition,
     selectionType,
     selectionRanges,
     coordInstance,

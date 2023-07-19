@@ -124,6 +124,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   );
 
   function Editor() {
+    if (readonly) return;
     switch (cellType) {
       case CellType.Text:
       case CellType.Number:

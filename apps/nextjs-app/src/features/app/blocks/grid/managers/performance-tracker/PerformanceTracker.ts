@@ -20,7 +20,7 @@ class PerformanceTracker {
     delete this.startTimes[key];
   }
 
-  public getTotalDrawTime(key: string) {
+  public getTotalTime(key: string) {
     return this.totalTimes[key] || 0;
   }
 
