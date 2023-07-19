@@ -12,6 +12,7 @@ import {
   FilterDatePicker,
   FilterCheckbox,
   FilterLinkSelect,
+  FileTypeSelect,
 } from '../component';
 import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
 
@@ -75,6 +76,8 @@ function FieldValue(props: IFieldValue) {
             operator={filter.operator}
           />
         );
+      case FieldType.Attachment:
+        return <FileTypeSelect value={filter.value as string} onSelect={onSelect} />;
       default:
         return InputComponent;
     }
