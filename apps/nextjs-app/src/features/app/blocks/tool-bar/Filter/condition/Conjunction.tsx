@@ -5,8 +5,8 @@ import { ConjunctionSelect } from './ConjunctionSelect';
 interface IConjunctionProps {
   index: number;
   parent: IFilter;
-  filters: IFilter;
-  setFilter: (val: IFilter) => void;
+  filters: IFilter | null;
+  setFilter: (val: IFilter | null) => void;
 }
 
 enum ConjunctionPosition {

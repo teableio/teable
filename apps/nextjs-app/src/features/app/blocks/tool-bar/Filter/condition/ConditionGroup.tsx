@@ -13,9 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn/ui/tooltip';
+
 import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 import { cn } from '@/lib/utils';
+
 import { FilterContext } from '../context';
 import { isFilterMeta } from '../types';
 import type { IConditionGroupProps } from '../types';
@@ -26,15 +28,16 @@ function ConditionGroup(props: IConditionGroupProps) {
   const { index, filter, parent, level } = props;
 
   const context = useContext(FilterContext);
-  if (!context) {
-    return null;
-  }
   const { setFilters, filters, addCondition, addConditionGroup } = context;
 
-  const deleteItem = () => {
+  const deleteCurrentItem = () => {
     parent.filterSet.splice(index, 1);
     const newFilters = cloneDeep(filters);
-    setFilters(newFilters);
+    if (level === 0 && !parent.filterSet.length) {
+      setFilters(null);
+    } else {
+      setFilters(newFilters);
+    }
   };
 
   return (
@@ -87,7 +90,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteItem}>
+              <Button variant="ghost" onClick={deleteCurrentItem}>
                 <AshBin className="h-4 w-4"></AshBin>
               </Button>
             </div>
@@ -96,7 +99,13 @@ function ConditionGroup(props: IConditionGroupProps) {
           <div>
             {filter?.filterSet?.map((item, index) =>
               isFilterMeta(item) ? (
-                <Condition key={index} index={index} filter={item} parent={filter} />
+                <Condition
+                  key={index}
+                  index={index}
+                  filter={item}
+                  parent={filter}
+                  level={level + 1}
+                />
               ) : (
                 <ConditionGroup
                   key={index}

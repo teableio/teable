@@ -1,4 +1,5 @@
 import type { IFilter } from '@teable-group/core';
+
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,
@@ -7,6 +8,7 @@ import {
   CommandItem,
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+
 import { Check, ChevronsUpDown } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';

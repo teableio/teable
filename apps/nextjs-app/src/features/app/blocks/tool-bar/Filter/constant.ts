@@ -1,8 +1,4 @@
-const EMPTYOPERATORS = ['IS NULL', 'IS NOT NULL'];
+const EMPTYOPERATORS = ['isEmpty', 'isNotEmpty'];
+const MULPTIPLEOPERATORS = ['isAnyOf', 'isNoneOf'];
 
-const defaultFilter = {
-  conjunction: 'and',
-  filterSet: [],
-};
-
-export { EMPTYOPERATORS, defaultFilter };
+export { EMPTYOPERATORS, MULPTIPLEOPERATORS };

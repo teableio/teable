@@ -1,14 +1,19 @@
 import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
+import { getValidFilterOperators } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
-
 import { useFields } from '@teable-group/sdk';
+
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
+
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
-import { cloneDeep } from 'lodash';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { cloneDeep, isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { cn } from '@/lib/utils';
+
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
@@ -17,36 +22,73 @@ import { isFilterMeta } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
+const defaultFilter: IFilter = {
+  conjunction: 'and',
+  filterSet: [],
+};
+const defaultGroupFilter: IFilter = {
+  ...defaultFilter,
+  conjunction: 'or',
+};
 
 function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter } = props;
-  const [filters, setFilters] = useState(initFilter || {});
+  const [filters, setFilters] = useState<IFilter | null>(initFilter);
   const fields = useFields({ widthHidden: true });
 
   useEffect(() => {
-    setFilters(initFilter);
+    const newFilter = cloneDeep(initFilter);
+    setFilters(newFilter);
   }, [initFilter]);
 
-  const defaultFieldId = useMemo(() => {
-    return fields.find((field) => field.isPrimary)?.id;
+  useDebounce(
+    () => {
+      if (!isEqual(filters, initFilter)) {
+        onChange?.(filters);
+      }
+    },
+    500,
+    [filters]
+  );
+
+  // use the primary to be default metadata
+  const defaultIFilterMeta = useMemo<IFilterMeta>(() => {
+    const defaultField = fields.find((field) => field.isPrimary);
+    const defaultOpertor = getValidFilterOperators(defaultField!);
+    return {
+      operator: defaultOpertor?.[0],
+      value: null,
+      fieldId: defaultField?.id,
+    } as IFilterMeta;
   }, [fields]);
 
-  const preOrder = useCallback((filter: IFilter['filterSet']): Set<string> => {
-    const filterIds = new Set<string>();
+  const isCheckBox = useCallback(
+    (fieldId: string) => {
+      return fields.find((field) => field.id === fieldId)?.type === 'checkbox';
+    },
+    [fields]
+  );
 
-    filter.forEach((item) => {
-      if (isFilterMeta(item)) {
-        if (item.value || EMPTYOPERATORS.includes(item.operator)) {
-          filterIds.add(item.fieldId);
+  const preOrder = useCallback(
+    (filter: IFilter['filterSet']): Set<string> => {
+      const filterIds = new Set<string>();
+
+      filter.forEach((item) => {
+        if (isFilterMeta(item)) {
+          // checkbox's default value is null, but it does work
+          if (item.value || EMPTYOPERATORS.includes(item.operator) || isCheckBox(item.fieldId)) {
+            filterIds.add(item.fieldId);
+          }
+        } else {
+          const childFilterIds = preOrder(item.filterSet);
+          childFilterIds.forEach((id) => filterIds.add(id));
         }
-      } else {
-        const childFilterIds = preOrder(item.filterSet);
-        childFilterIds.forEach((id) => filterIds.add(id));
-      }
-    });
+      });
 
-    return filterIds;
-  }, []);
+      return filterIds;
+    },
+    [isCheckBox]
+  );
 
   const generateFilterButtonText = (filterIds: Set<string>, fields: IFieldInstance[]): string => {
     let text = filterIds.size ? 'Filtered by ' : '';
@@ -69,43 +111,41 @@ function Filter(props: IFilterProps) {
   };
 
   const filterButtonText = useMemo(() => {
-    const filteredIds = preOrder(filters.filterSet);
+    let filteredIds = new Set<string>();
+    if (filters) {
+      filteredIds = preOrder(filters?.filterSet);
+    }
     return generateFilterButtonText(filteredIds, fields);
-  }, [fields, filters.filterSet, preOrder]);
-
-  const updateFilter = useCallback(
-    (val: IFilterProps['filters']) => {
-      setFilters(val);
-      onChange?.(filters);
-    },
-    [filters, onChange]
-  );
+  }, [fields, filters, preOrder]);
 
   const addCondition = useCallback(
-    (curFilter: IFilterSet) => {
-      const defaultIFilterMeta: IFilterMeta = {
-        operator: 'is',
-        value: null,
-        fieldId: defaultFieldId as string,
-      };
-      const filterItem: IFilterMeta = defaultIFilterMeta;
-      curFilter.filterSet.push(filterItem);
-      const newFilters = cloneDeep(filters);
-      updateFilter(newFilters);
+    (curFilter: IFilterSet | null) => {
+      let newFilters = null;
+      if (!curFilter) {
+        newFilters = cloneDeep(defaultFilter);
+        newFilters.filterSet.push(defaultIFilterMeta);
+      } else {
+        curFilter.filterSet.push(defaultIFilterMeta);
+        newFilters = cloneDeep(filters);
+      }
+      setFilters(newFilters);
     },
-    [defaultFieldId, filters, updateFilter]
+    [defaultIFilterMeta, filters]
   );
   const addConditionGroup = useCallback(
-    (curFilter: IFilterSet) => {
-      const defaultIFilteSet: IFilterSet = {
-        filterSet: [],
-        conjunction: 'and',
-      };
-      curFilter.filterSet.push(defaultIFilteSet);
-      const newFilters = cloneDeep(filters);
-      updateFilter(newFilters);
+    (curFilter: IFilterSet | null) => {
+      let newFilters = null;
+      if (!curFilter) {
+        newFilters = cloneDeep(defaultGroupFilter);
+        newFilters.filterSet.push(defaultGroupFilter);
+        setFilters(newFilters);
+      } else {
+        curFilter.filterSet.push(defaultGroupFilter);
+        newFilters = cloneDeep(filters);
+        setFilters(newFilters);
+      }
     },
-    [filters, updateFilter]
+    [filters, setFilters]
   );
 
   const conditionCreator = () => {
@@ -118,7 +158,13 @@ function Filter(props: IFilterProps) {
       <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterMeta(filterItem) ? (
-            <Condition key={index} filter={filterItem} index={index} parent={filters} />
+            <Condition
+              key={index}
+              filter={filterItem}
+              index={index}
+              parent={filters}
+              level={initLevel}
+            />
           ) : (
             <ConditionGroup
               key={index}
@@ -137,7 +183,7 @@ function Filter(props: IFilterProps) {
     <FilterContext.Provider
       value={{
         filters: filters,
-        setFilters: updateFilter,
+        setFilters: setFilters,
         onChange: onChange,
         addCondition: addCondition,
         addConditionGroup: addConditionGroup,

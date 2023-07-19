@@ -1,8 +1,10 @@
 import { FieldType } from '@teable-group/core';
-import type { IFilterMeta } from '@teable-group/core';
+import type { IFilterMeta, IFilterMetaValueByDate } from '@teable-group/core';
 import { useField } from '@teable-group/sdk';
+
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useMemo } from 'react';
+
 import {
   SingleSelect,
   MultipleSelect,
@@ -10,8 +12,9 @@ import {
   FilterDatePicker,
   FilterCheckbox,
   FilterLinkSelect,
+  FileTypeSelect,
 } from '../component';
-import { EMPTYOPERATORS } from '../constant';
+import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
 
 interface IFieldValue {
   filter: IFilterMeta;
@@ -38,19 +41,32 @@ function FieldValue(props: IFieldValue) {
       case FieldType.Number:
         return InputComponent;
       case FieldType.SingleSelect:
-        return <SingleSelect field={field} value={filter.value as string} onSelect={onSelect} />;
+        return MULPTIPLEOPERATORS.includes(filter.operator) ? (
+          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
+        ) : (
+          <SingleSelect
+            field={field}
+            value={filter.value as string}
+            onSelect={onSelect}
+            operator={filter.operator}
+          />
+        );
       case FieldType.MultipleSelect:
         return (
           <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
         );
       case FieldType.Date:
         return (
-          <FilterDatePicker value={filter.value} onSelect={onSelect} operator={filter.operator} />
+          <FilterDatePicker
+            value={filter.value as IFilterMetaValueByDate}
+            onSelect={onSelect}
+            operator={filter.operator}
+          />
         );
       case FieldType.SingleLineText:
         return InputComponent;
       case FieldType.Checkbox:
-        return <FilterCheckbox value={filter.value} onChange={onSelect} />;
+        return <FilterCheckbox value={filter.value as boolean} onChange={onSelect} />;
       case FieldType.Link:
         return (
           <FilterLinkSelect
@@ -60,6 +76,8 @@ function FieldValue(props: IFieldValue) {
             operator={filter.operator}
           />
         );
+      case FieldType.Attachment:
+        return <FileTypeSelect value={filter.value as string} onSelect={onSelect} />;
       default:
         return InputComponent;
     }
