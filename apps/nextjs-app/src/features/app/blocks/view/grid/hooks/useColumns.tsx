@@ -21,84 +21,21 @@ const generateColumns = (
     return isLookup ? `${type}_lookup` : type;
   };
 
-  return fields.map((field) => {
-    const columnMeta = field.columnMeta[viewId];
-    const width = columnMeta?.width || 150;
-    const { id, type, name, isLookup } = field;
-    switch (type) {
-      case FieldType.SingleLineText:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.SingleLineText, isLookup),
-          hasMenu: true,
-        };
-      case FieldType.SingleSelect:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.SingleSelect, isLookup),
-          hasMenu: true,
-        };
-      case FieldType.Number:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.Number, isLookup),
-          hasMenu: true,
-        };
-      case FieldType.MultipleSelect:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.MultipleSelect, isLookup),
-          hasMenu: true,
-        };
-      case FieldType.Link:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.Link, isLookup),
-          hasMenu: true,
-        };
-      case FieldType.Formula:
-        return {
-          id,
-          name,
-          width,
-          icon: iconString(FieldType.Formula, isLookup),
-        };
-      case FieldType.Attachment:
-        return {
-          id,
-          name,
-          icon: iconString(FieldType.Attachment, isLookup),
-          hasMenu: true,
-          width,
-        };
-      case FieldType.Date:
-        return {
-          id,
-          name,
-          icon: iconString(FieldType.Date, isLookup),
-          hasMenu: true,
-          width,
-        };
-      case FieldType.Checkbox:
-        return {
-          id,
-          name,
-          icon: iconString(FieldType.Checkbox, isLookup),
-          hasMenu: true,
-          width,
-        };
-    }
-  });
+  return fields
+    .map((field) => {
+      if (!field) return undefined;
+      const columnMeta = field.columnMeta[viewId];
+      const width = columnMeta?.width || 150;
+      const { id, type, name, isLookup } = field;
+      return {
+        id,
+        name,
+        width,
+        hasMenu: true,
+        icon: iconString(type, isLookup),
+      };
+    })
+    .filter(Boolean) as (IColumn & { id: string })[];
 };
 
 const createCellValue2GridDisplay =
@@ -106,7 +43,7 @@ const createCellValue2GridDisplay =
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {
     const field = fields[col];
-    const { id, type, isComputed, isMultipleCellValue } = field;
+    const { id, type, isComputed, isMultipleCellValue: isMultiple } = field;
     const cellValue = record.getCellValue(id);
 
     switch (type) {
@@ -147,7 +84,7 @@ const createCellValue2GridDisplay =
           data,
           choices,
           readonly: isComputed,
-          isMultiple: isMultipleCellValue,
+          isMultiple,
           editorPosition: EditorPosition.Below,
         };
       }
@@ -160,7 +97,7 @@ const createCellValue2GridDisplay =
           data,
           choices,
           readonly: false,
-          isMultiple: isMultipleCellValue,
+          isMultiple,
           editorPosition: EditorPosition.Below,
           customEditor: (props, ref) => (
             <LinkEditor editorRef={ref} field={field} record={record} {...props} />
@@ -184,6 +121,7 @@ const createCellValue2GridDisplay =
           type: CellType.Boolean,
           data: (cellValue as boolean) || false,
           readonly: isComputed,
+          isMultiple,
         };
       }
       default: {
