@@ -1,6 +1,7 @@
 import type { IFilterMeta } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useEffect } from 'react';
+
 interface InputProps {
   value: IFilterMeta['value'];
   onChange: (value: string | null) => void;

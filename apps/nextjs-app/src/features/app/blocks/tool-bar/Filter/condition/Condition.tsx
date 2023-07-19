@@ -1,8 +1,11 @@
 import type { IFilterMeta, ISymbol } from '@teable-group/core';
+
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+
 import { cloneDeep, isEqual } from 'lodash';
 import { useCallback, useContext } from 'react';
+
 import { FilterContext } from '../context';
 import type { IConditionProps } from '../types';
 import { Conjunction } from './Conjunction';

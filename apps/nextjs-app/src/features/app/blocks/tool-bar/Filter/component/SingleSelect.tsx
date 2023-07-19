@@ -1,5 +1,6 @@
 import { ColorUtils } from '@teable-group/core';
 import type { SingleSelectField } from '@teable-group/sdk';
+
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
   Command,

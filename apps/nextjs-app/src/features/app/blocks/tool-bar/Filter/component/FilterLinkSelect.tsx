@@ -1,9 +1,9 @@
 import { useRecords, AnchorProvider } from '@teable-group/sdk';
 import type { LinkField } from '@teable-group/sdk';
+
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import { Popover, PopoverTrigger, PopoverContent } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-
 import {
   Command,
   CommandEmpty,
@@ -12,9 +12,11 @@ import {
   CommandItem,
   CommandList,
 } from '@teable-group/ui-lib/shadcn/ui/command';
+
 import classNames from 'classnames';
 import { ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
+
 import { FilterInput } from './FilterInput';
 
 interface IFilterLinkProps {

@@ -1,6 +1,7 @@
 import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import type { MultipleSelectField, SingleSelectField } from '@teable-group/sdk';
+
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {

@@ -1,8 +1,10 @@
 import type { IFilterMetaOperator } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 import { useField, operatorLabelMapping } from '@teable-group/sdk';
+
 import { useMemo } from 'react';
-import { BaseSingleSelect } from '../component/BaseSingleSelect';
+import { BaseSingleSelect } from '../component';
+
 interface IOperatorOptions {
   value: IFilterMetaOperator;
   label: string;

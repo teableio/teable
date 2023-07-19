@@ -13,9 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn/ui/tooltip';
+
 import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 import { cn } from '@/lib/utils';
+
 import { FilterContext } from '../context';
 import { isFilterMeta } from '../types';
 import type { IConditionGroupProps } from '../types';
