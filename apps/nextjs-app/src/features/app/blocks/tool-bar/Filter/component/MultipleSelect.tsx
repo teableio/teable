@@ -14,12 +14,12 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
-import { ChevronsUpDown } from 'lucide-react';
 
-import { useMemo, useState } from 'react';
+import { ChevronsUpDown } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
 
 interface IMutipleSelect {
-  onSelect?: (names: string[]) => void;
+  onSelect?: (names: string[] | null) => void;
   value: string[] | null;
   // SingleSelectField used in MultipleSelect in filter scenario
   field: MultipleSelectField | SingleSelectField;
@@ -27,16 +27,27 @@ interface IMutipleSelect {
 
 const MultipleSelect = (props: IMutipleSelect) => {
   const { field, value, onSelect } = props;
+  const [open, setOpen] = useState(false);
   const values = useMemo(() => {
     if (Array.isArray(value) && value.length) {
       return value;
     }
     return [];
   }, [value]);
-  const [open, setOpen] = useState(false);
-  const choices = useMemo(() => {
+  const options = useMemo(() => {
     return field?.options?.choices;
   }, [field]);
+  useEffect(() => {
+    // other type value comes, adapter or reset
+    const isNull = value === null;
+    const isArray = Array.isArray(value);
+    const isContainOption = !isArray
+      ? false
+      : values.every((value) => options.map((option) => option?.name).includes(value));
+    if ((!isNull && !isArray) || !isContainOption) {
+      onSelect?.(null);
+    }
+  }, [onSelect, options, value, values]);
 
   const selectHandler = (name: string) => {
     let newCellValue = null;
@@ -52,9 +63,9 @@ const MultipleSelect = (props: IMutipleSelect) => {
 
   const getColorByName = (name: string) => {
     const defaultColor = 'blueBright' as Colors;
-    const index = choices.findIndex((choice) => choice.name === name);
+    const index = options.findIndex((choice) => choice.name === name);
     if (index > -1) {
-      return choices[index].color;
+      return options[index].color;
     }
     return defaultColor;
   };
@@ -95,8 +106,8 @@ const MultipleSelect = (props: IMutipleSelect) => {
             <CommandInput placeholder="Search option" />
             <CommandEmpty>No found.</CommandEmpty>
             <CommandGroup aria-valuetext="name">
-              {choices.length ? (
-                choices.map(({ color, name }) => (
+              {options.length ? (
+                options.map(({ color, name }) => (
                   <CommandItem key={name} value={name} onSelect={() => selectHandler(name)}>
                     <SelectIcon
                       className={classNames(

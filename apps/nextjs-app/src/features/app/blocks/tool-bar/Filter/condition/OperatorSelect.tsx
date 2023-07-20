@@ -37,7 +37,7 @@ function OperatorSelect(props: IOperatorSelectProps) {
       return props.value;
     } else {
       onSelect(operatorOption[0]?.value);
-      return operatorOption[0].value;
+      return operatorOption[0]?.value;
     }
   }, [onSelect, operatorOption, props.value]);
 

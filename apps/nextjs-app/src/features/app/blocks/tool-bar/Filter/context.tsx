@@ -1,6 +1,6 @@
 import type { IFilter } from '@teable-group/core';
 import React from 'react';
-import type { IFilterProps } from './types/types';
+import type { IFilterProps } from './types';
 
 export interface IFilterContext {
   filters: IFilter | null;

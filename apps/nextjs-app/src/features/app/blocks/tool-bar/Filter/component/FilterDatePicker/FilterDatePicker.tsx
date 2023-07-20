@@ -12,6 +12,11 @@ interface IFilerDatePickerProps {
   onSelect: (value: IFilterMetaValueByDate | null) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isDateMetaValue = (value: any) => {
+  return !!(value?.mode && value?.timeZone);
+};
+
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect } = props;
   const [innerValue, setInnerValue] = useState<IFilterMetaValueByDate | null>(initValue);
@@ -29,7 +34,11 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     } else {
       setInnerValue(initValue);
     }
-  }, [defaultConfig, initValue]);
+
+    if (!isDateMetaValue(initValue)) {
+      onSelect(null);
+    }
+  }, [defaultConfig, initValue, onSelect]);
 
   const mergedOnSelect = useCallback(
     (val: string) => {

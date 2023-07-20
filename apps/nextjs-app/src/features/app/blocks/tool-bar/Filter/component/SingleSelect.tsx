@@ -25,16 +25,19 @@ function SingleSelect(props: ISingleSelect) {
   const { onSelect, field, value, operator } = props;
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    // other type value comes, adapter or reset
-    if (typeof value !== 'string' && value !== null) {
-      onSelect?.(null);
-    }
-  }, [onSelect, value, operator]);
-
   const options = useMemo(() => {
     return field?.options?.choices;
   }, [field]);
+
+  useEffect(() => {
+    // other type value comes, adapter or reset
+    const isNull = value === null;
+    const isSameType = typeof value === 'string';
+    const isInOption = options.findIndex((option) => option.name === value) > -1;
+    if ((!isNull && !isSameType) || !isInOption) {
+      onSelect?.(null);
+    }
+  }, [onSelect, value, operator, options]);
 
   const label = useMemo(() => {
     return options.find((option) => option.name === value)?.name;

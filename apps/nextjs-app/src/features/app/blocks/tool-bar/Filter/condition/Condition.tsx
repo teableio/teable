@@ -1,4 +1,4 @@
-import type { IFilterMeta, ISymbol } from '@teable-group/core';
+import type { IFilterMeta } from '@teable-group/core';
 
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -32,7 +32,7 @@ function Condition(props: IConditionProps) {
     (fieldId: string) => {
       filter.fieldId = fieldId;
       // TODO: allow the same type field to remain the value
-      filter.value = null;
+      // filter.value = null;
       const newFilters = cloneDeep(filters);
       setFilters(newFilters);
     },
@@ -40,9 +40,11 @@ function Condition(props: IConditionProps) {
   );
   const operatorHandler = useCallback(
     (value: string) => {
-      filter.operator = value as ISymbol;
-      const newFilters = cloneDeep(filters);
-      setFilters(newFilters);
+      if (filter.operator !== value) {
+        filter.operator = value as IFilterMeta['operator'];
+        const newFilters = cloneDeep(filters);
+        setFilters(newFilters);
+      }
     },
     [filter, filters, setFilters]
   );

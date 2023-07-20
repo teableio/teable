@@ -5,18 +5,18 @@ interface IFilterProps {
   onChange?: (filters: IFilter | null) => void;
 }
 
-interface IConditionProps {
+interface IConditionCommon {
   index: number;
-  filter: IFilterMeta;
   parent: IFilter;
   level: number;
 }
 
-interface IConditionGroupProps {
-  index: number;
+interface IConditionProps extends IConditionCommon {
+  filter: IFilterMeta;
+}
+
+interface IConditionGroupProps extends IConditionCommon {
   filter: IFilterSet;
-  parent: IFilter;
-  level: number;
 }
 
 export type { IFilterProps, IConditionProps, IConditionGroupProps, IFilter };
