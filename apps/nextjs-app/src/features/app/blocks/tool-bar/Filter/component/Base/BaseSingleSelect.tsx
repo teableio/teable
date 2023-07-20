@@ -16,17 +16,28 @@ interface IOption {
   value: string;
 }
 
-interface IBaseSelect {
-  options: IOption[];
+export interface IBaseSelect<T = IOption> {
+  options: T[];
   value: string | null;
-  classNames?: string;
-  popoverClassNames?: string;
+  className?: string;
+  popoverClassName?: string;
   disabled?: boolean;
+  notFoundText?: string;
+  optionRender?: (option: T) => React.ReactElement;
   onSelect: (value: string) => void;
 }
 
-function BaseSingleSelect(props: IBaseSelect) {
-  const { onSelect, value, options, classNames, popoverClassNames, disabled = false } = props;
+function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
+  const {
+    onSelect,
+    value,
+    options,
+    className,
+    popoverClassName,
+    disabled = false,
+    optionRender,
+    notFoundText = 'No field found.',
+  } = props;
   const [open, setOpen] = useState(false);
 
   const label = useMemo(() => {
@@ -41,16 +52,16 @@ function BaseSingleSelect(props: IBaseSelect) {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('justify-between m-1', classNames)}
+          className={cn('justify-between m-1', className)}
         >
           {value ? <span className="truncate">{label}</span> : 'Select'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('w-52', popoverClassNames)}>
+      <PopoverContent className={cn('w-52', popoverClassName)}>
         <Command>
           <CommandInput placeholder="Search field..." />
-          <CommandEmpty>No field found.</CommandEmpty>
+          <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandGroup>
             {options?.map((option) => (
               <CommandItem
@@ -66,7 +77,7 @@ function BaseSingleSelect(props: IBaseSelect) {
                     value === option.value ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {option.label}
+                {optionRender?.(option) ?? option.label}
               </CommandItem>
             ))}
           </CommandGroup>

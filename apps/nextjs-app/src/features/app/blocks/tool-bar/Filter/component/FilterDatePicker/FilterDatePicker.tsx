@@ -2,7 +2,7 @@ import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-gro
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BaseSingleSelect } from '../BaseSingleSelect';
+import { BaseSingleSelect } from '../Base/BaseSingleSelect';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 
@@ -120,8 +120,8 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
-        classNames="w-52 w-m-52"
-        popoverClassNames="w-max"
+        className="w-m-52 w-52"
+        popoverClassName="w-max"
       />
       {inputCreator}
     </>

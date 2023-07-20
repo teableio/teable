@@ -45,8 +45,8 @@ function OperatorSelect(props: IOperatorSelectProps) {
     <BaseSingleSelect
       value={value || null}
       options={operatorOption}
-      popoverClassNames="w-[200px]"
-      classNames="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
+      popoverClassName="w-[200px]"
+      className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
       onSelect={onSelect}
       disabled={shouldDisabled}
     />
