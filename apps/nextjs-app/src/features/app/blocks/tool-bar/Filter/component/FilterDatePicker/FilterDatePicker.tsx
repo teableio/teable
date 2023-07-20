@@ -85,13 +85,17 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         return (
           <Input
             placeholder="Enter days"
+            defaultValue={innerValue?.numberOfDays ?? ''}
             className="w-24 m-1"
-            type="number"
-            value={innerValue?.numberOfDays || ''}
+            onInput={(e) => {
+              // limit the number positive
+              e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
+            }}
             onChange={(e) => {
-              if (innerValue) {
+              const value = e.target.value;
+              if (innerValue && value !== '') {
                 const newValue: IFilterMetaValueByDate = { ...innerValue };
-                newValue.numberOfDays = Number(e.target.value);
+                newValue.numberOfDays = Number(value);
                 onSelect?.(newValue);
               }
             }}
