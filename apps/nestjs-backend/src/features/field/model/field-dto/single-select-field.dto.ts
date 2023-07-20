@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
+import type {
+  IFieldRo,
+  ILookupOptionsVo,
+  ISelectFieldChoice,
+  ISelectFieldOptions,
+} from '@teable-group/core';
 import {
   CellValueType,
   DbFieldType,
@@ -8,7 +13,6 @@ import {
   Colors,
 } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 class SingleSelectOption implements ISelectFieldChoice {
@@ -37,10 +41,11 @@ export class SingleSelectOptionsDto implements ISelectFieldOptions {
 }
 
 export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions &&
+      (fieldRo.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne;
 
     return plainToInstance(SingleSelectFieldDto, {
       ...fieldRo,

@@ -9,16 +9,23 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { IRecordVo } from '@teable-group/core';
-import { recordsRoSchema, type IRecordsVo, IRecordsRo, IRecordRo } from '@teable-group/core';
+import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
+import {
+  createRecordsRoSchema,
+  getRecordQuerySchema,
+  updateRecordByIndexRoSchema,
+  updateRecordRoSchema,
+  getRecordsQuerySchema,
+  IGetRecordsQuery,
+  IGetRecordQuery,
+  ICreateRecordsRo,
+  IUpdateRecordByIndexRo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
-import { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
-import { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
-import { UpdateRecordRo } from '../update-record.ro';
 import { RecordOpenApiService } from './record-open-api.service';
-import type { CreateRecordsVo } from './record.vo';
 
 @ApiBearerAuth()
 @ApiTags('record')
@@ -36,7 +43,7 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(recordsRoSchema)) query: IRecordsRo
+    @Query(new ZodValidationPipe(getRecordsQuerySchema)) query: IGetRecordsQuery
   ): Promise<ApiResponse<IRecordsVo>> {
     const records = await this.recordService.getRecords(tableId, query);
     return responseWrap(records);
@@ -50,8 +57,8 @@ export class RecordOpenApiController {
   async getRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Query() query: IRecordRo
-  ): Promise<ApiResponse<IRecordVo>> {
+    @Query(new ZodValidationPipe(getRecordQuerySchema)) query: IGetRecordQuery
+  ): Promise<ApiResponse<IRecord>> {
     const record = await this.recordService.getRecord(
       tableId,
       recordId,
@@ -64,7 +71,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Update records by id.' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: ApiResponse<IRecordVo>,
+    type: ApiResponse<IRecord>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -76,8 +83,8 @@ export class RecordOpenApiController {
   async updateRecordById(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Body() updateRecordRo: UpdateRecordRo
-  ): Promise<ApiResponse<IRecordVo>> {
+    @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
+  ): Promise<ApiResponse<IRecord>> {
     const record = await this.recordOpenApiService.updateRecordById(
       tableId,
       recordId,
@@ -89,7 +96,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Update records by row index' })
   @ApiOkResponse({
     description: 'The record has been successfully updated.',
-    type: ApiResponse<IRecordVo>,
+    type: ApiResponse<IRecord>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -100,8 +107,9 @@ export class RecordOpenApiController {
   @Put()
   async updateRecordByIndex(
     @Param('tableId') tableId: string,
-    @Body() updateRecordRoByIndexRo: UpdateRecordRoByIndexRo
-  ): Promise<ApiResponse<IRecordVo>> {
+    @Body(new ZodValidationPipe(updateRecordByIndexRoSchema))
+    updateRecordRoByIndexRo: IUpdateRecordByIndexRo
+  ): Promise<ApiResponse<IRecord>> {
     const record = await this.recordOpenApiService.updateRecordByIndex(
       tableId,
       updateRecordRoByIndexRo
@@ -112,7 +120,7 @@ export class RecordOpenApiController {
   @ApiOperation({ summary: 'Create records' })
   @ApiCreatedResponse({
     description: 'The record has been successfully created.',
-    type: ApiResponse<CreateRecordsVo>,
+    type: ApiResponse<IRecordsVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiParam({
@@ -123,12 +131,9 @@ export class RecordOpenApiController {
   @Post()
   async createRecords(
     @Param('tableId') tableId: string,
-    @Body() createRecordsDto: CreateRecordsRo
-  ): Promise<ApiResponse<CreateRecordsVo>> {
-    const records = await this.recordOpenApiService.multipleCreateRecords(
-      tableId,
-      createRecordsDto
-    );
+    @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo
+  ): Promise<ApiResponse<ICreateRecordsVo>> {
+    const records = await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsRo);
     return responseWrap(records);
   }
 }

@@ -3,8 +3,7 @@ import type {
   IFieldRo,
   IFieldVo,
   IJsonApiSuccessResponse,
-  IRecordFields,
-  ITableSnapshot,
+  IRecord,
   ITableVo,
   IViewRo,
 } from '@teable-group/core';
@@ -25,7 +24,7 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  protected doc!: Doc<ITableSnapshot>;
+  protected doc!: Doc<ITableVo>;
 
   async updateName(name: string) {
     const fieldOperation = OpBuilder.editor.setTableName.build({
@@ -59,7 +58,7 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  async createRecord(recordFields: IRecordFields) {
+  async createRecord(recordFields: IRecord['fields']) {
     return await Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [

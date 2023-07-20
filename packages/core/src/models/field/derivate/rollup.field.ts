@@ -2,7 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { z } from 'zod';
 import { EvalVisitor } from '../../../formula/visitor';
 import { FieldType, CellValueType } from '../constant';
-import type { ILookupOptionsVo } from '../field';
+import type { ILookupOptionsVo } from '../field.schema';
 import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 import { SingleLineTextFieldCore } from './single-line-text.field';
@@ -14,10 +14,12 @@ export const ROLLUP_FUNCTIONS = [
   'and({values})',
 ] as const;
 
-export const rollupFieldOptionsSchema = z.object({
-  expression: z.enum(ROLLUP_FUNCTIONS),
-  formatting: unionFormattingSchema.optional(),
-});
+export const rollupFieldOptionsSchema = z
+  .object({
+    expression: z.enum(ROLLUP_FUNCTIONS),
+    formatting: unionFormattingSchema.optional(),
+  })
+  .strict();
 
 export type IRollupFieldOptions = z.infer<typeof rollupFieldOptionsSchema>;
 

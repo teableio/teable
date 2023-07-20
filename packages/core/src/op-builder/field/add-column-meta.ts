@@ -1,8 +1,8 @@
-import type { Column, IOtOperation } from '../../models';
+import type { IColumn, IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
-type IMetaKey = keyof Column;
+type IMetaKey = keyof IColumn;
 
 export interface IAddColumnMetaOpContext {
   name: OpName.AddColumnMeta;
@@ -22,7 +22,7 @@ export class AddColumnMetaBuilder implements IOpBuilder {
     const { viewId, newMetaValue, oldMetaValue } = params;
 
     return {
-      p: ['field', 'columnMeta', viewId],
+      p: ['columnMeta', viewId],
       oi: newMetaValue,
       ...(oldMetaValue ? { od: oldMetaValue } : {}),
     };
@@ -35,11 +35,7 @@ export class AddColumnMetaBuilder implements IOpBuilder {
       return null;
     }
 
-    const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, [
-      'field',
-      'columnMeta',
-      ':viewId',
-    ]);
+    const result = pathMatcher<{ viewId: string; metaKey: IMetaKey }>(p, ['columnMeta', ':viewId']);
 
     if (!result) {
       return null;

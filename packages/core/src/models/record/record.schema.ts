@@ -1,3 +1,5 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable @typescript-eslint/naming-convention */
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
 import { CellFormat, FieldKeyType } from './record';
@@ -6,12 +8,9 @@ export const recordSchema = z.object({
   id: z.string().startsWith(IdPrefix.Record).openapi({
     description: 'The record id.',
   }),
-  fields: z.record(
-    z.unknown().openapi({
-      description:
-        'Objects with a fields key mapping fieldId or field name to value for that field.',
-    })
-  ),
+  fields: z.record(z.unknown()).openapi({
+    description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
+  }),
   createdTime: z.string().optional().openapi({
     description: 'Created time, date ISO string (new Date().toISOString).',
   }),
@@ -24,14 +23,27 @@ export const recordSchema = z.object({
   lastModifiedBy: z.string().optional().openapi({
     description: 'Last modified by, user name',
   }),
-  recordOrder: z.record(z.number()),
+  recordOrder: z.record(z.number()).openapi({
+    description:
+      'The object key is view id, and record is sorted by this order in each view by default',
+  }),
 });
 
 export type IRecord = z.infer<typeof recordSchema>;
 
-export const recordRoSchema = z.object({
+export const fieldKeyTypeRoSchema = z
+  .nativeEnum(FieldKeyType, {
+    errorMap: () => ({ message: 'Error fieldKeyType, You should set it to "name" or "id"' }),
+  })
+  .default(FieldKeyType.Name) // is not work with optional()...
+  .transform((v) => v ?? FieldKeyType.Name)
+  .optional()
+  .openapi({ description: 'Define the key type of record.fields[key], default is "name"' });
+
+export const getRecordQuerySchema = z.object({
   projection: z.record(z.boolean()).optional().openapi({
-    description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
+    description:
+      'Objects with a fields key mapping field id or field name to value for that field.',
   }),
   cellFormat: z
     .nativeEnum(CellFormat, {
@@ -42,21 +54,15 @@ export const recordRoSchema = z.object({
     .openapi({
       description: 'value formate, you can set it to text if you only need simple string value',
     }),
-  fieldKeyType: z
-    .nativeEnum(FieldKeyType, {
-      errorMap: () => ({ message: 'Error fieldKeyType, You should set it to "name" or "id"' }),
-    })
-    .default(FieldKeyType.Name)
-    .optional()
-    .openapi({ description: 'Set the key of record.fields[key], default is "name"' }),
+  fieldKeyType: fieldKeyTypeRoSchema,
 });
 
-export type IRecordRo = z.infer<typeof recordRoSchema>;
+export type IGetRecordQuery = z.infer<typeof getRecordQuerySchema>;
 
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
-export const recordsRoSchema = recordRoSchema.extend({
+export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   take: z
     .string()
     .or(z.number())
@@ -94,25 +100,37 @@ export const recordsRoSchema = recordRoSchema.extend({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     example: 'viwXXXXXXX',
     description:
-      'Set the view you want to fetch, default is first view. result will influent by view options.',
+      'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
   }),
 });
 
-export type IRecordsRo = z.infer<typeof recordsRoSchema>;
+export type IGetRecordsQuery = z.infer<typeof getRecordsQuerySchema>;
+
+export const recordsSchema = recordSchema.array().openapi({
+  example: [
+    {
+      id: 'recXXXXXXX',
+      fields: {
+        'single line text': 'text value',
+      },
+      recordOrder: {},
+    },
+  ],
+  description: 'Array of record objects ',
+});
 
 export const recordsVoSchema = z.object({
-  records: z.array(recordSchema).openapi({
+  records: recordSchema.array().openapi({
     example: [
       {
         id: 'recXXXXXXX',
         fields: {
-          fldXXXXXXXXXXXXXXX: 'text value',
+          'single line text': 'text value',
         },
         recordOrder: {},
       },
     ],
-    description:
-      'Array of objects with a fields key mapping fieldId or field name to value for that field.',
+    description: 'Array of record objects ',
   }),
   total: z.number().openapi({
     description: 'Total number of records in this query.',
@@ -121,8 +139,63 @@ export const recordsVoSchema = z.object({
 
 export type IRecordsVo = z.infer<typeof recordsVoSchema>;
 
-export const recordVoSchema = z.object({
-  record: recordSchema,
+export const createRecordsRoSchema = z
+  .object({
+    fieldKeyType: fieldKeyTypeRoSchema,
+    records: z
+      .object({
+        fields: recordSchema.shape.fields,
+      })
+      .array()
+      .openapi({
+        example: [
+          {
+            fields: {
+              'single line text': 'text value',
+            },
+          },
+        ],
+        description: 'Array of record objects ',
+      }),
+  })
+  .openapi({
+    description: 'Create records',
+  });
+
+export type ICreateRecordsRo = z.infer<typeof createRecordsRoSchema>;
+
+export const createRecordsVoSchema = recordsVoSchema.omit({
+  total: true,
 });
 
-export type IRecordVo = z.infer<typeof recordVoSchema>;
+export type ICreateRecordsVo = z.infer<typeof createRecordsVoSchema>;
+
+export const updateRecordRoSchema = z
+  .object({
+    fieldKeyType: fieldKeyTypeRoSchema,
+    record: z.object({
+      fields: recordSchema.shape.fields,
+    }),
+  })
+  .openapi({
+    description: 'Update record by record id',
+  });
+
+export type IUpdateRecordRo = z.infer<typeof updateRecordRoSchema>;
+
+export const updateRecordByIndexRoSchema = updateRecordRoSchema
+  .merge(
+    z.object({
+      index: z.number().min(0).openapi({
+        description: 'The index of record in view, start from 0',
+      }),
+      viewId: z.string().startsWith(IdPrefix.View).openapi({
+        description: 'The view id',
+      }),
+    })
+  )
+  .openapi({
+    description: 'Update record by index in view',
+  });
+
+export type IUpdateRecordByIndexRo = z.infer<typeof updateRecordByIndexRoSchema>;

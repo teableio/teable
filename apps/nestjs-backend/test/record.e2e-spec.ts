@@ -1,27 +1,34 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import type {
+  ICreateRecordsRo,
+  IFieldVo,
+  IUpdateRecordByIndexRo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import request from 'supertest';
-import type { FieldVo } from '../src/features/field/model/field.vo';
-import type { CreateRecordsRo } from '../src/features/record/create-records.ro';
-import type { UpdateRecordRoByIndexRo } from '../src/features/record/update-record-by-index.ro';
-import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
-  let fields: FieldVo[] = [];
+  let fields: IFieldVo[] = [];
 
   beforeEach(async () => {
     app = await initApp();
 
-    const result = await request(app.getHttpServer()).post('/api/table').send({
-      name: 'table1',
-    });
+    const result = await request(app.getHttpServer())
+      .post('/api/table')
+      .send({
+        name: 'table1',
+      })
+      .expect(201);
     tableId = result.body.data.id;
 
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
+    const fieldsResult = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/field`)
+      .expect(200);
     fields = fieldsResult.body.data;
   });
 
@@ -79,7 +86,7 @@ describe('OpenAPI RecordController (e2e)', () => {
             },
           },
         ],
-      } as CreateRecordsRo)
+      } as ICreateRecordsRo)
       .expect(201);
 
     expect(response.body.data.records[0].fields[firstTextField.id]).toEqual(newValue);
@@ -103,10 +110,10 @@ describe('OpenAPI RecordController (e2e)', () => {
             [firstTextField.name]: 'new value',
           },
         },
-      } as UpdateRecordRo)
+      } as IUpdateRecordRo)
       .expect(200);
 
-    expect(response.body.data.record.fields[firstTextField.name]).toEqual('new value');
+    expect(response.body.data.fields[firstTextField.name]).toEqual('new value');
 
     const result = await request(app.getHttpServer())
       .get(`/api/table/${tableId}/record`)
@@ -139,7 +146,7 @@ describe('OpenAPI RecordController (e2e)', () => {
             [firstTextField.name]: 'new value',
           },
         },
-      } as UpdateRecordRoByIndexRo)
+      } as IUpdateRecordByIndexRo)
       .expect(200);
 
     const result = await request(app.getHttpServer())

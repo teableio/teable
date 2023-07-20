@@ -15,7 +15,7 @@ export class SetFieldTypeBuilder implements IOpBuilder {
     const { newType, oldType } = params;
 
     return {
-      p: ['field', 'type'],
+      p: ['type'],
       oi: newType,
       od: oldType,
     };
@@ -24,7 +24,7 @@ export class SetFieldTypeBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldTypeOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'type']);
+    const result = pathMatcher<Record<string, never>>(p, ['type']);
 
     if (!result) {
       return null;

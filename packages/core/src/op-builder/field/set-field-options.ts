@@ -15,7 +15,7 @@ export class SetFieldOptionsBuilder implements IOpBuilder {
     const { newOptions, oldOptions } = params;
 
     return {
-      p: ['field', 'options'],
+      p: ['options'],
       oi: newOptions,
       od: oldOptions,
     };
@@ -24,7 +24,7 @@ export class SetFieldOptionsBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldOptionsOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'options']);
+    const result = pathMatcher<Record<string, never>>(p, ['options']);
 
     if (!result) {
       return null;

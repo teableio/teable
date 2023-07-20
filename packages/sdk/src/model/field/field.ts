@@ -1,9 +1,4 @@
-import type {
-  IFieldRo,
-  IFieldSnapshot,
-  IFieldVo,
-  IJsonApiSuccessResponse,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IJsonApiSuccessResponse } from '@teable-group/core';
 import { FieldCore, OpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
@@ -38,7 +33,7 @@ export abstract class Field extends FieldCore {
     return response.data.data;
   }
 
-  protected doc!: Doc<IFieldSnapshot>;
+  protected doc!: Doc<IFieldVo>;
 
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {

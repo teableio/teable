@@ -15,7 +15,7 @@ export class SetViewNameBuilder implements IOpBuilder {
     const { newName, oldName } = params;
 
     return {
-      p: ['view', 'name'],
+      p: ['name'],
       oi: newName,
       od: oldName,
     };
@@ -24,7 +24,7 @@ export class SetViewNameBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetViewNameOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['view', 'name']);
+    const result = pathMatcher<Record<string, never>>(p, ['name']);
 
     if (!result) {
       return null;

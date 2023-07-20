@@ -4,6 +4,7 @@ import { ConsoleLogger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
+import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
   CellValueType,
   DbFieldType,
@@ -13,15 +14,12 @@ import {
   generateTableId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import type { CreateRecordsVo } from 'src/features/record/open-api/record.vo';
-import type { ViewVo } from 'src/features/view/model/view.vo';
 import loadConfig from '../../../../../configs/config';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
-import type { FieldVo } from '../../../../field/model/field.vo';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
+import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../../../../table/constant';
 import { TableOpenApiModule } from '../../../../table/open-api/table-open-api.module';
 import { TableOpenApiService } from '../../../../table/open-api/table-open-api.service';
 import { AutomationModule } from '../../../automation.module';
@@ -67,9 +65,10 @@ describe('Update-Record Action Test', () => {
         name: `table1-${faker.string.nanoid()}`,
         id: tableId,
         order: faker.number.int(),
-        views: tableRo.views as ViewVo[],
-        fields: tableRo.fields as FieldVo[],
-        data: tableRo.data as CreateRecordsVo,
+        views: tableRo.views as IViewVo[],
+        fields: tableRo.fields as IFieldVo[],
+        records: tableRo.records as IRecord[],
+        total: 1,
       })
     );
 
@@ -91,6 +90,7 @@ describe('Update-Record Action Test', () => {
             },
           },
           version: 1,
+          options: {},
           createdTime: faker.date.soon().toString(),
           lastModifiedTime: faker.date.soon().toString(),
           createdBy: faker.string.nanoid(),
@@ -103,11 +103,9 @@ describe('Update-Record Action Test', () => {
       .spyOn(recordOpenApiService, 'updateRecordById')
       .mockImplementation((tableId, recordId, _updateRecordRo) =>
         Promise.resolve({
-          record: {
-            id: recordId,
-            fields: { [fieldId]: 'update: mockName' },
-            recordOrder: { tableId: 1 },
-          },
+          id: recordId,
+          fields: { [fieldId]: 'update: mockName' },
+          recordOrder: { tableId: 1 },
         })
       );
 
@@ -117,15 +115,15 @@ describe('Update-Record Action Test', () => {
   const createTable = async (): Promise<string> => {
     const result = await tableOpenApiService.createTable({
       name: 'table1-automation-add',
-      views: [DEFAULT_VIEW],
+      views: DEFAULT_VIEWS,
       fields: DEFAULT_FIELDS,
-      data: DEFAULT_RECORD_DATA,
+      records: DEFAULT_RECORD_DATA,
     });
     return result.id;
   };
 
   it('should call onSuccess and update records', async () => {
-    const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
+    const fields: IFieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 

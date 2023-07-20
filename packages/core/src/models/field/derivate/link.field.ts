@@ -4,32 +4,36 @@ import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';
 
-export const linkFieldOptionsSchema = z.object({
-  /**
-   * describe the relationship from this table to the foreign table
-   */
-  relationship: z.nativeEnum(Relationship),
-  /**
-   * the table this field is linked to
-   */
-  foreignTableId: z.string(),
-  /**
-   * The value of the lookup Field in the associated table will be displayed as the current field.
-   */
-  lookupFieldId: z.string(),
-  /**
-   * The foreign key field name used to store values in the db table.
-   */
-  dbForeignKeyName: z.string(),
-  /**
-   * the symmetric field in the foreign table.
-   */
-  symmetricFieldId: z.string(),
-});
+export const linkFieldOptionsSchema = z
+  .object({
+    relationship: z.nativeEnum(Relationship).openapi({
+      description: 'describe the relationship from this table to the foreign table',
+    }),
+    foreignTableId: z.string().openapi({
+      description: 'the table this field is linked to',
+    }),
+    lookupFieldId: z.string().openapi({
+      description: 'the field in the foreign table that will be displayed as the current field',
+    }),
+    dbForeignKeyName: z.string().openapi({
+      description: 'the foreign key field name used to store values in the db table',
+    }),
+    symmetricFieldId: z.string().openapi({
+      description: 'the symmetric field in the foreign table',
+    }),
+  })
+  .strict();
 
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
-export type ILinkFieldOptionsRo = Pick<ILinkFieldOptions, 'relationship' | 'foreignTableId'>;
+export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
+  .pick({
+    relationship: true,
+    foreignTableId: true,
+  })
+  .strict();
+
+export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;
 
 export const linkCellValueSchema = z.object({
   id: z.string().startsWith(IdPrefix.Record),

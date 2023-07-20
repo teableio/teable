@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
-import type { IFieldVo } from '../field';
 import { FieldCore } from '../field';
+import type { IFieldVo } from '../field.schema';
 import type { IAttachmentCellValue } from './attachment.field';
 import { AttachmentFieldCore } from './attachment.field';
 

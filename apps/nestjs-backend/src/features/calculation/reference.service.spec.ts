@@ -336,7 +336,6 @@ describe('ReferenceService', () => {
             dbForeignKeyName: 'dbForeignKeyName1',
             symmetricFieldId: 'symmetricField1',
           },
-          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'A',
@@ -356,7 +355,6 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'manyToOneA',
           },
-          cellValueType: CellValueType.String,
         }),
         // fieldB is a special field depend on oneToManyC, may be convert it to formula field
         fieldB: createFieldInstanceByRo({
@@ -381,7 +379,6 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'oneToManyB',
           },
-          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'B',
@@ -401,13 +398,11 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'manyToOneB',
           },
-          cellValueType: CellValueType.String,
         }),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
-          cellValueType: CellValueType.String,
         }),
         // {
         //   dbTableName: 'C',
@@ -427,7 +422,6 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'oneToManyC',
           },
-          cellValueType: CellValueType.String,
         }),
       };
 
@@ -694,7 +688,6 @@ describe('ReferenceService', () => {
           options: {
             formatting: { precision: 1 },
           },
-          cellValueType: CellValueType.String,
         }),
         fieldB: createFieldInstanceByRo({
           id: 'fieldB',
@@ -703,13 +696,11 @@ describe('ReferenceService', () => {
           options: {
             expression: '{fieldA} & {fieldC}',
           },
-          cellValueType: CellValueType.String,
         }),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
-          cellValueType: CellValueType.String,
         }),
       };
 

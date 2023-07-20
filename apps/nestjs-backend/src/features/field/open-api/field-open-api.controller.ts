@@ -19,17 +19,20 @@ import {
   ApiCreatedResponse,
   ApiBody,
 } from '@nestjs/swagger';
+import type { IFieldVo } from '@teable-group/core';
+import {
+  getFieldsQuerySchema,
+  IGetFieldsQuery,
+  IUpdateFieldRo,
+  updateFieldRoSchema,
+  fieldRoSchema,
+} from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { FieldService } from '../field.service';
-import { CreateFieldRo } from '../model/create-field.ro';
 import { IFieldInstance } from '../model/factory';
-import type { FieldVo } from '../model/field.vo';
-import { GetFieldsRo } from '../model/get-fields.ro';
-import { UpdateFieldRo } from '../model/update-field.ro';
 import { FieldOpenApiService } from './field-open-api.service';
-import { FieldResponseVo } from './field-response.vo';
 import { FieldPipe } from './field.pipe';
-import { FieldsResponseVo } from './fields-response.vo';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -44,12 +47,12 @@ export class FieldOpenApiController {
   @ApiOperation({ summary: 'Get a specific field' })
   @ApiOkResponse({
     description: 'Field',
-    type: FieldResponseVo,
+    type: ApiResponse<IFieldVo>,
   })
   async getField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
-  ): Promise<FieldResponseVo> {
+  ): Promise<ApiResponse<IFieldVo>> {
     try {
       const fieldVo = await this.fieldService.getField(tableId, fieldId);
       return responseWrap(fieldVo);
@@ -62,13 +65,13 @@ export class FieldOpenApiController {
   @ApiOperation({ summary: 'Batch fetch fields' })
   @ApiOkResponse({
     description: 'Field',
-    type: FieldsResponseVo,
+    type: ApiResponse<IFieldVo[]>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   async getFields(
     @Param('tableId') tableId: string,
-    @Query() query: GetFieldsRo
-  ): Promise<FieldsResponseVo> {
+    @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
+  ): Promise<ApiResponse<IFieldVo[]>> {
     const fieldsVo = await this.fieldService.getFields(tableId, query);
     return responseWrap(fieldsVo);
   }
@@ -77,18 +80,15 @@ export class FieldOpenApiController {
   @ApiOperation({ summary: 'Create Field' })
   @ApiCreatedResponse({ description: 'The field has been successfully created.' })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
-  @ApiBody({
-    type: CreateFieldRo,
-  })
   @ApiOkResponse({
     description: 'Field',
-    type: ApiResponse<FieldVo>,
+    type: ApiResponse<IFieldVo>,
     isArray: true,
   })
   async createField(
     @Param('tableId') tableId: string,
-    @Body(FieldPipe) fieldInstance: IFieldInstance
-  ): Promise<ApiResponse<FieldVo>> {
+    @Body(new ZodValidationPipe(fieldRoSchema), FieldPipe) fieldInstance: IFieldInstance
+  ): Promise<ApiResponse<IFieldVo>> {
     const fieldVo = await this.fieldOpenApiService.createField(tableId, fieldInstance);
     return responseWrap(fieldVo);
   }
@@ -98,12 +98,12 @@ export class FieldOpenApiController {
   @ApiOkResponse({ description: 'The field has been successfully updated.' })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBody({
-    type: UpdateFieldRo,
+    type: ApiResponse<IUpdateFieldRo>,
   })
   async updateFieldById(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
-    @Body() updateFieldRo: UpdateFieldRo
+    @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
   ) {
     const res = await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
     return responseWrap(res);

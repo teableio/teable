@@ -8,11 +8,11 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { ApiResponse } from '../../../utils/api-response';
-import { responseWrap } from '../../../utils/api-response';
-import { CreateViewRo } from '../model/create-view.ro';
+import type { IViewRo, IViewVo } from '@teable-group/core';
+import { viewRoSchema } from '@teable-group/core';
+import { ZodValidationPipe } from '../../..//zod.validation.pipe';
+import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { IViewInstance } from '../model/factory';
-import { ViewVo } from '../model/view.vo';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
 import { ViewPipe } from './view.pipe';
@@ -30,25 +30,20 @@ export class ViewOpenApiController {
   @ApiOperation({ summary: 'Get a specific view' })
   @ApiOkResponse({
     description: 'View',
-    type: ViewVo,
+    type: ApiResponse<IViewVo>,
   })
   async getView(
     @Param('tableId') _tableId: string,
     @Param('viewId') viewId: string
-  ): Promise<ApiResponse<ViewVo>> {
+  ): Promise<ApiResponse<IViewVo>> {
     const result = await this.viewService.getViewById(viewId);
     return responseWrap(result);
   }
 
   @Get()
   @ApiOperation({ summary: 'Batch fetch views' })
-  @ApiOkResponse({
-    description: 'View',
-    type: ViewVo,
-    isArray: true,
-  })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
-  async getViews(@Param('tableId') tableId: string): Promise<ApiResponse<ViewVo[]>> {
+  async getViews(@Param('tableId') tableId: string): Promise<ApiResponse<IViewVo[]>> {
     const results = await this.viewService.getViews(tableId);
     return responseWrap(results);
   }
@@ -56,17 +51,17 @@ export class ViewOpenApiController {
   @ApiOperation({ summary: 'Create view' })
   @ApiCreatedResponse({
     description: 'The view has been successfully created.',
-    type: ViewVo,
+    type: ApiResponse<IViewVo>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBody({
-    type: CreateViewRo,
+    type: ApiResponse<IViewRo>,
   })
   @Post()
   async createView(
     @Param('tableId') tableId: string,
-    @Body(ViewPipe) viewInstance: IViewInstance
-  ): Promise<ApiResponse<ViewVo>> {
+    @Body(new ZodValidationPipe(viewRoSchema), ViewPipe) viewInstance: IViewInstance
+  ): Promise<ApiResponse<IViewVo>> {
     const viewVo = await this.viewOpenApiService.createView(tableId, viewInstance);
     return responseWrap(viewVo);
   }

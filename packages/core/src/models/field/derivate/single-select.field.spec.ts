@@ -2,8 +2,8 @@
 import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { CellValueType, DbFieldType, FieldType } from '../constant';
-import type { IFieldVo } from '../field';
 import { FieldCore } from '../field';
+import type { IFieldVo } from '../field.schema';
 import type { ISingleSelectCellValue } from './single-select.field';
 import { SingleSelectFieldCore } from './single-select.field';
 

@@ -1,4 +1,4 @@
-import type { IRecordSnapshot, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
@@ -8,10 +8,7 @@ import { useFields } from './use-fields';
 import { useTableId } from './use-table-id';
 import { useViewId } from './use-view-id';
 
-export const useRecords = (
-  query?: Omit<IRecordSnapshotQuery, 'type'>,
-  initData?: IRecordSnapshot[]
-) => {
+export const useRecords = (query?: Omit<IRecordSnapshotQuery, 'type'>, initData?: IRecord[]) => {
   const tableId = useTableId();
 
   const viewId = useViewId();

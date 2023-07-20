@@ -25,7 +25,7 @@ SDK 是针对 Teable 通用业务方法的封装，用于给 nextjs-app 以及 e
 
 ```typescript
 updateColumnSize(
-  doc: Doc<IFieldSnapshot>,
+  doc: Doc<IFieldVo>,
   viewId: string,
   oldSize: number,
   newSize: number
@@ -64,7 +64,7 @@ export abstract class Field extends FieldCore {
 
 
 export class NumberField extends NumberFieldCore implements Field {
-  doc!: Doc<IFieldSnapshot>;
+  doc!: Doc<IFieldVo>;
   ...
   async updateColumnWidth(viewId: string, width: number): Promise<void> {
     const oldWidth = this.columnMeta[viewId].width;

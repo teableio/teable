@@ -1,8 +1,8 @@
 import type {
   ICreateRecordsRo,
   IJsonApiSuccessResponse,
-  IRecordSnapshot,
-  IRecordsRo,
+  IRecord,
+  IGetRecordsQuery,
   IRecordsVo,
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
@@ -19,7 +19,7 @@ export class Record extends RecordCore {
     return response.data.data;
   }
 
-  static async getRecords(tableId: string, recordsRo: IRecordsRo) {
+  static async getRecords(tableId: string, recordsRo: IGetRecordsQuery) {
     const response = await axios.get<IJsonApiSuccessResponse<IRecordsVo>>(
       `/api/table/${tableId}/record`,
       {
@@ -38,7 +38,7 @@ export class Record extends RecordCore {
   }
 
   constructor(
-    protected doc: Doc<IRecordSnapshot>,
+    protected doc: Doc<IRecord>,
     protected fieldMap: { [fieldId: string]: IFieldInstance }
   ) {
     super(fieldMap);

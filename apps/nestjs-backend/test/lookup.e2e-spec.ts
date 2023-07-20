@@ -2,20 +2,26 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { ILookupOptions, IRecordVo, LinkFieldCore } from '@teable-group/core';
+import type {
+  ILookupOptionsRo,
+  IRecord,
+  IFieldVo,
+  LinkFieldCore,
+  IFieldRo,
+  IFullTableVo,
+  IUpdateRecordRo,
+  INumberFieldOptions,
+} from '@teable-group/core';
 import { FieldKeyType, Colors, FieldType, Relationship, TimeFormatting } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
-import type { FieldVo } from '../src/features/field/model/field.vo';
-import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
-import type { TableVo } from '../src/features/table/table.vo';
 import { initApp } from './utils/init-app';
 
 // All kind of field type (except link)
-const defaultFields: CreateFieldRo[] = [
+const defaultFields: IFieldRo[] = [
   {
     name: FieldType.SingleLineText,
     type: FieldType.SingleLineText,
+    options: {},
   },
   {
     name: FieldType.Number,
@@ -57,12 +63,13 @@ const defaultFields: CreateFieldRo[] = [
         time: TimeFormatting.Hour24,
         timeZone: 'America/New_York',
       },
-      autoFill: false,
+      defaultValue: 'now',
     },
   },
   {
     name: FieldType.Attachment,
     type: FieldType.Attachment,
+    options: {},
   },
   {
     name: FieldType.Formula,
@@ -78,11 +85,11 @@ const defaultFields: CreateFieldRo[] = [
 
 describe('OpenAPI Lookup field (e2e)', () => {
   let app: INestApplication;
-  let table1: TableVo = {} as any;
-  let table2: TableVo = {} as any;
-  const tables: TableVo[] = [];
+  let table1: IFullTableVo = {} as any;
+  let table2: IFullTableVo = {} as any;
+  const tables: IFullTableVo[] = [];
 
-  async function updateTableFields(table: TableVo) {
+  async function updateTableFields(table: IFullTableVo) {
     const tableFields = (
       await request(app.getHttpServer()).get(`/api/table/${table.id}/field`).expect(200)
     ).body.data;
@@ -123,7 +130,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
           relationship: Relationship.OneMany,
           foreignTableId: table2.id,
         },
-      } as CreateFieldRo)
+      } as IFieldRo)
       .expect(201);
     // update fields in table after create link field
     await updateTableFields(table1);
@@ -140,39 +147,39 @@ describe('OpenAPI Lookup field (e2e)', () => {
     // remove all link
     await updateRecordByApi(
       table2.id,
-      table2.data.records[0].id,
+      table2.records[0].id,
       getFieldByType(table2.fields, FieldType.Link).id,
       null
     );
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.Link).id,
       null
     );
     await updateRecordByApi(
       table2.id,
-      table2.data.records[2].id,
+      table2.records[2].id,
       getFieldByType(table2.fields, FieldType.Link).id,
       null
     );
     // add a link record to first row
     await updateRecordByApi(
       table1.id,
-      table1.data.records[0].id,
+      table1.records[0].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[0].id }]
+      [{ id: table2.records[0].id }]
     );
   });
 
-  function getFieldByType(fields: FieldVo[], type: FieldType) {
+  function getFieldByType(fields: IFieldVo[], type: FieldType) {
     const field = fields.find((field) => field.type === type);
     if (!field) {
       throw new Error('field not found');
     }
     return field;
   }
-  function getFieldByName(fields: FieldVo[], name: string) {
+  function getFieldByName(fields: IFieldVo[], name: string) {
     const field = fields.find((field) => field.name === name);
     if (!field) {
       throw new Error('field not found');
@@ -184,7 +191,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     recordId: string,
     fieldId: string,
     newValues: any
-  ): Promise<IRecordVo> {
+  ): Promise<IRecord> {
     return (
       await request(app.getHttpServer())
         .put(`/api/table/${tableId}/record/${recordId}`)
@@ -195,12 +202,12 @@ describe('OpenAPI Lookup field (e2e)', () => {
               [fieldId]: newValues,
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200)
     ).body.data;
   }
 
-  async function getRecord(tableId: string, recordId: string): Promise<IRecordVo['record']> {
+  async function getRecord(tableId: string, recordId: string): Promise<IRecord> {
     return (
       await request(app.getHttpServer())
         .get(`/api/table/${tableId}/record/${recordId}`)
@@ -208,27 +215,28 @@ describe('OpenAPI Lookup field (e2e)', () => {
           fieldKeyType: FieldKeyType.Id,
         })
         .expect(200)
-    ).body.data.record;
+    ).body.data;
   }
 
-  async function lookupFrom(table: TableVo, lookupFieldId: string) {
+  async function lookupFrom(table: IFullTableVo, lookupFieldId: string) {
     const linkField = getFieldByType(table.fields, FieldType.Link) as LinkFieldCore;
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
     const lookupField = foreignTable.fields.find((f) => f.id === lookupFieldId)!;
-    const lookupFieldRo: CreateFieldRo = {
+    const options = lookupField.options as INumberFieldOptions | undefined;
+    const lookupFieldRo: IFieldRo = {
       name: `lookup ${lookupField.name} [${table.name}]`,
       type: lookupField.type,
       isLookup: true,
-      options: lookupField.options?.formatting
+      options: options?.formatting
         ? {
-            formatting: lookupField.options.formatting,
+            formatting: options.formatting,
           }
         : undefined,
       lookupOptions: {
         foreignTableId: foreignTable.id,
         linkFieldId: linkField.id,
         lookupFieldId, // getFieldByType(table2.fields, FieldType.SingleLineText).id,
-      } as ILookupOptions,
+      } as ILookupOptionsRo,
     };
 
     // create lookup field
@@ -238,10 +246,10 @@ describe('OpenAPI Lookup field (e2e)', () => {
       .expect(201);
 
     await updateTableFields(table);
-    return getFieldByName(table.fields, lookupFieldRo.name);
+    return getFieldByName(table.fields, lookupFieldRo.name!);
   }
 
-  async function expectLookup(table: TableVo, fieldType: FieldType, updateValue: any) {
+  async function expectLookup(table: IFullTableVo, fieldType: FieldType, updateValue: any) {
     const linkField = getFieldByType(table.fields, FieldType.Link) as LinkFieldCore;
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
 
@@ -251,12 +259,12 @@ describe('OpenAPI Lookup field (e2e)', () => {
     // update a field that be lookup by previous field
     await updateRecordByApi(
       foreignTable.id,
-      foreignTable.data.records[0].id,
+      foreignTable.records[0].id,
       lookedUpToField.id,
       updateValue
     );
 
-    const record = await getRecord(table.id, table.data.records[0].id);
+    const record = await getRecord(table.id, table.records[0].id);
     return expect(record.fields[lookupFieldVo.id]);
   }
 
@@ -265,51 +273,51 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
-    await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
-    await updateRecordByApi(table2.id, table2.data.records[2].id, lookedUpToField.id, 456);
+    await updateRecordByApi(table2.id, table2.records[1].id, lookedUpToField.id, 123);
+    await updateRecordByApi(table2.id, table2.records[2].id, lookedUpToField.id, 456);
 
     // add a link record after
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
     );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+    const record = await getRecord(table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123, 456]);
 
     // remove a link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
+      [{ id: table2.records[1].id }]
     );
 
-    const recordAfter1 = await getRecord(table1.id, table1.data.records[1].id);
+    const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter1.fields[lookupFieldVo.id]).toEqual([123]);
 
     // remove all link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
       null
     );
 
-    const recordAfter2 = await getRecord(table1.id, table1.data.records[1].id);
+    const recordAfter2 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter2.fields[lookupFieldVo.id]).toEqual(undefined);
 
     // add a link record from many - one field
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.Link).id,
-      { id: table1.data.records[1].id }
+      { id: table1.records[1].id }
     );
 
-    const recordAfter3 = await getRecord(table1.id, table1.data.records[1].id);
+    const recordAfter3 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter3.fields[lookupFieldVo.id]).toEqual([123]);
   });
 
@@ -318,54 +326,54 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const lookupFieldVo = await lookupFrom(table2, lookedUpToField.id);
 
     // update a field that will be lookup by after field
-    await updateRecordByApi(table1.id, table1.data.records[1].id, lookedUpToField.id, 123);
+    await updateRecordByApi(table1.id, table1.records[1].id, lookedUpToField.id, 123);
 
     // add a link record after
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
     );
 
-    const record1 = await getRecord(table2.id, table2.data.records[1].id);
+    const record1 = await getRecord(table2.id, table2.records[1].id);
     expect(record1.fields[lookupFieldVo.id]).toEqual(123);
-    const record2 = await getRecord(table2.id, table2.data.records[2].id);
+    const record2 = await getRecord(table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual(123);
 
     // remove a link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
+      [{ id: table2.records[1].id }]
     );
 
-    const record3 = await getRecord(table2.id, table2.data.records[1].id);
+    const record3 = await getRecord(table2.id, table2.records[1].id);
     expect(record3.fields[lookupFieldVo.id]).toEqual(123);
-    const record4 = await getRecord(table2.id, table2.data.records[2].id);
+    const record4 = await getRecord(table2.id, table2.records[2].id);
     expect(record4.fields[lookupFieldVo.id]).toEqual(undefined);
 
     // remove all link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
       null
     );
 
-    const record5 = await getRecord(table2.id, table2.data.records[1].id);
+    const record5 = await getRecord(table2.id, table2.records[1].id);
     expect(record5.fields[lookupFieldVo.id]).toEqual(undefined);
 
     // add a link record from many - one field
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.Link).id,
-      { id: table1.data.records[1].id }
+      { id: table1.records[1].id }
     );
 
-    const record6 = await getRecord(table2.id, table2.data.records[1].id);
+    const record6 = await getRecord(table2.id, table2.records[1].id);
     expect(record6.fields[lookupFieldVo.id]).toEqual(123);
   });
 
@@ -376,42 +384,42 @@ describe('OpenAPI Lookup field (e2e)', () => {
     // update a field that will be lookup by after field
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.SingleLineText).id,
       'A2'
     );
     await updateRecordByApi(
       table1.id,
-      table1.data.records[2].id,
+      table1.records[2].id,
       getFieldByType(table1.fields, FieldType.SingleLineText).id,
       'A3'
     );
-    await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
-    await updateRecordByApi(table2.id, table2.data.records[2].id, lookedUpToField.id, 456);
+    await updateRecordByApi(table2.id, table2.records[1].id, lookedUpToField.id, 123);
+    await updateRecordByApi(table2.id, table2.records[2].id, lookedUpToField.id, 456);
 
     // add a link record after
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.Link).id,
-      { id: table1.data.records[1].id }
+      { id: table1.records[1].id }
     );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+    const record = await getRecord(table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123]);
 
     console.log('-------------------');
     // replace a link record
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.Link).id,
-      { id: table1.data.records[2].id }
+      { id: table1.records[2].id }
     );
 
-    const record1 = await getRecord(table1.id, table1.data.records[1].id);
+    const record1 = await getRecord(table1.id, table1.records[1].id);
     expect(record1.fields[lookupFieldVo.id]).toEqual(undefined);
-    const record2 = await getRecord(table1.id, table1.data.records[2].id);
+    const record2 = await getRecord(table1.id, table1.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual([123]);
   });
 
@@ -420,30 +428,30 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
-    await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
-    await updateRecordByApi(table2.id, table2.data.records[2].id, lookedUpToField.id, 456);
+    await updateRecordByApi(table2.id, table2.records[1].id, lookedUpToField.id, 123);
+    await updateRecordByApi(table2.id, table2.records[2].id, lookedUpToField.id, 456);
 
     // add a link record after
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
+      [{ id: table2.records[1].id }]
     );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+    const record = await getRecord(table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123]);
 
     console.log('-------------------');
     // add a link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
     );
 
-    const recordAfter1 = await getRecord(table1.id, table1.data.records[1].id);
+    const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter1.fields[lookupFieldVo.id]).toEqual([123, 456]);
   });
 
@@ -452,29 +460,29 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const lookupFieldVo = await lookupFrom(table1, lookedUpToField.id);
 
     // update a field that will be lookup by after field
-    await updateRecordByApi(table2.id, table2.data.records[1].id, lookedUpToField.id, 123);
-    await updateRecordByApi(table2.id, table2.data.records[2].id, lookedUpToField.id, 456);
+    await updateRecordByApi(table2.id, table2.records[1].id, lookedUpToField.id, 123);
+    await updateRecordByApi(table2.id, table2.records[2].id, lookedUpToField.id, 456);
 
     // add a link record after
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
+      [{ id: table2.records[1].id }]
     );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+    const record = await getRecord(table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123]);
 
     // replace a link record
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[2].id }]
+      [{ id: table2.records[2].id }]
     );
 
-    const recordAfter1 = await getRecord(table1.id, table1.data.records[1].id);
+    const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter1.fields[lookupFieldVo.id]).toEqual([456]);
   });
 
@@ -516,45 +524,45 @@ describe('OpenAPI Lookup field (e2e)', () => {
     // add a link record after
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }]
+      [{ id: table2.records[1].id }]
     );
 
     await updateRecordByApi(
       table2.id,
-      table2.data.records[1].id,
+      table2.records[1].id,
       getFieldByType(table2.fields, FieldType.SingleLineText).id,
       'text'
     );
 
-    const record = await getRecord(table1.id, table1.data.records[1].id);
+    const record = await getRecord(table1.id, table1.records[1].id);
 
     expect(record.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
-      { id: table2.data.records[1].id, title: 'text' },
+      { id: table2.records[1].id, title: 'text' },
     ]);
   });
 
   it('should calculate when add a lookup field', async () => {
     const textField = getFieldByType(table1.fields, FieldType.SingleLineText);
 
-    await updateRecordByApi(table1.id, table1.data.records[0].id, textField.id, 'A1');
-    await updateRecordByApi(table1.id, table1.data.records[1].id, textField.id, 'A2');
-    await updateRecordByApi(table1.id, table1.data.records[2].id, textField.id, 'A3');
+    await updateRecordByApi(table1.id, table1.records[0].id, textField.id, 'A1');
+    await updateRecordByApi(table1.id, table1.records[1].id, textField.id, 'A2');
+    await updateRecordByApi(table1.id, table1.records[2].id, textField.id, 'A3');
 
     const lookedUpToField = getFieldByType(table1.fields, FieldType.SingleLineText);
 
     await updateRecordByApi(
       table1.id,
-      table1.data.records[1].id,
+      table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
-      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
     );
 
     const lookupFieldVo = await lookupFrom(table2, lookedUpToField.id);
-    const record1 = await getRecord(table2.id, table2.data.records[1].id);
+    const record1 = await getRecord(table2.id, table2.records[1].id);
     expect(record1.fields[lookupFieldVo.id]).toEqual('A2');
-    const record2 = await getRecord(table2.id, table2.data.records[2].id);
+    const record2 = await getRecord(table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual('A2');
   });
 });

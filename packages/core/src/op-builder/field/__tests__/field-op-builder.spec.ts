@@ -12,14 +12,14 @@ describe('field op builder tests', () => {
         oldMetaValue: { order: 2 },
       })
     ).toEqual({
-      p: ['field', 'columnMeta', 'viw123'],
+      p: ['columnMeta', 'viw123'],
       oi: { order: 1 },
       od: { order: 2 },
     });
 
     expect(
       addColumnMetaBuilder.detect({
-        p: ['field', 'columnMeta', 'viw123'],
+        p: ['columnMeta', 'viw123'],
         oi: { order: 1 },
         od: { order: 2 },
       })
@@ -38,19 +38,17 @@ describe('field op builder tests', () => {
   it('set field name', () => {
     const setFieldNameBuilder = new SetFieldNameBuilder();
     expect(setFieldNameBuilder.build({ newName: 'new', oldName: 'old' })).toEqual({
-      p: ['field', 'name'],
+      p: ['name'],
       oi: 'new',
       od: 'old',
     });
 
-    expect(setFieldNameBuilder.detect({ p: ['field', 'name'], oi: 'new', od: 'old' })).toEqual({
+    expect(setFieldNameBuilder.detect({ p: ['name'], oi: 'new', od: 'old' })).toEqual({
       name: OpName.SetFieldName,
       newName: 'new',
       oldName: 'old',
     });
 
-    expect(setFieldNameBuilder.detect({ p: ['field', 'names'], oi: 'new', od: 'old' })).toEqual(
-      null
-    );
+    expect(setFieldNameBuilder.detect({ p: ['names'], oi: 'new', od: 'old' })).toEqual(null);
   });
 });

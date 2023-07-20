@@ -1,2 +1,2 @@
-export * from './interface';
+export * from './table.schema';
 export * from './table';
