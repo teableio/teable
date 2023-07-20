@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { pick, pullAll } from 'lodash';
+import { pick, pullAll, uniq } from 'lodash';
 import { z } from 'zod';
 import type { FieldCore } from '../../field';
 import { CellValueType, FieldType } from '../../field';
@@ -337,13 +337,14 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
       break;
     }
     case FieldType.Link: {
+      operationSet = isMultipleCellValue
+        ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value]
+        : [is.value, isNot.value, isAnyOf.value, isNoneOf.value];
+
       operationSet = [
+        ...operationSet,
         contains.value,
         doesNotContain.value,
-        hasAnyOf.value,
-        hasAllOf.value,
-        isExactly.value,
-        hasNoneOf.value,
         isEmpty.value,
         isNotEmpty.value,
       ];
@@ -355,11 +356,7 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
     }
   }
 
-  // 3. Finally, the operator is determined according to isMultipleCellValue
-  // if (isMultipleCellValue) {
-  // }
-
-  return operationSet;
+  return uniq(operationSet);
 }
 
 export function getValidFilterSubOperators(

@@ -7,16 +7,16 @@ import {
 } from '@nestjs/common';
 import type {
   IAggregateQueryResult,
-  IAttachmentItem,
   IAttachmentCellValue,
+  IAttachmentItem,
   IRecordSnapshot,
   IRecordSnapshotQuery,
-  ISetRecordOpContext,
-  ISetRecordOrderOpContext,
-  ISnapshotBase,
   IRecordsRo,
   IRecordsVo,
   IRecordVo,
+  ISetRecordOpContext,
+  ISetRecordOrderOpContext,
+  ISnapshotBase,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -658,7 +658,7 @@ export class RecordService implements IAdapterService {
     }
 
     if (limit > 1000) {
-      throw new InternalServerErrorException("limit can't be greater than 1000");
+      throw new BadRequestException("limit can't be greater than 1000");
     }
 
     // If you return `queryBuilder` directly and use `await` to receive it,

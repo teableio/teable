@@ -107,15 +107,13 @@ export class FilterQueryTranslator {
   }) => {
     const { queryBuilder, field, value } = params;
 
-    if (field.isMultipleCellValue) {
-      if (field.type === FieldType.Link) {
-        const hasAnyOfSql = `exists (
-                      select 1 from
-                        json_each(${this._table}.${field.dbFieldName})
-                      where json_extract(json_each.value, '$.title') like ?
-                    )`;
-        queryBuilder.whereRaw(hasAnyOfSql, [`%${value}%`]);
-      }
+    if (field.type === FieldType.Link) {
+      const hasAnyOfSql = `exists (
+                select 1 from
+                  json_each(${this._table}.${field.dbFieldName})
+                where json_extract(json_each.value, '$.title') like ?
+              )`;
+      queryBuilder.whereRaw(hasAnyOfSql, [`%${value}%`]);
     } else {
       queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
     }
@@ -246,7 +244,7 @@ export class FilterQueryTranslator {
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
     }
 
     if (field.isMultipleCellValue) {
@@ -271,7 +269,7 @@ export class FilterQueryTranslator {
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
     }
 
     if (field.isMultipleCellValue) {
@@ -295,8 +293,11 @@ export class FilterQueryTranslator {
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
+    if (!isArray(value)) {
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
+    }
 
-    if (field.isMultipleCellValue && isArray(value)) {
+    if (field.isMultipleCellValue) {
       const placeholders = value.map(() => '?').join(',');
       const hasAllSql = `(
           select count(distinct json_each.value) from 
@@ -371,7 +372,7 @@ export class FilterQueryTranslator {
 
     if (!includes(validFilterOperators, operator)) {
       throw new BadRequestException(
-        `Invalid value provided for the '${convertOperator}' operation. Only the following types are allowed: [${validFilterOperators}]`
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
       );
     }
 
@@ -387,7 +388,7 @@ export class FilterQueryTranslator {
       !includes(validFilterSubOperators, value.mode)
     ) {
       throw new BadRequestException(
-        `Invalid value provided for the '${convertOperator}' operation. Only the following subtypes are allowed: [${validFilterSubOperators}]`
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`
       );
     }
 
@@ -463,6 +464,8 @@ export class FilterQueryTranslator {
     } = dateFieldOptions;
 
     const dateUtil = new DateUtil(timeZone);
+
+    // Helper function to calculate date range for fixed days like today, tomorrow, etc.
     const computeDateRangeForFixedDays = (
       methodName:
         | 'date'
@@ -475,6 +478,8 @@ export class FilterQueryTranslator {
     ): [dayjs.Dayjs, dayjs.Dayjs] => {
       return [dateUtil[methodName]().startOf('day'), dateUtil[methodName]().endOf('day')];
     };
+
+    // Helper function to calculate date range for offset days from current date.
     const calculateDateRangeForOffsetDays = (isPast: boolean): [dayjs.Dayjs, dayjs.Dayjs] => {
       if (!numberOfDays) {
         throw new BadRequestException('Number of days must be entered');
@@ -485,12 +490,16 @@ export class FilterQueryTranslator {
         dateUtil.offsetDay(offsetDays).endOf('day'),
       ];
     };
+
+    // Helper function to determine date range for a given exact date.
     const determineDateRangeForExactDate = (): [dayjs.Dayjs, dayjs.Dayjs] => {
       if (!exactDate) {
         throw new BadRequestException('Exact date must be entered');
       }
       return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
     };
+
+    // Helper function to generate offset date range for a given unit (day, week, month, year).
     const generateOffsetDateRange = (
       isPast: boolean,
       unit: 'day' | 'week' | 'month' | 'year',
@@ -514,6 +523,7 @@ export class FilterQueryTranslator {
       return [startDate, endDate];
     };
 
+    // Map of operation functions based on date mode.
     const operationMap: Record<string, () => [dayjs.Dayjs, dayjs.Dayjs]> = {
       today: () => computeDateRangeForFixedDays('date'),
       tomorrow: () => computeDateRangeForFixedDays('tomorrow'),
@@ -536,6 +546,7 @@ export class FilterQueryTranslator {
     };
     const [startDate, endDate] = operationMap[mode]();
 
+    // Return the start and end date in ISO 8601 date format.
     return [startDate.toISOString(), endDate.toISOString()];
   }
 
