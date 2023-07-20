@@ -1,10 +1,10 @@
+import type { IFieldRo } from '@teable-group/core';
 import { AttachmentFieldCore, CellValueType, DbFieldType } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isLookup = fieldRo.isLookup;
 
     return plainToInstance(AttachmentFieldDto, {

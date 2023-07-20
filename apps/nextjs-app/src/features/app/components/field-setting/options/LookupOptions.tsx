@@ -1,4 +1,4 @@
-import type { ILookupOptions } from '@teable-group/core';
+import type { ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable } from '@teable-group/sdk/hooks';
@@ -40,8 +40,8 @@ const SelectFieldByTableId: React.FC<{
 };
 
 export const LookupOptions = (props: {
-  options: Partial<ILookupOptions> | undefined;
-  onChange?: (options: Partial<ILookupOptions> & { type?: FieldType }) => void;
+  options: Partial<ILookupOptionsRo> | undefined;
+  onChange?: (options: Partial<ILookupOptionsRo> & { type?: FieldType }) => void;
 }) => {
   const { options = {}, onChange } = props;
   const fields = useFields();
@@ -67,7 +67,6 @@ export const LookupOptions = (props: {
                 onChange?.({
                   linkFieldId: selected,
                   foreignTableId: selectedLinkField?.options.foreignTableId,
-                  relationship: selectedLinkField?.options.relationship,
                 });
               }}
               candidates={linkFields}

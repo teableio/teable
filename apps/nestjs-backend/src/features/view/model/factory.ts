@@ -1,13 +1,12 @@
+import type { IViewRo, IViewVo } from '@teable-group/core';
 import { assertNever, generateViewId, ViewType } from '@teable-group/core';
 import type { View } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
-import type { CreateViewRo } from './create-view.ro';
 import { GridViewDto } from './grid-view.dto';
 import { KanbanViewDto } from './kanban-view.dto';
-import type { ViewVo } from './view.vo';
 
 export function createViewInstanceByRaw(viewRaw: View) {
-  const view: ViewVo = {
+  const view: IViewVo = {
     id: viewRaw.id,
     name: viewRaw.name,
     type: viewRaw.type as ViewType,
@@ -34,11 +33,9 @@ export function createViewInstanceByRaw(viewRaw: View) {
   }
 }
 
-export function createViewInstanceByRo(createViewRo: CreateViewRo & { id?: string }) {
+export function createViewInstanceByRo(createViewRo: IViewRo & { id?: string }) {
   // generate Id first
-  const view: CreateViewRo = createViewRo.id
-    ? createViewRo
-    : { ...createViewRo, id: generateViewId() };
+  const view: IViewRo = createViewRo.id ? createViewRo : { ...createViewRo, id: generateViewId() };
 
   switch (view.type) {
     case ViewType.Grid:

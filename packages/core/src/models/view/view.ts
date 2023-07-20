@@ -1,5 +1,5 @@
 import type { ViewType } from './constant';
-import type { IFilter, ISort, IViewVo } from './interface';
+import type { IViewVo } from './view.schema';
 
 export abstract class ViewCore implements IViewVo {
   id!: string;
@@ -10,9 +10,9 @@ export abstract class ViewCore implements IViewVo {
 
   description?: string;
 
-  filter!: IFilter;
+  filter!: unknown;
 
-  sort!: ISort;
+  sort!: unknown;
 
   order!: number;
 

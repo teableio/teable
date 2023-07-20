@@ -1,6 +1,6 @@
-import type { ITableVo } from './interface';
+import type { ITableVo } from './table.schema';
 
-export class TableCore implements ITableVo {
+export class TableCore implements Partial<ITableVo> {
   id!: string;
 
   name!: string;

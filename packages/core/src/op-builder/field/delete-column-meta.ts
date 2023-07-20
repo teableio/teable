@@ -1,20 +1,20 @@
-import type { Column, IOtOperation } from '../../models';
+import type { IColumn, IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
 export interface IDeleteColumnMetaOpContext {
   name: OpName.DeleteColumnMeta;
   viewId: string;
-  oldMetaValue: Column;
+  oldMetaValue: IColumn;
 }
 
 export class DeleteColumnMetaBuilder implements IOpBuilder {
   name: OpName.DeleteColumnMeta = OpName.DeleteColumnMeta;
 
-  build(params: { viewId: string; oldMetaValue: Column }): IOtOperation {
+  build(params: { viewId: string; oldMetaValue: IColumn }): IOtOperation {
     const { viewId, oldMetaValue } = params;
     return {
-      p: ['field', 'columnMeta', viewId],
+      p: ['columnMeta', viewId],
       od: oldMetaValue,
     };
   }
@@ -26,7 +26,7 @@ export class DeleteColumnMetaBuilder implements IOpBuilder {
       return null;
     }
 
-    const result = pathMatcher<{ viewId: string }>(p, ['field', 'columnMeta', ':viewId']);
+    const result = pathMatcher<{ viewId: string }>(p, ['columnMeta', ':viewId']);
 
     if (!result) {
       return null;

@@ -63,11 +63,7 @@ export const GridView: React.FC = () => {
       [columns]
     ),
     ref,
-    useMemo(() => {
-      return ssrRecords?.map((record) => {
-        return { record };
-      });
-    }, [ssrRecords])
+    ssrRecords
   );
 
   const preTableId = usePrevious(tableId);

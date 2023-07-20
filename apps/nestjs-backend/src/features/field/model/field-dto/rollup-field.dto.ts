@@ -6,9 +6,8 @@ import {
   RollupFieldCore,
   Relationship,
 } from '@teable-group/core';
-import type { IRollupFieldOptions } from '@teable-group/core';
+import type { IRollupFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
 
@@ -37,10 +36,11 @@ export class RollupFieldDto extends RollupFieldCore implements IFieldBase {
    *
    * when lookup field has been lookup, the lookupOptions is for pure lookup logic, without rollup calculation
    */
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isMultipleCellValue =
       (fieldRo as RollupFieldDto).isMultipleCellValue ||
-      (fieldRo.isLookup && fieldRo.lookupOptions?.relationship !== Relationship.ManyOne);
+      (fieldRo.isLookup &&
+        (fieldRo.lookupOptions as ILookupOptionsVo)?.relationship !== Relationship.ManyOne);
     const cellValueType = (fieldRo as RollupFieldDto).cellValueType || CellValueType.String;
 
     function getDbFieldType(cellValueType: CellValueType) {

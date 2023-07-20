@@ -18,7 +18,7 @@ export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serve
   const views = useInstances({
     collection: `${IdPrefix.View}_${tableId}`,
     factory: createViewInstance,
-    initData: serverData ? serverData.map((d) => ({ view: d })) : undefined,
+    initData: serverData,
     queryParams: {},
   });
 

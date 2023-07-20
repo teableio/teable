@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { IFieldRo } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '../../prisma.service';
 import { FieldSupplementService } from './field-supplement.service';
-import type { CreateFieldRo } from './model/create-field.ro';
 import { createFieldInstanceByRo } from './model/factory';
 
 describe('FieldSupplementService', () => {
@@ -22,7 +22,7 @@ describe('FieldSupplementService', () => {
 
   describe('prepareFieldOptions', () => {
     it('should return the field if it is not a link field', async () => {
-      const field: CreateFieldRo = {
+      const field: IFieldRo = {
         name: 'text',
         type: FieldType.SingleLineText,
       };
@@ -31,7 +31,7 @@ describe('FieldSupplementService', () => {
     });
 
     it('should prepare the options for a link field', async () => {
-      const field: CreateFieldRo = {
+      const field: IFieldRo = {
         name: 'link',
         type: FieldType.Link,
         options: {

@@ -1,4 +1,4 @@
-import type { IFieldRo, ILookupOptions } from '@teable-group/core';
+import type { IFieldRo, ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
@@ -50,7 +50,8 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
       type,
       isLookup: undefined,
       lookupOptions: undefined,
-      options: getFieldStatic(type, false).defaultOptions,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      options: getFieldStatic(type, false).defaultOptions as any,
     });
   };
 
@@ -68,7 +69,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
   );
 
   const updateLookupOptions = useCallback(
-    (options: Partial<ILookupOptions> & { type?: FieldType }) => {
+    (options: Partial<ILookupOptionsRo> & { type?: FieldType }) => {
       const { type, ...lookupOptions } = options;
       setFieldFn({
         ...field,
@@ -76,7 +77,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
         lookupOptions: {
           ...field.lookupOptions,
           ...(lookupOptions || {}),
-        } as ILookupOptions,
+        } as ILookupOptionsRo,
       });
     },
     [field, setFieldFn]

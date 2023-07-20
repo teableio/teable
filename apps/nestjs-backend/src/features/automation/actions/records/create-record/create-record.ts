@@ -1,7 +1,7 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
+import type { ICreateRecordsRo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
-import type { CreateRecordsRo } from '../../../../record/create-records.ro';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
 import type { IActionResponse, IConstSchema, IObjectSchema } from '../../action-core';
 import { actionConst, ActionCore, ActionResponseStatus } from '../../action-core';
@@ -34,7 +34,7 @@ export class CreateRecord extends ActionCore {
       almanac
     );
 
-    const createData: CreateRecordsRo = {
+    const createData: ICreateRecordsRo = {
       fieldKeyType: FieldKeyType.Id,
       records: [{ fields }],
     };

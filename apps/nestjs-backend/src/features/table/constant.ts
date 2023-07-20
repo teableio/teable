@@ -1,9 +1,7 @@
+import type { ICreateRecordsRo, IFieldRo, IViewRo } from '@teable-group/core';
 import { Colors, FieldType, ViewType } from '@teable-group/core';
-import type { CreateFieldRo } from '../field/model/create-field.ro';
-import type { CreateRecordsRo } from '../record/create-records.ro';
-import type { CreateViewRo } from '../view/model/create-view.ro';
 
-export const DEFAULT_FIELDS: CreateFieldRo[] = [
+export const DEFAULT_FIELDS: IFieldRo[] = [
   { name: 'name', type: FieldType.SingleLineText, isPrimary: true, options: {} },
   { name: 'number', type: FieldType.Number, options: { formatting: { precision: 2 } } },
   {
@@ -29,12 +27,16 @@ export const DEFAULT_FIELDS: CreateFieldRo[] = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_VIEW: CreateViewRo = {
-  name: 'GridView',
-  type: ViewType.Grid,
-};
+export const DEFAULT_VIEWS: IViewRo[] = [
+  {
+    name: 'GridView',
+    type: ViewType.Grid,
+  },
+];
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const DEFAULT_RECORD_DATA: CreateRecordsRo = {
-  records: [{ fields: {} }, { fields: {} }, { fields: {} }],
-};
+export const DEFAULT_RECORD_DATA: ICreateRecordsRo['records'] = [
+  { fields: {} },
+  { fields: {} },
+  { fields: {} },
+];

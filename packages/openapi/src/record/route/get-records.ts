@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { recordsRoSchema, recordsVoSchema } from '@teable-group/core';
+import { getRecordsQuerySchema, recordsVoSchema } from '@teable-group/core';
 import { z } from 'zod';
 import { GET_RECORDS_URL } from '../path';
 
@@ -11,7 +11,7 @@ export const GetRecordsRoute: RouteConfig = {
     params: z.object({
       tableId: z.string(),
     }),
-    query: recordsRoSchema,
+    query: getRecordsQuerySchema,
   },
   responses: {
     200: {

@@ -14,11 +14,11 @@ const Space: NextPageWithLayout = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const snapshot = await new SsrApi().getTableSnapshot();
+  const tables = await new SsrApi().getTables();
 
   return {
     props: {
-      tableServerData: snapshot.tables,
+      tableServerData: tables,
     },
   };
 };

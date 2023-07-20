@@ -7,9 +7,11 @@ import {
   numberFormattingSchema,
 } from '../formatting';
 
-export const numberFieldOptionsSchema = z.object({
-  formatting: numberFormattingSchema,
-});
+export const numberFieldOptionsSchema = z
+  .object({
+    formatting: numberFormattingSchema,
+  })
+  .strict();
 
 export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;
 

@@ -15,7 +15,7 @@ export class SetFieldNotNullBuilder implements IOpBuilder {
     const { newNotNull, oldNotNull } = params;
 
     return {
-      p: ['field', 'notNull'],
+      p: ['notNull'],
       oi: newNotNull,
       od: oldNotNull,
     };
@@ -24,7 +24,7 @@ export class SetFieldNotNullBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldNotNullOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'notNull']);
+    const result = pathMatcher<Record<string, never>>(p, ['notNull']);
 
     if (!result) {
       return null;

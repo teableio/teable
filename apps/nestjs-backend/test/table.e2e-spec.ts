@@ -69,24 +69,22 @@ const assertData = {
       },
     },
   ],
-  data: {
-    records: [
-      {
-        fields: {
-          'Project Name': 'Project A',
-          'Project Description': 'A project to develop a new product',
-          'Project Status': 'Not Started',
-        },
+  records: [
+    {
+      fields: {
+        'Project Name': 'Project A',
+        'Project Description': 'A project to develop a new product',
+        'Project Status': 'Not Started',
       },
-      {
-        fields: {
-          'Project Name': 'Project B',
-          'Project Description': 'A project to improve customer service',
-          'Project Status': 'In Progress',
-        },
+    },
+    {
+      fields: {
+        'Project Name': 'Project B',
+        'Project Description': 'A project to improve customer service',
+        'Project Status': 'In Progress',
       },
-    ],
-  },
+    },
+  ],
 };
 
 describe('OpenAPI FieldController (e2e)', () => {

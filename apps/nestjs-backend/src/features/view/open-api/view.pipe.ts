@@ -1,11 +1,11 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import type { CreateViewRo } from '../model/create-view.ro';
+import type { IViewRo } from '@teable-group/core';
 import { createViewInstanceByRo } from '../model/factory';
 
 @Injectable()
 export class ViewPipe implements PipeTransform {
-  transform(value: CreateViewRo, _metadata: ArgumentMetadata) {
+  transform(value: IViewRo, _metadata: ArgumentMetadata) {
     return createViewInstanceByRo(value);
   }
 }

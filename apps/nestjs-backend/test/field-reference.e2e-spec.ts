@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
+import type { IFieldRo } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import { initApp } from './utils/init-app';
 
 describe('OpenAPI link field reference (e2e)', () => {
@@ -28,7 +28,7 @@ describe('OpenAPI link field reference (e2e)', () => {
   });
 
   it('/api/table/{tableId}/field (POST) create ManyOne', async () => {
-    const fieldRo: CreateFieldRo = {
+    const fieldRo: IFieldRo = {
       name: 'New field',
       description: 'the new field',
       type: FieldType.Link,
@@ -59,7 +59,7 @@ describe('OpenAPI link field reference (e2e)', () => {
   });
 
   it('/api/table/{tableId}/field (POST) create OneMany', async () => {
-    const fieldRo: CreateFieldRo = {
+    const fieldRo: IFieldRo = {
       name: 'New field',
       description: 'the new field',
       type: FieldType.Link,

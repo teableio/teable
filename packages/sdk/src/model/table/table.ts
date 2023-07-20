@@ -1,78 +1,30 @@
 import type {
-  ICreateRecordsRo,
+  ICreateTableRo,
   IFieldRo,
   IFieldVo,
   IJsonApiSuccessResponse,
-  IRecordFields,
-  IRecordsRo,
-  IRecordsVo,
-  ITableSnapshot,
-  IUpdateRecordByIndexRo,
+  IRecord,
+  ITableVo,
   IViewRo,
 } from '@teable-group/core';
-import { OpBuilder, TableCore } from '@teable-group/core';
+import { FieldKeyType, OpBuilder, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
+import { Field } from '../field/field';
+import { Record } from '../record/record';
 
 export class Table extends TableCore {
-  protected doc!: Doc<ITableSnapshot>;
-  static async updateRecordByIndex(params: IUpdateRecordByIndexRo & { tableId: string }) {
-    const { tableId, ...recordRo } = params;
-    const response = await axios.put<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/record`,
-      recordRo
-    );
+  static async createTable(tableRo: ICreateTableRo) {
+    const response = await axios.post<IJsonApiSuccessResponse<ITableVo>>('/api/table', tableRo);
     return response.data.data;
   }
 
-  static async createField(params: IFieldRo & { tableId: string }) {
-    const { tableId, ...fieldRo } = params;
-    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
-      `/api/table/${tableId}/field`,
-      fieldRo
-    );
+  static async deleteTable(tableId: string) {
+    const response = await axios.delete<IJsonApiSuccessResponse<void>>(`/api/table/${tableId}`);
     return response.data.data;
   }
 
-  static async getFields(tableId: string, viewId?: string) {
-    const params = viewId ? { viewId } : {};
-    const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
-      `/api/table/${tableId}/field`,
-      {
-        params,
-      }
-    );
-    return response.data.data;
-  }
-
-  static async createRecords(params: ICreateRecordsRo & { tableId: string }) {
-    const { tableId, ...recordRo } = params;
-    const response = await axios.post<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/record`,
-      recordRo
-    );
-    return response.data.data;
-  }
-
-  static async getRecords(params: IRecordsRo & { tableId: string }) {
-    const { tableId, ...recordsRo } = params;
-    const response = await axios.get<IJsonApiSuccessResponse<IRecordsVo>>(
-      `/api/table/${tableId}/record`,
-      {
-        params: recordsRo,
-      }
-    );
-    return response.data.data;
-  }
-
-  static async updateFieldById(params: IFieldRo & { id: string; tableId: string }): Promise<void> {
-    const { id, tableId, ...fieldRo } = params;
-    const response = await axios.put<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/field/${id}`,
-      fieldRo
-    );
-    return response.data.data;
-  }
+  protected doc!: Doc<ITableVo>;
 
   async updateName(name: string) {
     const fieldOperation = OpBuilder.editor.setTableName.build({
@@ -106,22 +58,23 @@ export class Table extends TableCore {
     return response.data.data;
   }
 
-  async createRecord(recordFields: IRecordFields) {
-    const response = await axios.post<IJsonApiSuccessResponse<IRecordsVo>>(
-      `/api/table/${this.id}/record`,
-      {
-        records: [
-          {
-            fields: recordFields,
-          },
-        ],
-      }
-    );
-    return response.data.data;
+  async createRecord(recordFields: IRecord['fields']) {
+    return await Record.createRecords(this.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          fields: recordFields,
+        },
+      ],
+    });
   }
 
   async createField(fieldRo: IFieldRo) {
-    return Table.createField({ ...fieldRo, tableId: this.id });
+    return Field.createField(this.id, fieldRo);
+  }
+
+  async updateFieldById(fieldId: string, fieldRo: IFieldRo) {
+    return Field.updateFieldById(this.id, fieldId, fieldRo);
   }
 
   async updateOrder(order: number) {
