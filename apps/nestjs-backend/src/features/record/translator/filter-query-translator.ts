@@ -1,15 +1,12 @@
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import type {
-  FieldCore,
   IConjunction,
   IDateFieldOptions,
-  IDateTimeFieldSubOperator,
-  IDateTimeFieldSubOperatorByIsWithin,
+  IDateTimeFieldOperator,
   IFilter,
   IFilterMeta,
   IFilterMetaOperator,
   IFilterMetaValue,
-  IFilterMetaValueByDate,
   IFilterSet,
 } from '@teable-group/core';
 import {
@@ -17,7 +14,10 @@ import {
   contains,
   DateUtil,
   doesNotContain,
+  FieldType,
+  filterMetaValueByDate,
   getFilterOperatorMapping,
+  getValidFilterSubOperators,
   hasAllOf,
   hasAnyOf,
   hasNoneOf,
@@ -40,108 +40,23 @@ import {
 } from '@teable-group/core';
 import type dayjs from 'dayjs';
 import type { Knex } from 'knex';
-import { get, includes, invert, isArray, size } from 'lodash';
+import { get, includes, invert, isArray, isObject, size } from 'lodash';
+import type { IFieldInstance } from '../../field/model/factory';
 
 export class FilterQueryTranslator {
   private readonly _table: string;
 
   constructor(
     private readonly queryBuilder: Knex.QueryBuilder,
-    private readonly fields?: { [fieldId: string]: FieldCore },
+    private readonly fields?: { [fieldId: string]: IFieldInstance },
     private readonly filter?: IFilter | null
   ) {
     this._table = get(queryBuilder, ['_single', 'table']);
   }
 
-  private getDateTimeRange(
-    dateTimeFieldOperator: IDateTimeFieldSubOperator | IDateTimeFieldSubOperatorByIsWithin,
-    params: {
-      timeZone: string;
-      numberOfDays?: number;
-      exactDate?: string;
-    }
-  ): [string, string] {
-    const { timeZone, numberOfDays, exactDate } = params;
-    const dateUtil = new DateUtil(timeZone);
-    const computeDateRangeForFixedDays = (
-      methodName:
-        | 'date'
-        | 'tomorrow'
-        | 'yesterday'
-        | 'lastWeek'
-        | 'nextWeek'
-        | 'lastMonth'
-        | 'nextMonth'
-    ): [dayjs.Dayjs, dayjs.Dayjs] => {
-      return [dateUtil[methodName]().startOf('day'), dateUtil[methodName]().endOf('day')];
-    };
-    const calculateDateRangeForOffsetDays = (isPast: boolean): [dayjs.Dayjs, dayjs.Dayjs] => {
-      if (!numberOfDays) {
-        throw new BadRequestException('Number of days must be entered');
-      }
-      const offsetDays = isPast ? -numberOfDays : numberOfDays;
-      return [
-        dateUtil.offsetDay(offsetDays).startOf('day'),
-        dateUtil.offsetDay(offsetDays).endOf('day'),
-      ];
-    };
-    const determineDateRangeForExactDate = (): [dayjs.Dayjs, dayjs.Dayjs] => {
-      if (!exactDate) {
-        throw new BadRequestException('Exact date must be entered');
-      }
-      return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
-    };
-    const generateOffsetDateRange = (
-      isPast: boolean,
-      unit: 'day' | 'week' | 'month' | 'year',
-      numberOfDays?: number
-    ): [dayjs.Dayjs, dayjs.Dayjs] => {
-      if (numberOfDays === undefined || numberOfDays === null) {
-        throw new BadRequestException('Number of days must be entered');
-      }
-
-      const currentDate = dateUtil.date();
-      const startOfDay = currentDate.startOf('day');
-      const endOfDay = currentDate.endOf('day');
-
-      const startDate = isPast
-        ? dateUtil.offset(unit, -numberOfDays, endOfDay).startOf('day')
-        : startOfDay;
-      const endDate = isPast
-        ? endOfDay
-        : dateUtil.offset(unit, numberOfDays, startOfDay).endOf('day');
-
-      return [startDate, endDate];
-    };
-
-    const operationMap: Record<string, () => [dayjs.Dayjs, dayjs.Dayjs]> = {
-      today: () => computeDateRangeForFixedDays('date'),
-      tomorrow: () => computeDateRangeForFixedDays('tomorrow'),
-      yesterday: () => computeDateRangeForFixedDays('yesterday'),
-      oneWeekAgo: () => computeDateRangeForFixedDays('lastWeek'),
-      oneWeekFromNow: () => computeDateRangeForFixedDays('nextWeek'),
-      oneMonthAgo: () => computeDateRangeForFixedDays('lastMonth'),
-      oneMonthFromNow: () => computeDateRangeForFixedDays('nextMonth'),
-      daysAgo: () => calculateDateRangeForOffsetDays(true),
-      daysFromNow: () => calculateDateRangeForOffsetDays(false),
-      exactDate: () => determineDateRangeForExactDate(),
-      pastWeek: () => generateOffsetDateRange(true, 'week', 1),
-      pastMonth: () => generateOffsetDateRange(true, 'month', 1),
-      pastYear: () => generateOffsetDateRange(true, 'year', 1),
-      nextWeek: () => generateOffsetDateRange(false, 'week', 1),
-      nextMonth: () => generateOffsetDateRange(false, 'month', 1),
-      nextYear: () => generateOffsetDateRange(false, 'year', 1),
-      pastNumberOfDays: () => generateOffsetDateRange(true, 'day', numberOfDays),
-      nextNumberOfDays: () => generateOffsetDateRange(false, 'day', numberOfDays),
-    };
-    const [startDate, endDate] = operationMap[dateTimeFieldOperator]();
-
-    return [startDate.toISOString(), endDate.toISOString()];
-  }
-
   private processIsOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
@@ -157,12 +72,10 @@ export class FilterQueryTranslator {
       const vLength = value.length;
       queryBuilder.whereRaw(isExactlySql, [...value, vLength, vLength]);
     } else if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
+    } else if (field.cellValueType === CellValueType.Boolean) {
+      (value ? this.processIsNotEmptyOperator : this.processIsEmptyOperator)(params);
     } else {
       queryBuilder.where(field.dbFieldName, value);
     }
@@ -172,17 +85,13 @@ export class FilterQueryTranslator {
 
   private processIsNotOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
     } else {
       queryBuilder.whereNot(field.dbFieldName, value);
@@ -193,18 +102,28 @@ export class FilterQueryTranslator {
 
   private processContainsNotOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
-    queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
+
+    if (field.type === FieldType.Link) {
+      const hasAnyOfSql = `exists (
+                select 1 from
+                  json_each(${this._table}.${field.dbFieldName})
+                where json_extract(json_each.value, '$.title') like ?
+              )`;
+      queryBuilder.whereRaw(hasAnyOfSql, [`%${value}%`]);
+    } else {
+      queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
+    }
 
     return queryBuilder;
   };
 
   private processDoesNotContainOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
@@ -215,18 +134,14 @@ export class FilterQueryTranslator {
 
   private processIsGreaterOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       newValue = dateTimeRange[1];
     }
 
@@ -236,18 +151,14 @@ export class FilterQueryTranslator {
 
   private processIsGreaterEqualOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       newValue = dateTimeRange[0];
     }
 
@@ -257,18 +168,14 @@ export class FilterQueryTranslator {
 
   private processIsLessOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       newValue = dateTimeRange[0];
     }
 
@@ -278,18 +185,14 @@ export class FilterQueryTranslator {
 
   private processIsLessEqualOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       newValue = dateTimeRange[1];
     }
 
@@ -299,17 +202,13 @@ export class FilterQueryTranslator {
 
   private processIsWithInOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
     if (field.cellValueType === CellValueType.DateTime) {
-      const { mode, numberOfDays, exactDate } = value as IFilterMetaValueByDate;
-      const {
-        formatting: { timeZone },
-      } = field.options as IDateFieldOptions;
-      const dateTimeRange = this.getDateTimeRange(mode, { timeZone, numberOfDays, exactDate });
+      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
     }
 
@@ -318,7 +217,7 @@ export class FilterQueryTranslator {
 
   private processIsEmptyOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field } = params;
@@ -329,7 +228,7 @@ export class FilterQueryTranslator {
 
   private processIsNotEmptyOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field } = params;
@@ -340,12 +239,12 @@ export class FilterQueryTranslator {
 
   private processIsAnyOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
     }
 
     if (field.isMultipleCellValue) {
@@ -357,7 +256,7 @@ export class FilterQueryTranslator {
             )`;
       queryBuilder.whereRaw(hasAnyOfSql, [...value]);
     } else {
-      queryBuilder.whereIn(field.dbFieldName, value);
+      queryBuilder.whereIn(field.dbFieldName, [...value]);
     }
 
     return queryBuilder;
@@ -365,12 +264,12 @@ export class FilterQueryTranslator {
 
   private processIsNoneOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
-      throw new BadRequestException('value must be an array');
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
     }
 
     if (field.isMultipleCellValue) {
@@ -382,7 +281,7 @@ export class FilterQueryTranslator {
             )`;
       queryBuilder.whereRaw(hasNoneOfSql, [...value]);
     } else {
-      queryBuilder.whereNotIn(field.dbFieldName, value);
+      queryBuilder.whereNotIn(field.dbFieldName, [...value]);
     }
 
     return queryBuilder;
@@ -390,12 +289,15 @@ export class FilterQueryTranslator {
 
   private processHasAllOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
-    field: FieldCore;
+    field: IFieldInstance;
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
+    if (!isArray(value)) {
+      throw new BadRequestException(`Invalid input for field '${field.name}': expected an array`);
+    }
 
-    if (field.isMultipleCellValue && isArray(value)) {
+    if (field.isMultipleCellValue) {
       const placeholders = value.map(() => '?').join(',');
       const hasAllSql = `(
           select count(distinct json_each.value) from 
@@ -412,7 +314,7 @@ export class FilterQueryTranslator {
     operator: IFilterMetaOperator,
     params: {
       queryBuilder: Knex.QueryBuilder;
-      field: FieldCore;
+      field: IFieldInstance;
       value: IFilterMetaValue;
     }
   ) {
@@ -469,8 +371,24 @@ export class FilterQueryTranslator {
     }
 
     if (!includes(validFilterOperators, operator)) {
-      throw new InternalServerErrorException(
-        `Unexpected operator received: '${convertOperator}', Field valid Operators: [${validFilterOperators}]`
+      throw new BadRequestException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
+      );
+    }
+
+    const validFilterSubOperators = getValidFilterSubOperators(
+      field.type,
+      operator as IDateTimeFieldOperator
+    );
+
+    if (
+      validFilterSubOperators &&
+      isObject(value) &&
+      'mode' in value &&
+      !includes(validFilterSubOperators, value.mode)
+    ) {
+      throw new BadRequestException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`
       );
     }
 
@@ -505,20 +423,131 @@ export class FilterQueryTranslator {
   }
 
   private filterNullValues(filter?: IFilter | null) {
+    // If the filter is not defined or has no keys, exit the function
     if (!filter || !Object.keys(filter).length) {
       return;
     }
     filter.filterSet = filter.filterSet.filter((filterItem) => {
+      // If 'filterSet' exists in filterItem, recursively call filterNullValues
+      // Always keep the filterItem, as we are modifying it in-place
       if ('filterSet' in filterItem) {
         this.filterNullValues(filterItem as IFilter);
         return true;
       }
+      const { fieldId, operator, value } = filterItem;
+      // Get the corresponding field from the fields object using fieldId
+      // If it doesn't exist, filter out the item
+      const field = this.fields?.[fieldId];
+      if (!field) return false;
+
+      // Keep the filterItem if any of the following conditions are met:
+      // - The value is not null
+      // - The field type is a checkbox
+      // - The operator is either 'isEmpty' or 'isNotEmpty'
       return (
-        filterItem.value !== null ||
-        filterItem.operator === 'isEmpty' ||
-        filterItem.operator === 'isNotEmpty'
+        value !== null ||
+        field.type === FieldType.Checkbox ||
+        ['isEmpty', 'isNotEmpty'].includes(operator)
       );
     });
+  }
+
+  private getFilterDateTimeRange(
+    dateFieldOptions: IDateFieldOptions,
+    filterValue: IFilterMetaValue
+  ): [string, string] {
+    const filterValueByDate = filterMetaValueByDate.parse(filterValue);
+
+    const { mode, numberOfDays, exactDate } = filterValueByDate;
+    const {
+      formatting: { timeZone },
+    } = dateFieldOptions;
+
+    const dateUtil = new DateUtil(timeZone);
+
+    // Helper function to calculate date range for fixed days like today, tomorrow, etc.
+    const computeDateRangeForFixedDays = (
+      methodName:
+        | 'date'
+        | 'tomorrow'
+        | 'yesterday'
+        | 'lastWeek'
+        | 'nextWeek'
+        | 'lastMonth'
+        | 'nextMonth'
+    ): [dayjs.Dayjs, dayjs.Dayjs] => {
+      return [dateUtil[methodName]().startOf('day'), dateUtil[methodName]().endOf('day')];
+    };
+
+    // Helper function to calculate date range for offset days from current date.
+    const calculateDateRangeForOffsetDays = (isPast: boolean): [dayjs.Dayjs, dayjs.Dayjs] => {
+      if (!numberOfDays) {
+        throw new BadRequestException('Number of days must be entered');
+      }
+      const offsetDays = isPast ? -numberOfDays : numberOfDays;
+      return [
+        dateUtil.offsetDay(offsetDays).startOf('day'),
+        dateUtil.offsetDay(offsetDays).endOf('day'),
+      ];
+    };
+
+    // Helper function to determine date range for a given exact date.
+    const determineDateRangeForExactDate = (): [dayjs.Dayjs, dayjs.Dayjs] => {
+      if (!exactDate) {
+        throw new BadRequestException('Exact date must be entered');
+      }
+      return [dateUtil.date(exactDate).startOf('day'), dateUtil.date(exactDate).endOf('day')];
+    };
+
+    // Helper function to generate offset date range for a given unit (day, week, month, year).
+    const generateOffsetDateRange = (
+      isPast: boolean,
+      unit: 'day' | 'week' | 'month' | 'year',
+      numberOfDays?: number
+    ): [dayjs.Dayjs, dayjs.Dayjs] => {
+      if (numberOfDays === undefined || numberOfDays === null) {
+        throw new BadRequestException('Number of days must be entered');
+      }
+
+      const currentDate = dateUtil.date();
+      const startOfDay = currentDate.startOf('day');
+      const endOfDay = currentDate.endOf('day');
+
+      const startDate = isPast
+        ? dateUtil.offset(unit, -numberOfDays, endOfDay).startOf('day')
+        : startOfDay;
+      const endDate = isPast
+        ? endOfDay
+        : dateUtil.offset(unit, numberOfDays, startOfDay).endOf('day');
+
+      return [startDate, endDate];
+    };
+
+    // Map of operation functions based on date mode.
+    const operationMap: Record<string, () => [dayjs.Dayjs, dayjs.Dayjs]> = {
+      today: () => computeDateRangeForFixedDays('date'),
+      tomorrow: () => computeDateRangeForFixedDays('tomorrow'),
+      yesterday: () => computeDateRangeForFixedDays('yesterday'),
+      oneWeekAgo: () => computeDateRangeForFixedDays('lastWeek'),
+      oneWeekFromNow: () => computeDateRangeForFixedDays('nextWeek'),
+      oneMonthAgo: () => computeDateRangeForFixedDays('lastMonth'),
+      oneMonthFromNow: () => computeDateRangeForFixedDays('nextMonth'),
+      daysAgo: () => calculateDateRangeForOffsetDays(true),
+      daysFromNow: () => calculateDateRangeForOffsetDays(false),
+      exactDate: () => determineDateRangeForExactDate(),
+      pastWeek: () => generateOffsetDateRange(true, 'week', 1),
+      pastMonth: () => generateOffsetDateRange(true, 'month', 1),
+      pastYear: () => generateOffsetDateRange(true, 'year', 1),
+      nextWeek: () => generateOffsetDateRange(false, 'week', 1),
+      nextMonth: () => generateOffsetDateRange(false, 'month', 1),
+      nextYear: () => generateOffsetDateRange(false, 'year', 1),
+      pastNumberOfDays: () => generateOffsetDateRange(true, 'day', numberOfDays),
+      nextNumberOfDays: () => generateOffsetDateRange(false, 'day', numberOfDays),
+    };
+    const [startDate, endDate] = operationMap[mode]();
+
+    // Return the start and end date in ISO 8601 date format.
+    return [startDate.toISOString(), endDate.toISOString()];
   }
 
   translateToSql(): Knex.QueryBuilder {

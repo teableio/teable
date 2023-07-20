@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { pick, pullAll } from 'lodash';
+import { pick, pullAll, uniq } from 'lodash';
 import { z } from 'zod';
 import type { FieldCore } from '../../field';
 import { CellValueType, FieldType } from '../../field';
@@ -296,8 +296,10 @@ export function getFilterOperatorMapping(field: FieldCore) {
 export function getValidFilterOperators(field: FieldCore): IOperator[] {
   let operationSet: IOperator[] = [];
 
+  const { cellValueType, type, isMultipleCellValue } = field;
+
   // 1. First determine the operator roughly according to cellValueType
-  switch (field.cellValueType) {
+  switch (cellValueType) {
     case CellValueType.String: {
       operationSet = [...textFieldValidOperators];
       break;
@@ -317,7 +319,7 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
   }
 
   // 2. Then repair the operator according to fieldType
-  switch (field.type) {
+  switch (type) {
     case FieldType.SingleSelect: {
       pullAll(operationSet, [contains.value, doesNotContain.value]);
       operationSet.splice(2, 0, ...[isAnyOf.value, isNoneOf.value]);
@@ -334,17 +336,27 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
       ];
       break;
     }
+    case FieldType.Link: {
+      operationSet = isMultipleCellValue
+        ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value]
+        : [is.value, isNot.value, isAnyOf.value, isNoneOf.value];
+
+      operationSet = [
+        ...operationSet,
+        contains.value,
+        doesNotContain.value,
+        isEmpty.value,
+        isNotEmpty.value,
+      ];
+      break;
+    }
     case FieldType.Attachment: {
       operationSet = [isEmpty.value, isNotEmpty.value];
       break;
     }
   }
 
-  // 3. Finally, the operator is determined according to isMultipleCellValue
-  // if (field.isMultipleCellValue) {
-  // }
-
-  return operationSet;
+  return uniq(operationSet);
 }
 
 export function getValidFilterSubOperators(

@@ -24,22 +24,19 @@ export const filter = z.object({
 
 export type IFilter = z.infer<typeof filter>;
 
-export const filterString = z
-  .string()
-  .refine(
-    (value) => {
-      try {
-        JSON.parse(value);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    {
+export const filterString = z.string().transform((val, ctx) => {
+  let jsonValue;
+  try {
+    jsonValue = JSON.parse(val);
+  } catch {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
       message: 'Invalid JSON string',
-    }
-  )
-  .transform((value) => JSON.parse(value) as IFilter);
+    });
+    return z.NEVER;
+  }
+  return filter.parse(jsonValue);
+});
 
 export async function mergeWithDefaultFilter(
   defaultViewFilter?: string | null,

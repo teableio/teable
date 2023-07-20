@@ -456,4 +456,29 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const recordAfter1 = await getRecord(table1.id, table1.data.records[1].id);
     expect(recordAfter1.fields[rollupFieldVo.id]).toEqual(456);
   });
+
+  it('should calculate when add a rollup field', async () => {
+    const textField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(table1.id, table1.data.records[0].id, textField.id, 'A1');
+    await updateRecordByApi(table1.id, table1.data.records[1].id, textField.id, 'A2');
+    await updateRecordByApi(table1.id, table1.data.records[2].id, textField.id, 'A3');
+
+    const lookedUpToField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(
+      table1.id,
+      table1.data.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.data.records[1].id }, { id: table2.data.records[2].id }]
+    );
+
+    const lookupFieldVo = await rollupFrom(table2, lookedUpToField.id);
+    const record0 = await getRecord(table2.id, table2.data.records[0].id);
+    expect(record0.fields[lookupFieldVo.id]).toEqual(undefined);
+    const record1 = await getRecord(table2.id, table2.data.records[1].id);
+    expect(record1.fields[lookupFieldVo.id]).toEqual(1);
+    const record2 = await getRecord(table2.id, table2.data.records[2].id);
+    expect(record2.fields[lookupFieldVo.id]).toEqual(1);
+  });
 });
