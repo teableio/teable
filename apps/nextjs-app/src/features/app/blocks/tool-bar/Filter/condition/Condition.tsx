@@ -29,10 +29,8 @@ function Condition(props: IConditionProps) {
   };
 
   const fieldTypeHandler = useCallback(
-    (fieldId: string) => {
-      filter.fieldId = fieldId;
-      // TODO: allow the same type field to remain the value
-      // filter.value = null;
+    (fieldId: string | null) => {
+      filter.fieldId = fieldId as string;
       const newFilters = cloneDeep(filters);
       setFilters(newFilters);
     },
@@ -51,7 +49,10 @@ function Condition(props: IConditionProps) {
   const fieldValueHandler = useCallback(
     (value: IFilterMeta['value']) => {
       if (!isEqual(filter.value, value)) {
-        filter.value = value;
+        filter.value = value ?? null;
+        if (Array.isArray(value) && !value.length) {
+          filter.value = null;
+        }
         const newFilters = cloneDeep(filters);
         setFilters(newFilters);
       }

@@ -2,7 +2,7 @@ import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-gro
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BaseSingleSelect } from '../Base/BaseSingleSelect';
+import { BaseSingleSelect } from '../base/BaseSingleSelect';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 
@@ -41,13 +41,13 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   }, [defaultConfig, initValue, onSelect]);
 
   const mergedOnSelect = useCallback(
-    (val: string) => {
+    (val: string | null) => {
       const mergedValue = {
         mode: val as IFilterMetaValueByDate['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue);
-      if (!INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
+      if (val !== null && !INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
         onSelect?.(mergedValue);
       }
     },

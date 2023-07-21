@@ -2,9 +2,9 @@ import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import type { SingleSelectField } from '@teable-group/sdk';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import { BaseSingleSelect } from './Base/BaseSingleSelect';
+import { BaseSingleSelect } from './base/BaseSingleSelect';
 
 interface ISingleSelect {
   onSelect: (id: string | null) => void;
@@ -20,7 +20,7 @@ interface IColorOption {
 }
 
 function SingleSelect(props: ISingleSelect) {
-  const { onSelect, field, value, operator } = props;
+  const { onSelect, field, value } = props;
 
   const options = useMemo<IColorOption[]>(() => {
     return field?.options?.choices.map((choice) => ({
@@ -30,15 +30,15 @@ function SingleSelect(props: ISingleSelect) {
     }));
   }, [field]);
 
-  useEffect(() => {
-    // other type value comes, adapter or reset
-    const isNull = value === null;
-    const isSameType = typeof value === 'string';
-    const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || !isInOption) {
-      onSelect?.(null);
-    }
-  }, [onSelect, value, operator, options]);
+  // useEffect(() => {
+  //   // other type value comes, adapter or reset
+  //   const isNull = value === null;
+  //   const isSameType = typeof value === 'string';
+  //   const isInOption = options.findIndex((option) => option.value === value) > -1;
+  //   if ((!isNull && !isSameType) || !isInOption) {
+  //     onSelect?.(null);
+  //   }
+  // }, [onSelect, value, operator, options]);
 
   const optionRender = (option: IColorOption) => {
     const { color, label } = option;
@@ -51,7 +51,7 @@ function SingleSelect(props: ISingleSelect) {
             color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
           }}
         >
-          {label}
+          {label ?? 'Untitled'}
         </div>
       </>
     );
@@ -63,7 +63,9 @@ function SingleSelect(props: ISingleSelect) {
       value={value}
       onSelect={onSelect}
       className="w-32 max-w-[128px] justify-between m-1"
+      popoverClassName="w-40"
       optionRender={optionRender}
+      displayRender={optionRender}
     />
   );
 }
