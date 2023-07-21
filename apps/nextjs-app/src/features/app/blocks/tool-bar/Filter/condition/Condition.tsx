@@ -1,10 +1,11 @@
-import type { IFilterMeta } from '@teable-group/core';
+import type { IFilterMeta, FieldType } from '@teable-group/core';
 
+import { useFields } from '@teable-group/sdk';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 
 import { cloneDeep, isEqual } from 'lodash';
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useRef, useMemo } from 'react';
 
 import { FilterContext } from '../context';
 import type { IConditionProps } from '../types';
@@ -17,6 +18,11 @@ function Condition(props: IConditionProps) {
   const { index, filter, parent, level } = props;
   const context = useContext(FilterContext);
   const { setFilters, filters } = context;
+  const fields = useFields();
+  const fieldType = useRef<FieldType | null>(null);
+  const fieldMap = useMemo(() => {
+    return new Map(fields.map((field) => [field.id, field.type]));
+  }, [fields]);
 
   const deleteCurrentFilter = () => {
     parent.filterSet.splice(index, 1);
@@ -30,11 +36,17 @@ function Condition(props: IConditionProps) {
 
   const fieldTypeHandler = useCallback(
     (fieldId: string | null) => {
+      const newFieldType = fieldMap.get(fieldId!) || null;
+      const lastFieldType = fieldType.current;
+      fieldType.current = newFieldType;
+      if (newFieldType !== lastFieldType) {
+        filter.value = null;
+      }
       filter.fieldId = fieldId as string;
       const newFilters = cloneDeep(filters);
       setFilters(newFilters);
     },
-    [filter, filters, setFilters]
+    [fieldMap, filter, filters, setFilters]
   );
   const operatorHandler = useCallback(
     (value: string) => {
@@ -49,7 +61,7 @@ function Condition(props: IConditionProps) {
   const fieldValueHandler = useCallback(
     (value: IFilterMeta['value']) => {
       if (!isEqual(filter.value, value)) {
-        filter.value = value ?? null;
+        filter.value = value || null;
         if (Array.isArray(value) && !value.length) {
           filter.value = null;
         }
