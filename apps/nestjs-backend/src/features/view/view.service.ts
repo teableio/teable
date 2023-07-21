@@ -174,12 +174,13 @@ export class ViewService implements IAdapterService {
           type: 'json0',
           data: {
             ...view,
+            deletedTime: view.deletedTime?.toISOString() || undefined,
             type: view.type as ViewType,
             description: view.description || undefined,
-            filter: JSON.parse(view.filter as string),
-            sort: JSON.parse(view.sort as string),
-            group: JSON.parse(view.group as string),
-            options: JSON.parse(view.options as string),
+            filter: JSON.parse(view.filter as string) || undefined,
+            sort: JSON.parse(view.sort as string) || undefined,
+            group: JSON.parse(view.group as string) || undefined,
+            options: JSON.parse(view.options as string) || undefined,
           },
         };
       })

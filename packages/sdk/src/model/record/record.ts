@@ -6,7 +6,7 @@ import type {
   IRecordsVo,
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
-import { OpBuilder, RecordCore } from '@teable-group/core';
+import { RecordOpBuilder, RecordCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 import type { IFieldInstance } from '../field/factory';
@@ -45,7 +45,7 @@ export class Record extends RecordCore {
   }
 
   async clearCell(fieldId: string) {
-    const operation = OpBuilder.editor.setRecord.build({
+    const operation = RecordOpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: null,
       oldCellValue: this.fields[fieldId],
@@ -59,7 +59,7 @@ export class Record extends RecordCore {
   }
 
   async updateCell(fieldId: string, cellValue: unknown) {
-    const operation = OpBuilder.editor.setRecord.build({
+    const operation = RecordOpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: cellValue,
       oldCellValue: this.fields[fieldId],

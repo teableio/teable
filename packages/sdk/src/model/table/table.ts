@@ -7,7 +7,7 @@ import type {
   ITableVo,
   IViewRo,
 } from '@teable-group/core';
-import { FieldKeyType, OpBuilder, TableCore } from '@teable-group/core';
+import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 import { Field } from '../field/field';
@@ -27,7 +27,7 @@ export class Table extends TableCore {
   protected doc!: Doc<ITableVo>;
 
   async updateName(name: string) {
-    const fieldOperation = OpBuilder.editor.setTableName.build({
+    const fieldOperation = TableOpBuilder.editor.setTableName.build({
       newName: name,
       oldName: this.name,
     });
@@ -78,7 +78,7 @@ export class Table extends TableCore {
   }
 
   async updateOrder(order: number) {
-    const fieldOperation = OpBuilder.editor.setTableOrder.build({
+    const fieldOperation = TableOpBuilder.editor.setTableOrder.build({
       newOrder: order,
       oldOrder: this.order,
     });

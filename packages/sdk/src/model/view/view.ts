@@ -1,10 +1,10 @@
 import type { IJsonApiSuccessResponse, IViewVo } from '@teable-group/core';
-import { OpBuilder, ViewCore } from '@teable-group/core';
+import { ViewOpBuilder, ViewCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 export class ViewExtended {
   static updateName(doc: Doc<IViewVo>, name: string, oldName: string) {
-    const viewOperation = OpBuilder.editor.setViewName.build({
+    const viewOperation = ViewOpBuilder.editor.setViewName.build({
       newName: name,
       oldName: oldName,
     });
