@@ -1,3 +1,4 @@
+import type { IFieldRo, ILookupOptionsVo } from '@teable-group/core';
 import {
   CellValueType,
   DbFieldType,
@@ -5,14 +6,14 @@ import {
   SingleLineTextFieldCore,
 } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
 export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements IFieldBase {
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isLookup = fieldRo.isLookup;
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions &&
+      (fieldRo.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne;
 
     return plainToInstance(SingleLineTextFieldDto, {
       ...fieldRo,

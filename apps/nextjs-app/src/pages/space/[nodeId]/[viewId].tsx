@@ -30,14 +30,16 @@ const Node: NextPageWithLayout<ITableProps> = ({
 
 export const getServerSideProps: GetServerSideProps<INodeProps> = async (context) => {
   const { nodeId, viewId } = context.query;
-  const snapshot = await new SsrApi().getFullSnapshot(nodeId as string, viewId as string);
+  const api = new SsrApi();
+  const tables = await api.getTables();
+  const { fields, views, records, total } = await api.getTable(nodeId as string, viewId as string);
 
   return {
     props: {
-      tableServerData: snapshot.tables,
-      fieldServerData: snapshot.fields,
-      viewServerData: snapshot.views,
-      recordServerData: snapshot.rows,
+      tableServerData: tables,
+      fieldServerData: fields,
+      viewServerData: views,
+      recordServerData: { records, total },
     },
   };
 };

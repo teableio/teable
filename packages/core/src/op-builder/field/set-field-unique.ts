@@ -15,7 +15,7 @@ export class SetFieldUniqueBuilder implements IOpBuilder {
     const { newUnique, oldUnique } = params;
 
     return {
-      p: ['field', 'unique'],
+      p: ['unique'],
       oi: newUnique,
       od: oldUnique,
     };
@@ -24,7 +24,7 @@ export class SetFieldUniqueBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldUniqueOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'unique']);
+    const result = pathMatcher<Record<string, never>>(p, ['unique']);
 
     if (!result) {
       return null;

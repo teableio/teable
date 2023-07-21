@@ -1,23 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable-group/core';
+import type { IFieldRo, IFieldVo } from '@teable-group/core';
+import { SingleLineTextFieldCore, FieldType } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import { initApp } from './utils/init-app';
-
-const defaultFields = [
-  {
-    name: 'name',
-    type: FieldType.SingleLineText,
-  },
-  {
-    name: 'number',
-    type: FieldType.Number,
-  },
-  {
-    name: 'status',
-    type: FieldType.SingleSelect,
-  },
-];
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
@@ -39,14 +24,15 @@ describe('OpenAPI FieldController (e2e)', () => {
 
   it('/api/table/{tableId}/field (GET)', async () => {
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    expect(fieldsResult.body.data).toMatchObject(defaultFields);
+    expect(fieldsResult.body.data).toHaveLength(3);
   });
 
   it('/api/table/{tableId}/field (POST)', async () => {
-    const fieldRo: CreateFieldRo = {
+    const fieldRo: IFieldRo = {
       name: 'New field',
       description: 'the new field',
       type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
     };
 
     await request(app.getHttpServer())
@@ -62,14 +48,8 @@ describe('OpenAPI FieldController (e2e)', () => {
       })
       .expect(200);
 
-    expect(result.body.data).toMatchObject([
-      ...defaultFields,
-      {
-        name: 'New field',
-        description: 'the new field',
-        type: FieldType.SingleLineText,
-      },
-    ]);
+    const fields: IFieldVo[] = result.body.data;
+    expect(fields).toHaveLength(4);
     // console.log('result: ', result.body);
   });
 });

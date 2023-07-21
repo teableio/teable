@@ -1,5 +1,5 @@
 import { AttachmentFieldCore } from '@teable-group/core';
 import { Mixin } from 'ts-mixer';
-import { FieldOperations } from './field';
+import { Field } from './field';
 
-export class AttachmentField extends Mixin(AttachmentFieldCore, FieldOperations) {}
+export class AttachmentField extends Mixin(AttachmentFieldCore, Field) {}

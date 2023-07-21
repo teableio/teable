@@ -15,7 +15,7 @@ export class SetFieldDescriptionBuilder implements IOpBuilder {
     const { newDescription, oldDescription } = params;
 
     return {
-      p: ['field', 'description'],
+      p: ['description'],
       oi: newDescription,
       od: oldDescription,
     };
@@ -24,7 +24,7 @@ export class SetFieldDescriptionBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldDescriptionOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'description']);
+    const result = pathMatcher<Record<string, never>>(p, ['description']);
 
     if (!result) {
       return null;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import type { IFieldSnapshot, IOtOperation } from '@teable-group/core';
+import type { IFieldVo, IOtOperation, IUpdateFieldRo } from '@teable-group/core';
 import { getUniqName, FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
@@ -15,8 +15,6 @@ import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRo, createFieldInstanceByVo } from '../model/factory';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
-import type { FieldVo } from '../model/field.vo';
-import type { UpdateFieldRo } from '../model/update-field.ro';
 
 @Injectable()
 export class FieldOpenApiService {
@@ -43,24 +41,21 @@ export class FieldOpenApiService {
     );
   }
 
-  async uniqFieldName(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
+  async uniqFieldName(prisma: Prisma.TransactionClient, tableId: string, field: IFieldVo) {
     const fieldRaw = await prisma.field.findMany({
       where: { tableId, deletedTime: null },
       select: { name: true },
     });
 
     const names = fieldRaw.map((item) => item.name);
-    const uniqName = getUniqName(snapshot.field.name, names);
-    if (uniqName !== snapshot.field.name) {
+    const uniqName = getUniqName(field.name, names);
+    if (uniqName !== field.name) {
       return {
-        ...snapshot,
-        field: {
-          ...snapshot.field,
-          name: uniqName,
-        },
+        ...field,
+        name: uniqName,
       };
     }
-    return snapshot;
+    return field;
   }
 
   private async createSupplementFields(
@@ -82,10 +77,10 @@ export class FieldOpenApiService {
       tableId,
       this.createField2Ops(tableId, field)
     );
-    const id = snapshot.field.id;
+    const id = snapshot.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
     const doc = this.shareDbService.getConnection(transactionKey).get(collection, id);
-    return await new Promise<IFieldSnapshot>((resolve, reject) => {
+    return await new Promise<IFieldVo>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
         resolve(doc.data);
@@ -97,7 +92,7 @@ export class FieldOpenApiService {
     transactionKey: string,
     tableId: string,
     field: IFieldInstance
-  ): Promise<FieldVo> {
+  ): Promise<IFieldVo> {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     await this.fieldSupplementService.createReference(prisma, field);
 
@@ -111,24 +106,24 @@ export class FieldOpenApiService {
       this.createField2Ops(tableId, field)
     );
 
-    const id = snapshot.field.id;
+    const id = snapshot.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
     const connection = this.shareDbService.getConnection(transactionKey);
 
     await this.createDoc(connection, collection, id, snapshot);
     const opsMap = await this.fieldBatchCalculationService.calculateFields(prisma, tableId, [id]);
     await this.recordOpenApiService.sendOpsMap(connection, opsMap);
-    return snapshot.field;
+    return snapshot;
   }
 
   private async createDoc(
     connection: Connection,
     collection: string,
     id: string,
-    createSnapshot: IFieldSnapshot
-  ): Promise<IFieldSnapshot> {
+    createSnapshot: IFieldVo
+  ): Promise<IFieldVo> {
     const doc = connection.get(collection, id);
-    return new Promise<IFieldSnapshot>((resolve, reject) => {
+    return new Promise<IFieldVo>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
         this.logger.log(`create document ${collection}.${id} succeed!`);
@@ -139,11 +134,12 @@ export class FieldOpenApiService {
 
   createField2Ops(_tableId: string, fieldInstance: IFieldInstance) {
     return OpBuilder.creator.addField.build(
-      instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as FieldVo
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo
     );
   }
 
-  async updateFieldById(tableId: string, fieldId: string, updateFieldRo: UpdateFieldRo) {
+  async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
@@ -166,7 +162,7 @@ export class FieldOpenApiService {
         }
 
         // Avoid some unnecessary changes, first differences to find out the key with changes
-        const updateKeys = (Object.keys(updateFieldRo) as (keyof UpdateFieldRo)[]).filter(
+        const updateKeys = (Object.keys(updateFieldRo) as (keyof IUpdateFieldRo)[]).filter(
           (key) => !isEqual(fieldVo[key], updateFieldRo[key])
         );
 

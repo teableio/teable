@@ -5,10 +5,12 @@ import type { FieldType, CellValueType } from '../constant';
 import { unionFormattingSchema, getFormattingSchema, getDefaultFormatting } from '../formatting';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
-export const formulaFieldOptionsSchema = z.object({
-  expression: z.string(),
-  formatting: unionFormattingSchema.optional(),
-});
+export const formulaFieldOptionsSchema = z
+  .object({
+    expression: z.string(),
+    formatting: unionFormattingSchema.optional(),
+  })
+  .strict();
 
 export type IFormulaFieldOptions = z.infer<typeof formulaFieldOptionsSchema>;
 

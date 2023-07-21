@@ -1,43 +1,18 @@
-import { ApiProperty } from '@nestjs/swagger';
 import { CellValueType, DbFieldType, LinkFieldCore, Relationship } from '@teable-group/core';
-import type { ILinkFieldOptions, ILinkCellValue } from '@teable-group/core';
+import type {
+  ILinkFieldOptions,
+  ILinkCellValue,
+  ILookupOptionsVo,
+  IFieldRo,
+} from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 
-export class LinkOptionsDto implements ILinkFieldOptions {
-  @ApiProperty({
-    description: 'describe the relationship from this table to the foreign table',
-    enum: Relationship,
-  })
-  relationship!: Relationship;
-
-  @ApiProperty({
-    description: 'the table this field is linked to',
-  })
-  foreignTableId!: string;
-
-  @ApiProperty({
-    description:
-      'The value of the lookup Field in the associated table will be displayed as the current field.',
-  })
-  lookupFieldId!: string;
-
-  @ApiProperty({
-    description: 'The foreign key field name used to store values in the db table.',
-  })
-  dbForeignKeyName!: string;
-
-  @ApiProperty({
-    description: 'the symmetric field in the foreign table.',
-  })
-  symmetricFieldId!: string;
-}
-
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isMultipleCellValue =
-      fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne;
+      fieldRo.lookupOptions &&
+      (fieldRo.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne;
 
     const options = fieldRo.options as ILinkFieldOptions | undefined;
 

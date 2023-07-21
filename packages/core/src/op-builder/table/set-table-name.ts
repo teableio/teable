@@ -15,7 +15,7 @@ export class SetTableNameBuilder implements IOpBuilder {
     const { newName, oldName } = params;
 
     return {
-      p: ['table', 'name'],
+      p: ['name'],
       oi: newName,
       od: oldName,
     };
@@ -24,7 +24,7 @@ export class SetTableNameBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetTableNameOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['table', 'name']);
+    const result = pathMatcher<Record<string, never>>(p, ['name']);
 
     if (!result) {
       return null;

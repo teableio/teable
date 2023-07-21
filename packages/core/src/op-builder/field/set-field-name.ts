@@ -15,7 +15,7 @@ export class SetFieldNameBuilder implements IOpBuilder {
     const { newName, oldName } = params;
 
     return {
-      p: ['field', 'name'],
+      p: ['name'],
       oi: newName,
       od: oldName,
     };
@@ -24,7 +24,7 @@ export class SetFieldNameBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetFieldNameOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['field', 'name']);
+    const result = pathMatcher<Record<string, never>>(p, ['name']);
 
     if (!result) {
       return null;

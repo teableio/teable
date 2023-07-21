@@ -8,10 +8,12 @@ import {
   formatDateToString,
 } from '../formatting';
 
-export const dateFieldOptionsSchema = z.object({
-  formatting: datetimeFormattingSchema,
-  defaultValue: z.enum(['now'] as const).optional(),
-});
+export const dateFieldOptionsSchema = z
+  .object({
+    formatting: datetimeFormattingSchema,
+    defaultValue: z.enum(['now'] as const).optional(),
+  })
+  .strict();
 
 export type IDateFieldOptions = z.infer<typeof dateFieldOptionsSchema>;
 

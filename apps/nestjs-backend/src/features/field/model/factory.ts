@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
-import type { ILookupOptionsVo } from '@teable-group/core';
+import { BadRequestException } from '@nestjs/common';
+import type { IFieldRo, IFieldVo, ILookupOptionsVo } from '@teable-group/core';
 import {
-  formatFieldErrorMessage,
   DbFieldType,
   assertNever,
   CellValueType,
@@ -10,8 +10,7 @@ import {
 } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
-import { isString } from 'lodash';
-import type { CreateFieldRo } from './create-field.ro';
+import { fromZodError } from 'zod-validation-error';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
@@ -22,7 +21,6 @@ import { NumberFieldDto } from './field-dto/number-field.dto';
 import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
-import type { FieldVo } from './field.vo';
 
 export interface IPreparedRo {
   cellValueType: CellValueType;
@@ -30,28 +28,7 @@ export interface IPreparedRo {
   lookupOptions?: ILookupOptionsVo;
 }
 
-function validateFieldByKey(key: string, fieldInstance: IFieldInstance) {
-  switch (key) {
-    case 'name':
-    case 'description':
-    case 'type':
-      return { success: true };
-    case 'options': {
-      const res = fieldInstance.validateOptions();
-      return {
-        success: res.success,
-        error: res.success ? null : formatFieldErrorMessage(res.error),
-      };
-    }
-    default:
-      return {
-        success: false,
-        error: 'The name field in the field does not support checksum',
-      };
-  }
-}
-
-export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
+export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
   // generate Id first
   const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 
@@ -105,20 +82,17 @@ export function createFieldInstanceByRo(createFieldRo: CreateFieldRo) {
     }
   })();
 
-  const validateKeys = ['name', 'description', 'type', 'options'];
+  const result = instance.validateOptions();
 
-  const validateErrors = validateKeys
-    .map((key) => validateFieldByKey(key, instance))
-    .map((res) => res.error)
-    .filter(isString);
-
-  if (validateErrors.length > 0) {
-    throw new Error(validateErrors.join('\n'));
+  if (!result.success) {
+    throw new BadRequestException(
+      `${instance.name}} has invalid options, ${fromZodError(result.error)}`
+    );
   }
   return instance;
 }
 
-export function rawField2FieldObj(fieldRaw: Field): FieldVo {
+export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
   return {
     id: fieldRaw.id,
     dbFieldName: fieldRaw.dbFieldName,
@@ -131,7 +105,8 @@ export function rawField2FieldObj(fieldRaw: Field): FieldVo {
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
     isLookup: fieldRaw.isLookup || undefined,
-    lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
+    lookupOptions:
+      (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
@@ -143,7 +118,7 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
   return createFieldInstanceByVo(rawField2FieldObj(fieldRaw));
 }
 
-export function createFieldInstanceByVo(field: FieldVo) {
+export function createFieldInstanceByVo(field: IFieldVo) {
   switch (field.type) {
     case FieldType.SingleLineText:
       return plainToInstance(SingleLineTextFieldDto, field);

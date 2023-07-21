@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { FieldKeyType } from '@teable-group/core';
-import { Table } from '@teable-group/sdk/model';
-import { Space } from '@teable-group/sdk/model/space';
+import { Field, Record, Table, View } from '@teable-group/sdk/model';
 import router from 'next/router';
 import { createChart } from '../Chart/createChart';
 import { ChartType } from '../Chart/type';
@@ -23,14 +22,14 @@ export function createAISyntaxParser() {
     switch (parsedLine.operation) {
       case 'create-table': {
         const { name, description, icon } = parsedLine.value;
-        const tableData = await Space.createTable({
+        const tableData = await Table.createTable({
           name,
           description,
           icon: icon,
           fields: [],
         });
         tableId = tableData.id;
-        const views = await Table.getViews(tableId);
+        const views = await View.getViews(tableId);
         viewId = views[0].id;
         router.push({
           pathname: '/space/[tableId]/[viewId]',
@@ -43,17 +42,14 @@ export function createAISyntaxParser() {
           throw new Error("Can't create field without tableId");
         }
         const { name, type, options } = parsedLine.value;
-        await Table.createField({ tableId, name, type, options });
+        await Field.createField(tableId, { name, type, options });
         return;
       }
       case 'create-record': {
         if (!tableId) {
           throw new Error("Can't create record without table");
         }
-        await Table.createRecords({
-          tableId,
-          records: [{ fields: {} }],
-        });
+        await Record.createRecords(tableId, { records: [{ fields: {} }] });
         return;
       }
       case 'set-record': {
@@ -66,8 +62,7 @@ export function createAISyntaxParser() {
         const index = parsedLine.index;
         const cell = parsedLine.value;
         try {
-          await Table.updateRecordByIndex({
-            tableId,
+          await Record.updateRecordByIndex(tableId, {
             viewId,
             index,
             record: { fields: { [cell.name]: cell.value } },
@@ -81,8 +76,7 @@ export function createAISyntaxParser() {
       case 'generate-chart': {
         const chartTypeArray = Object.values(ChartType);
         const { nodeId, viewId } = router.query;
-        const result = await Table.getRecords({
-          tableId: nodeId as string,
+        const result = await Record.getRecords(nodeId as string, {
           viewId: viewId as string,
           fieldKeyType: FieldKeyType.Name,
         });

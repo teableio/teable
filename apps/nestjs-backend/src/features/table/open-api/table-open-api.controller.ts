@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiOperation,
   ApiTags,
@@ -6,12 +6,16 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
 } from '@nestjs/swagger';
-import type { ApiResponse } from '../../../utils/api-response';
-import { responseWrap } from '../../../utils/api-response';
-import { CreateTableRo } from '../create-table.ro';
-import { FullSSRSnapshotVo, TableSSRDefaultViewIdVo, TableSSRSnapshotVo } from '../ssr-snapshot.vo';
+import {
+  getTableQuerySchema,
+  ICreateTableRo,
+  IGetTableQuery,
+  tableRoSchema,
+} from '@teable-group/core';
+import type { ITableVo, ITableListVo, IFullTableVo } from '@teable-group/core';
+import { ApiResponse, responseWrap } from '../../../utils/api-response';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';
-import { TableVo } from '../table.vo';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
@@ -23,62 +27,56 @@ export class TableController {
     private readonly tableOpenApiService: TableOpenApiService
   ) {}
 
-  @Get('/ssr/:tableId/view-id')
+  @Get(':tableId/defaultViewId')
   @ApiOkResponse({
     description: 'default id in table',
-    type: TableSSRDefaultViewIdVo,
+    type: ApiResponse<{ id: string }>,
   })
-  async getDefaultViewId(@Param('tableId') tableId: string): Promise<TableSSRDefaultViewIdVo> {
+  async getDefaultViewId(@Param('tableId') tableId: string): Promise<ApiResponse<{ id: string }>> {
     const snapshot = await this.tableService.getDefaultViewId(tableId);
-    return responseWrap(snapshot!);
-  }
-
-  @Get('/ssr/:tableId/:viewId')
-  @ApiOkResponse({
-    description: 'ssr snapshot',
-    type: FullSSRSnapshotVo,
-  })
-  async getFullSSRSnapshot(
-    @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string
-  ): Promise<FullSSRSnapshotVo> {
-    const snapshot = await this.tableService.getSSRSnapshot(tableId, viewId);
-    return responseWrap(snapshot!);
-  }
-
-  @Get('/ssr')
-  @ApiOkResponse({
-    description: 'ssr snapshot',
-    type: TableSSRSnapshotVo,
-  })
-  async getTableSSRSnapshot(): Promise<TableSSRSnapshotVo> {
-    const snapshot = await this.tableService.getTableSSRSnapshot();
     return responseWrap(snapshot);
+  }
+
+  @Get(':tableId')
+  async getTable(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
+  ): Promise<ApiResponse<ITableVo>> {
+    const table = await this.tableService.getTable(tableId, query);
+    return responseWrap(table);
+  }
+
+  @Get()
+  async getTables(): Promise<ApiResponse<ITableListVo>> {
+    const tables = await this.tableService.getTables();
+    return responseWrap(tables);
   }
 
   @ApiOperation({ summary: 'Create table' })
   @ApiCreatedResponse({
     status: 201,
     description: 'The table has been successfully created.',
-    type: TableVo,
+    type: ApiResponse<IFullTableVo>,
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Post()
-  async createTable(@Body(TablePipe) createTable: CreateTableRo): Promise<ApiResponse<TableVo>> {
-    const result = await this.tableOpenApiService.createTable(createTable);
+  async createTable(
+    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
+  ): Promise<ApiResponse<IFullTableVo>> {
+    const result = await this.tableOpenApiService.createTable(createTableRo);
     return responseWrap(result);
   }
 
   @ApiOperation({ summary: 'Delete table' })
   @ApiOkResponse({ description: 'The table has been removed to trash.' })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
-  @Delete('/:tableId')
+  @Delete(':tableId')
   async archiveTable(@Param('tableId') tableId: string) {
     const result = await this.tableOpenApiService.archiveTable(tableId);
     return responseWrap(result);
   }
 
-  @Delete('/arbitrary/:tableId')
+  @Delete('arbitrary/:tableId')
   deleteTableArbitrary(@Param('tableId') tableId: string) {
     return this.tableService.deleteTableArbitrary(tableId);
   }

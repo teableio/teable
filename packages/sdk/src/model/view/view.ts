@@ -1,9 +1,9 @@
-import type { IFieldSnapshot, IFilter } from '@teable-group/core';
+import type { IViewVo, IFilter } from '@teable-group/core';
 import { filter, OpBuilder, ViewCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 
 export abstract class ViewOperations extends ViewCore {
-  protected doc!: Doc<IFieldSnapshot>;
+  protected doc!: Doc<IViewVo>;
 
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {
