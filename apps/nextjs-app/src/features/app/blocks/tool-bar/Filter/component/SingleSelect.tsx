@@ -41,10 +41,11 @@ function SingleSelect(props: ISingleSelect) {
   // }, [onSelect, value, operator, options]);
 
   const optionRender = (option: IColorOption) => {
-    const { color, label } = option;
+    const { color, label, value } = option;
     return (
       <>
         <div
+          key={value}
           className="px-2 rounded-lg truncate"
           style={{
             backgroundColor: ColorUtils.getHexForColor(color),

@@ -87,7 +87,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('justify-between m-1', className)}
+          className={cn('justify-between m-1 truncate overflow-hidden', className)}
         >
           {value
             ? (selectedValue && displayRender?.(selectedValue)) ?? (

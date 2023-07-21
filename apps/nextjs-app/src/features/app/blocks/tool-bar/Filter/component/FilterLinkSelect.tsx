@@ -31,7 +31,10 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
 
   const displayRender = useCallback((option: typeof options[number]) => {
     return (
-      <div className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1">
+      <div
+        className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1 truncate"
+        key={option.value}
+      >
         {option?.label || 'Untitled'}
       </div>
     );
@@ -39,7 +42,10 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
 
   const optionRender = useCallback((option: typeof options[number]) => {
     return (
-      <div className="px-2 rounded-lg bg-secondary text-secondary-foreground truncate">
+      <div
+        key={option.value}
+        className="px-2 rounded-lg bg-secondary text-secondary-foreground truncate"
+      >
         {option?.label || 'Untitled'}
       </div>
     );
@@ -55,8 +61,8 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
             value={values as string}
             displayRender={displayRender}
             optionRender={optionRender}
-            className="w-52"
-            popoverClassName="w-52"
+            className="w-44"
+            popoverClassName="w-44"
           />
         ) : (
           <BaseMultipleSelect
@@ -65,8 +71,8 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
             value={values as string[]}
             displayRender={displayRender}
             optionRender={optionRender}
-            className="w-52"
-            popoverClassName="w-52"
+            className="w-44"
+            popoverClassName="w-44"
           />
         )
       ) : (

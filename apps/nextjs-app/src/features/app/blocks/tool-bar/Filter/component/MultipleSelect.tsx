@@ -47,6 +47,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
   const displayRender = (value: IColorOption) => {
     return (
       <div
+        key={value?.value}
         className={cn('px-2 rounded-lg m-1')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
