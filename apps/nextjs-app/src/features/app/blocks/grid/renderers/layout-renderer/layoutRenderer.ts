@@ -1,5 +1,5 @@
 import { isEqual } from 'lodash';
-import { GRID_DEFAULT } from '../../configs';
+import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetColumnIndex } from '../../hooks';
 import { DragRegionType, RegionType, RowControlType, SelectionRegionType } from '../../interface';
 import type { IRenderLayerProps } from '../../RenderLayer';
@@ -76,8 +76,9 @@ export const drawCells = (
     stopRowIndex: originStopRowIndex,
     startColumnIndex: originStartColumnIndex,
     stopColumnIndex: originStopColumnIndex,
-    scrollState,
+    activeCell,
     mouseState,
+    scrollState,
     selectionState,
     rowControls,
     onRowAppend,
@@ -86,6 +87,7 @@ export const drawCells = (
     isEditing,
     imageManager,
     activeCellData,
+    spriteManager,
   } = props;
   const {
     rowHeight,
@@ -133,12 +135,10 @@ export const drawCells = (
       const isHover =
         !isOutOfBounds &&
         !isSelecting &&
-        [RegionType.Cell, RegionType.RowHeader, RegionType.RowHeaderCheckbox].includes(
-          hoverRegionType
-        ) &&
+        ROW_RELATED_REGIONS.has(hoverRegionType) &&
         rowIndex === hoverRowIndex;
-      const { isRowActive, isCellActive } = checkIfRowOrCellActive(
-        selectionState,
+      const { isCellActive, isRowActive } = checkIfRowOrCellActive(
+        activeCell,
         rowIndex,
         columnIndex
       );
@@ -165,23 +165,22 @@ export const drawCells = (
           height: rowHeight,
           displayIndex: String(rowIndex + 1),
           isHover: isHover || isRowActive,
-          isChecked: selectionType === SelectionRegionType.Row && isRowSelected,
+          isChecked: selectionType === SelectionRegionType.Rows && isRowSelected,
           rowControls,
           theme,
+          spriteManager,
         });
       }
 
-      // const isCellActive = rowIndex === activeRowIndex && columnIndex === activeColumnIndex;
       if (
         !isEditing &&
         !isSelecting &&
         checkIfFillHandleCell(selectionState, rowIndex, columnIndex)
       ) {
         const { fillHandlerSize } = GRID_DEFAULT;
-        const height = isCellActive ? activeHeight || rowHeight : rowHeight;
         fillHandlerProps = {
           x: x + columnWidth - fillHandlerSize / 2 - 0.5,
-          y: y + height - fillHandlerSize / 2 - 0.5,
+          y: y + rowHeight - fillHandlerSize / 2 - 0.5,
           width: fillHandlerSize,
           height: fillHandlerSize,
           stroke: cellLineColorActived,
@@ -240,9 +239,20 @@ export const drawCells = (
   ctx.restore();
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDrawerProps) => {
-  const { x, y, width, height, displayIndex, theme, isHover, isChecked, rowControls } = props;
-  const hasCheckbox = rowControls?.includes(RowControlType.Checkbox);
+  const {
+    x,
+    y,
+    width,
+    height,
+    displayIndex,
+    theme,
+    isHover,
+    isChecked,
+    rowControls,
+    spriteManager,
+  } = props;
   const {
     cellBg,
     cellBgHovered,
@@ -271,15 +281,38 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   });
   const halfSize = iconSizeXS / 2;
 
-  if (hasCheckbox && (isChecked || isHover)) {
-    return drawCheckbox(ctx, {
-      x: x + width / 2 - halfSize,
-      y: y + height / 2 - halfSize,
-      size: iconSizeXS,
-      stroke: isChecked ? staticWhite : rowHeaderTextColor,
-      fill: isChecked ? cellLineColorActived : undefined,
-      isChecked,
-    });
+  const spriteIconMap = {
+    [RowControlType.Drag]: 'dragIcon',
+    [RowControlType.Expand]: 'expandIcon',
+  };
+
+  if (isChecked || isHover) {
+    const controlSize = width / rowControls.length;
+    for (let i = 0; i < rowControls.length; i++) {
+      const type = rowControls[i];
+      const offsetX = controlSize * (i + 0.5);
+
+      if (type === RowControlType.Checkbox) {
+        drawCheckbox(ctx, {
+          x: x + offsetX - halfSize,
+          y: y + height / 2 - halfSize,
+          size: iconSizeXS,
+          stroke: isChecked ? staticWhite : rowHeaderTextColor,
+          fill: isChecked ? cellLineColorActived : undefined,
+          isChecked,
+        });
+      } else {
+        spriteManager.drawSprite(ctx, {
+          sprite: spriteIconMap[type],
+          variant: 'normal',
+          x: x + offsetX - halfSize,
+          y: y + height / 2 - halfSize,
+          size: iconSizeXS,
+          theme,
+        });
+      }
+    }
+    return;
   }
   drawSingleLineText(ctx, {
     x: x + width / 2,
@@ -429,9 +462,9 @@ export const drawColumnHeaders = (
         stroke: cellLineColor,
       });
 
-      if (rowControls?.includes(RowControlType.Checkbox)) {
+      if (rowControls.includes(RowControlType.Checkbox)) {
         const isChecked =
-          selectionType === SelectionRegionType.Row &&
+          selectionType === SelectionRegionType.Rows &&
           isEqual(selectionRanges[0], [0, endRowIndex]);
         drawCheckbox(ctx, {
           x: scrollLeft + columnInitSize / 2 - halfSize + 0.5,

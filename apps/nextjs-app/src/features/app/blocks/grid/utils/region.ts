@@ -7,14 +7,9 @@ import { inRange } from './range';
 interface ICheckRegionProps
   extends Pick<
     IRenderLayerProps,
-    | 'theme'
-    | 'rowControls'
-    | 'scrollState'
-    | 'dragState'
-    | 'selectionState'
-    | 'columnResizeState'
-    | 'coordInstance'
+    'theme' | 'scrollState' | 'dragState' | 'selectionState' | 'columnResizeState' | 'coordInstance'
   > {
+  rowControls: RowControlType[];
   isOutOfBounds: boolean;
   position: IRegionPosition;
   hasAppendRow: boolean;
@@ -72,32 +67,83 @@ const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
     : null;
 };
 
+// const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
+//   const { position, theme, rowControls, scrollState, coordInstance } = props;
+//   const { x, y, rowIndex, columnIndex } = position;
+
+//   if (rowIndex < -1 || columnIndex !== -1) return null;
+
+//   if (!rowControls?.includes(RowControlType.Checkbox)) return RegionType.RowHeader;
+
+//   const { iconSizeXS } = theme;
+//   const halfIconSize = iconSizeXS / 2;
+//   const { rowInitSize, columnInitSize } = coordInstance;
+//   const inXRange = inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize);
+
+//   if (inXRange && inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)) {
+//     return RegionType.AllCheckbox;
+//   }
+
+//   const { scrollTop } = scrollState;
+//   const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
+//   const rowHeight = coordInstance.getRowHeight(rowIndex);
+//   const inYRange = inRange(
+//     y,
+//     offsetY + rowHeight / 2 - halfIconSize,
+//     offsetY + rowHeight / 2 + halfIconSize
+//   );
+
+//   if (inXRange && inYRange) {
+//     return RegionType.RowHeaderCheckbox;
+//   }
+//   return RegionType.RowHeader;
+// };
+
 const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const { position, theme, rowControls, scrollState, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
-  if (rowIndex >= -1 && columnIndex === -1) {
-    if (!rowControls?.includes(RowControlType.Checkbox)) return RegionType.RowHeader;
-    const { iconSizeXS } = theme;
-    const { rowInitSize, columnInitSize } = coordInstance;
-    const halfIconSize = iconSizeXS / 2;
-    if (
-      inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize) &&
-      inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)
-    ) {
-      return RegionType.AllCheckbox;
-    }
+
+  if (rowIndex < -1 || columnIndex !== -1) return null;
+
+  const { iconSizeXS } = theme;
+  const { columnInitSize } = coordInstance;
+  const halfIconSize = iconSizeXS / 2;
+
+  // Define all possible row controls and their corresponding RegionTypes
+  const rowControlDefinitions = {
+    [RowControlType.Drag]: RegionType.RowHeaderDragHandler,
+    [RowControlType.Checkbox]: RegionType.RowHeaderCheckbox,
+    [RowControlType.Expand]: RegionType.RowHeaderExpandHandler,
+  };
+
+  const controlSize = columnInitSize / (rowControls.length || 1);
+
+  for (let i = 0; i < rowControls.length; i++) {
+    const type = rowControls[i];
+    const regionType = rowControlDefinitions[type];
+    if (!rowControls.includes(type)) continue;
+
+    const inControlXRange = inRange(
+      x,
+      controlSize * (i + 0.5) - halfIconSize,
+      controlSize * (i + 0.5) + halfIconSize
+    );
+
     const { scrollTop } = scrollState;
     const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
     const rowHeight = coordInstance.getRowHeight(rowIndex);
-    if (
-      inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize) &&
-      inRange(y, offsetY + rowHeight / 2 - halfIconSize, offsetY + rowHeight / 2 + halfIconSize)
-    ) {
-      return RegionType.RowHeaderCheckbox;
+    const inYRangeRowHeader = inRange(
+      y,
+      offsetY + rowHeight / 2 - halfIconSize,
+      offsetY + rowHeight / 2 + halfIconSize
+    );
+
+    if (regionType && inControlXRange && inYRangeRowHeader) {
+      return regionType;
     }
-    return RegionType.RowHeader;
   }
-  return null;
+
+  return RegionType.RowHeader;
 };
 
 const checkIsFillHandler = (props: ICheckRegionProps): RegionType | null => {

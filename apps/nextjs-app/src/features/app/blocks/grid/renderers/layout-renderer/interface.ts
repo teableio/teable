@@ -25,10 +25,11 @@ export interface IRowHeaderDrawerProps extends ICellPosition {
   displayIndex: string;
   theme: IGridTheme;
   isHover: boolean;
+  rowControls: RowControlType[];
+  spriteManager: SpriteManager;
   fill?: string;
   stroke?: string;
   isChecked?: boolean;
-  rowControls?: RowControlType[];
 }
 
 export interface IFieldHeadDrawerProps extends ICellPosition {

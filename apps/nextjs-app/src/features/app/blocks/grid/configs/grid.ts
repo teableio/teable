@@ -60,9 +60,10 @@ export const DEFAULT_SELECTION_STATE = {
   isSelecting: false,
 };
 
-// export const DEFAULT_ACTIVE_CELL_DATA = {
-//   rowIndex: -Infinity,
-//   columnIndex: -Infinity,
-//   width: 0,
-//   height: 0,
-// };
+export const ROW_RELATED_REGIONS = new Set([
+  RegionType.Cell,
+  RegionType.RowHeader,
+  RegionType.RowHeaderCheckbox,
+  RegionType.RowHeaderDragHandler,
+  RegionType.RowHeaderExpandHandler,
+]);

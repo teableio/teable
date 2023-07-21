@@ -1,36 +1,36 @@
 import type { IGridTheme } from '../../configs';
-import type { IHeaderIconMap, ISpriteProps } from './sprites';
+import type { ISpriteIconMap, ISpriteProps } from './sprites';
 import { sprites } from './sprites';
 
-const getColors = (variant: ISpriteVariant, theme: IGridTheme): readonly [string, string] => {
-  const { iconBgCommon, iconBgSelected, iconFgCommon, iconFgSelected } = theme;
-  return variant === 'selected' ? [iconBgSelected, iconFgSelected] : [iconBgCommon, iconFgCommon];
-};
-
-export type IHeaderIcon = keyof IHeaderIconMap;
+export type ISpriteIcon = keyof ISpriteIconMap;
 export type ISprite = (props: ISpriteProps) => string;
-export type ISpriteMap = Record<string | IHeaderIcon, ISprite>;
+export type ISpriteMap = Record<string | ISpriteIcon, ISprite>;
 export type ISpriteVariant = 'normal' | 'selected';
 
 interface ISpriteDrawerProps {
-  sprite: IHeaderIcon | string;
-  variant: ISpriteVariant;
   x: number;
   y: number;
+  sprite: ISpriteIcon | string;
+  variant: ISpriteVariant;
   size: number;
   theme: IGridTheme;
   alpha?: number;
 }
 
+const getColors = (variant: ISpriteVariant, theme: IGridTheme): [string, string] => {
+  const { iconBgCommon, iconBgSelected, iconFgCommon, iconFgSelected } = theme;
+  return variant === 'selected' ? [iconBgSelected, iconFgSelected] : [iconBgCommon, iconFgCommon];
+};
+
 export class SpriteManager {
   private spriteMap: Map<string, HTMLCanvasElement> = new Map();
-  private headerIcons: ISpriteMap;
+  private icons: ISpriteMap;
   private inFlight = 0;
 
-  constructor(headerIcons?: ISpriteMap, private onSettled?: () => void) {
-    this.headerIcons = {
+  constructor(icons?: ISpriteMap, private onSettled?: () => void) {
+    this.icons = {
       ...sprites,
-      ...headerIcons,
+      ...icons,
     };
   }
 
@@ -42,7 +42,7 @@ export class SpriteManager {
 
     let spriteCanvas = this.spriteMap.get(key);
     if (spriteCanvas === undefined) {
-      const spriteCb = this.headerIcons[sprite];
+      const spriteCb = this.icons[sprite];
 
       if (spriteCb === undefined) return;
 
@@ -82,5 +82,3 @@ export class SpriteManager {
     }
   }
 }
-
-// export const spriteManager = new SpriteManager(getHeaderIcons());

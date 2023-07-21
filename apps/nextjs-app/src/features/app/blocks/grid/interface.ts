@@ -25,8 +25,8 @@ export interface IRectangle {
 }
 
 export enum SelectionRegionType {
-  Row = 'Row',
-  Column = 'Column',
+  Rows = 'Rows',
+  Columns = 'Columns',
   Cells = 'Cells',
   None = 'None',
 }
@@ -40,6 +40,7 @@ export enum RegionType {
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnResizeHandler = 'ColumnResizeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
+  RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
@@ -49,9 +50,12 @@ export enum RegionType {
 
 export type IRange = [number, number];
 
-export interface ISelectionState {
+export interface ISelectionBase {
   type: SelectionRegionType;
   ranges: IRange[];
+}
+
+export interface ISelectionState extends ISelectionBase {
   isSelecting: boolean;
 }
 
@@ -141,4 +145,9 @@ export interface IActiveCellData {
   columnIndex: number;
   width: number;
   height: number;
+}
+
+export interface IPositionWithBounds {
+  bounds: IRectangle;
+  eventPosition: IPosition;
 }
