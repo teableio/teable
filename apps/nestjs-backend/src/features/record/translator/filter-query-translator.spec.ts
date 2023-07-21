@@ -28,6 +28,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.String,
         isMultipleCellValue: false,
         columnMeta: {},
+        options: {},
       },
       {
         id: 'fld2',
@@ -38,6 +39,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.Number,
         isMultipleCellValue: false,
         columnMeta: {},
+        options: {},
       },
       {
         id: 'fld3',
@@ -48,6 +50,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.String,
         isMultipleCellValue: false,
         columnMeta: {},
+        options: {},
       },
       {
         id: 'fld4',
@@ -58,6 +61,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.String,
         isMultipleCellValue: true,
         columnMeta: {},
+        options: {},
       },
       {
         id: 'fld5',
@@ -68,6 +72,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.Boolean,
         isMultipleCellValue: false,
         columnMeta: {},
+        options: {},
       },
       {
         id: 'fld6',
