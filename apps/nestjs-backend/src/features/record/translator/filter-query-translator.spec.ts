@@ -8,9 +8,14 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FilterQueryTranslator } from './filter-query-translator';
 
 describe('FilterQueryTranslator', () => {
-  const queryBuilder = knex({ client: 'sqlite3' })('table_name');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let queryBuilder: any;
   const timeZone = 'Asia/Shanghai';
   let fieldContext: { [fieldId: string]: IFieldInstance } = {};
+
+  beforeEach(() => {
+    queryBuilder = knex({ client: 'sqlite3' })('table_name');
+  });
 
   beforeAll(() => {
     const fieldsJson: IFieldVo[] = [
@@ -121,7 +126,7 @@ describe('FilterQueryTranslator', () => {
     new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
 
     expect(queryBuilder.toQuery()).toMatch(
-      "`name_fld1` = 'a' and not `name_fld1` = 'b' and `name_fld1` like '%c%' and not `name_fld1` like '%d%' and `name_fld1` is null and `name_fld1` is not null"
+      "`name_fld1` = 'a' and ifnull(name_fld1, '') != 'b' and `name_fld1` like '%c%' and ifnull(name_fld1, '') not like '%d%' and `name_fld1` is null and `name_fld1` is not null"
     );
   });
 
@@ -175,7 +180,7 @@ describe('FilterQueryTranslator', () => {
     new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
 
     expect(queryBuilder.toQuery()).toMatch(
-      'number_fld2` = 1 and not `number_fld2` = 2 and `number_fld2` > 3 and `number_fld2` >= 4 and `number_fld2` < 5 and `number_fld2` <= 6 and `number_fld2` is null and `number_fld2` is not null'
+      "number_fld2` = 1 and ifnull(number_fld2, '') != 2 and `number_fld2` > 3 and `number_fld2` >= 4 and `number_fld2` < 5 and `number_fld2` <= 6 and `number_fld2` is null and `number_fld2` is not null"
     );
   });
 
@@ -219,7 +224,7 @@ describe('FilterQueryTranslator', () => {
     new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
 
     expect(queryBuilder.toQuery()).toMatch(
-      "`status_fld3` = 'value1' and not `status_fld3` = 'value2' and `status_fld3` in ('value3', 'value1') and `status_fld3` not in ('value4') and `status_fld3` is null and `status_fld3` is not null"
+      "`status_fld3` = 'value1' and ifnull(status_fld3, '') != 'value2' and `status_fld3` in ('value3', 'value1') and ifnull(status_fld3, '') not in ('value4') and `status_fld3` is null and `status_fld3` is not null"
     );
   });
 
@@ -382,8 +387,6 @@ describe('FilterQueryTranslator', () => {
     });
 
     describe('comparison operations', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let queryBuilder: any;
       const date = dayjs().utc().tz(timeZone);
       const numberOfDays = 10;
       const exactDate = '2023-07-15T16:00:00.000Z';
@@ -409,10 +412,6 @@ describe('FilterQueryTranslator', () => {
         isOnOrBefore: subOps,
         isOnOrAfter: subOps,
       };
-
-      beforeEach(() => {
-        queryBuilder = knex({ client: 'sqlite3' })('table_name');
-      });
 
       Object.entries(ops).forEach(([key, values]) => {
         values.forEach((value) => {
@@ -501,6 +500,8 @@ describe('FilterQueryTranslator', () => {
               matchSql = `\`date_fld6\` >= '${testDate[0]}'`;
             }
 
+            console.log(queryBuilder.toQuery());
+
             expect(queryBuilder.toQuery()).toMatch(matchSql);
           });
         });
@@ -508,13 +509,7 @@ describe('FilterQueryTranslator', () => {
     });
 
     describe('isWithIn', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let queryBuilder: any;
       const date = dayjs().utc().tz(timeZone);
-
-      beforeEach(() => {
-        queryBuilder = knex({ client: 'sqlite3' })('table_name');
-      });
 
       it('pastWeek', () => {
         new FilterQueryTranslator(

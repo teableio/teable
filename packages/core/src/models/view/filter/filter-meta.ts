@@ -55,7 +55,7 @@ const filterMetaValue = z
     z.string(),
     z.number(),
     z.boolean(),
-    z.array(z.union([z.string(), z.number()])),
+    z.array(z.union([z.string(), z.number()])).nonempty(),
     filterMetaValueByDate,
   ])
   .nullable();
@@ -81,7 +81,11 @@ const filterMetaOperator = z
     operator: operators,
   })
   .superRefine((val, ctx) => {
-    if (operatorsExpectingNull.includes(val.operator) && val.value !== null) {
+    if (!val.value) {
+      return z.NEVER;
+    }
+
+    if (operatorsExpectingNull.includes(val.operator)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `For the operator '${val.operator}', the 'value' should be null`,

@@ -1,6 +1,7 @@
 import type { IFilter } from '@teable-group/core';
 import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
 import { useView } from '@teable-group/sdk/hooks/use-view';
+import { useToast } from '@teable-group/ui-lib';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
@@ -11,6 +12,7 @@ import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
+import { z } from 'zod';
 import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
@@ -18,12 +20,25 @@ export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
   const table = useTable();
   const view = useView();
+  const { toast } = useToast();
 
   const onFilterChange = useCallback(
-    (filters: IFilter | null) => {
-      view?.setFilter(filters);
+    async (filters: IFilter | null) => {
+      await view?.setFilter(filters).catch((e) => {
+        let message;
+        if (e instanceof z.ZodError) {
+          message = e.errors.map((value) => value.message).join('\n');
+        } else {
+          message = e.message;
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description: message,
+        });
+      });
     },
-    [view]
+    [toast, view]
   );
 
   const initFilters = useMemo<IFilter>(() => {

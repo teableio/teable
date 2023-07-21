@@ -1,5 +1,5 @@
 import type { IFieldSnapshot, IFilter } from '@teable-group/core';
-import { OpBuilder, ViewCore } from '@teable-group/core';
+import { filter, OpBuilder, ViewCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 
 export abstract class ViewOperations extends ViewCore {
@@ -22,12 +22,13 @@ export abstract class ViewOperations extends ViewCore {
     return await this.submitOperation(viewOperation);
   }
 
-  async setFilter(filter?: IFilter | null): Promise<void> {
+  async setFilter(newFilter?: IFilter | null): Promise<void> {
+    const validFilter = newFilter && (await filter.parseAsync(newFilter));
+
     const viewOperation = OpBuilder.editor.setViewFilter.build({
-      newFilter: filter,
+      newFilter: validFilter,
       oldFilter: this.filter,
     });
-
     return await this.submitOperation(viewOperation);
   }
 }

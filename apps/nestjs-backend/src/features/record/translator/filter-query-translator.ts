@@ -54,6 +54,124 @@ export class FilterQueryTranslator {
     this._table = get(queryBuilder, ['_single', 'table']);
   }
 
+  translateToSql(): Knex.QueryBuilder {
+    this.filterNullValues(this.filter);
+
+    return this.parseFilters(this.queryBuilder, this.filter);
+  }
+
+  private filterStrategies(
+    operator: IFilterMetaOperator,
+    params: {
+      queryBuilder: Knex.QueryBuilder;
+      field: IFieldInstance;
+      value: IFilterMetaValue;
+    }
+  ) {
+    const operatorHandlers = {
+      [is.value]: this.processIsOperator,
+      [isExactly.value]: this.processIsOperator,
+      [isNot.value]: this.processIsNotOperator,
+      [contains.value]: this.processContainsNotOperator,
+      [doesNotContain.value]: this.processDoesNotContainOperator,
+      [isGreater.value]: this.processIsGreaterOperator,
+      [isAfter.value]: this.processIsGreaterOperator,
+      [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
+      [isOnOrAfter.value]: this.processIsGreaterEqualOperator,
+      [isLess.value]: this.processIsLessOperator,
+      [isBefore.value]: this.processIsLessOperator,
+      [isLessEqual.value]: this.processIsLessEqualOperator,
+      [isOnOrBefore.value]: this.processIsLessEqualOperator,
+      [isAnyOf.value]: this.processIsAnyOfOperator,
+      [hasAnyOf.value]: this.processIsAnyOfOperator,
+      [isNoneOf.value]: this.processIsNoneOfOperator,
+      [hasNoneOf.value]: this.processIsNoneOfOperator,
+      [hasAllOf.value]: this.processHasAllOfOperator,
+      [isWithIn.value]: this.processIsWithInOperator,
+      [isEmpty.value]: this.processIsEmptyOperator,
+      [isNotEmpty.value]: this.processIsNotEmptyOperator,
+    };
+
+    const chosenHandler = operatorHandlers[operator];
+
+    if (!chosenHandler) {
+      throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
+    }
+
+    return chosenHandler(params);
+  }
+
+  private parseFilters(
+    queryBuilder: Knex.QueryBuilder,
+    filter?: IFilter | null,
+    parentConjunction?: IConjunction
+  ): Knex.QueryBuilder {
+    if (!filter || !filter.filterSet) {
+      return queryBuilder;
+    }
+    const { filterSet, conjunction } = filter;
+
+    filterSet.forEach((filterItem) => {
+      if ('fieldId' in filterItem) {
+        this.parseFilter(queryBuilder, filterItem as IFilterMeta, conjunction);
+      } else {
+        queryBuilder = queryBuilder[parentConjunction || conjunction];
+        queryBuilder.where((builder) => {
+          this.parseFilters(builder, filterItem as IFilterSet, conjunction);
+        });
+      }
+    });
+
+    return queryBuilder;
+  }
+
+  private parseFilter(
+    queryBuilder: Knex.QueryBuilder,
+    filterMeta: IFilterMeta,
+    conjunction: IConjunction
+  ) {
+    const { fieldId, operator, value, isSymbol } = filterMeta;
+
+    const field = this.fields && this.fields[fieldId];
+    if (!field) {
+      return queryBuilder;
+    }
+
+    let convertOperator = operator;
+    const filterOperatorMapping = getFilterOperatorMapping(field);
+    const validFilterOperators = Object.keys(filterOperatorMapping);
+    if (isSymbol) {
+      convertOperator = invert(filterOperatorMapping)[operator] as IFilterMetaOperator;
+    }
+
+    if (!includes(validFilterOperators, operator)) {
+      throw new BadRequestException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
+      );
+    }
+
+    const validFilterSubOperators = getValidFilterSubOperators(
+      field.type,
+      operator as IDateTimeFieldOperator
+    );
+
+    if (
+      validFilterSubOperators &&
+      isObject(value) &&
+      'mode' in value &&
+      !includes(validFilterSubOperators, value.mode)
+    ) {
+      throw new BadRequestException(
+        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`
+      );
+    }
+
+    queryBuilder = queryBuilder[conjunction];
+    this.filterStrategies(convertOperator as IFilterMetaOperator, { queryBuilder, field, value });
+
+    return queryBuilder;
+  }
+
   private processIsOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
@@ -62,13 +180,20 @@ export class FilterQueryTranslator {
     const { queryBuilder, field, value } = params;
 
     if (field.isMultipleCellValue && isArray(value)) {
-      const placeholders = value.map(() => '?').join(',');
-      const isExactlySql = `(
-        select count(distinct json_each.value) from 
-          json_each(${this._table}.${field.dbFieldName}) 
-        where json_each.value in (${placeholders})
-          and json_array_length(${this._table}.${field.dbFieldName}) = ?
-      ) = ?`;
+      const getIsExactlySqlSql = (field: IFieldInstance, placeholders: string) => {
+        let column = `json_each.value`;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(json_each.value, '$.id')`;
+        }
+        return `(
+          select count(distinct json_each.value) from 
+            json_each(${this._table}.${field.dbFieldName}) 
+          where ${column} in (${placeholders})
+            and json_array_length(${this._table}.${field.dbFieldName}) = ?
+        ) = ?`;
+      };
+
+      const isExactlySql = getIsExactlySqlSql(field, this.createSqlPlaceholders(value));
       const vLength = value.length;
       queryBuilder.whereRaw(isExactlySql, [...value, vLength, vLength]);
     } else if (field.cellValueType === CellValueType.DateTime) {
@@ -94,7 +219,7 @@ export class FilterQueryTranslator {
       const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
     } else {
-      queryBuilder.whereNot(field.dbFieldName, value);
+      queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') != ?`, [value]);
     }
 
     return queryBuilder;
@@ -108,12 +233,14 @@ export class FilterQueryTranslator {
     const { queryBuilder, field, value } = params;
 
     if (field.type === FieldType.Link) {
-      const hasAnyOfSql = `exists (
-                select 1 from
-                  json_each(${this._table}.${field.dbFieldName})
-                where json_extract(json_each.value, '$.title') like ?
-              )`;
-      queryBuilder.whereRaw(hasAnyOfSql, [`%${value}%`]);
+      const containsSql = field.isMultipleCellValue
+        ? `exists (
+            select 1 from
+              json_each(${this._table}.${field.dbFieldName})
+            where json_extract(json_each.value, '$.title') like ?
+          )`
+        : `json_extract(${field.dbFieldName}, '$.title') like ?`;
+      queryBuilder.whereRaw(containsSql, [`%${value}%`]);
     } else {
       queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
     }
@@ -127,7 +254,19 @@ export class FilterQueryTranslator {
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field, value } = params;
-    queryBuilder.whereNot(field.dbFieldName, 'like', `%${value}%`);
+
+    if (field.type === FieldType.Link) {
+      const doesNotContainSql = field.isMultipleCellValue
+        ? `not exists (
+            select 1 from
+              json_each(${this._table}.${field.dbFieldName})
+            where json_extract(json_each.value, '$.title') like ?
+          )`
+        : `ifnull(json_extract(${field.dbFieldName}, '$.title'), '') not like ?`;
+      queryBuilder.whereRaw(doesNotContainSql, [`%${value}%`]);
+    } else {
+      queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') not like ?`, [`%${value}%`]);
+    }
 
     return queryBuilder;
   };
@@ -248,17 +387,31 @@ export class FilterQueryTranslator {
     }
 
     if (field.isMultipleCellValue) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasAnyOfSql = `exists (
-              select 1 from
-                json_each(${this._table}.${field.dbFieldName})
-              where json_each.value in (${placeholders})
-            )`;
+      const getHasAnyOfSql = (field: IFieldInstance, placeholders: string) => {
+        let column = `json_each.value`;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(json_each.value, '$.id')`;
+        }
+        return `exists (
+          select 1 from 
+            json_each(${this._table}.${field.dbFieldName})
+          where ${column} in (${placeholders})
+        )`;
+      };
+
+      const hasAnyOfSql = getHasAnyOfSql(field, this.createSqlPlaceholders(value));
       queryBuilder.whereRaw(hasAnyOfSql, [...value]);
     } else {
-      queryBuilder.whereIn(field.dbFieldName, [...value]);
-    }
+      if (field.type === FieldType.Link) {
+        const inSql = `json_extract(${
+          field.dbFieldName
+        }, '$.title') in (${this.createSqlPlaceholders(value)})`;
 
+        queryBuilder.whereRaw(inSql, [...value]);
+      } else {
+        queryBuilder.whereIn(field.dbFieldName, [...value]);
+      }
+    }
     return queryBuilder;
   };
 
@@ -273,17 +426,32 @@ export class FilterQueryTranslator {
     }
 
     if (field.isMultipleCellValue) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasNoneOfSql = `not exists (
-              select 1 from
-                json_each(${this._table}.${field.dbFieldName})
-              where json_each.value in (${placeholders})
-            )`;
+      const getHasNoneOfSql = (field: IFieldInstance, placeholders: string) => {
+        let column = `json_each.value`;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(json_each.value, '$.id')`;
+        }
+        return `not exists (
+          select 1 from 
+            json_each(${this._table}.${field.dbFieldName})
+          where ${column} in (${placeholders})
+        )`;
+      };
+
+      const hasNoneOfSql = getHasNoneOfSql(field, this.createSqlPlaceholders(value));
       queryBuilder.whereRaw(hasNoneOfSql, [...value]);
     } else {
-      queryBuilder.whereNotIn(field.dbFieldName, [...value]);
-    }
+      const getNotInSql = (field: IFieldInstance, placeholders: string) => {
+        let column = field.dbFieldName;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(${field.dbFieldName}, '$.title')`;
+        }
+        return `ifnull(${column}, '') not in (${placeholders})`;
+      };
 
+      const notInSql = getNotInSql(field, this.createSqlPlaceholders(value));
+      queryBuilder.whereRaw(notInSql, [...value]);
+    }
     return queryBuilder;
   };
 
@@ -298,129 +466,24 @@ export class FilterQueryTranslator {
     }
 
     if (field.isMultipleCellValue) {
-      const placeholders = value.map(() => '?').join(',');
-      const hasAllSql = `(
+      const getHasAllSql = (field: IFieldInstance, placeholders: string) => {
+        let column = `json_each.value`;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(json_each.value, '$.id')`;
+        }
+        return `(
           select count(distinct json_each.value) from 
             json_each(${this._table}.${field.dbFieldName}) 
-          where json_each.value in (${placeholders})
+          where ${column} in (${placeholders})
         ) = ?`;
+      };
+
+      const hasAllSql = getHasAllSql(field, this.createSqlPlaceholders(value));
       queryBuilder.whereRaw(hasAllSql, [...value, size(value)]);
     }
 
     return queryBuilder;
   };
-
-  private filterStrategies(
-    operator: IFilterMetaOperator,
-    params: {
-      queryBuilder: Knex.QueryBuilder;
-      field: IFieldInstance;
-      value: IFilterMetaValue;
-    }
-  ) {
-    const operatorHandlers = {
-      [is.value]: this.processIsOperator,
-      [isExactly.value]: this.processIsOperator,
-      [isNot.value]: this.processIsNotOperator,
-      [contains.value]: this.processContainsNotOperator,
-      [doesNotContain.value]: this.processDoesNotContainOperator,
-      [isGreater.value]: this.processIsGreaterOperator,
-      [isAfter.value]: this.processIsGreaterOperator,
-      [isGreaterEqual.value]: this.processIsGreaterEqualOperator,
-      [isOnOrAfter.value]: this.processIsGreaterEqualOperator,
-      [isLess.value]: this.processIsLessOperator,
-      [isBefore.value]: this.processIsLessOperator,
-      [isLessEqual.value]: this.processIsLessEqualOperator,
-      [isOnOrBefore.value]: this.processIsLessEqualOperator,
-      [isAnyOf.value]: this.processIsAnyOfOperator,
-      [hasAnyOf.value]: this.processIsAnyOfOperator,
-      [isNoneOf.value]: this.processIsNoneOfOperator,
-      [hasNoneOf.value]: this.processIsNoneOfOperator,
-      [hasAllOf.value]: this.processHasAllOfOperator,
-      [isWithIn.value]: this.processIsWithInOperator,
-      [isEmpty.value]: this.processIsEmptyOperator,
-      [isNotEmpty.value]: this.processIsNotEmptyOperator,
-    };
-
-    const chosenHandler = operatorHandlers[operator];
-
-    if (!chosenHandler) {
-      throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
-    }
-
-    return chosenHandler(params);
-  }
-
-  private parseFilter(
-    queryBuilder: Knex.QueryBuilder,
-    filterMeta: IFilterMeta,
-    conjunction: IConjunction
-  ) {
-    const { fieldId, operator, value, isSymbol } = filterMeta;
-
-    const field = this.fields && this.fields[fieldId];
-    if (!field) {
-      return queryBuilder;
-    }
-
-    let convertOperator = operator;
-    const filterOperatorMapping = getFilterOperatorMapping(field);
-    const validFilterOperators = Object.keys(filterOperatorMapping);
-    if (isSymbol) {
-      convertOperator = invert(filterOperatorMapping)[operator] as IFilterMetaOperator;
-    }
-
-    if (!includes(validFilterOperators, operator)) {
-      throw new BadRequestException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
-      );
-    }
-
-    const validFilterSubOperators = getValidFilterSubOperators(
-      field.type,
-      operator as IDateTimeFieldOperator
-    );
-
-    if (
-      validFilterSubOperators &&
-      isObject(value) &&
-      'mode' in value &&
-      !includes(validFilterSubOperators, value.mode)
-    ) {
-      throw new BadRequestException(
-        `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following subtypes are allowed: [${validFilterSubOperators}]`
-      );
-    }
-
-    queryBuilder = queryBuilder[conjunction];
-    this.filterStrategies(convertOperator as IFilterMetaOperator, { queryBuilder, field, value });
-
-    return queryBuilder;
-  }
-
-  private parseFilters(
-    queryBuilder: Knex.QueryBuilder,
-    filter?: IFilter | null,
-    parentConjunction?: IConjunction
-  ): Knex.QueryBuilder {
-    if (!filter || !filter.filterSet) {
-      return queryBuilder;
-    }
-    const { filterSet, conjunction } = filter;
-
-    filterSet.forEach((filterItem) => {
-      if ('fieldId' in filterItem) {
-        this.parseFilter(queryBuilder, filterItem as IFilterMeta, conjunction);
-      } else {
-        queryBuilder = queryBuilder[parentConjunction || conjunction];
-        queryBuilder.where((builder) => {
-          this.parseFilters(builder, filterItem as IFilterSet, conjunction);
-        });
-      }
-    });
-
-    return queryBuilder;
-  }
 
   private filterNullValues(filter?: IFilter | null) {
     // If the filter is not defined or has no keys, exit the function
@@ -550,9 +613,7 @@ export class FilterQueryTranslator {
     return [startDate.toISOString(), endDate.toISOString()];
   }
 
-  translateToSql(): Knex.QueryBuilder {
-    this.filterNullValues(this.filter);
-
-    return this.parseFilters(this.queryBuilder, this.filter);
+  private createSqlPlaceholders(values: unknown[]): string {
+    return values.map(() => '?').join(',');
   }
 }
