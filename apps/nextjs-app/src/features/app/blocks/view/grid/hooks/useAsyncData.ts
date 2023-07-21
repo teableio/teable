@@ -7,7 +7,7 @@ import type {
   Rectangle,
 } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
-import type { IRecordSnapshot, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
 import { useRecords } from '@teable-group/sdk/hooks';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
@@ -30,7 +30,7 @@ export const useAsyncData = (
   toCell: IRowToCell<Record>,
   onEdited: IRowEditedCallback<Record>,
   gridRef: React.MutableRefObject<DataEditorRef | null>,
-  initRecords?: IRecordSnapshot[]
+  initRecords?: IRecord[]
 ): IRes => {
   const [query, setQuery] = useState<Omit<IRecordSnapshotQuery, 'type'>>({
     offset: 0,

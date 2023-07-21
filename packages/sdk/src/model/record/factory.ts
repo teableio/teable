@@ -1,11 +1,11 @@
-import type { IRecordSnapshot } from '@teable-group/core';
+import type { IRecord } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldInstance } from '../field';
 import { Record } from './record';
 
-export function createRecordInstance(recordSnapshot: IRecordSnapshot, doc?: Doc<IRecordSnapshot>) {
-  const instance = plainToInstance(Record, { ...recordSnapshot.record });
+export function createRecordInstance(record: IRecord, doc?: Doc<IRecord>) {
+  const instance = plainToInstance(Record, record);
   // force inject object into instance
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;

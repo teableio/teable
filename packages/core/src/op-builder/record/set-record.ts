@@ -21,7 +21,7 @@ export class SetRecordBuilder implements IOpBuilder {
     // convert set null to delete key
     if (newCellValue == null || (Array.isArray(newCellValue) && newCellValue.length === 0)) {
       return {
-        p: ['record', 'fields', fieldId],
+        p: ['fields', fieldId],
         od: oldCellValue,
         oi: null,
       };
@@ -30,13 +30,13 @@ export class SetRecordBuilder implements IOpBuilder {
     // convert new cellValue to insert key
     if (oldCellValue == null) {
       return {
-        p: ['record', 'fields', fieldId],
+        p: ['fields', fieldId],
         oi: newCellValue,
       };
     }
 
     return {
-      p: ['record', 'fields', fieldId],
+      p: ['fields', fieldId],
       od: oldCellValue,
       oi: newCellValue,
     };
@@ -44,7 +44,7 @@ export class SetRecordBuilder implements IOpBuilder {
 
   detect(op: IOtOperation): ISetRecordOpContext | null {
     const { p, oi, od } = op;
-    const result = pathMatcher<{ fieldId: string }>(p, ['record', 'fields', ':fieldId']);
+    const result = pathMatcher<{ fieldId: string }>(p, ['fields', ':fieldId']);
 
     if (!result) {
       return null;

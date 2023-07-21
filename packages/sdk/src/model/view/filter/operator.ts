@@ -20,13 +20,6 @@ const operatorLabelMapping = {
   isAfter: 'is after',
   isOnOrBefore: 'is on or before',
   isOnOrAfter: 'is on or after',
-  LIKE: 'like',
-  IN: 'in',
-  HAS: 'has',
-  notLike: 'not like',
-  notIn: 'not in',
-  isNull: 'is null',
-  isNotNull: 'is not null',
 };
 
 export { operatorLabelMapping };

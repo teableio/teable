@@ -3,8 +3,10 @@ import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
   IColumnMeta,
-  IFieldSnapshot,
+  IFieldRo,
   IFieldSnapshotQuery,
+  IFieldVo,
+  IGetFieldsQuery,
   ISetColumnMetaOpContext,
   ISetFieldNameOpContext,
   ISnapshotBase,
@@ -21,15 +23,12 @@ import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { preservedFieldName } from './constant';
-import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance, IPreparedRo } from './model/factory';
 import {
   createFieldInstanceByRo,
   createFieldInstanceByVo,
   rawField2FieldObj,
 } from './model/factory';
-import type { FieldVo } from './model/field.vo';
-import type { GetFieldsRo } from './model/get-fields.ro';
 import { dbType2knexFormat } from './util';
 
 type IOpContexts =
@@ -253,7 +252,7 @@ export class FieldService implements IAdapterService {
     tableId: string,
     fieldId: string,
     prisma?: Prisma.TransactionClient
-  ): Promise<FieldVo> {
+  ): Promise<IFieldVo> {
     if (prisma) {
       const field = await prisma.field.findUniqueOrThrow({
         where: { id: fieldId },
@@ -269,7 +268,7 @@ export class FieldService implements IAdapterService {
     return rawField2FieldObj(field);
   }
 
-  async getFields(tableId: string, query: GetFieldsRo): Promise<FieldVo[]> {
+  async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await this.prismaService.view.findFirstOrThrow({
@@ -290,7 +289,7 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  async getFieldInstances(tableId: string, query: GetFieldsRo): Promise<IFieldInstance[]> {
+  async getFieldInstances(tableId: string, query: IGetFieldsQuery): Promise<IFieldInstance[]> {
     const fields = await this.getFields(tableId, query);
     return fields.map((field) => createFieldInstanceByVo(field));
   }
@@ -303,8 +302,8 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldSnapshot) {
-    const fieldInstance = createFieldInstanceByRo(snapshot.field as CreateFieldRo & IPreparedRo);
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldRo) {
+    const fieldInstance = createFieldInstanceByRo(snapshot as IFieldRo & IPreparedRo);
 
     // 1. save field meta in db
     const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
@@ -453,7 +452,7 @@ export class FieldService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     ids: string[]
-  ): Promise<ISnapshotBase<IFieldSnapshot>[]> {
+  ): Promise<ISnapshotBase<IFieldVo>[]> {
     const fieldRaws = await prisma.field.findMany({
       where: { tableId, id: { in: ids } },
     });
@@ -465,9 +464,7 @@ export class FieldService implements IAdapterService {
           id: fieldRaw.id,
           v: fieldRaw.version,
           type: 'json0',
-          data: {
-            field: fields[i],
-          },
+          data: fields[i],
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));

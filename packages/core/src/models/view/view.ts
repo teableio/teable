@@ -1,6 +1,6 @@
 import type { ViewType } from './constant';
 import type { IFilter } from './filter';
-import type { ISort, IViewVo, IGroup } from './interface';
+import type { IViewVo } from './view.schema';
 
 export abstract class ViewCore implements IViewVo {
   id!: string;
@@ -13,9 +13,9 @@ export abstract class ViewCore implements IViewVo {
 
   filter?: IFilter;
 
-  sort?: ISort;
+  sort?: unknown;
 
-  group?: IGroup;
+  group?: unknown;
 
   order!: number;
 

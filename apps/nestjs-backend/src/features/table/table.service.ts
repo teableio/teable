@@ -5,25 +5,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  IFullTableVo,
+  IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
-  ITableSnapshot,
   ITableVo,
 } from '@teable-group/core';
-import { FieldKeyType, OpName, generateTableId } from '@teable-group/core';
-import type { Prisma, TableMeta } from '@teable-group/db-main-prisma';
+import { FieldKeyType, OpName } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldService } from '../field/field.service';
-import { createFieldInstanceByRo } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from './constant';
-import type { CreateTableRo } from './create-table.ro';
 
 const tableNamePrefix = 'visual';
 
@@ -44,17 +42,20 @@ export class TableService implements IAdapterService {
     return `${tableNamePrefix}_${validInputName}`;
   }
 
-  private async createDBTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
-    const tableId = snapshot.table.id;
-    const validDbTableName = this.generateValidDbTableName(snapshot.table.name);
+  private async createDBTable(
+    prisma: Prisma.TransactionClient,
+    snapshot: Pick<ITableVo, 'id' | 'name' | 'description' | 'order' | 'icon'>
+  ) {
+    const tableId = snapshot.id;
+    const validDbTableName = this.generateValidDbTableName(snapshot.name);
     const dbTableName = `${validDbTableName}_${tableId}`;
     const data: Prisma.TableMetaCreateInput = {
       id: tableId,
-      name: snapshot.table.name,
-      description: snapshot.table.description,
-      icon: snapshot.table.icon,
+      name: snapshot.name,
+      description: snapshot.description,
+      icon: snapshot.icon,
       dbTableName,
-      order: snapshot.table.order,
+      order: snapshot.order,
       createdBy: 'admin',
       lastModifiedBy: 'admin',
       version: 1,
@@ -66,17 +67,6 @@ export class TableService implements IAdapterService {
     // create a real db table
     await prisma.$executeRawUnsafe(visualTableSql(dbTableName));
     return tableMeta;
-  }
-
-  async createTableByDto(createTableDto: CreateTableRo): Promise<TableMeta> {
-    const tableId = generateTableId();
-
-    return await this.prismaService.$transaction(async (prisma) => {
-      const count = await prisma.tableMeta.count();
-      return await this.createTable(prisma, {
-        table: { ...createTableDto, id: tableId, order: count },
-      });
-    });
   }
 
   async getTables(): Promise<ITableVo[]> {
@@ -119,46 +109,54 @@ export class TableService implements IAdapterService {
     });
   }
 
-  async getTableSSRSnapshot() {
-    const tables = await this.getTables();
-    return { tables };
-  }
+  async getTableMeta(tableId: string): Promise<ITableVo> {
+    const tableMeta = await this.prismaService.tableMeta.findFirst({
+      where: { id: tableId, deletedTime: null },
+    });
 
-  async getSSRSnapshot(tableId: string, viewId?: string) {
-    if (!viewId) {
-      try {
-        const view = await this.prismaService.view.findFirstOrThrow({
-          where: { tableId, deletedTime: null },
-          select: { id: true },
-        });
-        viewId = view.id;
-      } catch (e) {
-        throw new NotFoundException();
-      }
-    }
-
-    const tables = await this.getTables();
-
-    try {
-      const fields = await this.fieldService.getFields(tableId, { viewId });
-      const views = await this.viewService.getViews(tableId);
-      const rows = await this.recordService.getRecords(tableId, {
-        viewId,
-        skip: 0,
-        take: 50,
-        fieldKeyType: FieldKeyType.Id,
-      });
-
-      return {
-        tables,
-        fields,
-        views,
-        rows,
-      };
-    } catch (e) {
-      this.logger.error((e as Error).message, (e as Error).stack);
+    if (!tableMeta) {
       throw new NotFoundException();
     }
+
+    return {
+      ...tableMeta,
+      description: tableMeta.description ?? undefined,
+      icon: tableMeta.icon ?? undefined,
+    };
+  }
+
+  private async getFullTable(
+    tableId: string,
+    viewId?: string,
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
+  ): Promise<IFullTableVo> {
+    const tableMeta = await this.getTableMeta(tableId);
+    const fields = await this.fieldService.getFields(tableId, { viewId });
+    const views = await this.viewService.getViews(tableId);
+    const { records, total } = await this.recordService.getRecords(tableId, {
+      viewId,
+      skip: 0,
+      take: 50,
+      fieldKeyType,
+    });
+
+    return {
+      ...tableMeta,
+      description: tableMeta.description ?? undefined,
+      icon: tableMeta.icon ?? undefined,
+      fields,
+      views,
+      records,
+      total,
+    };
+  }
+
+  async getTable(tableId: string, query: IGetTableQuery): Promise<ITableVo> {
+    const { viewId, fieldKeyType, needFullTable } = query;
+    if (needFullTable) {
+      return await this.getFullTable(tableId, viewId, fieldKeyType);
+    }
+    return await this.getTableMeta(tableId);
   }
 
   async getDefaultViewId(tableId: string) {
@@ -172,28 +170,7 @@ export class TableService implements IAdapterService {
     }
   }
 
-  private async createTable(prisma: Prisma.TransactionClient, snapshot: ITableSnapshot) {
-    const tableId = snapshot.table.id;
-    // 1. create db table
-    const tableMeta = await this.createDBTable(prisma, snapshot);
-
-    // 2. create field for table
-    await this.fieldService.multipleCreateFieldsTransaction(
-      prisma,
-      tableId,
-      DEFAULT_FIELDS.map(createFieldInstanceByRo)
-    );
-
-    // 3. create view for table
-    await this.viewService.createViewTransaction(prisma, tableId, DEFAULT_VIEW);
-
-    // 4. create records for table
-    await this.recordService.multipleCreateRecordTransaction(prisma, tableId, DEFAULT_RECORD_DATA);
-
-    return tableMeta;
-  }
-
-  async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableSnapshot) {
+  async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableVo) {
     await this.createDBTable(prisma, snapshot);
   }
 
@@ -239,9 +216,9 @@ export class TableService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     _collection: string,
     ids: string[]
-  ): Promise<ISnapshotBase<ITableSnapshot>[]> {
+  ): Promise<ISnapshotBase<ITableVo>[]> {
     const tables = await prisma.tableMeta.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, deletedTime: null },
     });
 
     return tables
@@ -251,11 +228,9 @@ export class TableService implements IAdapterService {
           v: table.version,
           type: 'json0',
           data: {
-            table: {
-              ...table,
-              description: table.description ?? undefined,
-              icon: table.icon ?? undefined,
-            },
+            ...table,
+            description: table.description ?? undefined,
+            icon: table.icon ?? undefined,
             order: table.order,
           },
         };

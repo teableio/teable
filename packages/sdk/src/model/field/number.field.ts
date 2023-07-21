@@ -1,5 +1,5 @@
 import { NumberFieldCore } from '@teable-group/core';
 import { Mixin } from 'ts-mixer';
-import { FieldOperations } from './field';
+import { Field } from './field';
 
-export class NumberField extends Mixin(NumberFieldCore, FieldOperations) {}
+export class NumberField extends Mixin(NumberFieldCore, Field) {}

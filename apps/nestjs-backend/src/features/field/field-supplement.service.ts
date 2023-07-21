@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   CellValueType,
+  IFieldRo,
+  IFormulaFieldOptions,
   ILinkFieldOptions,
   ILookupOptionsVo,
+  INumberFieldOptions,
   IRollupFieldOptions,
 } from '@teable-group/core';
 import {
@@ -17,7 +20,6 @@ import knex from 'knex';
 import { keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { ISupplementService } from '../../share-db/interface';
-import type { CreateFieldRo } from './model/create-field.ro';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
 import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
@@ -41,7 +43,7 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
-  private async prepareLinkField(field: CreateFieldRo): Promise<CreateFieldRo> {
+  private async prepareLinkField(field: IFieldRo): Promise<IFieldRo> {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
@@ -70,8 +72,8 @@ export class FieldSupplementService implements ISupplementService {
   }
 
   private async prepareLookupOptions(
-    field: CreateFieldRo,
-    batchFieldRos?: CreateFieldRo[]
+    field: IFieldRo,
+    batchFieldRos?: IFieldRo[]
   ): Promise<{ lookupOptions: ILookupOptionsVo; lookupFieldRaw: Field }> {
     const { lookupOptions } = field;
     if (!lookupOptions) {
@@ -117,10 +119,7 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareLookupField(
-    field: CreateFieldRo,
-    batchFieldRos?: CreateFieldRo[]
-  ): Promise<CreateFieldRo> {
+  private async prepareLookupField(field: IFieldRo, batchFieldRos?: IFieldRo[]): Promise<IFieldRo> {
     const { lookupOptions, lookupFieldRaw } = await this.prepareLookupOptions(field, batchFieldRos);
 
     if (lookupFieldRaw.type !== field.type) {
@@ -131,7 +130,7 @@ export class FieldSupplementService implements ISupplementService {
 
     const lookupFieldOptions = JSON.parse(lookupFieldRaw.options as string) as object | null;
     const formatting =
-      field.options?.formatting ??
+      (field.options as INumberFieldOptions)?.formatting ??
       getDefaultFormatting(lookupFieldRaw.cellValueType as CellValueType);
     const options = lookupFieldOptions
       ? formatting
@@ -146,13 +145,15 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareFormulaField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
+  private async prepareFormulaField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
     let fieldIds;
     try {
-      fieldIds = FormulaFieldDto.getReferenceFieldIds(field.options.expression);
+      fieldIds = FormulaFieldDto.getReferenceFieldIds(
+        (field.options as IFormulaFieldOptions).expression
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(e.message);
+      throw new BadRequestException('expression parse error');
     }
 
     const fieldRaws = await this.prismaService.field.findMany({
@@ -163,17 +164,17 @@ export class FieldSupplementService implements ISupplementService {
     const batchFields = batchFieldRos?.map((fieldRo) => createFieldInstanceByRo(fieldRo));
     const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
 
-    if (fieldRaws.length !== fieldIds.length) {
-      const fieldId = fieldIds.find((id) => !fieldMap[id]);
-      throw new BadRequestException(`formula field reference ${fieldId} not found`);
+    if (fieldIds.find((id) => !fieldMap[id])) {
+      throw new BadRequestException(`formula field reference ${fieldIds.join()} not found`);
     }
 
     const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
-      field.options.expression,
+      (field.options as IFormulaFieldOptions).expression,
       fieldMap
     );
 
-    const formatting = field.options?.formatting ?? getDefaultFormatting(cellValueType);
+    const formatting =
+      (field.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
     const options = formatting ? field.options : { ...field.options, formatting };
     return {
       ...field,
@@ -183,9 +184,9 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareRollupField(field: CreateFieldRo, batchFieldRos?: CreateFieldRo[]) {
+  private async prepareRollupField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
     const { lookupOptions } = await this.prepareLookupOptions(field, batchFieldRos);
-    const options: IRollupFieldOptions = field.options;
+    const options = field.options as IRollupFieldOptions;
 
     if (!options) {
       throw new BadRequestException('rollup field options is required');
@@ -212,10 +213,7 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  async prepareField(
-    fieldRo: CreateFieldRo,
-    batchFieldRos?: CreateFieldRo[]
-  ): Promise<CreateFieldRo> {
+  async prepareField(fieldRo: IFieldRo, batchFieldRos?: IFieldRo[]): Promise<IFieldRo> {
     if (fieldRo.isLookup) {
       return await this.prepareLookupField(fieldRo, batchFieldRos);
     }

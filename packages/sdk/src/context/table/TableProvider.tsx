@@ -15,7 +15,7 @@ export const TableProvider: FC<ITableProviderProps> = ({ children, serverData })
   const tables = useInstances({
     collection: `${IdPrefix.Table}_node`,
     factory: createTableInstance,
-    initData: serverData ? serverData.map((d) => ({ table: d })) : undefined,
+    initData: serverData,
     queryParams: {},
   });
 

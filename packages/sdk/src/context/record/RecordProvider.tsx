@@ -1,4 +1,4 @@
-import type { IRecord, IRecordSnapshot, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { ReactNode } from 'react';
 import { useContext, useEffect, useMemo, useState } from 'react';
@@ -42,10 +42,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({
       return;
     }
 
-    const query = connection.createSubscribeQuery<IRecordSnapshot>(
-      `${IdPrefix.Record}_${tableId}`,
-      param
-    );
+    const query = connection.createSubscribeQuery<IRecord>(`${IdPrefix.Record}_${tableId}`, param);
 
     query.on('ready', () => {
       const count = query.extra?.rowCount ?? 0;

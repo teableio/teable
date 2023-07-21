@@ -19,7 +19,7 @@ export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, ser
   const fields = useInstances({
     collection: `${IdPrefix.Field}_${tableId}`,
     factory: createFieldInstance,
-    initData: serverSideData ? serverSideData.map((d) => ({ field: d })) : undefined,
+    initData: serverSideData,
     queryParams: { viewId },
   });
 

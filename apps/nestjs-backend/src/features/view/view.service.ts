@@ -3,7 +3,8 @@ import type {
   ISetViewFilterOpContext,
   ISetViewNameOpContext,
   ISnapshotBase,
-  IViewSnapshot,
+  IViewRo,
+  IViewVo,
   ViewType,
 } from '@teable-group/core';
 import { generateViewId, OpName } from '@teable-group/core';
@@ -11,9 +12,7 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
-import type { CreateViewRo } from './model/create-view.ro';
 import { createViewInstanceByRaw } from './model/factory';
-import type { ViewVo } from './model/view.vo';
 
 @Injectable()
 export class ViewService implements IAdapterService {
@@ -30,7 +29,7 @@ export class ViewService implements IAdapterService {
   async createViewTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createViewRo: CreateViewRo & { id?: string }
+    createViewRo: IViewRo & { id?: string; name: string }
   ) {
     const { id, name, description, type, options, sort, filter, group } = createViewRo;
     let order = createViewRo.order;
@@ -106,25 +105,24 @@ export class ViewService implements IAdapterService {
     return viewData;
   }
 
-  async getViewById(viewId: string): Promise<ViewVo> {
+  async getViewById(viewId: string): Promise<IViewVo> {
     const viewRaw = await this.prisma.view.findUniqueOrThrow({
       where: { id: viewId },
     });
 
-    return createViewInstanceByRaw(viewRaw) as ViewVo;
+    return createViewInstanceByRaw(viewRaw) as IViewVo;
   }
 
-  async getViews(tableId: string): Promise<ViewVo[]> {
+  async getViews(tableId: string): Promise<IViewVo[]> {
     const viewRaws = await this.prisma.view.findMany({
       where: { tableId, deletedTime: null },
     });
 
-    return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as ViewVo);
+    return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IViewSnapshot) {
-    const { view } = snapshot;
-    await this.createViewTransaction(prisma, tableId, view as CreateViewRo);
+  async create(prisma: Prisma.TransactionClient, tableId: string, view: IViewVo) {
+    await this.createViewTransaction(prisma, tableId, view);
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {
@@ -171,7 +169,7 @@ export class ViewService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     ids: string[]
-  ): Promise<ISnapshotBase<IViewSnapshot>[]> {
+  ): Promise<ISnapshotBase<IViewVo>[]> {
     const views = await prisma.view.findMany({
       where: { tableId, id: { in: ids } },
     });
@@ -183,16 +181,13 @@ export class ViewService implements IAdapterService {
           v: view.version,
           type: 'json0',
           data: {
-            view: {
-              ...view,
-              type: view.type as ViewType,
-              description: view.description || undefined,
-              filter: JSON.parse(view.filter as string),
-              sort: JSON.parse(view.sort as string),
-              group: JSON.parse(view.group as string),
-              options: JSON.parse(view.options as string),
-            },
-            order: view.order,
+            ...view,
+            type: view.type as ViewType,
+            description: view.description || undefined,
+            filter: JSON.parse(view.filter as string),
+            sort: JSON.parse(view.sort as string),
+            group: JSON.parse(view.group as string),
+            options: JSON.parse(view.options as string),
           },
         };
       })

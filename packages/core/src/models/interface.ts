@@ -1,4 +1,4 @@
-import type { ITableVo } from './table/interface';
+import type { ITableVo } from './table/table.schema';
 
 export interface IFileNode {
   name: string;

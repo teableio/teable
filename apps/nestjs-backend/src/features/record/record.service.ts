@@ -9,14 +9,14 @@ import type {
   IAggregateQueryResult,
   IAttachmentCellValue,
   IAttachmentItem,
-  IRecordSnapshot,
   IRecordSnapshotQuery,
-  IRecordsRo,
   IRecordsVo,
-  IRecordVo,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
+  IGetRecordsQuery,
+  IRecord,
+  ICreateRecordsRo,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -40,7 +40,6 @@ import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import type { CreateRecordsRo } from './create-records.ro';
 import { FilterQueryTranslator } from './translator/filter-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
@@ -74,7 +73,7 @@ export class RecordService implements IAdapterService {
   private async getUserFields(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsRo: CreateRecordsRo
+    createRecordsRo: ICreateRecordsRo
   ) {
     const fieldIdSet = createRecordsRo.records.reduce<Set<string>>((acc, record) => {
       const fieldIds = Object.keys(record.fields);
@@ -117,7 +116,7 @@ export class RecordService implements IAdapterService {
     dbTableName: string,
     userFields: IUserFields,
     rowIndexFieldNames: string[],
-    createRecordsRo: CreateRecordsRo
+    createRecordsRo: ICreateRecordsRo
   ) {
     const rowCount = await this.getAllRecordCount(prisma, dbTableName);
     const dbValueMatrix: unknown[][] = [];
@@ -146,7 +145,7 @@ export class RecordService implements IAdapterService {
   async multipleCreateRecordTransaction(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    createRecordsRo: CreateRecordsRo
+    createRecordsRo: ICreateRecordsRo
   ) {
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: {
@@ -196,7 +195,7 @@ export class RecordService implements IAdapterService {
   }
 
   // we have to support multiple action, because users will do it in batch
-  async multipleCreateRecords(tableId: string, createRecordsRo: CreateRecordsRo) {
+  async multipleCreateRecords(tableId: string, createRecordsRo: ICreateRecordsRo) {
     return await this.prismaService.$transaction(async (prisma) => {
       return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsRo);
     });
@@ -364,7 +363,7 @@ export class RecordService implements IAdapterService {
     return await this.getAllRecordCount(prisma, dbTableName);
   }
 
-  async getRecords(tableId: string, query: IRecordsRo): Promise<IRecordsVo> {
+  async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
       select: { id: true, filter: true },
       where: {
@@ -402,7 +401,7 @@ export class RecordService implements IAdapterService {
     }
 
     return {
-      records: recordSnapshot.map((r) => r.data.record),
+      records: recordSnapshot.map((r) => r.data),
       total,
     };
   }
@@ -412,7 +411,7 @@ export class RecordService implements IAdapterService {
     recordId: string,
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType = FieldKeyType.Name
-  ): Promise<IRecordVo> {
+  ): Promise<IRecord> {
     const recordSnapshot = await this.getSnapshotBulk(
       this.prismaService,
       tableId,
@@ -444,7 +443,7 @@ export class RecordService implements IAdapterService {
     return result[0].__id;
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecordSnapshot) {
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecord) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     // TODO: get row count will causes performance issus when insert lot of records
@@ -456,8 +455,8 @@ export class RecordService implements IAdapterService {
 
     const orders = views.reduce<{ [viewId: string]: number }>((pre, cur) => {
       const viewOrderFieldName = getViewOrderFieldName(cur.id);
-      if (snapshot.record.recordOrder[cur.id] !== undefined) {
-        pre[viewOrderFieldName] = snapshot.record.recordOrder[cur.id];
+      if (snapshot.recordOrder[cur.id] !== undefined) {
+        pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
       } else {
         pre[viewOrderFieldName] = rowCount;
       }
@@ -466,7 +465,7 @@ export class RecordService implements IAdapterService {
 
     const nativeSql = this.knex(dbTableName)
       .insert({
-        __id: snapshot.record.id,
+        __id: snapshot.id,
         __row_default: rowCount,
         __created_time: new Date().toISOString(),
         __created_by: 'admin',
@@ -561,7 +560,7 @@ export class RecordService implements IAdapterService {
     recordIds: string[],
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id // for convince of collaboration, getSnapshotBulk use id as field key by default.
-  ): Promise<ISnapshotBase<IRecordSnapshot>[]> {
+  ): Promise<ISnapshotBase<IRecord>[]> {
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     const allViews = await prisma.view.findMany({
@@ -615,15 +614,13 @@ export class RecordService implements IAdapterService {
           v: record.__version,
           type: 'json0',
           data: {
-            record: {
-              fields: fieldsData,
-              id: record.__id,
-              createdTime: record.__created_time?.toISOString(),
-              lastModifiedTime: record.__last_modified_time?.toISOString(),
-              createdBy: record.__created_by,
-              lastModifiedBy: record.__last_modified_by,
-              recordOrder,
-            },
+            fields: fieldsData,
+            id: record.__id,
+            createdTime: record.__created_time?.toISOString(),
+            lastModifiedTime: record.__last_modified_time?.toISOString(),
+            createdBy: record.__created_by,
+            lastModifiedBy: record.__last_modified_by,
+            recordOrder,
           },
         };
       });

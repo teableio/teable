@@ -1,15 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
+import type { IFieldRo } from '@teable-group/core';
 import { FieldType, generateFieldId } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import { initApp } from './utils/init-app';
 
-describe.skip('OpenAPI formula (e2e)', () => {
+describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
   let table1Id = '';
-  let numberFieldRo: CreateFieldRo & { id: string };
-  let textFieldRo: CreateFieldRo & { id: string };
-  let formulaFieldRo: CreateFieldRo & { id: string };
+  let numberFieldRo: IFieldRo & { id: string; name: string };
+  let textFieldRo: IFieldRo & { id: string; name: string };
+  let formulaFieldRo: IFieldRo & { id: string; name: string };
 
   beforeAll(async () => {
     app = await initApp();
@@ -101,7 +101,7 @@ describe.skip('OpenAPI formula (e2e)', () => {
       })
       .expect(200);
 
-    const record = updateResult.body.data.record;
+    const record = updateResult.body.data;
 
     expect(record.fields[numberFieldRo.name]).toEqual(1);
     expect(record.fields[textFieldRo.name]).toEqual('x');
@@ -126,7 +126,7 @@ describe.skip('OpenAPI formula (e2e)', () => {
       })
       .expect(200);
 
-    const record1 = updateResult1.body.data.record;
+    const record1 = updateResult1.body.data;
 
     expect(record1.fields[numberFieldRo.name]).toEqual(1);
     expect(record1.fields[textFieldRo.name]).toBeUndefined();
@@ -143,7 +143,7 @@ describe.skip('OpenAPI formula (e2e)', () => {
       })
       .expect(200);
 
-    const record2 = updateResult2.body.data.record;
+    const record2 = updateResult2.body.data;
 
     expect(record2.fields[numberFieldRo.name]).toEqual(1);
     expect(record2.fields[textFieldRo.name]).toEqual('x');

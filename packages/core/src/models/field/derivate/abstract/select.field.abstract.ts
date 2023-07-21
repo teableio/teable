@@ -9,9 +9,11 @@ export const selectFieldChoice = z.object({
 
 export type ISelectFieldChoice = z.infer<typeof selectFieldChoice>;
 
-export const selectFieldOptionsSchema = z.object({
-  choices: z.array(selectFieldChoice),
-});
+export const selectFieldOptionsSchema = z
+  .object({
+    choices: z.array(selectFieldChoice),
+  })
+  .strict();
 
 export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsSchema>;
 

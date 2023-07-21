@@ -6,9 +6,8 @@ import {
   FormulaFieldCore,
   Relationship,
 } from '@teable-group/core';
-import type { IFormulaFieldOptions } from '@teable-group/core';
+import type { IFormulaFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
-import type { CreateFieldRo } from '../create-field.ro';
 import type { IFieldBase } from '../field-base';
 import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
 
@@ -35,10 +34,11 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
    * @param fieldRo has been modified by prepareFormulaField in field-supplement.service.ts
    * append cellValueType, isMultipleCellValue by parse expression.
    */
-  static factory(fieldRo: CreateFieldRo) {
+  static factory(fieldRo: IFieldRo) {
     const isMultipleCellValue =
       (fieldRo as FormulaFieldDto).isMultipleCellValue ||
-      (fieldRo.lookupOptions && fieldRo.lookupOptions.relationship !== Relationship.ManyOne);
+      (fieldRo.lookupOptions &&
+        (fieldRo.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne);
     const cellValueType = (fieldRo as FormulaFieldDto).cellValueType || CellValueType.String;
 
     function getDbFieldType(cellValueType: CellValueType) {
