@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
+import { BadRequestException } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILookupOptionsVo } from '@teable-group/core';
 import {
-  formatFieldErrorMessage,
   DbFieldType,
   assertNever,
   CellValueType,
@@ -10,6 +10,7 @@ import {
 } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
+import { fromZodError } from 'zod-validation-error';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
@@ -82,9 +83,10 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
   })();
 
   const result = instance.validateOptions();
+
   if (!result.success) {
-    throw new Error(
-      `Error: ${instance.name}} has invalid options, ${formatFieldErrorMessage(result.error)}`
+    throw new BadRequestException(
+      `${instance.name}} has invalid options, ${fromZodError(result.error)}`
     );
   }
   return instance;
@@ -103,7 +105,8 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
     isLookup: fieldRaw.isLookup || undefined,
-    lookupOptions: fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string),
+    lookupOptions:
+      (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
