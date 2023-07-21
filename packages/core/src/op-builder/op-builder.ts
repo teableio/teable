@@ -8,7 +8,6 @@ import { SetFieldNameBuilder } from './field/set-field-name';
 import { SetFieldOptionsBuilder } from './field/set-field-options';
 import { SetFieldTypeBuilder } from './field/set-field-type';
 import { AddRecordBuilder } from './record/add-record';
-import { DeleteRecordBuilder } from './record/delete-record';
 import { SetRecordBuilder } from './record/set-record';
 import { SetRecordOrderBuilder } from './record/set-record-order';
 import { AddTableBuilder } from './table/add-table';
@@ -18,7 +17,6 @@ import { AddViewBuilder } from './view/add-view';
 import { SetViewNameBuilder } from './view/set-view-name';
 
 export type { ISetRecordOrderOpContext } from './record/set-record-order';
-export type { IDeleteRecordOpContext } from './record/delete-record';
 export type { ISetRecordOpContext } from './record/set-record';
 export type { ISetColumnMetaOpContext } from './field/set-column-meta';
 export type { IAddColumnMetaOpContext } from './field/add-column-meta';
@@ -31,7 +29,6 @@ export class OpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
     setRecord: new SetRecordBuilder(),
-    deleteRecord: new DeleteRecordBuilder(),
     setRecordOrder: new SetRecordOrderBuilder(),
 
     addColumnMeta: new AddColumnMetaBuilder(),

@@ -1,5 +1,5 @@
 import type { FieldCore } from '../field/field';
-import type { IRecordFields } from './interface';
+import type { IRecord } from './record.schema';
 
 export enum FieldKeyType {
   Id = 'id',
@@ -35,7 +35,7 @@ export class RecordCore {
     return this._name;
   }
 
-  fields!: IRecordFields;
+  fields!: IRecord['fields'];
 
   getCellValue(fieldId: string): unknown {
     return this.fields[fieldId];

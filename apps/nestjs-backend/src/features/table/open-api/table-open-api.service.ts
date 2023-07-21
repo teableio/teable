@@ -1,21 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ICreateTableRo, ITableSnapshot } from '@teable-group/core';
-import { generateTableId, IdPrefix, OpBuilder } from '@teable-group/core';
+import type {
+  ICreateRecordsRo,
+  ICreateTableRo,
+  IFieldRo,
+  IFieldVo,
+  IFullTableVo,
+  ITableVo,
+  IViewRo,
+  IViewVo,
+} from '@teable-group/core';
+import {
+  FieldKeyType,
+  getUniqName,
+  generateTableId,
+  IdPrefix,
+  OpBuilder,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { FieldVo } from 'src/features/field/model/field.vo';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import type { CreateFieldRo } from '../../field/model/create-field.ro';
 import { createFieldInstanceByRo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
-import type { CreateRecordsRo } from '../../record/create-records.ro';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import type { CreateViewRo } from '../../view/model/create-view.ro';
 import { createViewInstanceByRo } from '../../view/model/factory';
-import type { ViewVo } from '../../view/model/view.vo';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
-import type { CreateTableRo } from '../create-table.ro';
-import type { TableVo } from '../table.vo';
 
 @Injectable()
 export class TableOpenApiService {
@@ -28,7 +36,7 @@ export class TableOpenApiService {
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
-  private async createView(transactionKey: string, tableId: string, viewRos: CreateViewRo[]) {
+  private async createView(transactionKey: string, tableId: string, viewRos: IViewRo[]) {
     const viewCreationPromises = viewRos.map(async (fieldRo) => {
       const viewInstance = createViewInstanceByRo(fieldRo);
       return this.viewOpenApiService.createView(tableId, viewInstance, transactionKey);
@@ -39,10 +47,10 @@ export class TableOpenApiService {
   private async createField(
     transactionKey: string,
     tableId: string,
-    viewVos: ViewVo[],
-    fieldRos: CreateFieldRo[]
+    viewVos: IViewVo[],
+    fieldRos: IFieldRo[]
   ) {
-    const fieldVos: FieldVo[] = [];
+    const fieldVos: IFieldVo[] = [];
     for (const fieldRo of fieldRos) {
       viewVos.forEach((view, index) => {
         fieldRo['columnMeta'] = { ...fieldRo.columnMeta, [view.id]: { order: index } };
@@ -58,15 +66,15 @@ export class TableOpenApiService {
     return fieldVos;
   }
 
-  private async createRecord(transactionKey: string, tableId: string, data: CreateRecordsRo) {
+  private async createRecord(transactionKey: string, tableId: string, data: ICreateRecordsRo) {
     return this.recordOpenApiService.multipleCreateRecords(tableId, data, transactionKey);
   }
 
-  async createTable(tableRo: CreateTableRo): Promise<TableVo> {
+  async createTable(tableRo: ICreateTableRo): Promise<IFullTableVo> {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
-        if (!tableRo.fields || !tableRo.views || !tableRo.data) {
+        if (!tableRo.fields || !tableRo.views || !tableRo.records) {
           throw new Error('table fields views and rows are required.');
         }
         const tableVo = await this.createTableMeta(prisma, transactionKey, tableRo);
@@ -75,13 +83,17 @@ export class TableOpenApiService {
 
         const viewVos = await this.createView(transactionKey, tableId, tableRo.views);
         const fieldVos = await this.createField(transactionKey, tableId, viewVos, tableRo.fields);
-        const data = await this.createRecord(transactionKey, tableId, tableRo.data);
+        const { records } = await this.createRecord(transactionKey, tableId, {
+          records: tableRo.records,
+          fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
+        });
+
         return {
           ...tableVo,
-          total: 1,
+          total: tableRo.records.length,
           fields: fieldVos,
           views: viewVos,
-          data,
+          records,
         };
       }
     );
@@ -90,35 +102,42 @@ export class TableOpenApiService {
   async createTableMeta(
     prisma: Prisma.TransactionClient,
     transactionKey: string,
-    tableRo: CreateTableRo
+    tableRo: ICreateTableRo
   ) {
-    const snapshot = await this.createTable2Op(prisma, tableRo);
-    const tableId = snapshot.table.id;
+    const tableRaws = await prisma.tableMeta.findMany({
+      where: { deletedTime: null },
+      select: { name: true, order: true },
+    });
+    const tableId = generateTableId();
+    const names = tableRaws.map((table) => table.name);
+    const uniqName = getUniqName(tableRo.name ?? 'new table', names);
+
+    const order =
+      tableRaws.reduce((acc, cur) => {
+        return acc > cur.order ? acc : cur.order;
+      }, 0) + 1;
+
+    const snapshot = this.createTable2Op({
+      id: tableId,
+      name: uniqName,
+      description: tableRo.description,
+      icon: tableRo.icon,
+      order,
+    });
+
     const collection = `${IdPrefix.Table}_node`;
     const connection = this.shareDbService.getConnection(transactionKey);
     const doc = connection.get(collection, tableId);
-    const tableSnapshot = await new Promise<ITableSnapshot>((resolve, reject) => {
+    return await new Promise<ITableVo>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
         resolve(doc.data);
       });
     });
-    return tableSnapshot.table;
   }
 
-  private async createTable2Op(prisma: Prisma.TransactionClient, tableRo: ICreateTableRo) {
-    const tableAggregate = await prisma.tableMeta.aggregate({
-      where: { deletedTime: null },
-      _max: { order: true },
-    });
-    const tableId = generateTableId();
-    const maxTableOrder = tableAggregate._max.order || 0;
-
-    return OpBuilder.creator.addTable.build({
-      ...tableRo,
-      id: tableId,
-      order: maxTableOrder + 1,
-    });
+  private createTable2Op(tableVo: ITableVo) {
+    return OpBuilder.creator.addTable.build(tableVo);
   }
 
   async archiveTable(tableId: string) {

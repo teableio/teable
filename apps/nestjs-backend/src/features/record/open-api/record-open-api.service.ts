@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, IRecordSnapshot } from '@teable-group/core';
+import type {
+  ICreateRecordsRo,
+  ICreateRecordsVo,
+  IOtOperation,
+  IRecord,
+  IUpdateRecordByIndexRo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldKeyType, IdPrefix, generateRecordId, OpBuilder, FieldType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
@@ -13,14 +20,10 @@ import { ReferenceService } from '../../calculation/reference.service';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import type { IFieldInstance } from '../../field/model/factory';
-import type { CreateRecordsRo } from '../create-records.ro';
 import { RecordService } from '../record.service';
-import type { UpdateRecordRoByIndexRo } from '../update-record-by-index.ro';
-import type { UpdateRecordRo } from '../update-record.ro';
-import type { CreateRecordsVo } from './record.vo';
 
 interface ICreateRecordOpMeta {
-  snapshot: IRecordSnapshot;
+  snapshot: IRecord;
   ops?: IOtOperation[];
 }
 
@@ -36,9 +39,9 @@ export class RecordOpenApiService {
 
   async multipleCreateRecords(
     tableId: string,
-    createRecordsRo: CreateRecordsRo,
+    createRecordsRo: ICreateRecordsRo,
     transactionKey?: string
-  ): Promise<CreateRecordsVo> {
+  ): Promise<ICreateRecordsVo> {
     if (transactionKey) {
       return await this.createRecords(transactionKey, tableId, createRecordsRo);
     }
@@ -75,7 +78,7 @@ export class RecordOpenApiService {
     for (const record of records) {
       const collection = `${IdPrefix.Record}_${tableId}`;
       const doc = connection.get(collection, record.id);
-      const snapshot = await new Promise<IRecordSnapshot>((resolve, reject) => {
+      const snapshot = await new Promise<IRecord>((resolve, reject) => {
         doc.fetch((err) => {
           if (err) return reject(err);
           resolve(doc.data);
@@ -83,7 +86,7 @@ export class RecordOpenApiService {
       });
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
         const fieldId = fieldIdMap[fieldNameOrId].id;
-        const oldCellValue = snapshot.record.fields[fieldId];
+        const oldCellValue = snapshot.fields[fieldId];
         cellContexts.push({
           recordId: record.id,
           fieldId,
@@ -99,10 +102,10 @@ export class RecordOpenApiService {
     connection: Connection,
     tableId: string,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
-  ): Promise<IRecordSnapshot[]> {
+  ): Promise<IRecord[]> {
     const collection = `${IdPrefix.Record}_${tableId}`;
     return records.map((record) => {
-      const doc: Doc<IRecordSnapshot> = connection.get(collection, record.id);
+      const doc: Doc<IRecord> = connection.get(collection, record.id);
       if (!doc.data) {
         throw new Error(`record ${record.id} not found`);
       }
@@ -139,7 +142,7 @@ export class RecordOpenApiService {
     tableId: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
-  ): Promise<IRecordSnapshot[]> {
+  ): Promise<IRecord[]> {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
     const connection = this.shareDbService.getConnection(transactionKey);
 
@@ -252,20 +255,19 @@ export class RecordOpenApiService {
   private async createRecords(
     transactionKey: string,
     tableId: string,
-    createRecordsRo: CreateRecordsRo
-  ): Promise<CreateRecordsVo> {
+    createRecordsRo: ICreateRecordsRo
+  ): Promise<ICreateRecordsVo> {
+    const fieldKeyType = createRecordsRo.fieldKeyType ?? FieldKeyType.Name;
     const snapshots = createRecordsRo.records.map(() => {
       const recordId = generateRecordId();
-      return OpBuilder.creator.addRecord.build({
-        record: { id: recordId, fields: {}, recordOrder: {} },
-      });
+      return OpBuilder.creator.addRecord.build({ id: recordId, fields: {}, recordOrder: {} });
     });
 
     const connection = this.shareDbService.getConnection(transactionKey);
 
     for (const snapshot of snapshots) {
       const collection = `${IdPrefix.Record}_${tableId}`;
-      const docId = snapshot.record.id;
+      const docId = snapshot.id;
       const doc = connection.get(collection, docId);
       await new Promise<void>((resolve, reject) => {
         doc.create(snapshot, (error) => {
@@ -279,22 +281,20 @@ export class RecordOpenApiService {
     const plainRecords = await this.appendDefaultValue(
       transactionKey,
       tableId,
-      createRecordsRo.records.map((s, i) => ({ id: snapshots[i].record.id, fields: s.fields })),
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      createRecordsRo.fieldKeyType!
+      createRecordsRo.records.map((s, i) => ({ id: snapshots[i].id, fields: s.fields })),
+      fieldKeyType
     );
 
     const records = await this.calculateAndSubmitOp(
       transactionKey,
       tableId,
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      createRecordsRo.fieldKeyType!,
+      fieldKeyType,
       plainRecords
     );
 
     const fieldIds = Array.from(
       records.reduce<Set<string>>((pre, cur) => {
-        Object.keys(cur.record.fields).forEach((fieldId) => pre.add(fieldId));
+        Object.keys(cur.fields).forEach((fieldId) => pre.add(fieldId));
         return pre;
       }, new Set())
     );
@@ -306,11 +306,11 @@ export class RecordOpenApiService {
 
     return {
       records: snapshots.map((snapshot) => {
-        const record = records.find((record) => record.record.id === snapshot.record.id);
+        const record = records.find((record) => record.id === snapshot.id);
         if (record) {
-          return this.convertFieldKeyInRecord(record.record, fields, createRecordsRo.fieldKeyType);
+          return this.convertFieldKeyInRecord(record, fields, createRecordsRo.fieldKeyType);
         }
-        return snapshot.record;
+        return snapshot;
       }),
     };
   }
@@ -337,12 +337,14 @@ export class RecordOpenApiService {
 
   multipleCreateRecords2Ops(
     fieldName2IdMap: { [fieldIdOrName: string]: IFieldInstance },
-    createRecordsDto: CreateRecordsRo
+    createRecordsDto: ICreateRecordsRo
   ): ICreateRecordOpMeta[] {
     return createRecordsDto.records.map<ICreateRecordOpMeta>((record) => {
       const recordId = generateRecordId();
       const snapshot = OpBuilder.creator.addRecord.build({
-        record: { id: recordId, fields: {}, recordOrder: {} },
+        id: recordId,
+        fields: {},
+        recordOrder: {},
       });
 
       const setRecordOps = Object.entries(record.fields).map(([fieldNameOrId, value]) => {
@@ -366,7 +368,7 @@ export class RecordOpenApiService {
   async multipleUpdateRecords2Ops(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    updateRecordByIdsRo: (UpdateRecordRo & { recordId: string })[]
+    updateRecordByIdsRo: (IUpdateRecordRo & { recordId: string })[]
   ) {
     const { fieldKeyType = FieldKeyType.Name } = updateRecordByIdsRo[0];
     const dbFieldNameSet = new Set<string>();
@@ -394,7 +396,7 @@ export class RecordOpenApiService {
 
     return {
       opMeta: updateRecordByIdsRo.map((updateRecordByIdRo, index) => {
-        const snapshot = snapshots[index].data.record;
+        const snapshot = snapshots[index].data;
         const {
           record: { fields },
         } = updateRecordByIdRo;
@@ -440,8 +442,8 @@ export class RecordOpenApiService {
   async updateRecordById(
     tableId: string,
     recordId: string,
-    updateRecordRo: UpdateRecordRo
-  ): Promise<IRecordSnapshot> {
+    updateRecordRo: IUpdateRecordRo
+  ): Promise<IRecord> {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
@@ -457,21 +459,15 @@ export class RecordOpenApiService {
           throw new Error('update record failed');
         }
         const fields = await prisma.field.findMany({
-          where: { id: { in: Object.keys(records[0].record.fields) }, deletedTime: null },
+          where: { id: { in: Object.keys(records[0].fields) }, deletedTime: null },
           select: { id: true, name: true },
         });
-        return {
-          record: this.convertFieldKeyInRecord(
-            records[0].record,
-            fields,
-            updateRecordRo.fieldKeyType
-          ),
-        };
+        return this.convertFieldKeyInRecord(records[0], fields, updateRecordRo.fieldKeyType);
       }
     );
   }
 
-  async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: UpdateRecordRoByIndexRo) {
+  async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: IUpdateRecordByIndexRo) {
     const { viewId, index, ...updateRecordRo } = updateRecordRoByIndexRo;
     const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
 

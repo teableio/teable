@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IColumnMeta, IViewSnapshot } from '@teable-group/core';
+import type { IColumnMeta, IViewVo } from '@teable-group/core';
 import { IdPrefix, OpBuilder, OpName } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { IViewInstance } from '../model/factory';
-import type { ViewVo } from '../model/view.vo';
 
 @Injectable()
 export class ViewOpenApiService {
@@ -48,15 +47,15 @@ export class ViewOpenApiService {
     transactionKey: string,
     tableId: string,
     viewInstance: IViewInstance
-  ): Promise<ViewVo> {
+  ): Promise<IViewVo> {
     const maxViewOrder = await this.getMaxViewOrder(transactionKey, tableId);
-    const createSnapshot = this.createView2Ops(viewInstance, maxViewOrder);
-    const viewId = createSnapshot.view.id;
+    const view = this.createView2Ops(viewInstance, maxViewOrder);
+    const viewId = view.id;
     const collection = `${IdPrefix.View}_${tableId}`;
 
-    await this.createDoc(transactionKey, collection, viewId, createSnapshot);
+    await this.createDoc(transactionKey, collection, viewId, view);
     await this.updateColumnMetaForFields(transactionKey, viewId, tableId, OpName.AddColumnMeta);
-    return createSnapshot.view;
+    return view;
   }
 
   private async deleteViewAndColumnMeta(transactionKey: string, tableId: string, viewId: string) {
@@ -113,11 +112,11 @@ export class ViewOpenApiService {
     transactionKey: string,
     collection: string,
     viewId: string,
-    createSnapshot: IViewSnapshot
-  ): Promise<IViewSnapshot> {
+    createSnapshot: IViewVo
+  ): Promise<IViewVo> {
     const doc = this.shareDbService.getConnection(transactionKey).get(collection, viewId);
 
-    return new Promise<IViewSnapshot>((resolve, reject) => {
+    return new Promise<IViewVo>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
         if (error) return reject(error);
         this.logger.log(`create document ${collection}.${viewId} succeed!`);
@@ -130,10 +129,10 @@ export class ViewOpenApiService {
     transactionKey: string,
     collection: string,
     viewId: string
-  ): Promise<IViewSnapshot> {
+  ): Promise<IViewVo> {
     const doc = this.shareDbService.getConnection(transactionKey).get(collection, viewId);
 
-    return new Promise<IViewSnapshot>((resolve, reject) => {
+    return new Promise<IViewVo>((resolve, reject) => {
       doc.fetch(() => {
         doc.del({}, (error) => {
           if (error) return reject(error);
@@ -157,7 +156,7 @@ export class ViewOpenApiService {
 
   createView2Ops(viewInstance: IViewInstance, maxViewOrder: number) {
     return OpBuilder.creator.addView.build({
-      ...(instanceToPlain(viewInstance, { excludePrefixes: ['_'] }) as ViewVo),
+      ...(instanceToPlain(viewInstance, { excludePrefixes: ['_'] }) as IViewVo),
       order: maxViewOrder + 1,
     });
   }

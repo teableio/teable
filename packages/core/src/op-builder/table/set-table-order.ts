@@ -15,7 +15,7 @@ export class SetTableOrderBuilder implements IOpBuilder {
     const { newOrder, oldOrder } = params;
 
     return {
-      p: ['table', 'order'],
+      p: ['order'],
       oi: newOrder,
       od: oldOrder,
     };
@@ -24,7 +24,7 @@ export class SetTableOrderBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetTableOrderOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['table', 'order']);
+    const result = pathMatcher<Record<string, never>>(p, ['order']);
 
     if (!result) {
       return null;

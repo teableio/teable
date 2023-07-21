@@ -3,6 +3,7 @@ import { ConsoleLogger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
+import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
   CellValueType,
   DbFieldType,
@@ -12,15 +13,12 @@ import {
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import type { CreateRecordsVo } from 'src/features/record/open-api/record.vo';
-import type { ViewVo } from 'src/features/view/model/view.vo';
 import loadConfig from '../../../../../configs/config';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
-import type { FieldVo } from '../../../../field/model/field.vo';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
-import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEW } from '../../../../table/constant';
+import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../../../../table/constant';
 import { TableOpenApiModule } from '../../../../table/open-api/table-open-api.module';
 import { TableOpenApiService } from '../../../../table/open-api/table-open-api.service';
 import { AutomationModule } from '../../../automation.module';
@@ -64,9 +62,10 @@ describe('Create-Record Action Test', () => {
         name: 'table1-automation-add',
         id: tableId,
         order: 1,
-        views: tableRo.views as ViewVo[],
-        fields: tableRo.fields as FieldVo[],
-        data: tableRo.data as CreateRecordsVo,
+        views: tableRo.views as IViewVo[],
+        fields: tableRo.fields as IFieldVo[],
+        records: tableRo.records as IRecord[],
+        total: tableRo.records?.length || 3,
       })
     );
 
@@ -87,6 +86,7 @@ describe('Create-Record Action Test', () => {
               order: 0,
             },
           },
+          options: {},
           version: 1,
           createdTime: '2023-05-31T11:23:57.045Z',
           lastModifiedTime: '2023-05-31T11:23:57.045Z',
@@ -109,6 +109,7 @@ describe('Create-Record Action Test', () => {
               recordOrder: { [generateViewId()]: 1 },
             },
           ],
+          total: 1,
         })
       );
 
@@ -118,15 +119,15 @@ describe('Create-Record Action Test', () => {
   const createTable = async (): Promise<string> => {
     const result = await tableOpenApiService.createTable({
       name: 'table1-automation-add',
-      views: [DEFAULT_VIEW],
+      views: DEFAULT_VIEWS,
       fields: DEFAULT_FIELDS,
-      data: DEFAULT_RECORD_DATA,
+      records: DEFAULT_RECORD_DATA,
     });
     return result.id;
   };
 
   it('should call onSuccess and create records', async () => {
-    const fields: FieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
+    const fields: IFieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 

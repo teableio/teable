@@ -1,9 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
+import type { IFieldRo, IFieldVo } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { cloneDeep } from 'lodash';
 import request from 'supertest';
-import type { CreateFieldRo } from '../../src/features/field/model/create-field.ro';
-import type { FieldVo } from '../../src/features/field/model/field.vo';
 import { FIELD_MOCK_DATA } from './field-mock';
 import { initApp } from './init-app';
 
@@ -12,7 +11,7 @@ jest.setTimeout(1000000);
 describe('Performance test data generator', () => {
   let app: INestApplication;
   let tableId = '';
-  let fields: FieldVo[] = [];
+  let fields: IFieldVo[] = [];
 
   beforeAll(async () => {
     app = await initApp();
@@ -55,7 +54,7 @@ describe('Performance test data generator', () => {
     const count = 1000;
 
     for (let i = 0; i < fieldCount; i++) {
-      const fieldRo: CreateFieldRo = cloneDeep(FIELD_MOCK_DATA[i % 3]);
+      const fieldRo: IFieldRo = cloneDeep(FIELD_MOCK_DATA[i % 3]);
       fieldRo.name = 'field' + i;
 
       await request(app.getHttpServer())

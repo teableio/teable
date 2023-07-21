@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
+import type { IViewRo } from '@teable-group/core';
 import { ViewType } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateViewRo } from '../src/features/view/model/create-view.ro';
 import { initApp } from './utils/init-app';
 
 const defaultViews = [
@@ -35,7 +35,7 @@ describe('OpenAPI ViewController (e2e)', () => {
   });
 
   it('/api/table/{tableId}/view (POST)', async () => {
-    const viewRo: CreateViewRo = {
+    const viewRo: IViewRo = {
       name: 'New view',
       description: 'the new view',
       type: ViewType.Grid,

@@ -1,5 +1,5 @@
-import type { IFullSsrSnapshot, IJsonApiResponse } from '@teable-group/core';
-import { isJsonApiSuccessResponse } from '@teable-group/core';
+import type { IFullTableVo, IJsonApiResponse, ITableListVo } from '@teable-group/core';
+import { FieldKeyType, isJsonApiSuccessResponse } from '@teable-group/core';
 import axios from 'axios';
 
 export class SsrApi {
@@ -7,31 +7,35 @@ export class SsrApi {
     baseURL: `http://localhost:${process.env.PORT}/api`,
   });
 
-  async getFullSnapshot(tableId: string, viewId = ''): Promise<IFullSsrSnapshot> {
+  async getTable(tableId: string, viewId?: string) {
     return this.axios
-      .get<IJsonApiResponse<IFullSsrSnapshot>>(`/table/ssr/${tableId}/${viewId}`)
+      .get<IJsonApiResponse<IFullTableVo>>(`/table/${tableId}`, {
+        params: {
+          needFullTable: true,
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+        },
+      })
       .then(({ data: resp }) => {
         if (isJsonApiSuccessResponse(resp)) {
           return resp.data;
         }
-        throw new Error('fail to fetch ssr snapshot');
+        throw new Error('fail to fetch table content');
       });
   }
 
-  async getTableSnapshot() {
-    return this.axios
-      .get<IJsonApiResponse<Pick<IFullSsrSnapshot, 'tables'>>>(`/table/ssr`)
-      .then(({ data: resp }) => {
-        if (isJsonApiSuccessResponse(resp)) {
-          return resp.data;
-        }
-        throw new Error('fail to fetch table snapshot');
-      });
+  async getTables() {
+    return this.axios.get<IJsonApiResponse<ITableListVo>>(`/table`).then(({ data: resp }) => {
+      if (isJsonApiSuccessResponse(resp)) {
+        return resp.data;
+      }
+      throw new Error('fail to fetch table list');
+    });
   }
 
   async getDefaultViewId(tableId: string) {
     return this.axios
-      .get<IJsonApiResponse<{ id: string }>>(`/table/ssr/${tableId}/view-id`)
+      .get<IJsonApiResponse<{ id: string }>>(`/table/${tableId}/defaultViewId`)
       .then(({ data: resp }) => {
         if (isJsonApiSuccessResponse(resp)) {
           return resp.data;

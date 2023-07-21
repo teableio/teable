@@ -5,6 +5,7 @@ import type {
   ILinkFieldOptions,
   ILookupOptionsVo,
   ILinkCellValue,
+  IFieldVo,
 } from '@teable-group/core';
 import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
@@ -15,7 +16,6 @@ import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
-import type { FieldVo } from '../field/model/field.vo';
 import { isLinkCellValue } from './utils/detect-link';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity
@@ -505,7 +505,7 @@ export class ReferenceService {
       throw new Error('rollup only support link and rollup field currently');
     }
 
-    const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as FieldVo;
+    const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as IFieldVo;
     const virtualField = createFieldInstanceByVo({
       ...fieldVo,
       id: 'values',

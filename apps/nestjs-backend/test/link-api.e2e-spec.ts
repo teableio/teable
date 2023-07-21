@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import request from 'supertest';
-import type { CreateFieldRo } from '../src/features/field/model/create-field.ro';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
-import type { UpdateRecordRo } from '../src/features/record/update-record.ro';
 import { initApp } from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
@@ -30,12 +29,12 @@ describe('OpenAPI link (e2e)', () => {
 
   describe('create table with link field', () => {
     it('should create foreign link field when create a new table with link field', async () => {
-      const textFieldRo: CreateFieldRo = {
+      const textFieldRo: IFieldRo = {
         name: 'text field',
         type: FieldType.SingleLineText,
       };
 
-      const numberFieldRo: CreateFieldRo = {
+      const numberFieldRo: IFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
         options: {
@@ -48,19 +47,17 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
-          data: {
-            records: [
-              { fields: { 'text field': 'table1_1' } },
-              { fields: { 'text field': 'table1_2' } },
-              { fields: { 'text field': 'table1_3' } },
-            ],
-          },
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
         })
         .expect(201);
 
       table1Id = createTable1Result.body.data.id;
 
-      const linkFieldRo: CreateFieldRo = {
+      const linkFieldRo: IFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
@@ -74,13 +71,11 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, linkFieldRo],
-          data: {
-            records: [
-              { fields: { 'text field': 'table2_1' } },
-              { fields: { 'text field': 'table2_2' } },
-              { fields: { 'text field': 'table2_3' } },
-            ],
-          },
+          records: [
+            { fields: { 'text field': 'table2_1' } },
+            { fields: { 'text field': 'table2_2' } },
+            { fields: { 'text field': 'table2_3' } },
+          ],
         })
         .expect(201);
       table2Id = createTable2Result.body.data.id;
@@ -116,7 +111,7 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     it('should auto create foreign manyOne link field when create oneMany link field', async () => {
-      const numberFieldRo: CreateFieldRo = {
+      const numberFieldRo: IFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
         options: {
@@ -124,7 +119,7 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const textFieldRo: CreateFieldRo = {
+      const textFieldRo: IFieldRo = {
         name: 'text field',
         type: FieldType.SingleLineText,
       };
@@ -138,7 +133,7 @@ describe('OpenAPI link (e2e)', () => {
         .expect(201);
       table1Id = createTable1Result.body.data.id;
 
-      const linkFieldRo: CreateFieldRo = {
+      const linkFieldRo: IFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
@@ -189,18 +184,18 @@ describe('OpenAPI link (e2e)', () => {
 
   describe('link field cell update', () => {
     let ctx: {
-      numberFieldRo: CreateFieldRo;
-      textFieldRo: CreateFieldRo;
+      numberFieldRo: IFieldRo;
+      textFieldRo: IFieldRo;
       table1Records: IRecord[];
       table1Fields: IFieldVo[];
       table1linkField: LinkFieldDto;
-      table2LinkFieldRo: CreateFieldRo;
+      table2LinkFieldRo: IFieldRo;
       table2Id: string;
       table2Records: IRecord[];
       table2Fields: IFieldVo[];
     } = {} as any;
     beforeEach(async () => {
-      const numberFieldRo: CreateFieldRo = {
+      const numberFieldRo: IFieldRo = {
         name: 'Number field',
         type: FieldType.Number,
         options: {
@@ -208,7 +203,7 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const textFieldRo: CreateFieldRo = {
+      const textFieldRo: IFieldRo = {
         name: 'text field',
         type: FieldType.SingleLineText,
       };
@@ -218,20 +213,18 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
-          data: {
-            records: [
-              { fields: { 'text field': 'table1_1' } },
-              { fields: { 'text field': 'table1_2' } },
-              { fields: { 'text field': 'table1_3' } },
-            ],
-          },
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
         })
         .expect(201);
 
       table1Id = createTable1Result.body.data.id;
-      const table1Records = createTable1Result.body.data.data.records;
+      const table1Records = createTable1Result.body.data.records;
 
-      const table2LinkFieldRo: CreateFieldRo = {
+      const table2LinkFieldRo: IFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
@@ -246,13 +239,11 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, table2LinkFieldRo],
-          data: {
-            records: [
-              { fields: { 'text field': 'table2_1' } },
-              { fields: { 'text field': 'table2_2' } },
-              { fields: { 'text field': 'table2_3' } },
-            ],
-          },
+          records: [
+            { fields: { 'text field': 'table2_1' } },
+            { fields: { 'text field': 'table2_2' } },
+            { fields: { 'text field': 'table2_3' } },
+          ],
         })
         .expect(201);
 
@@ -266,7 +257,7 @@ describe('OpenAPI link (e2e)', () => {
       const table1linkField = getFields1Result.body.data[2];
       const table1Fields = getFields1Result.body.data;
 
-      const table2Records = createTable2Result.body.data.data.records;
+      const table2Records = createTable2Result.body.data.records;
       const table2Fields = createTable2Result.body.data.fields;
       // table2 link field first record link to table1 first record
       await request(app.getHttpServer())
@@ -274,17 +265,17 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [table2LinkFieldRo.name]: { title: 'test', id: linkToRecordId },
+              [table2LinkFieldRo.name!]: { title: 'test', id: linkToRecordId },
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult = await request(app.getHttpServer())
         .get(`/api/table/${table1Id}/record/${linkToRecordId}`)
         .expect(200);
 
-      expect(table1RecordResult.body.data.record.fields[table1linkField.name]).toEqual([
+      expect(table1RecordResult.body.data.fields[table1linkField.name]).toEqual([
         {
           title: 'table2_1',
           id: table2Records[0].id,
@@ -310,10 +301,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'table1_2', id: ctx.table1Records[1].id },
+              [ctx.table2LinkFieldRo.name!]: { title: 'table1_2', id: ctx.table1Records[1].id },
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult2 = await request(app.getHttpServer())
@@ -338,10 +329,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.textFieldRo.name]: 'B1',
+              [ctx.textFieldRo.name!]: 'B1',
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       await request(app.getHttpServer())
@@ -349,10 +340,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.textFieldRo.name]: 'B2',
+              [ctx.textFieldRo.name!]: 'B2',
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       // add an extra link for table1 record1
@@ -361,10 +352,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'table1_1', id: ctx.table1Records[0].id },
+              [ctx.table2LinkFieldRo.name!]: { title: 'table1_1', id: ctx.table1Records[0].id },
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult2 = await request(app.getHttpServer())
@@ -387,17 +378,17 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.textFieldRo.name]: 'AX',
+              [ctx.textFieldRo.name!]: 'AX',
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table2RecordResult2 = await request(app.getHttpServer())
         .get(`/api/table/${table2Id}/record`)
         .expect(200);
 
-      expect(table2RecordResult2.body.data.records[0].fields[ctx.table2LinkFieldRo.name]).toEqual({
+      expect(table2RecordResult2.body.data.records[0].fields[ctx.table2LinkFieldRo.name!]).toEqual({
         title: 'AX',
         id: ctx.table1Records[0].id,
       });
@@ -410,10 +401,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.textFieldRo.name]: 'B1',
+              [ctx.textFieldRo.name!]: 'B1',
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       await request(app.getHttpServer())
@@ -421,10 +412,10 @@ describe('OpenAPI link (e2e)', () => {
         .send({
           record: {
             fields: {
-              [ctx.textFieldRo.name]: 'B2',
+              [ctx.textFieldRo.name!]: 'B2',
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       await request(app.getHttpServer())
@@ -438,7 +429,7 @@ describe('OpenAPI link (e2e)', () => {
               ],
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult2 = await request(app.getHttpServer())
@@ -458,7 +449,7 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     it('should update formula field when change manyOne link cell', async () => {
-      const table2FormulaFieldRo: CreateFieldRo = {
+      const table2FormulaFieldRo: IFieldRo = {
         name: 'table2Formula',
         type: FieldType.Formula,
         options: {
@@ -468,17 +459,20 @@ describe('OpenAPI link (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/table/${table2Id}/field`)
-        .send(table2FormulaFieldRo as CreateFieldRo)
+        .send(table2FormulaFieldRo as IFieldRo)
         .expect(201);
       await request(app.getHttpServer())
         .put(`/api/table/${table2Id}/record/${ctx.table2Records[0].id}`)
         .send({
           record: {
             fields: {
-              [ctx.table2LinkFieldRo.name]: { title: 'illegal title', id: ctx.table1Records[1].id },
+              [ctx.table2LinkFieldRo.name!]: {
+                title: 'illegal title',
+                id: ctx.table1Records[1].id,
+              },
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult = await request(app.getHttpServer())
@@ -500,13 +494,13 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
 
-      expect(table2RecordResult.body.data.records[0].fields[table2FormulaFieldRo.name]).toEqual(
+      expect(table2RecordResult.body.data.records[0].fields[table2FormulaFieldRo.name!]).toEqual(
         'table1_2'
       );
     });
 
     it('should update formula field when change oneMany link cell', async () => {
-      const table1FormulaFieldRo: CreateFieldRo = {
+      const table1FormulaFieldRo: IFieldRo = {
         name: 'table1 formula field',
         type: FieldType.Formula,
         options: {
@@ -516,7 +510,7 @@ describe('OpenAPI link (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(`/api/table/${table1Id}/field`)
-        .send(table1FormulaFieldRo as CreateFieldRo)
+        .send(table1FormulaFieldRo as IFieldRo)
         .expect(201);
 
       await request(app.getHttpServer())
@@ -530,7 +524,7 @@ describe('OpenAPI link (e2e)', () => {
               ],
             },
           },
-        } as UpdateRecordRo)
+        } as IUpdateRecordRo)
         .expect(200);
 
       const table1RecordResult = await request(app.getHttpServer())
@@ -542,7 +536,7 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'table2_2', id: ctx.table2Records[1].id },
       ]);
 
-      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name]).toEqual([
+      expect(table1RecordResult.body.data.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
         'table2_1',
         'table2_2',
       ]);

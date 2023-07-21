@@ -1,6 +1,6 @@
 import type { ViewType } from '../constant';
-import type { IViewVo } from '../interface';
 import { ViewCore } from '../view';
+import type { IViewVo } from '../view.schema';
 
 export interface IKanbanView extends IViewVo {
   type: ViewType.Kanban;

@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { IFieldVo } from '@teable-group/core';
 import {
   FieldType,
   generateWorkflowActionId,
@@ -16,7 +17,6 @@ import type { CreateWorkflowTriggerRo } from '../src/features/automation/model/c
 import type { CreateWorkflowRo } from '../src/features/automation/model/create-workflow.ro';
 import type { UpdateWorkflowActionRo } from '../src/features/automation/model/update-workflow-action.ro';
 import type { UpdateWorkflowTriggerRo } from '../src/features/automation/model/update-workflow-trigger.ro';
-import type { FieldVo } from '../src/features/field/model/field.vo';
 import { initApp } from './utils/init-app';
 
 describe.skip('AutomationController (e2e)', () => {
@@ -449,7 +449,7 @@ describe.skip('AutomationController (e2e)', () => {
     const newTableId = await createTable('automation-table-1');
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
-    const fields: FieldVo[] = fieldsResult.body.data;
+    const fields: IFieldVo[] = fieldsResult.body.data;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
@@ -573,7 +573,7 @@ describe.skip('AutomationController (e2e)', () => {
   it('Simulate the creation of a `create table record` trigger with a logical group', async () => {
     const tableId = await createTable('Automation-RecordUpdated-SendMail');
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    const fields: FieldVo[] = fieldsResult.body.data;
+    const fields: IFieldVo[] = fieldsResult.body.data;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -760,7 +760,7 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
     const tableId = await createTable('Automation-RecordUpdated');
 
     const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    const fields: FieldVo[] = fieldsResult.body.data;
+    const fields: IFieldVo[] = fieldsResult.body.data;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

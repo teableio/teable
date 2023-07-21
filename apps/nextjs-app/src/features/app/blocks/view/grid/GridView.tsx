@@ -70,11 +70,7 @@ export const GridView: React.FC = () => {
       },
       [columns]
     ),
-    useMemo(() => {
-      return ssrRecords?.map((record) => {
-        return { record };
-      });
-    }, [ssrRecords])
+    ssrRecords
   );
 
   useEffect(() => {
