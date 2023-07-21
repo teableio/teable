@@ -1,5 +1,5 @@
 import type { IFieldRo, IFieldVo, IJsonApiSuccessResponse } from '@teable-group/core';
-import { FieldCore, OpBuilder } from '@teable-group/core';
+import { FieldCore, FieldOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 
@@ -44,7 +44,7 @@ export abstract class Field extends FieldCore {
   }
 
   async updateName(name: string): Promise<void> {
-    const fieldOperation = OpBuilder.editor.setFieldName.build({
+    const fieldOperation = FieldOpBuilder.editor.setFieldName.build({
       newName: name,
       oldName: this.name,
     });
@@ -53,7 +53,7 @@ export abstract class Field extends FieldCore {
   }
 
   async updateColumnWidth(viewId: string, width: number): Promise<void> {
-    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'width',
       newMetaValue: width,
@@ -64,7 +64,7 @@ export abstract class Field extends FieldCore {
   }
 
   async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
-    const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'hidden',
       newMetaValue: hidden,

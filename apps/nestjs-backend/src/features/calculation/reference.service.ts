@@ -7,7 +7,7 @@ import type {
   ILinkCellValue,
   IFieldVo,
 } from '@teable-group/core';
-import { OpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
+import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
@@ -283,9 +283,11 @@ export class ReferenceService {
       const recordDataWithDeleteLink: IRecordData[] = [];
       for (const recordId in opsMap[tableId]) {
         opsMap[tableId][recordId].forEach((op) => {
-          const ctx = OpBuilder.editor.setRecord.detect(op);
+          const ctx = RecordOpBuilder.editor.setRecord.detect(op);
           if (!ctx) {
-            throw new Error('invalid op, it should detect by OpBuilder.editor.setRecord.detect');
+            throw new Error(
+              'invalid op, it should detect by RecordOpBuilder.editor.setRecord.detect'
+            );
           }
           if (isLinkCellValue(ctx.oldValue) || isLinkCellValue(ctx.newValue)) {
             ctx.oldValue &&
@@ -562,7 +564,7 @@ export class ReferenceService {
 
   protected changeToOp(change: ICellChange) {
     const { fieldId, oldValue, newValue } = change;
-    return OpBuilder.editor.setRecord.build({
+    return RecordOpBuilder.editor.setRecord.build({
       fieldId,
       oldCellValue: oldValue,
       newCellValue: newValue,

@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation, IRecord, IRecordSnapshotQuery } from '@teable-group/core';
-import { IdPrefix, OpBuilder } from '@teable-group/core';
+import {
+  FieldOpBuilder,
+  RecordOpBuilder,
+  TableOpBuilder,
+  ViewOpBuilder,
+  IdPrefix,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { CreateOp, DeleteOp, EditOp } from '@teable/sharedb';
 import ShareDb from '@teable/sharedb';
@@ -141,7 +147,25 @@ export class SqliteDbAdapter extends ShareDb.DB {
     ops: IOtOperation[]
   ) {
     const [docType, collectionId] = collection.split('_');
-    const ops2Contexts = OpBuilder.ops2Contexts(ops);
+    let opBuilder;
+    switch (docType as IdPrefix) {
+      case IdPrefix.View:
+        opBuilder = ViewOpBuilder;
+        break;
+      case IdPrefix.Field:
+        opBuilder = FieldOpBuilder;
+        break;
+      case IdPrefix.Record:
+        opBuilder = RecordOpBuilder;
+        break;
+      case IdPrefix.Table:
+        opBuilder = TableOpBuilder;
+        break;
+      default:
+        throw new Error(`QueryType: ${docType} has no service implementation`);
+    }
+
+    const ops2Contexts = opBuilder.ops2Contexts(ops);
     const service = this.getService(docType as IdPrefix);
     // group by op name execute faster
     const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');

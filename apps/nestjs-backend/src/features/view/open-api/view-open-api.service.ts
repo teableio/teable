@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IColumnMeta, IViewVo } from '@teable-group/core';
-import { IdPrefix, OpBuilder, OpName } from '@teable-group/core';
+import { FieldOpBuilder, IdPrefix, ViewOpBuilder, OpName } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
 import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -144,18 +144,21 @@ export class ViewOpenApiService {
   }
 
   private addColumnMeta2Op(viewId: string, order: number) {
-    return OpBuilder.editor.addColumnMeta.build({
+    return FieldOpBuilder.editor.addColumnMeta.build({
       viewId,
       newMetaValue: { order },
     });
   }
 
   private deleteColumnMeta2Op(viewId: string, oldColumnMeta: IColumnMeta) {
-    return OpBuilder.editor.deleteColumnMeta.build({ viewId, oldMetaValue: oldColumnMeta[viewId] });
+    return FieldOpBuilder.editor.deleteColumnMeta.build({
+      viewId,
+      oldMetaValue: oldColumnMeta[viewId],
+    });
   }
 
   createView2Ops(viewInstance: IViewInstance, maxViewOrder: number) {
-    return OpBuilder.creator.addView.build({
+    return ViewOpBuilder.creator.build({
       ...(instanceToPlain(viewInstance, { excludePrefixes: ['_'] }) as IViewVo),
       order: maxViewOrder + 1,
     });

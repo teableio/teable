@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { OpBuilder, IdPrefix } from '@teable-group/core';
+import { RecordOpBuilder, IdPrefix } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { uniq, map, orderBy } from 'lodash';
@@ -122,7 +122,7 @@ export class ShareDbService extends ShareDBClass {
     await this.transactionService.getTransaction(tsMeta);
     console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
-      const ctx = OpBuilder.editor.setRecord.detect(cur);
+      const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
         pre.push(cur);
       }
