@@ -15,6 +15,8 @@ import type {
   ICellItem,
   IGridColumn,
   IMouseState,
+  IPosition,
+  ISelectionBase,
 } from './interface';
 import type { ISpriteMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -39,7 +41,8 @@ export interface IGridExternalProps {
     colIndex: number,
     newSizeWithGrow: number
   ) => void;
-  onColumnHeaderMenuClick?: (colIndex: number, position: IRectangle) => void;
+  onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
+  onContextMenu?: (selection: ISelectionBase, position: IPosition) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -84,6 +87,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
+    onContextMenu,
     onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
@@ -210,6 +214,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
+          onContextMenu={onContextMenu}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />

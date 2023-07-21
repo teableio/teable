@@ -1,6 +1,23 @@
 import { isEqual } from 'lodash';
-import type { IRange, ISelectionState } from '../interface';
+import type { ICellItem, IRange, ISelectionState } from '../interface';
 import { SelectionRegionType } from '../interface';
+
+export const isPointInsideRectangle = (
+  checkPoint: [number, number],
+  startPoint: [number, number],
+  endPoint: [number, number]
+): boolean => {
+  const [checkX, checkY] = checkPoint;
+  const [startX, startY] = startPoint;
+  const [endX, endY] = endPoint;
+
+  const minX = Math.min(startX, endX);
+  const maxX = Math.max(startX, endX);
+  const minY = Math.min(startY, endY);
+  const maxY = Math.max(startY, endY);
+
+  return checkX >= minX && checkX <= maxX && checkY >= minY && checkY <= maxY;
+};
 
 export const inRange = (num: number, start: number, end: number) => {
   if (start > end) {
@@ -65,14 +82,14 @@ export const mergeRowRanges = (ranges: IRange[], newRange: IRange): IRange[] => 
 
 export const checkIfColumnActive = (selectionState: ISelectionState, columnIndex: number) => {
   const { type: regionType, ranges } = selectionState;
-  if (regionType !== SelectionRegionType.Column) return false;
+  if (regionType !== SelectionRegionType.Columns) return false;
   const range = ranges[0];
   return range[0] <= columnIndex && range[1] >= columnIndex;
 };
 
 export const checkIfRowSelected = (selectionState: ISelectionState, rowIndex: number) => {
   const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Row) {
+  if (regionType === SelectionRegionType.Rows) {
     for (const range of ranges) {
       if (inRange(rowIndex, range[0], range[1])) {
         return true;
@@ -98,21 +115,20 @@ export const checkIfFillHandleCell = (
 };
 
 export const checkIfRowOrCellActive = (
-  selectionState: ISelectionState,
+  activeCell: ICellItem | null,
   rowIndex: number,
   columnIndex: number
 ) => {
-  const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Cells) {
-    const range = ranges[0];
+  if (activeCell == null) {
     return {
-      isRowActive: range[1] === rowIndex,
-      isCellActive: range[1] === rowIndex && range[0] === columnIndex,
+      isRowActive: false,
+      isCellActive: false,
     };
   }
+  const [activeColumnIndex, activeRowIndex] = activeCell;
   return {
-    isRowActive: false,
-    isCellActive: false,
+    isRowActive: activeRowIndex === rowIndex,
+    isCellActive: activeRowIndex === rowIndex && activeColumnIndex === columnIndex,
   };
 };
 
@@ -122,7 +138,7 @@ export const checkIfRowOrCellSelected = (
   columnIndex: number
 ) => {
   const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Row) {
+  if (regionType === SelectionRegionType.Rows) {
     for (const range of ranges) {
       if (inRange(rowIndex, range[0], range[1])) {
         return {
