@@ -12,7 +12,7 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useDrag } from './hooks/useDrag';
 import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
-import type { IInnerCell, IMouseState, IScrollState } from './interface';
+import type { IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { getCellRenderer } from './renderers';
@@ -25,6 +25,7 @@ export interface IInteractionLayerProps
     'freezeColumnCount' | 'rowCount' | 'rowHeight' | 'style' | 'smoothScrollX' | 'smoothScrollY'
   > {
   theme: IGridTheme;
+  rowControls: RowControlType[];
   mouseState: IMouseState;
   scrollState: IScrollState;
   imageManager: ImageManager;
@@ -56,6 +57,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
+    onContextMenu,
     onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
@@ -78,41 +80,18 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     useColumnResize(coordInstance, scrollState);
   const { dragState, onDragStart, onDragChange, onDragEnd } = useDrag(coordInstance, scrollState);
   const {
+    activeCell,
+    setActiveCell,
     selectionState,
     setSelectionState,
     onSelectionStart,
     onSelectionChange,
     onSelectionEnd,
     onSelectionClick,
+    onSelectionContextMenu,
   } = useSelection();
 
-  const { type: selectionType, ranges: selectionRanges } = selectionState;
-
-  /**
-   * Keep the logic first and see if it's needed for product functionality afterward
-   */
-  // const activeCellData: IActiveCellData | null = useMemo(() => {
-  //   const { type, ranges } = selectionState;
-  //   if (type !== SelectionRegionType.Cells) return null;
-  //   const cell = getCellContent(ranges[0]);
-  //   const cellRenderer = getCellRenderer(cell.type);
-  //   const [columnIndex, rowIndex] = ranges[0];
-  //   const width = coordInstance.getColumnWidth(columnIndex);
-  //   let height = coordInstance.getRowHeight(rowIndex);
-  //   if (cellRenderer.measure && bufferCtx) {
-  //     height = Math.max(
-  //       cellRenderer.measure(cell as never, { ctx: bufferCtx, width, theme }) || height,
-  //       height
-  //     );
-  //   }
-  //   return {
-  //     rowIndex,
-  //     columnIndex,
-  //     width,
-  //     height,
-  //   };
-  // }, [coordInstance, selectionState, getCellContent, theme]);
-  const activeCellData = null;
+  const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
   const getPosition = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -147,8 +126,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
 
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
     coordInstance,
-    selectionState,
-    setSelectionState,
+    isSelecting,
     scrollBy,
   });
 
@@ -189,6 +167,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       case RegionType.AppendColumn:
       case RegionType.ColumnHeaderMenu:
       case RegionType.RowHeaderCheckbox:
+      case RegionType.RowHeaderDragHandler:
+      case RegionType.RowHeaderExpandHandler:
       case RegionType.AllCheckbox:
         return setCursor('pointer');
       case RegionType.ColumnResizeHandler:
@@ -265,6 +245,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     if (event.button === MouseButtonType.Right) return;
     const mouseState = getMouseState(event);
     if (mouseState == null) return;
+    setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
     if (
       !(
@@ -276,9 +257,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       setEditing(false);
     }
     onSmartMouseDown(mouseState);
-    setMouseState(mouseState);
     onDragStart(mouseState);
-    onSelectionStart(mouseState);
+    onSelectionStart(event, mouseState);
     onColumnResizeStart(mouseState);
   };
 
@@ -317,12 +297,20 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       setSelectionState(DEFAULT_SELECTION_STATE);
       setCursor('default');
     });
-    onSelectionEnd((isEditMode: boolean) => setEditing(isEditMode));
+    onSelectionEnd(mouseState, (isEditMode: boolean) => setEditing(isEditMode));
     onColumnResizeEnd();
   };
 
   const onMouseLeave = () => {
     setMouseState(DEFAULT_MOUSE_STATE);
+  };
+
+  const onContextMenuInner = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (event.cancelable) event.preventDefault();
+    if (onContextMenu == null) return;
+    const mouseState = getMouseState(event);
+    if (mouseState == null) return;
+    onSelectionContextMenu(mouseState, (selection, position) => onContextMenu(selection, position));
   };
 
   return (
@@ -335,10 +323,11 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           cursor,
         }}
         onClick={onSmartClick}
-        onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
+        onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
+        onContextMenu={onContextMenuInner}
       >
         <RenderLayer
           theme={theme}
@@ -355,9 +344,9 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           stopColumnIndex={stopColumnIndex}
           mouseState={mouseState}
           dragState={dragState}
+          activeCell={activeCell}
           selectionState={selectionState}
           columnResizeState={columnResizeState}
-          activeCellData={activeCellData}
           onDelete={onDelete}
           onColumnOrdered={onColumnOrdered}
           getCellContent={getCellContent}
@@ -373,6 +362,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         isEditing={isEditing}
         scrollTo={scrollTo}
         setEditing={setEditing}
+        activeCell={activeCell}
+        setActiveCell={setActiveCell}
         selectionState={selectionState}
         setSelectionState={setSelectionState}
         getCellContent={getCellContent}

@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useRef, useEffect } from 'react';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import type {
-  IActiveCellData,
+  ICellItem,
   IColumnResizeState,
   IDragState,
   IMouseState,
@@ -17,11 +17,11 @@ export interface IRenderLayerProps
   stopRowIndex: number;
   startColumnIndex: number;
   stopColumnIndex: number;
+  activeCell: ICellItem | null;
   dragState: IDragState;
   mouseState: IMouseState;
   selectionState: ISelectionState;
   columnResizeState: IColumnResizeState;
-  activeCellData: IActiveCellData | null;
 }
 
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {

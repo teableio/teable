@@ -43,6 +43,9 @@ const createCellValue2GridDisplay =
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {
     const field = fields[col];
+
+    if (field == null) return { type: CellType.Loading };
+
     const { id, type, isComputed, isMultipleCellValue: isMultiple } = field;
     const cellValue = record.getCellValue(id);
 
@@ -125,9 +128,7 @@ const createCellValue2GridDisplay =
         };
       }
       default: {
-        return {
-          type: CellType.Loading,
-        };
+        return { type: CellType.Loading };
       }
     }
   };

@@ -19,6 +19,8 @@ export interface IEditorContainerProps
   > {
   isEditing?: boolean;
   scrollState: IScrollState;
+  activeCell: ICellItem | null;
+  setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
   selectionState: ISelectionState;
   setSelectionState: React.Dispatch<React.SetStateAction<ISelectionState>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -52,25 +54,32 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     isEditing,
     coordInstance,
     scrollState,
+    activeCell,
     selectionState,
     scrollTo,
     onChange,
     onDelete,
     setEditing,
+    setActiveCell,
     setSelectionState,
     onCellActivated,
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
-  const { type: selectionType, ranges: selectionRanges } = selectionState;
+  const { type: selectionType } = selectionState;
   const isCellSelection = selectionType === SelectionRegionType.Cells;
-  const [columnIndex, rowIndex] = isCellSelection ? selectionRanges[0] : [-1, -1];
-  const cell = useMemo(
+  const [columnIndex, rowIndex] = activeCell ?? [-1, -1];
+  const cellContent = useMemo(
     () => getCellContent([columnIndex, rowIndex]) as ICell,
     [columnIndex, getCellContent, rowIndex]
   );
-  const { type: cellType, readonly, customEditor, editorPosition = EditorPosition.Overlap } = cell;
-  const editingEnable = !readonly && isEditing && columnIndex > -1 && rowIndex > -1;
+  const {
+    type: cellType,
+    readonly,
+    customEditor,
+    editorPosition = EditorPosition.Overlap,
+  } = cellContent;
+  const editingEnable = !readonly && isEditing && activeCell;
   const editorRef = useRef<IEditorRef | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -80,26 +89,28 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   const onChangeInner = (value: unknown) => {
     onChange?.([columnIndex, rowIndex], {
-      ...cell,
+      ...cellContent,
       data: value,
     } as IInnerCell);
   };
 
   useEffect(() => {
-    if (cell.type === CellType.Loading) return;
-    if (!isCellSelection || columnIndex < 0 || rowIndex < 0) return;
-    editorRef.current?.setValue?.(cell.data);
+    if (cellContent.type === CellType.Loading) return;
+    if (!activeCell) return;
+    editorRef.current?.setValue?.(cellContent.data);
     requestAnimationFrame(() => editorRef.current?.focus?.());
-  }, [columnIndex, rowIndex, isCellSelection, cell]);
+  }, [cellContent, activeCell]);
 
   useKeyboardSelection({
     isEditing,
+    activeCell,
     scrollState,
     selectionState,
     coordInstance,
     scrollTo,
     onDelete,
     setEditing,
+    setActiveCell,
     setSelectionState,
     onCellActivated,
     editorRef,
@@ -131,7 +142,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         return (
           <TextEditor
             ref={editorRef}
-            cell={cell}
+            cell={cellContent}
             style={{
               ...style,
               borderColor: theme.cellLineColorActived,
@@ -144,7 +155,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         return (
           <SelectEditor
             ref={editorRef}
-            cell={cell}
+            cell={cellContent}
             style={style}
             isEditing={isEditing}
             onChange={onChangeInner}
@@ -198,7 +209,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
           ? customEditor(
               {
                 style,
-                cell: cell as unknown as IInnerCell,
+                cell: cellContent as unknown as IInnerCell,
                 isEditing,
                 onChange: onChangeInner,
               },

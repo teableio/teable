@@ -86,7 +86,6 @@ export const drawCells = (
     theme,
     isEditing,
     imageManager,
-    activeCellData,
     spriteManager,
   } = props;
   const {
@@ -103,7 +102,6 @@ export const drawCells = (
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
-  const { width: activeWidth, height: activeHeight } = activeCellData || {};
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
@@ -203,8 +201,8 @@ export const drawCells = (
       if (isCellActive) {
         activeCellProps = {
           ...cellProps,
-          width: activeWidth || columnWidth,
-          height: activeHeight || rowHeight,
+          width: columnWidth,
+          height: rowHeight,
           stroke: cellLineColorActived,
           isActive: true,
         };

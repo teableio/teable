@@ -140,13 +140,6 @@ export enum RowControlType {
 
 export type ICellItem = [colIndex: number, rowIndex: number];
 
-export interface IActiveCellData {
-  rowIndex: number;
-  columnIndex: number;
-  width: number;
-  height: number;
-}
-
 export interface IPositionWithBounds {
   bounds: IRectangle;
   eventPosition: IPosition;

@@ -119,7 +119,7 @@ export const useAsyncData = (
     getCellContent,
     onVisibleRegionChanged,
     onCellEdited,
-    records,
+    records: loadedRecords,
     reset,
   };
 };
