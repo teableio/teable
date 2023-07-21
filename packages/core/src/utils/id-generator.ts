@@ -41,7 +41,7 @@ export function generateTransactionKey() {
 }
 
 export function generateAttachmentId() {
-  return IdPrefix.Attachment + getRandomString(8);
+  return IdPrefix.Attachment + getRandomString(16);
 }
 
 export function generateWorkflowId() {

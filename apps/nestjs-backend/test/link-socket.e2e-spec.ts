@@ -9,7 +9,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
 import {
   generateTransactionKey,
-  OpBuilder,
+  RecordOpBuilder,
   IdPrefix,
   FieldType,
   Relationship,
@@ -148,7 +148,7 @@ describe('OpenAPI link (e2e)', () => {
           if (err) {
             return reject(err);
           }
-          const op = OpBuilder.editor.setRecord.build({
+          const op = RecordOpBuilder.editor.setRecord.build({
             fieldId,
             oldCellValue: doc.data.fields[fieldId],
             newCellValue: newValues,

@@ -31,7 +31,7 @@ updateColumnSize(
   newSize: number
 ) {
   // 因为 width 实在 column meta 属性上保存，并且每个视图都有一份，所以我们需要指定 viewId 以及 具体的 metaKey
-  const fieldOperation = OpBuilder.editor.setColumnMeta.build({
+  const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
     viewId, // 因为
     metaKey: 'width',
     oldMetaValue: oldSize,
@@ -146,7 +146,7 @@ export function useColumnResize<T extends { id: string }>(
 
 ## opBuilder
 
-我们在前面使用 `OpBuilder.editor.setColumnMeta.build` 来创建了一个 op。对于每个不同的 op，我们都需要通过创建一个独立的 opBuilder 来对其进行封装
+我们在前面使用 `FieldOpBuilder.editor.setColumnMeta.build` 来创建了一个 op。对于每个不同的 op，我们都需要通过创建一个独立的 opBuilder 来对其进行封装
 
 ```ts
 export interface IOpBuilder {
@@ -159,12 +159,12 @@ export interface IOpBuilder {
 ```
 
 opBuilder 除了独立的 name 之外，要实现一对 build & detect 方法，和 decoder & encode 概念类似，build 通过参数生成 op, detect 通过 op 来解析出原始参数，用作后续的入库动作。
-当我们实现一个 op 之后，需要在 `op-builder.ts` 文件中对其进行注册和导出。
+当我们实现一个 op 之后，需要在 `field-op-builder.ts` 文件中对其进行注册和导出。
 
 ```ts
-import { SetColumnMetaBuilder } from './field/set-column-meta';
-export type { ISetColumnMetaOpContext } from './field/set-column-meta';
-export class OpBuilder {
+import { SetColumnMetaBuilder } from './set-column-meta';
+export type { ISetColumnMetaOpContext } from './set-column-meta';
+export class FieldOpBuilder {
   static editor = {
       ...
       setColumnMeta: new SetColumnMetaBuilder(),
@@ -179,7 +179,7 @@ export class OpBuilder {
 现在我们已经知道了 op 的生成、op 发送的过程，那么变更是如何入库的呢？
 当 op 通过 `doc.submitOp` 协同到服务端之后，shareDb 会调用 `dbAdapter` 的 `commit` 方法，我们可以在这里对 op 进行解析，然后进行入库操作。
 
-如果是编辑类的操作，opAdapter 会先调用 `const ops2Contexts = OpBuilder.ops2Contexts(ops);` 的到 opContexts，从 context 之中，我们就有了完整的入库信息上下文，接下来就是调用对应的 service 来进行入库操作了。
+如果是编辑类的操作，opAdapter 会先调用 `const ops2Contexts = FieldOpBuilder.ops2Contexts(ops);` 的到 opContexts，从 context 之中，我们就有了完整的入库信息上下文，接下来就是调用对应的 service 来进行入库操作了。
 
 ```ts
 // share-db/sqlite.adapter.ts:144
@@ -192,7 +192,8 @@ async updateSnapshot(
 ) {
   // 通过 collection 字符串，获取对应的 docType 和 collectionId
   const [docType, collectionId] = collection.split('_');
-  const ops2Contexts = OpBuilder.ops2Contexts(ops);
+  let opBuilder = ... // 选区不同的 opBuilder
+  const ops2Contexts = opBuilder.ops2Contexts(ops);
   const service = this.getService(docType as IdPrefix);
   // group by op name execute faster
   const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
