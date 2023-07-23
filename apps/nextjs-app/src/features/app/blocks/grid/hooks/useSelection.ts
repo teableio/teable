@@ -70,7 +70,7 @@ export const useSelection = () => {
     }
   };
 
-  const onSelectionEnd = (mouseState: IMouseState, callback?: (isEditMode: boolean) => void) => {
+  const onSelectionEnd = (mouseState: IMouseState, callback?: (item: ICellItem) => void) => {
     const prev = prevSelectionState;
     setPrevSelectionState(null);
     const { type, ranges } = selectionState;
@@ -83,7 +83,7 @@ export const useSelection = () => {
       isEqual(ranges, prevRanges) &&
       isEqual(ranges[0], ranges[1])
     ) {
-      callback?.(true);
+      activeCell && callback?.(activeCell);
     }
     setSelectionState((prev) => ({ ...prev, isSelecting: false }));
   };

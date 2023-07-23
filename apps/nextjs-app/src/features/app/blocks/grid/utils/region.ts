@@ -67,38 +67,6 @@ const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
     : null;
 };
 
-// const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
-//   const { position, theme, rowControls, scrollState, coordInstance } = props;
-//   const { x, y, rowIndex, columnIndex } = position;
-
-//   if (rowIndex < -1 || columnIndex !== -1) return null;
-
-//   if (!rowControls?.includes(RowControlType.Checkbox)) return RegionType.RowHeader;
-
-//   const { iconSizeXS } = theme;
-//   const halfIconSize = iconSizeXS / 2;
-//   const { rowInitSize, columnInitSize } = coordInstance;
-//   const inXRange = inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize);
-
-//   if (inXRange && inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)) {
-//     return RegionType.AllCheckbox;
-//   }
-
-//   const { scrollTop } = scrollState;
-//   const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
-//   const rowHeight = coordInstance.getRowHeight(rowIndex);
-//   const inYRange = inRange(
-//     y,
-//     offsetY + rowHeight / 2 - halfIconSize,
-//     offsetY + rowHeight / 2 + halfIconSize
-//   );
-
-//   if (inXRange && inYRange) {
-//     return RegionType.RowHeaderCheckbox;
-//   }
-//   return RegionType.RowHeader;
-// };
-
 const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const { position, theme, rowControls, scrollState, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;

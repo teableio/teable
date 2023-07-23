@@ -61,6 +61,7 @@ export interface IGridRef {
 
 const {
   scrollBuffer,
+  appendRowHeight,
   columnAppendBtnWidth,
   rowHeight: defaultRowHeight,
   columnWidth: defaultColumnWidth,
@@ -111,7 +112,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const hasAppendColumn = onColumnAppend != null;
   const rowControlCount = rowControls.length;
   const rowCount = hasAppendRow ? originRowCount + 1 : originRowCount;
-  const totalHeight = rowCount * rowHeight + scrollBuffer;
+  const totalHeight =
+    (hasAppendRow ? (rowCount - 1) * rowHeight + appendRowHeight : rowCount * rowHeight) +
+    scrollBuffer;
   const totalWidth = columns.reduce(
     (prev, column) => prev + (column.width || defaultColumnWidth),
     hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
@@ -139,6 +142,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       containerHeight: height,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
+      rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
       columnWidthMap: columns.reduce(
         (acc, column, index) => ({
           ...acc,
@@ -156,6 +160,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     originRowCount,
     freezeColumnCount,
     rowControlCount,
+    hasAppendRow,
     iconSizeMD,
   ]);
 

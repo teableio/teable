@@ -8,12 +8,13 @@ const msToFullSpeed = 1200;
 
 interface IUseAutoScroll {
   isSelecting: boolean;
+  isDragging: boolean;
   coordInstance: CoordinateManager;
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
 export const useAutoScroll = (props: IUseAutoScroll) => {
-  const { coordInstance, isSelecting, scrollBy } = props;
+  const { coordInstance, isSelecting, isDragging, scrollBy } = props;
   const speedScalar = useRef(0);
   const { containerWidth, containerHeight, freezeRegionWidth, rowInitSize } = coordInstance;
   const [scrollDirection, setScrollDirection] = useState<
@@ -22,7 +23,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
   const [xDirection, yDirection] = scrollDirection || [0, 0];
 
   const onAutoScroll = (mouseState: IMouseState) => {
-    if (!isSelecting) return;
+    if (!isSelecting && !isDragging) return;
     const { x, y } = mouseState;
     let xDir: IScrollDirection = 0;
     let yDir: IScrollDirection = 0;

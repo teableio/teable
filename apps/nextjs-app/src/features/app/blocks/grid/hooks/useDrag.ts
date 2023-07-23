@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { DEFAULT_DRAG_STATE } from '../configs';
 import type { IDragState, IMouseState, IScrollState } from '../interface';
 import { DragRegionType, RegionType } from '../interface';
@@ -23,6 +23,8 @@ export const getDropTargetColumnIndex = (
 };
 
 export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
+  // Prevents Drag and Drop from Being Too Reactive
+  const startPosition = useRef(0);
   const [dragState, setDragState] = useState<IDragState>(DEFAULT_DRAG_STATE);
   const { freezeColumnCount } = coordInstance;
   const { scrollTop, scrollLeft } = scrollState;
@@ -41,6 +43,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
     }
 
     if (type === RegionType.ColumnHeader) {
+      startPosition.current = x;
       const offsetX = coordInstance.getColumnOffset(columnIndex);
       setDragState({
         type: DragRegionType.Column,
@@ -51,15 +54,16 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
     }
   };
 
-  const onDragChange = () => {
+  const onDragChange = (mouseState: IMouseState) => {
     const { type } = dragState;
+    if (![DragRegionType.Row, DragRegionType.Column].includes(type)) return;
 
-    if ([DragRegionType.Row, DragRegionType.Column].includes(type)) {
-      setDragState((prev) => ({
-        ...prev,
-        isDragging: true,
-      }));
-    }
+    const { x, y } = mouseState;
+    const prevPosition = type === DragRegionType.Row ? y : x;
+    const moveDistance = Math.abs(prevPosition - startPosition.current);
+    if (moveDistance < 5) return;
+
+    setDragState((prev) => ({ ...prev, isDragging: true }));
   };
 
   const onDragEnd = (

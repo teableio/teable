@@ -1,5 +1,5 @@
 import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
-import { useRecords } from '@teable-group/sdk/hooks';
+import { useRecords } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -79,8 +79,7 @@ export const useAsyncData = (
   const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
     (r) => {
       setVisiblePages((cv) => {
-        if (r.x === cv.x && r.y === cv.y && r.width === cv.width && r.height === cv.height)
-          return cv;
+        if (r.y === cv.y && r.height === cv.height) return cv;
         return r;
       });
     },

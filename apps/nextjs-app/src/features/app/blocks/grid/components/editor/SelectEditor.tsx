@@ -31,7 +31,6 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const activeIndex = useKeyboardNavigation(choices.length, isEditing);
 
   useImperativeHandle(ref, () => ({
-    // focus: () => inputRef.current?.focus(),
     focus: noop,
     setValue: (data: string[]) => {
       const value = getFormatSelectValue(data);
@@ -75,7 +74,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
                 )}
               />
               <div
-                className={classNames('px-2 rounded-lg')}
+                className={classNames('px-2 rounded-lg text-ellipsis whitespace-nowrap')}
                 style={{
                   backgroundColor: bgColor,
                   color: textColor,

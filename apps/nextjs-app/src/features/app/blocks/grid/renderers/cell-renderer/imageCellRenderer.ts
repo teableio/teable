@@ -38,7 +38,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     ctx.beginPath();
 
     if (images.length) {
-      ctx.rect(x, y, width, height);
+      ctx.rect(x, y, width - 0.5, height);
       ctx.clip();
     }
 

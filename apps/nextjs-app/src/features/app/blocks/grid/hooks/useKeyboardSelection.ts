@@ -158,10 +158,12 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         editorRef.current?.saveValue?.();
         const [columnIndex, rowIndex] = ranges[0];
         const newRange = [columnIndex, Math.min(rowIndex + 1, pureRowCount - 1)] as IRange;
-        setEditing(false);
-        setActiveCell(newRange);
-        setSelectionState({ ...selectionState, ranges: [newRange, newRange] });
-        scrollToCell(newRange as IRange);
+        setTimeout(() => {
+          setEditing(false);
+          setActiveCell(newRange);
+          setSelectionState({ ...selectionState, ranges: [newRange, newRange] });
+          scrollToCell(newRange as IRange);
+        });
       } else {
         setEditing(true);
       }

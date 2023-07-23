@@ -1,23 +1,17 @@
 import type { ILinkCellValue } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
-import type { LinkField, Record } from '@teable-group/sdk';
+import type { LinkField } from '@teable-group/sdk';
 import { AnchorProvider, LinkEditorMain, useRecords } from '@teable-group/sdk';
 import { forwardRef, useMemo } from 'react';
 import type { ForwardRefRenderFunction, Ref } from 'react';
 import type { IEditorRef, IEditorProps } from '../../../../grid/components';
+import type { IWrapperEditorProps } from './type';
 
-export interface ILinkEditorProps {
-  field: LinkField;
-  record: Record;
-  style?: React.CSSProperties;
-  onCancel?: () => void;
-}
-
-const LinkEditorBase: ForwardRefRenderFunction<
-  IEditorRef,
-  Omit<IEditorProps, 'cell'> & ILinkEditorProps
-> = (props) => {
-  const { field, record, style } = props;
+const LinkEditorBase: ForwardRefRenderFunction<IEditorRef, IEditorProps & IWrapperEditorProps> = (
+  props
+) => {
+  const { record, style } = props;
+  const field = props.field as LinkField;
   const cellValue = record.getCellValue(field.id) as ILinkCellValue | ILinkCellValue[] | undefined;
 
   const values = useMemo(
@@ -70,9 +64,11 @@ const LinkEditorBase: ForwardRefRenderFunction<
 
 const LinkEditorInner = forwardRef(LinkEditorBase);
 
-export const LinkEditor = (props: ILinkEditorProps & { editorRef: Ref<IEditorRef> }) => {
-  const { editorRef } = props;
-  const tableId = props.field.options.foreignTableId;
+export const LinkEditor = (
+  props: IEditorProps & IWrapperEditorProps & { editorRef: Ref<IEditorRef> }
+) => {
+  const { editorRef, field } = props;
+  const tableId = (field as LinkField).options.foreignTableId;
   return (
     <AnchorProvider tableId={tableId}>
       <LinkEditorInner ref={editorRef} {...props} />

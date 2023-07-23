@@ -12,10 +12,10 @@ import { useColumnResize } from './hooks/useColumnResize';
 import { useDrag } from './hooks/useDrag';
 import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
-import type { IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
+import type { ICellItem, IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { getCellRenderer } from './renderers';
+import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { getRegionType } from './utils';
 
@@ -66,7 +66,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
   const { containerWidth, containerHeight, freezeColumnCount, pureRowCount } = coordInstance;
-  const { scrollTop, scrollLeft } = scrollState;
+  const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
@@ -91,6 +91,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onSelectionContextMenu,
   } = useSelection();
 
+  const { isDragging } = dragState;
   const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
   const getPosition = useCallback(
@@ -127,6 +128,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
     coordInstance,
     isSelecting,
+    isDragging,
     scrollBy,
   });
 
@@ -158,7 +160,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
   };
 
   const setCursorStyle = (regionType: RegionType) => {
-    if (dragState.isDragging) {
+    if (isScrolling) return;
+    if (isDragging) {
       return setCursor('grabbing');
     }
 
@@ -279,7 +282,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     setCursorStyle(type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
-    onDragChange();
+    onDragChange(mouseState);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex, newWidth);
@@ -297,7 +300,11 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       setSelectionState(DEFAULT_SELECTION_STATE);
       setCursor('default');
     });
-    onSelectionEnd(mouseState, (isEditMode: boolean) => setEditing(isEditMode));
+    onSelectionEnd(mouseState, (item: ICellItem) => {
+      const cell = getCellContent(item);
+      const canEditOnClick = [CellType.Number, CellType.Text, CellType.Select].includes(cell.type);
+      canEditOnClick && setEditing(true);
+    });
     onColumnResizeEnd();
   };
 
@@ -337,23 +344,21 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
-          scrollState={scrollState}
           startRowIndex={startRowIndex}
           stopRowIndex={stopRowIndex}
           startColumnIndex={startColumnIndex}
           stopColumnIndex={stopColumnIndex}
-          mouseState={mouseState}
-          dragState={dragState}
           activeCell={activeCell}
+          mouseState={mouseState}
+          scrollState={scrollState}
+          dragState={dragState}
           selectionState={selectionState}
           columnResizeState={columnResizeState}
-          onDelete={onDelete}
-          onColumnOrdered={onColumnOrdered}
           getCellContent={getCellContent}
-          onRowAppend={onRowAppend}
-          onColumnResize={onColumnResize}
-          onColumnAppend={onColumnAppend}
-          onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          isRowAppendEnable={onRowAppend != null}
+          isColumnResizable={onColumnResize != null}
+          isColumnAppendEnable={onColumnAppend != null}
+          isColumnHeaderMenuVisible={onColumnHeaderMenuClick != null}
         />
       </div>
       <EditorContainer

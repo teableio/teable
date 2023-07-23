@@ -9,7 +9,8 @@ import type {
   ISelectChoice,
 } from './interface';
 
-const OPTION_INNER_PADDING = 6;
+const OPTION_GAP_SIZE = 6;
+const SELECT_CELL_PADDING_TOP = 6;
 
 export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   type: CellType.Select,
@@ -24,18 +25,20 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       fontFamily,
       iconSizeSM,
       cellHorizontalPadding,
-      cellVerticalPadding,
       cellOptionBg,
       cellOptionTextColor,
     } = theme;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
-      y: _y + cellVerticalPadding,
+      y: _y + SELECT_CELL_PADDING_TOP,
       width: width - 2 * cellHorizontalPadding,
-      height: height - 2 * cellVerticalPadding,
+      height: height - SELECT_CELL_PADDING_TOP,
     };
-    const rows = Math.max(1, Math.floor(drawArea.height / (iconSizeSM + OPTION_INNER_PADDING)));
+    const rows = Math.max(
+      1,
+      Math.floor((drawArea.height - iconSizeSM) / (iconSizeSM + OPTION_GAP_SIZE)) + 1
+    );
 
     ctx.save();
     ctx.beginPath();
@@ -49,8 +52,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
 
     let x = drawArea.x;
     let row = 1;
-    let y =
-      drawArea.y + (drawArea.height - rows * iconSizeSM - (rows - 1) * OPTION_INNER_PADDING) / 2;
+    let y = drawArea.y;
     const choiceMap: Record<string, ISelectChoice> = {};
     choices?.forEach(({ id, name, bgColor, textColor }) => {
       choiceMap[id || name] = {
@@ -63,12 +65,12 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
 
     for (const text of value) {
       const metrics = ctx.measureText(text);
-      const width = metrics.width + OPTION_INNER_PADDING * 2;
+      const width = metrics.width + OPTION_GAP_SIZE * 2;
       const textY = iconSizeSM / 2 + 1;
 
       if (x !== drawArea.x && x + width > drawArea.x + drawArea.width && row < rows) {
         row++;
-        y += iconSizeSM + OPTION_INNER_PADDING;
+        y += iconSizeSM + OPTION_GAP_SIZE;
         x = drawArea.x;
       }
       const choice = choiceMap[text];
@@ -85,7 +87,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       });
       drawSingleLineText(ctx, {
         text,
-        x: x + OPTION_INNER_PADDING,
+        x: x + OPTION_GAP_SIZE,
         y: y + textY,
         fontSize: fontSizeXS,
         fill: textColor,

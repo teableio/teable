@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useRef, useEffect } from 'react';
+import { useRef, useLayoutEffect } from 'react';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import type {
   ICellItem,
@@ -11,7 +11,17 @@ import type {
 import { drawGrid } from './renderers';
 
 export interface IRenderLayerProps
-  extends Omit<IInteractionLayerProps, 'scrollTo' | 'scrollBy' | 'setMouseState'> {
+  extends Pick<
+    IInteractionLayerProps,
+    | 'theme'
+    | 'columns'
+    | 'rowControls'
+    | 'imageManager'
+    | 'spriteManager'
+    | 'scrollState'
+    | 'getCellContent'
+    | 'coordInstance'
+  > {
   isEditing: boolean;
   startRowIndex: number;
   stopRowIndex: number;
@@ -22,14 +32,18 @@ export interface IRenderLayerProps
   mouseState: IMouseState;
   selectionState: ISelectionState;
   columnResizeState: IColumnResizeState;
+  isRowAppendEnable?: boolean;
+  isColumnResizable?: boolean;
+  isColumnAppendEnable?: boolean;
+  isColumnHeaderMenuVisible?: boolean;
 }
 
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { coordInstance } = props;
   const { containerWidth, containerHeight } = coordInstance;
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (canvas == null) return;
     drawGrid(canvas, props);

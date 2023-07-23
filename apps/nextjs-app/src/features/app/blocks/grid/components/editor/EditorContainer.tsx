@@ -37,6 +37,7 @@ export interface IEditorProps<T extends IInnerCell = IInnerCell> {
   cell: T;
   style?: CSSProperties;
   isEditing?: boolean;
+  setEditing?: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (value: unknown) => void;
 }
 
@@ -211,6 +212,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
                 style,
                 cell: cellContent as unknown as IInnerCell,
                 isEditing,
+                setEditing,
                 onChange: onChangeInner,
               },
               editorRef

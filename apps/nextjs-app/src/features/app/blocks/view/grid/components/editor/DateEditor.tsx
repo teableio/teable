@@ -1,8 +1,8 @@
 import { DateEditorMain } from '@teable-group/sdk';
 import { useCallback, useMemo } from 'react';
-import type { IEditorProps } from './type';
+import type { IWrapperEditorProps } from './type';
 
-export const DateEditor = (props: IEditorProps) => {
+export const DateEditor = (props: IWrapperEditorProps) => {
   const { record, field, style } = props;
   const dateTime = record.getCellValue(field.id) as number;
   const setDateTime = useCallback(

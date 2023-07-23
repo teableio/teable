@@ -81,7 +81,7 @@ export const drawCells = (
     scrollState,
     selectionState,
     rowControls,
-    onRowAppend,
+    isRowAppendEnable,
     getCellContent,
     theme,
     isEditing,
@@ -97,7 +97,6 @@ export const drawCells = (
     containerWidth,
     containerHeight,
   } = coordInstance;
-  const hasAppendRow = onRowAppend != null;
   const { isSelecting, type: selectionType } = selectionState;
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
@@ -106,7 +105,7 @@ export const drawCells = (
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
     : originStopColumnIndex;
-  const stopRowIndex = hasAppendRow ? Math.max(0, originStopRowIndex - 1) : originStopRowIndex;
+  const stopRowIndex = isRowAppendEnable ? Math.max(0, originStopRowIndex - 1) : originStopRowIndex;
   const {
     fontSizeXS,
     fontSizeSM,
@@ -278,6 +277,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
     fill,
   });
   const halfSize = iconSizeXS / 2;
+  const { rowHeadIconPaddingTop } = GRID_DEFAULT;
 
   const spriteIconMap = {
     [RowControlType.Drag]: 'dragIcon',
@@ -293,7 +293,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
       if (type === RowControlType.Checkbox) {
         drawCheckbox(ctx, {
           x: x + offsetX - halfSize,
-          y: y + height / 2 - halfSize,
+          y: y + rowHeadIconPaddingTop,
           size: iconSizeXS,
           stroke: isChecked ? staticWhite : rowHeaderTextColor,
           fill: isChecked ? cellLineColorActived : undefined,
@@ -304,7 +304,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
           sprite: spriteIconMap[type],
           variant: 'normal',
           x: x + offsetX - halfSize,
-          y: y + height / 2 - halfSize,
+          y: y + rowHeadIconPaddingTop,
           size: iconSizeXS,
           theme,
         });
@@ -314,9 +314,10 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   }
   drawSingleLineText(ctx, {
     x: x + width / 2,
-    y: y + height / 2,
+    y: y + rowHeadIconPaddingTop + 3,
     text: displayIndex,
     textAlign: 'center',
+    verticalAlign: 'top',
     fill: rowHeaderTextColor,
   });
 };
@@ -395,8 +396,8 @@ export const drawColumnHeaders = (
     scrollState,
     selectionState,
     rowControls,
-    onRowAppend,
-    onColumnHeaderMenuClick,
+    isRowAppendEnable,
+    isColumnHeaderMenuVisible,
   } = props;
   const {
     containerWidth,
@@ -414,7 +415,7 @@ export const drawColumnHeaders = (
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
     : originStopColumnIndex;
-  const endRowIndex = onRowAppend != null ? rowCount - 2 : rowCount - 1;
+  const endRowIndex = isRowAppendEnable ? rowCount - 2 : rowCount - 1;
 
   ctx.save();
   ctx.beginPath();
@@ -488,7 +489,7 @@ export const drawColumnHeaders = (
       height: rowInitSize,
       column: columns[columnIndex],
       fill,
-      hasMenu: onColumnHeaderMenuClick != null,
+      hasMenu: isColumnHeaderMenuVisible,
       theme,
       spriteManager,
     });
@@ -502,18 +503,19 @@ export const drawAppendRow = (
   props: IRenderLayerProps,
   renderRegion: RenderRegion
 ) => {
-  const { scrollState, coordInstance, mouseState, theme, onRowAppend } = props;
-  if (onRowAppend == null) return;
+  const { scrollState, coordInstance, mouseState, theme, isRowAppendEnable } = props;
+  if (!isRowAppendEnable) return;
 
+  const { scrollLeft } = scrollState;
   const { rowIndex, isOutOfBounds } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
-  const { scrollLeft } = scrollState;
-  const { totalWidth, rowHeight, freezeRegionWidth, freezeColumnCount, rowCount, columnInitSize } =
+  const { totalWidth, freezeRegionWidth, freezeColumnCount, rowCount, columnInitSize } =
     coordInstance;
   const isHover = !isOutOfBounds && rowIndex === rowCount - 1;
   const x = isFreezeRegion ? 0 : coordInstance.getColumnOffset(freezeColumnCount);
   const y = coordInstance.getRowOffset(rowCount - 1);
   const width = isFreezeRegion ? freezeRegionWidth + 1 : totalWidth - freezeRegionWidth;
+  const height = coordInstance.getRowHeight(rowCount - 1);
 
   ctx.save();
   ctx.beginPath();
@@ -521,7 +523,7 @@ export const drawAppendRow = (
     isFreezeRegion ? 0 : freezeRegionWidth + scrollLeft + 1,
     y,
     isFreezeRegion ? width : totalWidth - scrollLeft - freezeRegionWidth + 1,
-    rowHeight + 1
+    height + 1
   );
   ctx.clip();
   const { iconSizeMD, fontFamily, cellBg, cellBgHovered, cellLineColor, cellTextColor } = theme;
@@ -530,14 +532,14 @@ export const drawAppendRow = (
     x: x + 0.5,
     y: y + 0.5,
     width,
-    height: rowHeight,
+    height: height,
     fill: isHover ? cellBgHovered : cellBg,
     stroke: cellLineColor,
   });
   if (isFreezeRegion) {
     drawSingleLineText(ctx, {
       x: x + columnInitSize / 2 + 0.5,
-      y: y + rowHeight / 2 + 0.5,
+      y: y + height / 2 + 0.5,
       text: '+',
       textAlign: 'center',
       fill: cellTextColor,
@@ -547,11 +549,11 @@ export const drawAppendRow = (
 };
 
 export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
-  const { coordInstance, theme, mouseState, onColumnAppend } = props;
+  const { coordInstance, theme, mouseState, isColumnAppendEnable } = props;
   const { totalWidth } = coordInstance;
   const { type: hoverRegionType } = mouseState;
 
-  if (onColumnAppend == null) return;
+  if (!isColumnAppendEnable) return;
 
   const { fontFamily, cellBg, cellLineColor, cellTextColor, columnHeaderBgHovered, iconSizeMD } =
     theme;
@@ -580,12 +582,11 @@ export const drawColumnResizeHandler = (
   ctx: CanvasRenderingContext2D,
   props: IRenderLayerProps
 ) => {
-  const { coordInstance, mouseState, scrollState, theme, columnResizeState, onColumnResize } =
+  const { coordInstance, mouseState, scrollState, theme, columnResizeState, isColumnResizable } =
     props;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex, x: hoverX } = mouseState;
   const { columnIndex: resizeColumnIndex } = columnResizeState;
-  const canResize = onColumnResize != null;
-  const isHover = canResize && hoverRegionType === RegionType.ColumnResizeHandler;
+  const isHover = isColumnResizable && hoverRegionType === RegionType.ColumnResizeHandler;
   const isResizing = resizeColumnIndex > -1;
 
   if (!isHover && !isResizing) return;
@@ -680,6 +681,32 @@ const setVisibleImageRegion = (props: IRenderLayerProps) => {
   );
 };
 
+export const drawFreezeRegionDivider = (
+  ctx: CanvasRenderingContext2D,
+  props: IRenderLayerProps
+) => {
+  const { theme, coordInstance, scrollState } = props;
+  const { cellLineColor } = theme;
+  const { scrollLeft } = scrollState;
+  const { freezeRegionWidth, containerHeight } = coordInstance;
+
+  if (scrollLeft === 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+
+  ctx.shadowColor = cellLineColor;
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetX = 3;
+  ctx.strokeStyle = cellLineColor;
+
+  ctx.moveTo(freezeRegionWidth + 0.5, 0);
+  ctx.lineTo(freezeRegionWidth + 0.5, containerHeight);
+  ctx.stroke();
+
+  ctx.restore();
+};
+
 export const drawColumnHeadersRegion = (
   ctx: CanvasRenderingContext2D,
   props: IRenderLayerProps
@@ -742,6 +769,8 @@ export const drawGrid = (canvas: HTMLCanvasElement, props: IRenderLayerProps) =>
   ctx.translate(-scrollLeft, 0);
   drawColumnHeadersRegion(ctx, props);
   ctx.restore();
+
+  drawFreezeRegionDivider(ctx, props);
 
   ctx.restore();
 };

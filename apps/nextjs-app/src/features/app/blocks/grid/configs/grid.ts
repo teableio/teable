@@ -5,6 +5,8 @@ export const GRID_DEFAULT = {
   // Row
   rowHeight: 32,
   rowHeadWidth: 70,
+  rowHeadIconPaddingTop: 8,
+  appendRowHeight: 32,
 
   // Column
   columnWidth: 150,
