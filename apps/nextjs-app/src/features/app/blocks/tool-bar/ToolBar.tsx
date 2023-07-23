@@ -5,11 +5,11 @@ import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
 import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
-import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useCallback } from 'react';
 import { FilterColumnsButton } from './FilterColumnsButton';
+import { RowHeightButton } from './RowHeightButton';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
@@ -60,10 +60,7 @@ export const ToolBar: React.FC = () => {
         <ColorIcon className="text-lg pr-1" />
         Color
       </Button>
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <RowHeightIcon className="text-lg pr-1" />
-        Row Height
-      </Button>
+      <RowHeightButton />
     </div>
   );
 };

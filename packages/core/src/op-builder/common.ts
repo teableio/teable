@@ -21,6 +21,7 @@ export enum OpName {
 
   AddView = 'addView',
   SetViewName = 'setViewName',
+  SetViewOptions = 'SetViewOptions',
 }
 
 export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {

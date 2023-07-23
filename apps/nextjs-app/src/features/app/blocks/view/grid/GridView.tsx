@@ -1,5 +1,14 @@
+import type { GridViewOptions } from '@teable-group/core';
+import { RowHeightLevel } from '@teable-group/core';
 import type { Record } from '@teable-group/sdk';
-import { useRowCount, useSSRRecords, useTable, useTableId } from '@teable-group/sdk';
+import {
+  useRowCount,
+  useSSRRecords,
+  useTable,
+  useTableId,
+  useView,
+  useViewId,
+} from '@teable-group/sdk';
 import { range, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount } from 'react-use';
@@ -15,6 +24,7 @@ import type {
   ISelectionBase,
   IGridColumn,
 } from '../../grid';
+import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
 import { useGridViewStore } from './store/gridView';
@@ -24,6 +34,8 @@ export const GridView: React.FC = () => {
   const container = useRef<HTMLDivElement>(null);
   const tableId = useTableId() as string;
   const table = useTable();
+  const activeViewId = useViewId();
+  const view = useView(activeViewId);
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
   const theme = useGridTheme();
@@ -153,6 +165,11 @@ export const GridView: React.FC = () => {
     [getFieldStatic]
   );
 
+  const rowHeightLevel = useMemo(() => {
+    if (view == null) return RowHeightLevel.Short;
+    return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
+  }, [view]);
+
   const onDelete = (selection: ISelectionState) => {
     const { type, ranges } = selection;
 
@@ -185,7 +202,8 @@ export const GridView: React.FC = () => {
         <Grid
           theme={theme}
           rowCount={rowCount}
-          freezeColumnCount={0}
+          rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+          freezeColumnCount={1}
           columns={columns}
           smoothScrollX
           smoothScrollY

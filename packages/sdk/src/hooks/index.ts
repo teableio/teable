@@ -5,6 +5,7 @@ export * from './use-field';
 export * from './use-fields';
 export * from './use-row-count';
 export * from './use-table-id';
+export * from './use-view';
 export * from './use-views';
 export * from './use-view-id';
 export * from './use-ssr-records';
