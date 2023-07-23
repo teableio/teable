@@ -10,7 +10,6 @@ export interface ICoordinate {
   columnWidthMap?: IIndicesMap;
   rowInitSize?: number;
   columnInitSize?: number;
-  rowHeightLevel?: RowHeightLevel;
   freezeColumnCount?: number;
 }
 
@@ -27,10 +26,3 @@ export type ICellMetaData = {
   size: number;
   offset: number;
 };
-
-export enum RowHeightLevel {
-  Short = 1,
-  Medium = 2,
-  Tall = 3,
-  ExtraTall = 4,
-}

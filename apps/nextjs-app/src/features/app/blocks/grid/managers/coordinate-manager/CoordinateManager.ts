@@ -1,5 +1,5 @@
 import type { IIndicesMap, ICoordinate, ICellMetaData, ICellMetaDataMap } from './interface';
-import { RowHeightLevel, ItemType } from './interface';
+import { ItemType } from './interface';
 
 export class CoordinateManager implements ICoordinate {
   protected defaultRowHeight: number;
@@ -17,7 +17,6 @@ export class CoordinateManager implements ICoordinate {
   public lastColumnIndex = -1;
   public rowMetaDataMap: ICellMetaDataMap = {};
   public columnMetaDataMap: ICellMetaDataMap = {};
-  public rowHeightLevel: RowHeightLevel;
   public freezeColumnCount: number;
 
   constructor({
@@ -32,12 +31,10 @@ export class CoordinateManager implements ICoordinate {
     columnInitSize = 0,
     rowHeightMap = {},
     columnWidthMap = {},
-    rowHeightLevel = RowHeightLevel.Short,
     freezeColumnCount = 1,
   }: ICoordinate) {
     this.defaultRowHeight = rowHeight;
     this.defaultColumnWidth = columnWidth;
-    this.rowHeightLevel = rowHeightLevel;
     this.rowCount = rowCount;
     this.pureRowCount = pureRowCount;
     this.columnCount = columnCount;
@@ -81,11 +78,11 @@ export class CoordinateManager implements ICoordinate {
   }
 
   public getRowHeight(index: number) {
-    return this.rowMetaDataMap[index]?.size ?? this.defaultRowHeight;
+    return this.rowHeightMap[index] ?? this.defaultRowHeight;
   }
 
   public getColumnWidth(index: number) {
-    return this.columnMetaDataMap[index]?.size ?? this.defaultColumnWidth;
+    return this.columnWidthMap[index] ?? this.defaultColumnWidth;
   }
 
   protected getCellMetaData(index: number, itemType: ItemType): ICellMetaData {
