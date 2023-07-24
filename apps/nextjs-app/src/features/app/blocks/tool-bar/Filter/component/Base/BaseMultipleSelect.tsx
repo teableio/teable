@@ -23,12 +23,12 @@ interface IOption {
 interface IBaseMultipleSelect<T> extends Omit<IBaseSelect<T>, 'onSelect' | 'value'> {
   options: T[];
   value: string[] | null;
+  onSelect: (value: string[]) => void;
   className?: string;
   popoverClassName?: string;
   disabled?: boolean;
   notFoundText?: string;
   optionRender?: (option: T) => React.ReactElement;
-  onSelect: (value: string[]) => void;
   displayRender?: (option: T) => React.ReactElement;
 }
 

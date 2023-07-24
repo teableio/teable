@@ -14,7 +14,7 @@ import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { Filter } from './Filter';
+import { Filter } from './filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {
