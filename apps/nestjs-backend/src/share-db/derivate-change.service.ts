@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import { OpBuilder } from '@teable-group/core';
+import { RecordOpBuilder } from '@teable-group/core';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import type { ICellChange, IOpsMap } from '../features/calculation/reference.service';
@@ -88,7 +88,7 @@ export class DerivateChangeService {
 
   cacheChanges(tsMeta: ITransactionMeta, tableId: string, recordId: string, ops: IOtOperation[]) {
     const changes = ops.map<ICellChange>((op) => {
-      const context = OpBuilder.editor.setRecord.detect(op);
+      const context = RecordOpBuilder.editor.setRecord.detect(op);
       if (!context) {
         throw new Error('Invalid operation');
       }

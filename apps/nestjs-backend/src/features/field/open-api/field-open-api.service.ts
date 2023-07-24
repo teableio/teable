@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { IFieldVo, IOtOperation, IUpdateFieldRo } from '@teable-group/core';
-import { getUniqName, FieldType, IdPrefix, OpBuilder } from '@teable-group/core';
+import { getUniqName, FieldType, IdPrefix, FieldOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
@@ -133,7 +133,7 @@ export class FieldOpenApiService {
   }
 
   createField2Ops(_tableId: string, fieldInstance: IFieldInstance) {
-    return OpBuilder.creator.addField.build(
+    return FieldOpBuilder.creator.build(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo
     );
@@ -190,37 +190,37 @@ export class FieldOpenApiService {
       .map((key) => {
         switch (key) {
           case 'name': {
-            return OpBuilder.editor.setFieldName.build({
+            return FieldOpBuilder.editor.setFieldName.build({
               newName: newFieldInstance.name,
               oldName: oldFieldInstance.name,
             });
           }
           case 'description': {
-            return OpBuilder.editor.setFieldDescription.build({
+            return FieldOpBuilder.editor.setFieldDescription.build({
               newDescription: newFieldInstance.description!,
               oldDescription: oldFieldInstance.description!,
             });
           }
           case 'type': {
-            return OpBuilder.editor.setFieldType.build({
+            return FieldOpBuilder.editor.setFieldType.build({
               newType: newFieldInstance.type,
               oldType: oldFieldInstance.type,
             });
           }
           case 'options': {
-            return OpBuilder.editor.setFieldOptions.build({
+            return FieldOpBuilder.editor.setFieldOptions.build({
               newOptions: newFieldInstance.options,
               oldOptions: oldFieldInstance.options,
             });
           }
           case 'isLookup': {
-            return OpBuilder.editor.setFieldOptions.build({
+            return FieldOpBuilder.editor.setFieldOptions.build({
               newOptions: newFieldInstance.isLookup,
               oldOptions: oldFieldInstance.isLookup,
             });
           }
           case 'lookupOptions': {
-            return OpBuilder.editor.setFieldOptions.build({
+            return FieldOpBuilder.editor.setFieldOptions.build({
               newOptions: newFieldInstance.lookupOptions,
               oldOptions: oldFieldInstance.lookupOptions,
             });

@@ -11,10 +11,10 @@ export function createViewInstanceByRaw(viewRaw: View) {
     name: viewRaw.name,
     type: viewRaw.type as ViewType,
     description: viewRaw.description || undefined,
-    options: viewRaw.options && JSON.parse(viewRaw.options as string),
-    filter: viewRaw.filter && JSON.parse(viewRaw.filter as string),
-    sort: viewRaw.filter && JSON.parse(viewRaw.sort as string),
-    group: viewRaw.group && JSON.parse(viewRaw.group as string),
+    options: JSON.parse(viewRaw.options as string) || undefined,
+    filter: JSON.parse(viewRaw.filter as string) || undefined,
+    sort: JSON.parse(viewRaw.sort as string) || undefined,
+    group: JSON.parse(viewRaw.group as string) || undefined,
     order: viewRaw.order,
   };
 

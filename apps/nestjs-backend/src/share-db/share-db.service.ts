@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, OpBuilder, OpName } from '@teable-group/core';
+import { IdPrefix, RecordOpBuilder, OpName } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
@@ -122,7 +122,7 @@ export class ShareDbService extends ShareDBClass {
     await this.transactionService.getTransaction(tsMeta);
     console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
-      const ctx = OpBuilder.editor.setRecord.detect(cur);
+      const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
         pre.push(cur);
       }
@@ -176,11 +176,12 @@ export class ShareDbService extends ShareDBClass {
     // Additional publish/subscribe `record channels` are required for changes to view properties
     if (docType === IdPrefix.View && context.op.op) {
       const listenOp = [OpName.SetViewFilter];
-      const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
+      // const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
+      const ctx = RecordOpBuilder.editor.setRecord.detect(context.op.op);
 
-      if (ops2Contexts.some((value) => listenOp.includes(value.name))) {
-        context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
-      }
+      // if (ops2Contexts.some((value) => listenOp.includes(value.name))) {
+      //   context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+      // }
     }
 
     next();

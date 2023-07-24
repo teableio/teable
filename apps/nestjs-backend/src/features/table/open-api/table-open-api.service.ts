@@ -14,7 +14,7 @@ import {
   getUniqName,
   generateTableId,
   IdPrefix,
-  OpBuilder,
+  TableOpBuilder,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { ShareDbService } from '../../../share-db/share-db.service';
@@ -137,7 +137,7 @@ export class TableOpenApiService {
   }
 
   private createTable2Op(tableVo: ITableVo) {
-    return OpBuilder.creator.addTable.build(tableVo);
+    return TableOpBuilder.creator.build(tableVo);
   }
 
   async archiveTable(tableId: string) {

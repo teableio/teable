@@ -7,7 +7,13 @@ import type {
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
 } from '@teable-group/core';
-import { FieldKeyType, IdPrefix, generateRecordId, OpBuilder, FieldType } from '@teable-group/core';
+import {
+  FieldKeyType,
+  IdPrefix,
+  generateRecordId,
+  RecordOpBuilder,
+  FieldType,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection, Doc } from '@teable/sharedb/lib/client';
 import { keyBy } from 'lodash';
@@ -260,7 +266,7 @@ export class RecordOpenApiService {
     const fieldKeyType = createRecordsRo.fieldKeyType ?? FieldKeyType.Name;
     const snapshots = createRecordsRo.records.map(() => {
       const recordId = generateRecordId();
-      return OpBuilder.creator.addRecord.build({ id: recordId, fields: {}, recordOrder: {} });
+      return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });
     });
 
     const connection = this.shareDbService.getConnection(transactionKey);
@@ -341,7 +347,7 @@ export class RecordOpenApiService {
   ): ICreateRecordOpMeta[] {
     return createRecordsDto.records.map<ICreateRecordOpMeta>((record) => {
       const recordId = generateRecordId();
-      const snapshot = OpBuilder.creator.addRecord.build({
+      const snapshot = RecordOpBuilder.creator.build({
         id: recordId,
         fields: {},
         recordOrder: {},
@@ -351,7 +357,7 @@ export class RecordOpenApiService {
         const field = fieldName2IdMap[fieldNameOrId];
         const newCellValue = field.repair(value);
 
-        return OpBuilder.editor.setRecord.build({
+        return RecordOpBuilder.editor.setRecord.build({
           fieldId: field.id,
           oldCellValue: null,
           newCellValue,
@@ -405,7 +411,7 @@ export class RecordOpenApiService {
           const field = fieldMap[fieldNameOrId];
           const oldCellValue = snapshot.fields[fieldNameOrId];
           const newCellValue = field.repair(value);
-          return OpBuilder.editor.setRecord.build({
+          return RecordOpBuilder.editor.setRecord.build({
             fieldId: field.id,
             oldCellValue,
             newCellValue,

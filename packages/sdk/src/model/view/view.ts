@@ -1,5 +1,5 @@
 import type { IViewVo, IFilter } from '@teable-group/core';
-import { filter, OpBuilder, ViewCore } from '@teable-group/core';
+import { filter, ViewOpBuilder, ViewCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 
 export abstract class ViewOperations extends ViewCore {
@@ -14,7 +14,7 @@ export abstract class ViewOperations extends ViewCore {
   }
 
   async updateName(name: string): Promise<void> {
-    const viewOperation = OpBuilder.editor.setViewName.build({
+    const viewOperation = ViewOpBuilder.editor.setViewName.build({
       newName: name,
       oldName: this.name,
     });
@@ -25,7 +25,7 @@ export abstract class ViewOperations extends ViewCore {
   async setFilter(newFilter?: IFilter | null): Promise<void> {
     const validFilter = newFilter && (await filter.parseAsync(newFilter));
 
-    const viewOperation = OpBuilder.editor.setViewFilter.build({
+    const viewOperation = ViewOpBuilder.editor.setViewFilter.build({
       newFilter: validFilter,
       oldFilter: this.filter,
     });
