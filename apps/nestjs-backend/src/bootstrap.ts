@@ -13,6 +13,8 @@ import { json, urlencoded } from 'express';
 import isPortReachable from 'is-port-reachable';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
+import 'dayjs/plugin/timezone';
+import 'dayjs/plugin/utc';
 
 const host = 'localhost';
 
@@ -25,7 +27,7 @@ export async function setUpAppMiddleware(app: INestApplication) {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
   const jsonString = JSON.stringify(openApiDocumentation);
-  fs.writeFileSync(path.join(__dirname, '../openapi.json'), jsonString);
+  fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   SwaggerModule.setup('/docs', app, openApiDocumentation as any);
 
