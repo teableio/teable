@@ -202,9 +202,14 @@ export class FilterQueryTranslator {
     } else if (field.cellValueType === CellValueType.Boolean) {
       (value ? this.processIsNotEmptyOperator : this.processIsEmptyOperator)(params);
     } else {
-      queryBuilder.where(field.dbFieldName, value);
-    }
+      if (field.type === FieldType.Link) {
+        const isSql = `json_extract(${field.dbFieldName}, '$.id') = ?`;
 
+        queryBuilder.whereRaw(isSql, [value]);
+      } else {
+        queryBuilder.where(field.dbFieldName, value);
+      }
+    }
     return queryBuilder;
   };
 
@@ -219,9 +224,17 @@ export class FilterQueryTranslator {
       const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
     } else {
-      queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') != ?`, [value]);
-    }
+      const getIsNotSql = (field: IFieldInstance) => {
+        let column = field.dbFieldName;
+        if (field.type === FieldType.Link) {
+          column = `json_extract(${field.dbFieldName}, '$.id')`;
+        }
+        return `ifnull(${column}, '') != ?`;
+      };
 
+      const isNotSql = getIsNotSql(field);
+      queryBuilder.whereRaw(isNotSql, [value]);
+    }
     return queryBuilder;
   };
 
@@ -240,11 +253,11 @@ export class FilterQueryTranslator {
             where json_extract(json_each.value, '$.title') like ?
           )`
         : `json_extract(${field.dbFieldName}, '$.title') like ?`;
+
       queryBuilder.whereRaw(containsSql, [`%${value}%`]);
     } else {
       queryBuilder.where(field.dbFieldName, 'like', `%${value}%`);
     }
-
     return queryBuilder;
   };
 
@@ -263,11 +276,11 @@ export class FilterQueryTranslator {
             where json_extract(json_each.value, '$.title') like ?
           )`
         : `ifnull(json_extract(${field.dbFieldName}, '$.title'), '') not like ?`;
+
       queryBuilder.whereRaw(doesNotContainSql, [`%${value}%`]);
     } else {
       queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') not like ?`, [`%${value}%`]);
     }
-
     return queryBuilder;
   };
 
@@ -350,7 +363,6 @@ export class FilterQueryTranslator {
       const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
       queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
     }
-
     return queryBuilder;
   };
 
@@ -360,8 +372,8 @@ export class FilterQueryTranslator {
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field } = params;
-    queryBuilder.whereNull(field.dbFieldName);
 
+    queryBuilder.whereNull(field.dbFieldName);
     return queryBuilder;
   };
 
@@ -371,8 +383,8 @@ export class FilterQueryTranslator {
     value: IFilterMetaValue;
   }) => {
     const { queryBuilder, field } = params;
-    queryBuilder.whereNotNull(field.dbFieldName);
 
+    queryBuilder.whereNotNull(field.dbFieldName);
     return queryBuilder;
   };
 
@@ -403,9 +415,9 @@ export class FilterQueryTranslator {
       queryBuilder.whereRaw(hasAnyOfSql, [...value]);
     } else {
       if (field.type === FieldType.Link) {
-        const inSql = `json_extract(${
-          field.dbFieldName
-        }, '$.title') in (${this.createSqlPlaceholders(value)})`;
+        const inSql = `json_extract(${field.dbFieldName}, '$.id') in (${this.createSqlPlaceholders(
+          value
+        )})`;
 
         queryBuilder.whereRaw(inSql, [...value]);
       } else {
@@ -444,7 +456,7 @@ export class FilterQueryTranslator {
       const getNotInSql = (field: IFieldInstance, placeholders: string) => {
         let column = field.dbFieldName;
         if (field.type === FieldType.Link) {
-          column = `json_extract(${field.dbFieldName}, '$.title')`;
+          column = `json_extract(${field.dbFieldName}, '$.id')`;
         }
         return `ifnull(${column}, '') not in (${placeholders})`;
       };
