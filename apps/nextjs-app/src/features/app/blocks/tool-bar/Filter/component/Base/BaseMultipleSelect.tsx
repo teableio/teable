@@ -81,7 +81,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
       const name = optionMap.get(id) || 'untitled';
-      const containWord = name.indexOf(searchValue) > -1;
+      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
       return Number(containWord);
     },
     [optionMap]
@@ -112,7 +112,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('p-2', popoverClassName)}>
+      <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
             <CommandInput placeholder="Search option" />

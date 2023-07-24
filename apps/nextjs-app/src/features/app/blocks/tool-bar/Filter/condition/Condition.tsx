@@ -92,7 +92,7 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white">
+        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white ml-1">
           <AshBin className="h-4 w-4"></AshBin>
         </Button>
       </section>

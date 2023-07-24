@@ -66,7 +66,8 @@ const MultipleSelect = (props: IMutipleSelect) => {
       value={values}
       displayRender={displayRender}
       optionRender={displayRender}
-      popoverClassName="w-40"
+      className="w-64"
+      popoverClassName="w-64"
     />
   );
 };

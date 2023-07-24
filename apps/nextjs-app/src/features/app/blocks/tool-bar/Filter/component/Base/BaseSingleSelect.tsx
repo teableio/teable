@@ -97,7 +97,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('p-2', popoverClassName)}>
+      <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>{notFoundText}</CommandEmpty>

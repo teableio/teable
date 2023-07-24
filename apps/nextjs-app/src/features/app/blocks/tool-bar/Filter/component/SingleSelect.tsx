@@ -63,8 +63,8 @@ function SingleSelect(props: ISingleSelect) {
       options={options}
       value={value}
       onSelect={onSelect}
-      className="w-32 max-w-[128px] justify-between m-1"
-      popoverClassName="w-40"
+      className="w-64 justify-between m-1"
+      popoverClassName="w-64"
       optionRender={optionRender}
       displayRender={optionRender}
     />

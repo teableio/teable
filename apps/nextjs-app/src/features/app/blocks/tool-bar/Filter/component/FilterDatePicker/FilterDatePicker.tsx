@@ -120,7 +120,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
-        className="w-m-52 w-52"
+        className="max-w-xs"
         popoverClassName="w-max"
       />
       {inputCreator}

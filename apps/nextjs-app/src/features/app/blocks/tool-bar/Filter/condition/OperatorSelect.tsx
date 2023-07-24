@@ -13,7 +13,7 @@ interface IOperatorOptions {
 interface IOperatorSelectProps {
   value?: string;
   fieldId: string;
-  onSelect: (value: string) => void;
+  onSelect: (value: string | null) => void;
 }
 
 function OperatorSelect(props: IOperatorSelectProps) {
@@ -45,8 +45,8 @@ function OperatorSelect(props: IOperatorSelectProps) {
     <BaseSingleSelect
       value={value || null}
       options={operatorOption}
-      popoverClassName="w-[200px]"
-      className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
+      popoverClassName="w-48"
+      className="w-32 justify-between m-1 shrink"
       onSelect={onSelect}
       disabled={shouldDisabled}
     />
