@@ -13,6 +13,7 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
+import { fromZodError } from 'zod-validation-error';
 import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
@@ -27,7 +28,7 @@ export const ToolBar: React.FC = () => {
       await view?.setFilter(filters).catch((e) => {
         let message;
         if (e instanceof z.ZodError) {
-          message = e.errors.map((value) => value.message).join('\n');
+          message = fromZodError(e).message;
         } else {
           message = e.message;
         }

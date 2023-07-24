@@ -1,11 +1,13 @@
 import type { IOtOperation } from '../../models/op';
 import { AddViewBuilder } from './add-view';
+import { SetViewFilterBuilder } from './set-view-filter';
 import { SetViewNameBuilder } from './set-view-name';
 
 export abstract class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
     setViewName: new SetViewNameBuilder(),
+    setViewFilter: new SetViewFilterBuilder(),
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetRecordOpContext } from '@teable-group/core';
-import { OpBuilder } from '@teable-group/core';
+import { RecordOpBuilder } from '@teable-group/core';
 import { map, intersection, isEmpty } from 'lodash';
 import { EventEnums, RecordEvent } from '../../../../../share-db/events';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
@@ -46,7 +46,7 @@ export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
         >(workflow.trigger.inputExpressions as ITriggerRecordUpdatedSchema).parse();
 
         const setRecordOps = context.op?.op?.reduce((pre, cur) => {
-          pre.push(OpBuilder.editor.setRecord.detect(cur));
+          pre.push(RecordOpBuilder.editor.setRecord.detect(cur));
           return pre;
         }, [] as ISetRecordOpContext[]);
         const changeFields = map(setRecordOps, 'fieldId');

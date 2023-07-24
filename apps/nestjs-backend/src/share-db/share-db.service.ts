@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, RecordOpBuilder, OpName } from '@teable-group/core';
+import { IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
@@ -175,13 +175,11 @@ export class ShareDbService extends ShareDBClass {
 
     // Additional publish/subscribe `record channels` are required for changes to view properties
     if (docType === IdPrefix.View && context.op.op) {
-      const listenOp = [OpName.SetViewFilter];
-      // const ops2Contexts = OpBuilder.ops2Contexts(context.op.op);
-      const ctx = RecordOpBuilder.editor.setRecord.detect(context.op.op);
+      const action = context.op.op.some((op) => ViewOpBuilder.editor.setViewFilter.detect(op));
 
-      // if (ops2Contexts.some((value) => listenOp.includes(value.name))) {
-      //   context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
-      // }
+      if (action) {
+        context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+      }
     }
 
     next();

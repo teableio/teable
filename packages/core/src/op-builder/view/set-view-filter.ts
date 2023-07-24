@@ -15,7 +15,7 @@ export class SetViewFilterBuilder implements IOpBuilder {
     const { newFilter, oldFilter } = params;
 
     return {
-      p: ['view', 'filter'],
+      p: ['filter'],
       ...(newFilter ? { oi: newFilter } : {}),
       ...(oldFilter ? { od: oldFilter } : {}),
     };
@@ -24,7 +24,7 @@ export class SetViewFilterBuilder implements IOpBuilder {
   detect(op: IOtOperation): ISetViewFilterOpContext | null {
     const { p, oi, od } = op;
 
-    const result = pathMatcher<Record<string, never>>(p, ['view', 'filter']);
+    const result = pathMatcher<Record<string, never>>(p, ['filter']);
 
     if (!result) {
       return null;
