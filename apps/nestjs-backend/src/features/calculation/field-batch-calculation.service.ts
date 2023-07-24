@@ -1,12 +1,24 @@
+/* eslint-disable no-inner-declarations */
 import { Injectable } from '@nestjs/common';
-import type { ILookupOptionsVo } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { uniq, uniqBy } from 'lodash';
+import type { ILookupOptionsVo, IOtOperation } from '@teable-group/core';
+import { getRandomString, RecordOpBuilder, FieldType, Relationship } from '@teable-group/core';
+import { Prisma } from '@teable-group/db-main-prisma';
+import { keyBy, uniq, uniqBy } from 'lodash';
+import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
+import { dbType2knexFormat } from '../field/util';
 import type { ICellChange, IRecordRefItem, ITopoItem } from './reference.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ReferenceService, nameConsole } from './reference.service';
+import { ReferenceService, nameConsole, IOpsMap } from './reference.service';
+
+interface IOpsData {
+  recordId: string;
+  updateParam: {
+    [dbFieldName: string]: unknown;
+  };
+  version: number;
+  rawOp: string;
+}
 
 @Injectable()
 export class FieldBatchCalculationService extends ReferenceService {
@@ -125,9 +137,27 @@ export class FieldBatchCalculationService extends ReferenceService {
     return records;
   }
 
-  async calculateFields(prisma: Prisma.TransactionClient, tableId: string, fieldIds: string[]) {
-    if (!fieldIds.length) {
+  @Timing()
+  async calculateFields(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    fieldIds: string[]
+  ): Promise<IOpsMap> {
+    const result = await this.getChangedOpsMap(prisma, tableId, fieldIds);
+
+    if (!result) {
       return {};
+    }
+
+    const { opsMap, fieldMap, tableId2DbTableName } = result;
+    await this.batchSave(prisma, opsMap, fieldMap, tableId2DbTableName);
+    return opsMap;
+  }
+
+  @Timing()
+  async getChangedOpsMap(prisma: Prisma.TransactionClient, tableId: string, fieldIds: string[]) {
+    if (!fieldIds.length) {
+      return undefined;
     }
 
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
@@ -227,6 +257,180 @@ export class FieldBatchCalculationService extends ReferenceService {
       );
     }, []);
 
-    return this.formatChangesToOps(this.mergeDuplicateChange(changes));
+    const opsMap = this.formatChangesToOps(this.mergeDuplicateChange(changes));
+    return { opsMap, fieldMap, tableId2DbTableName };
+  }
+
+  @Timing()
+  private async batchSave(
+    prisma: Prisma.TransactionClient,
+    opsMap: IOpsMap,
+    fieldMap: { [fieldId: string]: IFieldInstance },
+    tableId2DbTableName: { [tableId: string]: string }
+  ) {
+    for (const tableId in opsMap) {
+      const dbTableName = tableId2DbTableName[tableId];
+      const raw = await this.fetchRawData(prisma, dbTableName, opsMap[tableId]);
+      const versionGroup = keyBy(raw, '__id');
+
+      const opsData = this.buildOpsData(opsMap[tableId], versionGroup);
+      await this.executeUpdateRecords(prisma, dbTableName, fieldMap, opsData);
+      await this.executeInsertOps(prisma, tableId, opsData);
+    }
+  }
+
+  @Timing()
+  private async fetchRawData(
+    prisma: Prisma.TransactionClient,
+    dbTableName: string,
+    ops: { [recordId: string]: IOtOperation[] }
+  ) {
+    const recordIds = Object.keys(ops);
+    const nativeSql = this.knex(dbTableName)
+      .whereIn('__id', recordIds)
+      .select('__id', '__version')
+      .toSQL()
+      .toNative();
+
+    return await prisma.$queryRawUnsafe<{ __version: number; __id: string }[]>(
+      nativeSql.sql,
+      ...nativeSql.bindings
+    );
+  }
+
+  @Timing()
+  private buildOpsData(
+    ops: { [recordId: string]: IOtOperation[] },
+    versionGroup: { [recordId: string]: { __version: number; __id: string } }
+  ) {
+    const opsData: {
+      recordId: string;
+      updateParam: {
+        [fieldId: string]: unknown;
+      };
+      version: number;
+      rawOp: string;
+    }[] = [];
+
+    for (const recordId in ops) {
+      const updateParam = ops[recordId].reduce<{ [fieldId: string]: unknown }>((pre, op) => {
+        const opContext = RecordOpBuilder.editor.setRecord.detect(op);
+        if (!opContext) {
+          throw new Error(`illegal op ${JSON.stringify(op)} found`);
+        }
+        pre[opContext.fieldId] = opContext.newValue;
+        return pre;
+      }, {});
+
+      const version = versionGroup[recordId].__version + 1;
+      const rawOp = {
+        src: getRandomString(32),
+        seq: 1,
+        op: ops[recordId],
+        v: version,
+        m: {
+          ts: Date.now(),
+        },
+      };
+
+      opsData.push({
+        recordId,
+        version,
+        rawOp: JSON.stringify(rawOp),
+        updateParam,
+      });
+    }
+
+    return opsData;
+  }
+
+  @Timing()
+  private async executeUpdateRecords(
+    prisma: Prisma.TransactionClient,
+    dbTableName: string,
+    fieldMap: { [fieldId: string]: IFieldInstance },
+    opsData: IOpsData[]
+  ) {
+    const tempTableName = `${dbTableName}_temp`;
+    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
+    const columnNames = fieldIds
+      .map((id) => fieldMap[id].dbFieldName)
+      .concat(['__version', '__last_modified_time', '__last_modified_by']);
+
+    const createTempTableSql = `
+      CREATE TEMPORARY TABLE ${tempTableName} (
+        __id TEXT PRIMARY KEY,
+        ${fieldIds
+          .map((id) => `${fieldMap[id].dbFieldName} ${dbType2knexFormat(fieldMap[id].dbFieldType)}`)
+          .concat([`__version INTEGER`, `__last_modified_time DATETIME`, `__last_modified_by TEXT`])
+          .join(', ')}
+      )
+    `;
+    await prisma.$executeRawUnsafe(createTempTableSql);
+
+    const insertTempTableSql = `
+      INSERT INTO ${tempTableName} (__id, ${columnNames.join(', ')})
+      VALUES
+      ${opsData
+        .map((d) => ({
+          ...d,
+          updateParam: {
+            ...Object.entries(d.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
+              (pre, [fieldId, value]) => {
+                const field = fieldMap[fieldId];
+                const dbFieldName = field.dbFieldName;
+                const cellValue = field.convertCellValue2DBValue(value);
+                pre[dbFieldName] = cellValue;
+                return pre;
+              },
+              {}
+            ),
+            __last_modified_time: new Date().toISOString(),
+            __last_modified_by: 'admin',
+            __version: d.version,
+          } as { [dbFieldName: string]: unknown },
+        }))
+        .map(
+          (d) =>
+            `('${d.recordId}', ${columnNames
+              .map((name) => `'${d.updateParam[name] ?? null}'`)
+              .join(', ')})`
+        )
+        .join(', ')}
+    `;
+
+    await prisma.$executeRawUnsafe(insertTempTableSql);
+
+    const updateSql = `
+      UPDATE ${dbTableName}
+      SET ${columnNames
+        .map(
+          (name) =>
+            `${name} = (SELECT ${name} FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)`
+        )
+        .join(', ')}
+      WHERE EXISTS (SELECT 1 FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)
+    `;
+    await prisma.$executeRawUnsafe(updateSql);
+
+    const dropTempTableSql = `DROP TABLE ${tempTableName}`;
+    await prisma.$executeRawUnsafe(dropTempTableSql);
+  }
+
+  @Timing()
+  private async executeInsertOps(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    opsData: IOpsData[]
+  ) {
+    const insertSql = `
+        INSERT INTO ops ("collection", "doc_id", "version", "operation")
+        VALUES
+        ${opsData
+          .map((d) => `('${tableId}', '${d.recordId}', ${d.version}, '${d.rawOp}')`)
+          .join(', ')}
+      `;
+
+    return await prisma.$executeRawUnsafe(insertSql);
   }
 }

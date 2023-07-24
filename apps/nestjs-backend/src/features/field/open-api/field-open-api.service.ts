@@ -111,8 +111,7 @@ export class FieldOpenApiService {
     const connection = this.shareDbService.getConnection(transactionKey);
 
     await this.createDoc(connection, collection, id, snapshot);
-    const opsMap = await this.fieldBatchCalculationService.calculateFields(prisma, tableId, [id]);
-    await this.recordOpenApiService.sendOpsMap(connection, opsMap);
+    await this.fieldBatchCalculationService.calculateFields(prisma, tableId, [id]);
     return snapshot;
   }
 
