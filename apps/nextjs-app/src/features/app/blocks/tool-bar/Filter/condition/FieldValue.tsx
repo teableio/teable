@@ -25,7 +25,7 @@ function FieldValue(props: IFieldValue) {
   const { filter, onSelect } = props;
   const field = useField(filter.fieldId);
 
-  const emptyComponent = <Input className="m-1" disabled />;
+  const emptyComponent = <Input className="w-40 m-1" disabled />;
   const showEmptyComponent = useMemo(() => {
     const showEmpty = EMPTYOPERATORS.includes(filter.operator);
     showEmpty && onSelect?.(null);
@@ -34,7 +34,12 @@ function FieldValue(props: IFieldValue) {
 
   const dynamicComponent = useCallback(() => {
     const InputComponent = (
-      <FilterInput placeholder="Enter a value" value={filter.value as string} onChange={onSelect} />
+      <FilterInput
+        placeholder="Enter a value"
+        value={filter.value as string}
+        onChange={onSelect}
+        className="w-40"
+      />
     );
 
     switch (field?.type) {

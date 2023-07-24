@@ -1,4 +1,5 @@
 import { Checkbox } from '@teable-group/ui-lib/shadcn/ui/checkbox';
+import { useEffect } from 'react';
 
 interface IFilterCheckboxProps {
   value: boolean;
@@ -7,6 +8,13 @@ interface IFilterCheckboxProps {
 
 const FilterCheckbox = (props: IFilterCheckboxProps) => {
   const { value, onChange } = props;
+
+  useEffect(() => {
+    if (typeof value !== 'boolean') {
+      onChange(null);
+    }
+  }, [onChange, value]);
+
   return (
     <div className="flex items-center space-x-2 w-20 justify-center shadow-sm h-9 rounded mr-2 ml-1 border">
       <Checkbox

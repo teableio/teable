@@ -1,8 +1,8 @@
-import { BaseSingleSelect } from './BaseSingleSelect';
+import { BaseSingleSelect } from './base/BaseSingleSelect';
 
 interface IFileTypeSelectProps {
   value: string | null;
-  onSelect: (value: string) => void;
+  onSelect: (value: string | null) => void;
 }
 
 const typeOptions = [

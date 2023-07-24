@@ -2,7 +2,7 @@ import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-gro
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BaseSingleSelect } from '../BaseSingleSelect';
+import { BaseSingleSelect } from '../base/BaseSingleSelect';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 
@@ -11,6 +11,11 @@ interface IFilerDatePickerProps {
   operator: string;
   onSelect: (value: IFilterMetaValueByDate | null) => void;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isDateMetaValue = (value: any) => {
+  return !!(value?.mode && value?.timeZone);
+};
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect } = props;
@@ -29,16 +34,20 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     } else {
       setInnerValue(initValue);
     }
-  }, [defaultConfig, initValue]);
+
+    if (!isDateMetaValue(initValue)) {
+      onSelect(null);
+    }
+  }, [defaultConfig, initValue, onSelect]);
 
   const mergedOnSelect = useCallback(
-    (val: string) => {
+    (val: string | null) => {
       const mergedValue = {
         mode: val as IFilterMetaValueByDate['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue);
-      if (!INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
+      if (val !== null && !INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
         onSelect?.(mergedValue);
       }
     },
@@ -85,13 +94,17 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         return (
           <Input
             placeholder="Enter days"
+            defaultValue={innerValue?.numberOfDays ?? ''}
             className="w-24 m-1"
-            type="number"
-            value={innerValue?.numberOfDays || ''}
+            onInput={(e) => {
+              // limit the number positive
+              e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
+            }}
             onChange={(e) => {
-              if (innerValue) {
+              const value = e.target.value;
+              if (innerValue && value !== '') {
                 const newValue: IFilterMetaValueByDate = { ...innerValue };
-                newValue.numberOfDays = Number(e.target.value);
+                newValue.numberOfDays = Number(value);
                 onSelect?.(newValue);
               }
             }}
@@ -107,8 +120,8 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
-        classNames="w-52 w-m-52"
-        popoverClassNames="w-max"
+        className="w-m-52 w-52"
+        popoverClassName="w-max"
       />
       {inputCreator}
     </>

@@ -1,18 +1,20 @@
 import type { IFilterMeta } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface InputProps {
   value: IFilterMeta['value'];
   onChange: (value: string | null) => void;
   placeholder: string;
+  className?: string;
 }
 
 const FilterInput = (props: InputProps) => {
-  const { onChange, placeholder = 'Enter a value', value } = props;
+  const { onChange, placeholder = 'Enter a value', value, className } = props;
 
   useEffect(() => {
-    if (typeof value !== 'string') {
+    if (!['string', 'number'].includes(typeof value)) {
       onChange(null);
     }
   }, [onChange, value]);
@@ -20,11 +22,11 @@ const FilterInput = (props: InputProps) => {
   return (
     <Input
       placeholder={placeholder}
-      value={(value as string) || ''}
+      value={(value as string) ?? ''}
       onChange={(e) => {
-        onChange(e.target.value || null);
+        onChange(e.target.value ?? null);
       }}
-      className="m-1"
+      className={cn('m-1', className)}
     />
   );
 };
