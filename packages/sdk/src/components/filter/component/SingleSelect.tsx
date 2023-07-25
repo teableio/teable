@@ -1,10 +1,9 @@
 import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import type { SingleSelectField } from '@teable-group/sdk';
-
 import { useMemo } from 'react';
+import type { SingleSelectField } from '../../../model';
 
-import { BaseSingleSelect } from './base/BaseSingleSelect';
+import { BaseSingleSelect } from './base';
 
 interface ISingleSelect {
   onSelect: (id: string | null) => void;

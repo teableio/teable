@@ -1,7 +1,8 @@
-import { useRecords, AnchorProvider } from '@teable-group/sdk';
-import type { LinkField } from '@teable-group/sdk';
-
 import { useCallback, useMemo } from 'react';
+import { AnchorProvider } from '../../../context';
+import { useRecords } from '../../../hooks';
+import type { LinkField } from '../../../model';
+
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 import { FilterInput } from './FilterInput';
 

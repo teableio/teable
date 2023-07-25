@@ -1,14 +1,20 @@
 import { FieldType } from '@teable-group/core';
-import {
-  MultipleSelectField,
-  NumberField,
-  SingleLineTextField,
-  SingleSelectField,
-  LinkField,
-  DateField,
-  AttachmentField,
-  CheckboxField,
-} from '@teable-group/sdk/model';
+
+// import {
+//   Calendar as CalendarIcon,
+//   CheckSquare as CheckboxIcon,
+//   Code as CodeIcon,
+//   Hash as FieldNumberIcon,
+//   Search as SearchIcon,
+//   CheckCircle2 as FieldSelectIcon,
+//   Languages as FieldTextIcon,
+//   File as FieldAttachmentIcon,
+//   HelpCircle as UnknownIcon,
+//   Layers as FieldRollupIcon,
+//   Link as LinkIcon,
+//   ListChecks as MenuIcon,
+// } from '@teable-group/icons';
+
 import CalendarIcon from '@teable-group/ui-lib/icons/app/calendar.svg';
 import CheckboxIcon from '@teable-group/ui-lib/icons/app/check-item.svg';
 import CodeIcon from '@teable-group/ui-lib/icons/app/code.svg';
@@ -21,7 +27,18 @@ import FieldRollupIcon from '@teable-group/ui-lib/icons/app/layers.svg';
 import LinkIcon from '@teable-group/ui-lib/icons/app/link.svg';
 import MenuIcon from '@teable-group/ui-lib/icons/app/menu.svg';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
+
 import { useCallback } from 'react';
+import {
+  MultipleSelectField,
+  NumberField,
+  SingleLineTextField,
+  SingleSelectField,
+  LinkField,
+  DateField,
+  AttachmentField,
+  CheckboxField,
+} from '../model';
 
 export interface IFieldStatic {
   title: string;

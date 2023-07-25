@@ -4,7 +4,7 @@ import { useConnection, useRowCount, useSSRRecords, useTable, useTableId } from 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePrevious } from 'react-use';
 import '@glideapps/glide-data-grid/dist/index.css';
-import { useFieldStaticGetter } from '@/features/app/utils';
+import { useFieldStaticGetter } from '@teable-group/sdk';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { useViewStore } from '../store/view';
 import { AddField, BaseCell } from './components';

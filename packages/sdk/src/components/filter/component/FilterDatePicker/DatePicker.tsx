@@ -1,12 +1,10 @@
 import { CalendarIcon } from '@radix-ui/react-icons';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Calendar } from '@teable-group/ui-lib/shadcn/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { Button, Calendar, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import classNames from 'classnames';
 import { format } from 'date-fns';
 
 import * as React from 'react';
 import type { SelectSingleEventHandler } from 'react-day-picker';
-import { cn } from '@/lib/utils';
 
 interface IFilerDatePickerProps {
   value: string | null | undefined;
@@ -32,7 +30,7 @@ function DatePicker(props: IFilerDatePickerProps) {
       <PopoverTrigger asChild>
         <Button
           variant={'outline'}
-          className={cn(
+          className={classNames(
             'w-max justify-start text-left font-normal m-1',
             !date && 'text-muted-foreground'
           )}

@@ -1,7 +1,6 @@
-import { useFields } from '@teable-group/sdk';
-
 import { useCallback, useMemo } from 'react';
-import { useFieldStaticGetter } from '@/features/app/utils';
+import { useFields, useFieldStaticGetter } from '../../../hooks';
+
 import { BaseSingleSelect } from '../component';
 
 interface IFieldSelectProps {

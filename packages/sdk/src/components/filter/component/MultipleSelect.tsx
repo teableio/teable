@@ -1,9 +1,9 @@
 import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import type { MultipleSelectField, SingleSelectField } from '@teable-group/sdk';
-
+import classNames from 'classnames';
 import { useMemo, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import type { MultipleSelectField, SingleSelectField } from '../../../model';
+
 import { BaseMultipleSelect } from './base';
 
 interface IMutipleSelect {
@@ -48,7 +48,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 rounded-lg m-1')}
+        className={classNames('px-2 rounded-lg m-1')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',

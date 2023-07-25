@@ -1,10 +1,9 @@
 import type { ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
-import { useFields, useTable } from '@teable-group/sdk/hooks';
+import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
 import type { LinkField } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
-import { useFieldStaticGetter } from '@/features/app/utils';
 import { Selector } from '../Selector';
 
 const SelectFieldByTableId: React.FC<{

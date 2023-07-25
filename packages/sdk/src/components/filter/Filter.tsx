@@ -1,19 +1,17 @@
 import type { IFilter, IFilterSet, IFilterMeta } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk';
-import { useFields } from '@teable-group/sdk';
 
-import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
-import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
+import { Plus, Filter as FilterIcon } from '@teable-group/icons';
 
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
+import classNames from 'classnames';
 import { cloneDeep, isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { cn } from '@/lib/utils';
 
+import { useFields } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
@@ -194,7 +192,7 @@ function Filter(props: IFilterProps) {
           <Button
             variant={'ghost'}
             size={'xs'}
-            className={cn(
+            className={classNames(
               'font-normal max-w-sm truncate',
               filterButtonText !== 'Filter' ? 'bg-secondary' : ''
             )}
@@ -211,7 +209,7 @@ function Filter(props: IFilterProps) {
           <div>{conditionCreator()}</div>
           <div className="flex p-1 w-max">
             <Button variant="ghost" onClick={() => addCondition(filters)}>
-              <AddBoldIcon className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Add condition
             </Button>
 
@@ -220,7 +218,7 @@ function Filter(props: IFilterProps) {
               onClick={() => addConditionGroup(filters)}
               className="dark:bg-white"
             >
-              <AddBoldIcon className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Add condition group
             </Button>
           </div>

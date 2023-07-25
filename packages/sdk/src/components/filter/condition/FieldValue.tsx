@@ -1,9 +1,9 @@
 import { FieldType } from '@teable-group/core';
 import type { IFilterMeta, IFilterMetaValueByDate } from '@teable-group/core';
-import { useField } from '@teable-group/sdk';
 
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
+import { useField } from '../../../hooks';
 
 import {
   SingleSelect,
@@ -47,7 +47,11 @@ function FieldValue(props: IFieldValue) {
         return InputComponent;
       case FieldType.SingleSelect:
         return MULPTIPLEOPERATORS.includes(filter.operator) ? (
-          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
+          <MultipleSelect
+            field={field}
+            value={filter.value as string[]}
+            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
+          />
         ) : (
           <SingleSelect
             field={field}
@@ -58,7 +62,11 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.MultipleSelect:
         return (
-          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
+          <MultipleSelect
+            field={field}
+            value={filter.value as string[]}
+            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
+          />
         );
       case FieldType.Date:
         return (
@@ -76,7 +84,7 @@ function FieldValue(props: IFieldValue) {
         return (
           <FilterLinkSelect
             field={field}
-            onSelect={onSelect}
+            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
             value={filter.value as string[]}
             operator={filter.operator}
           />

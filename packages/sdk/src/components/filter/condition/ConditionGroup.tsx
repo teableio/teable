@@ -1,22 +1,19 @@
-import Add from '@teable-group/ui-lib/icons/app/add.svg';
-import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Trash2, Plus } from '@teable-group/icons';
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn/ui/tooltip';
+} from '@teable-group/ui-lib';
 
+import classNames from 'classnames';
 import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
-import { cn } from '@/lib/utils';
 
 import { FilterContext } from '../context';
 import { isFilterMeta } from '../types';
@@ -50,7 +47,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           setFilter={setFilters}
         ></Conjunction>
         <div
-          className={cn(
+          className={classNames(
             'm-h-20 w-full rounded-sm border m-1'
             // level > 0 ? 'bg-ring' : 'bg-secondary'
           )}
@@ -64,7 +61,7 @@ function ConditionGroup(props: IConditionGroupProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost">
-                    <Add className="h-4 w-4"></Add>
+                    <Plus className="h-4 w-4"></Plus>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -91,7 +88,7 @@ function ConditionGroup(props: IConditionGroupProps) {
               </DropdownMenu>
 
               <Button variant="ghost" onClick={deleteCurrentItem}>
-                <AshBin className="h-4 w-4"></AshBin>
+                <Trash2 className="h-4 w-4"></Trash2>
               </Button>
             </div>
           </div>

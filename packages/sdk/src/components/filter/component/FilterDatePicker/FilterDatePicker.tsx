@@ -1,8 +1,8 @@
 import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-group/core';
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Input } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BaseSingleSelect } from '../base/BaseSingleSelect';
+import { BaseSingleSelect } from '../base';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 import { DatePicker } from './DatePicker';
 

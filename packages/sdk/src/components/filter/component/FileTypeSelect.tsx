@@ -1,4 +1,4 @@
-import { BaseSingleSelect } from './base/BaseSingleSelect';
+import { BaseSingleSelect } from './base';
 
 interface IFileTypeSelectProps {
   value: string | null;
