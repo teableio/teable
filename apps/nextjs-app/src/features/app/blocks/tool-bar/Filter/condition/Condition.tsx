@@ -1,4 +1,4 @@
-import type { IFilterMeta, FieldType } from '@teable-group/core';
+import type { IFilterItem, FieldType } from '@teable-group/core';
 
 import { useFields } from '@teable-group/sdk';
 import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
@@ -51,7 +51,7 @@ function Condition(props: IConditionProps) {
   const operatorHandler = useCallback(
     (value: string) => {
       if (filter.operator !== value) {
-        filter.operator = value as IFilterMeta['operator'];
+        filter.operator = value as IFilterItem['operator'];
         const newFilters = cloneDeep(filters);
         setFilters(newFilters);
       }
@@ -59,7 +59,7 @@ function Condition(props: IConditionProps) {
     [filter, filters, setFilters]
   );
   const fieldValueHandler = useCallback(
-    (value: IFilterMeta['value']) => {
+    (value: IFilterItem['value']) => {
       if (!isEqual(filter.value, value)) {
         filter.value = value || null;
         if (Array.isArray(value) && !value.length) {

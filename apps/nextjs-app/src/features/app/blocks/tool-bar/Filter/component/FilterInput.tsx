@@ -1,10 +1,10 @@
-import type { IFilterMeta } from '@teable-group/core';
+import type { IFilterItem } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface InputProps {
-  value: IFilterMeta['value'];
+  value: IFilterItem['value'];
   onChange: (value: string | null) => void;
   placeholder: string;
   className?: string;

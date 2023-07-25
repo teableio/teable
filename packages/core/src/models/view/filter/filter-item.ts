@@ -25,7 +25,7 @@ const modesRequiringDays: string[] = [
   pastNumberOfDays.value,
   nextNumberOfDays.value,
 ];
-export const filterMetaValueByDate = z
+export const dateFilterSchema = z
   .object({
     mode: subOperators,
     numberOfDays: z.number().int().nonnegative().optional(),
@@ -48,21 +48,20 @@ export const filterMetaValueByDate = z
       });
     }
   });
-export type IFilterMetaValueByDate = z.infer<typeof filterMetaValueByDate>;
+export type IDateFilter = z.infer<typeof dateFilterSchema>;
 
-const filterMetaValue = z
-  .union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.array(z.union([z.string(), z.number()])).nonempty(),
-    filterMetaValueByDate,
-  ])
+export const literalValueSchema = z.union([z.string(), z.number(), z.boolean()]);
+export type ILiteralValue = z.infer<typeof literalValueSchema>;
+export const literalValueListSchema = literalValueSchema.array().nonempty();
+export type ILiteralValueList = z.infer<typeof literalValueListSchema>;
+
+const filterValueSchema = z
+  .union([literalValueSchema, literalValueListSchema, dateFilterSchema])
   .nullable();
-export type IFilterMetaValue = z.infer<typeof filterMetaValue>;
+export type IFilterValue = z.infer<typeof filterValueSchema>;
 
-export type IFilterMetaOperator = IOperator;
-export type IFilterMetaOperatorBySymbol = ISymbol;
+export type IFilterOperator = IOperator;
+export type IFilterSymbolOperator = ISymbol;
 
 const operatorsExpectingNull: string[] = [isEmpty.value, isNotEmpty.value];
 const operatorsExpectingArray: string[] = [
@@ -73,11 +72,11 @@ const operatorsExpectingArray: string[] = [
   hasNoneOf.value,
   isExactly.value,
 ];
-const filterMetaOperator = z
+const filterOperatorSchema = z
   .object({
     isSymbol: z.literal(false).optional(),
     fieldId: z.string(),
-    value: filterMetaValue,
+    value: filterValueSchema,
     operator: operators,
   })
   .superRefine((val, ctx) => {
@@ -107,13 +106,13 @@ const filterMetaOperator = z
     }
   });
 
-const filterMetaOperatorBySymbol = z.object({
+const filterSymbolOperatorSchema = z.object({
   isSymbol: z.literal(true),
   fieldId: z.string(),
-  value: filterMetaValue,
+  value: filterValueSchema,
   operator: symbols,
 });
 
-export const filterMeta = z.union([filterMetaOperator, filterMetaOperatorBySymbol]);
+export const filterItemSchema = z.union([filterOperatorSchema, filterSymbolOperatorSchema]);
 
-export type IFilterMeta = z.infer<typeof filterMeta>;
+export type IFilterItem = z.infer<typeof filterItemSchema>;

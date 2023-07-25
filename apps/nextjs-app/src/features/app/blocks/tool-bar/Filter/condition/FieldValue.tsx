@@ -1,5 +1,5 @@
 import { FieldType } from '@teable-group/core';
-import type { IFilterMeta, IFilterMetaValueByDate } from '@teable-group/core';
+import type { IFilterItem, IDateFilter } from '@teable-group/core';
 import { useField } from '@teable-group/sdk';
 
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
@@ -17,8 +17,8 @@ import {
 import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
 
 interface IFieldValue {
-  filter: IFilterMeta;
-  onSelect: (value: IFilterMeta['value']) => void;
+  filter: IFilterItem;
+  onSelect: (value: IFilterItem['value']) => void;
 }
 
 function FieldValue(props: IFieldValue) {
@@ -63,7 +63,7 @@ function FieldValue(props: IFieldValue) {
       case FieldType.Date:
         return (
           <FilterDatePicker
-            value={filter.value as IFilterMetaValueByDate}
+            value={filter.value as IDateFilter}
             onSelect={onSelect}
             operator={filter.operator}
           />
