@@ -13,7 +13,7 @@ import { useDrag } from './hooks/useDrag';
 import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
 import type { ICellItem, IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
-import { MouseButtonType, SelectionRegionType, RegionType } from './interface';
+import { MouseButtonType, SelectionRegionType, RegionType, DragRegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
@@ -22,7 +22,13 @@ import { getRegionType } from './utils';
 export interface IInteractionLayerProps
   extends Omit<
     IGridProps,
-    'freezeColumnCount' | 'rowCount' | 'rowHeight' | 'style' | 'smoothScrollX' | 'smoothScrollY'
+    | 'freezeColumnCount'
+    | 'rowCount'
+    | 'rowHeight'
+    | 'style'
+    | 'smoothScrollX'
+    | 'smoothScrollY'
+    | 'onVisibleRegionChanged'
   > {
   theme: IGridTheme;
   rowControls: RowControlType[];
@@ -50,15 +56,17 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     scrollTo,
     scrollBy,
     getCellContent,
+    onCopy,
+    onPaste,
     onDelete,
     onRowAppend,
+    onRowOrdered,
     onCellEdited,
     onCellActivated,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
     onContextMenu,
-    onVisibleRegionChanged,
     onColumnHeaderMenuClick,
   } = props;
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -73,8 +81,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
 
   const { startRowIndex, stopRowIndex, startColumnIndex, stopColumnIndex } = useVisibleRegion(
     coordInstance,
-    scrollState,
-    onVisibleRegionChanged
+    scrollState
   );
   const { columnResizeState, onColumnResizeStart, onColumnResizeChange, onColumnResizeEnd } =
     useColumnResize(coordInstance, scrollState);
@@ -91,7 +98,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onSelectionContextMenu,
   } = useSelection();
 
-  const { isDragging } = dragState;
+  const { isDragging, type: dragType } = dragState;
   const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
   const getPosition = useCallback(
@@ -129,6 +136,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     coordInstance,
     isSelecting,
     isDragging,
+    dragType,
     scrollBy,
   });
 
@@ -218,6 +226,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
             height: coordInstance.getRowHeight(rowIndex),
             theme,
           });
+          if (newValue === undefined) return;
           onCellEdited?.([columnIndex, rowIndex], {
             ...cell,
             data: newValue,
@@ -295,8 +304,13 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     setMouseState(mouseState);
     onAutoScrollStop();
     onSmartMouseUp(mouseState);
-    onDragEnd(mouseState, (columnIndex, targetColumnIndex) => {
-      onColumnOrdered?.(columns[columnIndex], columnIndex, targetColumnIndex);
+    onDragEnd(mouseState, (dragIndex, dropIndex) => {
+      if (dragType === DragRegionType.Column) {
+        onColumnOrdered?.([dragIndex], dropIndex);
+      }
+      if (dragType === DragRegionType.Row) {
+        onRowOrdered?.(dragIndex, dropIndex);
+      }
       setSelectionState(DEFAULT_SELECTION_STATE);
       setCursor('default');
     });
@@ -361,6 +375,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           isColumnHeaderMenuVisible={onColumnHeaderMenuClick != null}
         />
       </div>
+
       <EditorContainer
         ref={editorContainerRef}
         theme={theme}
@@ -376,6 +391,8 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         coordInstance={coordInstance}
         onCellActivated={onCellActivated}
         onChange={onCellEdited}
+        onCopy={onCopy}
+        onPaste={onPaste}
         onDelete={onDelete}
       />
     </>

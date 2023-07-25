@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { IMouseState, IScrollDirection } from '../interface';
+import { DragRegionType } from '../interface';
 import type { CoordinateManager } from '../managers';
 
 const threshold = 30;
@@ -8,13 +9,14 @@ const msToFullSpeed = 1200;
 
 interface IUseAutoScroll {
   isSelecting: boolean;
+  dragType: DragRegionType;
   isDragging: boolean;
   coordInstance: CoordinateManager;
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
 export const useAutoScroll = (props: IUseAutoScroll) => {
-  const { coordInstance, isSelecting, isDragging, scrollBy } = props;
+  const { coordInstance, isSelecting, dragType, isDragging, scrollBy } = props;
   const speedScalar = useRef(0);
   const { containerWidth, containerHeight, freezeRegionWidth, rowInitSize } = coordInstance;
   const [scrollDirection, setScrollDirection] = useState<
@@ -28,16 +30,20 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
     let xDir: IScrollDirection = 0;
     let yDir: IScrollDirection = 0;
 
-    if (containerWidth - x < threshold) {
-      xDir = 1;
-    } else if (x - freezeRegionWidth < threshold) {
-      xDir = -1;
+    if (isSelecting || (isDragging && dragType === DragRegionType.Column)) {
+      if (containerWidth - x < threshold) {
+        xDir = 1;
+      } else if (x - freezeRegionWidth < threshold) {
+        xDir = -1;
+      }
     }
 
-    if (containerHeight - y < threshold) {
-      yDir = 1;
-    } else if (y - rowInitSize < threshold) {
-      yDir = -1;
+    if (isSelecting || (isDragging && dragType === DragRegionType.Row)) {
+      if (containerHeight - y < threshold) {
+        yDir = 1;
+      } else if (y - rowInitSize < threshold) {
+        yDir = -1;
+      }
     }
     setScrollDirection([xDir, yDir]);
   };

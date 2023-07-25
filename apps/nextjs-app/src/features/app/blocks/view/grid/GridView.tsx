@@ -19,7 +19,6 @@ import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid'
 import type {
   IRectangle,
   ISelectionState,
-  IInnerCell,
   IPosition,
   ISelectionBase,
   IGridColumn,
@@ -46,44 +45,45 @@ export const GridView: React.FC = () => {
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
 
-  const { getCellContent, onVisibleRegionChanged, onCellEdited, reset, records } = useAsyncData(
-    useCallback(
-      (record, col) => {
-        const fieldId = columns[col]?.id;
-        if (!fieldId) {
-          return {
-            type: CellType.Loading,
-          };
-        }
-        return cellValue2GridDisplay(record, col);
-      },
-      [cellValue2GridDisplay, columns]
-    ),
-    useCallback(
-      (cell, newVal, record) => {
-        const [col] = cell;
-        const fieldId = columns[col].id;
-        const { type, data } = newVal;
-        let newCellValue = null;
+  const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
+    useAsyncData(
+      useCallback(
+        (record, col) => {
+          const fieldId = columns[col]?.id;
+          if (!fieldId) {
+            return {
+              type: CellType.Loading,
+            };
+          }
+          return cellValue2GridDisplay(record, col);
+        },
+        [cellValue2GridDisplay, columns]
+      ),
+      useCallback(
+        (cell, newVal, record) => {
+          const [col] = cell;
+          const fieldId = columns[col].id;
+          const { type, data } = newVal;
+          let newCellValue = null;
 
-        switch (type) {
-          case CellType.Select:
-            newCellValue = data?.length ? data : null;
-            break;
-          case CellType.Text:
-          case CellType.Number:
-          default:
-            newCellValue = data === '' ? null : data;
-        }
-        const oldCellValue = record.getCellValue(fieldId) ?? null;
-        if (isEqual(newCellValue, oldCellValue)) return;
-        record.updateCell(fieldId, newCellValue);
-        return record;
-      },
-      [columns]
-    ),
-    ssrRecords
-  );
+          switch (type) {
+            case CellType.Select:
+              newCellValue = data?.length ? data : null;
+              break;
+            case CellType.Text:
+            case CellType.Number:
+            default:
+              newCellValue = data === '' ? null : data;
+          }
+          const oldCellValue = record.getCellValue(fieldId) ?? null;
+          if (isEqual(newCellValue, oldCellValue)) return;
+          record.updateCell(fieldId, newCellValue);
+          return record;
+        },
+        [columns]
+      ),
+      ssrRecords
+    );
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
@@ -181,11 +181,9 @@ export const GridView: React.FC = () => {
         const minRowIndex = Math.min(startRange[1], endRange[1]);
         const maxRowIndex = Math.max(startRange[1], endRange[1]);
         range(minColIndex, maxColIndex + 1).forEach((colIndex) => {
+          const fieldId = columns[colIndex].id;
           range(minRowIndex, maxRowIndex + 1).forEach((rowIndex) => {
-            onCellEdited([colIndex, rowIndex], {
-              ...getCellContent([colIndex, rowIndex]),
-              data: null,
-            } as IInnerCell);
+            records[rowIndex].clearCell(fieldId);
           });
         });
         break;
@@ -214,6 +212,7 @@ export const GridView: React.FC = () => {
           onDelete={onDelete}
           onRowAppend={onRowAppended}
           onCellEdited={onCellEdited}
+          onRowOrdered={onRowOrdered}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}

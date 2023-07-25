@@ -71,4 +71,18 @@ export class Record extends RecordCore {
       });
     });
   }
+
+  async updateRecordOrder(viewId: string, order: number): Promise<void> {
+    const operation = RecordOpBuilder.editor.setRecordOrder.build({
+      viewId,
+      newOrder: order,
+      oldOrder: this.recordOrder[viewId],
+    });
+
+    return new Promise((resolve, reject) => {
+      this.doc.submitOp([operation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
 }

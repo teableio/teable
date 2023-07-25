@@ -51,6 +51,8 @@ const createCellValue2GridDisplay =
 
     switch (type) {
       case FieldType.Date:
+      case FieldType.Rollup:
+      case FieldType.Formula:
       case FieldType.SingleLineText: {
         const isDateField = type === FieldType.Date;
         return {

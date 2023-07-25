@@ -5,21 +5,35 @@ import { DragRegionType, RegionType } from '../interface';
 import type { CoordinateManager } from '../managers';
 import { inRange } from '../utils';
 
-export const getDropTargetColumnIndex = (
+export const getDropTargetIndex = (
   coordInstance: CoordinateManager,
   mouseState: IMouseState,
-  scrollState: IScrollState
+  scrollState: IScrollState,
+  dragType: DragRegionType
 ) => {
-  const { x } = mouseState;
-  const { scrollLeft } = scrollState;
-  const { freezeRegionWidth } = coordInstance;
-  const offsetX = x <= freezeRegionWidth ? x : scrollLeft + x;
-  const hoverColumnIndex = coordInstance.getColumnStartIndex(offsetX);
-  const hoverColumnOffsetX = coordInstance.getColumnOffset(hoverColumnIndex);
-  const hoverColumnWidth = coordInstance.getColumnWidth(hoverColumnIndex);
-  return inRange(offsetX, hoverColumnOffsetX, hoverColumnOffsetX + hoverColumnWidth / 2)
-    ? hoverColumnIndex
-    : hoverColumnIndex + 1;
+  const { x, y } = mouseState;
+  const { scrollLeft, scrollTop } = scrollState;
+  const { freezeRegionWidth, rowInitSize } = coordInstance;
+
+  if (dragType === DragRegionType.Column) {
+    const offsetX = x <= freezeRegionWidth ? x : scrollLeft + x;
+    const hoverColumnIndex = coordInstance.getColumnStartIndex(offsetX);
+    const hoverColumnOffsetX = coordInstance.getColumnOffset(hoverColumnIndex);
+    const hoverColumnWidth = coordInstance.getColumnWidth(hoverColumnIndex);
+    return inRange(offsetX, hoverColumnOffsetX, hoverColumnOffsetX + hoverColumnWidth / 2)
+      ? hoverColumnIndex
+      : hoverColumnIndex + 1;
+  }
+  if (dragType === DragRegionType.Row) {
+    const offsetY = y <= rowInitSize ? y : scrollTop + y;
+    const hoverRowIndex = coordInstance.getRowStartIndex(offsetY);
+    const hoverRowOffsetY = coordInstance.getRowOffset(hoverRowIndex);
+    const hoverRowHeight = coordInstance.getRowHeight(hoverRowIndex);
+    return inRange(offsetY, hoverRowOffsetY, hoverRowOffsetY + hoverRowHeight / 2)
+      ? hoverRowIndex
+      : hoverRowIndex + 1;
+  }
+  return -Infinity;
 };
 
 export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
@@ -68,17 +82,17 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
 
   const onDragEnd = (
     mouseState: IMouseState,
-    onEnd: (colIndex: number, targetColIndex: number) => void
+    onEnd: (dragIndex: number, dropIndex: number) => void
   ) => {
     const { type, isDragging } = dragState;
 
     if (!isDragging || !onEnd) return setDragState(DEFAULT_DRAG_STATE);
 
-    if (type === DragRegionType.Column) {
-      const { index: columnIndex } = dragState;
-      const targetColumnIndex = getDropTargetColumnIndex(coordInstance, mouseState, scrollState);
-      if (!inRange(targetColumnIndex, columnIndex, columnIndex + 1)) {
-        onEnd(columnIndex, targetColumnIndex);
+    if ([DragRegionType.Column, DragRegionType.Row].includes(type)) {
+      const { index } = dragState;
+      const targetIndex = getDropTargetIndex(coordInstance, mouseState, scrollState, type);
+      if (!inRange(targetIndex, index, index + 1)) {
+        onEnd(index, targetIndex);
       }
     }
     setDragState(DEFAULT_DRAG_STATE);
