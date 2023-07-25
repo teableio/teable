@@ -1,7 +1,7 @@
 /* eslint-disable no-inner-declarations */
 import { Injectable } from '@nestjs/common';
 import type { ILookupOptionsVo, IOtOperation } from '@teable-group/core';
-import { getRandomString, RecordOpBuilder, FieldType, Relationship } from '@teable-group/core';
+import { RecordOpBuilder, FieldType, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { keyBy, uniq, uniqBy } from 'lodash';
 import { Timing } from '../../utils/timing';
@@ -11,13 +11,31 @@ import type { ICellChange, IRecordRefItem, ITopoItem } from './reference.service
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ReferenceService, nameConsole, IOpsMap } from './reference.service';
 
+export interface IRawOp {
+  src: string;
+  seq: number;
+  op: IOtOperation[];
+  v: number;
+  m: {
+    ts: number;
+  };
+  c?: string;
+  d?: string;
+}
+
 interface IOpsData {
   recordId: string;
   updateParam: {
     [dbFieldName: string]: unknown;
   };
   version: number;
-  rawOp: string;
+  rawOp: IRawOp;
+}
+
+export interface IRawOpMap {
+  [tableId: string]: {
+    [recordId: string]: IRawOp;
+  };
 }
 
 @Injectable()
@@ -140,18 +158,18 @@ export class FieldBatchCalculationService extends ReferenceService {
   @Timing()
   async calculateFields(
     prisma: Prisma.TransactionClient,
+    src: string,
     tableId: string,
     fieldIds: string[]
-  ): Promise<IOpsMap> {
+  ): Promise<IRawOpMap | undefined> {
     const result = await this.getChangedOpsMap(prisma, tableId, fieldIds);
 
     if (!result) {
-      return {};
+      return;
     }
 
     const { opsMap, fieldMap, tableId2DbTableName } = result;
-    await this.batchSave(prisma, opsMap, fieldMap, tableId2DbTableName);
-    return opsMap;
+    return await this.batchSave(prisma, src, opsMap, fieldMap, tableId2DbTableName);
   }
 
   @Timing()
@@ -257,6 +275,10 @@ export class FieldBatchCalculationService extends ReferenceService {
       );
     }, []);
 
+    if (!changes.length) {
+      return;
+    }
+
     const opsMap = this.formatChangesToOps(this.mergeDuplicateChange(changes));
     return { opsMap, fieldMap, tableId2DbTableName };
   }
@@ -264,19 +286,26 @@ export class FieldBatchCalculationService extends ReferenceService {
   @Timing()
   private async batchSave(
     prisma: Prisma.TransactionClient,
+    src: string,
     opsMap: IOpsMap,
     fieldMap: { [fieldId: string]: IFieldInstance },
     tableId2DbTableName: { [tableId: string]: string }
   ) {
+    const rawOpMap: IRawOpMap = {};
     for (const tableId in opsMap) {
       const dbTableName = tableId2DbTableName[tableId];
       const raw = await this.fetchRawData(prisma, dbTableName, opsMap[tableId]);
       const versionGroup = keyBy(raw, '__id');
 
-      const opsData = this.buildOpsData(opsMap[tableId], versionGroup);
+      const opsData = this.buildOpsData(src, opsMap[tableId], versionGroup);
+      rawOpMap[tableId] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
+        pre[d.recordId] = d.rawOp;
+        return pre;
+      }, {});
       await this.executeUpdateRecords(prisma, dbTableName, fieldMap, opsData);
       await this.executeInsertOps(prisma, tableId, opsData);
     }
+    return rawOpMap;
   }
 
   @Timing()
@@ -300,17 +329,11 @@ export class FieldBatchCalculationService extends ReferenceService {
 
   @Timing()
   private buildOpsData(
+    src: string,
     ops: { [recordId: string]: IOtOperation[] },
     versionGroup: { [recordId: string]: { __version: number; __id: string } }
   ) {
-    const opsData: {
-      recordId: string;
-      updateParam: {
-        [fieldId: string]: unknown;
-      };
-      version: number;
-      rawOp: string;
-    }[] = [];
+    const opsData: IOpsData[] = [];
 
     for (const recordId in ops) {
       const updateParam = ops[recordId].reduce<{ [fieldId: string]: unknown }>((pre, op) => {
@@ -322,9 +345,9 @@ export class FieldBatchCalculationService extends ReferenceService {
         return pre;
       }, {});
 
-      const version = versionGroup[recordId].__version + 1;
-      const rawOp = {
-        src: getRandomString(32),
+      const version = versionGroup[recordId].__version;
+      const rawOp: IRawOp = {
+        src,
         seq: 1,
         op: ops[recordId],
         v: version,
@@ -336,7 +359,7 @@ export class FieldBatchCalculationService extends ReferenceService {
       opsData.push({
         recordId,
         version,
-        rawOp: JSON.stringify(rawOp),
+        rawOp,
         updateParam,
       });
     }
@@ -387,7 +410,7 @@ export class FieldBatchCalculationService extends ReferenceService {
             ),
             __last_modified_time: new Date().toISOString(),
             __last_modified_by: 'admin',
-            __version: d.version,
+            __version: d.version + 1,
           } as { [dbFieldName: string]: unknown },
         }))
         .map(
@@ -427,7 +450,9 @@ export class FieldBatchCalculationService extends ReferenceService {
         INSERT INTO ops ("collection", "doc_id", "version", "operation")
         VALUES
         ${opsData
-          .map((d) => `('${tableId}', '${d.recordId}', ${d.version}, '${d.rawOp}')`)
+          .map(
+            (d) => `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(d.rawOp)}')`
+          )
           .join(', ')}
       `;
 
