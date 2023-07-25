@@ -9,6 +9,7 @@ import {
   SingleSelect,
   MultipleSelect,
   FilterInput,
+  FilterInputNumber,
   FilterDatePicker,
   FilterCheckbox,
   FilterLinkSelect,
@@ -44,7 +45,14 @@ function FieldValue(props: IFieldValue) {
 
     switch (field?.type) {
       case FieldType.Number:
-        return InputComponent;
+        return (
+          <FilterInputNumber
+            placeholder="Enter a value"
+            value={filter.value as number}
+            onChange={onSelect}
+            className="w-40"
+          />
+        );
       case FieldType.SingleSelect:
         return MULPTIPLEOPERATORS.includes(filter.operator) ? (
           <MultipleSelect
