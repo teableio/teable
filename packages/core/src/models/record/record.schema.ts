@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
-import { filter } from '../view';
+import { filterSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -108,7 +108,7 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
     description:
       'A Teable Query Language (TQL) string used to filter results. It allows complex query conditions based on fields, operators, and values.',
   }),
-  filter: filter.optional().openapi({
+  filter: filterSchema.optional().openapi({
     type: 'object',
   }),
 });

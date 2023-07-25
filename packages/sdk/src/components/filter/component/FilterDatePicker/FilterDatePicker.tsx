@@ -1,4 +1,4 @@
-import type { IDateTimeFieldOperator, IFilterMetaValueByDate } from '@teable-group/core';
+import type { IDateTimeFieldOperator, IDateFilter } from '@teable-group/core';
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -7,9 +7,9 @@ import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } fro
 import { DatePicker } from './DatePicker';
 
 interface IFilerDatePickerProps {
-  value: IFilterMetaValueByDate | null;
+  value: IDateFilter | null;
   operator: string;
-  onSelect: (value: IFilterMetaValueByDate | null) => void;
+  onSelect: (value: IDateFilter | null) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,7 +19,7 @@ const isDateMetaValue = (value: any) => {
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect } = props;
-  const [innerValue, setInnerValue] = useState<IFilterMetaValueByDate | null>(initValue);
+  const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
 
   const defaultConfig = useMemo(() => {
     if (operator !== 'isWithIn') {
@@ -43,7 +43,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   const mergedOnSelect = useCallback(
     (val: string | null) => {
       const mergedValue = {
-        mode: val as IFilterMetaValueByDate['mode'],
+        mode: val as IDateFilter['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue);
@@ -103,7 +103,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
             onChange={(e) => {
               const value = e.target.value;
               if (innerValue && value !== '') {
-                const newValue: IFilterMetaValueByDate = { ...innerValue };
+                const newValue: IDateFilter = { ...innerValue };
                 newValue.numberOfDays = Number(value);
                 onSelect?.(newValue);
               }

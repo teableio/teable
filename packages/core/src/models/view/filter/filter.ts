@@ -1,30 +1,28 @@
 import { z } from 'zod';
-import { conjunction } from './conjunction';
-import type { IFilterMeta } from './filter-meta';
-import { filterMeta } from './filter-meta';
+import { conjunctionSchema } from './conjunction';
+import type { IFilterItem } from './filter-item';
+import { filterItemSchema } from './filter-item';
 
-const baseFilterSet = z.object({
-  conjunction: conjunction,
+export const baseFilterSetSchema = z.object({
+  conjunction: conjunctionSchema,
 });
 
-export type IFilterSet = z.infer<typeof baseFilterSet> & {
-  filterSet: (IFilterMeta | IFilterSet)[];
+export type IFilterSet = z.infer<typeof baseFilterSetSchema> & {
+  filterSet: (IFilterItem | IFilterSet)[];
 };
 
-export const filterSet: z.ZodType<IFilterSet> = z.lazy(() =>
-  baseFilterSet.extend({
-    filterSet: z.array(z.union([filterMeta, filterSet])),
-  })
-);
-
-export const filter = z.object({
-  filterSet: z.array(z.union([filterMeta, filterSet])),
-  conjunction: conjunction,
+export const nestedFilterItemSchema: z.ZodType<IFilterSet> = baseFilterSetSchema.extend({
+  filterSet: z.lazy(() => z.union([filterItemSchema, nestedFilterItemSchema]).array()),
 });
 
-export type IFilter = z.infer<typeof filter>;
+export const filterSchema = z.object({
+  filterSet: z.union([filterItemSchema, nestedFilterItemSchema]).array(),
+  conjunction: conjunctionSchema,
+});
 
-export const filterString = z.string().transform((val, ctx) => {
+export type IFilter = z.infer<typeof filterSchema>;
+
+export const filterStringSchema = z.string().transform((val, ctx) => {
   let jsonValue;
   try {
     jsonValue = JSON.parse(val);
@@ -35,7 +33,7 @@ export const filterString = z.string().transform((val, ctx) => {
     });
     return z.NEVER;
   }
-  return filter.parse(jsonValue);
+  return filterSchema.parse(jsonValue);
 });
 
 export async function mergeWithDefaultFilter(
@@ -46,7 +44,7 @@ export async function mergeWithDefaultFilter(
     return undefined;
   }
 
-  const parseFilter = await filterString.safeParseAsync(defaultViewFilter);
+  const parseFilter = await filterStringSchema.safeParseAsync(defaultViewFilter);
   const viewFilter = parseFilter.success ? parseFilter.data : undefined;
 
   let mergeFilter = viewFilter;

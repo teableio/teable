@@ -1,5 +1,5 @@
 import { FieldType } from '@teable-group/core';
-import type { IFilterMeta, IFilterMetaValueByDate } from '@teable-group/core';
+import type { IFilterItem, IDateFilter } from '@teable-group/core';
 
 import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
@@ -18,8 +18,8 @@ import {
 import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
 
 interface IFieldValue {
-  filter: IFilterMeta;
-  onSelect: (value: IFilterMeta['value']) => void;
+  filter: IFilterItem;
+  onSelect: (value: IFilterItem['value']) => void;
 }
 
 function FieldValue(props: IFieldValue) {
@@ -58,7 +58,7 @@ function FieldValue(props: IFieldValue) {
           <MultipleSelect
             field={field}
             value={filter.value as string[]}
-            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
           />
         ) : (
           <SingleSelect
@@ -73,13 +73,13 @@ function FieldValue(props: IFieldValue) {
           <MultipleSelect
             field={field}
             value={filter.value as string[]}
-            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
           />
         );
       case FieldType.Date:
         return (
           <FilterDatePicker
-            value={filter.value as IFilterMetaValueByDate}
+            value={filter.value as IDateFilter}
             onSelect={onSelect}
             operator={filter.operator}
           />
@@ -92,7 +92,7 @@ function FieldValue(props: IFieldValue) {
         return (
           <FilterLinkSelect
             field={field}
-            onSelect={(value) => onSelect(value as IFilterMeta['value'])}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
             value={filter.value as string[]}
             operator={filter.operator}
           />

@@ -5,7 +5,7 @@ import {
   DateFieldCore,
   DbFieldType,
   FieldType,
-  filter,
+  filterSchema,
   Relationship,
 } from '@teable-group/core';
 import dayjs from 'dayjs';
@@ -111,7 +111,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   it('should parse all `SingleLineText` conditions', () => {
-    const jsonFilter = filter.parse({
+    const jsonFilter = filterSchema.parse({
       filterSet: [
         {
           fieldId: 'fld1',
@@ -155,7 +155,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   it('should parse all `Number` conditions', () => {
-    const jsonFilter = filter.parse({
+    const jsonFilter = filterSchema.parse({
       filterSet: [
         {
           fieldId: 'fld2',
@@ -209,7 +209,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   it('should parse all `SingleSelect` conditions', () => {
-    const jsonFilter = filter.parse({
+    const jsonFilter = filterSchema.parse({
       filterSet: [
         {
           fieldId: 'fld3',
@@ -257,7 +257,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld4',
@@ -281,7 +281,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld4',
@@ -302,7 +302,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld4',
@@ -323,7 +323,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld4',
@@ -344,7 +344,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld4',
@@ -363,7 +363,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   it('should parse all `Checkbox` conditions', () => {
-    const jsonFilter = filter.parse({
+    const jsonFilter = filterSchema.parse({
       filterSet: [
         {
           fieldId: 'fld5',
@@ -385,7 +385,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   it('should parse all `Attachment` conditions', () => {
-    const jsonFilter = filter.parse({
+    const jsonFilter = filterSchema.parse({
       filterSet: [
         {
           fieldId: 'fld7',
@@ -414,7 +414,7 @@ describe('FilterQueryTranslator', () => {
       new FilterQueryTranslator(
         queryBuilder,
         fieldContext,
-        filter.parse({
+        filterSchema.parse({
           filterSet: [
             {
               fieldId: 'fld6',
@@ -467,7 +467,7 @@ describe('FilterQueryTranslator', () => {
             new FilterQueryTranslator(
               queryBuilder,
               fieldContext,
-              filter.parse({
+              filterSchema.parse({
                 filterSet: [
                   {
                     fieldId: 'fld6',
@@ -561,7 +561,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -589,7 +589,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -617,7 +617,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -645,7 +645,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -673,7 +673,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -701,7 +701,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -729,7 +729,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -758,7 +758,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: 'fld6',
@@ -839,7 +839,7 @@ describe('FilterQueryTranslator', () => {
         new FilterQueryTranslator(
           queryBuilder,
           fieldContext,
-          filter.parse({
+          filterSchema.parse({
             filterSet: [
               {
                 fieldId: id,
@@ -869,7 +869,7 @@ describe('FilterQueryTranslator', () => {
           new FilterQueryTranslator(
             queryBuilder,
             fieldContext,
-            filter.parse({
+            filterSchema.parse({
               filterSet: [
                 {
                   fieldId: id,
@@ -920,7 +920,7 @@ describe('FilterQueryTranslator', () => {
             new FilterQueryTranslator(
               queryBuilder,
               fieldContext,
-              filter.parse({
+              filterSchema.parse({
                 filterSet: [
                   {
                     fieldId: field.id,

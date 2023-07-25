@@ -1,6 +1,6 @@
-import type { IFilterMeta, IFilterSet } from '@teable-group/core';
+import type { IFilterItem, IFilterSet } from '@teable-group/core';
 
-function isFilterMeta(item: unknown): item is IFilterMeta {
+function isFilterMeta(item: unknown): item is IFilterItem {
   return !Array.isArray((item as IFilterSet)?.filterSet);
 }
 

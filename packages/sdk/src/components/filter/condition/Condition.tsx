@@ -1,4 +1,4 @@
-import type { IFilterMeta, FieldType } from '@teable-group/core';
+import type { IFilterItem, FieldType } from '@teable-group/core';
 
 import { Trash2 } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
@@ -51,7 +51,7 @@ function Condition(props: IConditionProps) {
   const operatorHandler = useCallback(
     (value: string | null) => {
       if (filter.operator !== value) {
-        filter.operator = value as IFilterMeta['operator'];
+        filter.operator = value as IFilterItem['operator'];
         const newFilters = cloneDeep(filters);
         setFilters(newFilters);
       }
@@ -59,7 +59,7 @@ function Condition(props: IConditionProps) {
     [filter, filters, setFilters]
   );
   const fieldValueHandler = useCallback(
-    (value: IFilterMeta['value']) => {
+    (value: IFilterItem['value']) => {
       if (!isEqual(filter.value, value)) {
         filter.value = value || null;
         if (Array.isArray(value) && !value.length) {

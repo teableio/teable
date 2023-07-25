@@ -1,4 +1,4 @@
-import type { IFilter, IFilterMeta, IFilterSet } from '@teable-group/core';
+import type { IFilter, IFilterItem, IFilterSet } from '@teable-group/core';
 
 interface IFilterProps {
   filters: IFilter;
@@ -12,7 +12,7 @@ interface IConditionCommon {
 }
 
 interface IConditionProps extends IConditionCommon {
-  filter: IFilterMeta;
+  filter: IFilterItem;
 }
 
 interface IConditionGroupProps extends IConditionCommon {

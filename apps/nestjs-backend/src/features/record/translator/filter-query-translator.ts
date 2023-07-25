@@ -4,9 +4,9 @@ import type {
   IDateFieldOptions,
   IDateTimeFieldOperator,
   IFilter,
-  IFilterMeta,
-  IFilterMetaOperator,
-  IFilterMetaValue,
+  IFilterItem,
+  IFilterOperator,
+  IFilterValue,
   IFilterSet,
 } from '@teable-group/core';
 import {
@@ -15,7 +15,7 @@ import {
   DateUtil,
   doesNotContain,
   FieldType,
-  filterMetaValueByDate,
+  dateFilterSchema,
   getFilterOperatorMapping,
   getValidFilterSubOperators,
   hasAllOf,
@@ -61,11 +61,11 @@ export class FilterQueryTranslator {
   }
 
   private filterStrategies(
-    operator: IFilterMetaOperator,
+    operator: IFilterOperator,
     params: {
       queryBuilder: Knex.QueryBuilder;
       field: IFieldInstance;
-      value: IFilterMetaValue;
+      value: IFilterValue;
     }
   ) {
     const operatorHandlers = {
@@ -113,7 +113,7 @@ export class FilterQueryTranslator {
 
     filterSet.forEach((filterItem) => {
       if ('fieldId' in filterItem) {
-        this.parseFilter(queryBuilder, filterItem as IFilterMeta, conjunction);
+        this.parseFilter(queryBuilder, filterItem as IFilterItem, conjunction);
       } else {
         queryBuilder = queryBuilder[parentConjunction || conjunction];
         queryBuilder.where((builder) => {
@@ -127,7 +127,7 @@ export class FilterQueryTranslator {
 
   private parseFilter(
     queryBuilder: Knex.QueryBuilder,
-    filterMeta: IFilterMeta,
+    filterMeta: IFilterItem,
     conjunction: IConjunction
   ) {
     const { fieldId, operator, value, isSymbol } = filterMeta;
@@ -141,7 +141,7 @@ export class FilterQueryTranslator {
     const filterOperatorMapping = getFilterOperatorMapping(field);
     const validFilterOperators = Object.keys(filterOperatorMapping);
     if (isSymbol) {
-      convertOperator = invert(filterOperatorMapping)[operator] as IFilterMetaOperator;
+      convertOperator = invert(filterOperatorMapping)[operator] as IFilterOperator;
     }
 
     if (!includes(validFilterOperators, operator)) {
@@ -167,7 +167,7 @@ export class FilterQueryTranslator {
     }
 
     queryBuilder = queryBuilder[conjunction];
-    this.filterStrategies(convertOperator as IFilterMetaOperator, { queryBuilder, field, value });
+    this.filterStrategies(convertOperator as IFilterOperator, { queryBuilder, field, value });
 
     return queryBuilder;
   }
@@ -175,7 +175,8 @@ export class FilterQueryTranslator {
   private processIsOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
+    // eslint-disable-next-line sonarjs/cognitive-complexity
   }) => {
     const { queryBuilder, field, value } = params;
 
@@ -196,18 +197,35 @@ export class FilterQueryTranslator {
       const isExactlySql = getIsExactlySqlSql(field, this.createSqlPlaceholders(value));
       const vLength = value.length;
       queryBuilder.whereRaw(isExactlySql, [...value, vLength, vLength]);
-    } else if (field.cellValueType === CellValueType.DateTime) {
-      const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-      queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
-    } else if (field.cellValueType === CellValueType.Boolean) {
-      (value ? this.processIsNotEmptyOperator : this.processIsEmptyOperator)(params);
-    } else {
-      if (field.type === FieldType.Link) {
-        const isSql = `json_extract(${field.dbFieldName}, '$.id') = ?`;
+    } else if (field.isMultipleCellValue && field.isLookup) {
+      let newValue = value;
+      if (value && !isArray(value) && !(isObject(value) && 'mode' in value)) {
+        newValue = [value];
+      }
 
-        queryBuilder.whereRaw(isSql, [value]);
-      } else {
-        queryBuilder.where(field.dbFieldName, value);
+      this.processIsAnyOfOperator({ ...params, value: newValue });
+    } else {
+      switch (field.cellValueType) {
+        case CellValueType.DateTime: {
+          const dateTimeRange = this.getFilterDateTimeRange(
+            field.options as IDateFieldOptions,
+            value
+          );
+          queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
+          break;
+        }
+        case CellValueType.Boolean: {
+          (value ? this.processIsNotEmptyOperator : this.processIsEmptyOperator)(params);
+          break;
+        }
+        default: {
+          if (field.type === FieldType.Link) {
+            const isSql = `json_extract(${field.dbFieldName}, '$.id') = ?`;
+            queryBuilder.whereRaw(isSql, [value]);
+          } else {
+            queryBuilder.where(field.dbFieldName, value);
+          }
+        }
       }
     }
     return queryBuilder;
@@ -216,7 +234,7 @@ export class FilterQueryTranslator {
   private processIsNotOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
@@ -241,7 +259,7 @@ export class FilterQueryTranslator {
   private processContainsNotOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
@@ -264,7 +282,7 @@ export class FilterQueryTranslator {
   private processDoesNotContainOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
@@ -287,7 +305,7 @@ export class FilterQueryTranslator {
   private processIsGreaterOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
@@ -304,7 +322,7 @@ export class FilterQueryTranslator {
   private processIsGreaterEqualOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
@@ -321,7 +339,7 @@ export class FilterQueryTranslator {
   private processIsLessOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
@@ -338,7 +356,7 @@ export class FilterQueryTranslator {
   private processIsLessEqualOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     let newValue = value;
@@ -355,7 +373,7 @@ export class FilterQueryTranslator {
   private processIsWithInOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
 
@@ -369,7 +387,7 @@ export class FilterQueryTranslator {
   private processIsEmptyOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field } = params;
 
@@ -380,7 +398,7 @@ export class FilterQueryTranslator {
   private processIsNotEmptyOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field } = params;
 
@@ -391,7 +409,7 @@ export class FilterQueryTranslator {
   private processIsAnyOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
@@ -430,7 +448,7 @@ export class FilterQueryTranslator {
   private processIsNoneOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
@@ -470,7 +488,7 @@ export class FilterQueryTranslator {
   private processHasAllOfOperator = (params: {
     queryBuilder: Knex.QueryBuilder;
     field: IFieldInstance;
-    value: IFilterMetaValue;
+    value: IFilterValue;
   }) => {
     const { queryBuilder, field, value } = params;
     if (!isArray(value)) {
@@ -529,9 +547,9 @@ export class FilterQueryTranslator {
 
   private getFilterDateTimeRange(
     dateFieldOptions: IDateFieldOptions,
-    filterValue: IFilterMetaValue
+    filterValue: IFilterValue
   ): [string, string] {
-    const filterValueByDate = filterMetaValueByDate.parse(filterValue);
+    const filterValueByDate = dateFilterSchema.parse(filterValue);
 
     const { mode, numberOfDays, exactDate } = filterValueByDate;
     const {
