@@ -178,10 +178,11 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
       case RegionType.AppendColumn:
       case RegionType.ColumnHeaderMenu:
       case RegionType.RowHeaderCheckbox:
-      case RegionType.RowHeaderDragHandler:
       case RegionType.RowHeaderExpandHandler:
       case RegionType.AllCheckbox:
         return setCursor('pointer');
+      case RegionType.RowHeaderDragHandler:
+        return setCursor('grabbing');
       case RegionType.ColumnResizeHandler:
         return setCursor('ew-resize');
       case RegionType.FillHandler:
@@ -309,7 +310,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         onColumnOrdered?.([dragIndex], dropIndex);
       }
       if (dragType === DragRegionType.Row) {
-        onRowOrdered?.(dragIndex, dropIndex);
+        onRowOrdered?.([dragIndex], dropIndex);
       }
       setSelectionState(DEFAULT_SELECTION_STATE);
       setCursor('default');

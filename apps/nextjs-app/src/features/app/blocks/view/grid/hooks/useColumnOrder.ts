@@ -1,45 +1,41 @@
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
+import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useCallback } from 'react';
-import type { IGridColumn } from '../../../grid';
+import { reorder } from '../utils';
 
 export function useColumnOrder() {
   const fields = useFields();
   const viewId = useViewId();
 
   const onColumnOrdered = useCallback(
-    (column: IGridColumn, columnIndex: number, newColumnIndex: number) => {
-      const columnId = column.id;
-      const field = fields[columnIndex];
-      const targetField = fields[newColumnIndex];
+    (colIndexCollection: number[], newColIndex: number) => {
+      const operationFields: IFieldInstance[] = [];
 
-      if (!field) {
-        throw new Error('Can not find field by id: ' + columnId);
+      for (const colIndex of colIndexCollection) {
+        const field = fields[colIndex];
+        if (!field) {
+          throw new Error('Can not find field by index: ' + colIndex);
+        }
+        operationFields.push(field);
       }
+
+      const targetField = fields[newColIndex];
 
       if (!targetField) {
-        throw new Error('Can not find target field by index: ' + newColumnIndex);
-      }
-
-      if (field.id !== columnId) {
-        throw new Error('field id not match column id');
+        throw new Error('Can not find target field by index: ' + newColIndex);
       }
 
       if (!viewId) {
         throw new Error('Can not find view id');
       }
 
-      let newOrder = 0;
-      if (newColumnIndex === 0) {
-        newOrder = fields[0].columnMeta[viewId].order - 1;
-      } else if (newColumnIndex > fields.length - 1) {
-        newOrder = fields[fields.length - 1].columnMeta[viewId].order + 1;
-      } else {
-        const prevOrder = fields[newColumnIndex - 1].columnMeta[viewId].order;
-        const nextOrder = fields[newColumnIndex].columnMeta[viewId].order;
-        newOrder = (prevOrder + nextOrder) / 2;
-      }
+      const newOrders = reorder(colIndexCollection, newColIndex, fields.length, (index) => {
+        return fields[index].columnMeta[viewId].order;
+      });
 
-      field.updateColumnOrder(viewId, newOrder);
+      operationFields.forEach((field, index) => {
+        field.updateColumnOrder(viewId, newOrders[index]);
+      });
     },
     [fields, viewId]
   );

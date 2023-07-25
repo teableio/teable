@@ -36,7 +36,7 @@ export interface IGridExternalProps {
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
-  onRowOrdered?: (rowIndex: number, newOrder: number) => void;
+  onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
   onColumnResize?: (
     column: IGridColumn,

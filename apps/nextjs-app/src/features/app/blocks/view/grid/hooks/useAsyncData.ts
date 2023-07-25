@@ -1,11 +1,12 @@
 import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
-import { useRecords } from '@teable-group/sdk';
+import { useRecords, useViewId } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ICellItem, IGridProps, IRectangle } from '../../../grid';
 import type { ICell, IInnerCell } from '../../../grid/renderers';
 import { CellType } from '../../../grid/renderers';
+import { reorder } from '../utils';
 
 export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
 export type IRowToCell<T> = (row: T, col: number) => ICell;
@@ -18,6 +19,7 @@ export type IRowEditedCallback<T> = (
 type IRes = {
   records: Record[];
   reset: () => void;
+  onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
   onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
   getCellContent: (cell: ICellItem) => ICell;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
@@ -32,6 +34,7 @@ export const useAsyncData = (
     offset: 0,
     limit: 150,
   });
+  const viewId = useViewId();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(query, initRecords);
@@ -98,10 +101,10 @@ export const useAsyncData = (
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
-      const [col, row] = cell;
-      const rowData = loadedRecords[row];
+      const [colIndex, rowIndex] = cell;
+      const rowData = loadedRecords[rowIndex];
       if (rowData !== undefined) {
-        return toCell(rowData, col);
+        return toCell(rowData, colIndex);
       }
       return {
         type: CellType.Loading,
@@ -114,10 +117,43 @@ export const useAsyncData = (
     setLoadedRecords([]);
   }, []);
 
+  const onRowOrdered = useCallback(
+    (rowIndexCollection: number[], newRowIndex: number) => {
+      const operationRecords: Record[] = [];
+
+      for (const rowIndex of rowIndexCollection) {
+        const record = loadedRecords[rowIndex];
+        if (!record) {
+          throw new Error('Can not find record by index: ' + rowIndex);
+        }
+        operationRecords.push(record);
+      }
+      const targetRecord = loadedRecords[newRowIndex];
+
+      if (!targetRecord) {
+        throw new Error('Can not find target record by index: ' + newRowIndex);
+      }
+
+      if (!viewId) {
+        throw new Error('Can not find view id');
+      }
+
+      const newOrders = reorder(rowIndexCollection, newRowIndex, loadedRecords.length, (index) => {
+        return loadedRecords[index].recordOrder[viewId];
+      });
+
+      operationRecords.forEach((record, index) => {
+        record.updateRecordOrder(viewId, newOrders[index]);
+      });
+    },
+    [loadedRecords, viewId]
+  );
+
   return {
     getCellContent,
     onVisibleRegionChanged,
     onCellEdited,
+    onRowOrdered,
     records: loadedRecords,
     reset,
   };
