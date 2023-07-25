@@ -17,7 +17,8 @@
   ],
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "!apps/electron"
   ],
   "scripts": {
     "g:clean": "yarn clean:global-cache && yarn workspaces foreach -ptv run clean",

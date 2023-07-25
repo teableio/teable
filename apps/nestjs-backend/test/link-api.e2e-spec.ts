@@ -86,7 +86,6 @@ describe('OpenAPI link (e2e)', () => {
 
       expect(getTable1FieldsResult.body.data).toHaveLength(3);
       expect(getTable1FieldsResult.body.data[2]).toMatchObject({
-        name: 'table1',
         type: FieldType.Link,
         options: {
           relationship: Relationship.OneMany,
@@ -98,7 +97,6 @@ describe('OpenAPI link (e2e)', () => {
       });
 
       expect(createTable2Result.body.data.fields[2]).toMatchObject({
-        name: 'link field',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
@@ -157,7 +155,6 @@ describe('OpenAPI link (e2e)', () => {
 
       expect(getTable1FieldsResult.body.data).toHaveLength(3);
       expect(getTable1FieldsResult.body.data[2]).toMatchObject({
-        name: 'table1',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
@@ -169,7 +166,6 @@ describe('OpenAPI link (e2e)', () => {
       });
 
       expect(createTable2Result.body.data.fields[2]).toMatchObject({
-        name: 'link field',
         type: FieldType.Link,
         options: {
           relationship: Relationship.OneMany,

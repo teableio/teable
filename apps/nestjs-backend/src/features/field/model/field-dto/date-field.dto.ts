@@ -48,6 +48,9 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
     if (this.isMultipleCellValue) {
       return value && JSON.parse(value as string);
     }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
     return value;
   }
 }
