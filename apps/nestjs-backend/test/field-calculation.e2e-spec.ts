@@ -4,6 +4,7 @@ import type { IRecord, IFieldVo, IUpdateRecordRo, IRecordsVo, IFieldRo } from '@
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import request from 'supertest';
 import { initApp } from './utils/init-app';
+import { seeding } from './utils/record-mock';
 
 describe('OpenAPI Field calculation (e2e)', () => {
   let app: INestApplication;
@@ -16,6 +17,8 @@ describe('OpenAPI Field calculation (e2e)', () => {
       name: 'table1',
     });
     tableId = result.body.data.id;
+
+    await seeding(tableId, 10000);
   });
 
   afterAll(async () => {

@@ -60,6 +60,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
 
+      - name: Run prisma db push generate db structure
+        run: |
+          yarn workspace @teable-group/db-main-prisma prisma-db-push
+
       # to debug cache issues: ls ${{ github.workspace }}/.cache
       # Build packages that have changed (--include & --since), assuming that
       # apps build are done already. Otherwise --from & --since
