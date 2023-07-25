@@ -51,7 +51,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
     const isNull = value === null;
     const isSameType = typeof value === 'string';
     const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || !isInOption) {
+    if ((!isNull && !isSameType) || (!isInOption && options.length)) {
       onSelect?.(null);
     }
   }, [onSelect, value, options]);
