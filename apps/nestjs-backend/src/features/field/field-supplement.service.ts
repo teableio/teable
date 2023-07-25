@@ -175,7 +175,8 @@ export class FieldSupplementService implements ISupplementService {
 
     const formatting =
       (field.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
-    const options = formatting ? field.options : { ...field.options, formatting };
+    const options = formatting ? { ...field.options, formatting } : field.options;
+
     return {
       ...field,
       options,
