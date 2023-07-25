@@ -41,9 +41,12 @@ export const useSelection = () => {
       case RegionType.ColumnHeader: {
         const needActive = prevSelectionType !== SelectionRegionType.Columns;
         (!isShiftKey || needActive) && setActiveCell([columnIndex, 0]);
+        const currentColumnIndex = isShiftKey && !needActive ? prevRanges[0][0] : columnIndex;
         return setSelectionState({
           type: SelectionRegionType.Columns,
-          ranges: [[isShiftKey && !needActive ? prevRanges[0][0] : columnIndex, columnIndex]],
+          ranges: [
+            [Math.min(currentColumnIndex, columnIndex), Math.max(currentColumnIndex, columnIndex)],
+          ],
           isSelecting: false,
         });
       }
@@ -138,8 +141,11 @@ export const useSelection = () => {
         isPointInsideRectangle([columnIndex, rowIndex], ranges[0], ranges[1]);
       const isInsidePrevRowRange =
         prevSelectionType === SelectionRegionType.Rows && inRange(rowIndex, range[0], range[1]);
+      const isInsidePrevColumnRange =
+        prevSelectionType === SelectionRegionType.Columns &&
+        inRange(columnIndex, range[0], range[1]);
 
-      if (isInsidePrevCellRange || isInsidePrevRowRange) {
+      if (isInsidePrevCellRange || isInsidePrevRowRange || isInsidePrevColumnRange) {
         return callback({ type: prevSelectionType, ranges }, { x, y });
       }
       if (columnIndex > -1) {

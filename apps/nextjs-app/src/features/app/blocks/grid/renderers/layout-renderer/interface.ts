@@ -40,6 +40,12 @@ export interface IFieldHeadDrawerProps extends ICellPosition {
   hasMenu?: boolean;
 }
 
+export interface IAppendColumnDrawerProps extends ICellPosition {
+  theme: IGridTheme;
+  isHover: boolean;
+  isColumnAppendEnable?: boolean;
+}
+
 export enum RenderRegion {
   Freeze = 'Freeze',
   Other = 'Other',

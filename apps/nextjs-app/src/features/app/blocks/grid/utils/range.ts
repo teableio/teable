@@ -1,4 +1,3 @@
-import { isEqual } from 'lodash';
 import type { ICellItem, IRange, ISelectionState } from '../interface';
 import { SelectionRegionType } from '../interface';
 
@@ -99,19 +98,14 @@ export const checkIfRowSelected = (selectionState: ISelectionState, rowIndex: nu
   return false;
 };
 
-export const checkIfFillHandleCell = (
-  selectionState: ISelectionState,
-  rowIndex: number,
-  columnIndex: number
-) => {
+export const calculateMaxRange = (selectionState: ISelectionState) => {
   const { type: regionType, ranges } = selectionState;
   if (regionType === SelectionRegionType.Cells) {
     const [startColIndex, startRowIndex] = ranges[0];
     const [endColIndex, endRowIndex] = ranges[1];
-    const maxRange = [Math.max(startColIndex, endColIndex), Math.max(startRowIndex, endRowIndex)];
-    return isEqual([columnIndex, rowIndex], maxRange);
+    return [Math.max(startColIndex, endColIndex), Math.max(startRowIndex, endRowIndex)];
   }
-  return false;
+  return null;
 };
 
 export const checkIfRowOrCellActive = (

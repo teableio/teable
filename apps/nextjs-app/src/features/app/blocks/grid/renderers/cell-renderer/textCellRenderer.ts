@@ -1,5 +1,5 @@
 import { GRID_DEFAULT } from '../../configs';
-import { drawMultiLineText, drawText } from '../base-renderer/baseRenderer';
+import { drawMultiLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
 import type { IInternalCellRenderer, ITextCell, ICellRenderProps } from './interface';
 
@@ -30,24 +30,5 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
       fill: cellTextColor,
       verticalAlign: 'top',
     });
-  },
-  measure: (cell, props) => {
-    const { displayData } = cell;
-    const { ctx, width, theme } = props;
-
-    if (displayData == null || displayData === '') return null;
-
-    const { fontSizeSM, fontFamily } = theme;
-    const { cellVerticalPadding } = GRID_DEFAULT;
-    ctx.font = `${fontSizeSM}px ${fontFamily}`;
-    const height = drawText(ctx, {
-      x: 0,
-      y: 0,
-      text: displayData,
-      maxWidth: width,
-      needRender: false,
-    });
-
-    return height + 2 * cellVerticalPadding - 8;
   },
 };

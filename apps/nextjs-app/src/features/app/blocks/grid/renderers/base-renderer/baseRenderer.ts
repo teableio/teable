@@ -1,4 +1,3 @@
-import { gridTheme } from '../../configs';
 import type {
   ILineProps,
   IMultiLineTextProps,
@@ -100,86 +99,49 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     y,
     text,
     fill,
-    fontSize = 13,
-    fontWeight = 'normal',
     textAlign = 'left',
-    verticalAlign = 'middle',
-    isUnderline = false,
-    needSetFont = false,
-    fontFamily = gridTheme.fontFamily,
+    verticalAlign = 'top',
+    maxWidth = Infinity,
+    needRender = true,
   } = props;
+  let width = 0;
+  let displayText = '';
+  const ellipsis = '...';
+  const ellipsisWidth = ctx.measureText(ellipsis).width;
 
-  ctx.textBaseline = verticalAlign;
+  for (let i = 0; i < text.length; i++) {
+    displayText = text.substring(0, i + 1);
+    const char = text[i];
+    const charWidth = ctx.measureText(char).width;
+    width += charWidth;
 
-  if (needSetFont) {
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    if (width + ellipsisWidth > maxWidth) break;
   }
-  if (isUnderline) {
-    const textWidth = ctx.measureText(text).width;
-    drawLine(ctx, {
-      x: x,
-      y: y + 0.5,
-      points: [0, fontSize, textWidth, fontSize],
-      stroke: fill,
-    });
+
+  const isDisplayEllipsis = width + ellipsisWidth > maxWidth;
+  displayText = isDisplayEllipsis ? displayText.slice(0, -1) + ellipsis : text;
+  width = isDisplayEllipsis ? maxWidth : width;
+
+  if (needRender) {
+    if (fill) ctx.fillStyle = fill;
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = verticalAlign;
+    ctx.fillText(displayText, x, y);
   }
-  if (fill) ctx.fillStyle = fill;
-  ctx.textAlign = textAlign;
-  ctx.fillText(text, x, y);
+
+  return {
+    text: displayText,
+    width,
+  };
 };
 
 export const drawText = (ctx: CanvasRenderingContext2D, props: ITextProps) => {
-  const {
-    x,
-    y,
-    text,
-    maxWidth,
-    lineHeight = 20,
-    needRender = true,
-    fill,
-    textAlign = 'left',
-    verticalAlign = 'top',
-  } = props;
+  const { x, y, text, fill, textAlign = 'left', verticalAlign = 'top' } = props;
 
   ctx.textAlign = textAlign;
   ctx.textBaseline = verticalAlign;
   if (fill) ctx.fillStyle = fill;
-
-  const lines = text.split('\n');
-  let lineCount = 0;
-  let totalLineHeight = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
-    while (ctx.measureText(line).width > maxWidth) {
-      let left = 0;
-      let right = line.length - 1;
-      while (left <= right) {
-        const mid = Math.floor((left + right) / 2);
-        const breakpoint = ctx.measureText(text.slice(0, mid)).width;
-
-        if (breakpoint <= maxWidth) {
-          left = mid + 1;
-        } else {
-          right = mid - 1;
-        }
-      }
-      const breakIndex = left - 1;
-      const breakLine = line.slice(0, breakIndex);
-
-      needRender && ctx.fillText(breakLine, x, y + totalLineHeight);
-      totalLineHeight += lineHeight;
-      lineCount++;
-
-      line = line.slice(breakIndex);
-    }
-
-    needRender && ctx.fillText(line, x, y + totalLineHeight);
-    totalLineHeight += lineHeight;
-    lineCount++;
-  }
-
-  return lineCount * lineHeight;
+  ctx.fillText(text, x, y);
 };
 
 export const drawLine = (ctx: CanvasRenderingContext2D, props: ILineProps) => {

@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useRef, useLayoutEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import type {
   ICellItem,
@@ -43,7 +43,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
   const { containerWidth, containerHeight } = coordInstance;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas == null) return;
     drawGrid(canvas, props);

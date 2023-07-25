@@ -28,13 +28,16 @@ export interface IGridExternalProps {
   rowControls?: RowControlType[];
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
-  onDelete?: (selectionState: ISelectionState) => void;
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
+  onCopy?: (selectionState: ISelectionState) => void;
+  onPaste?: (selectionState: ISelectionState) => void;
+  onDelete?: (selectionState: ISelectionState) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
-  onColumnOrdered?: (column: IGridColumn, colIndex: number, newOrder: number) => void;
+  onRowOrdered?: (rowIndex: number, newOrder: number) => void;
+  onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
   onColumnResize?: (
     column: IGridColumn,
     newSize: number,
@@ -81,8 +84,11 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     style,
     headerIcons,
     getCellContent,
+    onCopy,
+    onPaste,
     onDelete,
     onRowAppend,
+    onRowOrdered,
     onCellEdited,
     onCellActivated,
     onColumnAppend,
@@ -190,14 +196,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        ...style,
-      }}
-      ref={ref}
-    >
+    <div className="w-full h-full" style={style} ref={ref}>
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
           theme={theme}
@@ -212,15 +211,17 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           getCellContent={getCellContent}
           scrollTo={scrollTo}
           scrollBy={scrollBy}
+          onCopy={onCopy}
+          onPaste={onPaste}
           onDelete={onDelete}
           onRowAppend={onRowAppend}
+          onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
-          onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />
       </div>
@@ -239,6 +240,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         containerRef={containerRef}
         setScrollState={setScrollState}
         scrollEnable={mouseState.type !== RegionType.None}
+        onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>
   );

@@ -1,12 +1,14 @@
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { useEventListener } from './hooks';
+import type { IGridProps } from './Grid';
+import { getHorizontalRangeInfo, getVerticalRangeInfo, useEventListener } from './hooks';
 import type { IScrollState } from './interface';
 import type { CoordinateManager } from './managers';
 import type { ITimeoutID } from './utils';
 import { cancelTimeout, isWindowsOS, requestTimeout } from './utils/utils';
 
-export interface ScrollerProps {
+export interface ScrollerProps
+  extends Pick<IGridProps, 'smoothScrollX' | 'smoothScrollY' | 'onVisibleRegionChanged'> {
   coordInstance: CoordinateManager;
   containerWidth: number;
   containerHeight: number;
@@ -15,8 +17,6 @@ export interface ScrollerProps {
   containerRef: MutableRefObject<HTMLDivElement | null>;
   left?: number;
   top?: number;
-  smoothScrollX?: boolean;
-  smoothScrollY?: boolean;
   scrollEnable?: boolean;
   setScrollState: React.Dispatch<React.SetStateAction<IScrollState>>;
 }
@@ -40,6 +40,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     smoothScrollY,
     scrollEnable = true,
     setScrollState,
+    onVisibleRegionChanged,
   } = props;
 
   useImperativeHandle(ref, () => ({
@@ -69,40 +70,56 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     const { scrollTop: newScrollTop, scrollLeft } = el;
     const { rowInitSize, columnInitSize } = coordInstance;
 
+    let scrollProps: { [key: string]: number } = {};
+
+    if (direction === 'vertical') {
+      const delta = lastScrollTop.current - newScrollTop;
+      const scrollableHeight = el.scrollHeight - el.clientHeight;
+      lastScrollTop.current = newScrollTop;
+
+      if (
+        scrollableHeight > 0 &&
+        (Math.abs(delta) > 2000 || newScrollTop === 0 || newScrollTop === scrollableHeight) &&
+        scrollHeight > el.scrollHeight + 5
+      ) {
+        const prog = newScrollTop / scrollableHeight;
+        const recomputed = (scrollHeight - el.clientHeight) * prog;
+        offsetY.current = recomputed - newScrollTop;
+      }
+      const scrollTop = newScrollTop + offsetY.current;
+      const rowIndex = coordInstance.getRowStartIndex(scrollTop);
+      const rowOffset = coordInstance.getRowOffset(rowIndex);
+
+      scrollProps = {
+        scrollTop: !smoothScrollY ? rowOffset - rowInitSize : scrollTop,
+      };
+    }
+
+    if (direction === 'horizontal') {
+      const colIndex = coordInstance.getColumnStartIndex(scrollLeft);
+      const colOffset = coordInstance.getColumnOffset(colIndex);
+      scrollProps = {
+        scrollLeft: !smoothScrollX ? colOffset - columnInitSize : scrollLeft,
+      };
+    }
+
+    const { startRowIndex, stopRowIndex } = getVerticalRangeInfo(
+      coordInstance,
+      scrollProps.scrollTop ?? newScrollTop
+    );
+    const { startColumnIndex, stopColumnIndex } = getHorizontalRangeInfo(
+      coordInstance,
+      scrollProps.scrollTop ?? scrollLeft
+    );
+
+    onVisibleRegionChanged?.({
+      x: startColumnIndex,
+      y: startRowIndex,
+      width: stopColumnIndex - startColumnIndex,
+      height: stopRowIndex - stopColumnIndex,
+    });
+
     setScrollState((prev) => {
-      let scrollProps: { [key: string]: number } = {};
-
-      if (direction === 'vertical') {
-        const delta = lastScrollTop.current - newScrollTop;
-        const scrollableHeight = el.scrollHeight - el.clientHeight;
-        lastScrollTop.current = newScrollTop;
-
-        if (
-          scrollableHeight > 0 &&
-          (Math.abs(delta) > 2000 || newScrollTop === 0 || newScrollTop === scrollableHeight) &&
-          scrollHeight > el.scrollHeight + 5
-        ) {
-          const prog = newScrollTop / scrollableHeight;
-          const recomputed = (scrollHeight - el.clientHeight) * prog;
-          offsetY.current = recomputed - newScrollTop;
-        }
-        const scrollTop = newScrollTop + offsetY.current;
-        const rowIndex = coordInstance.getRowStartIndex(scrollTop);
-        const rowOffset = coordInstance.getRowOffset(rowIndex);
-
-        scrollProps = {
-          scrollTop: !smoothScrollY ? rowOffset - rowInitSize : scrollTop,
-        };
-      }
-
-      if (direction === 'horizontal') {
-        const colIndex = coordInstance.getColumnStartIndex(scrollLeft);
-        const colOffset = coordInstance.getColumnOffset(colIndex);
-        scrollProps = {
-          scrollLeft: !smoothScrollX ? colOffset - columnInitSize : scrollLeft,
-        };
-      }
-
       return {
         ...prev,
         ...scrollProps,

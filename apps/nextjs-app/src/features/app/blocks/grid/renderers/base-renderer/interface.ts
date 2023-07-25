@@ -68,7 +68,9 @@ export interface ISingleLineTextProps extends ITextBaseProps {
   x: number;
   y: number;
   fill?: string;
+  maxWidth?: number;
   needSetFont?: boolean;
+  needRender?: boolean;
 }
 
 export interface IMultiLineTextProps extends ITextBaseProps {
@@ -83,8 +85,5 @@ export interface IMultiLineTextProps extends ITextBaseProps {
 export interface ITextProps extends ITextBaseProps {
   x: number;
   y: number;
-  maxWidth: number;
-  lineHeight?: number;
   fill?: string;
-  needRender?: boolean;
 }

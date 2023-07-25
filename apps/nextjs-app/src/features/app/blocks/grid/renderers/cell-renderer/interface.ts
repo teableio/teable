@@ -27,13 +27,17 @@ export enum EditorPosition {
   Below = 'Below',
 }
 
-type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;
+export type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;
 
 export interface IBaseCell {
   readonly?: boolean;
   cursor?: CSSProperties['cursor'];
   contentAlign?: 'left' | 'right' | 'center';
-  themeOverride?: IGridTheme;
+  lastUpdated?: string;
+  customTheme?: Partial<IGridTheme>;
+}
+
+export interface IEditableCell extends IBaseCell {
   customEditor?: ICustomEditor;
   editorPosition?: EditorPosition;
 }
@@ -42,25 +46,19 @@ export interface ILoadingCell extends IBaseCell {
   type: CellType.Loading;
 }
 
-export interface ITextCell extends IBaseCell {
+export interface ITextCell extends IEditableCell {
   type: CellType.Text;
   data: string;
   displayData: string;
 }
 
-export interface IUrlCell extends IBaseCell {
-  type: CellType.Url;
-  data: string;
-  displayData: string;
-}
-
-export interface INumberCell extends IBaseCell {
+export interface INumberCell extends IEditableCell {
   type: CellType.Number;
   data: number | null | undefined;
   displayData: string;
 }
 
-export interface IBooleanCell extends IBaseCell {
+export interface IBooleanCell extends IEditableCell {
   type: CellType.Boolean;
   data: boolean;
   isMultiple?: boolean;
@@ -73,7 +71,7 @@ export interface ISelectChoice {
   textColor?: string;
 }
 
-export interface ISelectCell extends IBaseCell {
+export interface ISelectCell extends IEditableCell {
   type: CellType.Select;
   data: string[];
   choices?: ISelectChoice[];
@@ -86,19 +84,13 @@ export interface IImageData {
   url: string;
 }
 
-export interface IImageCell extends IBaseCell {
+export interface IImageCell extends IEditableCell {
   type: CellType.Image;
   data: IImageData[];
   displayData: string[];
 }
 
-export type IInnerCell =
-  | ITextCell
-  | INumberCell
-  | ISelectCell
-  | IUrlCell
-  | IImageCell
-  | IBooleanCell;
+export type IInnerCell = ITextCell | INumberCell | ISelectCell | IImageCell | IBooleanCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 

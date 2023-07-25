@@ -95,12 +95,12 @@ interface IGroupHeaderRow extends IRowBase {
 
 export interface IGridColumn {
   id?: string;
-  width?: number;
   name: string;
   icon?: string;
-  disabled?: boolean;
+  width?: number;
   hasMenu?: boolean;
-  themeOverride?: IGridTheme;
+  readonly?: boolean;
+  customTheme?: Partial<IGridTheme>;
 }
 
 export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;

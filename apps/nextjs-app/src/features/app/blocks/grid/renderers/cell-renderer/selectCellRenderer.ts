@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IRectangle } from '../../interface';
-import { drawRect, drawSingleLineText } from '../base-renderer/baseRenderer';
+import { drawRect, drawSingleLineText, drawText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
 import type {
   IInternalCellRenderer,
@@ -39,6 +39,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       1,
       Math.floor((drawArea.height - iconSizeSM) / (iconSizeSM + OPTION_GAP_SIZE)) + 1
     );
+    const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2;
 
     ctx.save();
     ctx.beginPath();
@@ -64,18 +65,27 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     });
 
     for (const text of value) {
-      const metrics = ctx.measureText(text);
-      const width = metrics.width + OPTION_GAP_SIZE * 2;
       const textY = iconSizeSM / 2 + 1;
+      const choice = choiceMap[text];
+      const bgColor = choice?.bgColor || cellOptionBg;
+      const textColor = choice?.textColor || cellOptionTextColor;
+
+      const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
+        text,
+        x: x + OPTION_GAP_SIZE,
+        y: y + textY,
+        fill: textColor,
+        maxWidth: maxTextWidth,
+        needRender: false,
+      });
+
+      const width = displayWidth + OPTION_GAP_SIZE * 2;
 
       if (x !== drawArea.x && x + width > drawArea.x + drawArea.width && row < rows) {
         row++;
         y += iconSizeSM + OPTION_GAP_SIZE;
         x = drawArea.x;
       }
-      const choice = choiceMap[text];
-      const bgColor = choice?.bgColor || cellOptionBg;
-      const textColor = choice?.textColor || cellOptionTextColor;
 
       drawRect(ctx, {
         x,
@@ -85,11 +95,10 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         radius: 8,
         fill: bgColor,
       });
-      drawSingleLineText(ctx, {
-        text,
+      drawText(ctx, {
         x: x + OPTION_GAP_SIZE,
-        y: y + textY,
-        fontSize: fontSizeXS,
+        y: y + 5,
+        text: displayText,
         fill: textColor,
       });
 

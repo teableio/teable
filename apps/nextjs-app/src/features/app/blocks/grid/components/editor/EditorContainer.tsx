@@ -15,7 +15,14 @@ import { TextEditor } from './TextEditor';
 export interface IEditorContainerProps
   extends Pick<
     IInteractionLayerProps,
-    'theme' | 'coordInstance' | 'scrollTo' | 'getCellContent' | 'onDelete' | 'onCellActivated'
+    | 'theme'
+    | 'coordInstance'
+    | 'scrollTo'
+    | 'getCellContent'
+    | 'onCopy'
+    | 'onPaste'
+    | 'onDelete'
+    | 'onCellActivated'
   > {
   isEditing?: boolean;
   scrollState: IScrollState;
@@ -58,6 +65,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     activeCell,
     selectionState,
     scrollTo,
+    onCopy,
+    onPaste,
     onChange,
     onDelete,
     setEditing,
@@ -205,7 +214,13 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
-      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
+      <div
+        className="absolute z-10"
+        style={wrapStyle}
+        onKeyDown={onKeyDown}
+        onCopy={() => onCopy?.(selectionState)}
+        onPaste={() => onPaste?.(selectionState)}
+      >
         {customEditor
           ? customEditor(
               {

@@ -98,12 +98,12 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
     );
 
     const { scrollTop } = scrollState;
+    const { rowHeadIconPaddingTop } = GRID_DEFAULT;
     const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
-    const rowHeight = coordInstance.getRowHeight(rowIndex);
     const inYRangeRowHeader = inRange(
       y,
-      offsetY + rowHeight / 2 - halfIconSize,
-      offsetY + rowHeight / 2 + halfIconSize
+      offsetY + rowHeadIconPaddingTop,
+      offsetY + rowHeadIconPaddingTop + iconSizeXS
     );
 
     if (regionType && inControlXRange && inYRangeRowHeader) {
