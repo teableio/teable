@@ -17,6 +17,7 @@ export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements I
 
     return plainToInstance(SingleLineTextFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Label',
       options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,

@@ -15,32 +15,32 @@ import {
   linkFieldOptionsRoSchema,
 } from './derivate';
 
-export const lookupOptionsRoSchema = z
-  .object({
-    linkFieldId: z.string().openapi({
-      description: 'The id of Linked record field to use for lookup',
-    }),
+export const lookupOptionsVoSchema = linkFieldOptionsSchema
+  .pick({
+    foreignTableId: true,
+    lookupFieldId: true,
+    relationship: true,
+    dbForeignKeyName: true,
   })
   .merge(
-    linkFieldOptionsSchema.pick({
-      foreignTableId: true,
-      lookupFieldId: true,
-    })
-  )
-  .strict();
-
-export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
-
-export const lookupOptionsVoSchema = lookupOptionsRoSchema
-  .merge(
-    linkFieldOptionsSchema.pick({
-      relationship: true,
-      dbForeignKeyName: true,
+    z.object({
+      linkFieldId: z.string().openapi({
+        description: 'The id of Linked record field to use for lookup',
+      }),
     })
   )
   .strict();
 
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
+
+export const lookupOptionsRoSchema = lookupOptionsVoSchema
+  .omit({
+    relationship: true,
+    dbForeignKeyName: true,
+  })
+  .strict();
+
+export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
 
 export const columnSchema = z.object({
   order: z.number().openapi({
@@ -173,11 +173,11 @@ export const fieldRoSchema = fieldVoSchema
       }),
       lookupOptions: lookupOptionsRoSchema.optional().openapi({
         description:
-          'field lookup options. you need to configure it when isLookup is true or field type is rollup.',
+          'The lookup options for field, you need to configure it when isLookup attribute is true or field type is rollup.',
       }),
       options: unionFieldOptionsRoSchema.optional().openapi({
         description:
-          "The configuration options of the field. The structure of the field's options depend on the field's type.",
+          "The options of the field. The configuration of the field's options depend on the it's specific type.",
       }),
     })
   )

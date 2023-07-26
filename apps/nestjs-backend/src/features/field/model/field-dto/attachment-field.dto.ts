@@ -9,6 +9,7 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
 
     return plainToInstance(AttachmentFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Attachments',
       options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,

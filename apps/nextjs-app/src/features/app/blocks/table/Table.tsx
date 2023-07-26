@@ -1,10 +1,12 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import { ViewProvider, FieldProvider, RecordProvider, useTable } from '@teable-group/sdk';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { ToolBar } from '../tool-bar/ToolBar';
 import { GridView } from '../view/grid/GridView';
 import { ViewList } from '../view/list/ViewList';
+import { FailAlert } from './FailAlert';
 
 export interface ITableProps {
   fieldServerData: IFieldVo[];
@@ -27,7 +29,15 @@ export const Table: React.FC<ITableProps> = ({
         <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
           <ToolBar />
           <RecordProvider serverData={recordServerData}>
-            {isHydrated && <GridView />}
+            <ErrorBoundary
+              fallback={
+                <div className="w-full h-full flex justify-center items-center">
+                  <FailAlert />
+                </div>
+              }
+            >
+              {isHydrated && <GridView />}
+            </ErrorBoundary>
           </RecordProvider>
         </FieldProvider>
       </div>

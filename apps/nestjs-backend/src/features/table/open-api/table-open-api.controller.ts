@@ -12,7 +12,7 @@ import {
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
-import type { ITableVo, ITableListVo, IFullTableVo } from '@teable-group/core';
+import type { ITableVo, ITableListVo, ITableFullVo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';
@@ -56,13 +56,13 @@ export class TableController {
   @ApiCreatedResponse({
     status: 201,
     description: 'The table has been successfully created.',
-    type: ApiResponse<IFullTableVo>,
+    type: ApiResponse<ITableFullVo>,
   })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Post()
   async createTable(
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
-  ): Promise<ApiResponse<IFullTableVo>> {
+  ): Promise<ApiResponse<ITableFullVo>> {
     const result = await this.tableOpenApiService.createTable(createTableRo);
     return responseWrap(result);
   }

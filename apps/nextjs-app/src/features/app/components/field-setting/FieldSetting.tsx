@@ -12,29 +12,12 @@ import { FieldOperator } from './type';
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
   const { operator } = props;
-  const getFieldStatic = useFieldStaticGetter();
   const onCancel = () => {
     props.onCancel?.();
   };
 
-  function appendDefaults(field: IFieldRo) {
-    if (!field.name) {
-      const defaultFieldName = getFieldStatic(field.type, field.isLookup)?.defaultName;
-      if (defaultFieldName) {
-        field = {
-          ...field,
-          name: defaultFieldName,
-        };
-      }
-    }
-
-    return field;
-  }
-
   const onConfirm = (field: IFieldRo) => {
     props.onConfirm?.(field);
-
-    field = appendDefaults(field);
 
     if (operator === FieldOperator.Add) {
       table?.createField(field);
@@ -54,7 +37,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 const FieldSettingBase = (props: IFieldSetting) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const [field, setField] = useState<IFieldRo>({
-    name: originField?.name || '',
+    name: originField?.name,
     type: originField?.type || FieldType.SingleLineText,
     description: originField?.description,
     options: originField?.options,

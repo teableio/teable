@@ -1,4 +1,4 @@
-import type { IFullTableVo, IJsonApiResponse, ITableListVo } from '@teable-group/core';
+import type { ITableFullVo, IJsonApiResponse, ITableListVo } from '@teable-group/core';
 import { FieldKeyType, isJsonApiSuccessResponse } from '@teable-group/core';
 import axios from 'axios';
 
@@ -9,9 +9,9 @@ export class SsrApi {
 
   async getTable(tableId: string, viewId?: string) {
     return this.axios
-      .get<IJsonApiResponse<IFullTableVo>>(`/table/${tableId}`, {
+      .get<IJsonApiResponse<ITableFullVo>>(`/table/${tableId}`, {
         params: {
-          needFullTable: true,
+          includeContent: true,
           viewId,
           fieldKeyType: FieldKeyType.Id,
         },

@@ -9,6 +9,10 @@ abstract class LogicalFunc extends FormulaFunc {
 export class And extends LogicalFunc {
   name = FunctionName.And;
 
+  acceptValueType = new Set([CellValueType.Boolean]);
+
+  acceptMultipleValue = true;
+
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
       throw new Error('And needs at least 1 param');

@@ -29,6 +29,7 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
 
     return plainToInstance(DateFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Date',
       options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.DateTime,

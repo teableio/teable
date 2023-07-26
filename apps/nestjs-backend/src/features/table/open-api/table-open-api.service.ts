@@ -4,7 +4,7 @@ import type {
   ICreateTableRo,
   IFieldRo,
   IFieldVo,
-  IFullTableVo,
+  ITableFullVo,
   ITableVo,
   IViewRo,
   IViewVo,
@@ -70,7 +70,7 @@ export class TableOpenApiService {
     return this.recordOpenApiService.multipleCreateRecords(tableId, data, transactionKey);
   }
 
-  async createTable(tableRo: ICreateTableRo): Promise<IFullTableVo> {
+  async createTable(tableRo: ICreateTableRo): Promise<ITableFullVo> {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {

@@ -4,7 +4,7 @@ export function getUniqName(name: string, existNames: string[]) {
   }
 
   let baseName = name;
-  let num = 1;
+  let num = 2;
   const match = name.match(/^(.*)(\b\d+)$/);
 
   if (match) {
