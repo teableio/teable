@@ -4,7 +4,13 @@ import { Input } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DateField } from '../../../../model';
 import { BaseSingleSelect } from '../base';
-import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
+import {
+  DATEPICKEROPTIONS,
+  defaultValue,
+  INPUTOPTIONS,
+  withInDefaultValue,
+  defaultMapping,
+} from './constant';
 import { DatePicker } from './DatePicker';
 
 interface IFilerDatePickerProps {
@@ -73,8 +79,9 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       FieldType.Date,
       operator as IDateTimeFieldOperator
     );
+
     const options = optionMapping!.map((operator) => ({
-      label: operator,
+      label: defaultMapping[operator],
       value: operator,
     }));
     // change the operator to another type
