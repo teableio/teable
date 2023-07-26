@@ -2,6 +2,13 @@ import { useMemo } from 'react';
 import type { IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
+export interface IVisibleRegion {
+  startRowIndex: number;
+  stopRowIndex: number;
+  startColumnIndex: number;
+  stopColumnIndex: number;
+}
+
 export const getVerticalRangeInfo = (coordInstance: CoordinateManager, scrollTop: number) => {
   const { rowCount } = coordInstance;
   const startIndex = coordInstance.getRowStartIndex(scrollTop);

@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { useRef, useEffect } from 'react';
+import type { IVisibleRegion } from './hooks';
 import type { IInteractionLayerProps } from './InteractionLayer';
 import type {
   ICellItem,
@@ -23,10 +24,7 @@ export interface IRenderLayerProps
     | 'coordInstance'
   > {
   isEditing: boolean;
-  startRowIndex: number;
-  stopRowIndex: number;
-  startColumnIndex: number;
-  stopColumnIndex: number;
+  visibleRegion: IVisibleRegion;
   activeCell: ICellItem | null;
   dragState: IDragState;
   mouseState: IMouseState;

@@ -76,10 +76,7 @@ export const drawCells = (
 ) => {
   const {
     coordInstance,
-    startRowIndex,
-    stopRowIndex: originStopRowIndex,
-    startColumnIndex: originStartColumnIndex,
-    stopColumnIndex: originStopColumnIndex,
+    visibleRegion,
     activeCell,
     mouseState,
     scrollState,
@@ -91,6 +88,12 @@ export const drawCells = (
     imageManager,
     spriteManager,
   } = props;
+  const {
+    startRowIndex,
+    stopRowIndex: originStopRowIndex,
+    startColumnIndex: originStartColumnIndex,
+    stopColumnIndex: originStopColumnIndex,
+  } = visibleRegion;
   const {
     rowHeight,
     freezeColumnCount,
@@ -441,8 +444,7 @@ export const drawColumnHeaders = (
   // eslint-disable-next-line sonarjs/cognitive-complexity
 ) => {
   const {
-    startColumnIndex: originStartColumnIndex,
-    stopColumnIndex: originStopColumnIndex,
+    visibleRegion,
     coordInstance,
     columns,
     theme,
@@ -454,6 +456,8 @@ export const drawColumnHeaders = (
     isRowAppendEnable,
     isColumnHeaderMenuVisible,
   } = props;
+  const { startColumnIndex: originStartColumnIndex, stopColumnIndex: originStopColumnIndex } =
+    visibleRegion;
   const {
     containerWidth,
     freezeRegionWidth,
@@ -751,14 +755,8 @@ export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: IRen
 };
 
 const setVisibleImageRegion = (props: IRenderLayerProps) => {
-  const {
-    imageManager,
-    coordInstance,
-    startColumnIndex,
-    stopColumnIndex,
-    startRowIndex,
-    stopRowIndex,
-  } = props;
+  const { imageManager, coordInstance, visibleRegion } = props;
+  const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
   const { freezeColumnCount } = coordInstance;
   imageManager?.setWindow(
     {

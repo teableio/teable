@@ -1,11 +1,13 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useClickAway } from 'react-use';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
+import type { IInteractionLayerRef } from './InteractionLayer';
 import { InteractionLayer } from './InteractionLayer';
 import { RegionType, RowControlType } from './interface';
 import type {
@@ -131,6 +133,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
@@ -193,12 +196,17 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   useEventListener('mousedown', onMouseDown, containerRef.current, true);
 
+  useClickAway(ref, () => {
+    interactionLayerRef.current?.onReset();
+  });
+
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
     <div className="w-full h-full" style={style} ref={ref}>
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
+          ref={interactionLayerRef}
           theme={theme}
           columns={columns}
           rowControls={rowControls}

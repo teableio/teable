@@ -80,7 +80,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const isCellSelection = selectionType === SelectionRegionType.Cells;
   const [columnIndex, rowIndex] = activeCell ?? [-1, -1];
   const cellContent = useMemo(
-    () => getCellContent([columnIndex, rowIndex]) as ICell,
+    () => getCellContent([columnIndex, rowIndex]) as IInnerCell,
     [columnIndex, getCellContent, rowIndex]
   );
   const {
@@ -105,7 +105,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   useEffect(() => {
-    if (cellContent.type === CellType.Loading) return;
+    if ((cellContent as ICell).type === CellType.Loading) return;
     if (!activeCell) return;
     editorRef.current?.setValue?.(cellContent.data);
     requestAnimationFrame(() => editorRef.current?.focus?.());
@@ -187,7 +187,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     };
     const top = clamp(
       coordInstance.getRowOffset(rowIndex) - scrollTop + verticalPositionMap[editorPosition],
-      rowInitSize,
+      rowInitSize - 1,
       containerHeight - height + 1
     );
     const left = clamp(

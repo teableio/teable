@@ -47,6 +47,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
     const { type, rowIndex, columnIndex, x, y } = mouseState;
 
     if (type === RegionType.RowHeaderDragHandler) {
+      startPosition.current = y;
       const offsetY = coordInstance.getRowOffset(rowIndex);
       setDragState({
         type: DragRegionType.Row,
@@ -100,6 +101,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
 
   return {
     dragState,
+    setDragState,
     onDragStart,
     onDragChange,
     onDragEnd,

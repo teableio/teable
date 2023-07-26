@@ -1,11 +1,17 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
-import type { Dispatch, FC, SetStateAction } from 'react';
-import { useState, useRef, useCallback } from 'react';
+import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
-import { DEFAULT_SELECTION_STATE, DEFAULT_MOUSE_STATE, GRID_DEFAULT } from './configs';
+import {
+  DEFAULT_SELECTION_STATE,
+  DEFAULT_MOUSE_STATE,
+  GRID_DEFAULT,
+  DEFAULT_DRAG_STATE,
+  DEFAULT_COLUMN_RESIZE_STATE,
+} from './configs';
 import type { IGridProps } from './Grid';
 import { useAutoScroll, useSmartClick } from './hooks';
 import { useColumnResize } from './hooks/useColumnResize';
@@ -42,7 +48,14 @@ export interface IInteractionLayerProps
   scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
-export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
+export interface IInteractionLayerRef {
+  onReset: () => void;
+}
+
+export const InteractionLayerBase: ForwardRefRenderFunction<
+  IInteractionLayerRef,
+  IInteractionLayerProps
+> = (props, ref) => {
   const {
     theme,
     columns,
@@ -69,6 +82,11 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onContextMenu,
     onColumnHeaderMenuClick,
   } = props;
+
+  useImperativeHandle(ref, () => ({
+    onReset,
+  }));
+
   const stageRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
@@ -79,13 +97,18 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
 
-  const { startRowIndex, stopRowIndex, startColumnIndex, stopColumnIndex } = useVisibleRegion(
+  const visibleRegion = useVisibleRegion(coordInstance, scrollState);
+  const {
+    columnResizeState,
+    setColumnResizeState,
+    onColumnResizeStart,
+    onColumnResizeChange,
+    onColumnResizeEnd,
+  } = useColumnResize(coordInstance, scrollState);
+  const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState
   );
-  const { columnResizeState, onColumnResizeStart, onColumnResizeChange, onColumnResizeEnd } =
-    useColumnResize(coordInstance, scrollState);
-  const { dragState, onDragStart, onDragChange, onDragEnd } = useDrag(coordInstance, scrollState);
   const {
     activeCell,
     setActiveCell,
@@ -219,7 +242,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
         if (cell.readonly) return;
         const cellRenderer = getCellRenderer(cell.type);
         const cellClick = cellRenderer.onClick;
-        if (cellClick) {
+        if (cellClick && onCellEdited) {
           const newValue = cellClick(cell as never, {
             hoverCellX,
             hoverCellY,
@@ -228,7 +251,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
             theme,
           });
           if (newValue === undefined) return;
-          onCellEdited?.([columnIndex, rowIndex], {
+          onCellEdited([columnIndex, rowIndex], {
             ...cell,
             data: newValue,
           } as IInnerCell);
@@ -276,10 +299,21 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
   };
 
   const onCellPosition = (mouseState: IMouseState) => {
-    const { columnIndex, rowIndex } = mouseState;
+    const { columnIndex, rowIndex, hoverCellX, hoverCellY } = mouseState;
     const cell = getCellContent([columnIndex, rowIndex]);
     const cellRenderer = getCellRenderer(cell.type);
-    if (!cell.readonly && cellRenderer.needsHover) {
+    if (cell.readonly) return;
+    if (cellRenderer.needsHoverPosition) {
+      const isBound = cellRenderer.checkWithinBound?.({
+        width: coordInstance.getColumnWidth(columnIndex),
+        height: coordInstance.getRowHeight(rowIndex),
+        hoverCellX,
+        hoverCellY,
+        theme,
+      });
+      return isBound ? setCursor('pointer') : undefined;
+    }
+    if (cellRenderer.needsHover) {
       setCursor('pointer');
     }
   };
@@ -335,6 +369,14 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     onSelectionContextMenu(mouseState, (selection, position) => onContextMenu(selection, position));
   };
 
+  const onReset = () => {
+    setActiveCell(null);
+    setDragState(DEFAULT_DRAG_STATE);
+    setMouseState(DEFAULT_MOUSE_STATE);
+    setSelectionState(DEFAULT_SELECTION_STATE);
+    setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
+  };
+
   return (
     <>
       <div
@@ -359,10 +401,7 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
-          startRowIndex={startRowIndex}
-          stopRowIndex={stopRowIndex}
-          startColumnIndex={startColumnIndex}
-          stopColumnIndex={stopColumnIndex}
+          visibleRegion={visibleRegion}
           activeCell={activeCell}
           mouseState={mouseState}
           scrollState={scrollState}
@@ -399,3 +438,5 @@ export const InteractionLayer: FC<IInteractionLayerProps> = (props) => {
     </>
   );
 };
+
+export const InteractionLayer = forwardRef(InteractionLayerBase);

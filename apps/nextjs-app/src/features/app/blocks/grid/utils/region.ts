@@ -23,6 +23,7 @@ export const getRegionType = (props: ICheckRegionProps): RegionType => {
     checkIfColumnResizing(props) ||
     checkIfDragging(props) ||
     checkIsAppendColumn(props) ||
+    checkIsAllCheckbox(props) ||
     checkIsAppendRow(props) ||
     checkIsRowHeader(props) ||
     checkIsFillHandler(props) ||
@@ -58,6 +59,24 @@ const checkIsAppendColumn = (props: ICheckRegionProps): RegionType | null => {
   return hasAppendColumn && rowIndex === -1 && columnIndex === -2 ? RegionType.AppendColumn : null;
 };
 
+const checkIsAllCheckbox = (props: ICheckRegionProps): RegionType | null => {
+  const { position, theme, rowControls, coordInstance } = props;
+  const { x, y, rowIndex, columnIndex } = position;
+  if (rowIndex !== -1 || columnIndex !== -1 || !rowControls.includes(RowControlType.Checkbox)) {
+    return null;
+  }
+  const { iconSizeXS } = theme;
+  const halfIconSize = iconSizeXS / 2;
+  const { rowInitSize, columnInitSize } = coordInstance;
+  if (
+    inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize) &&
+    inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)
+  ) {
+    return RegionType.AllCheckbox;
+  }
+  return null;
+};
+
 const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
   const { position, coordInstance, hasAppendRow } = props;
   const { rowIndex, columnIndex } = position;
@@ -71,7 +90,7 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const { position, theme, rowControls, scrollState, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
 
-  if (rowIndex < -1 || columnIndex !== -1) return null;
+  if (rowIndex <= -1 || columnIndex !== -1) return null;
 
   const { iconSizeXS } = theme;
   const { columnInitSize } = coordInstance;
