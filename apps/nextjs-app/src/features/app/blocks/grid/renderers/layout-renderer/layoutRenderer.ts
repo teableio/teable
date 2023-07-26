@@ -126,8 +126,7 @@ export const drawCells = (
   const rowHeaderPropsCollection = [];
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
-    let x = coordInstance.getColumnOffset(columnIndex);
-    x = isFreezeRegion ? x : x - scrollLeft;
+    const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isColumnActive = checkIfColumnActive(selectionState, columnIndex);
 
@@ -219,8 +218,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: IRenderLaye
   const { cellLineColorActived, fontSizeSM, fontFamily } = theme;
   const [columnIndex, rowIndex] = activeCell;
   const isFreezeRegion = columnIndex < freezeColumnCount;
-  let x = coordInstance.getColumnOffset(columnIndex);
-  x = isFreezeRegion ? x : x - scrollLeft;
+  const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
   const width = coordInstance.getColumnWidth(columnIndex);
   const height = coordInstance.getRowHeight(rowIndex);
@@ -270,8 +268,7 @@ export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: IRenderLay
   const { fillHandlerSize } = GRID_DEFAULT;
   const { cellBg, cellLineColorActived } = theme;
   const isFreezeRegion = columnIndex < freezeColumnCount;
-  let x = coordInstance.getColumnOffset(columnIndex);
-  x = isFreezeRegion ? x : x - scrollLeft;
+  const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
   const width = coordInstance.getColumnWidth(columnIndex);
   const height = coordInstance.getRowHeight(rowIndex);
@@ -502,8 +499,7 @@ export const drawColumnHeaders = (
   ctx.font = `normal ${fontSizeMD}px ${fontFamily}`;
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
-    let x = coordInstance.getColumnOffset(columnIndex);
-    x = isFreezeRegion ? x : x - scrollLeft;
+    const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isActive = checkIfColumnActive(selectionState, columnIndex);
     const isHover =
@@ -667,9 +663,8 @@ export const drawColumnResizeHandler = (
   let x = 0;
 
   if (isResizing) {
-    const offsetX = coordInstance.getColumnOffset(resizeColumnIndex);
     const columnWidth = coordInstance.getColumnWidth(resizeColumnIndex);
-    x = isFreezeColumn ? offsetX + columnWidth : offsetX + columnWidth - scrollLeft;
+    x = coordInstance.getColumnRelativeOffset(resizeColumnIndex, scrollLeft) + columnWidth;
   } else {
     let startOffsetX = coordInstance.getColumnOffset(hoverColumnIndex);
     startOffsetX = isFreezeColumn ? startOffsetX : startOffsetX - scrollLeft;
@@ -680,9 +675,8 @@ export const drawColumnResizeHandler = (
     )
       ? hoverColumnIndex - 1
       : hoverColumnIndex;
-    const realOffsetX = coordInstance.getColumnOffset(realColumnIndex);
     const realColumnWidth = coordInstance.getColumnWidth(realColumnIndex);
-    x = isFreezeColumn ? realOffsetX + realColumnWidth : realOffsetX + realColumnWidth - scrollLeft;
+    x = coordInstance.getColumnRelativeOffset(realColumnIndex, scrollLeft) + realColumnWidth;
   }
   const paddingTop = 4;
 
@@ -703,7 +697,7 @@ export const drawColumnDraggingRegion = (
   const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
   const { type, isDragging, index: draggingColIndex, delta } = dragState;
-  const { containerHeight, freezeColumnCount } = coordInstance;
+  const { containerHeight } = coordInstance;
   const { x } = mouseState;
   const { scrollLeft } = scrollState;
 
@@ -717,8 +711,7 @@ export const drawColumnDraggingRegion = (
   });
 
   const targetColumnIndex = getDropTargetIndex(coordInstance, mouseState, scrollState, type);
-  const offsetX = coordInstance.getColumnOffset(targetColumnIndex);
-  const finalX = targetColumnIndex < freezeColumnCount ? offsetX : offsetX - scrollLeft;
+  const finalX = coordInstance.getColumnRelativeOffset(targetColumnIndex, scrollLeft);
 
   drawLine(ctx, {
     x: finalX + 0.5,

@@ -221,4 +221,9 @@ export class CoordinateManager implements ICoordinate {
   public getColumnOffset(columnIndex: number) {
     return this.getCellMetaData(columnIndex, ItemType.Column).offset;
   }
+
+  public getColumnRelativeOffset(columnIndex: number, scrollLeft: number) {
+    const x = this.getColumnOffset(columnIndex);
+    return columnIndex < this.freezeColumnCount ? x : x - scrollLeft;
+  }
 }
