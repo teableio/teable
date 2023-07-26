@@ -127,6 +127,7 @@ export interface IBaseCellRenderer<T extends ICell> {
   measure?: (cell: T, props: ICellMeasureProps) => number | null;
 
   // Interaction
+  checkWithinBound?: (props: ICellClickProps) => boolean;
   onClick?: (cell: T, props: ICellClickProps) => void;
 
   // Editing

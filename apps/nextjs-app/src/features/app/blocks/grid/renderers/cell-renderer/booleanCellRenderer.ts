@@ -11,7 +11,7 @@ import type {
 export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
   type: CellType.Boolean,
   needsHover: true,
-  needsHoverPosition: false,
+  needsHoverPosition: true,
   draw: (cell: IBooleanCell, props: ICellRenderProps) => {
     const { data, isMultiple } = cell;
     const { ctx, rect, theme } = props;
@@ -54,18 +54,18 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
       });
     }
   },
-  onClick: (cell: IBooleanCell, props: ICellClickProps) => {
+  checkWithinBound: (props: ICellClickProps) => {
     const { hoverCellX, hoverCellY, width, height, theme } = props;
-    const { data } = cell;
     const { iconSizeSM } = theme;
     const halfIconSize = iconSizeSM / 2;
 
-    if (
+    return Boolean(
       inRange(hoverCellX, width / 2 - halfIconSize, width / 2 + halfIconSize) &&
-      inRange(hoverCellY, height / 2 - halfIconSize, height / 2 + halfIconSize)
-    ) {
-      return !data;
-    }
-    return undefined;
+        inRange(hoverCellY, height / 2 - halfIconSize, height / 2 + halfIconSize)
+    );
+  },
+  onClick: (cell: IBooleanCell, props: ICellClickProps) => {
+    const { data } = cell;
+    return booleanCellRenderer.checkWithinBound?.(props) ? !data : undefined;
   },
 };
