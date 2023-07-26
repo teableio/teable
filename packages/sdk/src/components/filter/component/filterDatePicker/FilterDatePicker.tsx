@@ -1,13 +1,21 @@
 import type { IDateTimeFieldOperator, IDateFilter } from '@teable-group/core';
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Input } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BaseSingleSelect } from '../base/BaseSingleSelect';
-import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
+import type { DateField } from '../../../../model';
+import { BaseSingleSelect } from '../base';
+import {
+  DATEPICKEROPTIONS,
+  defaultValue,
+  INPUTOPTIONS,
+  withInDefaultValue,
+  defaultMapping,
+} from './constant';
 import { DatePicker } from './DatePicker';
 
 interface IFilerDatePickerProps {
   value: IDateFilter | null;
+  field: DateField;
   operator: string;
   onSelect: (value: IDateFilter | null) => void;
 }
@@ -18,7 +26,7 @@ const isDateMetaValue = (value: any) => {
 };
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
-  const { value: initValue, operator, onSelect } = props;
+  const { value: initValue, operator, onSelect, field } = props;
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
 
   const defaultConfig = useMemo(() => {
@@ -71,8 +79,9 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       FieldType.Date,
       operator as IDateTimeFieldOperator
     );
+
     const options = optionMapping!.map((operator) => ({
-      label: operator,
+      label: defaultMapping[operator],
       value: operator,
     }));
     // change the operator to another type
@@ -89,7 +98,9 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     const isInput = innerValue?.mode && INPUTOPTIONS.includes(innerValue?.mode);
     switch (true) {
       case isDatePick:
-        return <DatePicker value={innerValue?.exactDate} onSelect={datePickerSelect} />;
+        return (
+          <DatePicker value={innerValue?.exactDate} onSelect={datePickerSelect} field={field} />
+        );
       case isInput:
         return (
           <Input
@@ -112,7 +123,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         );
     }
     return null;
-  }, [datePickerSelect, onSelect, innerValue]);
+  }, [innerValue, datePickerSelect, field, onSelect]);
 
   return (
     <>
@@ -120,7 +131,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
-        className="w-m-52 w-52"
+        className="max-w-xs"
         popoverClassName="w-max"
       />
       {inputCreator}

@@ -1,9 +1,8 @@
-import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import type { MultipleSelectField, SingleSelectField } from '@teable-group/sdk';
-
+import classNames from 'classnames';
 import { useMemo, useEffect } from 'react';
-import { cn } from '@/lib/utils';
+import type { MultipleSelectField, SingleSelectField } from '../../../model';
+import type { IColorOption } from './base';
 import { BaseMultipleSelect } from './base';
 
 interface IMutipleSelect {
@@ -12,13 +11,8 @@ interface IMutipleSelect {
   // SingleSelectField used in MultipleSelect in filter scenario
   field: MultipleSelectField | SingleSelectField;
 }
-interface IColorOption {
-  value: string;
-  label: string;
-  color: Colors;
-}
 
-const MultipleSelect = (props: IMutipleSelect) => {
+const FilterMultipleSelect = (props: IMutipleSelect) => {
   const { field, value, onSelect } = props;
   const values = useMemo(() => {
     if (Array.isArray(value) && value.length) {
@@ -48,7 +42,7 @@ const MultipleSelect = (props: IMutipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 rounded-lg m-1')}
+        className={classNames('px-2 rounded-lg m-1')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
@@ -66,11 +60,12 @@ const MultipleSelect = (props: IMutipleSelect) => {
       value={values}
       displayRender={displayRender}
       optionRender={displayRender}
-      popoverClassName="w-40"
+      className="w-64"
+      popoverClassName="w-64"
     />
   );
 };
 
-MultipleSelect.displayName = 'MultipleSelect';
+FilterMultipleSelect.displayName = 'FilterMultipleSelect';
 
-export { MultipleSelect };
+export { FilterMultipleSelect };

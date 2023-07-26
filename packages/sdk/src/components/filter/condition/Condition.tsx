@@ -1,11 +1,11 @@
 import type { IFilterItem, FieldType } from '@teable-group/core';
 
-import { useFields } from '@teable-group/sdk';
-import AshBin from '@teable-group/ui-lib/icons/app/ashbin.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Trash2 } from '@teable-group/icons';
+import { Button } from '@teable-group/ui-lib';
 
 import { cloneDeep, isEqual } from 'lodash';
 import { useCallback, useContext, useRef, useMemo } from 'react';
+import { useFields } from '../../../hooks';
 
 import { FilterContext } from '../context';
 import type { IConditionProps } from '../types';
@@ -49,7 +49,7 @@ function Condition(props: IConditionProps) {
     [fieldMap, filter, filters, setFilters]
   );
   const operatorHandler = useCallback(
-    (value: string) => {
+    (value: string | null) => {
       if (filter.operator !== value) {
         filter.operator = value as IFilterItem['operator'];
         const newFilters = cloneDeep(filters);
@@ -92,8 +92,8 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white">
-          <AshBin className="h-4 w-4"></AshBin>
+        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white ml-1">
+          <Trash2 className="h-4 w-4"></Trash2>
         </Button>
       </section>
     </div>

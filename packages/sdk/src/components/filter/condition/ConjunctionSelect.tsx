@@ -1,17 +1,19 @@
 import type { IFilter } from '@teable-group/core';
 
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
+  Button,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandItem,
-} from '@teable-group/ui-lib/shadcn/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@teable-group/ui-lib';
 
+import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import * as React from 'react';
-import { cn } from '@/lib/utils';
 
 const ConjunctionOptions = [
   {
@@ -67,7 +69,7 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
                 }}
               >
                 <Check
-                  className={cn(
+                  className={classNames(
                     'mr-2 h-4 w-4',
                     value === conjunction.value ? 'opacity-100' : 'opacity-0'
                   )}

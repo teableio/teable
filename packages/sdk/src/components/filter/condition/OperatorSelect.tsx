@@ -1,9 +1,9 @@
 import type { IFilterOperator } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
-import { useField, operatorLabelMapping } from '@teable-group/sdk';
-
 import { useMemo } from 'react';
+import { useField } from '../../../hooks';
 import { BaseSingleSelect } from '../component';
+import { getFieldOperatorMapping } from '../utils';
 
 interface IOperatorOptions {
   value: IFilterOperator;
@@ -13,21 +13,22 @@ interface IOperatorOptions {
 interface IOperatorSelectProps {
   value?: string;
   fieldId: string;
-  onSelect: (value: string) => void;
+  onSelect: (value: string | null) => void;
 }
 
 function OperatorSelect(props: IOperatorSelectProps) {
   const { onSelect, fieldId } = props;
   const field = useField(fieldId);
+  const labelMapping = useMemo(() => getFieldOperatorMapping(field?.type), [field]);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {
       return getValidFilterOperators(field).map((operator) => ({
-        label: operatorLabelMapping[operator],
+        label: labelMapping[operator],
         value: operator,
       }));
     }
     return [] as IOperatorOptions[];
-  }, [field]);
+  }, [field, labelMapping]);
   const shouldDisabled = useMemo(() => {
     return field?.type === 'checkbox';
   }, [field]);
@@ -45,8 +46,8 @@ function OperatorSelect(props: IOperatorSelectProps) {
     <BaseSingleSelect
       value={value || null}
       options={operatorOption}
-      popoverClassName="w-[200px]"
-      className="w-[128px] max-w-[128px] min-w-[128px] justify-between m-1"
+      popoverClassName="w-48"
+      className="w-32 justify-between m-1 shrink"
       onSelect={onSelect}
       disabled={shouldDisabled}
     />

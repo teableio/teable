@@ -1,7 +1,8 @@
-import { useRecords, AnchorProvider } from '@teable-group/sdk';
-import type { LinkField } from '@teable-group/sdk';
-
 import { useCallback, useMemo } from 'react';
+import { AnchorProvider } from '../../../context';
+import { useRecords } from '../../../hooks';
+import type { LinkField } from '../../../model';
+
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 import { FilterInput } from './FilterInput';
 
@@ -32,7 +33,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
   const displayRender = useCallback((option: typeof options[number]) => {
     return (
       <div
-        className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1 truncate"
+        className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1"
         key={option.value}
       >
         {option?.label || 'Untitled'}
@@ -61,8 +62,8 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
             value={values as string}
             displayRender={displayRender}
             optionRender={optionRender}
-            className="w-44"
-            popoverClassName="w-44"
+            className="w-64"
+            popoverClassName="w-64"
           />
         ) : (
           <BaseMultipleSelect
@@ -71,12 +72,12 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
             value={values as string[]}
             displayRender={displayRender}
             optionRender={optionRender}
-            className="w-44"
-            popoverClassName="w-44"
+            className="w-64"
+            popoverClassName="w-64"
           />
         )
       ) : (
-        <FilterInput placeholder="Enter a value" value={values} onChange={onSelect} />
+        <FilterInput placeholder="Enter a value" value={values as string} onChange={onSelect} />
       )}
     </>
   );

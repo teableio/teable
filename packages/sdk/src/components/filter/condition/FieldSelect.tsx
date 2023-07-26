@@ -1,7 +1,5 @@
-import { useFields } from '@teable-group/sdk';
-
 import { useCallback, useMemo } from 'react';
-import { useFieldStaticGetter } from '@/features/app/utils';
+import { useFields, useFieldStaticGetter } from '../../../hooks';
 
 import { BaseSingleSelect } from '../component';
 
@@ -28,7 +26,7 @@ function FieldSelect(props: IFieldSelectProps) {
       const { Icon } = fieldStaticGetter(option.type, option.isLookup);
       return (
         <>
-          <Icon></Icon>
+          <Icon className="shrink-0"></Icon>
           <div className="pl-1 truncate">{option.label}</div>
         </>
       );
@@ -41,8 +39,8 @@ function FieldSelect(props: IFieldSelectProps) {
       options={options}
       onSelect={onSelect}
       value={value}
-      className="w-40 max-w-[160px]"
-      popoverClassName="w-40"
+      className="w-32 shrink"
+      popoverClassName="max-w-xs"
       optionRender={optionRender}
     />
   );

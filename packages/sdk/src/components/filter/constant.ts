@@ -1,3 +1,6 @@
+const EMPTYOPERATORS = ['isEmpty', 'isNotEmpty'];
+const MULPTIPLEOPERATORS = ['isAnyOf', 'isNoneOf'];
+
 const operatorLabelMapping = {
   is: 'is',
   isNot: 'is not',
@@ -22,4 +25,15 @@ const operatorLabelMapping = {
   isOnOrAfter: 'is on or after',
 };
 
-export { operatorLabelMapping };
+const fieldNumberLabelMap = {
+  is: '=',
+  isNot: '≠',
+  isGreater: '>',
+  isGreaterEqual: '≥',
+  isLess: '<',
+  isLessEqual: '≤',
+  isEmpty: 'is empty',
+  isNotEmpty: 'is not empty',
+};
+
+export { EMPTYOPERATORS, MULPTIPLEOPERATORS, operatorLabelMapping, fieldNumberLabelMap };

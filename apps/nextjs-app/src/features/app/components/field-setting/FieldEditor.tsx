@@ -1,8 +1,8 @@
 import type { IFieldRo, ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import { useFieldStaticGetter } from '@teable-group/sdk';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
-import { useFieldStaticGetter } from '../../utils';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
 import { LookupOptions } from './options/LookupOptions';

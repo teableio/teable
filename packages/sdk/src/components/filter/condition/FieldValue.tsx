@@ -1,14 +1,15 @@
 import { FieldType } from '@teable-group/core';
 import type { IFilterItem, IDateFilter } from '@teable-group/core';
-import { useField } from '@teable-group/sdk';
 
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
+import { useField } from '../../../hooks';
 
 import {
-  SingleSelect,
-  MultipleSelect,
+  FilterSingleSelect,
+  FilterMultipleSelect,
   FilterInput,
+  FilterInputNumber,
   FilterDatePicker,
   FilterCheckbox,
   FilterLinkSelect,
@@ -44,12 +45,23 @@ function FieldValue(props: IFieldValue) {
 
     switch (field?.type) {
       case FieldType.Number:
-        return InputComponent;
+        return (
+          <FilterInputNumber
+            placeholder="Enter a value"
+            value={filter.value as number}
+            onChange={onSelect}
+            className="w-40"
+          />
+        );
       case FieldType.SingleSelect:
         return MULPTIPLEOPERATORS.includes(filter.operator) ? (
-          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
+          <FilterMultipleSelect
+            field={field}
+            value={filter.value as string[]}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
+          />
         ) : (
-          <SingleSelect
+          <FilterSingleSelect
             field={field}
             value={filter.value as string}
             onSelect={onSelect}
@@ -58,11 +70,16 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.MultipleSelect:
         return (
-          <MultipleSelect field={field} value={filter.value as string[]} onSelect={onSelect} />
+          <FilterMultipleSelect
+            field={field}
+            value={filter.value as string[]}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
+          />
         );
       case FieldType.Date:
         return (
           <FilterDatePicker
+            field={field}
             value={filter.value as IDateFilter}
             onSelect={onSelect}
             operator={filter.operator}
@@ -76,7 +93,7 @@ function FieldValue(props: IFieldValue) {
         return (
           <FilterLinkSelect
             field={field}
-            onSelect={onSelect}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
             value={filter.value as string[]}
             operator={filter.operator}
           />

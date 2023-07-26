@@ -1,32 +1,18 @@
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import {
+  Button,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-} from '@teable-group/ui-lib/shadcn/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@teable-group/ui-lib';
+import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { cn } from '@/lib/utils';
-
-interface IOption {
-  label: string;
-  value: string;
-}
-
-export interface IBaseSelect<T = IOption> {
-  options: T[];
-  value: string | null;
-  className?: string;
-  popoverClassName?: string;
-  disabled?: boolean;
-  notFoundText?: string;
-  optionRender?: (option: T) => React.ReactElement;
-  onSelect: (value: string | null) => void;
-  displayRender?: (option: T) => React.ReactElement;
-}
+import type { IOption, IBaseSelect } from './types';
 
 function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
   const {
@@ -51,7 +37,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
     const isNull = value === null;
     const isSameType = typeof value === 'string';
     const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || !isInOption) {
+    if ((!isNull && !isSameType) || (!isInOption && options.length)) {
       onSelect?.(null);
     }
   }, [onSelect, value, options]);
@@ -87,7 +73,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('justify-between m-1 truncate overflow-hidden', className)}
+          className={classNames('justify-between m-1 truncate overflow-hidden', className)}
         >
           {value
             ? (selectedValue && displayRender?.(selectedValue)) ?? (
@@ -97,7 +83,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn('p-2', popoverClassName)}>
+      <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
           <CommandInput placeholder="Search field..." />
           <CommandEmpty>{notFoundText}</CommandEmpty>
@@ -113,7 +99,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
                 className="truncate"
               >
                 <Check
-                  className={cn(
+                  className={classNames(
                     'mr-2 h-4 w-4 shrink-0',
                     value === option.value ? 'opacity-100' : 'opacity-0'
                   )}

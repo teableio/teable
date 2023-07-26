@@ -1,4 +1,5 @@
 import type { IFilter } from '@teable-group/core';
+import { Filter } from '@teable-group/sdk';
 import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useToast } from '@teable-group/ui-lib';
@@ -14,7 +15,6 @@ import { cloneDeep } from 'lodash';
 import { useCallback, useMemo } from 'react';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { Filter } from './Filter';
 import { FilterColumnsButton } from './FilterColumnsButton';
 
 export const ToolBar: React.FC = () => {

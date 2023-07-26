@@ -1,4 +1,4 @@
-import { Checkbox } from '@teable-group/ui-lib/shadcn/ui/checkbox';
+import { Checkbox } from '@teable-group/ui-lib';
 import { useEffect } from 'react';
 
 interface IFilterCheckboxProps {
