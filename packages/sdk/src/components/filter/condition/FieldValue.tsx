@@ -79,6 +79,7 @@ function FieldValue(props: IFieldValue) {
       case FieldType.Date:
         return (
           <FilterDatePicker
+            field={field}
             value={filter.value as IDateFilter}
             onSelect={onSelect}
             operator={filter.operator}
