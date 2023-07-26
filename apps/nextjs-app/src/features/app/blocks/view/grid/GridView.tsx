@@ -16,13 +16,7 @@ import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { useFieldStaticGetter } from '@/features/app/utils';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid';
-import type {
-  IRectangle,
-  ISelectionState,
-  IPosition,
-  ISelectionBase,
-  IGridColumn,
-} from '../../grid';
+import type { IRectangle, IPosition, ISelection, IGridColumn } from '../../grid';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
@@ -72,6 +66,7 @@ export const GridView: React.FC = () => {
               break;
             case CellType.Text:
             case CellType.Number:
+            case CellType.Boolean:
             default:
               newCellValue = data === '' ? null : data;
           }
@@ -94,7 +89,7 @@ export const GridView: React.FC = () => {
   useMount(() => setReadyToRender(true));
 
   const onContextMenu = useCallback(
-    (selection: ISelectionBase, position: IPosition) => {
+    (selection: ISelection, position: IPosition) => {
       const { type, ranges } = selection;
       const isRowSelection = type === SelectionRegionType.Rows;
       const isCellSelection = type === SelectionRegionType.Cells;
@@ -170,7 +165,7 @@ export const GridView: React.FC = () => {
     return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
   }, [view]);
 
-  const onDelete = (selection: ISelectionState) => {
+  const onDelete = (selection: ISelection) => {
     const { type, ranges } = selection;
 
     switch (type) {
@@ -207,7 +202,12 @@ export const GridView: React.FC = () => {
           smoothScrollY
           headerIcons={headerIcons}
           rowControls={[RowControlType.Drag, RowControlType.Checkbox, RowControlType.Expand]}
-          style={{ marginLeft: -1, marginTop: -1 }}
+          style={{
+            marginLeft: -1,
+            marginTop: -1,
+            width: 'calc(100% + 1px)',
+            height: 'calc(100% + 1px)',
+          }}
           getCellContent={getCellContent}
           onDelete={onDelete}
           onRowAppend={onRowAppended}

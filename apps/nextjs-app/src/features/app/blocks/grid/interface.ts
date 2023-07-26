@@ -50,12 +50,12 @@ export enum RegionType {
 
 export type IRange = [number, number];
 
-export interface ISelectionBase {
+export interface ISelection {
   type: SelectionRegionType;
   ranges: IRange[];
 }
 
-export interface ISelectionState extends ISelectionBase {
+export interface ISelectionState extends ISelection {
   isSelecting: boolean;
 }
 
@@ -93,6 +93,8 @@ interface IGroupHeaderRow extends IRowBase {
   type: RowType.GroupHeader;
 }
 
+export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
+
 export interface IGridColumn {
   id?: string;
   name: string;
@@ -102,8 +104,6 @@ export interface IGridColumn {
   readonly?: boolean;
   customTheme?: Partial<IGridTheme>;
 }
-
-export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
 
 export interface IColumnResizeState {
   columnIndex: number;
@@ -119,8 +119,8 @@ export interface IDragState {
 }
 
 export enum DragRegionType {
-  Row = 'Row',
-  Column = 'Column',
+  Rows = 'Rows',
+  Columns = 'Columns',
   None = 'None',
 }
 

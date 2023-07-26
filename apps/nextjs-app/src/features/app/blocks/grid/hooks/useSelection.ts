@@ -1,21 +1,22 @@
 import { isEqual } from 'lodash';
 import { useState } from 'react';
+import { useRafState } from 'react-use';
 import { DEFAULT_SELECTION_STATE } from '../configs';
 import type {
   ICellItem,
   IMouseState,
   IPosition,
   IRange,
-  ISelectionBase,
+  ISelection,
   ISelectionState,
 } from '../interface';
 import { RegionType, SelectionRegionType } from '../interface';
 import { inRange, isPointInsideRectangle, mergeRowRanges } from '../utils';
 
 export const useSelection = () => {
-  const [activeCell, setActiveCell] = useState<ICellItem | null>(null);
+  const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [selectionState, setSelectionState] = useState<ISelectionState>(DEFAULT_SELECTION_STATE);
-  const [prevSelectionState, setPrevSelectionState] = useState<ISelectionBase | null>(null);
+  const [prevSelectionState, setPrevSelectionState] = useState<ISelection | null>(null);
 
   const onSelectionStart = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -127,7 +128,7 @@ export const useSelection = () => {
 
   const onSelectionContextMenu = (
     mouseState: IMouseState,
-    callback: (selection: ISelectionBase, position: IPosition) => void
+    callback: (selection: ISelection, position: IPosition) => void
   ) => {
     const { x, y, columnIndex, rowIndex } = mouseState;
     const { type: prevSelectionType, ranges } = selectionState;

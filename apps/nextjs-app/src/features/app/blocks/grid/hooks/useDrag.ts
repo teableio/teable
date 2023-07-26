@@ -15,7 +15,7 @@ export const getDropTargetIndex = (
   const { scrollLeft, scrollTop } = scrollState;
   const { freezeRegionWidth, rowInitSize } = coordInstance;
 
-  if (dragType === DragRegionType.Column) {
+  if (dragType === DragRegionType.Columns) {
     const offsetX = x <= freezeRegionWidth ? x : scrollLeft + x;
     const hoverColumnIndex = coordInstance.getColumnStartIndex(offsetX);
     const hoverColumnOffsetX = coordInstance.getColumnOffset(hoverColumnIndex);
@@ -24,7 +24,7 @@ export const getDropTargetIndex = (
       ? hoverColumnIndex
       : hoverColumnIndex + 1;
   }
-  if (dragType === DragRegionType.Row) {
+  if (dragType === DragRegionType.Rows) {
     const offsetY = y <= rowInitSize ? y : scrollTop + y;
     const hoverRowIndex = coordInstance.getRowStartIndex(offsetY);
     const hoverRowOffsetY = coordInstance.getRowOffset(hoverRowIndex);
@@ -50,7 +50,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
       startPosition.current = y;
       const offsetY = coordInstance.getRowOffset(rowIndex);
       setDragState({
-        type: DragRegionType.Row,
+        type: DragRegionType.Rows,
         index: rowIndex,
         delta: y + scrollTop - offsetY,
         isDragging: false,
@@ -61,7 +61,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
       startPosition.current = x;
       const offsetX = coordInstance.getColumnOffset(columnIndex);
       setDragState({
-        type: DragRegionType.Column,
+        type: DragRegionType.Columns,
         index: columnIndex,
         delta: columnIndex < freezeColumnCount ? x - offsetX : x + scrollLeft - offsetX,
         isDragging: false,
@@ -71,10 +71,10 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
 
   const onDragChange = (mouseState: IMouseState) => {
     const { type } = dragState;
-    if (![DragRegionType.Row, DragRegionType.Column].includes(type)) return;
+    if (![DragRegionType.Rows, DragRegionType.Columns].includes(type)) return;
 
     const { x, y } = mouseState;
-    const prevPosition = type === DragRegionType.Row ? y : x;
+    const prevPosition = type === DragRegionType.Rows ? y : x;
     const moveDistance = Math.abs(prevPosition - startPosition.current);
     if (moveDistance < 5) return;
 
@@ -89,7 +89,7 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
 
     if (!isDragging || !onEnd) return setDragState(DEFAULT_DRAG_STATE);
 
-    if ([DragRegionType.Column, DragRegionType.Row].includes(type)) {
+    if ([DragRegionType.Columns, DragRegionType.Rows].includes(type)) {
       const { index } = dragState;
       const targetIndex = getDropTargetIndex(coordInstance, mouseState, scrollState, type);
       if (!inRange(targetIndex, index, index + 1)) {

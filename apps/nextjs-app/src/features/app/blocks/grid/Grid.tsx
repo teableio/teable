@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useClickAway } from 'react-use';
+import { useClickAway, useRafState, useUpdate } from 'react-use';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
@@ -13,12 +13,11 @@ import { RegionType, RowControlType } from './interface';
 import type {
   IRectangle,
   IScrollState,
-  ISelectionState,
+  ISelection,
   ICellItem,
   IGridColumn,
   IMouseState,
   IPosition,
-  ISelectionBase,
 } from './interface';
 import type { ISpriteMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -32,9 +31,9 @@ export interface IGridExternalProps {
   smoothScrollY?: boolean;
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
-  onCopy?: (selectionState: ISelectionState) => void;
-  onPaste?: (selectionState: ISelectionState) => void;
-  onDelete?: (selectionState: ISelectionState) => void;
+  onCopy?: (selection: ISelection) => void;
+  onPaste?: (selection: ISelection) => void;
+  onDelete?: (selection: ISelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
@@ -47,7 +46,7 @@ export interface IGridExternalProps {
     newSizeWithGrow: number
   ) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
-  onContextMenu?: (selection: ISelectionBase, position: IPosition) => void;
+  onContextMenu?: (selection: ISelection, position: IPosition) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -128,8 +127,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
   );
 
-  const [, forceUpdateInner] = useState(0);
-  const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
+  const forceUpdate = useUpdate();
+  const [mouseState, setMouseState] = useRafState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -172,8 +171,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendRow,
     iconSizeMD,
   ]);
-
-  const forceUpdate = useCallback(() => forceUpdateInner(Math.random()), []);
 
   const spriteManager = useMemo(
     () => new SpriteManager(headerIcons, () => forceUpdate()),

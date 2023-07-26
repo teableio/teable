@@ -6,7 +6,6 @@ import type { ImageManager } from '../../managers';
 
 export enum CellType {
   Text = 'Text',
-  Url = 'Url',
   Number = 'Number',
   Select = 'Select',
   Image = 'Image',
@@ -23,8 +22,8 @@ export enum EditorType {
 
 export enum EditorPosition {
   Above = 'Above',
-  Overlap = 'Overlap',
   Below = 'Below',
+  Overlap = 'Overlap',
 }
 
 export type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;

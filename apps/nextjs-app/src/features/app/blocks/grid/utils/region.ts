@@ -16,6 +16,13 @@ interface ICheckRegionProps
   hasAppendColumn: boolean;
 }
 
+// Define all possible row controls and their corresponding RegionTypes
+const rowControlDefinitions = {
+  [RowControlType.Drag]: RegionType.RowHeaderDragHandler,
+  [RowControlType.Checkbox]: RegionType.RowHeaderCheckbox,
+  [RowControlType.Expand]: RegionType.RowHeaderExpandHandler,
+};
+
 export const getRegionType = (props: ICheckRegionProps): RegionType => {
   return (
     checkIsOutOfBounds(props) ||
@@ -95,13 +102,6 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const { iconSizeXS } = theme;
   const { columnInitSize } = coordInstance;
   const halfIconSize = iconSizeXS / 2;
-
-  // Define all possible row controls and their corresponding RegionTypes
-  const rowControlDefinitions = {
-    [RowControlType.Drag]: RegionType.RowHeaderDragHandler,
-    [RowControlType.Checkbox]: RegionType.RowHeaderCheckbox,
-    [RowControlType.Expand]: RegionType.RowHeaderExpandHandler,
-  };
 
   const controlSize = columnInitSize / (rowControls.length || 1);
 

@@ -24,6 +24,7 @@ export const GRID_DEFAULT = {
 
   // Others
   scrollBuffer: 100,
+  cellScrollBuffer: 16,
 };
 
 export const DEFAULT_MOUSE_STATE = {

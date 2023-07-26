@@ -30,7 +30,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
     let xDir: IScrollDirection = 0;
     let yDir: IScrollDirection = 0;
 
-    if (isSelecting || (isDragging && dragType === DragRegionType.Column)) {
+    if (isSelecting || (isDragging && dragType === DragRegionType.Columns)) {
       if (containerWidth - x < threshold) {
         xDir = 1;
       } else if (x - freezeRegionWidth < threshold) {
@@ -38,7 +38,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
       }
     }
 
-    if (isSelecting || (isDragging && dragType === DragRegionType.Row)) {
+    if (isSelecting || (isDragging && dragType === DragRegionType.Rows)) {
       if (containerHeight - y < threshold) {
         yDir = 1;
       } else if (y - rowInitSize < threshold) {
