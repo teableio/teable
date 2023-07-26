@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
-import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useMouse } from 'react-use';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
@@ -13,10 +14,14 @@ import {
   DEFAULT_COLUMN_RESIZE_STATE,
 } from './configs';
 import type { IGridProps } from './Grid';
-import { useAutoScroll, useSmartClick } from './hooks';
-import { useColumnResize } from './hooks/useColumnResize';
+import {
+  useAutoScroll,
+  useEventListener,
+  useSmartClick,
+  useSelection,
+  useColumnResize,
+} from './hooks';
 import { useDrag } from './hooks/useDrag';
-import { useSelection } from './hooks/useSelection';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
 import type { ICellItem, IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType, DragRegionType } from './interface';
@@ -88,6 +93,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   }));
 
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const mousePosition = useMouse(stageRef);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
@@ -124,36 +130,35 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { isDragging, type: dragType } = dragState;
   const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
-  const getPosition = useCallback(
-    (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      const rect = stageRef.current?.getBoundingClientRect();
-      if (rect == null) return;
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const { columnAppendBtnWidth } = GRID_DEFAULT;
-      const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
-        coordInstance;
-      const rowIndex = y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
-      const columnIndex =
-        scrollLeft + x > totalWidth && scrollLeft + x < totalWidth + columnAppendBtnWidth
-          ? -2
-          : x <= freezeRegionWidth
-          ? x <= columnInitSize
-            ? -1
-            : coordInstance.getColumnStartIndex(x)
-          : coordInstance.getColumnStartIndex(scrollLeft + x);
-      const offsetX = coordInstance.getColumnOffset(columnIndex);
-      const isCellRange = columnIndex > -1 && rowIndex > -1;
-      const hoverCellX = isCellRange
-        ? columnIndex < freezeColumnCount
-          ? x - offsetX
-          : x - offsetX + scrollLeft
-        : 0;
-      const hoverCellY = isCellRange ? y - coordInstance.getRowOffset(rowIndex) + scrollTop : 0;
-      return { x, y, rowIndex, columnIndex, hoverCellX, hoverCellY };
-    },
-    [coordInstance, scrollLeft, scrollTop]
-  );
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const getPosition = () => {
+    const x = mousePosition.elX;
+    const y = mousePosition.elY;
+    const { columnAppendBtnWidth } = GRID_DEFAULT;
+    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
+      coordInstance;
+    const rowIndex =
+      y < 0 ? -Infinity : y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
+    const columnIndex =
+      x < 0
+        ? -Infinity
+        : scrollLeft + x > totalWidth && scrollLeft + x < totalWidth + columnAppendBtnWidth
+        ? -2
+        : x <= freezeRegionWidth
+        ? x <= columnInitSize
+          ? -1
+          : coordInstance.getColumnStartIndex(x)
+        : coordInstance.getColumnStartIndex(scrollLeft + x);
+    const offsetX = coordInstance.getColumnOffset(columnIndex);
+    const isCellRange = columnIndex > -1 && rowIndex > -1;
+    const hoverCellX = isCellRange
+      ? columnIndex < freezeColumnCount
+        ? x - offsetX
+        : x - offsetX + scrollLeft
+      : 0;
+    const hoverCellY = isCellRange ? y - coordInstance.getRowOffset(rowIndex) + scrollTop : 0;
+    return { x, y, rowIndex, columnIndex, hoverCellX, hoverCellY };
+  };
 
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
     coordInstance,
@@ -163,9 +168,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     scrollBy,
   });
 
-  const getMouseState = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const position = getPosition(event);
-    if (position == null) return;
+  const getMouseState = () => {
+    const position = getPosition();
     const { x, y } = position;
     const { columnAppendBtnWidth } = GRID_DEFAULT;
     const { totalHeight, totalWidth } = coordInstance;
@@ -215,9 +219,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState(event);
-    if (mouseState == null) return;
+  const onClick = () => {
+    const mouseState = getMouseState();
     onSelectionClick(mouseState, pureRowCount);
     const { type, columnIndex, hoverCellX, hoverCellY } = mouseState;
     if (regionType !== type) return;
@@ -260,9 +263,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const onDblClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState(event);
-    if (mouseState == null || selectionType !== SelectionRegionType.Cells) return;
+  const onDblClick = () => {
+    const mouseState = getMouseState();
+    if (selectionType !== SelectionRegionType.Cells) return;
     const { rowIndex, columnIndex } = mouseState;
     if (isEqual(selectionRanges[0], [columnIndex, rowIndex])) {
       editorContainerRef.current?.focus?.();
@@ -279,8 +282,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.preventDefault();
     if (event.button === MouseButtonType.Right) return;
-    const mouseState = getMouseState(event);
-    if (mouseState == null) return;
+    const mouseState = getMouseState();
     setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
     if (
@@ -318,9 +320,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const onMouseMove = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState(event);
-    if (mouseState == null) return;
+  const onMouseMove = () => {
+    const mouseState = getMouseState();
     const { type } = mouseState;
     setMouseState(mouseState);
     setCursorStyle(type);
@@ -333,17 +334,16 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     });
   };
 
-  const onMouseUp = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    const mouseState = getMouseState(event);
-    if (mouseState == null) return;
+  const onMouseUp = () => {
+    const mouseState = getMouseState();
     setMouseState(mouseState);
     onAutoScrollStop();
     onSmartMouseUp(mouseState);
     onDragEnd(mouseState, (dragIndex, dropIndex) => {
-      if (dragType === DragRegionType.Column) {
+      if (dragType === DragRegionType.Columns) {
         onColumnOrdered?.([dragIndex], dropIndex);
       }
-      if (dragType === DragRegionType.Row) {
+      if (dragType === DragRegionType.Rows) {
         onRowOrdered?.([dragIndex], dropIndex);
       }
       setSelectionState(DEFAULT_SELECTION_STATE);
@@ -358,14 +358,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   };
 
   const onMouseLeave = () => {
+    if (isSelecting || isDragging) return;
     setMouseState(DEFAULT_MOUSE_STATE);
   };
 
   const onContextMenuInner = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     if (event.cancelable) event.preventDefault();
     if (onContextMenu == null) return;
-    const mouseState = getMouseState(event);
-    if (mouseState == null) return;
+    const mouseState = getMouseState();
     onSelectionContextMenu(mouseState, (selection, position) => onContextMenu(selection, position));
   };
 
@@ -376,6 +376,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setSelectionState(DEFAULT_SELECTION_STATE);
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
+
+  useEventListener('mousemove', onMouseMove, window, true);
 
   return (
     <>
@@ -389,7 +391,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onClick={onSmartClick}
         onMouseUp={onMouseUp}
         onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         onContextMenu={onContextMenuInner}
       >
@@ -434,6 +435,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onCopy={onCopy}
         onPaste={onPaste}
         onDelete={onDelete}
+        onRowAppend={onRowAppend}
       />
     </>
   );

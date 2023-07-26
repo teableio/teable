@@ -449,6 +449,7 @@ export const drawColumnHeaders = (
     columns,
     theme,
     spriteManager,
+    dragState,
     mouseState,
     scrollState,
     selectionState,
@@ -467,6 +468,7 @@ export const drawColumnHeaders = (
     rowCount,
   } = coordInstance;
   const { scrollLeft } = scrollState;
+  const { isDragging } = dragState;
   const { type: selectionType, ranges: selectionRanges } = selectionState;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
@@ -505,6 +507,7 @@ export const drawColumnHeaders = (
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isActive = checkIfColumnActive(selectionState, columnIndex);
     const isHover =
+      !isDragging &&
       [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
       hoverColumnIndex === columnIndex;
     let fill = cellBg;
@@ -704,7 +707,7 @@ export const drawColumnDraggingRegion = (
   const { x } = mouseState;
   const { scrollLeft } = scrollState;
 
-  if (!isDragging || type !== DragRegionType.Column) return;
+  if (!isDragging || type !== DragRegionType.Columns) return;
   drawRect(ctx, {
     x: x - delta,
     y: 0.5,
@@ -733,7 +736,7 @@ export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: IRen
   const { scrollTop } = scrollState;
   const { y } = mouseState;
 
-  if (!isDragging || type !== DragRegionType.Row) return;
+  if (!isDragging || type !== DragRegionType.Rows) return;
   drawRect(ctx, {
     x: 0.5,
     y: y - delta,
