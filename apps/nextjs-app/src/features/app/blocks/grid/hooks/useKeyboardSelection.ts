@@ -13,18 +13,18 @@ const SELECTION_MOVE_HOTKEYS = [
   'down',
   'left',
   'right',
-  'command+up',
-  'command+down',
-  'command+left',
-  'command+right',
+  'mod+up',
+  'mod+down',
+  'mod+left',
+  'mod+right',
   'shift+up',
   'shift+down',
   'shift+left',
   'shift+right',
-  'command+shift+up',
-  'command+shift+down',
-  'command+shift+left',
-  'command+shift+right',
+  'mod+shift+up',
+  'mod+shift+down',
+  'mod+shift+left',
+  'mod+shift+right',
   'tab',
 ];
 
@@ -124,20 +124,20 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         case 'shift+right':
           columnIndex = Math.min(columnIndex + 1, columnCount - 1);
           break;
-        case 'command+up':
-        case 'command+shift+up':
+        case 'mod+up':
+        case 'mod+shift+up':
           rowIndex = 0;
           break;
-        case 'command+down':
-        case 'command+shift+down':
+        case 'mod+down':
+        case 'mod+shift+down':
           rowIndex = pureRowCount - 1;
           break;
-        case 'command+left':
-        case 'command+shift+left':
+        case 'mod+left':
+        case 'mod+shift+left':
           columnIndex = 0;
           break;
-        case 'command+right':
-        case 'command+shift+right':
+        case 'mod+right':
+        case 'mod+shift+right':
           columnIndex = columnCount - 1;
           break;
       }
@@ -152,7 +152,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelectionState((prev) => ({ ...prev, ranges }));
     });
 
-    mousetrap.bind('command+a', (e: ExtendedKeyboardEvent) => {
+    mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const ranges = [
@@ -163,7 +163,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     });
 
     mousetrap.bind(
-      ['del', 'backspace', 'command+c', 'command+v'],
+      ['del', 'backspace', 'mod+c', 'mod+v'],
       (e: ExtendedKeyboardEvent, combo: string) => {
         if (!activeCell || isEditing) return;
         const selection = pick(selectionState, ['type', 'ranges']);
@@ -171,9 +171,9 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
           case 'del':
           case 'backspace':
             return onDelete?.(selection);
-          case 'command+c':
+          case 'mod+c':
             return onCopy?.(selection);
-          case 'command+v':
+          case 'mod+v':
             return onPaste?.(selection);
         }
       }
