@@ -9,7 +9,9 @@ abstract class NumericFunc extends FormulaFunc {
 export class Sum extends NumericFunc {
   name = FunctionName.Sum;
 
-  acceptValueType = new Set([CellValueType.Boolean, CellValueType.Number]);
+  acceptValueType = new Set([CellValueType.Number]);
+
+  acceptMultipleValue = true;
 
   validateParams(params: TypedValue[]) {
     if (!params.length) {
