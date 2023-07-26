@@ -1,6 +1,12 @@
 import { getUniqName } from './get-uniq-name'; // Replace with your actual file
 
 describe('getUniqName', () => {
+  it('should start with 2', () => {
+    const existNames = ['Field'];
+    const name = 'Field';
+    expect(getUniqName(name, existNames)).toBe('Field 2');
+  });
+
   it('should return the original name if it does not exist in the list', () => {
     const existNames = ['Field 1', 'Field 2', 'Field 3'];
     const name = 'Field 4';

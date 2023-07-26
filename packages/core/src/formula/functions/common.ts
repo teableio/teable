@@ -1,4 +1,4 @@
-import { CellValueType } from '../../models/field/constant';
+import type { CellValueType } from '../../models/field/constant';
 import type { FieldCore } from '../../models/field/field';
 import type { IRecord } from '../../models/record/record.schema';
 import type { TypedValue } from '../typed-value';
@@ -28,13 +28,9 @@ export abstract class FormulaFunc {
    * If the parameter type is not in acceptCellValueType, it will be converted to a string type by the interpreter.
    * If the parameter type is in acceptCellValueType, the original value will be returned and processed by the function implementation itself.
    */
-  acceptCellValueType = new Set([
-    CellValueType.Boolean,
-    CellValueType.Number,
-    CellValueType.String,
-  ]);
+  abstract acceptValueType: Set<CellValueType>;
 
-  acceptMultipleCellValue = true;
+  abstract acceptMultipleValue: boolean;
 
   /**
    * The function needs to perform parameter type and quantity verification during the AST tree parsing phase. If the requirements of the function are not met, throw a new Error with a friendly prompt.

@@ -230,7 +230,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
       const maxVersion = opsResult._max.version || 0;
 
       if (snapshot.v !== maxVersion + 1) {
-        throw new Error(`version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`);
+        throw new Error(
+          `${id} version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`
+        );
       }
 
       // 1. save op in db;

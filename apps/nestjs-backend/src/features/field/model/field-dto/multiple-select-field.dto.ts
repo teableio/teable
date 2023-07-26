@@ -13,6 +13,7 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements I
 
     return plainToInstance(MultipleSelectFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Tags',
       options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.String,

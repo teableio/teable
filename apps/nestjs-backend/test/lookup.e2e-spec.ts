@@ -8,7 +8,7 @@ import type {
   IFieldVo,
   LinkFieldCore,
   IFieldRo,
-  IFullTableVo,
+  ITableFullVo,
   IUpdateRecordRo,
   INumberFieldOptions,
 } from '@teable-group/core';
@@ -85,11 +85,11 @@ const defaultFields: IFieldRo[] = [
 
 describe('OpenAPI Lookup field (e2e)', () => {
   let app: INestApplication;
-  let table1: IFullTableVo = {} as any;
-  let table2: IFullTableVo = {} as any;
-  const tables: IFullTableVo[] = [];
+  let table1: ITableFullVo = {} as any;
+  let table2: ITableFullVo = {} as any;
+  const tables: ITableFullVo[] = [];
 
-  async function updateTableFields(table: IFullTableVo) {
+  async function updateTableFields(table: ITableFullVo) {
     const tableFields = (
       await request(app.getHttpServer()).get(`/api/table/${table.id}/field`).expect(200)
     ).body.data;
@@ -218,7 +218,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     ).body.data;
   }
 
-  async function lookupFrom(table: IFullTableVo, lookupFieldId: string) {
+  async function lookupFrom(table: ITableFullVo, lookupFieldId: string) {
     const linkField = getFieldByType(table.fields, FieldType.Link) as LinkFieldCore;
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
     const lookupField = foreignTable.fields.find((f) => f.id === lookupFieldId)!;
@@ -249,7 +249,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     return getFieldByName(table.fields, lookupFieldRo.name!);
   }
 
-  async function expectLookup(table: IFullTableVo, fieldType: FieldType, updateValue: any) {
+  async function expectLookup(table: ITableFullVo, fieldType: FieldType, updateValue: any) {
     const linkField = getFieldByType(table.fields, FieldType.Link) as LinkFieldCore;
     const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
 

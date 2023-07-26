@@ -42,7 +42,7 @@ export class PrismaService
     if (process.env.NODE_ENV === 'production') return;
 
     this.$on('query', async (e) => {
-      this.logger.debug(`Query: ${e.query} | ${e.params} | ${e.duration} ms`);
+      // this.logger.debug(`Query: ${e.query} | ${e.params} | ${e.duration} ms`);
     });
   }
 

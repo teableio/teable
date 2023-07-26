@@ -5,11 +5,14 @@ import { getUniqName, FieldType, IdPrefix, FieldOpBuilder } from '@teable-group/
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
-import { isEmpty, isEqual } from 'lodash';
+import { isEmpty, isEqual, noop } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import { FieldBatchCalculationService } from '../../calculation/field-batch-calculation.service';
-import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { Timing } from '../../../utils/timing';
+import {
+  IRawOpMap,
+  FieldBatchCalculationService,
+} from '../../calculation/field-batch-calculation.service';
 import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -24,8 +27,7 @@ export class FieldOpenApiService {
     private readonly transactionService: TransactionService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldService: FieldService,
-    private readonly fieldBatchCalculationService: FieldBatchCalculationService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly fieldBatchCalculationService: FieldBatchCalculationService
   ) {}
 
   async createField(tableId: string, fieldInstance: IFieldInstance, transactionKey?: string) {
@@ -109,11 +111,34 @@ export class FieldOpenApiService {
     const id = snapshot.id;
     const collection = `${IdPrefix.Field}_${tableId}`;
     const connection = this.shareDbService.getConnection(transactionKey);
-
+    // src is a unique id for the client used by sharedb
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const src = (connection.agent as any).clientId;
     await this.createDoc(connection, collection, id, snapshot);
-    const opsMap = await this.fieldBatchCalculationService.calculateFields(prisma, tableId, [id]);
-    await this.recordOpenApiService.sendOpsMap(connection, opsMap);
+    const rawOpsMap = await this.fieldBatchCalculationService.calculateFields(
+      prisma,
+      src,
+      tableId,
+      [id]
+    );
+    rawOpsMap && this.publishOpsMap(rawOpsMap);
     return snapshot;
+  }
+
+  // publish ops to client for realtime sync
+  @Timing()
+  publishOpsMap(rawOpMap: IRawOpMap) {
+    for (const tableId in rawOpMap) {
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      const data = rawOpMap[tableId];
+      for (const recordId in data) {
+        const rawOp = data[recordId];
+        const channels = [collection, `${collection}.${recordId}`];
+        rawOp.c = collection;
+        rawOp.d = recordId;
+        this.shareDbService.pubsub.publish(channels, rawOp, noop);
+      }
+    }
   }
 
   private async createDoc(
