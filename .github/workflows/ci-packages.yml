@@ -69,6 +69,7 @@ jobs:
       # apps build are done already. Otherwise --from & --since
       - name: Run build for changed packages
         run: |
+          yarn g:clean
           yarn workspaces foreach -tv --include '@teable-group/*' --since=origin/develop --topological run build
 
       # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
