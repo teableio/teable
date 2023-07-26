@@ -59,7 +59,7 @@ export interface IEditorContainerRef {
 export const EditorContainerBase: ForwardRefRenderFunction<
   IEditorContainerRef,
   IEditorContainerProps
-> = (props: IEditorContainerProps, ref) => {
+> = (props, ref) => {
   const {
     theme,
     isEditing,
@@ -247,7 +247,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
           ? customEditor(
               {
                 style: editorStyle,
-                cell: cellContent as unknown as IInnerCell,
+                cell: cellContent as IInnerCell,
                 isEditing,
                 setEditing,
                 onChange: onChangeInner,

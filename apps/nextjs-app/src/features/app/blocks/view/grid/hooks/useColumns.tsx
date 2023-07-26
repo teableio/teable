@@ -104,9 +104,7 @@ const createCellValue2GridDisplay =
           readonly: false,
           isMultiple,
           editorPosition: EditorPosition.Below,
-          customEditor: (props, ref) => (
-            <LinkEditor editorRef={ref} field={field} record={record} {...props} />
-          ),
+          customEditor: (props) => <LinkEditor field={field} record={record} {...props} />,
         };
       }
       case FieldType.Attachment: {
