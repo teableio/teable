@@ -635,10 +635,9 @@ __metadata:
     "@electron-forge/maker-zip": ^6.2.1
     "@electron-forge/plugin-auto-unpack-natives": ^6.2.1
     "@electron-forge/plugin-vite": ^6.2.1
-    child_process: 1.0.2
     electron: 25.3.0
     electron-squirrel-startup: 1.0.0
-    fs-extra: 11.1.1
+    is-port-reachable: 3.1.0
   languageName: unknown
   linkType: soft
 
@@ -1128,13 +1127,6 @@ __metadata:
     ansi-styles: ^4.1.0
     supports-color: ^7.1.0
   checksum: fe75c9d5c76a7a98d45495b91b2172fa3b7a09e0cc9370e5c8feb1c567b85c4288e2b3fded7cfdd7359ac28d6b3844feb8b82b8686842e93d23c827c417e83fc
-  languageName: node
-  linkType: hard
-
-"child_process@npm:1.0.2":
-  version: 1.0.2
-  resolution: "child_process@npm:1.0.2"
-  checksum: bd814d82bc8c6e85ed6fb157878978121cd03b5296c09f6135fa3d081fd9a6a617a6d509c50397711df713af403331241a9c0397a7fad30672051485e156c2a1
   languageName: node
   linkType: hard
 
@@ -2089,17 +2081,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fs-extra@npm:11.1.1":
-  version: 11.1.1
-  resolution: "fs-extra@npm:11.1.1"
-  dependencies:
-    graceful-fs: ^4.2.0
-    jsonfile: ^6.0.1
-    universalify: ^2.0.0
-  checksum: fb883c68245b2d777fbc1f2082c9efb084eaa2bbf9fddaa366130d196c03608eebef7fb490541276429ee1ca99f317e2d73e96f5ca0999eefedf5a624ae1edfd
-  languageName: node
-  linkType: hard
-
 "fs-extra@npm:^10.0.0, fs-extra@npm:^10.1.0":
   version: 10.1.0
   resolution: "fs-extra@npm:10.1.0"
@@ -2766,6 +2747,13 @@ __metadata:
   version: 7.0.0
   resolution: "is-number@npm:7.0.0"
   checksum: 456ac6f8e0f3111ed34668a624e45315201dff921e5ac181f8ec24923b99e9f32ca1a194912dc79d539c97d33dba17dc635202ff0b2cf98326f608323276d27a
+  languageName: node
+  linkType: hard
+
+"is-port-reachable@npm:3.1.0":
+  version: 3.1.0
+  resolution: "is-port-reachable@npm:3.1.0"
+  checksum: ce0c872addfe1722a3f1ec6923b9b88b5a370041a10317e1bd76bd62c616feb52c8a6f473e35e7bcf208db22fb5f138433a3a1cd889d95a1f798dbc7a9dc63cf
   languageName: node
   linkType: hard
 

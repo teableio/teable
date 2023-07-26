@@ -9,7 +9,8 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "package:debug": "electron-forge package && out/TeableApp-darwin-x64/TeableApp.app/Contents/MacOS/TeableApp --enable-logging",
-    "make": "electron-forge make",
+    "make:mac": "electron-forge make --platform=mas --arch=x64",
+    "make:win": "electron-forge make --platform=win32 --arch=x64",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\""
   },
@@ -28,7 +29,8 @@
     "@electron-forge/maker-zip": "^6.2.1",
     "@electron-forge/plugin-auto-unpack-natives": "^6.2.1",
     "@electron-forge/plugin-vite": "^6.2.1",
-    "electron": "25.3.0"
+    "electron": "25.3.0",
+    "is-port-reachable": "3.1.0"
   },
   "dependencies": {
     "electron-squirrel-startup": "1.0.0"

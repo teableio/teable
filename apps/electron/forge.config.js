@@ -1,7 +1,11 @@
+const path = require('path');
+
 module.exports = {
   packagerConfig: {
     appId: 'YourAppID',
     name: 'TeableApp',
+    osxSign: {},
+    icon: 'static/icons/icon',
     ignore: (file) => {
       const isTsOrMap = (p) => /[^/\\]+\.js\.map$/.test(p) || /[^/\\]+\.ts$/.test(p);
       if (!file) return false;
@@ -11,6 +15,10 @@ module.exports = {
       }
 
       if (file === '/package.json') {
+        return false;
+      }
+
+      if (file.startsWith('/static')) {
         return false;
       }
 
@@ -33,25 +41,26 @@ module.exports = {
   rebuildConfig: {},
   makers: [
     {
+      name: '@electron-forge/maker-zip',
+    },
+    {
       name: '@electron-forge/maker-squirrel',
       config: {},
     },
-    {
-      name: '@electron-forge/maker-zip',
-      platforms: ['darwin'],
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
-    },
     // {
-    //   name: '@electron-forge/maker-dmg',
-    //   config: {}
-    // }
+    //   name: '@electron-forge/maker-deb',
+    //   config: {},
+    // },
+    // {
+    //   name: '@electron-forge/maker-rpm',
+    //   config: {},
+    // },
+    {
+      name: '@electron-forge/maker-dmg',
+      config: {
+        icon: path.join(__dirname, 'static', 'icons', 'icon.icns'),
+      },
+    },
   ],
   plugins: [
     {

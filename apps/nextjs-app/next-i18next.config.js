@@ -6,6 +6,7 @@ const localePublicFolder = undefined;
 const localPaths = [
   path.resolve('../../packages/common-i18n/src/locales'),
   path.join(__dirname, '../../../node_modules/@teable-group/common-i18n/src/locales'),
+  process.env.I18N_LOCALES_PATH,
 ];
 
 function getLocalPath() {
@@ -20,7 +21,6 @@ function getLocalPath() {
 }
 
 const localePath = getLocalPath();
-// console.log({ localePath: localePath });
 
 /**
  * @type {import('next-i18next').UserConfig}
