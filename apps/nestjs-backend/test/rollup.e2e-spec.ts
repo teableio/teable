@@ -5,7 +5,7 @@ import type { INestApplication } from '@nestjs/common';
 import type {
   IFieldRo,
   IFieldVo,
-  IFullTableVo,
+  ITableFullVo,
   ILookupOptionsRo,
   IRecord,
   IUpdateRecordRo,
@@ -81,11 +81,11 @@ const defaultFields: IFieldRo[] = [
 
 describe('OpenAPI Rollup field (e2e)', () => {
   let app: INestApplication;
-  let table1: IFullTableVo = {} as any;
-  let table2: IFullTableVo = {} as any;
-  const tables: IFullTableVo[] = [];
+  let table1: ITableFullVo = {} as any;
+  let table2: ITableFullVo = {} as any;
+  const tables: ITableFullVo[] = [];
 
-  async function updateTableFields(table: IFullTableVo) {
+  async function updateTableFields(table: ITableFullVo) {
     const tableFields = (
       await request(app.getHttpServer()).get(`/api/table/${table.id}/field`).expect(200)
     ).body.data;
@@ -208,7 +208,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
   }
 
   async function rollupFrom(
-    table: IFullTableVo,
+    table: ITableFullVo,
     lookupFieldId: string,
     expression = 'countall({values})'
   ) {

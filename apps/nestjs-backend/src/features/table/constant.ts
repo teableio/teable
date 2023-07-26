@@ -2,10 +2,10 @@ import type { ICreateRecordsRo, IFieldRo, IViewRo } from '@teable-group/core';
 import { Colors, FieldType, ViewType } from '@teable-group/core';
 
 export const DEFAULT_FIELDS: IFieldRo[] = [
-  { name: 'name', type: FieldType.SingleLineText, isPrimary: true, options: {} },
-  { name: 'number', type: FieldType.Number, options: { formatting: { precision: 2 } } },
+  { name: 'Name', type: FieldType.SingleLineText, isPrimary: true, options: {} },
+  { name: 'Count', type: FieldType.Number, options: { formatting: { precision: 0 } } },
   {
-    name: 'status',
+    name: 'Status',
     type: FieldType.SingleSelect,
     options: {
       choices: [
