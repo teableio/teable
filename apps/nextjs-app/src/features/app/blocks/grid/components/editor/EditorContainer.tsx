@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { clamp } from 'lodash';
+import { clamp, pick } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
+import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
 import type { ICellItem, IScrollState, ISelectionState } from '../../interface';
@@ -9,6 +10,7 @@ import { SelectionRegionType } from '../../interface';
 import type { ICell, IInnerCell } from '../../renderers';
 import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
+import { BooleanEditor } from './BooleanEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
@@ -22,6 +24,7 @@ export interface IEditorContainerProps
     | 'onCopy'
     | 'onPaste'
     | 'onDelete'
+    | 'onRowAppend'
     | 'onCellActivated'
   > {
   isEditing?: boolean;
@@ -69,6 +72,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onPaste,
     onChange,
     onDelete,
+    onRowAppend,
     setEditing,
     setActiveCell,
     setSelectionState,
@@ -90,6 +94,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     editorPosition = EditorPosition.Overlap,
   } = cellContent;
   const editingEnable = !readonly && isEditing && activeCell;
+  const width = coordInstance.getColumnWidth(columnIndex) + 4;
+  const height = coordInstance.getRowHeight(rowIndex) + 4;
   const editorRef = useRef<IEditorRef | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -97,84 +103,13 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     saveValue: () => editorRef.current?.saveValue?.(),
   }));
 
-  const onChangeInner = (value: unknown) => {
-    onChange?.([columnIndex, rowIndex], {
-      ...cellContent,
-      data: value,
-    } as IInnerCell);
-  };
-
-  useEffect(() => {
-    if ((cellContent as ICell).type === CellType.Loading) return;
-    if (!activeCell) return;
-    editorRef.current?.setValue?.(cellContent.data);
-    requestAnimationFrame(() => editorRef.current?.focus?.());
-  }, [cellContent, activeCell]);
-
-  useKeyboardSelection({
-    isEditing,
-    activeCell,
-    scrollState,
-    selectionState,
-    coordInstance,
-    scrollTo,
-    onDelete,
-    setEditing,
-    setActiveCell,
-    setSelectionState,
-    onCellActivated,
-    editorRef,
-  });
-
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!isCellSelection || isEditing) return;
-    if (!isPrintableKey(event.nativeEvent)) return;
-    setEditing(true);
-    editorRef.current?.setValue?.('');
-  };
-
-  const width = coordInstance.getColumnWidth(columnIndex) + 4;
-  const height = coordInstance.getRowHeight(rowIndex) + 4;
-
-  const style = useMemo(
+  const editorStyle = useMemo(
     () =>
       (editingEnable
         ? { pointerEvents: 'auto', minWidth: width, minHeight: height }
         : { pointerEvents: 'none', opacity: 0, width: 0, height: 0 }) as React.CSSProperties,
     [editingEnable, height, width]
   );
-
-  function Editor() {
-    if (readonly) return;
-    switch (cellType) {
-      case CellType.Text:
-      case CellType.Number:
-        return (
-          <TextEditor
-            ref={editorRef}
-            cell={cellContent}
-            style={{
-              ...style,
-              borderColor: theme.cellLineColorActived,
-              textAlign: cellType === CellType.Number ? 'right' : 'left',
-            }}
-            onChange={onChangeInner}
-          />
-        );
-      case CellType.Select:
-        return (
-          <SelectEditor
-            ref={editorRef}
-            cell={cellContent}
-            style={style}
-            isEditing={isEditing}
-            onChange={onChangeInner}
-          />
-        );
-      default:
-        return null;
-    }
-  }
 
   const wrapStyle = useMemo(() => {
     if (!editingEnable) return;
@@ -212,19 +147,106 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     editingEnable,
   ]);
 
+  useEffect(() => {
+    if ((cellContent as ICell).type === CellType.Loading) return;
+    if (!activeCell) return;
+    editorRef.current?.setValue?.(cellContent.data);
+    requestAnimationFrame(() => editorRef.current?.focus?.());
+  }, [cellContent, activeCell]);
+
+  useKeyboardSelection({
+    cell: cellContent,
+    isEditing,
+    activeCell,
+    scrollState,
+    selectionState,
+    coordInstance,
+    scrollTo,
+    onCopy,
+    onPaste,
+    onDelete,
+    onRowAppend,
+    setEditing,
+    setActiveCell,
+    setSelectionState,
+    onCellActivated,
+    editorRef,
+  });
+
+  const onChangeInner = (value: unknown) => {
+    onChange?.([columnIndex, rowIndex], {
+      ...cellContent,
+      data: value,
+    } as IInnerCell);
+  };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!isCellSelection || isEditing) return;
+    if (!isPrintableKey(event.nativeEvent)) return;
+    setEditing(true);
+    editorRef.current?.setValue?.('');
+  };
+
+  const onCopyInner = () => {
+    const selection = pick(selectionState, ['type', 'ranges']);
+    onCopy?.(selection);
+  };
+
+  const onPasteInner = () => {
+    const selection = pick(selectionState, ['type', 'ranges']);
+    onPaste?.(selection);
+  };
+
+  function Editor() {
+    if (readonly) return;
+    switch (cellType) {
+      case CellType.Text:
+      case CellType.Number: {
+        const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
+        return (
+          <TextEditor
+            ref={editorRef}
+            cell={cellContent}
+            style={{
+              ...editorStyle,
+              borderColor: theme.cellLineColorActived,
+              textAlign: cellType === CellType.Number ? 'right' : 'left',
+              paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
+            }}
+            onChange={onChangeInner}
+          />
+        );
+      }
+      case CellType.Boolean:
+        return <BooleanEditor ref={editorRef} cell={cellContent} onChange={onChangeInner} />;
+      case CellType.Select:
+        return (
+          <SelectEditor
+            ref={editorRef}
+            cell={cellContent}
+            style={editorStyle}
+            isEditing={isEditing}
+            onChange={onChangeInner}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
       <div
         className="absolute z-10"
         style={wrapStyle}
+        onCopy={onCopyInner}
+        onPaste={onPasteInner}
         onKeyDown={onKeyDown}
-        onCopy={() => onCopy?.(selectionState)}
-        onPaste={() => onPaste?.(selectionState)}
       >
         {customEditor
           ? customEditor(
               {
-                style,
+                style: editorStyle,
                 cell: cellContent as unknown as IInnerCell,
                 isEditing,
                 setEditing,

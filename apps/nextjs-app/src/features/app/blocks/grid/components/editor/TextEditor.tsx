@@ -12,7 +12,7 @@ const TextEditorBase: ForwardRefRenderFunction<
   const { cell, onChange, style } = props;
   const { displayData, type } = cell;
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [values, setValueInner] = useState(displayData);
+  const [value, setValueInner] = useState(displayData);
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
@@ -21,8 +21,8 @@ const TextEditorBase: ForwardRefRenderFunction<
   }));
 
   const saveValue = () => {
-    if (values === displayData) return;
-    onChange?.(type === CellType.Number ? Number(values) : values);
+    if (value === displayData) return;
+    onChange?.(type === CellType.Number ? Number(value) : value);
   };
 
   const onChangeInner = (e: ChangeEvent<HTMLInputElement>) => {
@@ -34,7 +34,7 @@ const TextEditorBase: ForwardRefRenderFunction<
     <Input
       ref={inputRef}
       style={style}
-      value={values}
+      value={value}
       width={'100%'}
       height={'100%'}
       className="border-2 shadow-none h-full w-full focus-visible:ring-transparent px-2"
