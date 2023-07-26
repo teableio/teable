@@ -1,11 +1,11 @@
 import { FieldType } from '@teable-group/core';
-import { merge } from 'lodash';
+import { cloneDeep } from 'lodash';
 import { operatorLabelMapping, fieldNumberLabelMap } from './constant';
 
 const getFieldOperatorMapping = (type?: FieldType) => {
-  let mergedMapping = operatorLabelMapping;
+  let mergedMapping = cloneDeep(operatorLabelMapping);
   if (type === FieldType.Number) {
-    mergedMapping = merge(operatorLabelMapping, fieldNumberLabelMap);
+    mergedMapping = { ...operatorLabelMapping, ...fieldNumberLabelMap };
   }
   return mergedMapping;
 };

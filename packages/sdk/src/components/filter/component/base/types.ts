@@ -1,6 +1,12 @@
+import type { Colors } from '@teable-group/core';
+
 interface IOption {
   label: string;
   value: string;
+}
+
+interface IColorOption extends IOption {
+  color: Colors;
 }
 
 interface IBaseSelect<T = IOption> {
@@ -15,4 +21,4 @@ interface IBaseSelect<T = IOption> {
   displayRender?: (option: T) => React.ReactElement;
 }
 
-export type { IOption, IBaseSelect };
+export type { IOption, IColorOption, IBaseSelect };

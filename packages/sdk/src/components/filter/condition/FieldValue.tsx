@@ -6,8 +6,8 @@ import { useCallback, useMemo } from 'react';
 import { useField } from '../../../hooks';
 
 import {
-  SingleSelect,
-  MultipleSelect,
+  FilterSingleSelect,
+  FilterMultipleSelect,
   FilterInput,
   FilterInputNumber,
   FilterDatePicker,
@@ -55,13 +55,13 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.SingleSelect:
         return MULPTIPLEOPERATORS.includes(filter.operator) ? (
-          <MultipleSelect
+          <FilterMultipleSelect
             field={field}
             value={filter.value as string[]}
             onSelect={(value) => onSelect(value as IFilterItem['value'])}
           />
         ) : (
-          <SingleSelect
+          <FilterSingleSelect
             field={field}
             value={filter.value as string}
             onSelect={onSelect}
@@ -70,7 +70,7 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.MultipleSelect:
         return (
-          <MultipleSelect
+          <FilterMultipleSelect
             field={field}
             value={filter.value as string[]}
             onSelect={(value) => onSelect(value as IFilterItem['value'])}

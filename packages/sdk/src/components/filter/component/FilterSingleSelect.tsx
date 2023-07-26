@@ -1,8 +1,7 @@
-import type { Colors } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import { useMemo } from 'react';
 import type { SingleSelectField } from '../../../model';
-
+import type { IColorOption } from './base';
 import { BaseSingleSelect } from './base';
 
 interface ISingleSelect {
@@ -12,13 +11,7 @@ interface ISingleSelect {
   field: SingleSelectField;
 }
 
-interface IColorOption {
-  value: string;
-  label: string;
-  color: Colors;
-}
-
-function SingleSelect(props: ISingleSelect) {
+function FilterSingleSelect(props: ISingleSelect) {
   const { onSelect, field, value } = props;
 
   const options = useMemo<IColorOption[]>(() => {
@@ -28,16 +21,6 @@ function SingleSelect(props: ISingleSelect) {
       color: choice.color,
     }));
   }, [field]);
-
-  // useEffect(() => {
-  //   // other type value comes, adapter or reset
-  //   const isNull = value === null;
-  //   const isSameType = typeof value === 'string';
-  //   const isInOption = options.findIndex((option) => option.value === value) > -1;
-  //   if ((!isNull && !isSameType) || !isInOption) {
-  //     onSelect?.(null);
-  //   }
-  // }, [onSelect, value, operator, options]);
 
   const optionRender = (option: IColorOption) => {
     const { color, label, value } = option;
@@ -70,6 +53,6 @@ function SingleSelect(props: ISingleSelect) {
   );
 }
 
-SingleSelect.displayName = 'SingleSelect';
+FilterSingleSelect.displayName = 'FilterSingleSelect';
 
-export { SingleSelect };
+export { FilterSingleSelect };
