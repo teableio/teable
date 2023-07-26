@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ISetViewNameOpContext,
+  ISetViewOptionsOpContext,
   ISnapshotBase,
   IViewRo,
   IViewVo,
@@ -142,18 +143,28 @@ export class ViewService implements IAdapterService {
     version: number,
     _tableId: string,
     viewId: string,
-    opContexts: ISetViewNameOpContext[]
+    opContexts: (ISetViewNameOpContext | ISetViewOptionsOpContext)[]
   ) {
     for (const opContext of opContexts) {
-      if (opContext.name === OpName.SetViewName) {
-        const { newName } = opContext;
-        await prisma.view.update({
-          where: { id: viewId },
-          data: { name: newName, version },
-        });
-        return;
+      switch (opContext.name) {
+        case OpName.SetViewName: {
+          const { newName } = opContext;
+          await prisma.view.update({
+            where: { id: viewId },
+            data: { name: newName, version },
+          });
+          return;
+        }
+        case OpName.SetViewOptions: {
+          const { newOptions } = opContext;
+          await prisma.view.update({
+            where: { id: viewId },
+            data: { options: JSON.stringify(newOptions), version },
+          });
+          return;
+        }
       }
-      throw new Error(`Unknown context ${opContext.name} for view update`);
+      throw new Error(`Unknown context ${opContext} for view update`);
     }
   }
 

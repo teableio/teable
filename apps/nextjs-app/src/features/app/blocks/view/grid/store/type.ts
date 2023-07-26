@@ -1,4 +1,5 @@
 import type { FieldOperator } from '@/features/app/components/field-setting/type';
+import type { IPosition } from '../../../grid';
 
 export interface ISetting {
   operator: FieldOperator;
@@ -6,20 +7,10 @@ export interface ISetting {
 }
 
 export interface IHeaderMenu {
-  fieldId: string;
-  pos: {
-    x: number;
-    y: number;
-  };
+  fieldIds: string[];
+  position: IPosition;
 }
-
-export interface IEditorCtx {
-  pos: {
-    x: number;
-    y: number;
-  };
-  cell: {
-    width: number;
-    height: number;
-  };
+export interface IRecordMenu {
+  recordIds: string[];
+  position: IPosition;
 }

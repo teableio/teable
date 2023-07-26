@@ -2879,22 +2879,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@glideapps/glide-data-grid@npm:5.2.1":
-  version: 5.2.1
-  resolution: "@glideapps/glide-data-grid@npm:5.2.1"
-  dependencies:
-    canvas-hypertxt: "npm:^0.0.7"
-    react-number-format: "npm:^5.0.0"
-  peerDependencies:
-    lodash: ^4.17.19
-    marked: ^4.0.10
-    react: ^16.12.0 || 17.x || 18.x
-    react-dom: ^16.12.0 || 17.x || 18.x
-    react-responsive-carousel: ^3.2.7
-  checksum: a91d4049e7c6e1db8a8c00326adbc71c52f90d66398e9ea4b85218b8cf9ffd421a18188cb6e5abf6765ebcc73b376389222e42a87dd5ec441a22f8f197775e7c
-  languageName: node
-  linkType: hard
-
 "@graphql-tools/merge@npm:8.3.1":
   version: 8.3.1
   resolution: "@graphql-tools/merge@npm:8.3.1"
@@ -7358,7 +7342,6 @@ __metadata:
     "@babel/core": 7.19.6
     "@belgattitude/http-exception": 1.4.0
     "@fontsource/inter": 4.5.14
-    "@glideapps/glide-data-grid": 5.2.1
     "@graphql-yoga/node": 2.13.13
     "@hookform/resolvers": 2.9.10
     "@nem035/gpt-3-encoder": 1.1.7
@@ -7385,6 +7368,7 @@ __metadata:
     "@types/cors": 2.8.12
     "@types/express": 4.17.14
     "@types/jest": 29.2.0
+    "@types/mousetrap": 1.6.11
     "@types/node": 18.11.7
     "@types/react": 18.0.24
     "@types/react-beautiful-dnd": 13.1.4
@@ -7427,6 +7411,7 @@ __metadata:
     lucide-react: 0.244.0
     marked: 4.2.12
     micro: 9.4.1
+    mousetrap: 1.6.5
     next: 13.0.2
     next-connect: 0.13.0
     next-i18next: 12.1.0
@@ -7472,6 +7457,8 @@ __metadata:
     sync-directory: 5.1.9
     tailwindcss: 3.2.1
     ts-jest: 29.0.3
+    ts-key-enum: 2.0.12
+    ts-keycode-enum: 1.0.6
     ts-node: 10.9.1
     type-fest: 3.1.0
     typescript: 4.8.4
@@ -8490,6 +8477,13 @@ __metadata:
   version: 1.2.2
   resolution: "@types/minimist@npm:1.2.2"
   checksum: b8da83c66eb4aac0440e64674b19564d9d86c80ae273144db9681e5eeff66f238ade9515f5006ffbfa955ceff8b89ad2bd8ec577d7caee74ba101431fb07045d
+  languageName: node
+  linkType: hard
+
+"@types/mousetrap@npm:1.6.11":
+  version: 1.6.11
+  resolution: "@types/mousetrap@npm:1.6.11"
+  checksum: 3ff525d7c3eac9d9b93a82cf89e9688c46a69cab4eab2462685111655a2a001c588174766f66498de6d634537a0992f53e094138a9ef8ab3db605d3a17720c80
   languageName: node
   linkType: hard
 
@@ -11457,14 +11451,7 @@ __metadata:
 "caniuse-lite@npm:^1.0.0, caniuse-lite@npm:^1.0.30001109, caniuse-lite@npm:^1.0.30001400, caniuse-lite@npm:^1.0.30001406, caniuse-lite@npm:^1.0.30001426, caniuse-lite@npm:^1.0.30001503":
   version: 1.0.30001516
   resolution: "caniuse-lite@npm:1.0.30001516"
-  checksum: f406ae12a6c940f8f8511948396a3765db3401d80cc7ef10c428a7524cf30e9b2fd52273a0a60a278110f7fbb15dafb96415bedb182d31fc70a3c5d203dda440
-  languageName: node
-  linkType: hard
-
-"canvas-hypertxt@npm:^0.0.7":
-  version: 0.0.7
-  resolution: "canvas-hypertxt@npm:0.0.7"
-  checksum: 161ee134a4c7f0f75d569c432ee906b19661824cb8b959a7ce932b9cca0eb05cd42937a40ac6b6105f2f591046d714c5f13c1f8bbb0b1d0002eb600ee2dbb9a3
+  checksum: 044adf3493b734a356a2922445a30095a0f6de6b9194695cdf74deafe7bef658e85858a31177762c2813f6e1ed2722d832d59eee0ecb2151e93a611ee18cb21f
   languageName: node
   linkType: hard
 
@@ -20995,6 +20982,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mousetrap@npm:1.6.5":
+  version: 1.6.5
+  resolution: "mousetrap@npm:1.6.5"
+  checksum: 0b4b1c53cca2c0c9165ac7094eb770997863fc036ea65f76353a45e02c447709f0ce2a40d98472110f924d6f31750eb3ae618b226b720dec4f8b4591f5959060
+  languageName: node
+  linkType: hard
+
 "move-concurrently@npm:^1.0.1":
   version: 1.0.1
   resolution: "move-concurrently@npm:1.0.1"
@@ -24295,18 +24289,6 @@ __metadata:
     "@types/react": ">=16"
     react: ">=16"
   checksum: 59fd5dcd089df0cd9098755e3063d8fcf4b4635b1ac2d5e05fcda9923769724476396abdf2afb80fb8e7589a951deac50d6f89c4740d5ec6decd34076122c80c
-  languageName: node
-  linkType: hard
-
-"react-number-format@npm:^5.0.0":
-  version: 5.1.2
-  resolution: "react-number-format@npm:5.1.2"
-  dependencies:
-    prop-types: "npm:^15.7.2"
-  peerDependencies:
-    react: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
-    react-dom: ^0.14 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^18.0.0
-  checksum: 30af5da0866ffbe69c27704eda5b75e4dd5d6e3b2bc5506acff18732e915b10528669101c39da01337fed6003b2951274666f079d54c4f37f65791a8aecdf7f7
   languageName: node
   linkType: hard
 
@@ -27840,6 +27822,20 @@ __metadata:
   bin:
     ts-jest: cli.js
   checksum: 541e51776d367fa2279af47f75af94b03e0538f1839ea9983de0f4ad7f188002f6eb1fc72440651d96daa62d25a7bc679a129c14e6ef291277eea9346751d56b
+  languageName: node
+  linkType: hard
+
+"ts-key-enum@npm:2.0.12":
+  version: 2.0.12
+  resolution: "ts-key-enum@npm:2.0.12"
+  checksum: 8326a333cba219e7a281ed2850c6dc0e3f37601dfa313cc7f24dbe9f762548cb2c2103b52d0285c8367eaa69ebcd31ee863d37b87427aa8f370e3d5d7ee3fa91
+  languageName: node
+  linkType: hard
+
+"ts-keycode-enum@npm:1.0.6":
+  version: 1.0.6
+  resolution: "ts-keycode-enum@npm:1.0.6"
+  checksum: 79a6ee59b157a87b59451389d8bf6d992a351079255942b957bc4cf2bf7e24057e6edca1c9356e186ebb66f48a50d0aa6b4a0964e1b4f7162c2c94a5e9e43e8c
   languageName: node
   linkType: hard
 

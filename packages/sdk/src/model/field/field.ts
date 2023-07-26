@@ -74,6 +74,17 @@ export abstract class Field extends FieldCore {
     return await this.submitOperation(fieldOperation);
   }
 
+  async updateColumnOrder(viewId: string, order: number): Promise<void> {
+    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'order',
+      newMetaValue: order,
+      oldMetaValue: this.columnMeta[viewId].order,
+    });
+
+    return await this.submitOperation(fieldOperation);
+  }
+
   async update(fieldRo: IFieldRo) {
     return await Field.updateFieldById(this.tableId, this.id, fieldRo);
   }

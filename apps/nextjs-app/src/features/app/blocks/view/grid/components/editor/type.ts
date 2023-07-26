@@ -3,11 +3,12 @@ import type {
   DateField,
   MultipleSelectField,
   Record,
+  LinkField,
   SingleSelectField,
 } from '@teable-group/sdk';
 
-export interface IEditorProps {
-  field: SingleSelectField | MultipleSelectField | AttachmentField | DateField;
+export interface IWrapperEditorProps {
+  field: SingleSelectField | MultipleSelectField | AttachmentField | DateField | LinkField;
   record: Record;
   style?: React.CSSProperties;
   onCancel?: () => void;

@@ -1,25 +1,29 @@
 import type { ILinkCellValue } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
-import type { LinkField, Record } from '@teable-group/sdk';
+import type { LinkField } from '@teable-group/sdk';
 import { AnchorProvider, LinkEditorMain, useRecords } from '@teable-group/sdk';
+import { useMemo } from 'react';
+import type { FC } from 'react';
+import type { IEditorProps } from '../../../../grid/components';
+import type { IWrapperEditorProps } from './type';
 
-export interface ILinkEditorProps {
-  field: LinkField;
-  record: Record;
-  style?: React.CSSProperties;
-  onCancel?: () => void;
-}
-
-const SimpleLinkEditor = (props: ILinkEditorProps) => {
-  const { field, record, style } = props;
+const LinkEditorInner: FC<IEditorProps & IWrapperEditorProps> = (props) => {
+  const { record, style } = props;
+  const field = props.field as LinkField;
   const cellValue = record.getCellValue(field.id) as ILinkCellValue | ILinkCellValue[] | undefined;
-  const values = Array.isArray(cellValue)
-    ? cellValue.map((v) => v.id)
-    : cellValue
-    ? [cellValue.id]
-    : undefined;
-  const isMultiple = field.options.relationship !== Relationship.ManyOne;
+
+  const values = useMemo(
+    () =>
+      Array.isArray(cellValue)
+        ? cellValue.map((v) => v.id)
+        : cellValue
+        ? [cellValue.id]
+        : undefined,
+    [cellValue]
+  );
+
   // many <> one relation ship only allow select record that has not been selected
+  const isMultiple = field.options.relationship !== Relationship.ManyOne;
   const records = useRecords(
     field.options.relationship === Relationship.OneMany
       ? {
@@ -56,11 +60,12 @@ const SimpleLinkEditor = (props: ILinkEditorProps) => {
   );
 };
 
-export const LinkEditor = (props: ILinkEditorProps) => {
-  const tableId = props.field.options.foreignTableId;
+export const LinkEditor = (props: IEditorProps & IWrapperEditorProps) => {
+  const { field } = props;
+  const tableId = (field as LinkField).options.foreignTableId;
   return (
-    <AnchorProvider tableId={tableId} fallback={<h1>Empty</h1>}>
-      <SimpleLinkEditor {...props} />
+    <AnchorProvider tableId={tableId}>
+      <LinkEditorInner {...props} />
     </AnchorProvider>
   );
 };

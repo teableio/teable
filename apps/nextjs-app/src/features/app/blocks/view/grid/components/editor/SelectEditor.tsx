@@ -3,9 +3,9 @@ import { FieldType, ColorUtils } from '@teable-group/core';
 import { SelectEditorMain } from '@teable-group/sdk/components';
 import { isString } from 'lodash';
 import { useMemo } from 'react';
-import type { IEditorProps } from './type';
+import type { IWrapperEditorProps } from './type';
 
-export const SelectEditor = (props: IEditorProps) => {
+export const SelectEditor = (props: IWrapperEditorProps) => {
   const { field, record, style, onCancel } = props;
   const cellValue = record.getCellValue(field.id);
   const values = isString(cellValue) ? [cellValue] : ((cellValue ?? []) as string[]);
