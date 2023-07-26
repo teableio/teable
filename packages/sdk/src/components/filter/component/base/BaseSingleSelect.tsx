@@ -12,23 +12,7 @@ import {
 import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
-
-interface IOption {
-  label: string;
-  value: string;
-}
-
-export interface IBaseSelect<T = IOption> {
-  options: T[];
-  value: string | null;
-  className?: string;
-  popoverClassName?: string;
-  disabled?: boolean;
-  notFoundText?: string;
-  optionRender?: (option: T) => React.ReactElement;
-  onSelect: (value: string | null) => void;
-  displayRender?: (option: T) => React.ReactElement;
-}
+import type { IOption, IBaseSelect } from './types';
 
 function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
   const {

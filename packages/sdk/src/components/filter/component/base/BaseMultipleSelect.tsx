@@ -14,12 +14,7 @@ import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
-import type { IBaseSelect } from './BaseSingleSelect';
-
-interface IOption {
-  label: string;
-  value: string;
-}
+import type { IOption, IBaseSelect } from './types';
 
 interface IBaseMultipleSelect<T> extends Omit<IBaseSelect<T>, 'onSelect' | 'value'> {
   options: T[];
