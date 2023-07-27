@@ -58,6 +58,7 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
 
     return plainToInstance(FormulaFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Calculation',
       isComputed: true,
       dbFieldType: isMultipleCellValue ? DbFieldType.Json : getDbFieldType(cellValueType),
       isMultipleCellValue,
@@ -74,6 +75,9 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.parse(value as string);
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
     }
     return value;
   }

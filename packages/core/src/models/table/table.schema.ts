@@ -36,7 +36,7 @@ export const fullTableVoSchema = z
     description: 'Complete table structure data and initial record data.',
   });
 
-export type IFullTableVo = z.infer<typeof fullTableVoSchema>;
+export type ITableFullVo = z.infer<typeof fullTableVoSchema>;
 
 export const tableVoSchema = fullTableVoSchema.partial({
   fields: true,
@@ -93,7 +93,7 @@ export const getTableQuerySchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     description: 'The id of view.',
   }),
-  needFullTable: z
+  includeContent: z
     .string()
     .or(z.boolean())
     .transform(Boolean)
@@ -101,7 +101,7 @@ export const getTableQuerySchema = z.object({
     .optional()
     .openapi({
       description:
-        'If true, will return full table structure. including fields, views, first 50 records, total records count.',
+        'If true return table content. including fields, views, first 50 records and total count of records.',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });

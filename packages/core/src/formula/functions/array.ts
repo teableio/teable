@@ -9,6 +9,15 @@ abstract class ArrayFunc extends FormulaFunc {
 export class CountAll extends ArrayFunc {
   name = FunctionName.CountAll;
 
+  acceptValueType = new Set([
+    CellValueType.Boolean,
+    CellValueType.DateTime,
+    CellValueType.Number,
+    CellValueType.String,
+  ]);
+
+  acceptMultipleValue = true;
+
   validateParams(_params: TypedValue[]) {
     // validation logic here if necessary
   }

@@ -1,16 +1,8 @@
 import type { ILinkFieldOptionsRo } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { useTables } from '@teable-group/sdk/hooks';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@teable-group/ui-lib/shadcn/ui/select';
+import { Label, Switch } from '@teable-group/ui-lib/shadcn';
 import { SelectTable } from '../SelectTable';
-
-const relationshipOptions = [Relationship.ManyOne, Relationship.OneMany, Relationship.ManyMany];
 
 export const LinkOptions = (props: {
   options: Partial<ILinkFieldOptionsRo> | undefined;
@@ -20,12 +12,12 @@ export const LinkOptions = (props: {
   const { options, isLookup, onChange } = props;
   const tables = useTables();
 
-  const relationship = options?.relationship;
+  const relationship = options?.relationship ?? Relationship.ManyOne;
   const foreignTableId = options?.foreignTableId;
 
   const onForeignTableIdChange = (value: string) => {
     const foreignTableId = value;
-    onChange?.({ foreignTableId });
+    onChange?.({ foreignTableId, relationship });
   };
 
   const onRelationshipChange = (value: Relationship) => {
@@ -39,25 +31,19 @@ export const LinkOptions = (props: {
 
   return (
     <div className="space-y-2 w-full">
-      <div className="space-y-2">
-        <span className="neutral-content label-text">Link table</span>
-        <SelectTable value={foreignTableId} onChange={onForeignTableIdChange} tables={tables} />
-      </div>
-
-      <div className="space-y-2">
-        <span className="neutral-content label-text">Relationship</span>
-        <Select value={relationship} onValueChange={onRelationshipChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {relationshipOptions.map((rsp) => (
-              <SelectItem key={rsp} value={rsp}>
-                {rsp}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <span className="neutral-content label-text">Link table</span>
+      <SelectTable value={foreignTableId} onChange={onForeignTableIdChange} tables={tables} />
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="field-options-auto-fill"
+          checked={Boolean(relationship === Relationship.OneMany)}
+          onCheckedChange={(checked) =>
+            onRelationshipChange(checked ? Relationship.OneMany : Relationship.ManyOne)
+          }
+        />
+        <Label htmlFor="field-options-auto-fill" className="font-normal">
+          Allow linking to multiple records
+        </Label>
       </div>
     </div>
   );

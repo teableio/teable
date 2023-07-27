@@ -20,6 +20,8 @@ export class RecordCore {
 
   createdTime!: Date;
 
+  recordOrder!: Record<string, number>;
+
   id!: string;
 
   isDeleted = false;

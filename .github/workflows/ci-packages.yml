@@ -54,11 +54,14 @@ jobs:
         with:
           path: |
             ${{ github.workspace }}/.cache
-            ${{ github.workspace }}/**/tsconfig.tsbuildinfo
 
           key: ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('packages/**.[jt]sx?', 'packages/**.json') }}
           restore-keys: |
             ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
+
+      - name: Run prisma db push generate db structure
+        run: |
+          yarn workspace @teable-group/db-main-prisma prisma-db-push
 
       # to debug cache issues: ls ${{ github.workspace }}/.cache
       # Build packages that have changed (--include & --since), assuming that

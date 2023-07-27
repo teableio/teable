@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import type {
   ISetViewFilterOpContext,
   ISetViewNameOpContext,
+  ISetViewOptionsOpContext,
   ISnapshotBase,
   IViewRo,
   IViewVo,
@@ -143,7 +144,7 @@ export class ViewService implements IAdapterService {
     version: number,
     _tableId: string,
     viewId: string,
-    opContexts: (ISetViewNameOpContext | ISetViewFilterOpContext)[]
+    opContexts: (ISetViewNameOpContext | ISetViewFilterOpContext | ISetViewOptionsOpContext)[]
   ) {
     for (const opContext of opContexts) {
       const updateData: Prisma.ViewUpdateInput = { version };
@@ -153,6 +154,9 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewFilter:
           updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;
+          break;
+        case OpName.SetViewFilter:
+          updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
           break;
         default:
           throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);

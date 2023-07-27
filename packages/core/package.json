@@ -30,7 +30,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "5.2.0",
+    "@asteasolutions/zod-to-openapi": "5.3.1",
     "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
     "dayjs": "1.11.8",

@@ -29,6 +29,7 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
 
     return plainToInstance(DateFieldDto, {
       ...fieldRo,
+      name: fieldRo.name ?? 'Date',
       options: fieldRo.options ?? this.defaultOptions(),
       isComputed: isLookup,
       cellValueType: CellValueType.DateTime,
@@ -47,6 +48,9 @@ export class DateFieldDto extends DateFieldCore implements IFieldBase {
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value && JSON.parse(value as string);
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
     }
     return value;
   }

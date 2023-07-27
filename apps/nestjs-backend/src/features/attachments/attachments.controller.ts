@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { responseWrap } from '../../../src/utils';
+import { responseWrap } from '../../utils';
 import { AttachmentsService } from './attachments.service';
 
 @Controller('api/attachments')

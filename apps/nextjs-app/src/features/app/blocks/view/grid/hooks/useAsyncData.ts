@@ -1,65 +1,60 @@
-import type {
-  DataEditorProps,
-  DataEditorRef,
-  EditableGridCell,
-  GridCell,
-  Item,
-  Rectangle,
-} from '@glideapps/glide-data-grid';
-import { GridCellKind } from '@glideapps/glide-data-grid';
 import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
-import { useRecords } from '@teable-group/sdk/hooks';
+import { useRecords, useViewId } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ICellItem, IGridProps, IRectangle } from '../../../grid';
+import type { ICell, IInnerCell } from '../../../grid/renderers';
+import { CellType } from '../../../grid/renderers';
+import { reorder } from '../utils';
 
-export type IRowCallback<T> = (range: Item) => Promise<readonly T[]>;
-export type IRowToCell<T> = (row: T, col: number) => GridCell;
+export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
+export type IRowToCell<T> = (row: T, col: number) => ICell;
 export type IRowEditedCallback<T> = (
-  cell: Item,
-  newVal: EditableGridCell,
-  rowData: T
+  cell: ICellItem,
+  newVal: IInnerCell,
+  record: T
 ) => T | undefined;
 
-type IRes = Pick<DataEditorProps, 'getCellContent' | 'onVisibleRegionChanged' | 'onCellEdited'> & {
+type IRes = {
   records: Record[];
   reset: () => void;
+  onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
+  onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
+  getCellContent: (cell: ICellItem) => ICell;
+  onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
 
 export const useAsyncData = (
   toCell: IRowToCell<Record>,
   onEdited: IRowEditedCallback<Record>,
-  gridRef: React.MutableRefObject<DataEditorRef | null>,
   initRecords?: IRecord[]
 ): IRes => {
   const [query, setQuery] = useState<Omit<IRecordSnapshotQuery, 'type'>>({
     offset: 0,
     limit: 150,
   });
+  const viewId = useViewId();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(query, initRecords);
-  const recordsRef = useRef(records);
+  const [loadedRecords, setLoadedRecords] = useState<Record[]>(records);
 
-  const [visiblePages, setVisiblePages] = useState<Rectangle>({ x: 0, y: 0, width: 0, height: 0 });
+  const [visiblePages, setVisiblePages] = useState<IRectangle>({ x: 0, y: 0, width: 0, height: 0 });
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
 
   useEffect(() => {
     const startIndex = queryRef.current.offset ?? 0;
-    const vr = visiblePagesRef.current;
-    const damageList: { cell: [number, number] }[] = [];
     const data = records;
-    for (let i = 0; i < data.length; i++) {
-      recordsRef.current[startIndex + i] = records[i];
-      for (let col = Math.max(vr.x - 1, 0); col <= vr.x + vr.width; col++) {
-        damageList.push({
-          cell: [col, i + startIndex],
-        });
+    setLoadedRecords((prevLoadedRecords) => {
+      const newRecordsState: Record[] = [...prevLoadedRecords];
+      for (let i = 0; i < data.length; i++) {
+        newRecordsState[startIndex + i] = records[i];
       }
-    }
-    gridRef.current?.updateCells(damageList);
-  }, [gridRef, records]);
+      return newRecordsState;
+    });
+  }, [records]);
 
   useEffect(() => {
     const { y, height } = visiblePages;
@@ -84,57 +79,82 @@ export const useAsyncData = (
     });
   }, [visiblePages]);
 
-  const onVisibleRegionChanged: NonNullable<DataEditorProps['onVisibleRegionChanged']> =
-    useCallback((r) => {
+  const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
+    (r) => {
       setVisiblePages((cv) => {
-        if (r.x === cv.x && r.y === cv.y && r.width === cv.width && r.height === cv.height)
-          return cv;
+        if (r.y === cv.y && r.height === cv.height) return cv;
         return r;
       });
-    }, []);
-
-  const onCellEdited = useCallback(
-    (cell: Item, newVal: EditableGridCell) => {
-      const [, row] = cell;
-      const current = recordsRef.current[row];
-      if (current === undefined) return;
-
-      const result = onEdited(cell, newVal, current);
-      if (result !== undefined) {
-        recordsRef.current[row] = result;
-      }
     },
-    [onEdited]
+    []
   );
 
-  const getCellContent = useCallback<DataEditorProps['getCellContent']>(
+  const onCellEdited = useCallback(
+    (cell: ICellItem, newVal: IInnerCell) => {
+      const [, row] = cell;
+      const record = loadedRecords[row];
+      if (record === undefined) return;
+      onEdited(cell, newVal, record);
+    },
+    [onEdited, loadedRecords]
+  );
+
+  const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
-      const [col, row] = cell;
-      const rowData = recordsRef.current[row];
+      const [colIndex, rowIndex] = cell;
+      const rowData = loadedRecords[rowIndex];
       if (rowData !== undefined) {
-        return toCell(rowData, col);
+        return toCell(rowData, colIndex);
       }
       return {
-        kind: GridCellKind.Custom,
-        data: {
-          type: 'loading',
-        },
-        copyData: '#Loading',
-        allowOverlay: false,
+        type: CellType.Loading,
       };
     },
-    [toCell]
+    [toCell, loadedRecords]
   );
 
   const reset = useCallback(() => {
-    recordsRef.current = [];
+    setLoadedRecords([]);
   }, []);
+
+  const onRowOrdered = useCallback(
+    (rowIndexCollection: number[], newRowIndex: number) => {
+      const operationRecords: Record[] = [];
+
+      for (const rowIndex of rowIndexCollection) {
+        const record = loadedRecords[rowIndex];
+        if (!record) {
+          throw new Error('Can not find record by index: ' + rowIndex);
+        }
+        operationRecords.push(record);
+      }
+      const targetRecord = loadedRecords[newRowIndex];
+
+      if (!targetRecord) {
+        throw new Error('Can not find target record by index: ' + newRowIndex);
+      }
+
+      if (!viewId) {
+        throw new Error('Can not find view id');
+      }
+
+      const newOrders = reorder(rowIndexCollection, newRowIndex, loadedRecords.length, (index) => {
+        return loadedRecords[index].recordOrder[viewId];
+      });
+
+      operationRecords.forEach((record, index) => {
+        record.updateRecordOrder(viewId, newOrders[index]);
+      });
+    },
+    [loadedRecords, viewId]
+  );
 
   return {
     getCellContent,
     onVisibleRegionChanged,
     onCellEdited,
-    records,
+    onRowOrdered,
+    records: loadedRecords,
     reset,
   };
 };

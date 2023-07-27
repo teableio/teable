@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  IFullTableVo,
+  ITableFullVo,
   IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
@@ -129,7 +129,7 @@ export class TableService implements IAdapterService {
     tableId: string,
     viewId?: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name
-  ): Promise<IFullTableVo> {
+  ): Promise<ITableFullVo> {
     const tableMeta = await this.getTableMeta(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
@@ -152,8 +152,8 @@ export class TableService implements IAdapterService {
   }
 
   async getTable(tableId: string, query: IGetTableQuery): Promise<ITableVo> {
-    const { viewId, fieldKeyType, needFullTable } = query;
-    if (needFullTable) {
+    const { viewId, fieldKeyType, includeContent } = query;
+    if (includeContent) {
       return await this.getFullTable(tableId, viewId, fieldKeyType);
     }
     return await this.getTableMeta(tableId);

@@ -21,11 +21,13 @@ import type {
 } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 import { TypedValue } from './typed-value';
+import { TypedValueConverter } from './typed-value-converter';
 
 export class EvalVisitor
   extends AbstractParseTreeVisitor<TypedValue>
   implements FormulaVisitor<TypedValue>
 {
+  private readonly converter = new TypedValueConverter();
   constructor(private dependencies: { [fieldId: string]: FieldCore }, private record?: IRecord) {
     super();
   }
@@ -260,35 +262,7 @@ export class EvalVisitor
    * transform typed value into function accept value type as possible as it can
    */
   private transformTypedValue(typedValue: TypedValue, func: FormulaFunc): TypedValue {
-    const { value, type, isMultiple, field } = typedValue;
-
-    // select first number value if multiple value
-    if (
-      isMultiple &&
-      !func.acceptMultipleCellValue &&
-      type === CellValueType.Number &&
-      func.acceptCellValueType.has(type)
-    ) {
-      if (value?.length > 1) {
-        throw new TypeError(`function ${func.name} is not accept array value: ${value}`);
-      }
-      const transValue = value && value[0];
-      return new TypedValue(transValue, CellValueType.Number);
-    }
-
-    // stringify all value if function not accept multiple value
-    if (isMultiple && !func.acceptMultipleCellValue) {
-      const transValue = field ? field.cellValue2String(value) : String(value);
-      return new TypedValue(transValue, CellValueType.String, false, field);
-    }
-
-    // transform date value into string if function not accept date value
-    if (!func.acceptCellValueType.has(type) && type === CellValueType.DateTime) {
-      const transValue = value == null ? value : new Date(value).toISOString();
-      return new TypedValue(transValue, CellValueType.DateTime, false, field);
-    }
-
-    return typedValue;
+    return this.converter.convertTypedValue(typedValue, func);
   }
 
   visitFunctionCall(ctx: FunctionCallContext) {

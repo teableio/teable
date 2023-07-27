@@ -1,7 +1,7 @@
-import type { GridColumn } from '@glideapps/glide-data-grid';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useDebounce } from 'react-use';
+import type { IGridColumn } from '../../../grid';
 
 export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   const fields = useFields();
@@ -9,14 +9,8 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   const [newSize, setNewSize] = useState<number>();
   const [index, setIndex] = useState<number>();
   const [columns, setColumns] = useState(_columns);
-  const [dragging, setDragging] = useState<boolean>();
 
-  useEffect(() => {
-    if (dragging) {
-      return;
-    }
-    setColumns(_columns);
-  }, [_columns, dragging]);
+  useEffect(() => setColumns(_columns), [_columns]);
 
   useDebounce(
     () => {
@@ -27,15 +21,13 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
         return;
       }
       fields[index].updateColumnWidth(viewId, newSize);
-      setTimeout(() => setDragging(false));
     },
     200,
     [index, newSize]
   );
 
   const onColumnResize = useCallback(
-    (column: GridColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
-      setDragging(true);
+    (column: IGridColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
       const fieldId = column.id;
       const field = fields[colIndex];
       if (!field) {
@@ -65,5 +57,5 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
     [columns, fields, setColumns, viewId]
   );
 
-  return { dragging, columns: dragging ? columns : _columns, onColumnResize };
+  return { columns, onColumnResize };
 }

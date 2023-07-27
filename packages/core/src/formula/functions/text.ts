@@ -9,7 +9,9 @@ abstract class TextFunc extends FormulaFunc {
 export class Concatenate extends TextFunc {
   name = FunctionName.Concatenate;
 
-  acceptValueType = new Set([CellValueType.String, CellValueType.Number, CellValueType.Boolean]);
+  acceptValueType = new Set([CellValueType.String]);
+
+  acceptMultipleValue = true;
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {

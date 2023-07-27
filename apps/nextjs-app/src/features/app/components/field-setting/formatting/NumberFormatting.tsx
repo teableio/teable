@@ -38,8 +38,8 @@ interface IProps {
   onChange?: (formatting: INumberFormatting) => void;
 }
 
-export const NumberFormatting: React.FC<IProps> = ({ formatting = { precision: 0 }, onChange }) => {
-  const precision = formatting.precision ?? defaultNumberFormatting.precision;
+export const NumberFormatting: React.FC<IProps> = ({ formatting, onChange }) => {
+  const precision = formatting?.precision ?? defaultNumberFormatting.precision;
 
   const onPrecisionChange = (value: string) => {
     const precision = Number(value) ?? defaultNumberFormatting.precision;

@@ -23,7 +23,7 @@
     "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
     "prisma-db-push": "dotenv-flow -- yarn prisma db push",
     "prisma-studio": "dotenv-flow -- yarn prisma studio",
-    "clean": "rimraf --no-glob ./tsconfig.tsbuildinfo",
+    "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "run-s test-unit",
@@ -31,23 +31,21 @@
     "test-e2e": "jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "debug-test-e2e": "cross-env DEBUG=testcontainers jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
-    "postinstall": "yarn prisma-db-push && yarn prisma generate"
+    "postinstall": "yarn prisma generate"
   },
   "dependencies": {
     "@prisma/client": "4.7.1",
-    "better-sqlite3": "8.0.1"
+    "dotenv-flow-cli": "1.0.0",
+    "prisma": "4.7.1"
   },
   "devDependencies": {
     "@faker-js/faker": "8.0.2",
     "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/better-sqlite3": "7.6.2",
     "@types/jest": "29.2.0",
     "@types/node": "18.11.7",
     "camelcase": "7.0.0",
     "cross-env": "7.0.3",
-    "dotenv-flow": "3.2.0",
-    "dotenv-flow-cli": "1.0.0",
     "eslint": "8.26.0",
     "execa": "5.1.1",
     "is-port-reachable": "3.1.0",
@@ -56,9 +54,7 @@
     "npm-run-all": "4.1.5",
     "picocolors": "1.0.0",
     "prettier": "2.7.1",
-    "prisma": "4.7.1",
     "rimraf": "3.0.2",
-    "transliteration": "2.3.5",
     "ts-jest": "29.0.3",
     "tsx": "3.11.0",
     "typescript": "4.8.4"

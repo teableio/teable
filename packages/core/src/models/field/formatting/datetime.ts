@@ -43,7 +43,7 @@ export const datetimeFormattingSchema = z.object({
 export type IDatetimeFormatting = z.infer<typeof datetimeFormattingSchema>;
 
 export const defaultDatetimeFormatting: IDatetimeFormatting = {
-  date: DateFormattingPreset.US,
+  date: DateFormattingPreset.ISO,
   time: TimeFormatting.None,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };

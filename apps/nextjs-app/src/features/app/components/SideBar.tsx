@@ -7,7 +7,7 @@ import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
-import { TableList } from '../blocks/table/TableList';
+import { TableList } from '../blocks/table-list/TableList';
 import { ThemePicker } from './ThemePicker';
 
 export const SideBar: React.FC = () => {

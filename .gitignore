@@ -36,6 +36,7 @@ node_modules
 
 # Cache
 **/tsconfig.tsbuildinfo
+**/tsconfig.build.tsbuildinfo
 **/.eslintcache
 .cache/*
 

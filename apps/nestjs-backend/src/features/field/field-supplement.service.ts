@@ -4,7 +4,6 @@ import type {
   IFieldRo,
   IFormulaFieldOptions,
   ILinkFieldOptions,
-  ILookupOptionsVo,
   INumberFieldOptions,
   IRollupFieldOptions,
 } from '@teable-group/core';
@@ -15,7 +14,7 @@ import {
   Relationship,
   RelationshipRevert,
 } from '@teable-group/core';
-import type { Field, Prisma } from '@teable-group/db-main-prisma';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
@@ -43,6 +42,17 @@ export class FieldSupplementService implements ISupplementService {
     return `__fk_${fieldId}`;
   }
 
+  private async getDefaultLinkName(foreignTableId: string) {
+    const tableRaw = await this.prismaService.tableMeta.findUnique({
+      where: { id: foreignTableId },
+      select: { name: true },
+    });
+    if (!tableRaw) {
+      throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
+    }
+    return tableRaw.name;
+  }
+
   private async prepareLinkField(field: IFieldRo): Promise<IFieldRo> {
     const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
@@ -58,9 +68,11 @@ export class FieldSupplementService implements ISupplementService {
     if (relationship === Relationship.OneMany) {
       dbForeignKeyName = this.getForeignKeyFieldName(symmetricFieldId);
     }
+
     return {
       ...field,
       id: fieldId,
+      name: field.name ?? (await this.getDefaultLinkName(foreignTableId)),
       options: {
         relationship,
         foreignTableId,
@@ -71,10 +83,7 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private async prepareLookupOptions(
-    field: IFieldRo,
-    batchFieldRos?: IFieldRo[]
-  ): Promise<{ lookupOptions: ILookupOptionsVo; lookupFieldRaw: Field }> {
+  private async prepareLookupOptions(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new BadRequestException('lookupOptions is required');
@@ -83,7 +92,7 @@ export class FieldSupplementService implements ISupplementService {
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
     const linkFieldRaw = await this.prismaService.field.findFirst({
       where: { id: linkFieldId, deletedTime: null, type: FieldType.Link },
-      select: { options: true },
+      select: { name: true, options: true },
     });
 
     const optionsRaw = linkFieldRaw?.options || null;
@@ -91,7 +100,7 @@ export class FieldSupplementService implements ISupplementService {
       (optionsRaw && JSON.parse(optionsRaw as string)) ||
       batchFieldRos?.find((field) => field.id === linkFieldId);
 
-    if (!linkFieldOptions) {
+    if (!linkFieldOptions || !linkFieldRaw) {
       throw new BadRequestException(`linkFieldId ${linkFieldId} is invalid`);
     }
 
@@ -116,11 +125,15 @@ export class FieldSupplementService implements ISupplementService {
         dbForeignKeyName: linkFieldOptions.dbForeignKeyName,
       },
       lookupFieldRaw,
+      linkFieldRaw,
     };
   }
 
   private async prepareLookupField(field: IFieldRo, batchFieldRos?: IFieldRo[]): Promise<IFieldRo> {
-    const { lookupOptions, lookupFieldRaw } = await this.prepareLookupOptions(field, batchFieldRos);
+    const { lookupOptions, lookupFieldRaw, linkFieldRaw } = await this.prepareLookupOptions(
+      field,
+      batchFieldRos
+    );
 
     if (lookupFieldRaw.type !== field.type) {
       throw new BadRequestException(
@@ -140,6 +153,7 @@ export class FieldSupplementService implements ISupplementService {
 
     return {
       ...field,
+      name: field.name ?? `${lookupFieldRaw.name} (from ${linkFieldRaw.name})`,
       options,
       lookupOptions,
     };
@@ -175,7 +189,8 @@ export class FieldSupplementService implements ISupplementService {
 
     const formatting =
       (field.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
-    const options = formatting ? field.options : { ...field.options, formatting };
+    const options = formatting ? { ...field.options, formatting } : field.options;
+
     return {
       ...field,
       options,
@@ -185,7 +200,10 @@ export class FieldSupplementService implements ISupplementService {
   }
 
   private async prepareRollupField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
-    const { lookupOptions } = await this.prepareLookupOptions(field, batchFieldRos);
+    const { lookupOptions, linkFieldRaw, lookupFieldRaw } = await this.prepareLookupOptions(
+      field,
+      batchFieldRos
+    );
     const options = field.options as IRollupFieldOptions;
 
     if (!options) {
@@ -203,9 +221,11 @@ export class FieldSupplementService implements ISupplementService {
     const { cellValueType, isMultipleCellValue } = valueType;
 
     const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
-    const fulfilledOptions = formatting ? field.options : { ...field.options, formatting };
+    const fulfilledOptions = formatting ? { ...field.options, formatting } : field.options;
+
     return {
       ...field,
+      name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkFieldRaw.name})`,
       options: fulfilledOptions,
       lookupOptions,
       cellValueType,
@@ -236,11 +256,10 @@ export class FieldSupplementService implements ISupplementService {
   private async generateSymmetricField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    foreignTableId: string,
     field: LinkFieldDto
   ) {
     const { name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: foreignTableId },
+      where: { id: tableId },
       select: { name: true },
     });
 
@@ -289,12 +308,7 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     const foreignTableId = field.options.foreignTableId;
-    const symmetricField = await this.generateSymmetricField(
-      prisma,
-      tableId,
-      foreignTableId,
-      field
-    );
+    const symmetricField = await this.generateSymmetricField(prisma, tableId, field);
 
     if (symmetricField.options.relationship === Relationship.ManyOne) {
       await this.createForeignKeyField(prisma, foreignTableId, symmetricField);

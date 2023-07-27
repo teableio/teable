@@ -28,16 +28,14 @@ export const DateOptions = (props: {
       <DatetimeFormatting onChange={onFormattingChange} formatting={options.formatting} />
       {!isLookup && (
         <div className="flex items-center space-x-2">
-          <Label htmlFor="field-options-auto-fill" className="font-normal">
-            Auto Fill
-          </Label>
           <Switch
-            className="h-6 w-12"
-            classNameThumb="w-5 h-5 data-[state=checked]:translate-x-6"
             id="field-options-auto-fill"
             checked={Boolean(defaultValue)}
             onCheckedChange={onDefaultValueChange}
           />
+          <Label htmlFor="field-options-auto-fill" className="font-normal">
+            Auto Fill with current date
+          </Label>
         </div>
       )}
     </div>

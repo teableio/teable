@@ -1,9 +1,7 @@
 import { useContext } from 'react';
-import { AnchorContext } from '../context';
-import { ViewContext } from '../context/view';
+import { ViewContext } from '../context';
 
-export function useView() {
-  const { viewId } = useContext(AnchorContext);
+export function useView(viewId?: string) {
   const { views } = useContext(ViewContext);
   return views.find((view) => view.id === viewId);
 }

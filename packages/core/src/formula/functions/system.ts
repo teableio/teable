@@ -11,6 +11,8 @@ export class TextAll extends SystemFunc {
 
   acceptValueType = new Set([CellValueType.String]);
 
+  acceptMultipleValue = true;
+
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
       throw new Error(`${FunctionName.TextAll} only allow 1 param`);

@@ -86,7 +86,7 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
 
   if (!result.success) {
     throw new BadRequestException(
-      `${instance.name}} has invalid options, ${fromZodError(result.error)}`
+      `${instance.name} has invalid options, ${fromZodError(result.error)}`
     );
   }
   return instance;

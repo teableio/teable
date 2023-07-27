@@ -1,16 +1,16 @@
 import { create } from 'zustand';
-import type { IEditorCtx, IHeaderMenu, ISetting } from './type';
+import type { IHeaderMenu, IRecordMenu, ISetting } from './type';
 
 interface IGridViewState {
   setting?: ISetting;
   headerMenu?: IHeaderMenu;
-  editorCtx?: IEditorCtx;
+  recordMenu?: IRecordMenu;
   openSetting: (props: ISetting) => void;
   closeSetting: () => void;
   openHeaderMenu: (props: IHeaderMenu) => void;
   closeHeaderMenu: () => void;
-  updateEditorPosition: (props: IEditorCtx) => void;
-  clearEditorCtx: () => void;
+  openRecordMenu: (props: IRecordMenu) => void;
+  closeRecordMenu: () => void;
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
@@ -43,7 +43,7 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
   },
   closeHeaderMenu: () => {
     set((state) => {
-      if (state.headerMenu == undefined) {
+      if (state.headerMenu == null) {
         return state;
       }
       return {
@@ -52,22 +52,22 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
       };
     });
   },
-  updateEditorPosition: (props) => {
+  openRecordMenu: (props) => {
     set((state) => {
       return {
         ...state,
-        editorCtx: props,
+        recordMenu: props,
       };
     });
   },
-  clearEditorCtx: () => {
+  closeRecordMenu: () => {
     set((state) => {
-      if (state.editorCtx == undefined) {
+      if (state.recordMenu == null) {
         return state;
       }
       return {
         ...state,
-        editorCtx: undefined,
+        recordMenu: undefined,
       };
     });
   },
