@@ -130,6 +130,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   } = useSelection();
 
   const { isDragging, type: dragType } = dragState;
+  const isResizing = columnResizeState.columnIndex > -1;
   const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -399,7 +400,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   useEventListener(
     'mousemove',
     onMouseMove,
-    isSelecting || isDragging ? window : stageRef.current,
+    isSelecting || isDragging || isResizing ? window : stageRef.current,
     true
   );
 
