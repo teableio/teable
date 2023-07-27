@@ -55,7 +55,7 @@ export class MultipleStringCellValueFilterAdapter extends AbstractCellValueFilte
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    const sql = `exists ( 
+    const sql = `not exists ( 
       select 1 from 
         json_each(${this._table}.${field.dbFieldName}) 
       where json_each.value like ?

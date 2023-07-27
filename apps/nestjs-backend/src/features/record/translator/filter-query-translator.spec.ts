@@ -110,146 +110,348 @@ describe('FilterQueryTranslator', () => {
     fieldContext = keyBy(fields, 'id');
   });
 
-  it('should parse all `SingleLineText` conditions', () => {
-    const jsonFilter = filterSchema.parse({
-      filterSet: [
-        {
-          fieldId: 'fld1',
-          operator: 'is',
-          value: 'a',
-        },
-        {
-          fieldId: 'fld1',
-          operator: 'isNot',
-          value: 'b',
-        },
-        {
-          fieldId: 'fld1',
-          operator: 'contains',
-          value: 'c',
-        },
-        {
-          fieldId: 'fld1',
-          operator: 'doesNotContain',
-          value: 'd',
-        },
-        {
-          fieldId: 'fld1',
-          operator: 'isEmpty',
-          value: null,
-        },
-        {
-          fieldId: 'fld1',
-          operator: 'isNotEmpty',
-          value: null,
-        },
-      ],
-      conjunction: 'and',
+  describe('should parse all `SingleLineText` conditions', () => {
+    it('isEmpty, isNotEmpty', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld1',
+              operator: 'isEmpty',
+              value: null,
+            },
+            {
+              fieldId: 'fld1',
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch('`name_fld1` is null and `name_fld1` is not null');
     });
 
-    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+    it('is', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld1',
+              operator: 'is',
+              value: 'a',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
 
-    expect(queryBuilder.toQuery()).toMatch(
-      "`name_fld1` = 'a' and ifnull(name_fld1, '') != 'b' and `name_fld1` like '%c%' and ifnull(name_fld1, '') not like '%d%' and `name_fld1` is null and `name_fld1` is not null"
-    );
+      expect(queryBuilder.toQuery()).toMatch(`\`name_fld1\` = 'a'`);
+    });
+
+    it('isNot', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld1',
+              operator: 'isNot',
+              value: 'b',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`ifnull(name_fld1, '') != 'b'`);
+    });
+
+    it('contains', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld1',
+              operator: 'contains',
+              value: 'c',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`\`name_fld1\` like '%c%'`);
+    });
+
+    it('doesNotContain', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld1',
+              operator: 'doesNotContain',
+              value: 'd',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`ifnull(name_fld1, '') not like '%d%'`);
+    });
   });
 
-  it('should parse all `Number` conditions', () => {
-    const jsonFilter = filterSchema.parse({
-      filterSet: [
-        {
-          fieldId: 'fld2',
-          operator: 'is',
-          value: 1,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isNot',
-          value: 2,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isGreater',
-          value: 3,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isGreaterEqual',
-          value: 4,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isLess',
-          value: 5,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isLessEqual',
-          value: 6,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isEmpty',
-          value: null,
-        },
-        {
-          fieldId: 'fld2',
-          operator: 'isNotEmpty',
-          value: null,
-        },
-      ],
-      conjunction: 'and',
+  describe('should parse all `Number` conditions', () => {
+    it('isEmpty, isNotEmpty', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isEmpty',
+              value: null,
+            },
+            {
+              fieldId: 'fld2',
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch('`number_fld2` is null and `number_fld2` is not null');
     });
 
-    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+    it('is', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'is',
+              value: 1,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
 
-    expect(queryBuilder.toQuery()).toMatch(
-      "number_fld2` = 1 and ifnull(number_fld2, '') != 2 and `number_fld2` > 3 and `number_fld2` >= 4 and `number_fld2` < 5 and `number_fld2` <= 6 and `number_fld2` is null and `number_fld2` is not null"
-    );
+      expect(queryBuilder.toQuery()).toMatch(`\`number_fld2\` = 1`);
+    });
+
+    it('isNot', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isNot',
+              value: 2,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`ifnull(number_fld2, '') != 2`);
+    });
+
+    it('isGreater', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isGreater',
+              value: 3,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`\`number_fld2\` > 3`);
+    });
+
+    it('isGreaterEqual', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isGreaterEqual',
+              value: 4,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`\`number_fld2\` >= 4`);
+    });
+
+    it('isLess', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isLess',
+              value: 5,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`\`number_fld2\` < 5`);
+    });
+
+    it('isLessEqual', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld2',
+              operator: 'isLessEqual',
+              value: 5,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`\`number_fld2\` <= 5`);
+    });
   });
 
-  it('should parse all `SingleSelect` conditions', () => {
-    const jsonFilter = filterSchema.parse({
-      filterSet: [
-        {
-          fieldId: 'fld3',
-          operator: 'is',
-          value: 'value1',
-        },
-        {
-          fieldId: 'fld3',
-          operator: 'isNot',
-          value: 'value2',
-        },
-        {
-          fieldId: 'fld3',
-          operator: 'isAnyOf',
-          value: ['value3', 'value1'],
-        },
-        {
-          fieldId: 'fld3',
-          operator: 'isNoneOf',
-          value: ['value4'],
-        },
-        {
-          fieldId: 'fld3',
-          operator: 'isEmpty',
-          value: null,
-        },
-        {
-          fieldId: 'fld3',
-          operator: 'isNotEmpty',
-          value: null,
-        },
-      ],
-      conjunction: 'and',
+  describe('should parse all `SingleSelect` conditions', () => {
+    it('isEmpty, isNotEmpty', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld3',
+              operator: 'isEmpty',
+              value: null,
+            },
+            {
+              fieldId: 'fld3',
+              operator: 'isNotEmpty',
+              value: null,
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch('`status_fld3` is null and `status_fld3` is not null');
     });
 
-    new FilterQueryTranslator(queryBuilder, fieldContext, jsonFilter).translateToSql();
+    it('is', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld3',
+              operator: 'is',
+              value: 'value1',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
 
-    expect(queryBuilder.toQuery()).toMatch(
-      "`status_fld3` = 'value1' and ifnull(status_fld3, '') != 'value2' and `status_fld3` in ('value3', 'value1') and ifnull(status_fld3, '') not in ('value4') and `status_fld3` is null and `status_fld3` is not null"
-    );
+      expect(queryBuilder.toQuery()).toMatch(`\`status_fld3\` = 'value1'`);
+    });
+
+    it('isNot', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld3',
+              operator: 'isNot',
+              value: 'value2',
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch(`ifnull(status_fld3, '') != 'value2'`);
+    });
+
+    it('isAnyOf', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld3',
+              operator: 'isAnyOf',
+              value: ['value3', 'value1'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch("`status_fld3` in ('value3', 'value1')");
+    });
+
+    it('isNoneOf', () => {
+      new FilterQueryTranslator(
+        queryBuilder,
+        fieldContext,
+        filterSchema.parse({
+          filterSet: [
+            {
+              fieldId: 'fld3',
+              operator: 'isNoneOf',
+              value: ['value4'],
+            },
+          ],
+          conjunction: 'and',
+        })
+      ).translateToSql();
+
+      expect(queryBuilder.toQuery()).toMatch("ifnull(status_fld3, '') not in ('value4')");
+    });
   });
 
   describe('should parse all `MultipleSelect` conditions', () => {
