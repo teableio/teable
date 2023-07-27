@@ -65,7 +65,7 @@ function Condition(props: IConditionProps) {
   const fieldValueHandler = useCallback(
     (value: IFilterItem['value']) => {
       if (!isEqual(filter.value, value)) {
-        filter.value = value ?? null;
+        filter.value = value === '' ? null : value;
         // empty array should be null!
         if (Array.isArray(value) && !value.length) {
           filter.value = null;
