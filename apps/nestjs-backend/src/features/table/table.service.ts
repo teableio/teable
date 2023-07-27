@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   ITableFullVo,
   IGetTableQuery,
@@ -22,6 +27,8 @@ const tableNamePrefix = 'visual';
 
 @Injectable()
 export class TableService implements IAdapterService {
+  private logger = new Logger(TableService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly viewService: ViewService,
@@ -108,7 +115,7 @@ export class TableService implements IAdapterService {
     });
 
     if (!tableMeta) {
-      throw new NotFoundException('No found');
+      throw new NotFoundException();
     }
 
     return {
@@ -159,7 +166,7 @@ export class TableService implements IAdapterService {
         select: { id: true },
       });
     } catch (e) {
-      throw new HttpException('No found', HttpStatus.NOT_FOUND);
+      throw new NotFoundException();
     }
   }
 
@@ -201,7 +208,7 @@ export class TableService implements IAdapterService {
           return;
         }
       }
-      throw new Error(`Unknown context ${opContext} for table update`);
+      throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
     }
   }
 

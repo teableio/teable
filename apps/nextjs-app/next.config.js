@@ -206,7 +206,7 @@ const nextConfig = {
       destination: `http://${NEXTJS_SERVER_HOST}:${NEXTJS_SOCKET_PORT}/socket/:path*`,
     };
 
-    return isProd ? [] : [];
+    return isProd ? [] : [socketProxy];
   },
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites

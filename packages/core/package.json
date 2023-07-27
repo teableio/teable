@@ -21,6 +21,7 @@
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
     "antlr4ts": "antlr4ts -visitor -no-listener src/formula/parser/*.g4",
+    "antlr4ts-tql": "antlr4ts -visitor -no-listener src/query/parser/*.g4",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "check-dist": "es-check -v",
     "check-size": "size-limit",

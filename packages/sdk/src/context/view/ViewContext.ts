@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import React from 'react';
-import type { View } from '../../model';
+import type { IViewInstance } from '../../model';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export const ViewContext = React.createContext<{
-  views: View[];
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  views: IViewInstance[];
 }>(null!);

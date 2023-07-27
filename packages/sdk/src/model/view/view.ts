@@ -1,23 +1,11 @@
-import type { IJsonApiSuccessResponse, IViewVo } from '@teable-group/core';
-import { ViewOpBuilder, ViewCore } from '@teable-group/core';
+import type { IFilter, IViewVo, IJsonApiSuccessResponse } from '@teable-group/core';
+import { filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
-export class ViewExtended {
-  static updateName(doc: Doc<IViewVo>, name: string, oldName: string) {
-    const viewOperation = ViewOpBuilder.editor.setViewName.build({
-      newName: name,
-      oldName: oldName,
-    });
-
-    return new Promise<void>((resolve, reject) => {
-      doc.submitOp([viewOperation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
-      });
-    });
-  }
-}
 
 export abstract class View extends ViewCore {
+  protected doc!: Doc<IViewVo>;
+
   static async getViews(tableId: string) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
       `/api/table/${tableId}/view`
@@ -25,5 +13,30 @@ export abstract class View extends ViewCore {
     return response.data.data;
   }
 
-  abstract updateName(_name: string): Promise<void>;
+  private async submitOperation(operation: unknown): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.doc.submitOp([operation], undefined, (error) => {
+        error ? reject(error) : resolve(undefined);
+      });
+    });
+  }
+
+  async updateName(name: string): Promise<void> {
+    const viewOperation = ViewOpBuilder.editor.setViewName.build({
+      newName: name,
+      oldName: this.name,
+    });
+
+    return await this.submitOperation(viewOperation);
+  }
+
+  async setFilter(newFilter?: IFilter | null): Promise<void> {
+    const validFilter = newFilter && (await filterSchema.parseAsync(newFilter));
+
+    const viewOperation = ViewOpBuilder.editor.setViewFilter.build({
+      newFilter: validFilter,
+      oldFilter: this.filter,
+    });
+    return await this.submitOperation(viewOperation);
+  }
 }

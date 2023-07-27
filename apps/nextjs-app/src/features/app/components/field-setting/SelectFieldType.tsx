@@ -1,4 +1,5 @@
 import { FieldType } from '@teable-group/core';
+import { useFieldStaticGetter } from '@teable-group/sdk';
 import ArrowDownIcon from '@teable-group/ui-lib/icons/app/arrow-down.svg';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
@@ -14,7 +15,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/sh
 import classNames from 'classnames';
 import { useState, useRef } from 'react';
 import { FIELD_TYPE_ORDER } from '../../utils/fieldTypeOrder';
-import { useFieldStaticGetter } from '../../utils/useFieldStaticGetter';
 
 export const SelectFieldType = (props: {
   value?: FieldType;

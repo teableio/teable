@@ -1,10 +1,10 @@
 import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import { useFieldStaticGetter } from '@teable-group/sdk';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useState } from 'react';
-import { useFieldStaticGetter } from '../../utils/useFieldStaticGetter';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
 import { FieldOperator } from './type';

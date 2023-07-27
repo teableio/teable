@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { filterSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -101,6 +102,14 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
     example: 'viwXXXXXXX',
     description:
       'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
+  }),
+  filterByTql: z.string().optional().openapi({
+    example: "{field} = 'Completed' AND {field} > 5",
+    description:
+      'A Teable Query Language (TQL) string used to filter results. It allows complex query conditions based on fields, operators, and values.',
+  }),
+  filter: filterSchema.optional().openapi({
+    type: 'object',
   }),
 });
 

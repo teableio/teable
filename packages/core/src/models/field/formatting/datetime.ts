@@ -20,7 +20,7 @@ export enum TimeFormatting {
 }
 
 // Define a Zod schema for time zone string
-const timeZoneStringSchema = z.string().refine(
+export const timeZoneStringSchema = z.string().refine(
   (value) => {
     try {
       new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions();

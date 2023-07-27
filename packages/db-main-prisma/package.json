@@ -39,6 +39,7 @@
     "prisma": "4.7.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "8.0.2",
     "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.2.0",

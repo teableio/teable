@@ -7,19 +7,14 @@ import { AppContext } from '../app/AppContext';
 import { RecordContext } from './RecordContext';
 
 export interface IRecordProviderContext {
-  viewId?: string;
   children: ReactNode;
   serverData?: { records: IRecord[]; total: number };
 }
 
-export const RecordProvider: React.FC<IRecordProviderContext> = ({
-  viewId,
-  children,
-  serverData,
-}) => {
+export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, serverData }) => {
   const [rowCount, setRowCount] = useState(serverData?.total ?? 0);
   const { connection } = useContext(AppContext);
-  const { tableId } = useContext(AnchorContext);
+  const { tableId, viewId } = useContext(AnchorContext);
 
   useEffect(() => {
     const param: IRecordSnapshotQuery = {

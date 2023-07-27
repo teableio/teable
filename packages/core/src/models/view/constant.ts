@@ -15,25 +15,6 @@ export enum ViewType {
   Gantt = 'gantt',
 }
 
-export enum FilterConjunction {
-  And = 'and',
-  Or = 'or',
-}
-
-export enum FOperator {
-  Is = 'is',
-  IsNot = 'isNot',
-  Contains = 'contains',
-  DoesNotContain = 'doesNotContain',
-  IsEmpty = 'isEmpty',
-  IsNotEmpty = 'isNotEmpty',
-  IsGreater = 'isGreater',
-  IsGreaterEqual = 'isGreaterEqual',
-  IsLess = 'isLess',
-  IsLessEqual = 'isLessEqual',
-  IsRepeat = 'isRepeat',
-}
-
 export enum FilterDuration {
   ExactDate = 'ExactDate',
   DateRange = 'DateRange',

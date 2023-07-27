@@ -13,3 +13,5 @@ export * from './ui/switch';
 export * from './ui/toast';
 export * from './ui/toaster';
 export * from './ui/use-toast';
+export * from './ui/tooltip';
+export * from './ui/checkbox';

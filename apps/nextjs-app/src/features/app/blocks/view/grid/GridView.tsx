@@ -2,6 +2,7 @@ import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import type { Record } from '@teable-group/sdk';
 import {
+  useFieldStaticGetter,
   useRowCount,
   useSSRRecords,
   useTable,
@@ -13,7 +14,6 @@ import { range, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
-import { useFieldStaticGetter } from '@/features/app/utils';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid';
 import type { IRectangle, IPosition, ISelection, IGridColumn } from '../../grid';

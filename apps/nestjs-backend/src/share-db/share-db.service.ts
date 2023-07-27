@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { RecordOpBuilder, IdPrefix } from '@teable-group/core';
+import { IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { uniq, map, orderBy } from 'lodash';
+import { map, orderBy, uniq } from 'lodash';
 import { DerivateChangeService } from './derivate-change.service';
-import { EventEnums } from './events';
 import type { RecordEvent } from './events';
+import { EventEnums } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
-import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
+import { TransactionService } from './transaction.service';
 
 enum IEventType {
   Create = 'create',
@@ -41,8 +41,8 @@ export class ShareDbService extends ShareDBClass {
     });
 
     // this.use('submit', this.onSubmit);
+    this.use('commit', this.onCommit);
     this.use('apply', this.onApply);
-    // this.use('commit', this.onCommit);
     // this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
@@ -120,7 +120,7 @@ export class ShareDbService extends ShareDBClass {
     }
     // prepare transaction
     await this.transactionService.getTransaction(tsMeta);
-    console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
+    // console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
@@ -140,7 +140,7 @@ export class ShareDbService extends ShareDBClass {
     transactionMeta: ITransactionMeta,
     opsMap: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
+    // console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     connection.agent!.custom = transactionMeta;
@@ -167,11 +167,23 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
-  // private onCommit = (context: ShareDBClass.middleware.CommitContext, next: (err?: unknown) => void) => {
-  //   console.log('ShareDb:COMMIT:', context.ops, context.snapshot);
+  private onCommit = (
+    context: ShareDBClass.middleware.CommitContext,
+    next: (err?: unknown) => void
+  ) => {
+    const [docType, tableId] = context.collection.split('_');
 
-  //   next();
-  // }
+    // Additional publish/subscribe `record channels` are required for changes to view properties
+    if (docType === IdPrefix.View && context.op.op) {
+      const action = context.op.op.some((op) => ViewOpBuilder.editor.setViewFilter.detect(op));
+
+      if (action) {
+        context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+      }
+    }
+
+    next();
+  };
 
   // private onAfterWrite = (
   //   context: ShareDBClass.middleware.SubmitContext,

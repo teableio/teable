@@ -21,6 +21,7 @@ export enum OpName {
 
   AddView = 'addView',
   SetViewName = 'setViewName',
+  SetViewFilter = 'setViewFilter',
   SetViewOptions = 'SetViewOptions',
 }
 

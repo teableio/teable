@@ -1,19 +1,50 @@
+import type { IFilter } from '@teable-group/core';
+import { Filter } from '@teable-group/sdk';
 import { useTable, useUndoManager } from '@teable-group/sdk/hooks';
+import { useView } from '@teable-group/sdk/hooks/use-view';
+import { useToast } from '@teable-group/ui-lib';
 import AddIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
 import BackIcon from '@teable-group/ui-lib/icons/app/back.svg';
 import ColorIcon from '@teable-group/ui-lib/icons/app/color.svg';
-import FilterIcon from '@teable-group/ui-lib/icons/app/filter.svg';
 import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { useCallback } from 'react';
+import { cloneDeep } from 'lodash';
+import { useCallback, useMemo } from 'react';
+import { z } from 'zod';
+import { fromZodError } from 'zod-validation-error';
 import { FilterColumnsButton } from './FilterColumnsButton';
 import { RowHeightButton } from './RowHeightButton';
 
 export const ToolBar: React.FC = () => {
   const undoManager = useUndoManager();
   const table = useTable();
+  const view = useView();
+  const { toast } = useToast();
+
+  const onFilterChange = useCallback(
+    async (filters: IFilter | null) => {
+      await view?.setFilter(filters).catch((e) => {
+        let message;
+        if (e instanceof z.ZodError) {
+          message = fromZodError(e).message;
+        } else {
+          message = e.message;
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description: message,
+        });
+      });
+    },
+    [toast, view]
+  );
+
+  const initFilters = useMemo<IFilter>(() => {
+    return cloneDeep(view?.filter) as IFilter;
+  }, [view]);
 
   const undo = useCallback(() => {
     const undo = undoManager?.undo();
@@ -44,10 +75,7 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <FilterIcon className="text-lg pr-1" />
-        Filter
-      </Button>
+      <Filter filters={initFilters} onChange={onFilterChange} />
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort

@@ -1,5 +1,5 @@
 import { useTableId } from '@teable-group/sdk/hooks';
-import type { View } from '@teable-group/sdk/model';
+import type { IViewInstance } from '@teable-group/sdk/model';
 import ElipsisIcon from '@teable-group/ui-lib/icons/app/elipsis.svg';
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { useDeleteView } from './useDeleteView';
 
 interface IProps {
-  view: View;
+  view: IViewInstance;
   isDelete: boolean;
   isActive: boolean;
 }

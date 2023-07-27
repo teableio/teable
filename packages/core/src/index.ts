@@ -17,3 +17,4 @@ export * from './models';
 export * from './utils';
 export * from './op-builder';
 export * from './formula';
+export * from './query';

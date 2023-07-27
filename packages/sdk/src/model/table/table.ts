@@ -12,6 +12,7 @@ import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
+import { View } from '../view';
 
 export class Table extends TableCore {
   static async createTable(tableRo: ICreateTableRo) {
@@ -25,6 +26,10 @@ export class Table extends TableCore {
   }
 
   protected doc!: Doc<ITableVo>;
+
+  async getViews() {
+    return View.getViews(this.id);
+  }
 
   async updateName(name: string) {
     const fieldOperation = TableOpBuilder.editor.setTableName.build({

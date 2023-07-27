@@ -1,16 +1,9 @@
-import type { IViewVo, RowHeightLevel } from '@teable-group/core';
+import type { RowHeightLevel } from '@teable-group/core';
 import { GridViewCore, ViewOpBuilder } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
-import type { View } from './view';
-import { ViewExtended } from './view';
+import { Mixin } from 'ts-mixer';
+import { View } from './view';
 
-export class GridView extends GridViewCore implements View {
-  protected doc!: Doc<IViewVo>;
-
-  async updateName(name: string) {
-    return ViewExtended.updateName(this.doc, name, this.name);
-  }
-
+export class GridView extends Mixin(GridViewCore, View) {
   async updateRowHeight(rowHeight: RowHeightLevel) {
     const viewOperation = ViewOpBuilder.editor.setViewOption.build({
       newOptions: {
