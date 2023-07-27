@@ -1,5 +1,5 @@
 import { renderToString } from 'react-dom/server';
-import type { ISpriteMap } from '../../../grid/managers';
+import type { ISpriteMap, ISpriteProps } from '../../../grid/managers';
 
 export const getHeaderIcons = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,9 +7,9 @@ export const getHeaderIcons = (
 ) => {
   const map: ISpriteMap = {};
   fieldTypeOrder.forEach(({ type, IconComponent }) => {
-    map[type] = (props: { fgColor: string; bgColor: string }) => {
+    map[type] = (props: ISpriteProps) => {
       const { bgColor } = props;
-      return renderToString(<IconComponent style={{ fill: bgColor }} />);
+      return renderToString(<IconComponent style={{ color: bgColor }} />);
     };
   });
   return map;
