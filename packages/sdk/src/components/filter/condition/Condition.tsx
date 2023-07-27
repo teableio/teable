@@ -73,7 +73,7 @@ function Condition(props: IConditionProps) {
   );
 
   return (
-    <div className="flex items-center p-1">
+    <div className="flex items-center px-1">
       <Conjunction
         index={index}
         parent={parent}
@@ -92,7 +92,7 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white ml-1">
+        <Button variant="outline" size="sm" onClick={deleteCurrentFilter} className="ml-1">
           <Trash2 className="h-4 w-4"></Trash2>
         </Button>
       </section>

@@ -89,6 +89,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
         <Button
           variant="outline"
           role="combobox"
+          size="sm"
           aria-expanded={open}
           disabled={disabled}
           className={classNames('w-32 justify-between m-1 overflow-hidden', className)}
@@ -111,7 +112,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
-            <CommandInput placeholder="Search option" />
+            <CommandInput placeholder="Search option" className="placeholder:text-[13px]" />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {options.length ? (
@@ -120,7 +121,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
                     key={option.value}
                     value={option.value}
                     onSelect={() => selectHandler(option.value)}
-                    className="truncate"
+                    className="truncate p-1"
                   >
                     <Check
                       className={classNames(

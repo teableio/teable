@@ -26,7 +26,7 @@ const FilterInput = (props: InputProps) => {
       onChange={(e) => {
         onChange(e.target.value ?? null);
       }}
-      className={classNames('m-1', className)}
+      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

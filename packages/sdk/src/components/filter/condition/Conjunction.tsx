@@ -26,11 +26,13 @@ const Conjunction = (props: IConjunctionProps) => {
 
   return (
     <div className="p-r-2 min-w-[60px] m-1">
-      {index === ConjunctionPosition.WHERE ? <span className="px-1">where</span> : null}
+      {index === ConjunctionPosition.WHERE ? <span className="px-1 text-sm">where</span> : null}
       {index === ConjunctionPosition.SELECTOR ? (
         <ConjunctionSelect value={parent.conjunction} onSelect={onSelect} />
       ) : null}
-      {index > ConjunctionPosition.JOIN ? <span className="px-1">{parent.conjunction}</span> : null}
+      {index > ConjunctionPosition.JOIN ? (
+        <span className="px-1 text-[13px]">{parent.conjunction}</span>
+      ) : null}
     </div>
   );
 };

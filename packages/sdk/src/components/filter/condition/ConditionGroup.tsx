@@ -60,7 +60,7 @@ function ConditionGroup(props: IConditionGroupProps) {
             <div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost">
+                  <Button variant="ghost" size="sm">
                     <Plus className="h-4 w-4"></Plus>
                   </Button>
                 </DropdownMenuTrigger>
@@ -87,7 +87,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteCurrentItem}>
+              <Button variant="ghost" onClick={deleteCurrentItem} size="sm">
                 <Trash2 className="h-4 w-4"></Trash2>
               </Button>
             </div>
