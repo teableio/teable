@@ -9,12 +9,17 @@ const Node: NextPageWithLayout = () => {
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { nodeId } = context.query;
   const result = await new SsrApi().getDefaultViewId(nodeId as string);
+  if (result.success) {
+    return {
+      redirect: {
+        destination: `/space/${nodeId}/${result.data.id}`,
+        permanent: false,
+      },
+    };
+  }
 
   return {
-    redirect: {
-      destination: `/space/${nodeId}/${result.id}`,
-      permanent: false,
-    },
+    notFound: true,
   };
 };
 

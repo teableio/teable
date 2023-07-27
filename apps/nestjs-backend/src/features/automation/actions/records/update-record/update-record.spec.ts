@@ -69,6 +69,7 @@ describe('Update-Record Action Test', () => {
         fields: tableRo.fields as IFieldVo[],
         records: tableRo.records as IRecord[],
         total: 1,
+        lastModifiedTime: new Date().toISOString(),
       })
     );
 

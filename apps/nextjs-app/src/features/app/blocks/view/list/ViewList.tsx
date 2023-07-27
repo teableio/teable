@@ -1,5 +1,5 @@
+import { Plus } from '@teable-group/icons';
 import { useViewId, useViews } from '@teable-group/sdk';
-import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useAddView } from './useAddView';
 import { ViewListItem } from './ViewListItem';
@@ -9,23 +9,23 @@ export const ViewList: React.FC = () => {
   const activeViewId = useViewId();
   const addView = useAddView();
   return (
-    <div className="mx-2 flex pt-2 items-center space-x-2">
+    <div className="mx-2 flex py-2 items-center space-x-1">
       {views.map((view) => (
         <ViewListItem
           key={view.id}
           view={view}
-          isDelete={views.length > 1}
+          removable={views.length > 1}
           isActive={view.id === activeViewId}
         />
       ))}
       <Button
+        className="w-7 h-7 ml-2"
         size={'xs'}
-        variant={'ghost'}
+        variant={'outline'}
         // className="flex items-center space-x-2"
         onClick={addView}
       >
-        <AddBoldIcon />
-        View
+        <Plus className="w-4 h-4" />
       </Button>
     </div>
   );

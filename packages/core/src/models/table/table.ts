@@ -1,6 +1,6 @@
 import type { ITableVo } from './table.schema';
 
-export class TableCore implements Partial<ITableVo> {
+export class TableCore implements ITableVo {
   id!: string;
 
   name!: string;
@@ -10,4 +10,6 @@ export class TableCore implements Partial<ITableVo> {
   description?: string;
 
   order!: number;
+
+  lastModifiedTime!: string;
 }

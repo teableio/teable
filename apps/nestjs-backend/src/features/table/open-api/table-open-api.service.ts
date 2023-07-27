@@ -5,6 +5,7 @@ import type {
   IFieldRo,
   IFieldVo,
   ITableFullVo,
+  ITableOp,
   ITableVo,
   IViewRo,
   IViewVo,
@@ -123,6 +124,7 @@ export class TableOpenApiService {
       description: tableRo.description,
       icon: tableRo.icon,
       order,
+      lastModifiedTime: new Date().toISOString(),
     });
 
     const collection = `${IdPrefix.Table}_node`;
@@ -136,7 +138,7 @@ export class TableOpenApiService {
     });
   }
 
-  private createTable2Op(tableVo: ITableVo) {
+  private createTable2Op(tableVo: ITableOp) {
     return TableOpBuilder.creator.build(tableVo);
   }
 

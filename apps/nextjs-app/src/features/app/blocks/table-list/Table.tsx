@@ -5,8 +5,8 @@ import { useTitle } from 'react-use';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { ToolBar } from '../tool-bar/ToolBar';
 import { GridView } from '../view/grid/GridView';
-import { ViewList } from '../view/list/ViewList';
 import { FailAlert } from './FailAlert';
+import { TableHeader } from './TableHeader';
 
 export interface ITableProps {
   fieldServerData: IFieldVo[];
@@ -25,7 +25,7 @@ export const Table: React.FC<ITableProps> = ({
   return (
     <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
       <div className="grow flex flex-col h-full">
-        <ViewList />
+        <TableHeader />
         <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
           <ToolBar />
           <RecordProvider serverData={recordServerData}>
