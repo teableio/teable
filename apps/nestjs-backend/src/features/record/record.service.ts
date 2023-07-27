@@ -349,6 +349,7 @@ export class RecordService implements IAdapterService {
         .clearGroup()
         .clearHaving()
         .clearOrder()
+        .clear('offset')
         .clear('limit');
       const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
 
@@ -356,7 +357,7 @@ export class RecordService implements IAdapterService {
         sqlNative.sql,
         ...sqlNative.bindings
       );
-      return Number(result[0].count ?? 0);
+      return Number(result[0]?.count ?? 0);
     }
 
     const dbTableName = await this.getDbTableName(prisma, tableId);

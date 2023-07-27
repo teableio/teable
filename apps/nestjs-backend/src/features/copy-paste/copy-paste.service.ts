@@ -1,5 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { FieldKeyType, FieldType, type IRecordFields } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
+import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import { CopyAndPasteSchema } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -11,14 +13,9 @@ import {
   type IFieldInstance,
 } from '../field/model/factory';
 import { AttachmentFieldDto } from '../field/model/field-dto/attachment-field.dto';
-import type { FieldVo } from '../field/model/field.vo';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
-import type { Record } from '../record/open-api/record.vo';
 import { RecordService } from '../record/record.service';
-import type { CopyRo } from './modal/copy.ro';
-import { RangeType } from './modal/copy.ro';
-import type { PasteRo } from './modal/paste.ro';
 
 @Injectable()
 export class CopyPasteService {
@@ -40,18 +37,18 @@ export class CopyPasteService {
       viewId,
       skip: start[1],
       take: end[1] + 1 - start[1],
-      fieldKey: FieldKeyType.Id,
+      fieldKeyType: FieldKeyType.Id,
     });
     return records.records.map(({ fields }) =>
       copyFields.map((field) => field.cellValue2String(fields[field.id] as never))
     );
   }
 
-  private mergeRangesData(rangesData: string[][][], type: RangeType) {
+  private mergeRangesData(rangesData: string[][][], type?: CopyAndPasteSchema.RangeType) {
     if (rangesData.length === 0) {
       return [];
     }
-    if (type === RangeType.Column) {
+    if (type === CopyAndPasteSchema.RangeType.Column) {
       return rangesData.reduce((result, subArray) => {
         subArray.forEach((row, index) => {
           result[index] = result[index] ? result[index].concat(row) : row;
@@ -62,7 +59,22 @@ export class CopyPasteService {
     return rangesData.reduce((acc, row) => acc.concat(row), []);
   }
 
-  async copy(tableId: string, viewId: string, query: CopyRo) {
+  private async getCopyHeader(
+    tableId: string,
+    viewId: string,
+    ranges: number[][]
+  ): Promise<IFieldVo[]> {
+    const fields = await this.fieldService.getFields(tableId, { viewId });
+    let headerFields: IFieldVo[] = [];
+    for (let i = 0; i < ranges.length; i += 2) {
+      const [start, end] = ranges.slice(i, i + 2);
+      const copyFields = fields.slice(start[0], end[0] + 1);
+      headerFields = headerFields.concat(copyFields);
+    }
+    return headerFields;
+  }
+
+  async copy(tableId: string, viewId: string, query: CopyAndPasteSchema.CopyRo) {
     const { ranges, type } = query;
     const rangesArray = JSON.parse(ranges) as number[][];
     const rangesDataArray = [];
@@ -75,22 +87,28 @@ export class CopyPasteService {
       return;
     }
 
-    return this.mergeRangesData(rangesDataArray, type)
-      .map((row) => row.join('\t'))
-      .join('\n');
+    if (rangesDataArray.length > 1 && !type) {
+      throw new HttpException(
+        'ranges length is more than 3, must be set type',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const copyHeader = await this.getCopyHeader(tableId, viewId, rangesArray);
+
+    return {
+      content: this.mergeRangesData(rangesDataArray, type)
+        .map((row) => row.join('\t'))
+        .join('\n'),
+      header: copyHeader,
+    };
   }
 
-  async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
+  async paste(tableId: string, viewId: string, pasteRo: CopyAndPasteSchema.PasteRo) {
     const { cell, content, header } = pasteRo;
     const [col, row] = cell;
     const tableData = this.parseCopyContent(content);
     const tableColCount = tableData[0].length;
-    if (header.length !== tableColCount) {
-      throw new HttpException(
-        'The number of rows in the header does not match the number of rows in the table data',
-        HttpStatus.BAD_REQUEST
-      );
-    }
 
     const rowCountInView = await this.recordService.getRowCount(
       this.prismaService,
@@ -102,7 +120,7 @@ export class CopyPasteService {
       viewId,
       skip: row,
       take: tableData.length,
-      fieldKey: FieldKeyType.Id,
+      fieldKeyType: FieldKeyType.Id,
     });
     const fields = await this.fieldService.getFieldInstances(tableId, { viewId });
     const effectFields = fields.slice(col, col + tableColCount);
@@ -171,10 +189,10 @@ export class CopyPasteService {
     tableData: string[][];
     tableId: string;
     fields: IFieldInstance[];
-    records: Record[];
+    records: IRecord[];
     transactionKey: string;
   }) {
-    const [startCol, startRow] = cell;
+    const [startCol] = cell;
     const attachments = await this.collectionAttachment({
       fields,
       tableData,
@@ -182,19 +200,26 @@ export class CopyPasteService {
     });
     for (let i = 0; i < tableData.length; i++) {
       const rowData = tableData[i];
-      const recordFields: IRecordFields = {};
-      const row = startRow + i;
+      const recordFields: IRecord['fields'] = {};
+      const row = i;
       for (let j = 0; j < rowData.length; j++) {
         const value = rowData[j];
-        const col = startCol + j;
+        const col = j;
         const field = fields[col];
-        recordFields[fields[col].id] = field.convertStringToCellValue(value, attachments);
+        if (field.isComputed) {
+          continue;
+        }
+        recordFields[field.id] = field.convertStringToCellValue(
+          value,
+          nullsToUndefined(attachments)
+        );
       }
       await this.recordOpenApiService.updateRecordById(
         tableId,
         records[row].id,
         {
           record: { fields: recordFields },
+          fieldKeyType: FieldKeyType.Id,
         },
         transactionKey
       );
@@ -226,14 +251,19 @@ export class CopyPasteService {
   }: {
     tableId: string;
     viewId: string;
-    header: FieldVo[];
+    header: IFieldVo[];
     numColsToExpand: number;
     transactionKey: string;
   }) {
     const colLen = header.length;
-    const res: FieldVo[] = [];
+    const res: IFieldVo[] = [];
     for (let i = colLen - numColsToExpand; i < colLen; i++) {
-      const fieldInstance = createFieldInstanceByRo(omit(header[i], 'id'));
+      const field: IFieldRo = header[i]
+        ? omit(header[i], 'id')
+        : {
+            type: FieldType.SingleLineText,
+          };
+      const fieldInstance = createFieldInstanceByRo(field);
       const newField = await this.fieldOpenApiService.createField(
         tableId,
         fieldInstance,
@@ -282,6 +312,7 @@ export class CopyPasteService {
         width: true,
         height: true,
         path: true,
+        url: true,
       },
     });
   }

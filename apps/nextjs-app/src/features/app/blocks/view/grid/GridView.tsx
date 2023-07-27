@@ -20,6 +20,7 @@ import type { IRectangle, IPosition, ISelection, IGridColumn, IGridRef } from '.
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
+import { useCopyAndPaste } from './hooks/useCopyAndPaste';
 import { useGridViewStore } from './store/gridView';
 import { getHeaderIcons } from './utils';
 
@@ -38,6 +39,7 @@ export const GridView: React.FC = () => {
   const gridViewStore = useGridViewStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
+  const { copy, paste } = useCopyAndPaste();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
     useAsyncData(
@@ -203,6 +205,14 @@ export const GridView: React.FC = () => {
     }
   };
 
+  const onCopy = async (selection: ISelection) => {
+    copy(selection);
+  };
+  const onPaste = (selection: ISelection) => {
+    // CopyAndPasteApi.paste(tableId, activeViewId);
+    paste(selection);
+  };
+
   return (
     <div ref={container} className="relative grow w-full overflow-hidden">
       {isReadyToRender && (
@@ -235,6 +245,8 @@ export const GridView: React.FC = () => {
           onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onCopy={onCopy}
+          onPaste={onPaste}
         />
       )}
       <DomBox />

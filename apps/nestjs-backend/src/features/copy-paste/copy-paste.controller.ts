@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { responseWrap } from '../../../src/utils';
+import { CopyAndPasteSchema } from '@teable-group/openapi';
+import { responseWrap } from '../../utils';
+import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { CopyPasteService } from './copy-paste.service';
-import { CopyRo } from './modal/copy.ro';
-import { PasteRo } from './modal/paste.ro';
 
 @ApiBearerAuth()
 @ApiTags('copyPaste')
@@ -15,7 +15,7 @@ export class CopyPasteController {
   async copy(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Query() query: CopyRo
+    @Query(new ZodValidationPipe(CopyAndPasteSchema.copyRoSchema)) query: CopyAndPasteSchema.CopyRo
   ) {
     const copyContent = await this.copyPasteService.copy(tableId, viewId, query);
     return responseWrap(copyContent);
@@ -25,9 +25,10 @@ export class CopyPasteController {
   async paste(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body() pasteVo: PasteRo
+    @Body(new ZodValidationPipe(CopyAndPasteSchema.pasteRoSchema))
+    pasteRo: CopyAndPasteSchema.PasteRo
   ) {
-    await this.copyPasteService.paste(tableId, viewId, pasteVo);
+    await this.copyPasteService.paste(tableId, viewId, pasteRo);
     return responseWrap(null);
   }
 }

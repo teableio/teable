@@ -2,21 +2,20 @@
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { IFieldVo, IRecord } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
+import { CopyAndPasteSchema } from '@teable-group/openapi';
 import { noop } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo } from '../field/model/factory';
-import type { FieldVo } from '../field/model/field.vo';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
-import type { Record } from '../record/open-api/record.vo';
 import { RecordService } from '../record/record.service';
 import { CopyPasteModule } from './copy-paste.module';
 import { CopyPasteService } from './copy-paste.service';
-import { RangeType } from './modal/copy.ro';
 
 describe('CopyPasteService', () => {
   let copyPasteService: CopyPasteService;
@@ -94,7 +93,7 @@ describe('CopyPasteService', () => {
 
       expect(fieldService.getFields).toHaveBeenCalledWith(tableId, { viewId });
       expect(recordService.getRecords).toHaveBeenCalledWith(tableId, {
-        fieldKey: 'id',
+        fieldKeyType: 'id',
         viewId,
         skip: 0,
         take: 2,
@@ -109,7 +108,7 @@ describe('CopyPasteService', () => {
         [['a'], ['b']],
         [['c'], ['d']],
       ];
-      const type = RangeType.Column;
+      const type = CopyAndPasteSchema.RangeType.Column;
       const expectedMergedData = [
         ['a', 'c'],
         ['b', 'd'],
@@ -125,12 +124,32 @@ describe('CopyPasteService', () => {
         [['a'], ['b']],
         [['c'], ['d']],
       ];
-      const type = RangeType.Row;
+      const type = CopyAndPasteSchema.RangeType.Row;
       const expectedMergedData = [['a'], ['b'], ['c'], ['d']];
 
       const result = copyPasteService['mergeRangesData'](rangesData, type);
 
       expect(result).toEqual(expectedMergedData);
+    });
+  });
+
+  describe('getCopyHeader', () => {
+    const tableId = 'table1';
+    const viewId = 'view1';
+
+    it('should return the header fields for given ranges', async () => {
+      const mockFields = [
+        { id: '3', name: 'Email', type: FieldType.SingleLineText },
+        { id: '4', name: 'Phone', type: FieldType.SingleLineText },
+      ] as IFieldVo[];
+      const ranges: number[][] = [
+        [0, 1],
+        [0, 2],
+      ];
+
+      jest.spyOn(fieldService, 'getFields').mockResolvedValue(mockFields);
+      const headerFields = await copyPasteService['getCopyHeader'](tableId, viewId, ranges);
+      expect(headerFields).toEqual([mockFields[0]]);
     });
   });
 
@@ -149,17 +168,16 @@ describe('CopyPasteService', () => {
         [0, 0],
         [1, 1],
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(copyPasteService as any, 'getRangeTableContent').mockResolvedValue([
         ['value1', 'value2'],
         ['value3', 'value4'],
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(copyPasteService as any, 'mergeRangesData').mockReturnValue(expectedMergedData);
+      jest.spyOn(copyPasteService as any, 'getCopyHeader').mockReturnValue([]);
 
       const result = await copyPasteService.copy(tableId, viewId, {
         ranges: range,
-        type: RangeType.Row,
+        type: CopyAndPasteSchema.RangeType.Row,
       });
 
       expect(JSON.parse).toHaveBeenCalledWith(range);
@@ -174,9 +192,9 @@ describe('CopyPasteService', () => {
             ['value3', 'value4'],
           ],
         ],
-        RangeType.Row
+        CopyAndPasteSchema.RangeType.Row
       );
-      expect(result).toEqual('value1\tvalue2\nvalue3\tvalue4');
+      expect(result?.content).toEqual('value1\tvalue2\nvalue3\tvalue4');
     });
 
     it('should return empty array when ranges array is empty', async () => {
@@ -185,16 +203,17 @@ describe('CopyPasteService', () => {
       jest.spyOn(copyPasteService as any, 'getRangeTableContent');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(copyPasteService as any, 'mergeRangesData');
+      jest.spyOn(copyPasteService as any, 'getCopyHeader').mockReturnValue([]);
 
       const result = await copyPasteService.copy(tableId, viewId, {
         ranges: range,
-        type: RangeType.Row,
+        type: CopyAndPasteSchema.RangeType.Row,
       });
 
       expect(JSON.parse).toHaveBeenCalledWith(range);
       expect(copyPasteService['getRangeTableContent']).not.toHaveBeenCalled();
       expect(copyPasteService['mergeRangesData']).not.toHaveBeenCalled();
-      expect(result).toEqual(undefined);
+      expect(result?.content).toEqual(undefined);
     });
   });
 
@@ -243,7 +262,7 @@ describe('CopyPasteService', () => {
       const expectedRecords = [
         { id: 'record1', fields: {} },
         { id: 'record2', fields: {} },
-      ] as Record[];
+      ] as IRecord[];
       jest.spyOn(recordOpenApiService, 'multipleCreateRecords').mockResolvedValueOnce({
         records: expectedRecords,
       });
@@ -276,7 +295,7 @@ describe('CopyPasteService', () => {
       const header = [
         { id: '3', name: 'Email', type: FieldType.SingleLineText },
         { id: '4', name: 'Phone', type: FieldType.SingleLineText },
-      ] as FieldVo[];
+      ] as IFieldVo[];
       const numColsToExpand = 2;
       const transactionKey = 'transactionKey';
       jest.spyOn(fieldOpenApiService, 'createField').mockResolvedValueOnce(header[0]);
@@ -314,6 +333,7 @@ describe('CopyPasteService', () => {
         {
           token: 'token1',
           path: '',
+          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -322,6 +342,7 @@ describe('CopyPasteService', () => {
         {
           token: 'token2',
           path: '',
+          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -330,6 +351,7 @@ describe('CopyPasteService', () => {
         {
           token: 'token3',
           path: '',
+          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -363,6 +385,7 @@ describe('CopyPasteService', () => {
           width: true,
           height: true,
           path: true,
+          url: true,
         },
       });
       // Assert the result based on the mocked attachments
@@ -374,7 +397,7 @@ describe('CopyPasteService', () => {
     it('should fill the cells with provided table data', async () => {
       // Mock data
       const tableId = 'testTableId';
-      const cell: [number, number] = [0, 0];
+      const cell: [number, number] = [0, 1];
       const tableData = [
         ['A1', 'B1', 'C1'],
         ['A2', 'B2', 'C2'],
@@ -504,7 +527,7 @@ describe('CopyPasteService', () => {
         viewId,
         skip: 1,
         take: tableData.length,
-        fieldKey: 'id',
+        fieldKeyType: 'id',
       });
 
       expect(fieldService.getFieldInstances).toHaveBeenCalledWith(tableId, { viewId });
@@ -532,33 +555,6 @@ describe('CopyPasteService', () => {
         transactionKey: testTransactionKey,
       });
       expect(result).toBeUndefined();
-    });
-
-    it('should throw an exception if the number of rows in the header does not match the table data', async () => {
-      // Mock input parameters
-      const tableId = 'testTableId';
-      const viewId = 'testViewId';
-      const pasteRo = {
-        cell: [0, 0] as [number, number],
-        content,
-        header: [
-          { id: 'fieldId1', name: 'Field 1', type: FieldType.SingleLineText },
-          { id: 'fieldId2', name: 'Field 2', type: FieldType.SingleLineText },
-        ].map(createFieldInstanceByRo),
-      };
-
-      // Mock dependencies
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(copyPasteService as any, 'parseCopyContent').mockReturnValue([
-        ['A', 'B', 'C'],
-        ['1', '2', '3'],
-      ]);
-      jest.spyOn(recordService, 'getRowCount').mockResolvedValue(3);
-
-      // Call the method and assert that it throws an exception
-      await expect(copyPasteService.paste(tableId, viewId, pasteRo)).rejects.toThrow(
-        'The number of rows in the header does not match the number of rows in the table data'
-      );
     });
   });
 });
