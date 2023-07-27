@@ -1,10 +1,10 @@
-import type { IFilterItem, FieldType } from '@teable-group/core';
+import type { IFilterItem } from '@teable-group/core';
 
 import { Trash2 } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
 
 import { cloneDeep, isEqual } from 'lodash';
-import { useCallback, useContext, useRef, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { useFields } from '../../../hooks';
 
 import { FilterContext } from '../context';
@@ -19,7 +19,6 @@ function Condition(props: IConditionProps) {
   const context = useContext(FilterContext);
   const { setFilters, filters } = context;
   const fields = useFields();
-  const fieldType = useRef<FieldType | null>(null);
   const fieldMap = useMemo(() => {
     const map: Record<string, string> = {};
     fields.forEach((field) => {
@@ -43,9 +42,8 @@ function Condition(props: IConditionProps) {
   const fieldTypeHandler = useCallback(
     (fieldId: string | null) => {
       const newFieldType = fieldMap[fieldId!] || null;
-      const lastFieldType = fieldType.current;
-      fieldType.current = newFieldType;
-      if (newFieldType !== lastFieldType) {
+      const currentFieldType = fieldMap[filter.fieldId] || null;
+      if (newFieldType !== currentFieldType) {
         filter.value = null;
       }
       filter.fieldId = fieldId as string;
@@ -67,7 +65,8 @@ function Condition(props: IConditionProps) {
   const fieldValueHandler = useCallback(
     (value: IFilterItem['value']) => {
       if (!isEqual(filter.value, value)) {
-        filter.value = value || null;
+        filter.value = value ?? null;
+        // empty array should be null!
         if (Array.isArray(value) && !value.length) {
           filter.value = null;
         }
