@@ -14,7 +14,7 @@ const ListChecks = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M10 6h11M10 12h11M10 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"
+      d="M10 6h11m-11 6h11m-11 6h11M3 6l1 1 2-2m-3 7 1 1 2-2m-3 7 1 1 2-2"
     />
   </svg>
 );

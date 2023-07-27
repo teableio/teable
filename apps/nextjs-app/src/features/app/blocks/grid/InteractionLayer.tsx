@@ -85,6 +85,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnResize,
     onColumnOrdered,
     onContextMenu,
+    onColumnHeaderClick,
+    onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
   } = props;
 
@@ -128,6 +130,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   } = useSelection();
 
   const { isDragging, type: dragType } = dragState;
+  const isResizing = columnResizeState.columnIndex > -1;
   const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -230,6 +233,13 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return onRowAppend?.();
       case RegionType.AppendColumn:
         return onColumnAppend?.();
+      case RegionType.ColumnResizeHandler:
+        return onColumnHeaderClick?.(columnIndex, {
+          x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
+          y: 0,
+          width: coordInstance.getColumnWidth(columnIndex),
+          height: GRID_DEFAULT.columnHeadHeight,
+        });
       case RegionType.ColumnHeaderMenu: {
         const x = coordInstance.getColumnOffset(columnIndex);
         return onColumnHeaderMenuClick?.(columnIndex, {
@@ -265,11 +275,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const onDblClick = () => {
     const mouseState = getMouseState();
-    if (selectionType !== SelectionRegionType.Cells) return;
-    const { rowIndex, columnIndex } = mouseState;
-    if (isEqual(selectionRanges[0], [columnIndex, rowIndex])) {
+    const { type, rowIndex, columnIndex } = mouseState;
+    if (type === RegionType.Cell && isEqual(selectionRanges[0], [columnIndex, rowIndex])) {
       editorContainerRef.current?.focus?.();
       setEditing(true);
+    }
+    if (
+      type === RegionType.ColumnHeader &&
+      isEqual(selectionRanges[0], [columnIndex, columnIndex])
+    ) {
+      onColumnHeaderDblClick?.(columnIndex, {
+        x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
+        y: 0,
+        width: coordInstance.getColumnWidth(columnIndex),
+        height: GRID_DEFAULT.columnHeadHeight,
+      });
     }
   };
 
@@ -377,7 +397,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
 
-  useEventListener('mousemove', onMouseMove, window, true);
+  useEventListener(
+    'mousemove',
+    onMouseMove,
+    isSelecting || isDragging || isResizing ? window : stageRef.current,
+    true
+  );
 
   return (
     <>

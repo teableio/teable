@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { SVGProps } from 'react';
-const CheckSquare = (props: SVGProps<SVGSVGElement>) => (
+const A = (props: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="1em"
@@ -14,8 +14,8 @@ const CheckSquare = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m9 11 3 3L22 4m-1 8v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+      d="M21 21 12 3 3 21m3-7h12"
     />
   </svg>
 );
-export default CheckSquare;
+export default A;

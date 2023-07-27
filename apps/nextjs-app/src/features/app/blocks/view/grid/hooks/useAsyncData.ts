@@ -81,10 +81,9 @@ export const useAsyncData = (
 
   const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
     (r) => {
-      setVisiblePages((cv) => {
-        if (r.y === cv.y && r.height === cv.height) return cv;
-        return r;
-      });
+      const { y, height } = visiblePagesRef.current;
+      if (r.y === y && r.height === height) return;
+      setVisiblePages(r);
     },
     []
   );
