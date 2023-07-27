@@ -13,8 +13,7 @@ import type {
   ITableVo,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { visualTableSql } from '@teable-group/db-main-prisma';
+import { Prisma, visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -77,16 +76,16 @@ export class TableService implements IAdapterService {
       }[]
     >`
       SELECT 
-        id as tableId, 
+        id as tableId,
         (
-          SELECT created_time 
-          FROM ops 
-          WHERE ops.collection = table_meta.id 
-          ORDER BY created_time DESC 
+          SELECT created_time
+          FROM ops
+          WHERE ops.collection = table_meta.id
+          ORDER BY created_time DESC
           LIMIT 1
         ) as lastModifiedTime
       FROM table_meta
-      WHERE id IN (${tableIds.join(',')})
+      WHERE id IN (${Prisma.join(tableIds)})
     `;
 
     return tableIds.map((tableId) => {
