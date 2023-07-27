@@ -1,7 +1,7 @@
 import type { IFilter, IFilterSet, IFilterItem } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
-import { Plus, Filter as FilterIcon } from '@teable-group/icons';
+import { Plus, Filter as FilterIcon, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
@@ -202,21 +202,42 @@ function Filter(props: IFilterProps) {
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent side="bottom" align="start" className="w-max">
-          <div className="text-gray-400 text-xs">
-            {filters?.filterSet?.length ? title : emptyText}
+        <PopoverContent
+          side="bottom"
+          align="start"
+          className="max-w-screen-md w-min min-w-[544px] p-0"
+        >
+          <div className="text-[11px] px-4 py-2 bg-accent max-w-full flex justify-start items-center rounded">
+            <Share2 className="h-4 w-4 shrink-0 mr-4" />
+            <span className="text-zinc-500">
+              This view is being used in a view share link. Modifications to the view configuration
+              will also change the view share link.
+            </span>
           </div>
-          <div>{conditionCreator()}</div>
-          <div className="flex p-1 w-max">
-            <Button variant="ghost" onClick={() => addCondition(filters)}>
+          <div className="text-[13px]">
+            {filters?.filterSet?.length ? (
+              <div className="pt-3 px-4">{title}</div>
+            ) : (
+              <div className="text-gray-400 pt-4 px-4 text-gray-400">{emptyText}</div>
+            )}
+          </div>
+          <div className="px-4 pt-3">{conditionCreator()}</div>
+          <div className="flex p-3 w-max ">
+            <Button
+              variant="ghost"
+              size="xs"
+              className="text-[13px]"
+              onClick={() => addCondition(filters)}
+            >
               <Plus className="h-4 w-4" />
               Add condition
             </Button>
 
             <Button
               variant="ghost"
+              size="xs"
               onClick={() => addConditionGroup(filters)}
-              className="dark:bg-white"
+              className="text-[13px]"
             >
               <Plus className="h-4 w-4" />
               Add condition group

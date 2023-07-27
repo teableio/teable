@@ -42,6 +42,7 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
         <Button
           variant="outline"
           role="combobox"
+          size="sm"
           aria-expanded={open}
           className="justify-between p-1"
         >
@@ -55,7 +56,7 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px]">
+      <PopoverContent className="w-fit p-1">
         <Command>
           <CommandEmpty>No conjunction found.</CommandEmpty>
           <CommandGroup>

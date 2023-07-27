@@ -73,6 +73,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
+          size="sm"
           className={classNames('justify-between m-1 truncate overflow-hidden', className)}
         >
           {value
@@ -85,7 +86,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
-          <CommandInput placeholder="Search field..." />
+          <CommandInput placeholder="Search field..." className="placeholder:text-[13px]" />
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandGroup>
             {options?.map((option) => (
