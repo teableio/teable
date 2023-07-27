@@ -21,7 +21,13 @@ function Condition(props: IConditionProps) {
   const fields = useFields();
   const fieldType = useRef<FieldType | null>(null);
   const fieldMap = useMemo(() => {
-    return new Map(fields.map((field) => [field.id, field.type]));
+    const map: Record<string, string> = {};
+    fields.forEach((field) => {
+      const key = field.id;
+      const value = field.type;
+      map[key] = value;
+    });
+    return map;
   }, [fields]);
 
   const deleteCurrentFilter = () => {
@@ -36,7 +42,7 @@ function Condition(props: IConditionProps) {
 
   const fieldTypeHandler = useCallback(
     (fieldId: string | null) => {
-      const newFieldType = fieldMap.get(fieldId!) || null;
+      const newFieldType = fieldMap[fieldId!] || null;
       const lastFieldType = fieldType.current;
       fieldType.current = newFieldType;
       if (newFieldType !== lastFieldType) {

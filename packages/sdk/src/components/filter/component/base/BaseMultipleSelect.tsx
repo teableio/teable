@@ -65,18 +65,18 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
   }, [values, options]);
 
   const optionMap = useMemo(() => {
-    return new Map(
-      options.map((option) => [
-        // todo: shadcn bug, id will be toLowerCase in Commond components
-        option.value.toLowerCase(),
-        option.label.toLowerCase(),
-      ])
-    );
+    const map: Record<string, string> = {};
+    options.forEach((option) => {
+      const key = option.value.toLowerCase();
+      const value = option.label.toLowerCase();
+      map[key] = value;
+    });
+    return map;
   }, [options]);
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap.get(id) || 'untitled';
+      const name = optionMap[id] || 'Untitled';
       const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
       return Number(containWord);
     },

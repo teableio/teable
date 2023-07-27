@@ -16,7 +16,7 @@ import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
 import type { IFilterProps } from './types';
-import { isFilterMeta } from './types';
+import { isFilterItem } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
@@ -50,7 +50,7 @@ function Filter(props: IFilterProps) {
   );
 
   // use the primary to be default metadata
-  const defaultIFilterMeta = useMemo<IFilterItem>(() => {
+  const defaultIFilterItem = useMemo<IFilterItem>(() => {
     const defaultField = fields.find((field) => field.isPrimary);
     const defaultOpertor = getValidFilterOperators(defaultField!);
     return {
@@ -72,7 +72,7 @@ function Filter(props: IFilterProps) {
       const filterIds = new Set<string>();
 
       filter.forEach((item) => {
-        if (isFilterMeta(item)) {
+        if (isFilterItem(item)) {
           // checkbox's default value is null, but it does work
           if (item.value || EMPTYOPERATORS.includes(item.operator) || isCheckBox(item.fieldId)) {
             filterIds.add(item.fieldId);
@@ -121,15 +121,16 @@ function Filter(props: IFilterProps) {
       let newFilters = null;
       if (!curFilter) {
         newFilters = cloneDeep(defaultFilter);
-        newFilters.filterSet.push(defaultIFilterMeta);
+        newFilters.filterSet.push(defaultIFilterItem);
       } else {
-        curFilter.filterSet.push(defaultIFilterMeta);
+        curFilter.filterSet.push(defaultIFilterItem);
         newFilters = cloneDeep(filters);
       }
       setFilters(newFilters);
     },
-    [defaultIFilterMeta, filters]
+    [defaultIFilterItem, filters]
   );
+
   const addConditionGroup = useCallback(
     (curFilter: IFilterSet | null) => {
       let newFilters = null;
@@ -155,7 +156,7 @@ function Filter(props: IFilterProps) {
     return (
       <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
-          isFilterMeta(filterItem) ? (
+          isFilterItem(filterItem) ? (
             <Condition
               key={index}
               filter={filterItem}
