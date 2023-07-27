@@ -151,11 +151,17 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
     const sqlOp = `
         REPLACE INTO ops
-        ("collection", "doc_id", "version", "operation")
+        ("collection", "doc_id", "version", "operation", "created_by")
         VALUES
         ${page
           .map((d) => {
-            return { collection: tableId, doc_id: d.__id, version: 1, operation: '{}' };
+            return {
+              collection: tableId,
+              doc_id: d.__id,
+              version: 1,
+              operation: '{}',
+              created_by: 'admin',
+            };
           })
           .map((d) => `('${Object.values(d).join(`', '`)}')`)
           .join(', ')}

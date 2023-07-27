@@ -69,17 +69,48 @@ export class TableService implements IAdapterService {
     return tableMeta;
   }
 
+  private async getTableLastModifiedTime(prisma: Prisma.TransactionClient, tableIds: string[]) {
+    const results = await prisma.$queryRaw<
+      {
+        tableId: string;
+        lastModifiedTime: Date;
+      }[]
+    >`
+      SELECT 
+        id as tableId, 
+        (
+          SELECT created_time 
+          FROM ops 
+          WHERE ops.collection = table_meta.id 
+          ORDER BY created_time DESC 
+          LIMIT 1
+        ) as lastModifiedTime
+      FROM table_meta
+      WHERE id IN (${tableIds.join(',')})
+    `;
+
+    return tableIds.map((tableId) => {
+      const item = results.find((result) => result.tableId === tableId);
+      return item?.lastModifiedTime.toISOString();
+    });
+  }
+
   async getTables(): Promise<ITableVo[]> {
     const tablesMeta = await this.prismaService.tableMeta.findMany({
       orderBy: { order: 'asc' },
       where: { deletedTime: null },
     });
-
-    return tablesMeta.map((tableMeta) => ({
-      ...tableMeta,
-      description: tableMeta.description ?? undefined,
-      icon: tableMeta.icon ?? undefined,
-    }));
+    const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
+    const tableTime = await this.getTableLastModifiedTime(this.prismaService, tableIds);
+    return tablesMeta.map((tableMeta, i) => {
+      const time = tableTime[i];
+      return {
+        ...tableMeta,
+        description: tableMeta.description ?? undefined,
+        icon: tableMeta.icon ?? undefined,
+        lastModifiedTime: time || tableMeta.lastModifiedTime.toISOString(),
+      };
+    });
   }
 
   /**
@@ -118,10 +149,13 @@ export class TableService implements IAdapterService {
       throw new NotFoundException();
     }
 
+    const tableTime = await this.getTableLastModifiedTime(this.prismaService, [tableId]);
+
     return {
       ...tableMeta,
       description: tableMeta.description ?? undefined,
       icon: tableMeta.icon ?? undefined,
+      lastModifiedTime: tableTime[0] || tableMeta.createdTime.toISOString(),
     };
   }
 
@@ -220,9 +254,10 @@ export class TableService implements IAdapterService {
     const tables = await prisma.tableMeta.findMany({
       where: { id: { in: ids }, deletedTime: null },
     });
-
+    const tableTime = await this.getTableLastModifiedTime(prisma, ids);
     return tables
-      .map((table) => {
+      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+      .map((table, i) => {
         return {
           id: table.id,
           v: table.version,
@@ -232,10 +267,10 @@ export class TableService implements IAdapterService {
             description: table.description ?? undefined,
             icon: table.icon ?? undefined,
             order: table.order,
+            lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
           },
         };
-      })
-      .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      });
   }
 
   async getDocIdsByQuery(prisma: Prisma.TransactionClient, _collection: string, _query: unknown) {

@@ -447,11 +447,14 @@ export class FieldBatchCalculationService extends ReferenceService {
     opsData: IOpsData[]
   ) {
     const insertSql = `
-        INSERT INTO ops ("collection", "doc_id", "version", "operation")
+        INSERT INTO ops ("collection", "doc_id", "version", "operation", "created_by")
         VALUES
         ${opsData
           .map(
-            (d) => `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(d.rawOp)}')`
+            (d) =>
+              `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(
+                d.rawOp
+              )}', 'admin')`
           )
           .join(', ')}
       `;

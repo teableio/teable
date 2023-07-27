@@ -1,5 +1,7 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
+import type { ICreateRecordsRo } from '@teable-group/core';
 import request from 'supertest';
 import { initApp } from './utils/init-app';
 
@@ -129,5 +131,23 @@ describe('OpenAPI FieldController (e2e)', () => {
       .get(`/api/table/${tableId}/record`)
       .expect(200);
     expect(recordResult.body.data.records).toHaveLength(3);
+  });
+
+  it('should refresh table lastModifyTime when add a record', async () => {
+    const result = await request(app.getHttpServer())
+      .post('/api/table')
+      .send({ name: 'new table' })
+      .expect(201);
+    const prevTime = result.body.data.lastModifiedTime;
+    tableId = result.body.data.id;
+
+    await request(app.getHttpServer())
+      .post(`/api/table/${tableId}/record`)
+      .send({ records: [{ fields: {} }] } as ICreateRecordsRo);
+
+    const tableResult = await request(app.getHttpServer()).get(`/api/table/${tableId}`).expect(200);
+    const currTime = tableResult.body.data.lastModifiedTime;
+    console.log(currTime, prevTime);
+    expect(new Date(currTime).getTime() > new Date(prevTime).getTime()).toBeTruthy();
   });
 });

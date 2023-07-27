@@ -242,6 +242,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
           collection: collectionId,
           version: snapshot.v,
           operation: JSON.stringify(rawOp),
+          createdBy: 'admin',
         },
       });
 
