@@ -121,7 +121,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   console.time(`Table: ${tableName}, Ready Install Data`);
   const data: any[] = [];
-  for (let i = 1; i <= mockDataNum; i++) {
+  for (let i = 0; i < mockDataNum; i++) {
     const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
     const viewRowIndex = await generateViewRowIndex({ views, rowCount, i });
 
