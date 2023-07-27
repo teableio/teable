@@ -74,7 +74,12 @@ function Filter(props: IFilterProps) {
       filter.forEach((item) => {
         if (isFilterItem(item)) {
           // checkbox's default value is null, but it does work
-          if (item.value || EMPTYOPERATORS.includes(item.operator) || isCheckBox(item.fieldId)) {
+          if (
+            item.value === 0 ||
+            item.value ||
+            EMPTYOPERATORS.includes(item.operator) ||
+            isCheckBox(item.fieldId)
+          ) {
             filterIds.add(item.fieldId);
           }
         } else {
