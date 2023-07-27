@@ -16,7 +16,7 @@ import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 
 import { FilterContext } from '../context';
-import { isFilterMeta } from '../types';
+import { isFilterItem } from '../types';
 import type { IConditionGroupProps } from '../types';
 import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
@@ -95,7 +95,7 @@ function ConditionGroup(props: IConditionGroupProps) {
 
           <div>
             {filter?.filterSet?.map((item, index) =>
-              isFilterMeta(item) ? (
+              isFilterItem(item) ? (
                 <Condition
                   key={index}
                   index={index}

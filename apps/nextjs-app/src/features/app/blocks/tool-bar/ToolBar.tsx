@@ -10,8 +10,7 @@ import ForwardIcon from '@teable-group/ui-lib/icons/app/forward.svg';
 import GroupIcon from '@teable-group/ui-lib/icons/app/group.svg';
 import SortingIcon from '@teable-group/ui-lib/icons/app/sorting.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { cloneDeep } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { FilterColumnsButton } from './FilterColumnsButton';
@@ -42,10 +41,6 @@ export const ToolBar: React.FC = () => {
     [toast, view]
   );
 
-  const initFilters = useMemo<IFilter>(() => {
-    return cloneDeep(view?.filter) as IFilter;
-  }, [view]);
-
   const undo = useCallback(() => {
     const undo = undoManager?.undo();
     console.log(undoManager, undo);
@@ -75,7 +70,7 @@ export const ToolBar: React.FC = () => {
         Insert record
       </Button>
       <FilterColumnsButton />
-      <Filter filters={initFilters} onChange={onFilterChange} />
+      <Filter filters={view?.filter as IFilter} onChange={onFilterChange} />
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <SortingIcon className="text-lg pr-1" />
         Sort
