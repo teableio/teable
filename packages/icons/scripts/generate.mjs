@@ -93,12 +93,12 @@ const genIndexContent = () => {
 };
 
 const generate = async () => {
-  // console.log(chalk.magentaBright('-> Fetching icons metadata'));
-  // const { svgs } = await figmaApi.getSvgs({ fileId: FIGMA_FILE_ID, canvas: FIGMA_CANVAS });
-  // console.log(chalk.blueBright('-> Downloading SVG code'));
-  // const svgsData = await downloadSVGsData(svgs);
-  // console.log(chalk.cyanBright('-> Converting to React components'));
-  // transformReactComponent(svgsData);
+  console.log(chalk.magentaBright('-> Fetching icons metadata'));
+  const { svgs } = await figmaApi.getSvgs({ fileId: FIGMA_FILE_ID, canvas: FIGMA_CANVAS });
+  console.log(chalk.blueBright('-> Downloading SVG code'));
+  const svgsData = await downloadSVGsData(svgs);
+  console.log(chalk.cyanBright('-> Converting to React components'));
+  transformReactComponent(svgsData);
   console.log(chalk.yellowBright('-> Writing exports components'));
   genIndexContent();
   console.log(chalk.greenBright('-> All done! ✅'));
