@@ -4312,6 +4312,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@radix-ui/react-checkbox@npm:1.0.4":
+  version: 1.0.4
+  resolution: "@radix-ui/react-checkbox@npm:1.0.4"
+  dependencies:
+    "@babel/runtime": ^7.13.10
+    "@radix-ui/primitive": 1.0.1
+    "@radix-ui/react-compose-refs": 1.0.1
+    "@radix-ui/react-context": 1.0.1
+    "@radix-ui/react-presence": 1.0.1
+    "@radix-ui/react-primitive": 1.0.3
+    "@radix-ui/react-use-controllable-state": 1.0.1
+    "@radix-ui/react-use-previous": 1.0.1
+    "@radix-ui/react-use-size": 1.0.1
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0
+    react-dom: ^16.8 || ^17.0 || ^18.0
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 6dac5bddd9e1c42b149555501440918d9eae70da13b6d8539c3bf46b6c07681119d865d2106a43f729884ae8e2043bedc34c4d00a09a527b3bf0feade088d188
+  languageName: node
+  linkType: hard
+
 "@radix-ui/react-collection@npm:1.0.2":
   version: 1.0.2
   resolution: "@radix-ui/react-collection@npm:1.0.2"
@@ -5115,6 +5142,37 @@ __metadata:
     "@types/react-dom":
       optional: true
   checksum: b79a8c2440151670be3f5134c2cf818b44582a33cf71c65462cd22a9107684a1c67d9f96819aa92e20cc7495aec7119787997d5ac6695d1e8d07105a6756577e
+  languageName: node
+  linkType: hard
+
+"@radix-ui/react-tooltip@npm:1.0.6":
+  version: 1.0.6
+  resolution: "@radix-ui/react-tooltip@npm:1.0.6"
+  dependencies:
+    "@babel/runtime": ^7.13.10
+    "@radix-ui/primitive": 1.0.1
+    "@radix-ui/react-compose-refs": 1.0.1
+    "@radix-ui/react-context": 1.0.1
+    "@radix-ui/react-dismissable-layer": 1.0.4
+    "@radix-ui/react-id": 1.0.1
+    "@radix-ui/react-popper": 1.1.2
+    "@radix-ui/react-portal": 1.0.3
+    "@radix-ui/react-presence": 1.0.1
+    "@radix-ui/react-primitive": 1.0.3
+    "@radix-ui/react-slot": 1.0.2
+    "@radix-ui/react-use-controllable-state": 1.0.1
+    "@radix-ui/react-visually-hidden": 1.0.3
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-dom": "*"
+    react: ^16.8 || ^17.0 || ^18.0
+    react-dom: ^16.8 || ^17.0 || ^18.0
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+    "@types/react-dom":
+      optional: true
+  checksum: 8220f103432e9ad9ff8a828ca890e14bf3323864a0bb145d1ef689cf446ab5ca0af18e5fed5da89db957065c504e79ec12fbe5e551d6e7b84b470fbd672c918d
   languageName: node
   linkType: hard
 
@@ -7468,6 +7526,7 @@ __metadata:
     vite-tsconfig-paths: 3.5.2
     vitest: 0.24.3
     zod: 3.21.4
+    zod-validation-error: 1.3.1
     zustand: 4.3.7
   languageName: unknown
   linkType: soft
@@ -7512,6 +7571,7 @@ __metadata:
     class-validator: 0.14.0
     cors: 2.8.5
     cross-env: 7.0.3
+    dayjs: 1.11.8
     dotenv-flow: 3.2.0
     dotenv-flow-cli: 1.0.0
     es-check: 7.0.1
@@ -7600,6 +7660,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/db-main-prisma@workspace:packages/db-main-prisma"
   dependencies:
+    "@faker-js/faker": 8.0.2
     "@prisma/client": 4.7.1
     "@soluble/dsn-parser": 1.6.0
     "@teable-group/eslint-config-bases": "workspace:^"
@@ -7793,6 +7854,7 @@ __metadata:
   dependencies:
     "@babel/core": 7.19.6
     "@mdx-js/react": 2.1.5
+    "@radix-ui/react-checkbox": 1.0.4
     "@radix-ui/react-dialog": 1.0.4
     "@radix-ui/react-dropdown-menu": 2.0.5
     "@radix-ui/react-icons": 1.3.0
@@ -7803,6 +7865,7 @@ __metadata:
     "@radix-ui/react-slot": 1.0.2
     "@radix-ui/react-switch": 1.0.3
     "@radix-ui/react-toast": 1.1.4
+    "@radix-ui/react-tooltip": 1.0.6
     "@storybook/addon-actions": 6.5.13
     "@storybook/addon-docs": 6.5.13
     "@storybook/addon-essentials": 6.5.13
@@ -8483,7 +8546,7 @@ __metadata:
 "@types/mousetrap@npm:1.6.11":
   version: 1.6.11
   resolution: "@types/mousetrap@npm:1.6.11"
-  checksum: 3ff525d7c3eac9d9b93a82cf89e9688c46a69cab4eab2462685111655a2a001c588174766f66498de6d634537a0992f53e094138a9ef8ab3db605d3a17720c80
+  checksum: 4465d16b7c20ab52d2f6b7fe8087e8f16101472f2e8758f01c63591015c1b0a67c9e6c371d978f24d5f37c4b83457515571489284bf7c7c844eb6c8f2527685b
   languageName: node
   linkType: hard
 
@@ -20985,7 +21048,7 @@ __metadata:
 "mousetrap@npm:1.6.5":
   version: 1.6.5
   resolution: "mousetrap@npm:1.6.5"
-  checksum: 0b4b1c53cca2c0c9165ac7094eb770997863fc036ea65f76353a45e02c447709f0ce2a40d98472110f924d6f31750eb3ae618b226b720dec4f8b4591f5959060
+  checksum: 1ce36af5ac57e1fab687e3da004cc18914275f8ceef33f16d01110edc5126a5dbaace578b1e61179f93a506e71a88fe886f305db537a3673cf9f73affd1dffa6
   languageName: node
   linkType: hard
 
@@ -27828,14 +27891,14 @@ __metadata:
 "ts-key-enum@npm:2.0.12":
   version: 2.0.12
   resolution: "ts-key-enum@npm:2.0.12"
-  checksum: 8326a333cba219e7a281ed2850c6dc0e3f37601dfa313cc7f24dbe9f762548cb2c2103b52d0285c8367eaa69ebcd31ee863d37b87427aa8f370e3d5d7ee3fa91
+  checksum: faf84f36f7b116aee5502bd86feb50b592c15af49c1795b9710861c27b464eaa1c6ce701e7a2843cc69c09e224be4ae7ea74e284a00f41478a690462d7ab963d
   languageName: node
   linkType: hard
 
 "ts-keycode-enum@npm:1.0.6":
   version: 1.0.6
   resolution: "ts-keycode-enum@npm:1.0.6"
-  checksum: 79a6ee59b157a87b59451389d8bf6d992a351079255942b957bc4cf2bf7e24057e6edca1c9356e186ebb66f48a50d0aa6b4a0964e1b4f7162c2c94a5e9e43e8c
+  checksum: a2f558b93e97802b1f111664fd4553969d6fe842a145eb96fa9626e2a22bf4cd27537e5d0f347bf6a6b62c2c76eb730f46c0bdcbe8207f2fb3f3ebdfb812b928
   languageName: node
   linkType: hard
 

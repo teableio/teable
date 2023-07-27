@@ -1,5 +1,5 @@
 import { KanbanViewCore } from '@teable-group/core';
 import { Mixin } from 'ts-mixer';
-import { ViewOperations } from './view';
+import { View } from './view';
 
-export class KanbanView extends Mixin(KanbanViewCore, ViewOperations) {}
+export class KanbanView extends Mixin(KanbanViewCore, View) {}

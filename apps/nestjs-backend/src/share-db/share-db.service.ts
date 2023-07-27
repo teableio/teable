@@ -120,7 +120,7 @@ export class ShareDbService extends ShareDBClass {
     }
     // prepare transaction
     await this.transactionService.getTransaction(tsMeta);
-    console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
+    // console.log('ShareDb:apply:', context.id, JSON.stringify(context.op.op), context.extra);
     const ops = context.op.op.reduce<IOtOperation[]>((pre, cur) => {
       const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
       if (ctx) {
@@ -140,7 +140,7 @@ export class ShareDbService extends ShareDBClass {
     transactionMeta: ITransactionMeta,
     opsMap: { [tableId: string]: { [recordId: string]: IOtOperation[] } }
   ) {
-    console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
+    // console.log('sendOpsAfterApply:', JSON.stringify(opsMap, null, 2));
     const connection = this.connect();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     connection.agent!.custom = transactionMeta;

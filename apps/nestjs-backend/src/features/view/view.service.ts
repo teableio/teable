@@ -155,7 +155,7 @@ export class ViewService implements IAdapterService {
         case OpName.SetViewFilter:
           updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;
           break;
-        case OpName.SetViewFilter:
+        case OpName.SetViewOptions:
           updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
           break;
         default:

@@ -1,9 +1,17 @@
-import type { IViewVo, IFilter } from '@teable-group/core';
-import { filterSchema, ViewOpBuilder, ViewCore } from '@teable-group/core';
+import type { IFilter, IViewVo, IJsonApiSuccessResponse } from '@teable-group/core';
+import { filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
+import axios from 'axios';
 
-export abstract class ViewOperations extends ViewCore {
+export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
+
+  static async getViews(tableId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
+      `/api/table/${tableId}/view`
+    );
+    return response.data.data;
+  }
 
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {

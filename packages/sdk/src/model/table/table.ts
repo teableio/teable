@@ -6,13 +6,13 @@ import type {
   IRecord,
   ITableVo,
   IViewRo,
-  IViewVo,
 } from '@teable-group/core';
 import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
+import { View } from '../view';
 
 export class Table extends TableCore {
   static async createTable(tableRo: ICreateTableRo) {
@@ -27,11 +27,8 @@ export class Table extends TableCore {
 
   protected doc!: Doc<ITableVo>;
 
-  static async getViews(tableId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
-      `/api/table/${tableId}/view`
-    );
-    return response.data.data;
+  async getViews() {
+    return View.getViews(this.id);
   }
 
   async updateName(name: string) {

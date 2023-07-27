@@ -1,9 +1,9 @@
 import type { RowHeightLevel } from '@teable-group/core';
 import { GridViewCore, ViewOpBuilder } from '@teable-group/core';
 import { Mixin } from 'ts-mixer';
-import { ViewOperations } from './view';
+import { View } from './view';
 
-export class GridView extends Mixin(GridViewCore, ViewOperations) {
+export class GridView extends Mixin(GridViewCore, View) {
   async updateRowHeight(rowHeight: RowHeightLevel) {
     const viewOperation = ViewOpBuilder.editor.setViewOption.build({
       newOptions: {
