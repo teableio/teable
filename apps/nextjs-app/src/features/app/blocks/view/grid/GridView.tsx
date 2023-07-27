@@ -128,6 +128,14 @@ export const GridView: React.FC = () => {
     [columns, gridViewStore]
   );
 
+  const onColumnHeaderDblClick = useCallback(
+    (colIndex: number) => {
+      const fieldId = columns[colIndex].id;
+      gridViewStore.openSetting({ fieldId, operator: FieldOperator.Edit });
+    },
+    [columns, gridViewStore]
+  );
+
   const onRowAppended = () => {
     table?.createRecord({});
   };
@@ -218,6 +226,7 @@ export const GridView: React.FC = () => {
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
           onVisibleRegionChanged={onVisibleRegionChanged}
+          onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />
       )}

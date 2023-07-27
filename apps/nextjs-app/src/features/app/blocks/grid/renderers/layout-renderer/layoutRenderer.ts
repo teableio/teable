@@ -102,7 +102,9 @@ export const drawCells = (
     columnInitSize,
     containerWidth,
     containerHeight,
+    pureRowCount,
   } = coordInstance;
+  if (pureRowCount === 0) return;
   const { isSelecting, type: selectionType } = selectionState;
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
@@ -565,11 +567,11 @@ export const drawAppendRow = (
   if (!isRowAppendEnable) return;
 
   const { scrollLeft, scrollTop } = scrollState;
-  const { rowIndex, isOutOfBounds } = mouseState;
+  const { type, rowIndex, isOutOfBounds } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const { totalWidth, freezeRegionWidth, freezeColumnCount, rowCount, columnInitSize } =
     coordInstance;
-  const isHover = !isOutOfBounds && rowIndex === rowCount - 1;
+  const isHover = !isOutOfBounds && type === RegionType.AppendRow && rowIndex === rowCount - 1;
   const x = isFreezeRegion ? 0 : coordInstance.getColumnOffset(freezeColumnCount);
   const y = coordInstance.getRowOffset(rowCount - 1) - scrollTop;
   const width = isFreezeRegion
