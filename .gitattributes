@@ -149,6 +149,7 @@ Procfile          text
 *.wbmp            binary
 *.webp            binary
 *.avif            binary
+*.icns            binary
 
 
 # Audio

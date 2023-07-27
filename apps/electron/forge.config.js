@@ -42,6 +42,7 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-zip',
+      config: {},
     },
     {
       name: '@electron-forge/maker-squirrel',
@@ -58,6 +59,7 @@ module.exports = {
     {
       name: '@electron-forge/maker-dmg',
       config: {
+        background: path.join(__dirname, 'static', 'background.png'),
         icon: path.join(__dirname, 'static', 'icons', 'icon.icns'),
       },
     },
