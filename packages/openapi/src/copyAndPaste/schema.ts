@@ -61,3 +61,21 @@ export const copyVoSchema = z.object({
 });
 
 export type CopyVo = z.infer<typeof copyVoSchema>;
+
+export const clearRoSchema = z.object({
+  ranges: z
+    .array(z.tuple([z.number(), z.number()]))
+    .refine((value) => value.length % 2 === 0, {
+      message: 'The range parameter must be a valid 2D array with even length.',
+    })
+    .openapi({
+      description:
+        'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
+      example: [
+        [0, 0],
+        [1, 1],
+      ],
+    }),
+});
+
+export type ClearRo = z.infer<typeof clearRoSchema>;

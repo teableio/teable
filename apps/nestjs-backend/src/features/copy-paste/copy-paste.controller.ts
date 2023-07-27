@@ -31,4 +31,15 @@ export class CopyPasteController {
     await this.copyPasteService.paste(tableId, viewId, pasteRo);
     return responseWrap(null);
   }
+
+  @Post('/clear')
+  async clear(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(CopyAndPasteSchema.clearRoSchema))
+    clearRo: CopyAndPasteSchema.ClearRo
+  ) {
+    await this.copyPasteService.clear(tableId, viewId, clearRo);
+    return responseWrap(null);
+  }
 }

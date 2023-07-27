@@ -184,6 +184,7 @@ export class CopyPasteService {
     fields,
     records,
     transactionKey,
+    isClear,
   }: {
     cell: [number, number];
     tableData: string[][];
@@ -191,6 +192,7 @@ export class CopyPasteService {
     fields: IFieldInstance[];
     records: IRecord[];
     transactionKey: string;
+    isClear?: boolean;
   }) {
     const [startCol] = cell;
     const attachments = await this.collectionAttachment({
@@ -198,15 +200,19 @@ export class CopyPasteService {
       tableData,
       startColumn: startCol,
     });
-    for (let i = 0; i < tableData.length; i++) {
-      const rowData = tableData[i];
+    for (let i = 0; i < records.length; i++) {
+      const rowData = tableData?.[i];
       const recordFields: IRecord['fields'] = {};
       const row = i;
-      for (let j = 0; j < rowData.length; j++) {
-        const value = rowData[j];
+      for (let j = 0; j < fields.length; j++) {
+        const value = rowData?.[j] ?? null;
         const col = j;
         const field = fields[col];
         if (field.isComputed) {
+          continue;
+        }
+        if (isClear) {
+          recordFields[field.id] = null;
           continue;
         }
         recordFields[field.id] = field.convertStringToCellValue(
@@ -315,5 +321,35 @@ export class CopyPasteService {
         url: true,
       },
     });
+  }
+
+  async clear(tableId: string, viewId: string, clearRo: CopyAndPasteSchema.ClearRo) {
+    const { ranges } = clearRo;
+
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_prisma, transactionKey) => {
+        for (let i = 0; i < ranges.length; i = +2) {
+          const [start, end] = [ranges[i], ranges[i + 1]];
+          const records = await this.recordService.getRecords(tableId, {
+            viewId,
+            skip: start[1],
+            take: end[1] + 1 - start[1],
+            fieldKeyType: FieldKeyType.Id,
+          });
+          const fields = await this.fieldService.getFieldInstances(tableId, { viewId });
+          const effectFields = fields.slice(start[0], end[0] + 1);
+          await this.fillCells({
+            cell: start,
+            tableData: [],
+            tableId,
+            fields: effectFields,
+            records: records.records,
+            transactionKey,
+            isClear: true,
+          });
+        }
+      }
+    );
   }
 }

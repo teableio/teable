@@ -50,7 +50,6 @@ export const useCopyAndPaste = () => {
       if (!viewId || !tableId) {
         return;
       }
-
       const toaster = toast({
         title: 'Pasting...',
       });
@@ -68,5 +67,23 @@ export const useCopyAndPaste = () => {
     [tableId, toast, viewId]
   );
 
-  return { copy, paste };
+  const clear = useCallback(
+    async (selection: ISelection) => {
+      if (!viewId || !tableId) {
+        return;
+      }
+      const toaster = toast({
+        title: 'Clearing...',
+      });
+
+      await CopyAndPasteApi.clear(tableId, viewId, {
+        ranges: selection.ranges,
+      });
+
+      toaster.update({ id: toaster.id, title: 'Clean success!' });
+    },
+    [tableId, toast, viewId]
+  );
+
+  return { copy, paste, clear };
 };
