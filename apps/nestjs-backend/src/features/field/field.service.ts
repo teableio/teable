@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
@@ -270,11 +270,24 @@ export class FieldService implements IAdapterService {
 
   async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
     let viewId = query.viewId;
+    if (viewId) {
+      const view = await this.prismaService.view.findFirst({
+        where: { id: viewId, deletedTime: null },
+        select: { id: true },
+      });
+      if (!view) {
+        throw new NotFoundException('view not found');
+      }
+    }
+
     if (!viewId) {
-      const view = await this.prismaService.view.findFirstOrThrow({
+      const view = await this.prismaService.view.findFirst({
         where: { tableId, deletedTime: null },
         select: { id: true },
       });
+      if (!view) {
+        throw new NotFoundException('table not found');
+      }
       viewId = view.id;
     }
 

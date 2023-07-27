@@ -7,7 +7,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/u
 
 import classNames from 'classnames';
 import { cloneDeep, isEqual } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { useFields } from '../../hooks';
@@ -52,6 +52,7 @@ function Filter(props: IFilterProps) {
   // use the primary to be default metadata
   const defaultIFilterMeta = useMemo<IFilterItem>(() => {
     const defaultField = fields.find((field) => field.isPrimary);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const defaultOpertor = getValidFilterOperators(defaultField!);
     return {
       operator: defaultOpertor?.[0],

@@ -1,11 +1,46 @@
-import type { ITableFullVo, IJsonApiResponse, ITableListVo } from '@teable-group/core';
-import { FieldKeyType, isJsonApiSuccessResponse } from '@teable-group/core';
+import type {
+  ITableFullVo,
+  IJsonApiResponse,
+  ITableListVo,
+  IJsonApiErrorResponse,
+} from '@teable-group/core';
+import { FieldKeyType } from '@teable-group/core';
 import axios from 'axios';
 
 export class SsrApi {
   axios = axios.create({
     baseURL: `http://localhost:${process.env.PORT}/api`,
   });
+
+  constructor() {
+    this.axios.interceptors.response.use(
+      (response) => {
+        // Any status code that lie within the range of 2xx cause this function to trigger
+        return response;
+      },
+      (error) => {
+        // Any status codes that falls outside the range of 2xx cause this function to trigger
+        if (error.response) {
+          // Server responded with a status other than 2xx (or errors without response)
+          if (error.response.status >= 500) {
+            // Throw error if status is 5xx
+            throw error;
+          } else {
+            // Return empty data if status is 4xx
+            return {
+              data: {
+                success: false,
+                errors: [error.response.data],
+              } as IJsonApiErrorResponse,
+            };
+          }
+        } else {
+          // If no response, throw the error (network error etc.)
+          throw error;
+        }
+      }
+    );
+  }
 
   async getTable(tableId: string, viewId?: string) {
     return this.axios
@@ -16,31 +51,16 @@ export class SsrApi {
           fieldKeyType: FieldKeyType.Id,
         },
       })
-      .then(({ data: resp }) => {
-        if (isJsonApiSuccessResponse(resp)) {
-          return resp.data;
-        }
-        throw new Error('fail to fetch table content');
-      });
+      .then(({ data }) => data);
   }
 
   async getTables() {
-    return this.axios.get<IJsonApiResponse<ITableListVo>>(`/table`).then(({ data: resp }) => {
-      if (isJsonApiSuccessResponse(resp)) {
-        return resp.data;
-      }
-      throw new Error('fail to fetch table list');
-    });
+    return this.axios.get<IJsonApiResponse<ITableListVo>>(`/table`).then(({ data }) => data);
   }
 
   async getDefaultViewId(tableId: string) {
     return this.axios
       .get<IJsonApiResponse<{ id: string }>>(`/table/${tableId}/defaultViewId`)
-      .then(({ data: resp }) => {
-        if (isJsonApiSuccessResponse(resp)) {
-          return resp.data;
-        }
-        throw new Error('fail to fetch default view id');
-      });
+      .then(({ data }) => data);
   }
 }

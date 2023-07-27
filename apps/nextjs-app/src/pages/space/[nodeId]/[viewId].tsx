@@ -31,16 +31,22 @@ const Node: NextPageWithLayout<ITableProps> = ({
 export const getServerSideProps: GetServerSideProps<INodeProps> = async (context) => {
   const { nodeId, viewId } = context.query;
   const api = new SsrApi();
-  const tables = await api.getTables();
-  const { fields, views, records, total } = await api.getTable(nodeId as string, viewId as string);
-
+  const tableResult = await api.getTable(nodeId as string, viewId as string);
+  if (tableResult.success) {
+    const tablesResult = await api.getTables();
+    const { fields, views, records, total } = tableResult.data;
+    return {
+      props: {
+        tableServerData: tablesResult.success ? tablesResult.data : [],
+        fieldServerData: fields,
+        viewServerData: views,
+        recordServerData: { records, total },
+      },
+    };
+  }
+  console.log('[viewId]', tableResult);
   return {
-    props: {
-      tableServerData: tables,
-      fieldServerData: fields,
-      viewServerData: views,
-      recordServerData: { records, total },
-    },
+    notFound: true,
   };
 };
 
