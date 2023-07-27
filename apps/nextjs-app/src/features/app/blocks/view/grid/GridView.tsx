@@ -12,11 +12,11 @@ import {
 } from '@teable-group/sdk';
 import { range, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePrevious, useMount } from 'react-use';
+import { usePrevious, useMount, useUpdateEffect } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid';
-import type { IRectangle, IPosition, ISelection, IGridColumn } from '../../grid';
+import type { IRectangle, IPosition, ISelection, IGridColumn, IGridRef } from '../../grid';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
@@ -173,6 +173,12 @@ export const GridView: React.FC = () => {
     return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
   }, [view]);
 
+  const gridRef = useRef<IGridRef>(null);
+
+  useUpdateEffect(() => {
+    gridRef.current?.forceUpdate();
+  }, [view?.filter]);
+
   const onDelete = (selection: ISelection) => {
     const { type, ranges } = selection;
 
@@ -201,6 +207,7 @@ export const GridView: React.FC = () => {
     <div ref={container} className="relative grow w-full overflow-hidden">
       {isReadyToRender && (
         <Grid
+          ref={gridRef}
           theme={theme}
           rowCount={rowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
