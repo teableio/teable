@@ -2,8 +2,8 @@
 import type { IFieldVo, ILinkFieldOptions } from '@teable-group/core';
 import {
   CellValueType,
-  DateFieldCore,
   DbFieldType,
+  defaultDatetimeFormatting,
   FieldType,
   filterSchema,
   Relationship,
@@ -26,6 +26,7 @@ describe('FilterQueryTranslator', () => {
   });
 
   beforeAll(() => {
+    console.log('Use timeZone:', timeZone);
     const fieldsJson: IFieldVo[] = [
       {
         id: 'fld1',
@@ -91,7 +92,7 @@ describe('FilterQueryTranslator', () => {
         cellValueType: CellValueType.DateTime,
         isMultipleCellValue: false,
         columnMeta: {},
-        options: DateFieldCore.defaultOptions(),
+        options: { formatting: { ...defaultDatetimeFormatting, timeZone: timeZone } },
       },
       {
         id: 'fld7',
