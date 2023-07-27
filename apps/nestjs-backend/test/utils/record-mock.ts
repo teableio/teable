@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
@@ -9,7 +7,7 @@ import { chunk, flatten, groupBy } from 'lodash';
 
 const prisma = new PrismaClient();
 
-async function rectifyField(fields: Field[], selectOptions: any) {
+async function rectifyField(fields: Field[], selectOptions: ISelectFieldOptions) {
   const fieldByType = groupBy(fields, 'type');
 
   const rectifySelectField = [
@@ -36,10 +34,10 @@ async function generateFieldData(params: {
 }) {
   const { fields, selectOptions, mockDataNum } = params;
 
-  return fields.reduce((pre: any, cur: any) => {
+  return fields.reduce<{ [dbFieldName: string]: unknown }>((pre, cur) => {
     const selectArray = selectOptions.choices.map((value) => value.name);
 
-    let fieldData: any = undefined;
+    let fieldData: unknown = undefined;
     switch (cur.type as FieldType) {
       case FieldType.SingleLineText:
       case FieldType.LongText: {
@@ -76,7 +74,7 @@ async function generateFieldData(params: {
 async function generateViewRowIndex(params: { views: View[]; rowCount: number; i: number }) {
   const { views, rowCount, i } = params;
 
-  return views.reduce((pre: any, cur: any) => {
+  return views.reduce<{ [vieOrderKey: string]: number }>((pre, cur) => {
     pre[`__row_${cur.id}`] = Number(rowCount) + i;
     return pre;
   }, {});
@@ -120,8 +118,8 @@ export async function seeding(tableId: string, mockDataNum: number) {
   );
 
   console.time(`Table: ${tableName}, Ready Install Data`);
-  const data: any[] = [];
-  for (let i = 0; i < mockDataNum; i++) {
+  const data: { [dbFieldName: string]: unknown }[] = [];
+  for (let i = 0; i <= mockDataNum; i++) {
     const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
     const viewRowIndex = await generateViewRowIndex({ views, rowCount, i });
 
@@ -151,7 +149,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
           .replace(/'null'/g, 'null')} 
       `;
 
-    const sql_op = `
+    const sqlOp = `
         REPLACE INTO ops
         ("collection", "doc_id", "version", "operation")
         VALUES
@@ -163,9 +161,10 @@ export async function seeding(tableId: string, mockDataNum: number) {
           .join(', ')}
       `;
 
-    return [prisma.$executeRawUnsafe(sql), prisma.$executeRawUnsafe(sql_op)];
+    return [prisma.$executeRawUnsafe(sql), prisma.$executeRawUnsafe(sqlOp)];
   });
 
   await prisma.$transaction(flatten(promises));
   console.timeEnd(`Table: ${tableName}, Install Data Num: ${mockDataNum}`);
+  return tableId;
 }

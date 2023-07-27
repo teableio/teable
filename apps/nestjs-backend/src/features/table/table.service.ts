@@ -160,14 +160,14 @@ export class TableService implements IAdapterService {
   }
 
   async getDefaultViewId(tableId: string) {
-    try {
-      return this.prismaService.view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-    } catch (e) {
-      throw new NotFoundException();
+    const viewRaw = await this.prismaService.view.findFirst({
+      where: { tableId, deletedTime: null },
+      select: { id: true },
+    });
+    if (!viewRaw) {
+      throw new NotFoundException('Table No found');
     }
+    return viewRaw;
   }
 
   async create(prisma: Prisma.TransactionClient, _collection: string, snapshot: ITableVo) {
