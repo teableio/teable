@@ -97,7 +97,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
                   onSelect(option.value);
                   setOpen(false);
                 }}
-                className="truncate"
+                className="truncate text-[13px]"
               >
                 <Check
                   className={classNames(

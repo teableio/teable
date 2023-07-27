@@ -65,12 +65,16 @@ function ConditionGroup(props: IConditionGroupProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => addCondition(filter)}>
-                    Add condition
+                  <DropdownMenuItem onClick={() => addCondition(filter)} className="text-[13px]">
+                    <span>Add condition</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addConditionGroup(filter)} disabled={level > 0}>
+                  <DropdownMenuItem
+                    onClick={() => addConditionGroup(filter)}
+                    disabled={level > 0}
+                    className="text-[13px]"
+                  >
                     {!(level > 0) ? (
-                      'Add condition group'
+                      <span className="text-[13px]">Add condition group</span>
                     ) : (
                       <TooltipProvider>
                         <Tooltip>

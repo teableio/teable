@@ -121,7 +121,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
                     key={option.value}
                     value={option.value}
                     onSelect={() => selectHandler(option.value)}
-                    className="truncate p-1"
+                    className="truncate p-1 text-[13px]"
                   >
                     <Check
                       className={classNames(
@@ -133,7 +133,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
                   </CommandItem>
                 ))
               ) : (
-                <span className="text-sm text-gray-600">no result</span>
+                <span className="text-[13px] text-gray-600">no result</span>
               )}
             </CommandGroup>
           </CommandList>

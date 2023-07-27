@@ -208,7 +208,7 @@ function Filter(props: IFilterProps) {
           align="start"
           className="max-w-screen-md w-min min-w-[544px] p-0"
         >
-          <div className="text-[11px] px-4 py-2 bg-accent max-w-full flex justify-start items-center rounded">
+          <div className="text-[11px] px-4 py-2 bg-accent max-w-full flex justify-start items-center rounded-t">
             <Share2 className="h-4 w-4 shrink-0 mr-4" />
             <span className="text-zinc-500">
               This view is being used in a view share link. Modifications to the view configuration

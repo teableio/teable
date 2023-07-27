@@ -44,14 +44,14 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
           role="combobox"
           size="sm"
           aria-expanded={open}
-          className="justify-between p-1"
+          className="justify-between p-1 text-[13px]"
         >
           {value ? (
-            <span className="truncate text-sm">
+            <span className="truncate">
               {ConjunctionOptions.find((conjunction) => conjunction.value === value)?.label}
             </span>
           ) : (
-            <span className="truncate text-sm">and</span>
+            <span className="truncate">and</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
