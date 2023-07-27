@@ -1,32 +1,19 @@
 import { FieldType } from '@teable-group/core';
 
-// import {
-//   Calendar as CalendarIcon,
-//   CheckSquare as CheckboxIcon,
-//   Code as CodeIcon,
-//   Hash as FieldNumberIcon,
-//   Search as SearchIcon,
-//   CheckCircle2 as FieldSelectIcon,
-//   Languages as FieldTextIcon,
-//   File as FieldAttachmentIcon,
-//   HelpCircle as UnknownIcon,
-//   Layers as FieldRollupIcon,
-//   Link as LinkIcon,
-//   ListChecks as MenuIcon,
-// } from '@teable-group/icons';
-
-import CalendarIcon from '@teable-group/ui-lib/icons/app/calendar.svg';
-import CheckboxIcon from '@teable-group/ui-lib/icons/app/check-item.svg';
-import CodeIcon from '@teable-group/ui-lib/icons/app/code.svg';
-import FieldNumberIcon from '@teable-group/ui-lib/icons/app/field-number.svg';
-import FieldSelectIcon from '@teable-group/ui-lib/icons/app/field-select.svg';
-import FieldTextIcon from '@teable-group/ui-lib/icons/app/field-text.svg';
-import FieldAttachmentIcon from '@teable-group/ui-lib/icons/app/file.svg';
-import UnknownIcon from '@teable-group/ui-lib/icons/app/help.svg';
-import FieldRollupIcon from '@teable-group/ui-lib/icons/app/layers.svg';
-import LinkIcon from '@teable-group/ui-lib/icons/app/link.svg';
-import MenuIcon from '@teable-group/ui-lib/icons/app/menu.svg';
-import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
+import {
+  Calendar as CalendarIcon,
+  CheckSquare as CheckboxIcon,
+  Code as CodeIcon,
+  Hash as FieldNumberIcon,
+  Search as SearchIcon,
+  CheckCircle2 as FieldSelectIcon,
+  Languages as FieldTextIcon,
+  File as FieldAttachmentIcon,
+  HelpCircle as UnknownIcon,
+  Layers as FieldRollupIcon,
+  Link as LinkIcon,
+  ListChecks as MenuIcon,
+} from '@teable-group/icons';
 
 import { useCallback } from 'react';
 import {
