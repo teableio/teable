@@ -1,10 +1,10 @@
-import type { IFilterItem, FieldType } from '@teable-group/core';
+import type { IFilterItem } from '@teable-group/core';
 
 import { Trash2 } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
 
 import { cloneDeep, isEqual } from 'lodash';
-import { useCallback, useContext, useRef, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { useFields } from '../../../hooks';
 
 import { FilterContext } from '../context';
@@ -19,9 +19,14 @@ function Condition(props: IConditionProps) {
   const context = useContext(FilterContext);
   const { setFilters, filters } = context;
   const fields = useFields();
-  const fieldType = useRef<FieldType | null>(null);
   const fieldMap = useMemo(() => {
-    return new Map(fields.map((field) => [field.id, field.type]));
+    const map: Record<string, string> = {};
+    fields.forEach((field) => {
+      const key = field.id;
+      const value = field.type;
+      map[key] = value;
+    });
+    return map;
   }, [fields]);
 
   const deleteCurrentFilter = () => {
@@ -36,10 +41,9 @@ function Condition(props: IConditionProps) {
 
   const fieldTypeHandler = useCallback(
     (fieldId: string | null) => {
-      const newFieldType = fieldMap.get(fieldId!) || null;
-      const lastFieldType = fieldType.current;
-      fieldType.current = newFieldType;
-      if (newFieldType !== lastFieldType) {
+      const newFieldType = fieldMap[fieldId!] || null;
+      const currentFieldType = fieldMap[filter.fieldId] || null;
+      if (newFieldType !== currentFieldType) {
         filter.value = null;
       }
       filter.fieldId = fieldId as string;
@@ -61,7 +65,8 @@ function Condition(props: IConditionProps) {
   const fieldValueHandler = useCallback(
     (value: IFilterItem['value']) => {
       if (!isEqual(filter.value, value)) {
-        filter.value = value || null;
+        filter.value = value === '' ? null : value;
+        // empty array should be null!
         if (Array.isArray(value) && !value.length) {
           filter.value = null;
         }
@@ -73,7 +78,7 @@ function Condition(props: IConditionProps) {
   );
 
   return (
-    <div className="flex items-center p-1">
+    <div className="flex items-center px-1">
       <Conjunction
         index={index}
         parent={parent}
@@ -92,7 +97,7 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" onClick={deleteCurrentFilter} className="dark:bg-white ml-1">
+        <Button variant="outline" size="sm" onClick={deleteCurrentFilter} className="ml-1">
           <Trash2 className="h-4 w-4"></Trash2>
         </Button>
       </section>

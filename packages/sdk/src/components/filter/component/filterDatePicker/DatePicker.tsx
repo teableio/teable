@@ -31,6 +31,7 @@ function DatePicker(props: IFilerDatePickerProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          size="sm"
           variant={'outline'}
           className={classNames(
             'w-max justify-start text-left font-normal m-1',

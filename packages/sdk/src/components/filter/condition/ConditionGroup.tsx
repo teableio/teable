@@ -16,7 +16,7 @@ import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 
 import { FilterContext } from '../context';
-import { isFilterMeta } from '../types';
+import { isFilterItem } from '../types';
 import type { IConditionGroupProps } from '../types';
 import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
@@ -60,17 +60,21 @@ function ConditionGroup(props: IConditionGroupProps) {
             <div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost">
+                  <Button variant="ghost" size="sm">
                     <Plus className="h-4 w-4"></Plus>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => addCondition(filter)}>
-                    Add condition
+                  <DropdownMenuItem onClick={() => addCondition(filter)} className="text-[13px]">
+                    <span>Add condition</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addConditionGroup(filter)} disabled={level > 0}>
+                  <DropdownMenuItem
+                    onClick={() => addConditionGroup(filter)}
+                    disabled={level > 0}
+                    className="text-[13px]"
+                  >
                     {!(level > 0) ? (
-                      'Add condition group'
+                      <span className="text-[13px]">Add condition group</span>
                     ) : (
                       <TooltipProvider>
                         <Tooltip>
@@ -87,7 +91,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteCurrentItem}>
+              <Button variant="ghost" onClick={deleteCurrentItem} size="sm">
                 <Trash2 className="h-4 w-4"></Trash2>
               </Button>
             </div>
@@ -95,7 +99,7 @@ function ConditionGroup(props: IConditionGroupProps) {
 
           <div>
             {filter?.filterSet?.map((item, index) =>
-              isFilterMeta(item) ? (
+              isFilterItem(item) ? (
                 <Condition
                   key={index}
                   index={index}

@@ -27,7 +27,7 @@ function FieldSelect(props: IFieldSelectProps) {
       return (
         <>
           <Icon className="shrink-0"></Icon>
-          <div className="pl-1 truncate">{option.label}</div>
+          <div className="pl-1 truncate text-[13px]">{option.label}</div>
         </>
       );
     },
@@ -40,7 +40,7 @@ function FieldSelect(props: IFieldSelectProps) {
       onSelect={onSelect}
       value={value}
       className="w-32 shrink"
-      popoverClassName="max-w-xs"
+      popoverClassName="w-fit"
       optionRender={optionRender}
     />
   );

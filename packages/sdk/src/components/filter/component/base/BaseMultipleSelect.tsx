@@ -65,18 +65,18 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
   }, [values, options]);
 
   const optionMap = useMemo(() => {
-    return new Map(
-      options.map((option) => [
-        // todo: shadcn bug, id will be toLowerCase in Commond components
-        option.value.toLowerCase(),
-        option.label.toLowerCase(),
-      ])
-    );
+    const map: Record<string, string> = {};
+    options.forEach((option) => {
+      const key = option.value.toLowerCase();
+      const value = option.label.toLowerCase();
+      map[key] = value;
+    });
+    return map;
   }, [options]);
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap.get(id) || 'untitled';
+      const name = optionMap[id] || 'Untitled';
       const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
       return Number(containWord);
     },
@@ -89,6 +89,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
         <Button
           variant="outline"
           role="combobox"
+          size="sm"
           aria-expanded={open}
           disabled={disabled}
           className={classNames('w-32 justify-between m-1 overflow-hidden', className)}
@@ -111,7 +112,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
-            <CommandInput placeholder="Search option" />
+            <CommandInput placeholder="Search option" className="placeholder:text-[13px]" />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {options.length ? (
@@ -120,7 +121,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
                     key={option.value}
                     value={option.value}
                     onSelect={() => selectHandler(option.value)}
-                    className="truncate"
+                    className="truncate p-1 text-[13px]"
                   >
                     <Check
                       className={classNames(
@@ -132,7 +133,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
                   </CommandItem>
                 ))
               ) : (
-                <span className="text-sm text-gray-600">no result</span>
+                <span className="text-[13px] text-gray-600">no result</span>
               )}
             </CommandGroup>
           </CommandList>
