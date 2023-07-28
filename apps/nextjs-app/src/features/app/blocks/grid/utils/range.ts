@@ -1,6 +1,16 @@
 import type { ICellItem, IRange, ISelectionState } from '../interface';
 import { SelectionRegionType } from '../interface';
 
+export const flatRanges = (ranges: IRange[]): number[] => {
+  const result: number[] = [];
+  for (const range of ranges) {
+    for (let i = range[0]; i <= range[1]; i++) {
+      result.push(i);
+    }
+  }
+  return result;
+};
+
 export const isPointInsideRectangle = (
   checkPoint: [number, number],
   startPoint: [number, number],
@@ -16,6 +26,10 @@ export const isPointInsideRectangle = (
   const maxY = Math.max(startY, endY);
 
   return checkX >= minX && checkX <= maxX && checkY >= minY && checkY <= maxY;
+};
+
+export const inRanges = (index: number, ranges: IRange[]) => {
+  return flatRanges(ranges).includes(index);
 };
 
 export const inRange = (num: number, start: number, end: number) => {
@@ -49,7 +63,7 @@ export const mergeRanges = (ranges: IRange[]): IRange[] => {
 };
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
-export const mergeRowRanges = (ranges: IRange[], newRange: IRange): IRange[] => {
+export const mixRanges = (ranges: IRange[], newRange: IRange): IRange[] => {
   const result: IRange[] = [];
   let added = false;
 
@@ -82,8 +96,7 @@ export const mergeRowRanges = (ranges: IRange[], newRange: IRange): IRange[] => 
 export const checkIfColumnActive = (selectionState: ISelectionState, columnIndex: number) => {
   const { type: regionType, ranges } = selectionState;
   if (regionType !== SelectionRegionType.Columns) return false;
-  const range = ranges[0];
-  return range[0] <= columnIndex && range[1] >= columnIndex;
+  return inRanges(columnIndex, ranges);
 };
 
 export const checkIfRowSelected = (selectionState: ISelectionState, rowIndex: number) => {

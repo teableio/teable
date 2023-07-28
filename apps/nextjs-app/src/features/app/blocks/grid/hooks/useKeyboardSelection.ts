@@ -2,7 +2,7 @@ import { pick } from 'lodash';
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
-import type { IInnerCell, IRange } from '..';
+import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_DEFAULT } from '../configs';
 import { getCellRenderer } from '../renderers';
@@ -181,19 +181,32 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
     mousetrap.bind('enter', () => {
       if (!activeCell) return;
-      const { ranges } = selectionState;
+      const { type: selectionType, ranges } = selectionState;
       const cellRenderer = getCellRenderer(cell.type);
       if (cellRenderer.onClick) return;
       if (isEditing) {
-        editorRef.current?.saveValue?.();
-        const [columnIndex, rowIndex] = ranges[0];
+        let range = ranges[0];
+        const isColumnSelection = selectionType === SelectionRegionType.Columns;
+        if (isColumnSelection) {
+          range = [range[0], 0];
+        }
+        const [columnIndex, rowIndex] = range;
         const nextRowIndex = rowIndex + 1;
         const newRange = [columnIndex, nextRowIndex] as IRange;
+        editorRef.current?.saveValue?.();
         nextRowIndex > pureRowCount - 1 && onRowAppend?.();
         setTimeout(() => {
-          setEditing(false);
+          if (isColumnSelection) {
+            setSelectionState({
+              type: SelectionRegionType.Cells,
+              ranges: [newRange, newRange],
+              isSelecting: false,
+            });
+          } else {
+            setSelectionState({ ...selectionState, ranges: [newRange, newRange] });
+          }
           setActiveCell(newRange);
-          setSelectionState({ ...selectionState, ranges: [newRange, newRange] });
+          setEditing(false);
           scrollToCell(newRange as IRange);
         });
       } else {

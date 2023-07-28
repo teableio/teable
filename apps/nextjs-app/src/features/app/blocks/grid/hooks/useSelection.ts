@@ -11,12 +11,14 @@ import type {
   ISelectionState,
 } from '../interface';
 import { RegionType, SelectionRegionType } from '../interface';
-import { inRange, isPointInsideRectangle, mergeRowRanges } from '../utils';
+import type { CoordinateManager } from '../managers';
+import { inRange, isPointInsideRectangle, mixRanges } from '../utils';
 
-export const useSelection = () => {
+export const useSelection = (coordInstance: CoordinateManager) => {
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [selectionState, setSelectionState] = useState<ISelectionState>(DEFAULT_SELECTION_STATE);
   const [prevSelectionState, setPrevSelectionState] = useState<ISelection | null>(null);
+  const { pureRowCount } = coordInstance;
 
   const onSelectionStart = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -39,23 +41,14 @@ export const useSelection = () => {
           isSelecting: true,
         });
       }
-      case RegionType.ColumnHeader: {
-        const needActive = prevSelectionType !== SelectionRegionType.Columns;
-        (!isShiftKey || needActive) && setActiveCell([columnIndex, 0]);
-        const currentColumnIndex = isShiftKey && !needActive ? prevRanges[0][0] : columnIndex;
-        return setSelectionState({
-          type: SelectionRegionType.Columns,
-          ranges: [
-            [Math.min(currentColumnIndex, columnIndex), Math.max(currentColumnIndex, columnIndex)],
-          ],
-          isSelecting: false,
-        });
-      }
+      case RegionType.RowHeaderDragHandler:
       case RegionType.RowHeaderCheckbox:
+      case RegionType.ColumnHeader:
       case RegionType.AllCheckbox:
       case RegionType.RowHeader:
         return;
       default:
+        setActiveCell(null);
         return setSelectionState(DEFAULT_SELECTION_STATE);
     }
   };
@@ -92,37 +85,57 @@ export const useSelection = () => {
     setSelectionState((prev) => ({ ...prev, isSelecting: false }));
   };
 
-  const onSelectionClick = (mouseState: IMouseState, rowCount: number) => {
-    const { type, rowIndex } = mouseState;
+  const onSelectionClick = (
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    mouseState: IMouseState
+    // eslint-disable-next-line sonarjs/cognitive-complexity
+  ) => {
+    const { type, rowIndex, columnIndex } = mouseState;
+    const { type: prevSelectionType, ranges: prevRanges } = selectionState;
+    const { shiftKey, metaKey } = event;
+    const isShiftKey = shiftKey && !metaKey;
+    const isMetaKey = metaKey && !shiftKey;
 
-    if (type === RegionType.AllCheckbox) {
-      return setSelectionState((prev) => {
-        const allRange = [0, rowCount - 1];
-        const { type: prevType, ranges: prevRanges } = prev;
-        const isPrevAll = prevType === SelectionRegionType.Rows && isEqual(prevRanges[0], allRange);
-        const type = isPrevAll ? SelectionRegionType.None : SelectionRegionType.Rows;
-        const ranges = (isPrevAll ? [] : [allRange]) as IRange[];
+    switch (type) {
+      case RegionType.ColumnHeader: {
+        const isColumnSelection = prevSelectionType === SelectionRegionType.Columns;
+        const thresholdColIndex = isShiftKey && isColumnSelection ? prevRanges[0][0] : columnIndex;
 
-        return {
-          type,
-          ranges,
-          isSelecting: false,
-        };
-      });
-    }
+        let ranges = [
+          [Math.min(thresholdColIndex, columnIndex), Math.max(thresholdColIndex, columnIndex)],
+        ] as IRange[];
+        if (isColumnSelection && isMetaKey) {
+          ranges = mixRanges(prevRanges, [columnIndex, columnIndex]);
+        }
 
-    if (type === RegionType.RowHeaderCheckbox) {
-      return setSelectionState((prev) => {
-        const { type: prevType, ranges: prevRanges } = prev;
+        const isReset = !ranges.length;
+
+        if (!isShiftKey || !isColumnSelection) {
+          isReset ? setActiveCell(null) : setActiveCell([ranges[0][0], 0]);
+        }
+        const newSelectionState = isReset
+          ? DEFAULT_SELECTION_STATE
+          : {
+              type: SelectionRegionType.Columns,
+              ranges,
+              isSelecting: false,
+            };
+        return setSelectionState(newSelectionState);
+      }
+      case RegionType.RowHeaderCheckbox: {
         const range = [rowIndex, rowIndex] as IRange;
         const ranges =
-          prevType === SelectionRegionType.Rows ? mergeRowRanges(prevRanges, range) : [range];
-        return {
-          type: SelectionRegionType.Rows,
-          ranges,
-          isSelecting: false,
-        };
-      });
+          prevSelectionType === SelectionRegionType.Rows ? mixRanges(prevRanges, range) : [range];
+        return setSelectionState({ type: SelectionRegionType.Rows, ranges, isSelecting: false });
+      }
+      case RegionType.AllCheckbox: {
+        const allRange = [0, pureRowCount - 1];
+        const isPrevAll =
+          prevSelectionType === SelectionRegionType.Rows && isEqual(prevRanges[0], allRange);
+        const type = isPrevAll ? SelectionRegionType.None : SelectionRegionType.Rows;
+        const ranges = (isPrevAll ? [] : [allRange]) as IRange[];
+        return setSelectionState({ type, ranges, isSelecting: false });
+      }
     }
   };
 

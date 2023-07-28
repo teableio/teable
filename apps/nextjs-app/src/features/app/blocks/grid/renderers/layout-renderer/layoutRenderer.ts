@@ -227,15 +227,13 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: IRenderLaye
 
   ctx.save();
   ctx.beginPath();
-  if (!isFreezeRegion) {
-    ctx.rect(
-      freezeRegionWidth,
-      rowInitSize,
-      containerWidth - freezeRegionWidth,
-      containerHeight - rowInitSize
-    );
-    ctx.clip();
-  }
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth,
+    rowInitSize,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize
+  );
+  ctx.clip();
 
   ctx.font = `${fontSizeSM}px ${fontFamily}`;
 
@@ -698,12 +696,14 @@ export const drawColumnDraggingRegion = (
 ) => {
   const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
-  const { type, isDragging, index: draggingColIndex, delta } = dragState;
+  const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerHeight } = coordInstance;
   const { x } = mouseState;
   const { scrollLeft } = scrollState;
 
   if (!isDragging || type !== DragRegionType.Columns) return;
+
+  const draggingColIndex = draggingRanges[0][0];
   drawRect(ctx, {
     x: x - delta,
     y: 0.5,
@@ -726,12 +726,14 @@ export const drawColumnDraggingRegion = (
 export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
   const { theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
-  const { type, isDragging, index: draggingRowIndex, delta } = dragState;
+  const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerWidth } = coordInstance;
   const { scrollTop } = scrollState;
   const { y } = mouseState;
 
   if (!isDragging || type !== DragRegionType.Rows) return;
+
+  const draggingRowIndex = draggingRanges[0][0];
   drawRect(ctx, {
     x: 0.5,
     y: y - delta,

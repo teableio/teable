@@ -6,7 +6,6 @@ import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
 import type { ICellItem, IScrollState, ISelectionState } from '../../interface';
-import { SelectionRegionType } from '../../interface';
 import type { ICell, IInnerCell } from '../../renderers';
 import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
@@ -80,8 +79,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
-  const { type: selectionType } = selectionState;
-  const isCellSelection = selectionType === SelectionRegionType.Cells;
   const [columnIndex, rowIndex] = activeCell ?? [-1, -1];
   const cellContent = useMemo(
     () => getCellContent([columnIndex, rowIndex]) as IInnerCell,
@@ -181,7 +178,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!isCellSelection || isEditing) return;
+    if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
     setEditing(true);
     editorRef.current?.setValue?.('');
