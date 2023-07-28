@@ -104,11 +104,11 @@ export class RecordService implements IAdapterService {
   async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
-    const queryResult = await prisma.$queryRawUnsafe<{ count: number }[]>(
+    const queryResult = await prisma.$queryRawUnsafe<{ count?: number }[]>(
       sqlNative.sql,
       ...sqlNative.bindings
     );
-    return Number(queryResult[0].count ?? 0);
+    return Number(queryResult[0]?.count ?? 0);
   }
 
   async getDbValueMatrix(
@@ -349,14 +349,15 @@ export class RecordService implements IAdapterService {
         .clearGroup()
         .clearHaving()
         .clearOrder()
-        .clear('limit');
+        .clear('limit')
+        .clear('offset');
       const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
 
-      const result = await prisma.$queryRawUnsafe<{ count: number }[]>(
+      const result = await prisma.$queryRawUnsafe<{ count?: number }[]>(
         sqlNative.sql,
         ...sqlNative.bindings
       );
-      return Number(result[0].count ?? 0);
+      return Number(result[0]?.count ?? 0);
     }
 
     const dbTableName = await this.getDbTableName(prisma, tableId);

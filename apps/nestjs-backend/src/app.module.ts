@@ -1,9 +1,11 @@
-import path from 'path';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import loadConfig from './configs/config';
+import type { Request } from 'express';
+import { nanoid } from 'nanoid';
+import { ClsModule } from 'nestjs-cls';
+import { TeableConfigModule } from 'src/configs/config.module';
+import { TeableLoggerModule } from 'src/logger/logger.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { ChatModule } from './features/chat/chat.module';
@@ -17,17 +19,16 @@ import { WsModule } from './ws/ws.module';
     DevtoolsModule.register({
       http: process.env.NODE_ENV !== 'production',
     }),
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
-        const nextJsDir = loadConfig().nextJs.dir;
-        const envDir = nextJsDir ? path.join(process.cwd(), nextJsDir, str) : str;
-        console.log('envDir:', envDir);
-        return envDir;
-      }),
-      load: [loadConfig],
-      expandVariables: true,
+    TeableConfigModule.register(),
+    ClsModule.forRoot({
+      global: true,
+      middleware: {
+        mount: true,
+        generateId: true,
+        idGenerator: (req: Request) => (req.headers['X-Request-Id'] as string) ?? nanoid(),
+      },
     }),
+    TeableLoggerModule.register(),
     NextModule,
     FileTreeModule,
     TableOpenApiModule,

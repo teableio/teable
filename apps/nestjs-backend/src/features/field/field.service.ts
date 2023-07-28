@@ -435,12 +435,6 @@ export class FieldService implements IAdapterService {
         ...(await this.updateStrategies(opContext, { prisma, fieldId, opContext })),
       };
 
-      this.logger.log(
-        `Field update tableId: ${tableId} | fieldId: ${fieldId} | updateData: ${JSON.stringify(
-          updateData
-        )}`
-      );
-
       await prisma.field.update({
         where: { id: fieldId },
         data: updateData,
