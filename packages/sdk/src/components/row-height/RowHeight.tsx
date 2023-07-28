@@ -2,12 +2,11 @@
 import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable-group/icons';
-import type { GridView } from '@teable-group/sdk';
-import { useView, useViewId } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { Popover, PopoverTrigger, PopoverContent } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import React, { useMemo } from 'react';
+import { useViewId, useView } from '../../hooks';
+import type { GridView } from '../../model';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MENU_ITEMS = [
@@ -33,7 +32,13 @@ const MENU_ITEMS = [
   },
 ];
 
-export const RowHeightButton = () => {
+export const RowHeight: React.FC<{
+  children: (
+    text: string,
+    isActive: boolean,
+    Icon: React.FC<{ className?: string }>
+  ) => React.ReactNode;
+}> = ({ children }) => {
   const activeViewId = useViewId();
   const view = useView(activeViewId);
 
@@ -51,16 +56,7 @@ export const RowHeightButton = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant={'ghost'}
-          size={'xs'}
-          className={classNames('font-normal capitalize', {
-            'bg-secondary': rowHeightLevel !== RowHeightLevel.Short,
-          })}
-        >
-          <Icon className="text-lg pr-1" />
-          {rowHeightLevel}
-        </Button>
+        {children(rowHeightLevel, rowHeightLevel !== RowHeightLevel.Short, Icon)}
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-40 p-0">
         <div>

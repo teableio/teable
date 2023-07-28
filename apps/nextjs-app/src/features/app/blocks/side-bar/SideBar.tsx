@@ -3,6 +3,7 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import Link from 'next/link';
 import { TableList } from '../table-list/TableList';
+import { SideBarFooter } from './SideBarFooter';
 import { SideBarHeader } from './SideBarHeader';
 
 export const SideBar: React.FC = () => {
@@ -24,8 +25,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <Link href="/space" className="font-normal">
-                  <Home className="mr-2 h-4 w-4" /> Home
-                  <div className="grow"></div>
+                  <Home className="h-4 w-4 shrink-0" /> Home
+                  <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘H︎</p>
                 </Link>
               </Button>
@@ -38,8 +39,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <Link className="py-1 font-normal" href="/space/dashboard">
-                  <Bell className="mr-2 h-4 w-4" /> Notification
-                  <div className="grow"></div>
+                  <Bell className="h-4 w-4 shrink-0" /> Notification
+                  <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘T</p>
                 </Link>
               </Button>
@@ -52,8 +53,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <a className="py-1 font-normal">
-                  <PackageCheck className="mr-2 h-4 w-4" /> Automation
-                  <div className="grow"></div>
+                  <PackageCheck className="h-4 w-4 shrink-0" /> Automation
+                  <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘A</p>
                 </a>
               </Button>
@@ -62,6 +63,8 @@ export const SideBar: React.FC = () => {
         </div>
         <TableList />
       </div>
+      <div className="grow basis-0"></div>
+      <SideBarFooter />
     </div>
   );
 };

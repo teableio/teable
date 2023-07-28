@@ -21,9 +21,12 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
         variant={'ghost'}
         size={'xs'}
         asChild
-        className={classNames('my-[2px] w-full px-2 justify-start text-sm gap-2 group', {
-          'bg-secondary': isActive,
-        })}
+        className={classNames(
+          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group',
+          {
+            'bg-secondary': isActive,
+          }
+        )}
       >
         <Link
           href={{

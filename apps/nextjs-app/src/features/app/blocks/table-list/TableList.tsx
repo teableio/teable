@@ -10,7 +10,7 @@ export const TableList: React.FC = () => {
   const addTable = useAddTable();
 
   return (
-    <div className="py-4 flex flex-col overflow-hidden gap-2">
+    <div className="pt-4 flex flex-col overflow-hidden gap-2">
       <div className="px-3">
         <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>
           <AddBoldIcon />
