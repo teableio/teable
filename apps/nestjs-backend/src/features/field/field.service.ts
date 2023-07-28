@@ -505,7 +505,7 @@ export class FieldService implements IAdapterService {
 
     return {
       ids: sortBy(fields, (field) => {
-        return field.columnMeta[viewId as string].order;
+        return field.columnMeta[viewId as string]?.order;
       }).map((field) => field.id),
     };
   }

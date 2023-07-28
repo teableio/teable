@@ -35,6 +35,7 @@ export class DevWsGateway implements OnModuleInit {
     const port = this.configService.get<number>('SOCKET_PORT');
 
     this.server = new Server({ port, path: '/socket' });
+    this.logger.log('DevWsGateway afterInit');
 
     this.server.on('connection', this.handleConnection);
 

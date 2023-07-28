@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
 import { TeableConfigModule } from 'src/configs/config.module';
 import { TeableLoggerModule } from 'src/logger/logger.module';
+import { X_REQUEST_ID } from './const';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { ChatModule } from './features/chat/chat.module';
@@ -25,7 +26,7 @@ import { WsModule } from './ws/ws.module';
       middleware: {
         mount: true,
         generateId: true,
-        idGenerator: (req: Request) => (req.headers['X-Request-Id'] as string) ?? nanoid(),
+        idGenerator: (req: Request) => (req.headers[X_REQUEST_ID] as string) ?? nanoid(),
       },
     }),
     TeableLoggerModule.register(),
