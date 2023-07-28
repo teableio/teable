@@ -1,12 +1,13 @@
+import { EyeOff } from '@teable-group/icons';
 import type { IFieldInstance } from '@teable-group/sdk';
 import { useFields, useViewId } from '@teable-group/sdk';
-import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import { Switch } from '@teable-group/ui-lib/shadcn/ui/switch';
+import classNames from 'classnames';
 import React, { useState } from 'react';
 
 export const FilterColumnsButton = () => {
@@ -90,8 +91,12 @@ export const FilterColumnsButton = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant={'ghost'} size={'xs'} className="font-normal">
-          <EyeCloseIcon className="text-lg pr-1" />
+        <Button
+          variant={'ghost'}
+          size={'xs'}
+          className={classNames('font-normal', { 'bg-secondary': hiddenCount })}
+        >
+          <EyeOff className="text-lg pr-1" />
           {hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields'}
         </Button>
       </PopoverTrigger>

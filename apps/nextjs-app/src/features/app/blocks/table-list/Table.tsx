@@ -21,7 +21,7 @@ export const Table: React.FC<ITableProps> = ({
 }) => {
   const isHydrated = useIsHydrated();
   const table = useTable();
-  useTitle(`${table?.icon ? table.icon + ' ' : ''}${table?.name}`);
+  useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
   return (
     <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
       <div className="grow flex flex-col h-full">

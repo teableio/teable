@@ -7,13 +7,13 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
-export const ThemePicker: React.FC = () => {
+export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   const value = isAutoTheme ? '' : theme;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size={'xs'} variant="outline">
+        <Button className={className} size={'xs'} variant="ghost">
           {value || 'auto'}
         </Button>
       </DropdownMenuTrigger>

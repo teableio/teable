@@ -1,6 +1,5 @@
+import { Trash2 } from '@teable-group/icons';
 import { useSpace } from '@teable-group/sdk/hooks';
-import AshBinIcon from '@teable-group/ui-lib/icons/app/ashbin.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useRouter } from 'next/router';
 export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
   tableId,
@@ -9,9 +8,7 @@ export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
   const space = useSpace();
   const router = useRouter();
   return (
-    <Button
-      variant={'ghost'}
-      size={'xs'}
+    <Trash2
       className={className}
       onClick={async () => {
         await space.deleteTable(tableId);
@@ -19,8 +16,6 @@ export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
           pathname: '/space',
         });
       }}
-    >
-      <AshBinIcon />
-    </Button>
+    />
   );
 };
