@@ -14,21 +14,11 @@ import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
-import type { IOption, IBaseSelect } from './types';
+import type { IOption, IBaseMultipleSelect } from './types';
 
-interface IBaseMultipleSelect<T> extends Omit<IBaseSelect<T>, 'onSelect' | 'value'> {
-  options: T[];
-  value: string[] | null;
-  onSelect: (value: string[]) => void;
-  className?: string;
-  popoverClassName?: string;
-  disabled?: boolean;
-  notFoundText?: string;
-  optionRender?: (option: T) => React.ReactElement;
-  displayRender?: (option: T) => React.ReactElement;
-}
-
-function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
+function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>(
+  props: IBaseMultipleSelect<V, O>
+) {
   const {
     onSelect,
     value,
@@ -41,14 +31,14 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
     displayRender,
   } = props;
   const [open, setOpen] = useState(false);
-  const values = useMemo<string[]>(() => {
+  const values = useMemo<V[]>(() => {
     if (Array.isArray(value) && value.length) {
       return value;
     }
     return [];
   }, [value]);
 
-  const selectHandler = (name: string) => {
+  const selectHandler = (name: V) => {
     let newCellValue = null;
     const existIndex = values.findIndex((item) => item === name);
     if (existIndex > -1) {
@@ -60,7 +50,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
     onSelect?.(newCellValue);
   };
 
-  const selectedValues = useMemo<T[]>(() => {
+  const selectedValues = useMemo<O[]>(() => {
     return options.filter((option) => values.includes(option.value));
   }, [values, options]);
 
@@ -112,7 +102,7 @@ function BaseMultipleSelect<T extends IOption>(props: IBaseMultipleSelect<T>) {
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
-            <CommandInput placeholder="Search option" className="placeholder:text-[13px]" />
+            <CommandInput placeholder="Search..." className="placeholder:text-[13px]" />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {options.length ? (

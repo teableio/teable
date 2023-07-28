@@ -12,44 +12,38 @@ import {
 } from '@teable-group/ui-lib';
 
 import classNames from 'classnames';
-import { cloneDeep } from 'lodash';
 import { useContext } from 'react';
 
 import { FilterContext } from '../context';
-import { isFilterItem } from '../types';
+import { isFilterItem, ConditionAddType } from '../types';
 import type { IConditionGroupProps } from '../types';
 import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
 
 function ConditionGroup(props: IConditionGroupProps) {
-  const { index, filter, parent, level } = props;
+  const { index, filter, conjunction, level, path } = props;
 
   const context = useContext(FilterContext);
-  const { setFilters, filters, addCondition, addConditionGroup } = context;
-
-  const deleteCurrentItem = () => {
-    parent.filterSet.splice(index, 1);
-    const newFilters = cloneDeep(filters);
-    if (level === 0 && !parent.filterSet.length) {
-      setFilters(null);
-    } else {
-      setFilters(newFilters);
-    }
-  };
+  const { addCondition, deleteCondition, setFilters } = context;
 
   return (
     <>
       <div className="flex items-start p-1">
         <Conjunction
           index={index}
-          parent={parent}
-          filters={filters}
-          setFilter={setFilters}
+          value={conjunction}
+          onSelect={(value) => {
+            const newPath = [...path];
+            newPath.pop();
+            newPath.pop();
+            newPath.push('conjunction');
+            setFilters(newPath, value);
+          }}
         ></Conjunction>
         <div
           className={classNames(
             'm-h-20 w-full rounded-sm border m-1'
-            // level > 0 ? 'bg-ring' : 'bg-secondary'
+            // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
           )}
         >
           <div className="flex justify-between p-1">
@@ -65,11 +59,16 @@ function ConditionGroup(props: IConditionGroupProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => addCondition(filter)} className="text-[13px]">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      addCondition(path, ConditionAddType.ITEM);
+                    }}
+                    className="text-[13px]"
+                  >
                     <span>Add condition</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => addConditionGroup(filter)}
+                    onClick={() => addCondition(path, ConditionAddType.GROUP)}
                     disabled={level > 0}
                     className="text-[13px]"
                   >
@@ -91,7 +90,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" onClick={deleteCurrentItem} size="sm">
+              <Button variant="ghost" onClick={() => deleteCondition(path, index)} size="sm">
                 <Trash2 className="h-4 w-4"></Trash2>
               </Button>
             </div>
@@ -104,16 +103,18 @@ function ConditionGroup(props: IConditionGroupProps) {
                   key={index}
                   index={index}
                   filter={item}
-                  parent={filter}
+                  conjunction={filter.conjunction}
                   level={level + 1}
+                  path={[...path, 'filterSet', index.toString()]}
                 />
               ) : (
                 <ConditionGroup
                   key={index}
                   index={index}
                   filter={item}
-                  parent={filter}
+                  conjunction={filter.conjunction}
                   level={level + 1}
+                  path={[...path, 'filterSet', index.toString()]}
                 />
               )
             )}

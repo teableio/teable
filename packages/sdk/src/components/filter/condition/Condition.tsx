@@ -3,8 +3,8 @@ import type { IFilterItem } from '@teable-group/core';
 import { Trash2 } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
 
-import { cloneDeep, isEqual } from 'lodash';
-import { useCallback, useContext, useMemo } from 'react';
+import { isEqual } from 'lodash';
+import { useContext, useMemo } from 'react';
 import { useFields } from '../../../hooks';
 
 import { FilterContext } from '../context';
@@ -15,9 +15,9 @@ import { FieldValue } from './FieldValue';
 import { OperatorSelect } from './OperatorSelect';
 
 function Condition(props: IConditionProps) {
-  const { index, filter, parent, level } = props;
+  const { index, filter, path, conjunction } = props;
   const context = useContext(FilterContext);
-  const { setFilters, filters } = context;
+  const { setFilters, deleteCondition } = context;
   const fields = useFields();
   const fieldMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -29,61 +29,43 @@ function Condition(props: IConditionProps) {
     return map;
   }, [fields]);
 
-  const deleteCurrentFilter = () => {
-    parent.filterSet.splice(index, 1);
-    const newFilters = cloneDeep(filters);
-    if (level === 0 && !parent.filterSet.length) {
-      setFilters(null);
-    } else {
-      setFilters(newFilters);
+  const fieldTypeHandler = (fieldId: string | null) => {
+    const newFieldType = fieldMap[fieldId!] || null;
+    const currentFieldType = fieldMap[filter.fieldId] || null;
+    if (newFieldType !== currentFieldType) {
+      filter.value = null;
+    }
+    const newPath = [...path, 'fieldId'];
+    setFilters(newPath, fieldId);
+  };
+  const operatorHandler = (value: string | null) => {
+    if (filter.operator !== value) {
+      const newPath = [...path, 'operator'];
+      setFilters(newPath, value);
     }
   };
-
-  const fieldTypeHandler = useCallback(
-    (fieldId: string | null) => {
-      const newFieldType = fieldMap[fieldId!] || null;
-      const currentFieldType = fieldMap[filter.fieldId] || null;
-      if (newFieldType !== currentFieldType) {
-        filter.value = null;
+  const fieldValueHandler = (value: IFilterItem['value']) => {
+    if (!isEqual(filter.value, value)) {
+      let newValue = value ?? null;
+      // empty array should be null!
+      if (Array.isArray(value) && !value.length) {
+        newValue = null;
       }
-      filter.fieldId = fieldId as string;
-      const newFilters = cloneDeep(filters);
-      setFilters(newFilters);
-    },
-    [fieldMap, filter, filters, setFilters]
-  );
-  const operatorHandler = useCallback(
-    (value: string | null) => {
-      if (filter.operator !== value) {
-        filter.operator = value as IFilterItem['operator'];
-        const newFilters = cloneDeep(filters);
-        setFilters(newFilters);
-      }
-    },
-    [filter, filters, setFilters]
-  );
-  const fieldValueHandler = useCallback(
-    (value: IFilterItem['value']) => {
-      if (!isEqual(filter.value, value)) {
-        filter.value = value === '' ? null : value;
-        // empty array should be null!
-        if (Array.isArray(value) && !value.length) {
-          filter.value = null;
-        }
-        const newFilters = cloneDeep(filters);
-        setFilters(newFilters);
-      }
-    },
-    [filter, filters, setFilters]
-  );
+      const newPath = [...path, 'value'];
+      setFilters(newPath, newValue);
+    }
+  };
 
   return (
     <div className="flex items-center px-1">
       <Conjunction
         index={index}
-        parent={parent}
-        filters={filters}
-        setFilter={setFilters}
+        value={conjunction}
+        onSelect={(value) => {
+          const newPath = [...path];
+          newPath.splice(-2, 2, 'conjunction');
+          setFilters(newPath, value);
+        }}
       ></Conjunction>
 
       <section className="flex items-center">
@@ -97,7 +79,12 @@ function Condition(props: IConditionProps) {
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 
-        <Button variant="outline" size="sm" onClick={deleteCurrentFilter} className="ml-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => deleteCondition(path, index)}
+          className="ml-1"
+        >
           <Trash2 className="h-4 w-4"></Trash2>
         </Button>
       </section>

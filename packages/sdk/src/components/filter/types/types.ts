@@ -1,5 +1,10 @@
 import type { IFilter, IFilterItem, IFilterSet } from '@teable-group/core';
 
+enum ConditionAddType {
+  ITEM = 'item',
+  GROUP = 'group',
+}
+
 interface IFilterProps {
   filters: IFilter;
   onChange?: (filters: IFilter | null) => void;
@@ -8,8 +13,9 @@ interface IFilterProps {
 
 interface IConditionCommon {
   index: number;
-  parent: IFilter;
+  conjunction: IFilter['conjunction'];
   level: number;
+  path: string[];
 }
 
 interface IConditionProps extends IConditionCommon {
@@ -21,3 +27,4 @@ interface IConditionGroupProps extends IConditionCommon {
 }
 
 export type { IFilterProps, IConditionProps, IConditionGroupProps, IFilter };
+export { ConditionAddType };
