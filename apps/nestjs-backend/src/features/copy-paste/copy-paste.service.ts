@@ -146,7 +146,6 @@ export class CopyPasteService {
         // Fill cells
         await this.fillCells({
           tableId,
-          cell,
           tableData,
           fields: effectFields.concat(expandColumns.map(createFieldInstanceByVo)),
           records: records.concat(expandRows.records),
@@ -178,7 +177,6 @@ export class CopyPasteService {
   }
 
   private async fillCells({
-    cell,
     tableData,
     tableId,
     fields,
@@ -186,7 +184,6 @@ export class CopyPasteService {
     transactionKey,
     isClear,
   }: {
-    cell: [number, number];
     tableData: string[][];
     tableId: string;
     fields: IFieldInstance[];
@@ -194,11 +191,9 @@ export class CopyPasteService {
     transactionKey: string;
     isClear?: boolean;
   }) {
-    const [startCol] = cell;
     const attachments = await this.collectionAttachment({
       fields,
       tableData,
-      startColumn: startCol,
     });
     for (let i = 0; i < records.length; i++) {
       const rowData = tableData?.[i];
@@ -283,14 +278,11 @@ export class CopyPasteService {
   private async collectionAttachment({
     fields,
     tableData,
-    startColumn,
   }: {
     tableData: string[][];
     fields: IFieldInstance[];
-    startColumn: number;
   }) {
     const attachmentFieldsIndex = fields
-      .slice(startColumn)
       .map((field, index) => (field.type === FieldType.Attachment ? index : null))
       .filter(isNumber);
 
@@ -340,7 +332,6 @@ export class CopyPasteService {
           const fields = await this.fieldService.getFieldInstances(tableId, { viewId });
           const effectFields = fields.slice(start[0], end[0] + 1);
           await this.fillCells({
-            cell: start,
             tableData: [],
             tableId,
             fields: effectFields,

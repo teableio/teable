@@ -3,7 +3,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import { FieldKeyType, FieldType } from '@teable-group/core';
 import { CopyAndPasteSchema } from '@teable-group/openapi';
 import { noop } from 'lodash';
 import { PrismaService } from '../../prisma.service';
@@ -327,7 +327,6 @@ describe('CopyPasteService', () => {
         ['file1.png (https://xxx.xxx/token1),file2.png (https://xxx.xxx/token2)'],
         ['file3.png (https://xxx.xxx/token3)'],
       ];
-      const startColumn = 0;
 
       const mockAttachment = [
         {
@@ -369,7 +368,6 @@ describe('CopyPasteService', () => {
       const result = await copyPasteService['collectionAttachment']({
         tableData,
         fields,
-        startColumn,
       });
 
       expect(prismaService.attachments.findMany).toHaveBeenCalledWith({
@@ -397,7 +395,6 @@ describe('CopyPasteService', () => {
     it('should fill the cells with provided table data', async () => {
       // Mock data
       const tableId = 'testTableId';
-      const cell: [number, number] = [0, 1];
       const tableData = [
         ['A1', 'B1', 'C1'],
         ['A2', 'B2', 'C2'],
@@ -425,7 +422,6 @@ describe('CopyPasteService', () => {
 
       // Execute the method
       await copyPasteService['fillCells']({
-        cell,
         tableData,
         tableId,
         fields,
@@ -438,19 +434,34 @@ describe('CopyPasteService', () => {
       expect(updateRecordByIdSpy).toHaveBeenCalledWith(
         tableId,
         records[0].id,
-        { record: { fields: { field1: 'A1', field2: 'B1', field3: 'C1' } } },
+        {
+          record: {
+            fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        },
         transactionKey
       );
       expect(updateRecordByIdSpy).toHaveBeenCalledWith(
         tableId,
         records[1].id,
-        { record: { fields: { field1: 'A2', field2: 'B2', field3: 'C2' } } },
+        {
+          record: {
+            fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        },
         transactionKey
       );
       expect(updateRecordByIdSpy).toHaveBeenCalledWith(
         tableId,
         records[2].id,
-        { record: { fields: { field1: 'A3', field2: 'B3', field3: 'C3' } } },
+        {
+          record: {
+            fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
+          },
+          fieldKeyType: FieldKeyType.Id,
+        },
         transactionKey
       );
     });
@@ -548,7 +559,6 @@ describe('CopyPasteService', () => {
 
       expect(copyPasteService['fillCells']).toHaveBeenCalledWith({
         tableId,
-        cell: pasteRo.cell,
         tableData,
         fields: mockFields.slice(pasteRo.cell[0]).concat(mockNewFields),
         records: mockRecords.slice(pasteRo.cell[1]).concat(mockNewRecords),
