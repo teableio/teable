@@ -63,9 +63,13 @@ describe('AttachmentFieldCore', () => {
       },
     ];
     expect(field.cellValue2String(null as any)).toBe('');
-    expect(field.cellValue2String(cellValue)).toEqual('test.txt, graph.png');
+    expect(field.cellValue2String(cellValue)).toEqual(
+      'test.txt (/attachment/xxxxxx),graph.png (/attachment/xxxxxx)'
+    );
     expect(lookupField.cellValue2String(null as any)).toEqual('');
-    expect(lookupField.cellValue2String(cellValue)).toEqual('test.txt, graph.png');
+    expect(lookupField.cellValue2String(cellValue)).toEqual(
+      'test.txt (/attachment/xxxxxx),graph.png (/attachment/xxxxxx)'
+    );
   });
 
   it('should validate cellValue', () => {

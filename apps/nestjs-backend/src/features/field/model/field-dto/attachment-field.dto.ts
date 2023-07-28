@@ -1,4 +1,4 @@
-import type { IFieldRo, IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
+import type { IFieldRo, IAttachmentItem } from '@teable-group/core';
 import {
   AttachmentFieldCore,
   CellValueType,
@@ -40,10 +40,10 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
   override convertStringToCellValue(
     value: string,
     attachments?: Omit<IAttachmentItem, 'id' | 'name'>[]
-  ): IAttachmentCellValue {
+  ) {
     // value is ddd.svg (https://xxx.xxx/xxx)
     if (!attachments?.length) {
-      return [];
+      return null;
     }
     const tokens = value.split(',').map(AttachmentFieldDto.getTokenByString);
     return tokens
