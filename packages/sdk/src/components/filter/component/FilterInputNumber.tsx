@@ -27,9 +27,10 @@ const FilterInputNumber = (props: InputProps) => {
         e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
       }}
       onChange={(e) => {
-        onChange(Number(e.target.value) ?? null);
+        const value = e.target.value === '' ? null : Number(e.target.value) ?? null;
+        onChange(value);
       }}
-      className={classNames('m-1', className)}
+      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

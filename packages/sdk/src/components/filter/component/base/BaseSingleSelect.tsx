@@ -47,18 +47,18 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
   }, [options, value]);
 
   const optionMap = useMemo(() => {
-    return new Map(
-      options.map((option) => [
-        // todo: shadcn bug, id will be toLowerCase in Commond components
-        option.value.toLowerCase(),
-        option.label.toLowerCase(),
-      ])
-    );
+    const map: Record<string, string> = {};
+    options.forEach((option) => {
+      const key = option.value.toLowerCase();
+      const value = option.label.toLowerCase();
+      map[key] = value;
+    });
+    return map;
   }, [options]);
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap.get(id) || 'untitled';
+      const name = optionMap[id] || 'Untitled';
       const containWord = name.indexOf(searchValue) > -1;
       return Number(containWord);
     },
@@ -73,6 +73,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
+          size="sm"
           className={classNames('justify-between m-1 truncate overflow-hidden', className)}
         >
           {value
@@ -85,7 +86,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
-          <CommandInput placeholder="Search field..." />
+          <CommandInput placeholder="Search field..." className="placeholder:text-[13px]" />
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandGroup>
             {options?.map((option) => (
@@ -96,7 +97,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
                   onSelect(option.value);
                   setOpen(false);
                 }}
-                className="truncate"
+                className="truncate text-[13px]"
               >
                 <Check
                   className={classNames(

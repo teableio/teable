@@ -66,6 +66,7 @@ describe('Create-Record Action Test', () => {
         fields: tableRo.fields as IFieldVo[],
         records: tableRo.records as IRecord[],
         total: tableRo.records?.length || 3,
+        lastModifiedTime: new Date().toISOString(),
       })
     );
 

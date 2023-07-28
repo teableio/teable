@@ -20,7 +20,8 @@
     "test": "echo \"Error: no test specified\"",
     "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "lint": "echo \"No ESLint script defined\"",
-    "typecheck": "tsc --project ./tsconfig.json --noEmit"
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "generate": "node ./script/generate.mjs"
   },
   "peerDependencies": {
     "react": "^18.2.0",

@@ -15,6 +15,7 @@ const CheckCircle2 = (props: SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"
+      clipRule="evenodd"
     />
     <path
       stroke="currentColor"

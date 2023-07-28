@@ -56,11 +56,7 @@ if (disableSourceMaps) {
 // @link https://www.npmjs.com/package/next-transpile-modules
 const tmModules = [
   // for legacy browsers support (only in prod and none electron)
-  ...(isProd && !process.versions['electron']
-    ? [
-        'ky', // dist folder contains '??', not es2017 compliant
-      ]
-    : []),
+  ...(isProd && !process.versions['electron'] ? [] : []),
   // ESM only packages are not yet supported by NextJs if you're not
   // using experimental esmExternals
   // @link {https://nextjs.org/blog/next-11-1#es-modules-support|Blog 11.1.0}

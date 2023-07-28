@@ -14,11 +14,13 @@ const Space: NextPageWithLayout = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const tables = await new SsrApi().getTables();
-
+  const result = await new SsrApi().getTables();
+  if (!result.success) {
+    throw new Error('Failed to fetch tables');
+  }
   return {
     props: {
-      tableServerData: tables,
+      tableServerData: result.data,
     },
   };
 };

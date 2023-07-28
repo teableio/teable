@@ -2,14 +2,14 @@ import { FieldType } from '@teable-group/core';
 
 import {
   Calendar as CalendarIcon,
-  CheckCircle2 as FieldSelectIcon,
+  CheckCircle2 as SelectIcon,
   CheckSquare as CheckboxIcon,
-  Code as CodeIcon,
-  File as FieldAttachmentIcon,
-  Hash as FieldNumberIcon,
+  Code as FormulaIcon,
+  File as AttachmentIcon,
+  Hash as NumberIcon,
   HelpCircle as UnknownIcon,
-  Languages as FieldTextIcon,
-  Layers as FieldRollupIcon,
+  A as TextIcon,
+  Layers as RollupIcon,
   Link as LinkIcon,
   ListChecks as MenuIcon,
   Search as SearchIcon,
@@ -46,7 +46,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Single line text',
             defaultOptions: SingleLineTextField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : FieldTextIcon,
+            Icon: isLookup ? SearchIcon : TextIcon,
           };
         case FieldType.LongText:
           return {
@@ -58,13 +58,13 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Single select',
             defaultOptions: SingleSelectField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : FieldSelectIcon,
+            Icon: isLookup ? SearchIcon : SelectIcon,
           };
         case FieldType.Number:
           return {
             title: 'Number',
             defaultOptions: NumberField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : FieldNumberIcon,
+            Icon: isLookup ? SearchIcon : NumberIcon,
           };
         case FieldType.MultipleSelect:
           return {
@@ -82,7 +82,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Formula',
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : CodeIcon,
+            Icon: isLookup ? SearchIcon : FormulaIcon,
           };
         case FieldType.Date:
           return {
@@ -94,7 +94,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Attachment',
             defaultOptions: AttachmentField.defaultOptions(),
-            Icon: isLookup ? SearchIcon : FieldAttachmentIcon,
+            Icon: isLookup ? SearchIcon : AttachmentIcon,
           };
         case FieldType.Checkbox:
           return {
@@ -106,7 +106,7 @@ export const useFieldStaticGetter = () => {
           return {
             title: 'Rollup',
             defaultOptions: {},
-            Icon: isLookup ? SearchIcon : FieldRollupIcon,
+            Icon: isLookup ? SearchIcon : RollupIcon,
           };
         case FieldType.User:
           return {

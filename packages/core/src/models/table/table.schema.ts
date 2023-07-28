@@ -31,6 +31,9 @@ export const fullTableVoSchema = z
     order: z.number().openapi({
       description: 'The order is a floating number, table will sort by it in the folder.',
     }),
+    lastModifiedTime: z.string().openapi({
+      description: 'The last modified time of the table.',
+    }),
   })
   .openapi({
     description: 'Complete table structure data and initial record data.',
@@ -51,6 +54,7 @@ export const tableRoSchema = fullTableVoSchema
   .omit({
     id: true,
     total: true,
+    lastModifiedTime: true,
   })
   .partial({
     name: true,
@@ -82,6 +86,11 @@ export const tableRoSchema = fullTableVoSchema
   });
 
 export type ICreateTableRo = z.infer<typeof tableRoSchema>;
+
+export type ITableOp = Pick<
+  ITableVo,
+  'id' | 'name' | 'description' | 'order' | 'icon' | 'lastModifiedTime'
+>;
 
 export const tableListVoSchema = tableVoSchema.array().openapi({
   description: 'The list of tables.',

@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useClickAway, useRafState, useUpdate } from 'react-use';
+import { useClickAway, useUpdate } from 'react-use';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
@@ -45,6 +45,8 @@ export interface IGridExternalProps {
     colIndex: number,
     newSizeWithGrow: number
   ) => void;
+  onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
+  onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: ISelection, position: IPosition) => void;
 }
@@ -97,6 +99,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnOrdered,
     onContextMenu,
     onVisibleRegionChanged,
+    onColumnHeaderClick,
+    onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
   } = props;
 
@@ -128,7 +132,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   );
 
   const forceUpdate = useUpdate();
-  const [mouseState, setMouseState] = useRafState<IMouseState>(DEFAULT_MOUSE_STATE);
+  const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -227,6 +231,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
+          onColumnHeaderClick={onColumnHeaderClick}
+          onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
         />
       </div>

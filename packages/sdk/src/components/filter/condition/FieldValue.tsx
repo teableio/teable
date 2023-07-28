@@ -26,7 +26,7 @@ function FieldValue(props: IFieldValue) {
   const { filter, onSelect } = props;
   const field = useField(filter.fieldId);
 
-  const emptyComponent = <Input className="w-40 m-1" disabled />;
+  const emptyComponent = <Input className="w-40 m-1 h-8 placeholder:text-[13px]" disabled />;
   const showEmptyComponent = useMemo(() => {
     const showEmpty = EMPTYOPERATORS.includes(filter.operator);
     showEmpty && onSelect?.(null);

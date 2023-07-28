@@ -82,12 +82,15 @@ model View {
 }
 
 model Ops {
-  collection String
-  docId      String @map("doc_id")
-  version    Int
-  operation  String
+  collection       String
+  docId            String @map("doc_id")
+  version          Int
+  operation        String
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
 
   @@unique([collection, docId, version])
+  @@index([createdTime])
   @@map("ops")
 }
 
