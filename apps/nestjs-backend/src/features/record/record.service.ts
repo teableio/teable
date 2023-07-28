@@ -321,7 +321,7 @@ export class RecordService implements IAdapterService {
       const { type } = fieldMap[ctx.fieldId];
 
       if (type === FieldType.Attachment && Array.isArray(ctx.newValue)) {
-        (ctx.newValue as IAttachmentCellValue).forEach((attachment) => {
+        (ctx.newValue as IAttachmentCellValue)?.forEach((attachment) => {
           const { name, token, id } = attachment;
           pre.push({
             name,
@@ -349,6 +349,7 @@ export class RecordService implements IAdapterService {
         .clearGroup()
         .clearHaving()
         .clearOrder()
+        .clear('offset')
         .clear('limit');
       const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
 
@@ -356,7 +357,7 @@ export class RecordService implements IAdapterService {
         sqlNative.sql,
         ...sqlNative.bindings
       );
-      return Number(result[0].count ?? 0);
+      return Number(result[0]?.count ?? 0);
     }
 
     const dbTableName = await this.getDbTableName(prisma, tableId);

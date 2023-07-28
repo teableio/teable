@@ -7,6 +7,7 @@ import loadConfig from './configs/config';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { ChatModule } from './features/chat/chat.module';
+import { CopyPasteModule } from './features/copy-paste/copy-paste.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
 import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
@@ -35,6 +36,7 @@ import { WsModule } from './ws/ws.module';
     AttachmentsModule,
     AutomationModule,
     WsModule,
+    CopyPasteModule,
     EventEmitterModule.forRoot({
       // set this to `true` to use wildcards
       wildcard: false,

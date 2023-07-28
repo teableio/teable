@@ -53,7 +53,7 @@ export abstract class FieldCore implements IFieldVo {
 
   abstract cellValue2String(value?: unknown): string;
 
-  abstract convertStringToCellValue(str: string): unknown;
+  abstract convertStringToCellValue(str: string, ctx?: unknown): unknown;
 
   /**
    * try parse cellValue as possible as it can
