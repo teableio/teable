@@ -3532,6 +3532,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@juggle/resize-observer@npm:^3.3.1":
+  version: 3.4.0
+  resolution: "@juggle/resize-observer@npm:3.4.0"
+  checksum: 2505028c05cc2e17639fcad06218b1c4b60f932a4ebb4b41ab546ef8c157031ae377e3f560903801f6d01706dbefd4943b6c4704bf19ed86dfa1c62f1473a570
+  languageName: node
+  linkType: hard
+
 "@juicyllama/nestjs-redoc@npm:2.3.10":
   version: 2.3.10
   resolution: "@juicyllama/nestjs-redoc@npm:2.3.10"
@@ -7438,6 +7445,7 @@ __metadata:
     "@vitejs/plugin-react": 2.2.0
     "@vitest/coverage-istanbul": 0.24.3
     "@vitest/ui": 0.24.3
+    allotment: 1.19.2
     apollo-server-core: 3.10.3
     apollo-server-micro: 3.10.3
     autoprefixer: 10.4.13
@@ -7492,7 +7500,6 @@ __metadata:
     react-hook-form: 7.38.0
     react-i18next: 11.18.6
     react-markdown: 8.0.6
-    react-resizable-panels: 0.0.39
     react-responsive-carousel: 3.2.23
     react-syntax-highlighter: 15.5.0
     react-textarea-autosize: 8.4.1
@@ -9840,6 +9847,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"allotment@npm:1.19.2":
+  version: 1.19.2
+  resolution: "allotment@npm:1.19.2"
+  dependencies:
+    classnames: ^2.3.0
+    eventemitter3: ^5.0.0
+    lodash.clamp: ^4.0.0
+    lodash.debounce: ^4.0.0
+    lodash.isequal: ^4.5.0
+    use-resize-observer: ^9.0.0
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0
+    react-dom: ^17.0.0 || ^18.0.0
+  checksum: cc2ebd4980ee2d124b2ece32604a9cd81ed444403aabd87231939a2553fa6ba17854391918852a7e0cb2c4ba1336816080346471e27f339bf52be5034239e41b
+  languageName: node
+  linkType: hard
+
 "alphanum-sort@npm:^1.0.2":
   version: 1.0.2
   resolution: "alphanum-sort@npm:1.0.2"
@@ -11829,7 +11853,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"classnames@npm:2.3.2, classnames@npm:^2.2.5":
+"classnames@npm:2.3.2, classnames@npm:^2.2.5, classnames@npm:^2.3.0":
   version: 2.3.2
   resolution: "classnames@npm:2.3.2"
   checksum: 2c62199789618d95545c872787137262e741f9db13328e216b093eea91c85ef2bfb152c1f9e63027204e2559a006a92eb74147d46c800a9f96297ae1d9f96f4e
@@ -15023,6 +15047,13 @@ __metadata:
   version: 4.0.7
   resolution: "eventemitter3@npm:4.0.7"
   checksum: 1875311c42fcfe9c707b2712c32664a245629b42bb0a5a84439762dd0fd637fc54d078155ea83c2af9e0323c9ac13687e03cfba79b03af9f40c89b4960099374
+  languageName: node
+  linkType: hard
+
+"eventemitter3@npm:^5.0.0":
+  version: 5.0.1
+  resolution: "eventemitter3@npm:5.0.1"
+  checksum: 543d6c858ab699303c3c32e0f0f47fc64d360bf73c3daf0ac0b5079710e340d6fe9f15487f94e66c629f5f82cd1a8678d692f3dbb6f6fcd1190e1b97fcad36f8
   languageName: node
   linkType: hard
 
@@ -19555,7 +19586,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash.debounce@npm:^4.0.8":
+"lodash.clamp@npm:^4.0.0":
+  version: 4.0.3
+  resolution: "lodash.clamp@npm:4.0.3"
+  checksum: 02baa03ebb96f2ce8d9cec28b21fa3ed808c32f3b8fe54e2f990f1177779b13dcda69232db72d7285763e14a0ee64666a82a2047558eaba7198580173756c888
+  languageName: node
+  linkType: hard
+
+"lodash.debounce@npm:^4.0.0, lodash.debounce@npm:^4.0.8":
   version: 4.0.8
   resolution: "lodash.debounce@npm:4.0.8"
   checksum: a3f527d22c548f43ae31c861ada88b2637eb48ac6aa3eb56e82d44917971b8aa96fbb37aa60efea674dc4ee8c42074f90f7b1f772e9db375435f6c83a19b3bc6
@@ -19576,7 +19614,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash.isequal@npm:^4.0.0":
+"lodash.isequal@npm:^4.0.0, lodash.isequal@npm:^4.5.0":
   version: 4.5.0
   resolution: "lodash.isequal@npm:4.5.0"
   checksum: da27515dc5230eb1140ba65ff8de3613649620e8656b19a6270afe4866b7bd461d9ba2ac8a48dcc57f7adac4ee80e1de9f965d89d4d81a0ad52bb3eec2609644
@@ -24609,16 +24647,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-resizable-panels@npm:0.0.39":
-  version: 0.0.39
-  resolution: "react-resizable-panels@npm:0.0.39"
-  peerDependencies:
-    react: ^16.14.0 || ^17.0.0 || ^18.0.0
-    react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
-  checksum: 282df9f5cb2daed4586d9da45251fd944bd94a9f0dc629e37fb10d2368506bd0ee6e0194b24b0eaa66008bea0f1a21229caf950ace81613e85a23ad871f0aab2
-  languageName: node
-  linkType: hard
-
 "react-resizable@npm:^3.0.4":
   version: 3.0.5
   resolution: "react-resizable@npm:3.0.5"
@@ -28974,6 +29002,18 @@ __metadata:
   peerDependencies:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
   checksum: 8f08eba26d69406b61bb4b8dacdd5a92bd6aef5b53d346dfe87954f7330ee10ecabc937cc7854635155d46053828e85c10b5a5aff7a04720e6a97b9f42999bac
+  languageName: node
+  linkType: hard
+
+"use-resize-observer@npm:^9.0.0":
+  version: 9.1.0
+  resolution: "use-resize-observer@npm:9.1.0"
+  dependencies:
+    "@juggle/resize-observer": ^3.3.1
+  peerDependencies:
+    react: 16.8.0 - 18
+    react-dom: 16.8.0 - 18
+  checksum: 92be0ac34a3b3cf884cd55847c90792b5b44833dc258e96d650152815ad246afe45825aa223332203004d836535a927ab74f18dc0313229e2c7c69510eddf382
   languageName: node
   linkType: hard
 

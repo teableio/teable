@@ -10,14 +10,15 @@ export const TableList: React.FC = () => {
   const addTable = useAddTable();
 
   return (
-    <div className="py-2 flex flex-col overflow-hidden">
-      <div className="mx-2 ">
-        <Button variant={'ghost'} size={'xs'} className="w-full" onClick={addTable}>
+    <div className="pt-4 flex flex-col overflow-hidden gap-2">
+      <div className="px-3">
+        <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>
           <AddBoldIcon />
-          <span className="ml-1">Table</span>
         </Button>
       </div>
-      <div className="overflow-y-auto">{connected ? <DraggableList /> : <NoDraggableList />}</div>
+      <div className="px-3 overflow-y-auto">
+        {connected ? <DraggableList /> : <NoDraggableList />}
+      </div>
     </div>
   );
 };

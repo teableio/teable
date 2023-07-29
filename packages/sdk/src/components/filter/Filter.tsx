@@ -1,11 +1,10 @@
 import type { IFilter, IFilterSet, IFilterItem } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
-import { Plus, Filter as FilterIcon, Share2 } from '@teable-group/icons';
+import { Plus, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
-import classNames from 'classnames';
 import { cloneDeep, isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -30,7 +29,7 @@ const defaultGroupFilter: IFilter = {
 };
 
 function Filter(props: IFilterProps) {
-  const { onChange, filters: initFilter } = props;
+  const { onChange, filters: initFilter, children } = props;
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
   const fields = useFields({ widthHidden: true });
 
@@ -196,17 +195,7 @@ function Filter(props: IFilterProps) {
     >
       <Popover>
         <PopoverTrigger asChild>
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className={classNames(
-              'font-normal max-w-sm truncate',
-              filterButtonText !== 'Filter' ? 'bg-secondary' : ''
-            )}
-          >
-            <FilterIcon className="text-lg pr-1 shrink" />
-            <span className="truncate">{filterButtonText}</span>
-          </Button>
+          {children?.(filterButtonText, filterButtonText !== 'Filter')}
         </PopoverTrigger>
 
         <PopoverContent

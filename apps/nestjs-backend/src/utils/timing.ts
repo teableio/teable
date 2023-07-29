@@ -3,7 +3,7 @@
 import { Logger } from '@nestjs/common';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export function Timing(): MethodDecorator {
+export function Timing(customLoggerKey?: string): MethodDecorator {
   const logger = new Logger('Timing');
   return (
     target: Object,
@@ -20,7 +20,7 @@ export function Timing(): MethodDecorator {
         return result.then((data) => {
           const end = process.hrtime.bigint();
           logger.log(
-            `${className} - ${String(propertyKey)} Execution Time: ${
+            `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
               (end - start) / BigInt(1000000)
             } ms`
           );
@@ -29,7 +29,7 @@ export function Timing(): MethodDecorator {
       } else {
         const end = process.hrtime.bigint();
         logger.log(
-          `${className} - ${String(propertyKey)} Execution Time: ${
+          `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
             (end - start) / BigInt(1000000)
           } ms`
         );

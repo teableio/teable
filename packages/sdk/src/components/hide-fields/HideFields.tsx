@@ -1,15 +1,20 @@
-import type { IFieldInstance } from '@teable-group/sdk';
-import { useFields, useViewId } from '@teable-group/sdk';
-import EyeCloseIcon from '@teable-group/ui-lib/icons/app/eye-close.svg';
-import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
-import { Switch } from '@teable-group/ui-lib/shadcn/ui/switch';
+import { Search } from '@teable-group/icons';
+import {
+  Input,
+  Switch,
+  Label,
+  Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@teable-group/ui-lib';
 import React, { useState } from 'react';
+import { useViewId, useFields } from '../../hooks';
+import type { IFieldInstance } from '../../model';
 
-export const FilterColumnsButton = () => {
+export const HideFields: React.FC<{
+  children: (text: string, isActive: boolean) => React.ReactNode;
+}> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ widthHidden: true });
 
@@ -47,7 +52,7 @@ export const FilterColumnsButton = () => {
             setSearchText(e.target.value);
           }}
         />
-        <SearchIcon className="text-xl absolute left-2 top-1/2 -translate-y-1/2" />
+        <Search className="text-xl absolute left-2 top-1/2 -translate-y-1/2" />
       </div>
       <div className="w-72 space-y-2">
         {fieldData.map((field) => (
@@ -90,10 +95,10 @@ export const FilterColumnsButton = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant={'ghost'} size={'xs'} className="font-normal">
-          <EyeCloseIcon className="text-lg pr-1" />
-          {hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields'}
-        </Button>
+        {children(
+          hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields',
+          Boolean(hiddenCount)
+        )}
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start">
         {content()}

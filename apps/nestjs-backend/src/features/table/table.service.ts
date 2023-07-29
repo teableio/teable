@@ -6,18 +6,18 @@ import {
 } from '@nestjs/common';
 import type {
   ITableFullVo,
-  IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
   ITableVo,
+  IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { visualTableSql } from '@teable-group/db-main-prisma';
+import { Prisma, visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
@@ -69,7 +69,10 @@ export class TableService implements IAdapterService {
     return tableMeta;
   }
 
+  @Timing()
   private async getTableLastModifiedTime(prisma: Prisma.TransactionClient, tableIds: string[]) {
+    if (!tableIds.length) return [];
+
     const results = await prisma.$queryRaw<
       {
         tableId: string;
@@ -77,16 +80,16 @@ export class TableService implements IAdapterService {
       }[]
     >`
       SELECT 
-        id as tableId, 
+        id as tableId,
         (
-          SELECT created_time 
-          FROM ops 
-          WHERE ops.collection = table_meta.id 
-          ORDER BY created_time DESC 
+          SELECT created_time
+          FROM ops
+          WHERE ops.collection = table_meta.id
+          ORDER BY created_time DESC
           LIMIT 1
         ) as lastModifiedTime
       FROM table_meta
-      WHERE id IN (${tableIds.join(',')})
+      WHERE id IN (${Prisma.join(tableIds)})
     `;
 
     return tableIds.map((tableId) => {
@@ -184,7 +187,6 @@ export class TableService implements IAdapterService {
       total,
     };
   }
-
   async getTable(tableId: string, query: IGetTableQuery): Promise<ITableVo> {
     const { viewId, fieldKeyType, includeContent } = query;
     if (includeContent) {

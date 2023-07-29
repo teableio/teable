@@ -1,4 +1,6 @@
+import { Table2 } from '@teable-group/icons';
 import type { Table } from '@teable-group/sdk/model';
+import { Button } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import Link from 'next/link';
@@ -14,31 +16,38 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
 
   return (
-    <div
-      className={classNames('relative h-8 my-1', {
-        'bg-secondary': isActive,
-      })}
-    >
-      {isActive && <div className="w-0.5 h-full bg-primary absolute left-0 top-0"></div>}
-      <Link
-        href={{
-          pathname: '/space/[tableId]',
-          query: { tableId: table.id },
-        }}
-        className="w-full inline-block hover:bg-secondary py-1 px-2 text-sm hover:pr-10"
-        title={table.name}
-        onDoubleClick={() => {
-          setIsEditing(true);
-        }}
-        onClick={(e) => {
-          if (isActive) {
-            e.preventDefault();
+    <>
+      <Button
+        variant={'ghost'}
+        size={'xs'}
+        asChild
+        className={classNames(
+          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group',
+          {
+            'bg-secondary': isActive,
           }
-        }}
+        )}
       >
-        {table.icon}
-        {' ' + table.name}
-      </Link>
+        <Link
+          href={{
+            pathname: '/space/[tableId]',
+            query: { tableId: table.id },
+          }}
+          title={table.name}
+          onDoubleClick={() => {
+            setIsEditing(true);
+          }}
+          onClick={(e) => {
+            if (isActive) {
+              e.preventDefault();
+            }
+          }}
+        >
+          {table.icon || <Table2 className="w-4 h-4" />}
+          <p className="grow">{' ' + table.name}</p>
+          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block" />
+        </Link>
+      </Button>
       {isEditing && (
         <Input
           type="text"
@@ -66,10 +75,6 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
           }}
         />
       )}
-      <DeleteTable
-        className="hidden absolute right-0 top-0 group-hover:inline-block px-2 border-l border-primary rounded-none"
-        tableId={table.id}
-      />
-    </div>
+    </>
   );
 };

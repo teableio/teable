@@ -1,39 +1,44 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
-import type { GridView } from '@teable-group/sdk';
-import { useView, useViewId } from '@teable-group/sdk';
-import RowHeightIcon from '@teable-group/ui-lib/icons/app/row-height.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable-group/icons';
+import { Popover, PopoverTrigger, PopoverContent } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import React, { useMemo } from 'react';
+import { useViewId, useView } from '../../hooks';
+import type { GridView } from '../../model';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MENU_ITEMS = [
   {
     label: 'Short',
     value: RowHeightLevel.Short,
-    Icon: RowHeightIcon,
+    Icon: Menu,
   },
   {
     label: 'Medium',
     value: RowHeightLevel.Medium,
-    Icon: RowHeightIcon,
+    Icon: StretchHorizontal,
   },
   {
     label: 'Tall',
     value: RowHeightLevel.Tall,
-    Icon: RowHeightIcon,
+    Icon: DivideSquare,
   },
   {
     label: 'ExtraTall',
     value: RowHeightLevel.ExtraTall,
-    Icon: RowHeightIcon,
+    Icon: Square,
   },
 ];
 
-export const RowHeightButton = () => {
+export const RowHeight: React.FC<{
+  children: (
+    text: string,
+    isActive: boolean,
+    Icon: React.FC<{ className?: string }>
+  ) => React.ReactNode;
+}> = ({ children }) => {
   const activeViewId = useViewId();
   const view = useView(activeViewId);
 
@@ -47,13 +52,11 @@ export const RowHeightButton = () => {
     (view as GridView).updateRowHeight(value);
   };
 
+  const Icon = MENU_ITEMS.find((item) => item.value === rowHeightLevel)?.Icon || Menu;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant={'ghost'} size={'xs'} className="font-normal">
-          <RowHeightIcon className="text-lg pr-1" />
-          Row Height
-        </Button>
+        {children(rowHeightLevel, rowHeightLevel !== RowHeightLevel.Short, Icon)}
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-40 p-0">
         <div>

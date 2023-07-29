@@ -48,7 +48,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             }
           }}
         >
-          <Sheet className="h-4 w-4 mr-2" />
+          <Sheet className="h-4 w-4" />
           {view.name}
         </Link>
       </Button>

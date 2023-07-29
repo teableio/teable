@@ -111,7 +111,7 @@ export class TableOpenApiService {
     });
     const tableId = generateTableId();
     const names = tableRaws.map((table) => table.name);
-    const uniqName = getUniqName(tableRo.name ?? 'new table', names);
+    const uniqName = getUniqName(tableRo.name ?? 'New table', names);
 
     const order =
       tableRaws.reduce((acc, cur) => {
