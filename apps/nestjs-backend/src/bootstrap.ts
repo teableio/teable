@@ -63,7 +63,7 @@ export async function bootstrap() {
     // });
 
     const port = await getAvailablePort(configService.get<string>('PORT') as string);
-
+    process.env.PORT = port.toString();
     logger.log(`> Ready on http://${host}:${port}`);
     logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);

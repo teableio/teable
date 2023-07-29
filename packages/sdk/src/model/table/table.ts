@@ -15,8 +15,11 @@ import { Record } from '../record/record';
 import { View } from '../view';
 
 export class Table extends TableCore {
-  static async createTable(tableRo: ICreateTableRo) {
-    const response = await axios.post<IJsonApiSuccessResponse<ITableVo>>('/api/table', tableRo);
+  static async createTable(tableRo?: ICreateTableRo) {
+    const response = await axios.post<IJsonApiSuccessResponse<ITableVo>>(
+      '/api/table',
+      tableRo ?? {}
+    );
     return response.data.data;
   }
 

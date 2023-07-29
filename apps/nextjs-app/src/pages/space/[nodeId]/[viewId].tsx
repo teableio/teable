@@ -44,7 +44,6 @@ export const getServerSideProps: GetServerSideProps<INodeProps> = async (context
       },
     };
   }
-  console.log('[viewId]', tableResult);
   return {
     notFound: true,
   };

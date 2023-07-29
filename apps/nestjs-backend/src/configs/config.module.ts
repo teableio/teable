@@ -2,7 +2,7 @@ import path from 'path';
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import loadConfig from 'src/configs/config';
+import loadConfig from './config';
 
 @Module({})
 export class TeableConfigModule {

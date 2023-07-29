@@ -6,17 +6,18 @@ import {
 } from '@nestjs/common';
 import type {
   ITableFullVo,
-  IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
   ITableVo,
+  IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
 import { Prisma, visualTableSql } from '@teable-group/db-main-prisma';
 import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
@@ -68,7 +69,10 @@ export class TableService implements IAdapterService {
     return tableMeta;
   }
 
+  @Timing()
   private async getTableLastModifiedTime(prisma: Prisma.TransactionClient, tableIds: string[]) {
+    if (!tableIds.length) return [];
+
     const results = await prisma.$queryRaw<
       {
         tableId: string;
@@ -183,7 +187,6 @@ export class TableService implements IAdapterService {
       total,
     };
   }
-
   async getTable(tableId: string, query: IGetTableQuery): Promise<ITableVo> {
     const { viewId, fieldKeyType, includeContent } = query;
     if (includeContent) {

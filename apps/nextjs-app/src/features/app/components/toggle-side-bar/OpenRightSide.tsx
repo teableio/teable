@@ -9,7 +9,7 @@ export const OpenRightSide: React.FC<{ onClick?(): void }> = ({ onClick }) => {
       onClick={onClick}
       size="xs"
     >
-      <ChevronsLeft className="w-4 h-4" />
+      <ChevronsLeft className="w-5 h-5" />
     </Button>
   );
 };

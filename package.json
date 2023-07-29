@@ -39,6 +39,7 @@
     "g:share-static-symlink": "yarn workspaces foreach -pv --include '*-app' run share-static-symlink",
     "g:share-static-hardlink": "yarn workspaces foreach -pv --include '*-app' run share-static-hardlink",
     "clean:global-cache": "rimraf --no-glob ./.cache",
+    "app:start": "yarn workspace @teable-group/backend run start",
     "apps:build": "yarn workspaces foreach -ptv --include '*-app' run build",
     "apps:clean": "yarn workspaces foreach -ptv --include '*-app' run clean",
     "packages:build": "yarn workspaces foreach -ptv --include '@teable-group/*' run build",
