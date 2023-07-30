@@ -17,8 +17,6 @@ Start the database with `docker-compose up database` then run
 ```bash
 cd packages/db-main-prisma
 yarn prisma-db-push
-yarn prisma-migrate dev
-yarn prisma-migrate-reset
 ```
 
 > See the .env(.local|.production|.development) file to edit the connection.

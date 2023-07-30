@@ -7422,7 +7422,6 @@ __metadata:
     "@tanstack/react-query": 4.13.0
     "@teable-group/common-i18n": "workspace:^"
     "@teable-group/core": "workspace:^"
-    "@teable-group/db-main-prisma": "workspace:^"
     "@teable-group/openapi": "workspace:^"
     "@teable-group/sdk": "workspace:^"
     "@teable/sharedb": 3.3.11
