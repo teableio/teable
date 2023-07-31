@@ -1,19 +1,22 @@
 import type { DynamicModule } from '@nestjs/common';
 import { Module, RequestMethod } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule } from 'nestjs-pino';
+import type { Level as LogLevel } from 'pino';
+import type { ILoggerConfig } from 'src/configs/logger.config';
 import { X_REQUEST_ID } from '../const';
 
 @Module({})
 export class TeableLoggerModule {
   static register(): DynamicModule {
     return LoggerModule.forRootAsync({
-      inject: [ClsService],
-      useFactory: (cls: ClsService) => {
+      inject: [ClsService, ConfigService],
+      useFactory: (cls: ClsService, config: ConfigService) => {
         return {
           pinoHttp: {
             name: 'teable',
-            level: 'info',
+            level: config.get<ILoggerConfig>('logger')!.level,
             quietReqLogger: true,
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];

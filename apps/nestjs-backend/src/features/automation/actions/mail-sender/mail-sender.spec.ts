@@ -1,31 +1,22 @@
 import { ConsoleLogger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import { generateWorkflowActionId } from '@teable-group/core';
-import loadConfig from '../../../../configs/config';
+import { TeableConfigModule } from '../../../../configs/config.module';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IMailSenderSchema } from './mail-sender';
 
-jest.setTimeout(100000000);
-
 describe('Mail-Sender Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
   let mailSenderService: MailSenderService;
 
   beforeAll(async () => {
-    console.log(loadConfig);
     const moduleRef = await Test.createTestingModule({
-      imports: [AutomationModule, EventEmitterModule.forRoot()],
-    })
-      .overrideProvider(ConfigService)
-      .useValue({
-        get: () => loadConfig().mail,
-      })
-      .compile();
+      imports: [TeableConfigModule.register(), AutomationModule, EventEmitterModule.forRoot()],
+    }).compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 
