@@ -448,12 +448,6 @@ export class FieldService implements IAdapterService {
         ...(await this.updateStrategies(opContext, { prisma, fieldId, opContext })),
       };
 
-      this.logger.log(
-        `Field update tableId: ${tableId} | fieldId: ${fieldId} | updateData: ${JSON.stringify(
-          updateData
-        )}`
-      );
-
       await prisma.field.update({
         where: { id: fieldId },
         data: updateData,
@@ -511,7 +505,7 @@ export class FieldService implements IAdapterService {
 
     return {
       ids: sortBy(fields, (field) => {
-        return field.columnMeta[viewId as string].order;
+        return field.columnMeta[viewId as string]?.order;
       }).map((field) => field.id),
     };
   }

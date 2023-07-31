@@ -10,17 +10,18 @@ import {
   useView,
   useViewId,
 } from '@teable-group/sdk';
-import { range, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useUpdateEffect } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import { Grid, CellType, RowControlType, SelectionRegionType } from '../../grid';
+import { Grid, CellType, RowControlType } from '../../grid';
 import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
 import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
+import { useCopyAndPaste } from './hooks/useCopyAndPaste';
 import { useGridViewStore } from './store/gridView';
 import { getHeaderIcons } from './utils';
 
@@ -39,6 +40,7 @@ export const GridView: React.FC = () => {
   const gridViewStore = useGridViewStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
+  const { copy, paste, clear } = useCopyAndPaste();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
     useAsyncData(
@@ -178,23 +180,15 @@ export const GridView: React.FC = () => {
   }, [view?.filter]);
 
   const onDelete = (selection: CombinedSelection) => {
-    const { type } = selection;
+    clear(selection);
+  };
 
-    switch (type) {
-      case SelectionRegionType.Cells: {
-        const [start, end] = selection.serialize();
-        range(start[0], end[0] + 1).forEach((colIndex) => {
-          const fieldId = columns[colIndex].id;
-          range(start[1], end[1] + 1).forEach((rowIndex) => {
-            records[rowIndex].clearCell(fieldId);
-          });
-        });
-        break;
-      }
-      case SelectionRegionType.Rows:
-      case SelectionRegionType.Columns:
-        return null;
-    }
+  const onCopy = async (selection: CombinedSelection) => {
+    copy(selection);
+  };
+  const onPaste = (selection: CombinedSelection) => {
+    // CopyAndPasteApi.paste(tableId, activeViewId);
+    paste(selection);
   };
 
   return (
@@ -229,6 +223,8 @@ export const GridView: React.FC = () => {
           onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onCopy={onCopy}
+          onPaste={onPaste}
         />
       )}
       <DomBox />

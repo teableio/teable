@@ -18,13 +18,7 @@ export const ViewList: React.FC = () => {
           isActive={view.id === activeViewId}
         />
       ))}
-      <Button
-        className="w-7 h-7 ml-2"
-        size={'xs'}
-        variant={'outline'}
-        // className="flex items-center space-x-2"
-        onClick={addView}
-      >
+      <Button className="w-7 h-7 ml-2 px-0" size={'xs'} variant={'outline'} onClick={addView}>
         <Plus className="w-4 h-4" />
       </Button>
     </div>

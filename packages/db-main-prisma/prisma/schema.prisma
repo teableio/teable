@@ -90,7 +90,7 @@ model Ops {
   createdBy        String    @map("created_by")
 
   @@unique([collection, docId, version])
-  @@index([createdTime])
+  @@index([collection, createdTime])
   @@map("ops")
 }
 

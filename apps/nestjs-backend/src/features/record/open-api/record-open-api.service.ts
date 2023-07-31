@@ -445,32 +445,57 @@ export class RecordOpenApiService {
     return record;
   }
 
+  async updateRecords(
+    tableId: string,
+    updateRecordsRo: (IUpdateRecordRo & { recordId: string })[],
+    transactionKey?: string
+  ) {
+    if (transactionKey) {
+      for (const { recordId, ...updateRecordRo } of updateRecordsRo) {
+        await this.updateRecordById(tableId, recordId, updateRecordRo, transactionKey);
+      }
+      return;
+    }
+    return await this.transactionService.$transaction(
+      this.shareDbService,
+      async (_prisma: Prisma.TransactionClient, transactionKey: string) => {
+        for (const { recordId, ...updateRecordRo } of updateRecordsRo) {
+          await this.updateRecordById(tableId, recordId, updateRecordRo, transactionKey);
+        }
+      }
+    );
+  }
+
   async updateRecordById(
     tableId: string,
     recordId: string,
-    updateRecordRo: IUpdateRecordRo
+    updateRecordRo: IUpdateRecordRo,
+    transactionKey?: string
   ): Promise<IRecord> {
-    return await this.transactionService.$transaction(
-      this.shareDbService,
-      async (prisma, transactionKey) => {
-        const records = await this.calculateAndSubmitOp(
-          transactionKey,
-          tableId,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          updateRecordRo.fieldKeyType!,
-          [{ id: recordId, fields: updateRecordRo.record.fields }]
-        );
+    const update = async (prisma: Prisma.TransactionClient, transactionKey: string) => {
+      const records = await this.calculateAndSubmitOp(
+        transactionKey,
+        tableId,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        updateRecordRo.fieldKeyType!,
+        [{ id: recordId, fields: updateRecordRo.record.fields }]
+      );
 
-        if (records.length !== 1) {
-          throw new Error('update record failed');
-        }
-        const fields = await prisma.field.findMany({
-          where: { id: { in: Object.keys(records[0].fields) }, deletedTime: null },
-          select: { id: true, name: true },
-        });
-        return this.convertFieldKeyInRecord(records[0], fields, updateRecordRo.fieldKeyType);
+      if (records.length !== 1) {
+        throw new Error('update record failed');
       }
-    );
+      const fields = await prisma.field.findMany({
+        where: { id: { in: Object.keys(records[0].fields) }, deletedTime: null },
+        select: { id: true, name: true },
+      });
+      return this.convertFieldKeyInRecord(records[0], fields, updateRecordRo.fieldKeyType);
+    };
+
+    if (transactionKey) {
+      const prisma = this.transactionService.getTransactionSync(transactionKey);
+      return await update(prisma, transactionKey);
+    }
+    return await this.transactionService.$transaction(this.shareDbService, update);
   }
 
   async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: IUpdateRecordByIndexRo) {

@@ -1,11 +1,11 @@
 import type { ITableVo } from '@teable-group/core';
 import { AnchorContext, AppProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
-import { Panel, PanelGroup } from 'react-resizable-panels';
-import { SideBar } from '@/features/app/components/SideBar';
+import React from 'react';
+import { SideBar } from '@/features/app/blocks/side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
 import { ChatWindow } from '../components/ai-chat/ChatWindow';
-import ResizeHandle from '../components/resizeHandle/ResizeHandle';
+import { AutoPane } from '../components/toggle-side-bar/AutoPane';
 
 export const SpaceLayout: React.FC<{
   children: React.ReactNode;
@@ -17,24 +17,14 @@ export const SpaceLayout: React.FC<{
   return (
     <AppLayout>
       <AppProvider>
-        {/* To ensure proper SSR logic,
-         * we should use AnchorContext.Provider instead of AnchorProvider
-         * to prevent the default record and field provider being used within AnchorProvider
-         */}
         <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
           <TableProvider serverData={tableServerData}>
             <div id="portal" className="h-screen flex items-start w-full relative">
-              <PanelGroup direction="horizontal" autoSaveId="main-panel">
-                <Panel defaultSize={20} minSize={20}>
-                  <SideBar />
-                </Panel>
-                <ResizeHandle className="border-l hover:bg-primary hover:px-px" />
-                <Panel minSize={30}>{children}</Panel>
-                <ResizeHandle className="border-l hover:bg-primary hover:px-px" />
-                <Panel collapsible defaultSize={20}>
-                  <ChatWindow />
-                </Panel>
-              </PanelGroup>
+              <AutoPane>
+                <SideBar />
+                {children}
+                <ChatWindow />
+              </AutoPane>
             </div>
           </TableProvider>
         </AnchorContext.Provider>

@@ -45,10 +45,10 @@ export class TransactionService {
     });
 
     const transactionPromise = this.prismaService.$transaction(async (prisma) => {
-      console.log('transaction start', tsMeta.transactionKey, tsMeta.opCount);
+      this.logger.log(`transaction start: ${tsMeta.transactionKey}, opCount: ${tsMeta.opCount}`);
       prismaResolveFn(prisma);
       await tasksPromise;
-      console.log('transaction done', tsMeta.transactionKey, tsMeta.opCount);
+      this.logger.log(`transaction done: ${tsMeta.transactionKey}, opCount: ${tsMeta.opCount}`);
     });
 
     const cacheValue = {
@@ -77,7 +77,7 @@ export class TransactionService {
     }
   ): Promise<R> {
     const transactionKey = generateTransactionKey();
-    this.logger.log('startBackendTransaction:' + transactionKey);
+    this.logger.log(`startBackendTransaction: ${transactionKey}`);
     const result = await this.prismaService.$transaction(async (prisma) => {
       this.cache.set(transactionKey, {
         isBackend: true,
@@ -103,7 +103,7 @@ export class TransactionService {
     if (!cache || !cache.isBackend) {
       throw new Error('Can not find transaction: ' + transactionKey);
     }
-    console.log('completeBackendTransaction', transactionKey);
+    this.logger.log(`completeBackendTransaction: ${transactionKey}`);
     this.cache.delete(transactionKey);
   }
 
@@ -118,6 +118,7 @@ export class TransactionService {
       });
     }
   }
+
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   updateTransaction(tsMeta: ITransactionMeta) {
@@ -140,13 +141,9 @@ export class TransactionService {
   }
 
   async taskComplete(err: unknown, tsMeta: ITransactionMeta): Promise<boolean> {
-    err && console.error(err);
-    // console.log('taskComplete:input', tsMeta);
+    err && this.logger.error((err as Error).message, (err as Error).stack);
+
     const cache = this.cache.get(tsMeta.transactionKey);
-    // console.log('taskComplete:cache', {
-    //   transactionKey: tsMeta.transactionKey,
-    //   opCount: cache?.opCount,
-    // });
     if (!cache) {
       throw new Error('Can not find transaction: ' + tsMeta.transactionKey);
     }
@@ -163,7 +160,7 @@ export class TransactionService {
       this.cache.delete(tsMeta.transactionKey);
       tasksPromiseCb!.resolve(undefined);
       await transactionPromise;
-      console.log('transaction complete:', tsMeta.transactionKey, tsMeta.opCount);
+      this.logger.log(`transaction complete: ${tsMeta.transactionKey}, opCount: ${tsMeta.opCount}`);
       return true;
     }
     this.cache.set(tsMeta.transactionKey, {

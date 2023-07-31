@@ -11,6 +11,7 @@ import { SwaggerModule } from '@nestjs/swagger';
 import { openApiDocumentation } from '@teable-group/openapi';
 import { json, urlencoded } from 'express';
 import isPortReachable from 'is-port-reachable';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import 'dayjs/plugin/timezone';
@@ -47,6 +48,9 @@ export async function bootstrap() {
     const app = await NestFactory.create(AppModule, { snapshot: true });
     const configService = app.get(ConfigService);
 
+    const logger = app.get(Logger);
+    app.useLogger(logger);
+
     await setUpAppMiddleware(app);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     // app.getHttpServer().on('upgrade', async function (req: Request, socket: any, head: any) {
@@ -59,9 +63,9 @@ export async function bootstrap() {
     // });
 
     const port = await getAvailablePort(configService.get<string>('PORT') as string);
-
-    console.log(`> Ready on http://${host}:${port}`);
-    console.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
+    process.env.PORT = port.toString();
+    logger.log(`> Ready on http://${host}:${port}`);
+    logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
     await app.listen(port);
     return app;
   } catch (err) {

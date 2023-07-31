@@ -3,10 +3,10 @@ import { ViewProvider, FieldProvider, RecordProvider, useTable } from '@teable-g
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
 import { useIsHydrated } from '@/lib/use-is-hydrated';
+import { FailAlert } from '../table-list/FailAlert';
 import { ToolBar } from '../tool-bar/ToolBar';
 import { GridView } from '../view/grid/GridView';
-import { FailAlert } from './FailAlert';
-import { TableHeader } from './TableHeader';
+import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
   fieldServerData: IFieldVo[];
@@ -21,7 +21,7 @@ export const Table: React.FC<ITableProps> = ({
 }) => {
   const isHydrated = useIsHydrated();
   const table = useTable();
-  useTitle(`${table?.icon ? table.icon + ' ' : ''}${table?.name}`);
+  useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
   return (
     <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
       <div className="grow flex flex-col h-full">
