@@ -57,7 +57,7 @@ function Condition(props: IConditionProps) {
   };
 
   return (
-    <div className="flex items-center px-1">
+    <div className="flex items-center px-1 my-1">
       <Conjunction
         index={index}
         value={conjunction}
@@ -68,7 +68,7 @@ function Condition(props: IConditionProps) {
         }}
       ></Conjunction>
 
-      <section className="flex items-center">
+      <section className="flex items-center pl-1">
         <FieldSelect fieldId={filter.fieldId} onSelect={fieldTypeHandler} />
 
         <OperatorSelect

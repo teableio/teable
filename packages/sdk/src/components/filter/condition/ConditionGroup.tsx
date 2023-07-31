@@ -28,7 +28,7 @@ function ConditionGroup(props: IConditionGroupProps) {
 
   return (
     <>
-      <div className="flex items-start p-1">
+      <div className="flex items-start px-1 my-1">
         <Conjunction
           index={index}
           value={conjunction}
@@ -42,7 +42,7 @@ function ConditionGroup(props: IConditionGroupProps) {
         ></Conjunction>
         <div
           className={classNames(
-            'm-h-20 w-full rounded-sm border m-1'
+            'm-h-20 w-full rounded-sm border ml-1'
             // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
           )}
         >
