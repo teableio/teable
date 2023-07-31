@@ -14,7 +14,7 @@ import type { IFieldInstance } from '../../model';
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
-import type { IFilterProps } from './types';
+import type { IFilterProps, IFiltersPath } from './types';
 import { isFilterItem, ConditionAddType } from './types';
 
 const title = 'In this view, show records';
@@ -34,7 +34,7 @@ function Filter(props: IFilterProps) {
 
   const fields = useFields({ widthHidden: true });
   const setFilterHandler = (
-    path: string[],
+    path: IFiltersPath,
     value:
       | IFilterItem['value']
       | IFilter['conjunction']
@@ -136,12 +136,14 @@ function Filter(props: IFilterProps) {
   }, [fields, filters, preOrder]);
 
   const addCondition = useCallback(
-    (path: string[], type = ConditionAddType.ITEM) => {
+    (path: IFiltersPath, type = ConditionAddType.ITEM) => {
       const conditonItem =
         type === ConditionAddType.ITEM ? { ...defaultIFilterItem } : { ...defaultGroupFilter };
       if (!path.length) {
         if (!filters) {
-          setFilters({ ...defaultFilter });
+          const initDefault = cloneDeep(defaultFilter);
+          initDefault.filterSet.push(conditonItem);
+          setFilters(initDefault);
           return;
         } else {
           filters.filterSet.push(conditonItem);
@@ -162,7 +164,7 @@ function Filter(props: IFilterProps) {
    * @param index the index of filterSet which need to delete
    * @returns void
    */
-  const deleteCondition = (path: string[], index: number) => {
+  const deleteCondition = (path: IFiltersPath, index: number) => {
     // get the parent path
     const parentPath = path.slice(0, -2);
     if (!parentPath.length) {
@@ -185,7 +187,7 @@ function Filter(props: IFilterProps) {
     const initLevel = 0;
 
     return (
-      <div className="max-h-96 overflow-auto">
+      <div className="max-h-96 overflow-auto ">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterItem(filterItem) ? (
             <Condition
@@ -194,7 +196,7 @@ function Filter(props: IFilterProps) {
               index={index}
               conjunction={filters.conjunction}
               level={initLevel}
-              path={['filterSet', index.toString()]}
+              path={['filterSet', index]}
             />
           ) : (
             <ConditionGroup
@@ -203,7 +205,7 @@ function Filter(props: IFilterProps) {
               index={index}
               conjunction={filters.conjunction}
               level={initLevel}
-              path={['filterSet', index.toString()]}
+              path={['filterSet', index]}
             />
           )
         )}

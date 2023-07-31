@@ -16,6 +16,7 @@ import { OperatorSelect } from './OperatorSelect';
 
 function Condition(props: IConditionProps) {
   const { index, filter, path, conjunction } = props;
+  const { fieldId, value, operator } = filter;
   const context = useContext(FilterContext);
   const { setFilters, deleteCondition } = context;
   const fields = useFields();
@@ -29,30 +30,31 @@ function Condition(props: IConditionProps) {
     return map;
   }, [fields]);
 
-  const fieldTypeHandler = (fieldId: string | null) => {
-    const newFieldType = fieldMap[fieldId!] || null;
-    const currentFieldType = fieldMap[filter.fieldId] || null;
+  const fieldTypeHandler = (newFieldId: string | null) => {
+    const newFieldType = fieldMap[newFieldId!] || null;
+    const currentFieldType = fieldMap[fieldId] || null;
+    const newFieldPath = [...path, 'fieldId'];
+    const newValuePath = [...path, 'value'];
     if (newFieldType !== currentFieldType) {
-      filter.value = null;
+      setFilters(newValuePath, null);
     }
-    const newPath = [...path, 'fieldId'];
-    setFilters(newPath, fieldId);
+    setFilters(newFieldPath, fieldId);
   };
   const operatorHandler = (value: string | null) => {
-    if (filter.operator !== value) {
+    if (operator !== value) {
       const newPath = [...path, 'operator'];
       setFilters(newPath, value);
     }
   };
-  const fieldValueHandler = (value: IFilterItem['value']) => {
-    if (!isEqual(filter.value, value)) {
-      let newValue = value ?? null;
+  const fieldValueHandler = (newValue: IFilterItem['value']) => {
+    if (!isEqual(value, newValue)) {
+      let mergedValue = newValue ?? null;
       // empty array should be null!
-      if (Array.isArray(value) && !value.length) {
-        newValue = null;
+      if (Array.isArray(newValue) && !newValue.length) {
+        mergedValue = null;
       }
       const newPath = [...path, 'value'];
-      setFilters(newPath, newValue);
+      setFilters(newPath, mergedValue);
     }
   };
 
@@ -69,13 +71,9 @@ function Condition(props: IConditionProps) {
       ></Conjunction>
 
       <section className="flex items-center pl-1">
-        <FieldSelect fieldId={filter.fieldId} onSelect={fieldTypeHandler} />
+        <FieldSelect fieldId={fieldId} onSelect={fieldTypeHandler} />
 
-        <OperatorSelect
-          value={filter.operator}
-          onSelect={operatorHandler}
-          fieldId={filter.fieldId}
-        />
+        <OperatorSelect value={operator} onSelect={operatorHandler} fieldId={fieldId} />
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 

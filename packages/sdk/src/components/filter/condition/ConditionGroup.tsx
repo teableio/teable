@@ -21,8 +21,8 @@ import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
 
 function ConditionGroup(props: IConditionGroupProps) {
-  const { index, filter, conjunction, level, path } = props;
-
+  const { index, filter, level, path, conjunction } = props;
+  const { filterSet } = filter;
   const context = useContext(FilterContext);
   const { addCondition, deleteCondition, setFilters } = context;
 
@@ -34,15 +34,13 @@ function ConditionGroup(props: IConditionGroupProps) {
           value={conjunction}
           onSelect={(value) => {
             const newPath = [...path];
-            newPath.pop();
-            newPath.pop();
-            newPath.push('conjunction');
+            newPath.splice(-2, 2, 'conjunction');
             setFilters(newPath, value);
           }}
         ></Conjunction>
         <div
           className={classNames(
-            'm-h-20 w-full rounded-sm border ml-1'
+            'm-h-20 w-full rounded-sm border ml-2'
             // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
           )}
         >
@@ -97,24 +95,24 @@ function ConditionGroup(props: IConditionGroupProps) {
           </div>
 
           <div>
-            {filter?.filterSet?.map((item, index) =>
+            {filterSet?.map((item, index) =>
               isFilterItem(item) ? (
                 <Condition
                   key={index}
                   index={index}
                   filter={item}
-                  conjunction={filter.conjunction}
                   level={level + 1}
-                  path={[...path, 'filterSet', index.toString()]}
+                  conjunction={filter.conjunction}
+                  path={[...path, 'filterSet', index]}
                 />
               ) : (
                 <ConditionGroup
                   key={index}
                   index={index}
                   filter={item}
-                  conjunction={filter.conjunction}
                   level={level + 1}
-                  path={[...path, 'filterSet', index.toString()]}
+                  conjunction={filter.conjunction}
+                  path={[...path, 'filterSet', index]}
                 />
               )
             )}
