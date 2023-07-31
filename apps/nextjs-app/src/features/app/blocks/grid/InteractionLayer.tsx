@@ -7,7 +7,6 @@ import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
 import {
-  DEFAULT_SELECTION_STATE,
   DEFAULT_MOUSE_STATE,
   GRID_DEFAULT,
   DEFAULT_DRAG_STATE,
@@ -24,7 +23,7 @@ import {
 import { useDrag } from './hooks/useDrag';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
 import type { ICellItem, IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
-import { MouseButtonType, SelectionRegionType, RegionType, DragRegionType } from './interface';
+import { MouseButtonType, RegionType, DragRegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
@@ -115,9 +114,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   } = useColumnResize(coordInstance, scrollState);
   const {
     activeCell,
+    selection,
+    isSelecting,
     setActiveCell,
-    selectionState,
-    setSelectionState,
+    setSelection,
     onSelectionStart,
     onSelectionChange,
     onSelectionEnd,
@@ -127,12 +127,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
-    selectionState
+    selection
   );
 
   const { isDragging, type: dragType } = dragState;
   const isResizing = columnResizeState.columnIndex > -1;
-  const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
+  const { isCellSelection, ranges: selectionRanges } = selection;
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const getPosition = () => {
@@ -184,7 +184,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       type: getRegionType({
         position,
         dragState,
-        selectionState,
+        selection,
+        isSelecting,
         columnResizeState,
         coordInstance,
         scrollState,
@@ -306,12 +307,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
-    if (
-      !(
-        selectionType === SelectionRegionType.Cells &&
-        isEqual(selectionRanges[0], [columnIndex, rowIndex])
-      )
-    ) {
+    if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
       editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
@@ -368,7 +364,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onRowOrdered?.(flatRanges(ranges), dropIndex);
       }
       setActiveCell(null);
-      setSelectionState(DEFAULT_SELECTION_STATE);
+      setSelection(selection.reset());
       setCursor('default');
     });
     onSelectionEnd(mouseState, (item: ICellItem) => {
@@ -395,7 +391,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
     setMouseState(DEFAULT_MOUSE_STATE);
-    setSelectionState(DEFAULT_SELECTION_STATE);
+    setSelection(selection.reset());
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
 
@@ -434,7 +430,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           mouseState={mouseState}
           scrollState={scrollState}
           dragState={dragState}
-          selectionState={selectionState}
+          selection={selection}
+          isSelecting={isSelecting}
           columnResizeState={columnResizeState}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
@@ -452,8 +449,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         setEditing={setEditing}
         activeCell={activeCell}
         setActiveCell={setActiveCell}
-        selectionState={selectionState}
-        setSelectionState={setSelectionState}
+        selection={selection}
+        setSelection={setSelection}
         getCellContent={getCellContent}
         scrollState={scrollState}
         coordInstance={coordInstance}

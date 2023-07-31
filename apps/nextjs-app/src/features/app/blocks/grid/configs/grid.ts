@@ -1,4 +1,4 @@
-import { DragRegionType, RegionType, SelectionRegionType } from '../interface';
+import { DragRegionType, RegionType } from '../interface';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 export const GRID_DEFAULT = {
@@ -55,12 +55,6 @@ export const DEFAULT_DRAG_STATE = {
   ranges: [],
   delta: 0,
   isDragging: false,
-};
-
-export const DEFAULT_SELECTION_STATE = {
-  type: SelectionRegionType.None,
-  ranges: [],
-  isSelecting: false,
 };
 
 export const ROW_RELATED_REGIONS = new Set([

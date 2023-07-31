@@ -15,8 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useUpdateEffect } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid';
-import type { IRectangle, IPosition, ISelection, IGridColumn, IGridRef } from '../../grid';
+import { Grid, CellType, RowControlType, SelectionRegionType } from '../../grid';
+import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
+import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
@@ -89,11 +90,8 @@ export const GridView: React.FC = () => {
   useMount(() => setReadyToRender(true));
 
   const onContextMenu = useCallback(
-    (selection: ISelection, position: IPosition) => {
-      const { type, ranges } = selection;
-      const isRowSelection = type === SelectionRegionType.Rows;
-      const isCellSelection = type === SelectionRegionType.Cells;
-      const isColumnSelection = type === SelectionRegionType.Columns;
+    (selection: CombinedSelection, position: IPosition) => {
+      const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
       const extractIds = (start: number, end: number, source: (Record | IGridColumn)[]) => {
         return Array.from({ length: end - start + 1 })
@@ -179,19 +177,15 @@ export const GridView: React.FC = () => {
     gridRef.current?.forceUpdate();
   }, [view?.filter]);
 
-  const onDelete = (selection: ISelection) => {
-    const { type, ranges } = selection;
+  const onDelete = (selection: CombinedSelection) => {
+    const { type } = selection;
 
     switch (type) {
       case SelectionRegionType.Cells: {
-        const [startRange, endRange] = ranges;
-        const minColIndex = Math.min(startRange[0], endRange[0]);
-        const maxColIndex = Math.max(startRange[0], endRange[0]);
-        const minRowIndex = Math.min(startRange[1], endRange[1]);
-        const maxRowIndex = Math.max(startRange[1], endRange[1]);
-        range(minColIndex, maxColIndex + 1).forEach((colIndex) => {
+        const [start, end] = selection.serialize();
+        range(start[0], end[0] + 1).forEach((colIndex) => {
           const fieldId = columns[colIndex].id;
-          range(minRowIndex, maxRowIndex + 1).forEach((rowIndex) => {
+          range(start[1], end[1] + 1).forEach((rowIndex) => {
             records[rowIndex].clearCell(fieldId);
           });
         });

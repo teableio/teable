@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { DEFAULT_DRAG_STATE } from '../configs';
-import type { IDragState, IMouseState, IRange, IScrollState, ISelectionState } from '../interface';
-import { DragRegionType, RegionType, SelectionRegionType } from '../interface';
-import type { CoordinateManager } from '../managers';
+import type { IDragState, IMouseState, IRange, IScrollState } from '../interface';
+import { DragRegionType, RegionType } from '../interface';
+import type { CoordinateManager, CombinedSelection } from '../managers';
 import { inRange } from '../utils';
 
 export const getDropTargetIndex = (
@@ -39,7 +39,7 @@ export const getDropTargetIndex = (
 export const useDrag = (
   coordInstance: CoordinateManager,
   scrollState: IScrollState,
-  selectionState: ISelectionState
+  selection: CombinedSelection
 ) => {
   // Prevents Drag and Drop from Being Too Reactive
   const startPosition = useRef(0);
@@ -48,13 +48,12 @@ export const useDrag = (
 
   const onDragStart = (mouseState: IMouseState) => {
     const { type, rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex, x, y } = mouseState;
-    const { type: selectionType, ranges: selectionRanges } = selectionState;
+    const { isRowSelection, isColumnSelection, ranges: selectionRanges } = selection;
 
     if (type === RegionType.RowHeaderDragHandler) {
       startPosition.current = y;
       const ranges =
-        selectionType === SelectionRegionType.Rows &&
-        selectionRanges.some((range) => inRange(hoverRowIndex, range[0], range[1]))
+        isRowSelection && selection.includes([hoverRowIndex, hoverRowIndex])
           ? selectionRanges
           : ([[hoverRowIndex, hoverRowIndex]] as IRange[]);
       setDragState({
@@ -68,8 +67,7 @@ export const useDrag = (
     if (type === RegionType.ColumnHeader) {
       startPosition.current = x;
       const ranges =
-        selectionType === SelectionRegionType.Columns &&
-        selectionRanges.some((range) => inRange(hoverColumnIndex, range[0], range[1]))
+        isColumnSelection && selection.includes([hoverColumnIndex, hoverColumnIndex])
           ? selectionRanges
           : ([[hoverColumnIndex, hoverColumnIndex]] as IRange[]);
       setDragState({

@@ -53,20 +53,6 @@ export type IColumnRange = [colIndex: number, colIndex: number];
 export type IRowRange = [rowIndex: number, rowIndex: number];
 export type IRange = ICellRange | IColumnRange | IRowRange;
 
-export interface ISelection {
-  type: SelectionRegionType;
-  ranges: IRange[];
-}
-
-export interface ISelectionForWrap {
-  type: SelectionRegionType;
-  ranges: ICellRange[];
-}
-
-export interface ISelectionState extends ISelection {
-  isSelecting: boolean;
-}
-
 export interface IMouseState extends IRegionPosition {
   type: RegionType;
   hoverCellX: number;
