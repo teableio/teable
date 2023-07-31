@@ -7,7 +7,7 @@ import type { NextPageWithLayout } from '../_app';
 
 const Space: NextPageWithLayout = () => {
   return (
-    <div className="grow flex flex-col h-full p-4">
+    <div className="grow flex flex-col h-full p-4 basis-[600px]">
       <h1>Welcome to Teable</h1>
     </div>
   );
