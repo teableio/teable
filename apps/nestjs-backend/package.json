@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "8.0.2",
+    "@nestjs/cli": "10.1.10",
     "@nestjs/testing": "9.3.9",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/cors": "2.8.12",

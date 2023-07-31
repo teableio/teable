@@ -34,9 +34,9 @@
     "postinstall": "yarn prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "4.7.1",
+    "@prisma/client": "5.0.0",
     "dotenv-flow-cli": "1.0.0",
-    "prisma": "4.7.1"
+    "prisma": "5.0.0"
   },
   "devDependencies": {
     "@faker-js/faker": "8.0.2",
