@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Transporter, SendMailOptions } from 'nodemailer';
 import { createTransport } from 'nodemailer';
-import type { IMailConfig } from '../../configs/config.interface';
+import type { IMailConfig } from '../../configs/mail.config';
 
 @Injectable()
 export class MailSenderService {
@@ -18,6 +18,7 @@ export class MailSenderService {
     this.transporter = createTransport({
       service: this.mailConfig.service,
       host: this.mailConfig.host,
+      port: this.mailConfig.port,
       secure: this.mailConfig.secure,
       auth: {
         user: this.mailConfig.auth.user,

@@ -57,7 +57,7 @@ export class WorkflowTriggerService {
 
     const result = await (prisma || this.prisma).$transaction(async (tx) => {
       return tx.automationWorkflowTrigger.deleteMany({
-        where: { triggerId, OR: { workflowId } },
+        where: { triggerId, OR: [{ workflowId }] },
       });
     });
 

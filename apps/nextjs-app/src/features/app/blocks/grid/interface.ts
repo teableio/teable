@@ -48,16 +48,10 @@ export enum RegionType {
   None = 'None',
 }
 
-export type IRange = [number, number];
-
-export interface ISelection {
-  type: SelectionRegionType;
-  ranges: IRange[];
-}
-
-export interface ISelectionState extends ISelection {
-  isSelecting: boolean;
-}
+export type ICellRange = [colIndex: number, rowIndex: number];
+export type IColumnRange = [colIndex: number, colIndex: number];
+export type IRowRange = [rowIndex: number, rowIndex: number];
+export type IRange = ICellRange | IColumnRange | IRowRange;
 
 export interface IMouseState extends IRegionPosition {
   type: RegionType;
@@ -114,7 +108,7 @@ export interface IColumnResizeState {
 export interface IDragState {
   type: DragRegionType;
   delta: number;
-  index: number;
+  ranges: IRange[];
   isDragging: boolean;
 }
 

@@ -1,16 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { CopyPasteController } from './copy-paste.controller';
+import { SelectionController } from './selection.controller';
 
-describe('CopyPasteController', () => {
-  let controller: CopyPasteController;
+describe('SelectionController', () => {
+  let controller: SelectionController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [CopyPasteController],
+      controllers: [SelectionController],
     }).compile();
 
-    controller = module.get<CopyPasteController>(CopyPasteController);
+    controller = module.get<SelectionController>(SelectionController);
   });
 
   it('should be defined', () => {

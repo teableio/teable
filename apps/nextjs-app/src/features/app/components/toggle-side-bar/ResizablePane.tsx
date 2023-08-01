@@ -9,7 +9,7 @@ import { OpenRightSide } from './OpenRightSide';
 
 const minSize = 150;
 
-export const AutoPane: React.FC<{
+export const ResizablePane: React.FC<{
   children: React.ReactNode[];
 }> = ({ children }) => {
   const [size, setSize] = useLocalStorage<number[]>('side-bar-size');
@@ -66,7 +66,7 @@ export const AutoPane: React.FC<{
           {left}
         </Allotment.Pane>
         <Allotment.Pane minSize={400}>{center}</Allotment.Pane>
-        <Allotment.Pane minSize={minSize} preferredSize={200} snap visible={rightVisible}>
+        <Allotment.Pane minSize={minSize} preferredSize={100} snap visible={rightVisible}>
           {right}
         </Allotment.Pane>
       </Allotment>

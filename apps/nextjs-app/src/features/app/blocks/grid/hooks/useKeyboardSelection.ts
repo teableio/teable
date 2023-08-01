@@ -1,8 +1,7 @@
-import { pick } from 'lodash';
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
-import type { IInnerCell, IRange } from '..';
+import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_DEFAULT } from '../configs';
 import { getCellRenderer } from '../renderers';
@@ -43,11 +42,11 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     activeCell,
     scrollState,
     coordInstance,
-    selectionState,
+    selection,
     scrollTo,
     setEditing,
     setActiveCell,
-    setSelectionState,
+    setSelection,
     onCopy,
     onPaste,
     onDelete,
@@ -104,7 +103,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const isSelectionExpand = combo.includes('shift');
-      let [columnIndex, rowIndex] = selectionState.ranges[isSelectionExpand ? 1 : 0];
+      let [columnIndex, rowIndex] = selection.ranges[isSelectionExpand ? 1 : 0];
 
       switch (combo) {
         case 'up':
@@ -143,13 +142,11 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       }
 
       const newRange = <IRange>[columnIndex, rowIndex];
-      const ranges = isSelectionExpand
-        ? [selectionState.ranges[0], newRange]
-        : [newRange, newRange];
+      const ranges = isSelectionExpand ? [selection.ranges[0], newRange] : [newRange, newRange];
 
       scrollToCell([columnIndex, rowIndex]);
       !isSelectionExpand && setActiveCell(newRange);
-      setSelectionState((prev) => ({ ...prev, ranges }));
+      setSelection(selection.setRanges(ranges));
     });
 
     mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
@@ -159,14 +156,13 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         [0, 0],
         [columnCount - 1, pureRowCount - 1],
       ] as IRange[];
-      setSelectionState((prev) => ({ ...prev, ranges }));
+      setSelection(selection.setRanges(ranges));
     });
 
     mousetrap.bind(
       ['del', 'backspace', 'mod+c', 'mod+v'],
       (e: ExtendedKeyboardEvent, combo: string) => {
         if (!activeCell || isEditing) return;
-        const selection = pick(selectionState, ['type', 'ranges']);
         switch (combo) {
           case 'del':
           case 'backspace':
@@ -181,19 +177,27 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
     mousetrap.bind('enter', () => {
       if (!activeCell) return;
-      const { ranges } = selectionState;
+      const { isColumnSelection, ranges: selectionRanges } = selection;
       const cellRenderer = getCellRenderer(cell.type);
       if (cellRenderer.onClick) return;
       if (isEditing) {
-        editorRef.current?.saveValue?.();
-        const [columnIndex, rowIndex] = ranges[0];
+        let range = selectionRanges[0];
+        if (isColumnSelection) {
+          range = [range[0], 0];
+        }
+        const [columnIndex, rowIndex] = range;
         const nextRowIndex = rowIndex + 1;
         const newRange = [columnIndex, nextRowIndex] as IRange;
+        editorRef.current?.saveValue?.();
         nextRowIndex > pureRowCount - 1 && onRowAppend?.();
         setTimeout(() => {
-          setEditing(false);
+          if (isColumnSelection) {
+            setSelection(selection.set(SelectionRegionType.Cells, [newRange, newRange]));
+          } else {
+            setSelection(selection.setRanges([newRange, newRange]));
+          }
           setActiveCell(newRange);
-          setSelectionState({ ...selectionState, ranges: [newRange, newRange] });
+          setEditing(false);
           scrollToCell(newRange as IRange);
         });
       } else {

@@ -1,10 +1,9 @@
 import { isEqual } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';
-import { DragRegionType, RegionType, RowControlType, SelectionRegionType } from '../../interface';
+import { DragRegionType, RegionType, RowControlType } from '../../interface';
 import type { IRenderLayerProps } from '../../RenderLayer';
 import {
-  checkIfColumnActive,
   checkIfRowOrCellActive,
   checkIfRowOrCellSelected,
   calculateMaxRange,
@@ -86,7 +85,8 @@ export const drawCells = (
     activeCell,
     mouseState,
     scrollState,
-    selectionState,
+    selection,
+    isSelecting,
     rowControls,
     isRowAppendEnable,
     getCellContent,
@@ -111,7 +111,7 @@ export const drawCells = (
     pureRowCount,
   } = coordInstance;
   if (pureRowCount === 0) return;
-  const { isSelecting, type: selectionType } = selectionState;
+  const { isRowSelection, isColumnSelection } = selection;
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
@@ -128,7 +128,7 @@ export const drawCells = (
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
-    const isColumnActive = checkIfColumnActive(selectionState, columnIndex);
+    const isColumnActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
     const isFirstColumn = columnIndex === 0;
 
     for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
@@ -144,7 +144,7 @@ export const drawCells = (
         columnIndex
       );
       const { isRowSelected, isCellSelected } = checkIfRowOrCellSelected(
-        selectionState,
+        selection,
         rowIndex,
         columnIndex
       );
@@ -164,7 +164,7 @@ export const drawCells = (
           height: rowHeight,
           displayIndex: String(rowIndex + 1),
           isHover: isHover || isRowActive,
-          isChecked: selectionType === SelectionRegionType.Rows && isRowSelected,
+          isChecked: isRowSelection && isRowSelected,
           rowControls,
           theme,
           spriteManager,
@@ -224,15 +224,13 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: IRenderLaye
 
   ctx.save();
   ctx.beginPath();
-  if (!isFreezeRegion) {
-    ctx.rect(
-      freezeRegionWidth - 1,
-      rowInitSize - 1,
-      containerWidth - freezeRegionWidth + 1,
-      containerHeight - rowInitSize + 1
-    );
-    ctx.clip();
-  }
+  ctx.rect(
+    isFreezeRegion ? 0 : freezeRegionWidth,
+    rowInitSize,
+    isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+    containerHeight - rowInitSize
+  );
+  ctx.clip();
 
   ctx.font = `${fontSizeSM}px ${fontFamily}`;
 
@@ -254,13 +252,12 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: IRenderLaye
 };
 
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
-  const { coordInstance, scrollState, selectionState, isEditing, theme } = props;
-  const { isSelecting } = selectionState;
+  const { coordInstance, scrollState, selection, isSelecting, isEditing, theme } = props;
   const { scrollTop, scrollLeft } = scrollState;
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
   if (isEditing || isSelecting) return;
-  const maxRange = calculateMaxRange(selectionState);
+  const maxRange = calculateMaxRange(selection);
   if (maxRange == null) return;
 
   const [columnIndex, rowIndex] = maxRange;
@@ -507,7 +504,7 @@ export const drawColumnHeaders = (
     dragState,
     mouseState,
     scrollState,
-    selectionState,
+    selection,
     rowControls,
     isRowAppendEnable,
     isColumnHeaderMenuVisible,
@@ -524,7 +521,7 @@ export const drawColumnHeaders = (
   } = coordInstance;
   const { scrollLeft } = scrollState;
   const { isDragging } = dragState;
-  const { type: selectionType, ranges: selectionRanges } = selectionState;
+  const { isColumnSelection, isRowSelection, ranges: selectionRanges } = selection;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
@@ -549,7 +546,7 @@ export const drawColumnHeaders = (
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
-    const isActive = checkIfColumnActive(selectionState, columnIndex);
+    const isActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
     const isHover =
       !isDragging &&
       [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
@@ -557,8 +554,7 @@ export const drawColumnHeaders = (
     let fill = columnHeaderBg;
 
     if (columnIndex === 0) {
-      const isChecked =
-        selectionType === SelectionRegionType.Rows && isEqual(selectionRanges[0], [0, endRowIndex]);
+      const isChecked = isRowSelection && isEqual(selectionRanges[0], [0, endRowIndex]);
       drawGridHeader(ctx, {
         x: 0.5,
         y: 0.5,
@@ -736,12 +732,14 @@ export const drawColumnDraggingRegion = (
 ) => {
   const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
-  const { type, isDragging, index: draggingColIndex, delta } = dragState;
+  const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerHeight } = coordInstance;
   const { x } = mouseState;
   const { scrollLeft } = scrollState;
 
   if (!isDragging || type !== DragRegionType.Columns) return;
+
+  const draggingColIndex = draggingRanges[0][0];
   drawRect(ctx, {
     x: x - delta,
     y: 0.5,
@@ -764,12 +762,14 @@ export const drawColumnDraggingRegion = (
 export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
   const { theme, mouseState, scrollState, dragState, coordInstance } = props;
   const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
-  const { type, isDragging, index: draggingRowIndex, delta } = dragState;
+  const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerWidth } = coordInstance;
   const { scrollTop } = scrollState;
   const { y } = mouseState;
 
   if (!isDragging || type !== DragRegionType.Rows) return;
+
+  const draggingRowIndex = draggingRanges[0][0];
   drawRect(ctx, {
     x: 0.5,
     y: y - delta,

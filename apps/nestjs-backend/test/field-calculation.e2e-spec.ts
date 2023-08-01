@@ -23,6 +23,8 @@ describe('OpenAPI Field calculation (e2e)', () => {
 
   afterAll(async () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+
+    await app.close();
   });
 
   async function updateRecordByApi(

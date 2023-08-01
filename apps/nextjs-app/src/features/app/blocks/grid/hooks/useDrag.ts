@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { DEFAULT_DRAG_STATE } from '../configs';
-import type { IDragState, IMouseState, IScrollState } from '../interface';
+import type { IDragState, IMouseState, IRange, IScrollState } from '../interface';
 import { DragRegionType, RegionType } from '../interface';
-import type { CoordinateManager } from '../managers';
+import type { CoordinateManager, CombinedSelection } from '../managers';
 import { inRange } from '../utils';
 
 export const getDropTargetIndex = (
@@ -36,41 +36,52 @@ export const getDropTargetIndex = (
   return -Infinity;
 };
 
-export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
+export const useDrag = (
+  coordInstance: CoordinateManager,
+  scrollState: IScrollState,
+  selection: CombinedSelection
+) => {
   // Prevents Drag and Drop from Being Too Reactive
   const startPosition = useRef(0);
   const [dragState, setDragState] = useState<IDragState>(DEFAULT_DRAG_STATE);
-  const { freezeColumnCount } = coordInstance;
   const { scrollTop, scrollLeft } = scrollState;
 
   const onDragStart = (mouseState: IMouseState) => {
-    const { type, rowIndex, columnIndex, x, y } = mouseState;
+    const { type, rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex, x, y } = mouseState;
+    const { isRowSelection, isColumnSelection, ranges: selectionRanges } = selection;
 
     if (type === RegionType.RowHeaderDragHandler) {
       startPosition.current = y;
-      const offsetY = coordInstance.getRowOffset(rowIndex);
+      const ranges =
+        isRowSelection && selection.includes([hoverRowIndex, hoverRowIndex])
+          ? selectionRanges
+          : ([[hoverRowIndex, hoverRowIndex]] as IRange[]);
       setDragState({
         type: DragRegionType.Rows,
-        index: rowIndex,
-        delta: y + scrollTop - offsetY,
+        ranges,
+        delta: y + scrollTop - coordInstance.getRowOffset(hoverRowIndex),
         isDragging: false,
       });
     }
 
     if (type === RegionType.ColumnHeader) {
       startPosition.current = x;
-      const offsetX = coordInstance.getColumnOffset(columnIndex);
+      const ranges =
+        isColumnSelection && selection.includes([hoverColumnIndex, hoverColumnIndex])
+          ? selectionRanges
+          : ([[hoverColumnIndex, hoverColumnIndex]] as IRange[]);
       setDragState({
         type: DragRegionType.Columns,
-        index: columnIndex,
-        delta: columnIndex < freezeColumnCount ? x - offsetX : x + scrollLeft - offsetX,
+        ranges,
+        delta: x - coordInstance.getColumnRelativeOffset(hoverColumnIndex, scrollLeft),
         isDragging: false,
       });
     }
   };
 
   const onDragChange = (mouseState: IMouseState) => {
-    const { type } = dragState;
+    const { type, isDragging } = dragState;
+    if (isDragging) return;
     if (![DragRegionType.Rows, DragRegionType.Columns].includes(type)) return;
 
     const { x, y } = mouseState;
@@ -83,17 +94,17 @@ export const useDrag = (coordInstance: CoordinateManager, scrollState: IScrollSt
 
   const onDragEnd = (
     mouseState: IMouseState,
-    onEnd: (dragIndex: number, dropIndex: number) => void
+    onEnd: (dragIndex: IRange[], dropIndex: number) => void
   ) => {
     const { type, isDragging } = dragState;
 
     if (!isDragging || !onEnd) return setDragState(DEFAULT_DRAG_STATE);
 
     if ([DragRegionType.Columns, DragRegionType.Rows].includes(type)) {
-      const { index } = dragState;
+      const { ranges } = dragState;
       const targetIndex = getDropTargetIndex(coordInstance, mouseState, scrollState, type);
-      if (!inRange(targetIndex, index, index + 1)) {
-        onEnd(index, targetIndex);
+      if (!inRange(targetIndex, ranges[0][0], ranges[ranges.length - 1][1])) {
+        onEnd(ranges, targetIndex);
       }
     }
     setDragState(DEFAULT_DRAG_STATE);

@@ -27,6 +27,8 @@ describe('OpenAPI ViewController (e2e)', () => {
   afterAll(async () => {
     const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
     console.log('clear table: ', result.body.data);
+
+    await app.close();
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {

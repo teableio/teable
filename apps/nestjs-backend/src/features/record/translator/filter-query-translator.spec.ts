@@ -1163,4 +1163,117 @@ describe('FilterQueryTranslator', () => {
       });
     });
   });
+
+  describe("should correctly parse fields when 'isMultipleCellValue' is set to true", () => {
+    const fieldsJson: IFieldVo[] = [
+      {
+        id: 'fld1',
+        name: 'name_mcv',
+        type: FieldType.SingleLineText,
+        dbFieldName: 'name_mcv_fld1',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: {},
+      },
+      {
+        id: 'fld2',
+        name: 'number_mcv',
+        type: FieldType.Number,
+        dbFieldName: 'number_mcv_fld2',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.Number,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: {},
+      },
+      {
+        id: 'fld3',
+        name: 'status_mcv',
+        type: FieldType.SingleSelect,
+        dbFieldName: 'status_mcv_fld3',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: {},
+      },
+      {
+        id: 'fld4',
+        name: 'done_mcv',
+        type: FieldType.Checkbox,
+        dbFieldName: 'done_mcv_fld4',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.Boolean,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: {},
+      },
+      {
+        id: 'fld5',
+        name: 'date_mcv',
+        type: FieldType.Date,
+        dbFieldName: 'date_mcv_fld5',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.DateTime,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: { formatting: { ...defaultDatetimeFormatting, timeZone: timeZone } },
+      },
+      {
+        id: 'fld6',
+        name: 'attachments_mcv',
+        type: FieldType.Attachment,
+        dbFieldName: 'attachments_mcv_fld6',
+        dbFieldType: DbFieldType.Json,
+        cellValueType: CellValueType.String,
+        isLookup: true,
+        isMultipleCellValue: true,
+        columnMeta: {},
+        options: {},
+      },
+    ];
+
+    beforeAll(() => {
+      const fields = fieldsJson.map((field) => createFieldInstanceByVo(field));
+      fieldContext = keyBy(fields, 'id');
+    });
+
+    describe('isEmpty, isNotEmpty', () => {
+      test.each(fieldsJson.filter((value) => value.type !== FieldType.Checkbox))(
+        '$id - $type',
+        ({ id, dbFieldName }) => {
+          new FilterQueryTranslator(
+            queryBuilder,
+            fieldContext,
+            filterSchema.parse({
+              filterSet: [
+                {
+                  fieldId: id,
+                  operator: 'isEmpty',
+                  value: null,
+                },
+                {
+                  fieldId: id,
+                  operator: 'isNotEmpty',
+                  value: null,
+                },
+              ],
+              conjunction: 'and',
+            })
+          ).translateToSql();
+
+          expect(queryBuilder.toQuery()).toMatch(
+            `\`${dbFieldName}\` is null and \`${dbFieldName}\` is not null`
+          );
+        }
+      );
+    });
+  });
 });

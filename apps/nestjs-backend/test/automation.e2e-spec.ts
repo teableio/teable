@@ -26,6 +26,10 @@ describe.skip('AutomationController (e2e)', () => {
     app = await initApp();
   });
 
+  afterAll(async () => {
+    await app.close();
+  });
+
   const createTable = async (tableName = 'automation-table'): Promise<string> => {
     const result = await request(app.getHttpServer()).post('/api/table').send({
       name: tableName,

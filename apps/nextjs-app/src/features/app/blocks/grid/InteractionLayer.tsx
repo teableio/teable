@@ -7,7 +7,6 @@ import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
 import {
-  DEFAULT_SELECTION_STATE,
   DEFAULT_MOUSE_STATE,
   GRID_DEFAULT,
   DEFAULT_DRAG_STATE,
@@ -30,11 +29,11 @@ import type {
   IRowControlItem,
   IScrollState,
 } from './interface';
-import { MouseButtonType, SelectionRegionType, RegionType, DragRegionType } from './interface';
+import { MouseButtonType, RegionType, DragRegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
-import { getRegionType } from './utils';
+import { flatRanges, getRegionType } from './utils';
 
 export interface IInteractionLayerProps
   extends Omit<
@@ -105,7 +104,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
-  const { containerWidth, containerHeight, freezeColumnCount, pureRowCount } = coordInstance;
+  const { containerWidth, containerHeight, freezeColumnCount } = coordInstance;
   const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
@@ -119,25 +118,27 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnResizeChange,
     onColumnResizeEnd,
   } = useColumnResize(coordInstance, scrollState);
-  const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
-    coordInstance,
-    scrollState
-  );
   const {
     activeCell,
+    selection,
+    isSelecting,
     setActiveCell,
-    selectionState,
-    setSelectionState,
+    setSelection,
     onSelectionStart,
     onSelectionChange,
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection();
+  } = useSelection(coordInstance);
+  const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
+    coordInstance,
+    scrollState,
+    selection
+  );
 
   const { isDragging, type: dragType } = dragState;
   const isResizing = columnResizeState.columnIndex > -1;
-  const { type: selectionType, ranges: selectionRanges, isSelecting } = selectionState;
+  const { isCellSelection, ranges: selectionRanges } = selection;
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const getPosition = () => {
@@ -189,7 +190,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       type: getRegionType({
         position,
         dragState,
-        selectionState,
+        selection,
+        isSelecting,
         columnResizeState,
         coordInstance,
         scrollState,
@@ -228,9 +230,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const onClick = () => {
+  const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const mouseState = getMouseState();
-    onSelectionClick(mouseState, pureRowCount);
+    onSelectionClick(event, mouseState);
     const { type, columnIndex, hoverCellX, hoverCellY } = mouseState;
     if (regionType !== type) return;
 
@@ -311,12 +313,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
-    if (
-      !(
-        selectionType === SelectionRegionType.Cells &&
-        isEqual(selectionRanges[0], [columnIndex, rowIndex])
-      )
-    ) {
+    if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
       editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
@@ -365,14 +362,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(mouseState);
     onAutoScrollStop();
     onSmartMouseUp(mouseState);
-    onDragEnd(mouseState, (dragIndex, dropIndex) => {
+    onDragEnd(mouseState, (ranges, dropIndex) => {
       if (dragType === DragRegionType.Columns) {
-        onColumnOrdered?.([dragIndex], dropIndex);
+        onColumnOrdered?.(flatRanges(ranges), dropIndex);
       }
       if (dragType === DragRegionType.Rows) {
-        onRowOrdered?.([dragIndex], dropIndex);
+        onRowOrdered?.(flatRanges(ranges), dropIndex);
       }
-      setSelectionState(DEFAULT_SELECTION_STATE);
+      setActiveCell(null);
+      setSelection(selection.reset());
       setCursor('default');
     });
     onSelectionEnd(mouseState, (item: ICellItem) => {
@@ -399,7 +397,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
     setMouseState(DEFAULT_MOUSE_STATE);
-    setSelectionState(DEFAULT_SELECTION_STATE);
+    setSelection(selection.reset());
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
 
@@ -438,7 +436,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           mouseState={mouseState}
           scrollState={scrollState}
           dragState={dragState}
-          selectionState={selectionState}
+          selection={selection}
+          isSelecting={isSelecting}
           columnResizeState={columnResizeState}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
@@ -456,8 +455,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         setEditing={setEditing}
         activeCell={activeCell}
         setActiveCell={setActiveCell}
-        selectionState={selectionState}
-        setSelectionState={setSelectionState}
+        selection={selection}
+        setSelection={setSelection}
         getCellContent={getCellContent}
         scrollState={scrollState}
         coordInstance={coordInstance}

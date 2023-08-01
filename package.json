@@ -39,7 +39,6 @@
     "g:share-static-symlink": "yarn workspaces foreach -pv --include '*-app' run share-static-symlink",
     "g:share-static-hardlink": "yarn workspaces foreach -pv --include '*-app' run share-static-hardlink",
     "clean:global-cache": "rimraf --no-glob ./.cache",
-    "app:start": "yarn workspace @teable-group/backend run start",
     "apps:build": "yarn workspaces foreach -ptv --include '*-app' run build",
     "apps:clean": "yarn workspaces foreach -ptv --include '*-app' run clean",
     "packages:build": "yarn workspaces foreach -ptv --include '@teable-group/*' run build",
@@ -67,7 +66,7 @@
     "check:install": "yarn dlx @yarnpkg/doctor@3.1.4 .",
     "check:renovate:config": "docker run -v renovate.json5:/usr/src/app/renovate.json5 -it renovate/renovate renovate-config-validator",
     "install:playwright": "playwright install",
-    "postinstall": "is-ci || yarn husky install",
+    "postinstall": "node ./sh/postinstall.js",
     "generate-openapi-types": "node ./sh/generate-openapi-types.mjs"
   },
   "helpResolutions": {
@@ -102,9 +101,8 @@
     "typescript": "4.8.4"
   },
   "engines": {
-    "node": "^14.13.1 || >=16.0.0",
-    "yarn": ">=1.22.0",
-    "npm": "please-use-yarn"
+    "node": ">=16.13",
+    "yarn": ">=1.22.0"
   },
   "packageManager": "yarn@4.0.0-rc.26"
 }

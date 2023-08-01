@@ -43,7 +43,7 @@ export class PrismaService
 
     this.$on('query', async (e) => {
       this.logger.debug({
-        Query: e.query,
+        Query: e.query.trim().replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')'),
         Params: e.params,
         Duration: `${e.duration} ms`,
       });

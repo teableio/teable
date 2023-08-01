@@ -7,14 +7,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
+import classNames from 'classnames';
 export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   const value = isAutoTheme ? '' : theme;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={className} size={'xs'} variant="ghost">
-          {value || 'auto'}
+        <Button className={classNames('capitalize', className)} size={'xs'} variant="ghost">
+          {value || 'system'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
@@ -27,6 +28,7 @@ export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => 
           {[ThemeKey.Light, ThemeKey.Dark].map((item) => {
             return (
               <DropdownMenuRadioItem
+                className="capitalize"
                 key={item}
                 disabled={!isAutoTheme && theme === item}
                 value={item}
@@ -36,7 +38,7 @@ export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => 
             );
           })}
           <DropdownMenuRadioItem disabled={isAutoTheme} value="">
-            auto
+            system
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

@@ -1,29 +1,28 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { PASTE_URL } from '../path';
-import { pasteRoSchema } from '../schema';
+import { COPY_URL } from '../path';
+import { copyRoSchema, copyVoSchema } from '../schema';
 
-export const PasteRoute: RouteConfig = {
-  method: 'post',
-  path: PASTE_URL,
+export const CopyRoute: RouteConfig = {
+  method: 'get',
+  path: COPY_URL,
   description: 'Copy operations in tables',
   request: {
     params: z.object({
       teableId: z.string(),
       viewId: z.string(),
     }),
-    body: {
+    query: copyRoSchema,
+  },
+  responses: {
+    200: {
+      description: 'Copy content',
       content: {
         'application/json': {
-          schema: pasteRoSchema,
+          schema: copyVoSchema,
         },
       },
     },
   },
-  responses: {
-    200: {
-      description: 'Paste successfully',
-    },
-  },
-  tags: ['copyAndPaste'],
+  tags: ['selection'],
 };

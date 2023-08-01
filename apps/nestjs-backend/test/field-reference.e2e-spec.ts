@@ -25,6 +25,8 @@ describe('OpenAPI link field reference (e2e)', () => {
   afterAll(async () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`);
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2Id}`);
+
+    await app.close();
   });
 
   it('/api/table/{tableId}/field (POST) create ManyOne', async () => {

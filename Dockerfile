@@ -14,8 +14,8 @@
 #      ignore: all **/node_modules folders and .yarn/cache        #
 ###################################################################
 
-ARG NODE_VERSION=16
-ARG ALPINE_VERSION=3.15
+ARG NODE_VERSION=18
+ARG ALPINE_VERSION=3.18
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
 RUN apk add --no-cache rsync
@@ -24,6 +24,7 @@ WORKDIR /workspace-install
 
 COPY yarn.lock .yarnrc.yml ./
 COPY .yarn/ ./.yarn/
+COPY sh/ ./sh/
 
 # Specific to monerepo's as docker COPY command is pretty limited
 # we use buidkit to prepare all files that are necessary for install
@@ -34,17 +35,18 @@ COPY .yarn/ ./.yarn/
 #   - All package.json present in the host (root, apps/*, packages/*)
 #   - All schema.prisma (cause prisma will generate a schema on postinstall)
 #
-RUN --mount=type=bind,target=/docker-context \
-    rsync -amv --delete \
+COPY . /workspace-install
+RUN rsync -amv --delete \
           --exclude='node_modules' \
           --exclude='*/node_modules' \
           --include='package.json' \
           --include='schema.prisma' \
+          --include='.env' \
           --include='*/' --exclude='*' \
-          /docker-context/ /workspace-install/;
+          /workspace-install/ /workspace-install/
 
 # @see https://www.prisma.io/docs/reference/api-reference/environment-variables-reference#cli-binary-targets
-ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
+# ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
 
 #
 # To speed up installations, we override the default yarn cache folder
@@ -60,9 +62,7 @@ ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
 # Does not play well with buildkit on CI
 # https://github.com/moby/buildkit/issues/1673
 
-RUN --mount=type=cache,target=/root/.yarn3-cache,id=yarn3-cache \
-    YARN_CACHE_FOLDER=/root/.yarn3-cache \
-    yarn install --immutable --inline-builds
+RUN yarn install --immutable --inline-builds
 
 
 ###################################################################
@@ -80,14 +80,12 @@ COPY . .
 COPY --from=deps /workspace-install ./
 
 # Optional: if the app depends on global /static shared assets like images, locales...
-RUN yarn workspace nextjs-app share-static-hardlink && yarn workspace nextjs-app build
-
+RUN yarn workspace @teable-group/app share-static-hardlink && yarn g:build
+RUN yarn workspace @teable-group/db-main-prisma prisma-db-push
 # Does not play well with buildkit on CI
 # https://github.com/moby/buildkit/issues/1673
-RUN --mount=type=cache,target=/root/.yarn3-cache,id=yarn3-cache \
-    SKIP_POSTINSTALL=1 \
-    YARN_CACHE_FOLDER=/root/.yarn3-cache \
-    yarn workspaces focus nextjs-app --production
+RUN SKIP_POSTINSTALL=1 \
+    yarn workspaces focus --production -A
 
 ###################################################################
 # Stage 3: Extract a minimal image from the build                 #
@@ -99,40 +97,50 @@ WORKDIR /app
 
 ENV NODE_ENV production
 
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+# RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/apps/nextjs-app/next.config.mjs \
+COPY --from=builder /app/apps/nextjs-app/next.config.js \
                     /app/apps/nextjs-app/next-i18next.config.js \
                     /app/apps/nextjs-app/package.json \
+                    /app/apps/nextjs-app/.env \
                     ./apps/nextjs-app/
 COPY --from=builder /app/apps/nextjs-app/public ./apps/nextjs-app/public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=builder /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=builder /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=builder /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=builder /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=builder /app/packages/core/ ./packages/core/
+COPY --from=builder /app/packages/db-main-prisma/ ./packages/db-main-prisma/
+COPY --from=builder /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder /app/packages/openapi/ ./packages/openapi/
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-USER nextjs
+# USER nextjs
 
-EXPOSE ${NEXTJS_APP_PORT:-3000}
+ENV PORT=3000
+EXPOSE ${PORT:-3000}
 
 ENV NEXT_TELEMETRY_DISABLED 1
 
-CMD ["./node_modules/.bin/next", "start", "apps/nextjs-app/", "-p", "${NEXTJS_APP_PORT:-3000}"]
+WORKDIR /app/apps/nestjs-backend
+
+CMD ["node", "./dist"]
 
 
 ###################################################################
 # Optional: develop locally                                       #
 ###################################################################
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS develop
-ENV NODE_ENV=development
+# FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS develop
+# ENV NODE_ENV=development
 
-WORKDIR /app
+# WORKDIR /app
 
-COPY --from=deps /workspace-install ./
+# COPY --from=deps /workspace-install ./
 
-EXPOSE ${NEXTJS_APP_PORT:-3000}
+# EXPOSE ${PORT:-3000}
 
-WORKDIR /app/apps/nextjs-app
+# WORKDIR /app/apps/nextjs-app
 
-CMD ["yarn", "dev", "-p", "${NEXTJS_APP_PORT:-3000}"]
-
+# CMD ["yarn", "dev", "-p", "${PORT:-3000}"]

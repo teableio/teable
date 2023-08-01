@@ -24,7 +24,7 @@ export const Table: React.FC<ITableProps> = ({
   useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
   return (
     <ViewProvider fallback={<h1>loading</h1>} serverData={viewServerData}>
-      <div className="grow flex flex-col h-full">
+      <div className="grow flex flex-col h-full basis-[500px]">
         <TableHeader />
         <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
           <ToolBar />

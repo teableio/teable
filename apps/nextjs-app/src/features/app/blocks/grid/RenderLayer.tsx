@@ -2,13 +2,8 @@ import type { FC } from 'react';
 import { useRef, useEffect } from 'react';
 import type { IVisibleRegion } from './hooks';
 import type { IInteractionLayerProps } from './InteractionLayer';
-import type {
-  ICellItem,
-  IColumnResizeState,
-  IDragState,
-  IMouseState,
-  ISelectionState,
-} from './interface';
+import type { ICellItem, IColumnResizeState, IDragState, IMouseState } from './interface';
+import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
 
 export interface IRenderLayerProps
@@ -28,7 +23,8 @@ export interface IRenderLayerProps
   activeCell: ICellItem | null;
   dragState: IDragState;
   mouseState: IMouseState;
-  selectionState: ISelectionState;
+  selection: CombinedSelection;
+  isSelecting: boolean;
   columnResizeState: IColumnResizeState;
   isRowAppendEnable?: boolean;
   isColumnResizable?: boolean;

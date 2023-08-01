@@ -28,7 +28,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const ViewButton = () => {
     return (
       <Button
-        className={classnames('max-w-xs', { 'bg-secondary': isActive })}
+        className={classnames('w-full px-1', { 'bg-secondary': isActive })}
         variant="ghost"
         size="xs"
         asChild
@@ -48,19 +48,19 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             }
           }}
         >
-          <Sheet className="h-4 w-4" />
-          {view.name}
+          <Sheet className="h-4 w-4 shrink-0" />
+          <p className="shrink-1 overflow-hidden text-ellipsis whitespace-nowrap">{view.name}</p>
         </Link>
       </Button>
     );
   };
   return (
-    <div className={'flex items-center relative justify-start'}>
+    <div className={'flex items-center relative justify-start max-w-[33%] min-w-[100px]'}>
       {!isEditing && (
         <>
           <DropdownMenu>
             {isActive ? (
-              <DropdownMenuTrigger>
+              <DropdownMenuTrigger className="w-full">
                 <ViewButton />
               </DropdownMenuTrigger>
             ) : (
