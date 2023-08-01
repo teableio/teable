@@ -54,7 +54,7 @@ export const drawCell = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps)
     height,
     fill,
     stroke: stroke ?? cellLineColor,
-    radius: isActive ? 4 : undefined,
+    radius: isActive ? 2 : undefined,
   });
   const cellRenderer = getCellRenderer(cell.type);
   cellRenderer.draw(cell as never, {
@@ -235,10 +235,10 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: IRenderLaye
   ctx.font = `${fontSizeSM}px ${fontFamily}`;
 
   drawCell(ctx, {
-    x: x - 0.5,
-    y: y - 0.5,
-    width: width + 2,
-    height: height + 2,
+    x: x + 0.5,
+    y: y + 0.5,
+    width: width,
+    height: height,
     rowIndex,
     columnIndex,
     cell: getCellContent([columnIndex, rowIndex]),
@@ -350,7 +350,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   if (isChecked || isHover) {
     const controlSize = width / rowControls.length;
     for (let i = 0; i < rowControls.length; i++) {
-      const type = rowControls[i].type;
+      const { type, icon } = rowControls[i];
       const offsetX = controlSize * (i + 0.5);
 
       if (type === RowControlType.Checkbox) {
@@ -364,8 +364,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
         });
       } else {
         spriteManager.drawSprite(ctx, {
-          sprite: spriteIconMap[type],
-          variant: 'normal',
+          sprite: icon || spriteIconMap[type],
           x: x + offsetX - halfSize,
           y: y + rowHeadIconPaddingTop,
           size: iconSizeXS,
@@ -414,7 +413,6 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
   icon &&
     spriteManager.drawSprite(ctx, {
       sprite: icon,
-      variant: 'normal',
       x: x + columnHeadPadding,
       y: y + (height - iconSizeXS) / 2,
       size: iconSizeXS,
@@ -593,7 +591,7 @@ export const drawAppendRow = (
   props: IRenderLayerProps,
   renderRegion: RenderRegion
 ) => {
-  const { scrollState, coordInstance, mouseState, theme, isRowAppendEnable } = props;
+  const { scrollState, coordInstance, mouseState, theme, isRowAppendEnable, spriteManager } = props;
   if (!isRowAppendEnable) return;
 
   const { scrollLeft, scrollTop } = scrollState;
@@ -612,8 +610,7 @@ export const drawAppendRow = (
   ctx.beginPath();
   ctx.rect(x, y, width, height);
   ctx.clip();
-  const { iconSizeMD, fontFamily, appendRowBg, appendRowBgHovered, cellTextColor } = theme;
-  ctx.font = `normal ${iconSizeMD}px ${fontFamily}`;
+  const { appendRowBg, appendRowBgHovered, iconSizeSM } = theme;
   drawRect(ctx, {
     x: isFreezeRegion ? x + 0.5 : x - 0.5,
     y: y + 0.5,
@@ -622,20 +619,21 @@ export const drawAppendRow = (
     fill: isHover ? appendRowBgHovered : appendRowBg,
   });
   if (isFreezeRegion) {
-    drawSingleLineText(ctx, {
-      x: x + columnInitSize / 2 + 0.5,
-      y: y + height / 2 + 0.5,
-      text: '+',
-      fill: cellTextColor,
-      textAlign: 'center',
-      verticalAlign: 'middle',
+    const halfIconSize = iconSizeSM / 2;
+    spriteManager.drawSprite(ctx, {
+      sprite: 'addIcon',
+      x: x + columnInitSize / 2 - halfIconSize + 0.5,
+      y: y + height / 2 - halfIconSize + 0.5,
+      size: iconSizeSM,
+      theme,
     });
   }
   ctx.restore();
 };
 
 export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: IRenderLayerProps) => {
-  const { coordInstance, theme, mouseState, scrollState, isColumnAppendEnable } = props;
+  const { coordInstance, theme, mouseState, scrollState, isColumnAppendEnable, spriteManager } =
+    props;
   const { scrollLeft, scrollTop } = scrollState;
   const { totalWidth, totalHeight } = coordInstance;
   const { type: hoverRegionType } = mouseState;
@@ -643,14 +641,7 @@ export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: IRenderLa
   if (!isColumnAppendEnable) return;
 
   const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
-  const {
-    fontFamily,
-    columnHeaderBg,
-    cellLineColor,
-    cellTextColor,
-    columnHeaderBgHovered,
-    iconSizeMD,
-  } = theme;
+  const { iconSizeSM, columnHeaderBg, cellLineColor, columnHeaderBgHovered } = theme;
   const isHover = hoverRegionType === RegionType.AppendColumn;
   const x = totalWidth - scrollLeft;
 
@@ -668,13 +659,13 @@ export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: IRenderLa
     stroke: cellLineColor,
   });
 
-  ctx.font = `${iconSizeMD}px ${fontFamily}`;
-  drawSingleLineText(ctx, {
-    x: x + columnAppendBtnWidth / 2 + 0.5 - 5,
-    y: columnHeadHeight / 2 + 0.5,
-    text: '+',
-    fill: cellTextColor,
-    verticalAlign: 'middle',
+  const halfIconSize = iconSizeSM / 2;
+  spriteManager.drawSprite(ctx, {
+    sprite: 'addIcon',
+    x: x + columnAppendBtnWidth / 2 - halfIconSize + 0.5,
+    y: columnHeadHeight / 2 - halfIconSize + 0.5,
+    size: iconSizeSM,
+    theme,
   });
 };
 

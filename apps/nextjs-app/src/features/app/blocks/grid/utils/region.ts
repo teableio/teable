@@ -98,7 +98,7 @@ const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
   const { position, coordInstance, hasAppendRow } = props;
   const { rowIndex, columnIndex } = position;
   const { rowCount } = coordInstance;
-  return hasAppendRow && rowIndex === rowCount - 1 && columnIndex > -1
+  return hasAppendRow && rowIndex === rowCount - 1 && columnIndex >= -1
     ? RegionType.AppendRow
     : null;
 };
