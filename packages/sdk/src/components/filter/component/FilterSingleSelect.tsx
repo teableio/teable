@@ -53,6 +53,4 @@ function FilterSingleSelect(props: ISingleSelect) {
   );
 }
 
-FilterSingleSelect.displayName = 'FilterSingleSelect';
-
 export { FilterSingleSelect };

@@ -35,6 +35,4 @@ const FilterInputNumber = (props: InputProps) => {
   );
 };
 
-FilterInputNumber.displayName = 'FilterInputNumber';
-
 export { FilterInputNumber };

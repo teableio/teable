@@ -19,6 +19,4 @@ function FileTypeSelect(props: IFileTypeSelectProps) {
   );
 }
 
-FileTypeSelect.displayName = 'FileTypeSelect';
-
 export { FileTypeSelect };

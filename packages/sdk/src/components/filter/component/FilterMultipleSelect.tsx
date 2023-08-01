@@ -66,6 +66,4 @@ const FilterMultipleSelect = (props: IMutipleSelect) => {
   );
 };
 
-FilterMultipleSelect.displayName = 'FilterMultipleSelect';
-
 export { FilterMultipleSelect };

@@ -38,6 +38,4 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
   );
 }
 
-ConjunctionSelect.displayName = 'ConjunctionSelect';
-
 export { ConjunctionSelect };

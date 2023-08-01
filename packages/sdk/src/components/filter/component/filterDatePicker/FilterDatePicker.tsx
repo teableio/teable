@@ -139,6 +139,4 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 }
 
-FilterDatePicker.displayName = 'FilterDatePicker';
-
 export { FilterDatePicker };

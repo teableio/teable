@@ -54,6 +54,4 @@ function OperatorSelect(props: IOperatorSelectProps) {
   );
 }
 
-OperatorSelect.displayName = 'OperatorSelect';
-
 export { OperatorSelect };
