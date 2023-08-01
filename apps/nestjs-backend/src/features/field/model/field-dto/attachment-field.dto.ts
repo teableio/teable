@@ -42,16 +42,22 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
     attachments?: Omit<IAttachmentItem, 'id' | 'name'>[]
   ) {
     // value is ddd.svg (https://xxx.xxx/xxx)
-    if (!attachments?.length) {
+    if (!attachments?.length || !value) {
       return null;
     }
     const tokens = value.split(',').map(AttachmentFieldDto.getTokenByString);
     return tokens
-      .map((token) => ({
-        ...attachments.find((attachment) => attachment.token === token),
-        name: '',
-        id: generateAttachmentId(),
-      }))
+      .map((token) => {
+        const attachment = attachments.find((attachment) => attachment.token === token);
+        if (!attachment) {
+          return;
+        }
+        return {
+          ...attachment,
+          name: '',
+          id: generateAttachmentId(),
+        };
+      })
       .filter(Boolean) as IAttachmentItem[];
   }
 }
