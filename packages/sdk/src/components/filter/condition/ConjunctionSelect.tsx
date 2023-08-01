@@ -24,11 +24,11 @@ interface IConjunctionSelectProps {
 }
 
 function ConjunctionSelect(props: IConjunctionSelectProps) {
-  const { onSelect } = props;
+  const { onSelect, value } = props;
 
   return (
     <BaseSingleSelect<IFilter['conjunction'], IConjunctionItem>
-      value={props.value}
+      value={value}
       onSelect={onSelect}
       className="h-8 p-1 text-[13px] shrink-0 m-0 min-w-full"
       search={false}
