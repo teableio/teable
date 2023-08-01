@@ -16,7 +16,7 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   afterAll(async () => {
-    app.close();
+    await app.close();
   });
 
   beforeEach(async () => {

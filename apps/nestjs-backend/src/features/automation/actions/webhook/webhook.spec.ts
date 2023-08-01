@@ -1,8 +1,7 @@
 import { ConsoleLogger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
-import loadConfig from '../../../../configs/config';
+import { TeableConfigModule } from '../../../../configs/config.module';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import ajv from '../../engine/json-schema/ajv';
@@ -15,13 +14,8 @@ describe('Webhook Action Test', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AutomationModule, EventEmitterModule.forRoot()],
-    })
-      .overrideProvider(ConfigService)
-      .useValue({
-        get: () => loadConfig().mail,
-      })
-      .compile();
+      imports: [TeableConfigModule.register(), AutomationModule, EventEmitterModule.forRoot()],
+    }).compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 

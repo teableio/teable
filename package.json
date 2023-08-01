@@ -101,7 +101,7 @@
     "typescript": "4.8.4"
   },
   "engines": {
-    "node": "^14.13.1 || >=16.0.0",
+    "node": ">=16.13",
     "yarn": ">=1.22.0"
   },
   "packageManager": "yarn@4.0.0-rc.26"

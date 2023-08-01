@@ -18,9 +18,9 @@ import { WsModule } from './ws/ws.module';
 
 @Module({
   imports: [
-    DevtoolsModule.register({
-      http: process.env.NODE_ENV !== 'production',
-    }),
+    // DevtoolsModule.register({
+    //   http: process.env.NODE_ENV !== 'production',
+    // }),
     TeableConfigModule.register(),
     ClsModule.forRoot({
       global: true,

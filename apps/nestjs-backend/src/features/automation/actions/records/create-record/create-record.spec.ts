@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ConsoleLogger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
@@ -13,7 +12,7 @@ import {
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import loadConfig from '../../../../../configs/config';
+import { TeableConfigModule } from '../../../../../configs/config.module';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
@@ -37,18 +36,14 @@ describe('Create-Record Action Test', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
+        TeableConfigModule.register(),
         AutomationModule,
         TableOpenApiModule,
         RecordOpenApiModule,
         FieldModule,
         EventEmitterModule.forRoot(),
       ],
-    })
-      .overrideProvider(ConfigService)
-      .useValue({
-        get: () => loadConfig().mail,
-      })
-      .compile();
+    }).compile();
 
     moduleRef.useLogger(new ConsoleLogger());
 
