@@ -1,15 +1,12 @@
-import { Plus } from '@teable-group/icons';
 import { useViewId, useViews } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { useAddView } from './useAddView';
+import classNames from 'classnames';
 import { ViewListItem } from './ViewListItem';
 
-export const ViewList: React.FC = () => {
+export const ViewList: React.FC<{ className?: string }> = ({ className }) => {
   const views = useViews();
   const activeViewId = useViewId();
-  const addView = useAddView();
   return (
-    <div className="mx-2 flex py-2 items-center space-x-1">
+    <div className={classNames('flex items-center gap-1 h-full', className)}>
       {views.map((view) => (
         <ViewListItem
           key={view.id}
@@ -18,9 +15,6 @@ export const ViewList: React.FC = () => {
           isActive={view.id === activeViewId}
         />
       ))}
-      <Button className="w-7 h-7 ml-2 px-0" size={'xs'} variant={'outline'} onClick={addView}>
-        <Plus className="w-4 h-4" />
-      </Button>
     </div>
   );
 };
