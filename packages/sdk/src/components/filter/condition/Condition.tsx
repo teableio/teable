@@ -78,7 +78,7 @@ function Condition(props: IConditionProps) {
       <section className="flex items-center pl-1">
         <FieldSelect fieldId={fieldId} onSelect={fieldTypeHandler} />
 
-        <OperatorSelect value={operator} onSelect={operatorHandler} fieldId={fieldId} />
+        <OperatorSelect value={operator} fieldId={fieldId} onSelect={operatorHandler} />
 
         <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
 

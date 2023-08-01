@@ -1,6 +1,6 @@
 import type { IFilterOperator } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useField } from '../../../hooks';
 import { BaseSingleSelect } from '../component';
 import { getFieldOperatorMapping } from '../utils';
@@ -11,13 +11,13 @@ interface IOperatorOptions {
 }
 
 interface IOperatorSelectProps {
-  value?: string;
+  value: string | null;
   fieldId: string;
   onSelect: (value: string | null) => void;
 }
 
 function OperatorSelect(props: IOperatorSelectProps) {
-  const { onSelect, fieldId } = props;
+  const { onSelect, fieldId, value } = props;
   const field = useField(fieldId);
   const labelMapping = useMemo(() => getFieldOperatorMapping(field?.type), [field]);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
@@ -32,19 +32,16 @@ function OperatorSelect(props: IOperatorSelectProps) {
   const shouldDisabled = useMemo(() => {
     return field?.type === 'checkbox';
   }, [field]);
-  const value = useMemo(() => {
-    const index = operatorOption.findIndex((operator) => operator.value === props.value);
-    if (index > -1) {
-      return props.value;
-    } else {
-      onSelect(operatorOption[0]?.value);
-      return operatorOption[0]?.value;
+  useEffect(() => {
+    const index = operatorOption.findIndex((operator) => operator.value === value);
+    if (index === -1) {
+      onSelect?.(operatorOption?.[0]?.value);
     }
-  }, [onSelect, operatorOption, props.value]);
+  }, [onSelect, operatorOption, value]);
 
   return (
     <BaseSingleSelect
-      value={value || null}
+      value={value}
       options={operatorOption}
       popoverClassName="w-48"
       className="w-32 justify-between m-1 shrink"
