@@ -49,7 +49,7 @@
     "check-size": "size-limit --highlight-less",
     "test": "run-s test-unit test-unit-jest",
     "test-unit": "vitest run",
-    "test-unit-jest": "jest --config ./jest.config.js",
+    "test-unit-jest": "jest --config ./jest.config.js --colors --logHeapUsage --silent",
     "test-unit-watch": "vitest watch --ui",
     "test-e2e": "cross-env E2E_WEBSERVER_MODE=START playwright test",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
