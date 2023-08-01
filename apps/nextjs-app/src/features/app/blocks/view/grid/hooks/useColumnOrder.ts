@@ -19,12 +19,6 @@ export function useColumnOrder() {
         operationFields.push(field);
       }
 
-      const targetField = fields[newColIndex];
-
-      if (!targetField) {
-        throw new Error('Can not find target field by index: ' + newColIndex);
-      }
-
       if (!viewId) {
         throw new Error('Can not find view id');
       }
