@@ -35,6 +35,7 @@ function Condition(props: IConditionProps) {
     const currentFieldType = fieldMap[fieldId] || null;
     const newFieldPath = [...path, 'fieldId'];
     const newValuePath = [...path, 'value'];
+    // different type should reset value to null.
     if (newFieldType !== currentFieldType) {
       setFilters(newValuePath, null);
     }
@@ -47,15 +48,19 @@ function Condition(props: IConditionProps) {
     }
   };
   const fieldValueHandler = (newValue: IFilterItem['value']) => {
-    if (!isEqual(value, newValue)) {
-      let mergedValue = newValue ?? null;
-      // empty array should be null!
-      if (Array.isArray(newValue) && !newValue.length) {
-        mergedValue = null;
-      }
-      const newPath = [...path, 'value'];
-      setFilters(newPath, mergedValue);
+    if (isEqual(value, newValue)) {
+      return;
     }
+
+    let mergedValue = null;
+
+    // empty array and string should be null!
+    if (newValue !== '' && !(Array.isArray(newValue) && !newValue.length)) {
+      mergedValue = newValue;
+    }
+
+    const newPath = [...path, 'value'];
+    setFilters(newPath, mergedValue);
   };
 
   return (
