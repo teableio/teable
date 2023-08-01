@@ -1,6 +1,6 @@
 import { GRID_DEFAULT } from '../configs';
 import { RegionType, RowControlType } from '../interface';
-import type { IRegionPosition } from '../interface';
+import type { IRegionPosition, IRowControlItem } from '../interface';
 import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
 
@@ -15,7 +15,7 @@ interface ICheckRegionProps
     | 'columnResizeState'
     | 'coordInstance'
   > {
-  rowControls: RowControlType[];
+  rowControls: IRowControlItem[];
   isOutOfBounds: boolean;
   position: IRegionPosition;
   hasAppendRow: boolean;
@@ -69,13 +69,17 @@ const checkIfDragging = (props: ICheckRegionProps): RegionType | null => {
 const checkIsAppendColumn = (props: ICheckRegionProps): RegionType | null => {
   const { position, hasAppendColumn } = props;
   const { rowIndex, columnIndex } = position;
-  return hasAppendColumn && rowIndex === -1 && columnIndex === -2 ? RegionType.AppendColumn : null;
+  return hasAppendColumn && rowIndex >= -1 && columnIndex === -2 ? RegionType.AppendColumn : null;
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): RegionType | null => {
   const { position, theme, rowControls, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
-  if (rowIndex !== -1 || columnIndex !== -1 || !rowControls.includes(RowControlType.Checkbox)) {
+  if (
+    rowIndex !== -1 ||
+    columnIndex !== -1 ||
+    !rowControls.some((item) => item.type === RowControlType.Checkbox)
+  ) {
     return null;
   }
   const { iconSizeXS } = theme;
@@ -94,7 +98,7 @@ const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
   const { position, coordInstance, hasAppendRow } = props;
   const { rowIndex, columnIndex } = position;
   const { rowCount } = coordInstance;
-  return hasAppendRow && rowIndex === rowCount - 1 && columnIndex > -1
+  return hasAppendRow && rowIndex === rowCount - 1 && columnIndex >= -1
     ? RegionType.AppendRow
     : null;
 };
@@ -112,9 +116,9 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
   const controlSize = columnInitSize / (rowControls.length || 1);
 
   for (let i = 0; i < rowControls.length; i++) {
-    const type = rowControls[i];
+    const type = rowControls[i].type;
     const regionType = rowControlDefinitions[type];
-    if (!rowControls.includes(type)) continue;
+    if (!rowControls.some((item) => item.type === type)) continue;
 
     const inControlXRange = inRange(
       x,

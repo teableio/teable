@@ -1,30 +1,37 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
+import colors from 'tailwindcss/colors';
+import { hexToRGBA } from '../../../grid/utils';
 
 const lightTheme = {};
 
 const darkTheme = {
   // Common
-  iconBgCommon: '#F9F9F9',
-  iconBgSelected: '#306FD9',
+  iconFgCommon: colors.slate[50],
+  iconBgCommon: colors.slate[50],
 
   // Cell
-  cellBg: '#030711',
-  cellBgHovered: '#23232c',
-  cellBgSelected: '#1c283a',
-  cellBgLoading: 'rgba(202, 206, 255, 0.253)',
-  cellLineColor: 'rgba(225,225,225,0.2)',
-  cellLineColorActived: '#306FD9',
-  cellTextColor: '#F9F9F9',
+  cellBg: '#030712',
+  cellBgHovered: colors.zinc[900],
+  cellBgSelected: colors.gray[800],
+  cellBgLoading: colors.slate[800],
+  cellLineColor: colors.gray[700],
+  cellLineColorActived: colors.slate[400],
+  cellTextColor: colors.slate[50],
 
   // Column Header
-  columnHeaderBgHovered: '#23232c',
-  columnHeaderBgSelected: '#1c283a',
-  columnHeaderNameColor: '#F9F9F9',
-  columnResizeHandlerBg: '#306FD9',
-  columnDraggingPlaceholderBg: 'rgba(0, 0, 0, 0.2)',
+  columnHeaderBg: colors.zinc[900],
+  columnHeaderBgHovered: colors.zinc[800],
+  columnHeaderBgSelected: colors.zinc[700],
+  columnHeaderNameColor: colors.slate[50],
+  columnResizeHandlerBg: colors.gray[100],
+  columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
   // Row Header
-  rowHeaderTextColor: '#F9F9F9',
+  rowHeaderTextColor: colors.slate[50],
+
+  // Append Row
+  appendRowBg: colors.zinc[900],
+  appendRowBgHovered: colors.zinc[800],
 };
 
 export function useGridTheme() {
