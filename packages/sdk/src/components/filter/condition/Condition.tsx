@@ -31,14 +31,14 @@ function Condition(props: IConditionProps) {
   }, [fields]);
 
   const fieldTypeHandler = (newFieldId: string | null) => {
-    const newFieldType = fieldMap[newFieldId!] || null;
+    const newFieldType = newFieldId ? fieldMap[newFieldId] : null;
     const currentFieldType = fieldMap[fieldId] || null;
     const newFieldPath = [...path, 'fieldId'];
     const newValuePath = [...path, 'value'];
     if (newFieldType !== currentFieldType) {
       setFilters(newValuePath, null);
     }
-    setFilters(newFieldPath, fieldId);
+    setFilters(newFieldPath, newFieldId);
   };
   const operatorHandler = (value: string | null) => {
     if (operator !== value) {

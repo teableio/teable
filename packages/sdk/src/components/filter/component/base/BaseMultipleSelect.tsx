@@ -39,7 +39,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   }, [value]);
 
   const selectHandler = (name: V) => {
-    let newCellValue = null;
+    let newCellValue: null | V[] = null;
     const existIndex = values.findIndex((item) => item === name);
     if (existIndex > -1) {
       newCellValue = values.slice();
