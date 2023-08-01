@@ -99,6 +99,8 @@ describe('OpenAPI FieldController (e2e)', () => {
 
   afterAll(async () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+
+    await app.close();
   });
 
   it('/api/table/ (POST) with assertData data', async () => {

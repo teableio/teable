@@ -43,7 +43,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./jest-e2e.json",
+    "test:e2e": "jest --config ./jest-e2e.json --colors --logHeapUsage --verbose --silent --detectOpenHandles",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx,.graphql --cache --cache-location ../../.cache/eslint/nextjs-app.eslintcache",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx,.graphql --fix",

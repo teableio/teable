@@ -37,7 +37,7 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   afterAll(async () => {
-    app.close();
+    await app.close();
   });
 
   afterEach(async () => {

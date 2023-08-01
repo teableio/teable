@@ -35,6 +35,8 @@ describe('OpenAPI RecordController (e2e)', () => {
   afterEach(async () => {
     const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
     console.log('clear table: ', result.body);
+
+    await app.close();
   });
 
   it('/api/table/{tableId}/record (GET)', async () => {

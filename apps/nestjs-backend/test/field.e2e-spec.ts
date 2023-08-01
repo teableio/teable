@@ -31,6 +31,8 @@ describe('OpenAPI FieldController (e2e)', () => {
 
   afterAll(async () => {
     await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`).expect(200);
+
+    await app.close();
   });
 
   it('/api/table/{tableId}/field (GET)', async () => {
