@@ -13,13 +13,12 @@ import { RegionType, RowControlType } from './interface';
 import type {
   IRectangle,
   IScrollState,
-  ISelection,
   ICellItem,
   IGridColumn,
   IMouseState,
   IPosition,
 } from './interface';
-import type { ISpriteMap } from './managers';
+import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import type { ICell, IInnerCell } from './renderers';
 
@@ -31,9 +30,9 @@ export interface IGridExternalProps {
   smoothScrollY?: boolean;
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
-  onCopy?: (selection: ISelection) => void;
-  onPaste?: (selection: ISelection) => void;
-  onDelete?: (selection: ISelection) => void;
+  onCopy?: (selection: CombinedSelection) => void;
+  onPaste?: (selection: CombinedSelection) => void;
+  onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
@@ -48,7 +47,7 @@ export interface IGridExternalProps {
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
-  onContextMenu?: (selection: ISelection, position: IPosition) => void;
+  onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {

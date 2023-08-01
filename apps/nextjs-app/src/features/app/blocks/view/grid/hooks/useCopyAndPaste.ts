@@ -2,7 +2,8 @@ import { CopyAndPasteApi, CopyAndPasteSchema } from '@teable-group/openapi';
 import { useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
-import { SelectionRegionType, type ISelection } from '../../../grid';
+import { SelectionRegionType } from '../../../grid';
+import type { CombinedSelection } from '../../../grid/managers';
 
 export const useCopyAndPaste = () => {
   const tableId = useTableId();
@@ -12,14 +13,14 @@ export const useCopyAndPaste = () => {
   const copyHeaderKey = 'teable_copy_header';
 
   const copy = useCallback(
-    async (selection: ISelection) => {
+    async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
       }
       const toaster = toast({
         title: 'Copying...',
       });
-      const ranges = JSON.stringify(selection.ranges);
+      const ranges = JSON.stringify(selection.serialize());
 
       const rangeTypes = {
         [SelectionRegionType.Columns]: CopyAndPasteSchema.RangeType.Column,
@@ -46,7 +47,7 @@ export const useCopyAndPaste = () => {
   );
 
   const paste = useCallback(
-    async (selection: ISelection) => {
+    async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
       }
@@ -68,7 +69,7 @@ export const useCopyAndPaste = () => {
   );
 
   const clear = useCallback(
-    async (selection: ISelection) => {
+    async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
       }
@@ -80,7 +81,7 @@ export const useCopyAndPaste = () => {
         ranges: selection.ranges,
       });
 
-      toaster.update({ id: toaster.id, title: 'Clean success!' });
+      toaster.update({ id: toaster.id, title: 'Clear success!' });
     },
     [tableId, toast, viewId]
   );

@@ -1,5 +1,28 @@
-import type { ICellItem, IRange, ISelectionState } from '../interface';
-import { SelectionRegionType } from '../interface';
+import type { ICellItem, IRange } from '../interface';
+import type { CombinedSelection } from '../managers';
+
+export const isRangeWithinRanges = (checkedRange: IRange, ranges: IRange[]) => {
+  const [checkedStart, checkedEnd] = checkedRange;
+
+  for (const range of ranges) {
+    const [rangeStart, rangeEnd] = range;
+
+    if (rangeStart <= checkedStart && rangeEnd >= checkedEnd) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const flatRanges = (ranges: IRange[]): number[] => {
+  const result: number[] = [];
+  for (const range of ranges) {
+    for (let i = range[0]; i <= range[1]; i++) {
+      result.push(i);
+    }
+  }
+  return result;
+};
 
 export const isPointInsideRectangle = (
   checkPoint: [number, number],
@@ -25,22 +48,22 @@ export const inRange = (num: number, start: number, end: number) => {
   return num >= start && num <= end;
 };
 
-export const mergeRanges = (ranges: IRange[]): IRange[] => {
+export const serializedRanges = (ranges: IRange[]): IRange[] => {
   if (ranges.length <= 1) {
     return ranges;
   }
 
+  const sortedRanges = [...ranges].sort((a, b) => a[0] - b[0]);
   const mergedRanges: IRange[] = [];
-  ranges.sort((a, b) => a[0] - b[0]);
-  let currentRange: IRange = ranges[0];
+  let currentRange: IRange = [...sortedRanges[0]];
 
-  for (let i = 1; i < ranges.length; i++) {
-    const nextRange = ranges[i];
+  for (let i = 1; i < sortedRanges.length; i++) {
+    const nextRange = sortedRanges[i];
     if (nextRange[0] <= currentRange[1] + 1) {
-      currentRange[1] = Math.max(currentRange[1], nextRange[1]);
+      currentRange = [currentRange[0], Math.max(currentRange[1], nextRange[1])];
     } else {
       mergedRanges.push(currentRange);
-      currentRange = nextRange;
+      currentRange = [...nextRange];
     }
   }
   mergedRanges.push(currentRange);
@@ -49,7 +72,7 @@ export const mergeRanges = (ranges: IRange[]): IRange[] => {
 };
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
-export const mergeRowRanges = (ranges: IRange[], newRange: IRange): IRange[] => {
+export const mixRanges = (ranges: IRange[], newRange: IRange): IRange[] => {
   const result: IRange[] = [];
   let added = false;
 
@@ -76,31 +99,12 @@ export const mergeRowRanges = (ranges: IRange[], newRange: IRange): IRange[] => 
   if (!added) {
     result.push(newRange);
   }
-  return mergeRanges(result);
+  return serializedRanges(result);
 };
 
-export const checkIfColumnActive = (selectionState: ISelectionState, columnIndex: number) => {
-  const { type: regionType, ranges } = selectionState;
-  if (regionType !== SelectionRegionType.Columns) return false;
-  const range = ranges[0];
-  return range[0] <= columnIndex && range[1] >= columnIndex;
-};
-
-export const checkIfRowSelected = (selectionState: ISelectionState, rowIndex: number) => {
-  const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Rows) {
-    for (const range of ranges) {
-      if (inRange(rowIndex, range[0], range[1])) {
-        return true;
-      }
-    }
-  }
-  return false;
-};
-
-export const calculateMaxRange = (selectionState: ISelectionState) => {
-  const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Cells) {
+export const calculateMaxRange = (selection: CombinedSelection) => {
+  const { isCellSelection, ranges } = selection;
+  if (isCellSelection) {
     const [startColIndex, startRowIndex] = ranges[0];
     const [endColIndex, endRowIndex] = ranges[1];
     return [Math.max(startColIndex, endColIndex), Math.max(startRowIndex, endRowIndex)];
@@ -127,29 +131,21 @@ export const checkIfRowOrCellActive = (
 };
 
 export const checkIfRowOrCellSelected = (
-  selectionState: ISelectionState,
+  selection: CombinedSelection,
   rowIndex: number,
   columnIndex: number
 ) => {
-  const { type: regionType, ranges } = selectionState;
-  if (regionType === SelectionRegionType.Rows) {
-    for (const range of ranges) {
-      if (inRange(rowIndex, range[0], range[1])) {
-        return {
-          isRowSelected: true,
-          isCellSelected: true,
-        };
-      }
-    }
+  const { isRowSelection, isCellSelection } = selection;
+  if (isRowSelection && selection.includes([rowIndex, rowIndex])) {
+    return {
+      isRowSelected: true,
+      isCellSelected: true,
+    };
   }
-  if (regionType === SelectionRegionType.Cells) {
-    const startRange = ranges[0];
-    const endRange = ranges[1];
+  if (isCellSelection && selection.includes([columnIndex, rowIndex])) {
     return {
       isRowSelected: false,
-      isCellSelected:
-        inRange(rowIndex, startRange[1], endRange[1]) &&
-        inRange(columnIndex, startRange[0], endRange[0]),
+      isCellSelected: true,
     };
   }
   return {
