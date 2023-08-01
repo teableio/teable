@@ -1,12 +1,12 @@
-import type { IFilter, IFilterSet, IFilterItem } from '@teable-group/core';
+import type { IFilter, IFilterItem } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
 import { Plus, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
-import { cloneDeep, isEqual } from 'lodash';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneDeep, isEqual, set, get } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { useFields } from '../../hooks';
@@ -14,8 +14,8 @@ import type { IFieldInstance } from '../../model';
 import { Condition, ConditionGroup } from './condition';
 import { EMPTYOPERATORS } from './constant';
 import { FilterContext } from './context';
-import type { IFilterProps } from './types';
-import { isFilterItem } from './types';
+import type { IFilterProps, IFiltersPath } from './types';
+import { isFilterItem, ConditionAddType } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
@@ -31,7 +31,21 @@ const defaultGroupFilter: IFilter = {
 function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter, children } = props;
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
+
   const fields = useFields({ widthHidden: true });
+  const setFilterHandler = (
+    path: IFiltersPath,
+    value:
+      | IFilterItem['value']
+      | IFilter['conjunction']
+      | IFilterItem['fieldId']
+      | IFilterItem['operator']
+  ) => {
+    if (filters) {
+      const newFilters = set(filters, path, value);
+      setFilters({ ...newFilters });
+    }
+  };
 
   useEffect(() => {
     const newFilter = cloneDeep(initFilter);
@@ -122,35 +136,49 @@ function Filter(props: IFilterProps) {
   }, [fields, filters, preOrder]);
 
   const addCondition = useCallback(
-    (curFilter: IFilterSet | null) => {
-      let newFilters = null;
-      if (!curFilter) {
-        newFilters = cloneDeep(defaultFilter);
-        newFilters.filterSet.push(defaultIFilterItem);
+    (path: IFiltersPath, type = ConditionAddType.ITEM) => {
+      const conditonItem =
+        type === ConditionAddType.ITEM ? { ...defaultIFilterItem } : { ...defaultGroupFilter };
+      if (!path.length) {
+        if (!filters) {
+          const initDefault = cloneDeep(defaultFilter);
+          initDefault.filterSet.push(conditonItem);
+          setFilters(initDefault);
+          return;
+        } else {
+          filters.filterSet.push(conditonItem);
+        }
       } else {
-        curFilter.filterSet.push(defaultIFilterItem);
-        newFilters = cloneDeep(filters);
+        const toAddArray = get(filters, path);
+        toAddArray.filterSet.push(conditonItem);
       }
-      setFilters(newFilters);
+      setFilters({ ...filters } as IFilter);
     },
     [defaultIFilterItem, filters]
   );
 
-  const addConditionGroup = useCallback(
-    (curFilter: IFilterSet | null) => {
-      let newFilters = null;
-      if (!curFilter) {
-        newFilters = cloneDeep(defaultGroupFilter);
-        newFilters.filterSet.push(defaultGroupFilter);
-        setFilters(newFilters);
-      } else {
-        curFilter.filterSet.push(defaultGroupFilter);
-        newFilters = cloneDeep(filters);
-        setFilters(newFilters);
+  /**
+   * different from other way to update filters, delete need to back to parent path
+   * becase current filter item only can delelte from it's parent
+   * @param path Filter Object Path
+   * @param index the index of filterSet which need to delete
+   * @returns void
+   */
+  const deleteCondition = (path: IFiltersPath, index: number) => {
+    // get the parent path
+    const parentPath = path.slice(0, -2);
+    if (!parentPath.length) {
+      filters?.filterSet.splice(index, 1);
+      if (!filters?.filterSet.length) {
+        setFilters(null);
+        return;
       }
-    },
-    [filters, setFilters]
-  );
+    } else {
+      const toDeleteArray = get(filters, parentPath);
+      toDeleteArray.filterSet.splice(index, 1);
+    }
+    setFilters({ ...filters } as IFilter);
+  };
 
   const conditionCreator = () => {
     if (!filters?.filterSet?.length) {
@@ -159,23 +187,25 @@ function Filter(props: IFilterProps) {
     const initLevel = 0;
 
     return (
-      <div className="max-h-96 overflow-auto">
+      <div className="max-h-96 overflow-auto ">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterItem(filterItem) ? (
             <Condition
               key={index}
               filter={filterItem}
               index={index}
-              parent={filters}
+              conjunction={filters.conjunction}
               level={initLevel}
+              path={['filterSet', index]}
             />
           ) : (
             <ConditionGroup
               key={index}
               filter={filterItem}
               index={index}
-              parent={filters}
+              conjunction={filters.conjunction}
               level={initLevel}
+              path={['filterSet', index]}
             />
           )
         )}
@@ -186,11 +216,10 @@ function Filter(props: IFilterProps) {
   return (
     <FilterContext.Provider
       value={{
-        filters: filters,
-        setFilters: setFilters,
+        setFilters: setFilterHandler,
         onChange: onChange,
         addCondition: addCondition,
-        addConditionGroup: addConditionGroup,
+        deleteCondition: deleteCondition,
       }}
     >
       <Popover>
@@ -223,7 +252,7 @@ function Filter(props: IFilterProps) {
               variant="ghost"
               size="xs"
               className="text-[13px]"
-              onClick={() => addCondition(filters)}
+              onClick={() => addCondition([], ConditionAddType.ITEM)}
             >
               <Plus className="h-4 w-4" />
               Add condition
@@ -232,7 +261,7 @@ function Filter(props: IFilterProps) {
             <Button
               variant="ghost"
               size="xs"
-              onClick={() => addConditionGroup(filters)}
+              onClick={() => addCondition([], ConditionAddType.GROUP)}
               className="text-[13px]"
             >
               <Plus className="h-4 w-4" />

@@ -31,6 +31,4 @@ const FilterInput = (props: InputProps) => {
   );
 };
 
-FilterInput.displayName = 'FilterInput';
-
 export { FilterInput };

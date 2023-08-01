@@ -14,7 +14,9 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { IOption, IBaseSelect } from './types';
 
-function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
+function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
+  props: IBaseSelect<V, O>
+) {
   const {
     onSelect,
     value,
@@ -25,6 +27,7 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
     optionRender,
     notFoundText = 'No field found.',
     displayRender,
+    search = true,
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -86,7 +89,9 @@ function BaseSingleSelect<T extends IOption>(props: IBaseSelect<T>) {
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
-          <CommandInput placeholder="Search field..." className="placeholder:text-[13px]" />
+          {search ? (
+            <CommandInput placeholder="Search..." className="placeholder:text-[13px]" />
+          ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandGroup>
             {options?.map((option) => (
