@@ -1,5 +1,5 @@
 import { GRID_DEFAULT } from '../configs';
-import { RegionType, RowControlType, SelectionRegionType } from '../interface';
+import { RegionType, RowControlType } from '../interface';
 import type { IRegionPosition } from '../interface';
 import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
@@ -7,7 +7,13 @@ import { inRange } from './range';
 interface ICheckRegionProps
   extends Pick<
     IRenderLayerProps,
-    'theme' | 'scrollState' | 'dragState' | 'selectionState' | 'columnResizeState' | 'coordInstance'
+    | 'theme'
+    | 'scrollState'
+    | 'dragState'
+    | 'selection'
+    | 'isSelecting'
+    | 'columnResizeState'
+    | 'coordInstance'
   > {
   rowControls: RowControlType[];
   isOutOfBounds: boolean;
@@ -46,8 +52,8 @@ const checkIsOutOfBounds = (props: ICheckRegionProps): RegionType | null => {
 };
 
 const checkIfSelecting = (props: ICheckRegionProps): RegionType | null => {
-  const { isSelecting, type } = props.selectionState;
-  return isSelecting && type === SelectionRegionType.Cells ? RegionType.Cell : null;
+  const { selection, isSelecting } = props;
+  return isSelecting && selection.isCellSelection ? RegionType.Cell : null;
 };
 
 const checkIfColumnResizing = (props: ICheckRegionProps): RegionType | null => {
@@ -134,19 +140,17 @@ const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
 };
 
 const checkIsFillHandler = (props: ICheckRegionProps): RegionType | null => {
-  const { position, selectionState, coordInstance: c, scrollState } = props;
-  const { freezeColumnCount } = c;
+  const { position, selection, coordInstance: c, scrollState } = props;
+  const { isCellSelection, ranges } = selection;
   const { scrollLeft, scrollTop } = scrollState;
   const { x, y, rowIndex, columnIndex } = position;
-  const { type: selectionType, ranges } = selectionState;
-  const isCellSelection = selectionType === SelectionRegionType.Cells;
   if (!isCellSelection || rowIndex < 0 || columnIndex < 0) return null;
   const [startColIndex, startRowIndex] = ranges[0];
   const [endColIndex, endRowIndex] = ranges[1];
   const maxColIndex = Math.max(startColIndex, endColIndex);
   const maxRowIndex = Math.max(startRowIndex, endRowIndex);
-  let handlerOffsetX = c.getColumnOffset(maxColIndex) + c.getColumnWidth(maxColIndex);
-  handlerOffsetX = maxColIndex < freezeColumnCount ? handlerOffsetX : handlerOffsetX - scrollLeft;
+  const handlerOffsetX =
+    c.getColumnRelativeOffset(maxColIndex, scrollLeft) + c.getColumnWidth(maxColIndex);
   const handlerOffsetY = c.getRowOffset(maxRowIndex) + c.getRowHeight(maxRowIndex) - scrollTop;
   const halfSize = GRID_DEFAULT.fillHandlerSize / 2 + 3;
 

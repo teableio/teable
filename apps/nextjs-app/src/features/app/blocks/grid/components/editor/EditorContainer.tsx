@@ -1,12 +1,12 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { clamp, pick } from 'lodash';
+import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
-import type { ICellItem, IScrollState, ISelectionState } from '../../interface';
-import { SelectionRegionType } from '../../interface';
+import type { ICellItem, IScrollState } from '../../interface';
+import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers';
 import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
@@ -30,9 +30,9 @@ export interface IEditorContainerProps
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;
+  selection: CombinedSelection;
   setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
-  selectionState: ISelectionState;
-  setSelectionState: React.Dispatch<React.SetStateAction<ISelectionState>>;
+  setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (cell: ICellItem, cellValue: IInnerCell) => void;
 }
@@ -66,7 +66,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     coordInstance,
     scrollState,
     activeCell,
-    selectionState,
+    selection,
     scrollTo,
     onCopy,
     onPaste,
@@ -75,13 +75,11 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onRowAppend,
     setEditing,
     setActiveCell,
-    setSelectionState,
+    setSelection,
     onCellActivated,
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
-  const { type: selectionType } = selectionState;
-  const isCellSelection = selectionType === SelectionRegionType.Cells;
   const [columnIndex, rowIndex] = activeCell ?? [-1, -1];
   const cellContent = useMemo(
     () => getCellContent([columnIndex, rowIndex]) as IInnerCell,
@@ -159,7 +157,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     isEditing,
     activeCell,
     scrollState,
-    selectionState,
+    selection,
     coordInstance,
     scrollTo,
     onCopy,
@@ -168,7 +166,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onRowAppend,
     setEditing,
     setActiveCell,
-    setSelectionState,
+    setSelection,
     onCellActivated,
     editorRef,
   });
@@ -181,19 +179,17 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!isCellSelection || isEditing) return;
+    if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
     setEditing(true);
     editorRef.current?.setValue?.('');
   };
 
   const onCopyInner = () => {
-    const selection = pick(selectionState, ['type', 'ranges']);
     onCopy?.(selection);
   };
 
   const onPasteInner = () => {
-    const selection = pick(selectionState, ['type', 'ranges']);
     onPaste?.(selection);
   };
 

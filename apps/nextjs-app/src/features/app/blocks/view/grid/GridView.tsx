@@ -15,8 +15,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useUpdateEffect } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import { SelectionRegionType, Grid, CellType, RowControlType } from '../../grid';
-import type { IRectangle, IPosition, ISelection, IGridColumn, IGridRef } from '../../grid';
+import { Grid, CellType, RowControlType } from '../../grid';
+import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
+import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
@@ -91,11 +92,8 @@ export const GridView: React.FC = () => {
   useMount(() => setReadyToRender(true));
 
   const onContextMenu = useCallback(
-    (selection: ISelection, position: IPosition) => {
-      const { type, ranges } = selection;
-      const isRowSelection = type === SelectionRegionType.Rows;
-      const isCellSelection = type === SelectionRegionType.Cells;
-      const isColumnSelection = type === SelectionRegionType.Columns;
+    (selection: CombinedSelection, position: IPosition) => {
+      const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
       const extractIds = (start: number, end: number, source: (Record | IGridColumn)[]) => {
         return Array.from({ length: end - start + 1 })
@@ -181,14 +179,14 @@ export const GridView: React.FC = () => {
     gridRef.current?.forceUpdate();
   }, [view?.filter]);
 
-  const onDelete = (selection: ISelection) => {
+  const onDelete = (selection: CombinedSelection) => {
     clear(selection);
   };
 
-  const onCopy = async (selection: ISelection) => {
+  const onCopy = async (selection: CombinedSelection) => {
     copy(selection);
   };
-  const onPaste = (selection: ISelection) => {
+  const onPaste = (selection: CombinedSelection) => {
     // CopyAndPasteApi.paste(tableId, activeViewId);
     paste(selection);
   };
