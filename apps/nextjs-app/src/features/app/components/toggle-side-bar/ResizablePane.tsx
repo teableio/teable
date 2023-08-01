@@ -9,7 +9,7 @@ import { OpenRightSide } from './OpenRightSide';
 
 const minSize = 150;
 
-export const AutoPane: React.FC<{
+export const ResizablePane: React.FC<{
   children: React.ReactNode[];
 }> = ({ children }) => {
   const [size, setSize] = useLocalStorage<number[]>('side-bar-size');

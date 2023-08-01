@@ -5,7 +5,7 @@ import React from 'react';
 import { SideBar } from '@/features/app/blocks/side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
 import { ChatWindow } from '../components/ai-chat/ChatWindow';
-import { AutoPane } from '../components/toggle-side-bar/AutoPane';
+import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
 
 export const SpaceLayout: React.FC<{
   children: React.ReactNode;
@@ -20,11 +20,11 @@ export const SpaceLayout: React.FC<{
         <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
           <TableProvider serverData={tableServerData}>
             <div id="portal" className="h-screen flex items-start w-full relative">
-              <AutoPane>
+              <ResizablePane>
                 <SideBar />
                 {children}
                 <ChatWindow />
-              </AutoPane>
+              </ResizablePane>
             </div>
           </TableProvider>
         </AnchorContext.Provider>

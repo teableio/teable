@@ -8,7 +8,7 @@ import { SideBarHeader } from './SideBarHeader';
 
 export const SideBar: React.FC = () => {
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden basis-[300px]">
       <SideBarHeader />
 
       <div className="divide-base-300 divide-y divide-solid flex flex-col overflow-hidden py-2 gap-2">
