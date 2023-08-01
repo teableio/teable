@@ -10,7 +10,7 @@ export const GRID_DEFAULT = {
 
   // Column
   columnWidth: 150,
-  columnHeadHeight: 40,
+  columnHeadHeight: 32,
   columnHeadMenuSize: 12,
   columnHeadMenuClickableSize: 20,
   columnHeadPadding: 8,

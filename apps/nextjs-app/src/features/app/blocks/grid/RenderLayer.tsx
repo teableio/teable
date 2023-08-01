@@ -37,7 +37,7 @@ export interface IRenderLayerProps
 }
 
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {
-  const { coordInstance } = props;
+  const { coordInstance, theme } = props;
   const { containerWidth, containerHeight } = coordInstance;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -54,6 +54,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       style={{
         width: containerWidth,
         height: containerHeight,
+        backgroundColor: theme.cellBg,
       }}
     />
   );

@@ -16,13 +16,8 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     const { data, isMultiple } = cell;
     const { ctx, rect, theme } = props;
     const { x, y, width, height } = rect;
-    const {
-      iconSizeSM,
-      staticWhite,
-      rowHeaderTextColor,
-      cellLineColorActived,
-      cellHorizontalPadding,
-    } = theme;
+    const { iconSizeSM, staticWhite, iconBgSelected, rowHeaderTextColor, cellHorizontalPadding } =
+      theme;
     const halfIconSize = iconSizeSM / 2;
 
     if (!isMultiple) {
@@ -31,7 +26,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
         y: y + height / 2 - halfIconSize,
         size: iconSizeSM,
         stroke: data ? staticWhite : rowHeaderTextColor,
-        fill: data ? cellLineColorActived : undefined,
+        fill: data ? iconBgSelected : undefined,
         isChecked: data,
       });
     }
@@ -46,7 +41,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
             y: startY,
             size: iconSizeSM,
             stroke: staticWhite,
-            fill: cellLineColorActived,
+            fill: iconBgSelected,
             isChecked: true,
           });
           startX += iconSizeSM + cellHorizontalPadding / 2;

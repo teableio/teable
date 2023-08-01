@@ -1,5 +1,6 @@
 import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
+import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
 import type { Record } from '@teable-group/sdk';
 import {
   useFieldStaticGetter,
@@ -22,7 +23,7 @@ import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
 import { useCopyAndPaste } from './hooks/useCopyAndPaste';
 import { useGridViewStore } from './store/gridView';
-import { getHeaderIcons } from './utils';
+import { getSpriteMap } from './utils';
 
 export const GridView: React.FC = () => {
   const container = useRef<HTMLDivElement>(null);
@@ -149,31 +150,64 @@ export const GridView: React.FC = () => {
   };
 
   const getFieldStatic = useFieldStaticGetter();
-  const headerIcons = useMemo(
-    () =>
-      getHeaderIcons(
-        FIELD_TYPE_ORDER.reduce<
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { type: string; IconComponent: React.JSXElementConstructor<any> }[]
-        >((pre, type) => {
-          const IconComponent = getFieldStatic(type, false)?.Icon;
-          const LookupIconComponent = getFieldStatic(type, true)?.Icon;
-          if (IconComponent) {
-            pre.push({ type: type, IconComponent });
-          }
-          if (LookupIconComponent) {
-            pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
-          }
-          return pre;
-        }, [])
-      ),
-    [getFieldStatic]
-  );
+  const customIcons = useMemo(() => {
+    const columnHeaderIcons = getSpriteMap(
+      FIELD_TYPE_ORDER.reduce<
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { type: string; IconComponent: React.JSXElementConstructor<any> }[]
+      >((pre, type) => {
+        const IconComponent = getFieldStatic(type, false)?.Icon;
+        const LookupIconComponent = getFieldStatic(type, true)?.Icon;
+        if (IconComponent) {
+          pre.push({ type: type, IconComponent });
+        }
+        if (LookupIconComponent) {
+          pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
+        }
+        return pre;
+      }, [])
+    );
+    const rowHeaderIcons = getSpriteMap([
+      {
+        type: RowControlType.Drag,
+        IconComponent: DraggableHandle,
+      },
+      {
+        type: RowControlType.Expand,
+        IconComponent: Maximize2,
+      },
+      {
+        type: RowControlType.Checkbox,
+        IconComponent: Check,
+      },
+    ]);
+    return {
+      ...columnHeaderIcons,
+      ...rowHeaderIcons,
+    };
+  }, [getFieldStatic]);
 
   const rowHeightLevel = useMemo(() => {
     if (view == null) return RowHeightLevel.Short;
     return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
   }, [view]);
+
+  const rowControls = useMemo(() => {
+    return [
+      {
+        type: RowControlType.Drag,
+        icon: RowControlType.Drag,
+      },
+      {
+        type: RowControlType.Checkbox,
+        icon: RowControlType.Checkbox,
+      },
+      {
+        type: RowControlType.Expand,
+        icon: RowControlType.Expand,
+      },
+    ];
+  }, []);
 
   const gridRef = useRef<IGridRef>(null);
 
@@ -205,13 +239,12 @@ export const GridView: React.FC = () => {
           columns={columns}
           smoothScrollX
           smoothScrollY
-          headerIcons={headerIcons}
-          rowControls={[RowControlType.Drag, RowControlType.Checkbox, RowControlType.Expand]}
+          customIcons={customIcons}
+          rowControls={rowControls}
           style={{
-            marginLeft: -1,
-            marginTop: -1,
-            width: 'calc(100% + 1px)',
-            height: 'calc(100% + 1px)',
+            marginLeft: 8,
+            width: 'calc(100% - 8px)',
+            height: '100%',
           }}
           getCellContent={getCellContent}
           onDelete={onDelete}

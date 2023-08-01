@@ -23,7 +23,13 @@ import {
 } from './hooks';
 import { useDrag } from './hooks/useDrag';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
-import type { ICellItem, IInnerCell, IMouseState, IScrollState, RowControlType } from './interface';
+import type {
+  ICellItem,
+  IInnerCell,
+  IMouseState,
+  IRowControlItem,
+  IScrollState,
+} from './interface';
 import { MouseButtonType, SelectionRegionType, RegionType, DragRegionType } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
@@ -42,7 +48,7 @@ export interface IInteractionLayerProps
     | 'onVisibleRegionChanged'
   > {
   theme: IGridTheme;
-  rowControls: RowControlType[];
+  rowControls: IRowControlItem[];
   mouseState: IMouseState;
   scrollState: IScrollState;
   imageManager: ImageManager;
