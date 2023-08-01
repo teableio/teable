@@ -200,6 +200,7 @@ export const getFieldsQuerySchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     description: 'The id of the view.',
   }),
+  filterHidden: z.boolean().optional(),
 });
 
 export type IGetFieldsQuery = z.infer<typeof getFieldsQuerySchema>;

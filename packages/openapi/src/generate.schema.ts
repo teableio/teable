@@ -1,15 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { AttachmentRoute } from './attachment';
-import { CopyAndPasteRoute } from './copyAndPaste';
 import { RecordRoute } from './record';
+import { SelectionRoute } from './selection';
 
 function registerAllRoute() {
   const registry = new OpenAPIRegistry();
   const routeObjList: Record<string, RouteConfig>[] = [
     AttachmentRoute,
     RecordRoute,
-    CopyAndPasteRoute,
+    SelectionRoute,
   ];
   for (const routeObj of routeObjList) {
     for (const routeKey in routeObj) {

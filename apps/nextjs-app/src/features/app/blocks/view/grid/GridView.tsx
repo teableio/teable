@@ -21,7 +21,7 @@ import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
-import { useCopyAndPaste } from './hooks/useCopyAndPaste';
+import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
 import { getHeaderIcons } from './utils';
 
@@ -40,7 +40,7 @@ export const GridView: React.FC = () => {
   const gridViewStore = useGridViewStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
-  const { copy, paste, clear } = useCopyAndPaste();
+  const { copy, paste, clear } = useSelectionOperation();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
     useAsyncData(

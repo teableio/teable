@@ -1,11 +1,18 @@
-import { CopyAndPasteApi, CopyAndPasteSchema } from '@teable-group/openapi';
+import { SelectionSchema, SelectionApi } from '@teable-group/openapi';
 import { useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
 import { SelectionRegionType } from '../../../grid';
 import type { CombinedSelection } from '../../../grid/managers';
 
-export const useCopyAndPaste = () => {
+const rangeTypes = {
+  [SelectionRegionType.Columns]: SelectionSchema.RangeType.Columns,
+  [SelectionRegionType.Rows]: SelectionSchema.RangeType.Rows,
+  [SelectionRegionType.Cells]: undefined,
+  [SelectionRegionType.None]: undefined,
+};
+
+export const useSelectionOperation = () => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { toast } = useToast();
@@ -22,16 +29,9 @@ export const useCopyAndPaste = () => {
       });
       const ranges = JSON.stringify(selection.serialize());
 
-      const rangeTypes = {
-        [SelectionRegionType.Columns]: CopyAndPasteSchema.RangeType.Column,
-        [SelectionRegionType.Rows]: CopyAndPasteSchema.RangeType.Row,
-        [SelectionRegionType.Cells]: undefined,
-        [SelectionRegionType.None]: undefined,
-      };
-
       const type = rangeTypes[selection.type];
 
-      const { data } = await CopyAndPasteApi.copy(tableId, viewId, {
+      const { data } = await SelectionApi.copy(tableId, viewId, {
         ranges,
         ...(type ? { type } : {}),
       });
@@ -40,7 +40,7 @@ export const useCopyAndPaste = () => {
       }
       const { content, header } = data.data;
       await navigator.clipboard.writeText(content);
-      localStorage.setItem(copyHeaderKey, JSON.stringify(header));
+      sessionStorage.setItem(copyHeaderKey, JSON.stringify(header));
       toaster.update({ id: toaster.id, title: 'Copied success!' });
     },
     [tableId, toast, viewId]
@@ -54,11 +54,11 @@ export const useCopyAndPaste = () => {
       const toaster = toast({
         title: 'Pasting...',
       });
-      const headerStr = localStorage.getItem(copyHeaderKey);
+      const headerStr = sessionStorage.getItem(copyHeaderKey);
       const header = headerStr ? JSON.parse(headerStr) : undefined;
       const ranges = selection.ranges;
       const content = await navigator.clipboard.readText();
-      await CopyAndPasteApi.paste(tableId, viewId, {
+      await SelectionApi.paste(tableId, viewId, {
         content,
         cell: ranges[0],
         header,
@@ -77,8 +77,11 @@ export const useCopyAndPaste = () => {
         title: 'Clearing...',
       });
 
-      await CopyAndPasteApi.clear(tableId, viewId, {
+      const type = rangeTypes[selection.type];
+
+      await SelectionApi.clear(tableId, viewId, {
         ranges: selection.ranges,
+        ...(type ? { type } : {}),
       });
 
       toaster.update({ id: toaster.id, title: 'Clear success!' });
