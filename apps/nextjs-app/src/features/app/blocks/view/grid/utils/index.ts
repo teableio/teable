@@ -1,2 +1,2 @@
-export * from './getHeaderIcons';
+export * from './getSpriteMap';
 export * from './order';

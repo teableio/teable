@@ -132,6 +132,11 @@ export enum RowControlType {
   Checkbox = 'Checkbox',
 }
 
+export interface IRowControlItem {
+  type: RowControlType;
+  icon?: string;
+}
+
 export type ICellItem = [colIndex: number, rowIndex: number];
 
 export interface IPositionWithBounds {

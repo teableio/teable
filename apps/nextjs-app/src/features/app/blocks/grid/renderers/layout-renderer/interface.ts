@@ -1,6 +1,7 @@
 import type { IGridTheme } from '../../configs';
-import type { IGridColumn, RowControlType } from '../../interface';
+import type { IGridColumn, IRowControlItem } from '../../interface';
 import type { ImageManager, SpriteManager } from '../../managers';
+import type { IRenderLayerProps } from '../../RenderLayer';
 import type { ICell } from '../cell-renderer';
 
 export interface ICellPosition {
@@ -25,7 +26,7 @@ export interface IRowHeaderDrawerProps extends ICellPosition {
   displayIndex: string;
   theme: IGridTheme;
   isHover: boolean;
-  rowControls: RowControlType[];
+  rowControls: IRowControlItem[];
   spriteManager: SpriteManager;
   fill?: string;
   stroke?: string;
@@ -46,7 +47,17 @@ export interface IAppendColumnDrawerProps extends ICellPosition {
   isColumnAppendEnable?: boolean;
 }
 
+export interface IGridHeaderDrawerProps extends ICellPosition {
+  theme: IGridTheme;
+  isChecked: boolean;
+  rowControls: IRowControlItem[];
+}
+
 export enum RenderRegion {
   Freeze = 'Freeze',
   Other = 'Other',
+}
+
+export interface ILayoutDrawerProps extends IRenderLayerProps {
+  shouldRebuild?: boolean;
 }

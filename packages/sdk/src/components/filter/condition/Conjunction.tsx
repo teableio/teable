@@ -1,12 +1,10 @@
 import type { IFilter } from '@teable-group/core';
-import { cloneDeep } from 'lodash';
 import { ConjunctionSelect } from './ConjunctionSelect';
 
 interface IConjunctionProps {
   index: number;
-  parent: IFilter;
-  filters: IFilter | null;
-  setFilter: (val: IFilter | null) => void;
+  value: IFilter['conjunction'];
+  onSelect: (value: IFilter['conjunction'] | null) => void;
 }
 
 enum ConjunctionPosition {
@@ -16,23 +14,15 @@ enum ConjunctionPosition {
 }
 
 const Conjunction = (props: IConjunctionProps) => {
-  const { index, parent, setFilter, filters } = props;
-
-  const onSelect = (val: IFilter['conjunction']) => {
-    parent.conjunction = val;
-    const newFilters = cloneDeep(filters);
-    setFilter(newFilters);
-  };
+  const { index, onSelect, value } = props;
 
   return (
-    <div className="p-r-2 min-w-[60px] m-1">
+    <div className="w-[66px] flex justify-start shrink-0">
       {index === ConjunctionPosition.WHERE ? <span className="px-1 text-sm">where</span> : null}
       {index === ConjunctionPosition.SELECTOR ? (
-        <ConjunctionSelect value={parent.conjunction} onSelect={onSelect} />
+        <ConjunctionSelect value={value} onSelect={onSelect} />
       ) : null}
-      {index > ConjunctionPosition.JOIN ? (
-        <span className="px-1 text-[13px]">{parent.conjunction}</span>
-      ) : null}
+      {index > ConjunctionPosition.JOIN ? <span className="px-1 text-[13px]">{value}</span> : null}
     </div>
   );
 };

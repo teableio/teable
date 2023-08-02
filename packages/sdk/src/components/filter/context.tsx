@@ -1,13 +1,12 @@
-import type { IFilter } from '@teable-group/core';
+import type { IFilterItem } from '@teable-group/core';
 import React from 'react';
-import type { IFilterProps } from './types';
+import type { IFilterProps, IFiltersPath, ConditionAddType } from './types';
 
 export interface IFilterContext {
-  filters: IFilter | null;
   onChange: IFilterProps['onChange'];
-  setFilters: (filter: IFilter | null) => void;
-  addCondition: (filter: IFilter) => void;
-  addConditionGroup: (filter: IFilter) => void;
+  setFilters: (path: IFiltersPath, value: IFilterItem['value'] | null) => void;
+  addCondition: (path: IFiltersPath, type?: ConditionAddType) => void;
+  deleteCondition: (path: IFiltersPath, index: number) => void;
 }
 
 export const FilterContext: React.Context<IFilterContext> = React.createContext<IFilterContext>(

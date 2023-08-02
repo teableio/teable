@@ -45,14 +45,12 @@ function FilterSingleSelect(props: ISingleSelect) {
       options={options}
       value={value}
       onSelect={onSelect}
-      className="w-64 justify-between m-1"
+      className="w-64 justify-between"
       popoverClassName="w-64"
       optionRender={optionRender}
       displayRender={optionRender}
     />
   );
 }
-
-FilterSingleSelect.displayName = 'FilterSingleSelect';
 
 export { FilterSingleSelect };

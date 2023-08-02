@@ -11,9 +11,9 @@ interface ISpriteDrawerProps {
   x: number;
   y: number;
   sprite: ISpriteIcon | string;
-  variant: ISpriteVariant;
   size: number;
   theme: IGridTheme;
+  variant?: ISpriteVariant;
   alpha?: number;
 }
 
@@ -35,7 +35,7 @@ export class SpriteManager {
   }
 
   public drawSprite(ctx: CanvasRenderingContext2D, props: ISpriteDrawerProps) {
-    const { sprite, variant, x, y, size, alpha = 1, theme } = props;
+    const { sprite, variant = 'normal', x, y, size, alpha = 1, theme } = props;
     const [bgColor, fgColor] = getColors(variant, theme);
     const rSize = size * Math.ceil(window.devicePixelRatio);
     const key = `${bgColor}_${fgColor}_${rSize}_${sprite}`;

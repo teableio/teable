@@ -1,3 +1,6 @@
+import colors from 'tailwindcss/colors';
+import { hexToRGBA } from '../utils';
+
 export interface IGridTheme {
   staticWhite: string;
   staticBlack: string;
@@ -25,22 +28,25 @@ export interface IGridTheme {
   cellVerticalPadding: number;
   cellOptionBg: string;
   cellOptionTextColor: string;
+  columnHeaderBg: string;
   columnHeaderBgHovered: string;
   columnHeaderBgSelected: string;
   columnHeaderNameColor: string;
   columnResizeHandlerBg: string;
   columnDraggingPlaceholderBg: string;
   rowHeaderTextColor: string;
+  appendRowBg: string;
+  appendRowBgHovered: string;
 }
 
 export const gridTheme: IGridTheme = {
   // Common
   staticWhite: '#FFFFFF',
   staticBlack: '#000000',
-  iconBgCommon: '#737383',
-  iconFgCommon: '#009CA6',
-  iconBgSelected: '#FFFFFF',
-  iconFgSelected: '#4F5DFF',
+  iconBgCommon: colors.gray[500],
+  iconFgCommon: colors.gray[500],
+  iconBgSelected: colors.black,
+  iconFgSelected: colors.blue[50],
   iconSizeXS: 16,
   iconSizeSM: 20,
   iconSizeMD: 24,
@@ -53,25 +59,30 @@ export const gridTheme: IGridTheme = {
     'Inter, Roboto, -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Ubuntu, noto, arial, sans-serif',
 
   // Cell
-  cellBg: '#FFFFFF',
-  cellBgHovered: '#F5F7FA',
-  cellBgSelected: '#F2F6FE',
-  cellBgLoading: 'rgba(202, 206, 255, 0.253)',
-  cellLineColor: '#E0E0E0',
-  cellLineColorActived: '#306FD9',
-  cellTextColor: '#262626',
+  cellBg: colors.white,
+  cellBgHovered: colors.slate[100],
+  cellBgSelected: colors.zinc[100],
+  cellBgLoading: colors.violet[50],
+  cellLineColor: colors.slate[200],
+  cellLineColorActived: colors.black,
+  cellTextColor: colors.zinc[800],
   cellHorizontalPadding: 8,
   cellVerticalPadding: 3,
-  cellOptionBg: '#666666',
-  cellOptionTextColor: '#FFFFFF',
+  cellOptionBg: colors.gray[500],
+  cellOptionTextColor: colors.white,
 
   // Column Header
-  columnHeaderBgHovered: '#F5F7FA',
-  columnHeaderBgSelected: '#F2F6FE',
-  columnHeaderNameColor: '#262626',
-  columnResizeHandlerBg: '#306FD9',
-  columnDraggingPlaceholderBg: 'rgba(0, 0, 0, 0.2)',
+  columnHeaderBg: colors.slate[50],
+  columnHeaderBgHovered: colors.slate[100],
+  columnHeaderBgSelected: colors.slate[200],
+  columnHeaderNameColor: colors.zinc[800],
+  columnResizeHandlerBg: colors.zinc[800],
+  columnDraggingPlaceholderBg: hexToRGBA(colors.black, 0.2),
 
   // Row Header
-  rowHeaderTextColor: '#636363',
+  rowHeaderTextColor: colors.gray[500],
+
+  // Append Row
+  appendRowBg: colors.slate[50],
+  appendRowBgHovered: colors.slate[100],
 };

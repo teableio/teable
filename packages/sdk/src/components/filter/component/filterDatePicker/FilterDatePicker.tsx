@@ -79,7 +79,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       FieldType.Date,
       operator as IDateTimeFieldOperator
     );
-
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const options = optionMapping!.map((operator) => ({
       label: defaultMapping[operator],
       value: operator,
@@ -106,7 +106,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           <Input
             placeholder="Enter days"
             defaultValue={innerValue?.numberOfDays ?? ''}
-            className="w-24 m-1"
+            className="w-24 m-1 h-8 placeholder:text-[13px]"
             onInput={(e) => {
               // limit the number positive
               e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
@@ -138,7 +138,5 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     </>
   );
 }
-
-FilterDatePicker.displayName = 'FilterDatePicker';
 
 export { FilterDatePicker };

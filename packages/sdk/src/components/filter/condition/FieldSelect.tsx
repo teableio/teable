@@ -46,6 +46,4 @@ function FieldSelect(props: IFieldSelectProps) {
   );
 }
 
-FieldSelect.displayName = 'FieldSelect';
-
 export { FieldSelect };

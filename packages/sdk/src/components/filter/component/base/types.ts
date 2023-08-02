@@ -1,24 +1,31 @@
 import type { Colors } from '@teable-group/core';
 
-interface IOption {
+interface IOption<T = string> {
+  value: T;
   label: string;
-  value: string;
 }
 
 interface IColorOption extends IOption {
   color: Colors;
 }
 
-interface IBaseSelect<T = IOption> {
-  options: T[];
+interface IBaseSelect<V, O = IOption<V>> {
+  options: O[];
   value: string | null;
+  search?: boolean | (() => void);
   className?: string;
   popoverClassName?: string;
   disabled?: boolean;
   notFoundText?: string;
-  onSelect: (value: string | null) => void;
-  optionRender?: (option: T) => React.ReactElement;
-  displayRender?: (option: T) => React.ReactElement;
+  onSelect: (value: V | null) => void;
+  optionRender?: (option: O) => React.ReactElement;
+  displayRender?: (option: O) => React.ReactElement;
 }
 
-export type { IOption, IColorOption, IBaseSelect };
+interface IBaseMultipleSelect<V, O = IOption<V>>
+  extends Omit<IBaseSelect<V, O>, 'onSelect' | 'value'> {
+  value: V[] | null;
+  onSelect: (value: V[]) => void;
+}
+
+export type { IOption, IColorOption, IBaseSelect, IBaseMultipleSelect };

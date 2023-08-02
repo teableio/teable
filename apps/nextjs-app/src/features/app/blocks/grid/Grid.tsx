@@ -17,6 +17,7 @@ import type {
   IGridColumn,
   IMouseState,
   IPosition,
+  IRowControlItem,
 } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -24,8 +25,8 @@ import type { ICell, IInnerCell } from './renderers';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
-  headerIcons?: ISpriteMap;
-  rowControls?: RowControlType[];
+  customIcons?: ISpriteMap;
+  rowControls?: IRowControlItem[];
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
   onRowAppend?: () => void;
@@ -79,12 +80,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     freezeColumnCount = 1,
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
-    rowControls = [RowControlType.Checkbox],
+    rowControls = [{ type: RowControlType.Checkbox }],
     theme: customTheme,
     smoothScrollX,
     smoothScrollY,
     style,
-    headerIcons,
+    customIcons,
     getCellContent,
     onCopy,
     onPaste,
@@ -176,8 +177,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   ]);
 
   const spriteManager = useMemo(
-    () => new SpriteManager(headerIcons, () => forceUpdate()),
-    [headerIcons, forceUpdate]
+    () => new SpriteManager(customIcons, () => forceUpdate()),
+    [customIcons, forceUpdate]
   );
 
   const imageManager = useMemo<ImageManager>(() => new ImageManager(), []);

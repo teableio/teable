@@ -3,7 +3,6 @@ export * from './FilterMultipleSelect';
 export * from './FilterInput';
 export * from './FilterInputNumber';
 export * from './filterDatePicker';
-export * from './FilterUserSelect';
 export * from './FilterCheckBox';
 export * from './FilterLinkSelect';
 export * from './FileTypeSelect';
