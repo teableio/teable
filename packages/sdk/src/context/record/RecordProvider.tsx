@@ -13,7 +13,7 @@ export interface IRecordProviderContext {
 
 export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, serverData }) => {
   const [rowCount, setRowCount] = useState(serverData?.total ?? 0);
-  const { connection } = useContext(AppContext);
+  const { connection, connected } = useContext(AppContext);
   const { tableId, viewId } = useContext(AnchorContext);
 
   useEffect(() => {
@@ -57,8 +57,8 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
   }, [tableId, connection, viewId]);
 
   const value = useMemo(() => {
-    return { rowCount, serverRecords: serverData?.records };
-  }, [rowCount, serverData]);
+    return { rowCount, serverRecords: connected ? undefined : serverData?.records };
+  }, [rowCount, serverData, connected]);
 
   return <RecordContext.Provider value={value}>{children}</RecordContext.Provider>;
 };

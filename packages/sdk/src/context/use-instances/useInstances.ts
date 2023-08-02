@@ -73,7 +73,7 @@ export function useInstances<T, R extends { id: string }>({
     if (!collection || !connection) {
       return;
     }
-    if (query && isEqual(queryParams, query.query)) {
+    if (query && isEqual(queryParams, query.query) && collection === query.collection) {
       return;
     }
     // for easy component refresh clean data when switch & loading
