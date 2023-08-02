@@ -79,7 +79,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       FieldType.Date,
       operator as IDateTimeFieldOperator
     );
-
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const options = optionMapping!.map((operator) => ({
       label: defaultMapping[operator],
       value: operator,
