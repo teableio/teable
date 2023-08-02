@@ -9,7 +9,7 @@ export const SideBarHeader: React.FC = () => {
   return (
     <div className="flex m-2 gap-0 items-center">
       <Teable className="w-6 h-6 shrink-0" />
-      <p className="text-sm">My Workspace</p>
+      <p className="text-sm overflow-hidden text-ellipsis whitespace-nowrap">My Workspace</p>
       <Button className="px-1" variant="ghost" size={'xs'}>
         <ChevronsUpDown className="w-4 h-4" />
       </Button>

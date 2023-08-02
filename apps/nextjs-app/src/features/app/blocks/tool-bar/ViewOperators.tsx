@@ -6,7 +6,7 @@ import {
   Filter as FilterIcon,
   EyeOff,
 } from '@teable-group/icons';
-import { Filter, HideFields, RowHeight } from '@teable-group/sdk';
+import { Filter, HideFields, RowHeight, useFields } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useToast } from '@teable-group/ui-lib';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -17,6 +17,7 @@ import { fromZodError } from 'zod-validation-error';
 
 export const ViewOperators: React.FC = () => {
   const view = useView();
+  const fields = useFields();
   const { toast } = useToast();
 
   const onFilterChange = useCallback(
@@ -37,6 +38,10 @@ export const ViewOperators: React.FC = () => {
     },
     [toast, view]
   );
+
+  if (!view || !fields.length) {
+    return <div></div>;
+  }
 
   return (
     <div className="flex gap-1">

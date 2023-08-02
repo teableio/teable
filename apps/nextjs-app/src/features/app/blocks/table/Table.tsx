@@ -33,10 +33,10 @@ export const Table: React.FC<ITableProps> = ({
   const { nodeId, viewId } = router.query;
   return (
     <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
-      <ViewProvider fallback={<h1>view loading</h1>} serverData={viewServerData}>
+      <ViewProvider serverData={viewServerData}>
         <div className="grow flex flex-col h-full basis-[500px]">
           <TableHeader />
-          <FieldProvider fallback={<h1>🫙 Empty</h1>} serverSideData={fieldServerData}>
+          <FieldProvider serverSideData={fieldServerData}>
             <ToolBar />
             <RecordProvider serverData={recordServerData}>
               <ErrorBoundary

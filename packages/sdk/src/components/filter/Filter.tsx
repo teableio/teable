@@ -7,7 +7,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/u
 
 import produce from 'immer';
 import { cloneDeep, isEqual, set, get } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
 import { useFields } from '../../hooks';
@@ -254,7 +254,7 @@ function Filter(props: IFilterProps) {
             {filters?.filterSet?.length ? (
               <div className="pt-3 px-4">{title}</div>
             ) : (
-              <div className="text-gray-400 pt-4 px-4 text-gray-400">{emptyText}</div>
+              <div className="text-gray-400 pt-4 px-4">{emptyText}</div>
             )}
           </div>
           <div className="px-4 pt-3">{conditionCreator()}</div>

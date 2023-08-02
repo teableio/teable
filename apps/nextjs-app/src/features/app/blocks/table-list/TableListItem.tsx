@@ -47,9 +47,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             }
           }}
         >
-          {table.icon || <Table2 className="w-4 h-4" />}
-          <p className="grow">{' ' + table.name}</p>
-          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block" />
+          {table.icon || <Table2 className="w-4 h-4 shrink-0" />}
+          <p className="grow overflow-hidden text-ellipsis whitespace-nowrap">{' ' + table.name}</p>
+          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block shrink-0" />
         </Link>
       </Button>
       {isEditing && (
