@@ -34,6 +34,9 @@ export const fullTableVoSchema = z
     lastModifiedTime: z.string().openapi({
       description: 'The last modified time of the table.',
     }),
+    defaultViewId: z.string().startsWith(IdPrefix.View).optional().openapi({
+      description: 'The default view id of the table.',
+    }),
   })
   .openapi({
     description: 'Complete table structure data and initial record data.',
@@ -55,6 +58,7 @@ export const tableRoSchema = fullTableVoSchema
     id: true,
     total: true,
     lastModifiedTime: true,
+    defaultViewId: true,
   })
   .partial({
     name: true,

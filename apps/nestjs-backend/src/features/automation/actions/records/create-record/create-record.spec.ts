@@ -62,6 +62,7 @@ describe('Create-Record Action Test', () => {
         records: tableRo.records as IRecord[],
         total: tableRo.records?.length || 3,
         lastModifiedTime: new Date().toISOString(),
+        defaultViewId: 'viwx',
       })
     );
 

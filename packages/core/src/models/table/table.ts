@@ -12,4 +12,6 @@ export class TableCore implements ITableVo {
   order!: number;
 
   lastModifiedTime!: string;
+
+  defaultViewId!: string;
 }
