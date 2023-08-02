@@ -5,6 +5,7 @@ import { Plus, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
+import produce from 'immer';
 import { cloneDeep, isEqual, set, get } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -42,8 +43,10 @@ function Filter(props: IFilterProps) {
       | IFilterItem['operator']
   ) => {
     if (filters) {
-      const newFilters = set(filters, path, value);
-      setFilters({ ...newFilters });
+      const newFilters = produce(filters, (draft) => {
+        set(draft, path, value);
+      });
+      setFilters(newFilters);
     }
   };
 
@@ -137,22 +140,27 @@ function Filter(props: IFilterProps) {
 
   const addCondition = useCallback(
     (path: IFiltersPath, type = ConditionAddType.ITEM) => {
-      const conditonItem =
+      const conditionItem =
         type === ConditionAddType.ITEM ? { ...defaultIFilterItem } : { ...defaultGroupFilter };
-      if (!path.length) {
-        if (!filters) {
-          const initDefault = cloneDeep(defaultFilter);
-          initDefault.filterSet.push(conditonItem);
-          setFilters(initDefault);
-          return;
-        } else {
-          filters.filterSet.push(conditonItem);
-        }
-      } else {
-        const toAddArray = get(filters, path);
-        toAddArray.filterSet.push(conditonItem);
+
+      let newFilters = null;
+
+      /**
+       * first add from null, set the default
+       */
+      if (!filters) {
+        newFilters = cloneDeep(defaultFilter);
+        newFilters.filterSet.push(conditionItem);
+        setFilters(newFilters);
+        return;
       }
-      setFilters({ ...filters } as IFilter);
+
+      newFilters = produce(filters, (draft) => {
+        const target = path.length ? get(draft, path) : draft;
+        target.filterSet.push(conditionItem);
+      });
+
+      setFilters(newFilters);
     },
     [defaultIFilterItem, filters]
   );
@@ -165,19 +173,22 @@ function Filter(props: IFilterProps) {
    * @returns void
    */
   const deleteCondition = (path: IFiltersPath, index: number) => {
+    let newFilters = null;
     // get the parent path
     const parentPath = path.slice(0, -2);
-    if (!parentPath.length) {
-      filters?.filterSet.splice(index, 1);
-      if (!filters?.filterSet.length) {
-        setFilters(null);
-        return;
-      }
-    } else {
-      const toDeleteArray = get(filters, parentPath);
-      toDeleteArray.filterSet.splice(index, 1);
+
+    newFilters = produce(filters, (draft) => {
+      const target = parentPath?.length ? get(draft, parentPath) : draft;
+      target.filterSet.splice(index, 1);
+    });
+
+    // delete all filter, should return null
+    if (!newFilters?.filterSet.length) {
+      setFilters(null);
+      return;
     }
-    setFilters({ ...filters } as IFilter);
+
+    setFilters(newFilters);
   };
 
   const conditionCreator = () => {
