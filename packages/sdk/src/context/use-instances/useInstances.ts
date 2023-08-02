@@ -24,11 +24,11 @@ export function useInstances<T, R extends { id: string }>({
   queryParams,
   initData,
 }: IUseInstancesProps<T, R>): R[] {
-  const { connection } = useContext(AppContext);
+  const { connection, connected } = useContext(AppContext);
   const [query, setQuery] = useState<Query<T>>();
   const [instances, dispatch] = useReducer(
     (state: R[], action: IInstanceAction<T>) => instanceReducer(state, action, factory),
-    initData ? initData.map((data) => factory(data)) : []
+    initData && !connected ? initData.map((data) => factory(data)) : []
   );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));

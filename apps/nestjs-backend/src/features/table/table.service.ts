@@ -98,6 +98,34 @@ export class TableService implements IAdapterService {
     });
   }
 
+  private async getTableDefaultViewId(prisma: Prisma.TransactionClient, tableIds: string[]) {
+    if (!tableIds.length) return [];
+
+    const results = await prisma.$queryRaw<
+      {
+        tableId: string;
+        viewId: string;
+      }[]
+    >`
+      SELECT 
+        id as tableId,
+        (
+          SELECT id
+          FROM view
+          WHERE view.table_id = table_meta.id
+          ORDER BY 'order' ASC
+          LIMIT 1
+        ) as viewId
+      FROM table_meta
+      WHERE id IN (${Prisma.join(tableIds)})
+    `;
+
+    return tableIds.map((tableId) => {
+      const item = results.find((result) => result.tableId === tableId);
+      return item?.viewId;
+    });
+  }
+
   async getTables(): Promise<ITableVo[]> {
     const tablesMeta = await this.prismaService.tableMeta.findMany({
       orderBy: { order: 'asc' },
@@ -105,13 +133,19 @@ export class TableService implements IAdapterService {
     });
     const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
     const tableTime = await this.getTableLastModifiedTime(this.prismaService, tableIds);
+    const tableDefaultViewIds = await this.getTableDefaultViewId(this.prismaService, tableIds);
     return tablesMeta.map((tableMeta, i) => {
       const time = tableTime[i];
+      const defaultViewId = tableDefaultViewIds[i];
+      if (!defaultViewId) {
+        throw new Error('defaultViewId is not found');
+      }
       return {
         ...tableMeta,
         description: tableMeta.description ?? undefined,
         icon: tableMeta.icon ?? undefined,
         lastModifiedTime: time || tableMeta.lastModifiedTime.toISOString(),
+        defaultViewId,
       };
     });
   }
@@ -153,12 +187,17 @@ export class TableService implements IAdapterService {
     }
 
     const tableTime = await this.getTableLastModifiedTime(this.prismaService, [tableId]);
+    const tableDefaultViewIds = await this.getTableDefaultViewId(this.prismaService, [tableId]);
+    if (!tableDefaultViewIds[0]) {
+      throw new Error('defaultViewId is not found');
+    }
 
     return {
       ...tableMeta,
       description: tableMeta.description ?? undefined,
       icon: tableMeta.icon ?? undefined,
       lastModifiedTime: tableTime[0] || tableMeta.createdTime.toISOString(),
+      defaultViewId: tableDefaultViewIds[0],
     };
   }
 
@@ -257,6 +296,7 @@ export class TableService implements IAdapterService {
       where: { id: { in: ids }, deletedTime: null },
     });
     const tableTime = await this.getTableLastModifiedTime(prisma, ids);
+    const tableDefaultViewIds = await this.getTableDefaultViewId(prisma, ids);
     return tables
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
       .map((table, i) => {
@@ -270,6 +310,7 @@ export class TableService implements IAdapterService {
             icon: table.icon ?? undefined,
             order: table.order,
             lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
+            defaultViewId: tableDefaultViewIds[i],
           },
         };
       });

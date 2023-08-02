@@ -65,6 +65,7 @@ describe('Update-Record Action Test', () => {
         records: tableRo.records as IRecord[],
         total: 1,
         lastModifiedTime: new Date().toISOString(),
+        defaultViewId: 'viwx',
       })
     );
 
