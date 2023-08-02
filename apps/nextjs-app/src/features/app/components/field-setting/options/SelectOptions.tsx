@@ -88,7 +88,7 @@ export const SelectOptions = (props: {
                 // eslint-disable-next-line tailwindcss/migration-from-tailwind-2
                 className="input input-ghost input-sm hover:border-opacity-30 focus:outline-none w-full max-w-xs"
                 type="text"
-                value={names[i]}
+                value={names[i] || ''}
                 onChange={(e) => changeName(e.target.value, i)}
                 onBlur={() => finishUpdateName(i)}
               />
