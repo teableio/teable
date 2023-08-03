@@ -15,10 +15,9 @@ export function instanceReducer<T, R extends { id: string }>(
 ): R[] {
   switch (action.type) {
     case 'update': {
-      const newInstance = factory(action.doc.data, action.doc);
       return state.map((instance) => {
         if (instance.id === action.doc.id) {
-          newInstance;
+          return factory(action.doc.data, action.doc);
         }
         return instance;
       });
