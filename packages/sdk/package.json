@@ -57,7 +57,6 @@
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/react": "13.4.0",
-    "@testing-library/react-hooks": "8.0.1",
     "@types/jest": "29.2.0",
     "@types/node": "18.11.7",
     "@types/react": "18.0.24",
