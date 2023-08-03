@@ -66,6 +66,9 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onScroll = (e: UIEvent<HTMLDivElement>, direction: 'horizontal' | 'vertical') => {
+    if (!verticalScrollRef.current || !horizontalScrollRef.current) {
+      return;
+    }
     const el = e.target as HTMLElement;
     const { scrollTop: newScrollTop, scrollLeft } = el;
     const { rowInitSize, columnInitSize } = coordInstance;
@@ -105,11 +108,11 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
 
     const { startRowIndex, stopRowIndex } = getVerticalRangeInfo(
       coordInstance,
-      scrollProps.scrollTop ?? newScrollTop
+      scrollProps.scrollTop ?? verticalScrollRef.current.scrollTop
     );
     const { startColumnIndex, stopColumnIndex } = getHorizontalRangeInfo(
       coordInstance,
-      scrollProps.scrollTop ?? scrollLeft
+      scrollProps.scrollLeft ?? horizontalScrollRef.current.scrollLeft
     );
 
     onVisibleRegionChanged?.({
