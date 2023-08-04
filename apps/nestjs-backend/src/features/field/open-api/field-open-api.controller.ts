@@ -2,6 +2,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpStatus,
@@ -106,6 +107,15 @@ export class FieldOpenApiController {
     @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
   ) {
     const res = await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
+    return responseWrap(res);
+  }
+
+  @Delete(':fieldId')
+  @ApiOperation({ summary: 'Delete field by id' })
+  @ApiOkResponse({ description: 'The field has been successfully deleted.' })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
+    const res = await this.fieldOpenApiService.deleteField(tableId, fieldId);
     return responseWrap(res);
   }
 }

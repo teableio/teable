@@ -131,12 +131,22 @@ export class TableOpenApiService {
     const collection = `${IdPrefix.Table}_node`;
     const connection = this.shareDbService.getConnection(transactionKey);
     const doc = connection.get(collection, tableId);
-    return await new Promise<ITableVo>((resolve, reject) => {
+    const tableVo = await new Promise<ITableVo>((resolve, reject) => {
       doc.create(snapshot, (error) => {
         if (error) return reject(error);
         resolve(doc.data);
       });
     });
+
+    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+
+    return {
+      ...tableVo,
+      dbTableName,
+    };
   }
 
   private createTable2Op(tableVo: ITableOp) {

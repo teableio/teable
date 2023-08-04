@@ -58,6 +58,7 @@ describe('Update-Record Action Test', () => {
     jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((tableRo) =>
       Promise.resolve({
         name: `table1-${faker.string.nanoid()}`,
+        dbTableName: `table1-${faker.string.nanoid()}`,
         id: tableId,
         order: faker.number.int(),
         views: tableRo.views as IViewVo[],

@@ -5,6 +5,8 @@ export class TableCore implements ITableVo {
 
   name!: string;
 
+  dbTableName!: string;
+
   icon?: string;
 
   description?: string;

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   CellValueType,
@@ -287,38 +288,68 @@ export class FieldSupplementService implements ISupplementService {
   private async createForeignKeyField(
     prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
-    field: LinkFieldDto
+    dbForeignKeyName: string
   ) {
-    if (field.options.relationship !== Relationship.ManyOne) {
-      throw new Error('only many-one relationship should create foreign key field');
-    }
-
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const alterTableQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        table.string(field.options.dbForeignKeyName).unique().nullable();
+        table.string(dbForeignKeyName).unique().nullable();
       })
       .toQuery();
     await prisma.$executeRawUnsafe(alterTableQuery);
   }
 
-  async supplementByCreate(prisma: Prisma.TransactionClient, tableId: string, field: LinkFieldDto) {
+  private async deleteForeignKeyField(
+    prisma: Prisma.TransactionClient,
+    tableId: string, // tableId for current field belongs to
+    dbForeignKeyName: string
+  ) {
+    const dbTableName = await this.getDbTableName(prisma, tableId);
+    // sqlite cannot drop column, so we just set it to null
+    const nativeSql = this.knex(dbTableName)
+      .update({ [dbForeignKeyName]: null })
+      .toSQL()
+      .toNative();
+
+    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+  }
+
+  async createSupplementation(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    field: LinkFieldDto
+  ) {
     if (field.type !== FieldType.Link) {
       throw new Error('only link field need to create supplement field');
     }
 
-    const foreignTableId = field.options.foreignTableId;
-    const symmetricField = await this.generateSymmetricField(prisma, tableId, field);
+    const { foreignTableId, dbForeignKeyName, relationship } = field.options;
 
-    if (symmetricField.options.relationship === Relationship.ManyOne) {
-      await this.createForeignKeyField(prisma, foreignTableId, symmetricField);
+    if (relationship === Relationship.OneMany) {
+      await this.createForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
     }
 
-    if (field.options.relationship === Relationship.ManyOne) {
-      await this.createForeignKeyField(prisma, tableId, field);
+    if (relationship === Relationship.ManyOne) {
+      await this.createForeignKeyField(prisma, tableId, dbForeignKeyName);
     }
 
-    return symmetricField;
+    return await this.generateSymmetricField(prisma, tableId, field);
+  }
+
+  async deleteForeignKey(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    options: ILinkFieldOptions
+  ) {
+    const { foreignTableId, relationship, dbForeignKeyName } = options;
+
+    if (relationship === Relationship.OneMany) {
+      await this.deleteForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
+    }
+
+    if (relationship === Relationship.ManyOne) {
+      await this.deleteForeignKeyField(prisma, tableId, dbForeignKeyName);
+    }
   }
 
   async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
@@ -337,6 +368,41 @@ export class FieldSupplementService implements ISupplementService {
       default:
         break;
     }
+  }
+
+  async deleteReference(prisma: Prisma.TransactionClient, fieldId: string): Promise<string[]> {
+    const refRaw = await prisma.reference.findMany({
+      where: {
+        fromFieldId: fieldId,
+      },
+    });
+
+    await prisma.reference.deleteMany({
+      where: {
+        OR: [{ toFieldId: fieldId }, { fromFieldId: fieldId }],
+      },
+    });
+
+    return refRaw.map((ref) => ref.toFieldId);
+  }
+
+  async deleteLookupFieldReference(
+    prisma: Prisma.TransactionClient,
+    linkFieldId: string
+  ): Promise<string[]> {
+    const fieldsRaw = await prisma.field.findMany({
+      where: { lookupLinkedFieldId: linkFieldId },
+      select: { id: true },
+    });
+    const lookupFieldIds = fieldsRaw.map((field) => field.id);
+
+    // just need delete to field id, because lookup field still exist
+    await prisma.reference.deleteMany({
+      where: {
+        OR: [{ toFieldId: { in: lookupFieldIds } }],
+      },
+    });
+    return lookupFieldIds;
   }
 
   private async createLookupReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {

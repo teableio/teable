@@ -53,6 +53,15 @@ export interface ITopoItem {
   dependencies: string[];
 }
 
+export interface IUndirectedTopoItem {
+  fromFieldId: string;
+  toFieldId: string;
+}
+
+export interface IFieldMap {
+  [fieldId: string]: IFieldInstance;
+}
+
 interface IRecordItem {
   record: IRecord;
   calculated?: { [fieldId: string]: boolean };
@@ -159,6 +168,24 @@ export class ReferenceService {
     return this.formatChangesToOps(changes);
   }
 
+  protected getTopoOrdersByFieldId(
+    fieldIds: string[],
+    fieldMap: IFieldMap,
+    undirectedGraph: IUndirectedTopoItem[]
+  ) {
+    return fieldIds.reduce<{
+      [fieldId: string]: ITopoItem[];
+    }>((pre, fieldId) => {
+      const topoOrder = this.getTopologicalOrder(fieldId, undirectedGraph);
+      const firstField = fieldMap[topoOrder[0].id];
+      if (firstField.type === FieldType.Link) {
+        topoOrder.shift();
+      }
+      pre[fieldId] = topoOrder;
+      return pre;
+    }, {});
+  }
+
   async calculate(
     prisma: Prisma.TransactionClient,
     tableId: string,
@@ -188,16 +215,11 @@ export class ReferenceService {
     // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
 
     // topological sorting
-    const topoOrdersByFieldId = startFieldIds.reduce<{
-      [fieldId: string]: ITopoItem[];
-    }>((pre, fieldId) => {
-      const topoOrder = this.getTopologicalOrder(fieldId, undirectedGraph);
-      if (fieldMap[topoOrder[0].id].type === FieldType.Link) {
-        topoOrder.shift();
-      }
-      pre[fieldId] = topoOrder;
-      return pre;
-    }, {});
+    const topoOrdersByFieldId = this.getTopoOrdersByFieldId(
+      startFieldIds,
+      fieldMap,
+      undirectedGraph
+    );
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
     // submitted changed records
@@ -392,7 +414,7 @@ export class ReferenceService {
 
   protected calculateComputeField(
     field: IFieldInstance,
-    fieldMap: { [fieldId: string]: IFieldInstance },
+    fieldMap: IFieldMap,
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
@@ -446,11 +468,7 @@ export class ReferenceService {
     throw new Error(`Unsupported field type ${field.type}`);
   }
 
-  protected calculateFormula(
-    field: IFieldInstance,
-    fieldMap: { [fieldId: string]: IFieldInstance },
-    recordItem: IRecordItem
-  ) {
+  protected calculateFormula(field: IFieldInstance, fieldMap: IFieldMap, recordItem: IRecordItem) {
     if (field.type === FieldType.Formula) {
       const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
       return typedValue.toPlain();
@@ -624,7 +642,7 @@ export class ReferenceService {
       return pre;
     }, {});
 
-    const fieldMap = fieldRaws.reduce<{ [fieldId: string]: IFieldInstance }>((pre, f) => {
+    const fieldMap = fieldRaws.reduce<IFieldMap>((pre, f) => {
       pre[f.id] = createFieldInstanceByRaw(f);
       return pre;
     }, {});
@@ -652,7 +670,7 @@ export class ReferenceService {
 
   protected collectChanges(
     orders: ITopoItemWithRecords[],
-    fieldMap: { [fieldId: string]: IFieldInstance },
+    fieldMap: IFieldMap,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
     fkRecordMap: IFkRecordMapByDbTableName
@@ -717,7 +735,7 @@ export class ReferenceService {
     fieldId2TableId: { [fieldId: string]: string };
     tableId2DbTableName: { [tableId: string]: string };
     topoOrders: ITopoItem[];
-    fieldMap: { [fieldId: string]: IFieldInstance };
+    fieldMap: IFieldMap;
   }): ITopoLinkOrder[] {
     const newOrder: ITopoLinkOrder[] = [];
     const { tableId2DbTableName, fieldId2TableId, topoOrders, fieldMap } = params;
@@ -777,20 +795,20 @@ export class ReferenceService {
     );
 
     const results: {
-      [tableName: string]: { [fieldName: string]: unknown }[];
+      [dbTableName: string]: { [dbFieldName: string]: unknown }[];
     } = {};
     for (const dbTableName in recordIdsByTableName) {
       // deduplication is needed
       const recordIds = uniq(recordIdsByTableName[dbTableName].map((r) => r.id));
-      const fieldNames = dbTableName2fields[dbTableName]
+      const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
         .concat([...preservedFieldName]);
       const nativeSql = this.knex(dbTableName)
-        .select(fieldNames)
+        .select(dbFieldNames)
         .whereIn('__id', recordIds)
         .toSQL()
         .toNative();
-      const result = await prisma.$queryRawUnsafe<{ [fieldName: string]: unknown }[]>(
+      const result = await prisma.$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
         nativeSql.sql,
         ...nativeSql.bindings
       );
@@ -892,7 +910,7 @@ export class ReferenceService {
     topoOrders: ITopoItem[];
     tableId2DbTableName: { [tableId: string]: string };
     fieldId2TableId: { [fieldId: string]: string };
-    fieldMap: { [fieldId: string]: IFieldInstance };
+    fieldMap: IFieldMap;
     dbTableName2records: { [tableName: string]: IRecord[] };
     affectedRecordItems: IRecordRefItem[];
     dependentRecordItems: IRecordRefItem[];
@@ -962,7 +980,7 @@ export class ReferenceService {
     },
     dbTableName2fields: { [tableId: string]: IFieldInstance[] }
   ): {
-    [tableName: string]: IRecord[];
+    [dbTableName: string]: IRecord[];
   } {
     return Object.entries(formattedResults).reduce<{
       [dbTableName: string]: IRecord[];
@@ -1025,7 +1043,10 @@ export class ReferenceService {
     return sortedNodes.reverse();
   }
 
-  protected async getDependentNodesCTE(prisma: Prisma.TransactionClient, startFieldIds: string[]) {
+  protected async getDependentNodesCTE(
+    prisma: Prisma.TransactionClient,
+    startFieldIds: string[]
+  ): Promise<IUndirectedTopoItem[]> {
     let result: { fromFieldId: string; toFieldId: string }[] = [];
     const getResult = async (startFieldId: string) => {
       const dependentNodesQuery = Prisma.sql`

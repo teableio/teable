@@ -1,8 +1,12 @@
+import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { IRecord, IUpdateRecordRo } from '@teable-group/core';
+import { FieldKeyType } from '@teable-group/core';
 import { json, urlencoded } from 'express';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
 import { WsGateway } from '../../src/ws/ws.gateway';
@@ -39,4 +43,41 @@ export async function initApp() {
   console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
   console.log(`> Jest Test Ready on ${await app.getUrl()}`);
   return app;
+}
+
+export async function updateRecordByApi(
+  app: INestApplication,
+  tableId: string,
+  recordId: string,
+  fieldId: string,
+  newValues: unknown
+): Promise<IRecord> {
+  return (
+    await request(app.getHttpServer())
+      .put(`/api/table/${tableId}/record/${recordId}`)
+      .send({
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [fieldId]: newValues,
+          },
+        },
+      } as IUpdateRecordRo)
+      .expect(200)
+  ).body.data;
+}
+
+export async function getRecord(
+  app: INestApplication,
+  tableId: string,
+  recordId: string
+): Promise<IRecord> {
+  return (
+    await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record/${recordId}`)
+      .query({
+        fieldKeyType: FieldKeyType.Id,
+      })
+      .expect(200)
+  ).body.data;
 }

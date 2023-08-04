@@ -55,6 +55,7 @@ describe('Create-Record Action Test', () => {
     jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((tableRo) =>
       Promise.resolve({
         name: 'table1-automation-add',
+        dbTableName: 'table1-automation-add',
         id: tableId,
         order: 1,
         views: tableRo.views as IViewVo[],

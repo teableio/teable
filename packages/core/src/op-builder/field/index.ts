@@ -10,3 +10,4 @@ export * from './set-field-options';
 export * from './set-field-type';
 export * from './set-field-unique';
 export * from './set-field-not-null';
+export * from './set-field-has-error';
