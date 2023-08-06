@@ -910,6 +910,7 @@ export const drawColumnHeadersRegion = (
 export const computeShouldRerender = (current: ILayoutDrawerProps, last?: ILayoutDrawerProps) => {
   if (last == null) return true;
   return !(
+    current.theme === last.theme &&
     current.columns === last.columns &&
     current.getCellContent === last.getCellContent &&
     current.coordInstance === last.coordInstance &&

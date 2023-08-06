@@ -124,7 +124,7 @@ export const GridView: React.FC = () => {
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      gridViewStore.openHeaderMenu({ fieldIds: [fieldId], position: { x, y: height } });
+      gridViewStore.openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
     },
     [columns, gridViewStore]
   );
