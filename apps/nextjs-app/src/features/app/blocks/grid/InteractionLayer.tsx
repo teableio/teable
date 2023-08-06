@@ -113,6 +113,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const visibleRegion = useVisibleRegion(coordInstance, scrollState);
   const {
     columnResizeState,
+    hoveredColumnResizeIndex,
     setColumnResizeState,
     onColumnResizeStart,
     onColumnResizeChange,
@@ -346,7 +347,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onMouseMove = () => {
     const mouseState = getMouseState();
     const { type } = mouseState;
-    setMouseState(mouseState);
+    setMouseState(() => mouseState);
     setCursorStyle(type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
@@ -439,6 +440,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           selection={selection}
           isSelecting={isSelecting}
           columnResizeState={columnResizeState}
+          hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
           isColumnResizable={onColumnResize != null}
