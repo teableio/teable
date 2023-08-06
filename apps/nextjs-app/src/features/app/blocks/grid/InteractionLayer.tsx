@@ -354,7 +354,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onDragChange(mouseState);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
-      onColumnResize?.(columns[columnIndex], newWidth, columnIndex, newWidth);
+      onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
   };
 

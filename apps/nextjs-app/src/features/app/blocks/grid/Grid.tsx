@@ -39,12 +39,7 @@ export interface IGridExternalProps {
   onCellActivated?: (cell: ICellItem) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
-  onColumnResize?: (
-    column: IGridColumn,
-    newSize: number,
-    colIndex: number,
-    newSizeWithGrow: number
-  ) => void;
+  onColumnResize?: (column: IGridColumn, newSize: number, colIndex: number) => void;
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
@@ -106,11 +101,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   useImperativeHandle(forwardRef, () => ({
     getBounds: (colIndex: number, rowIndex: number) => {
-      const { freezeColumnCount } = coordInstance;
       const { scrollTop, scrollLeft } = scrollState;
-      const offsetX = coordInstance.getColumnOffset(colIndex);
       return {
-        x: colIndex < freezeColumnCount ? offsetX : offsetX - scrollLeft,
+        x: coordInstance.getColumnRelativeOffset(colIndex, scrollLeft),
         y: coordInstance.getRowOffset(rowIndex) - scrollTop,
         width: coordInstance.getColumnWidth(colIndex),
         height: coordInstance.getRowHeight(rowIndex),

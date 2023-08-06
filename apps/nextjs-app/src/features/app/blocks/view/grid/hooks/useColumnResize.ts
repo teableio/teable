@@ -27,7 +27,7 @@ export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   );
 
   const onColumnResize = useCallback(
-    (column: IGridColumn, newSize: number, colIndex: number, _newSizeWithGrow: number) => {
+    (column: IGridColumn, newSize: number, colIndex: number) => {
       const fieldId = column.id;
       const field = fields[colIndex];
       if (!field) {
