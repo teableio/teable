@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IRectangle } from '../../interface';
-import { drawRect, drawSingleLineText, drawText } from '../base-renderer/baseRenderer';
+import { drawRect, drawSingleLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
 import type {
   IInternalCellRenderer,
@@ -77,6 +77,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         fill: textColor,
         maxWidth: maxTextWidth,
         needRender: false,
+        fontSize: fontSizeXS,
       });
 
       const width = displayWidth + OPTION_GAP_SIZE * 2;
@@ -95,11 +96,12 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         radius: 8,
         fill: bgColor,
       });
-      drawText(ctx, {
-        x: x + OPTION_GAP_SIZE,
-        y: y + 5,
+      drawSingleLineText(ctx, {
         text: displayText,
+        x: x + OPTION_GAP_SIZE,
+        y: y + 4,
         fill: textColor,
+        maxWidth: maxTextWidth,
       });
 
       x += width + 8;

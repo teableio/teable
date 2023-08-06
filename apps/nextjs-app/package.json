@@ -148,6 +148,7 @@
     "is-port-reachable": "3.1.0",
     "jose": "4.10.3",
     "lodash": "4.17.21",
+    "lru-cache": "10.0.0",
     "lucide-react": "0.244.0",
     "marked": "4.2.12",
     "micro": "9.4.1",
