@@ -7670,6 +7670,7 @@ __metadata:
     superjson: 1.11.0
     symlink-dir: 5.0.1
     sync-directory: 5.1.9
+    tailwind-scrollbar: 3.0.5
     tailwindcss: 3.2.1
     ts-jest: 29.0.3
     ts-key-enum: 2.0.12
@@ -28219,6 +28220,15 @@ __metadata:
   version: 1.13.2
   resolution: "tailwind-merge@npm:1.13.2"
   checksum: 8f9de3bd1e6271f5980f863ab85e0103f062bf84d814d3188bf6870af7eb43725ea40493ef0693dedd652b668cbdfcd6544235b16b70d438ed20bca6118a9066
+  languageName: node
+  linkType: hard
+
+"tailwind-scrollbar@npm:3.0.5":
+  version: 3.0.5
+  resolution: "tailwind-scrollbar@npm:3.0.5"
+  peerDependencies:
+    tailwindcss: 3.x
+  checksum: 5bd7f36c90dce14f789d946fa37969d5951fd0282fdf0bac7ea38d7f252fc5d7acff942e21ccf1eca23cd6d31906dac08ef873530f296b5b75e01118d805cc91
   languageName: node
   linkType: hard
 

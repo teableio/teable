@@ -182,7 +182,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     <>
       <div
         ref={horizontalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-scroll overflow-y-hidden h-4 left-0 bottom-0"
+        className="absolute will-change-transform cursor-pointer overflow-x-scroll overflow-y-hidden h-4 left-0 bottom-0 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-ring"
         style={{
           left,
           width: containerWidth - left,
@@ -199,7 +199,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       </div>
       <div
         ref={verticalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-hidden overflow-y-scroll w-4 right-0"
+        className="absolute will-change-transform cursor-pointer overflow-x-hidden overflow-y-scroll w-4 right-0 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-ring"
         style={{
           top,
           height: containerHeight - top,
