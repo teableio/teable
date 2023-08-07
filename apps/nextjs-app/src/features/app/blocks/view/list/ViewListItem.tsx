@@ -42,6 +42,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           onDoubleClick={() => {
             setIsEditing(true);
           }}
+          shallow={true}
           onClick={(e) => {
             if (isActive) {
               e.preventDefault();

@@ -4,6 +4,7 @@ import { Button } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { DeleteTable } from './DeleteTable';
 
@@ -14,7 +15,8 @@ interface IProps {
 
 export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
-
+  const router = useRouter();
+  const viewId = router.query.viewId;
   return (
     <>
       <Button
@@ -30,10 +32,12 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
       >
         <Link
           href={{
-            pathname: '/space/[tableId]',
-            query: { tableId: table.id },
+            pathname: '/space/[tableId]/[viewId]',
+            query: { tableId: table.id, viewId: table.defaultViewId },
           }}
           title={table.name}
+          // when switch between tables, page will not change we should just do shallow routing
+          shallow={Boolean(viewId)}
           onDoubleClick={() => {
             setIsEditing(true);
           }}
@@ -43,9 +47,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             }
           }}
         >
-          {table.icon || <Table2 className="w-4 h-4" />}
-          <p className="grow">{' ' + table.name}</p>
-          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block" />
+          {table.icon || <Table2 className="w-4 h-4 shrink-0" />}
+          <p className="grow overflow-hidden text-ellipsis whitespace-nowrap">{' ' + table.name}</p>
+          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block shrink-0" />
         </Link>
       </Button>
       {isEditing && (

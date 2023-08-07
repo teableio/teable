@@ -139,10 +139,12 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   afterAll(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`).expect(200);
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`).expect(200);
-
-    await app.close();
+    try {
+      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`).expect(200);
+      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`).expect(200);
+    } finally {
+      await app.close();
+    }
   });
 
   beforeEach(async () => {

@@ -8,7 +8,7 @@ import { useInstances } from '../use-instances';
 import { ViewContext } from './ViewContext';
 
 interface IViewProviderProps {
-  fallback: ReactNode;
+  fallback?: ReactNode;
   serverData?: IViewVo[];
   children: ReactNode;
 }

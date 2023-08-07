@@ -654,17 +654,18 @@ export const drawColumnHeaders = (
       fill = columnHeaderBgHovered;
     }
 
-    drawColumnHeader(ctx, {
-      x: x + 0.5,
-      y: 0.5,
-      width: columnWidth,
-      height: rowInitSize,
-      column: columns[columnIndex],
-      fill,
-      hasMenu: isColumnHeaderMenuVisible,
-      theme,
-      spriteManager,
-    });
+    columns[columnIndex] &&
+      drawColumnHeader(ctx, {
+        x: x + 0.5,
+        y: 0.5,
+        width: columnWidth,
+        height: rowInitSize,
+        column: columns[columnIndex],
+        fill,
+        hasMenu: isColumnHeaderMenuVisible,
+        theme,
+        spriteManager,
+      });
   }
 
   ctx.restore();

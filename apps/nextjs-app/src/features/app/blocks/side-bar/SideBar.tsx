@@ -25,7 +25,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <Link href="/space" className="font-normal">
-                  <Home className="h-4 w-4 shrink-0" /> Home
+                  <Home className="h-4 w-4 shrink-0" />
+                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Home</p>
                   <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘H︎</p>
                 </Link>
@@ -39,7 +40,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <Link className="py-1 font-normal" href="/space/dashboard">
-                  <Bell className="h-4 w-4 shrink-0" /> Notification
+                  <Bell className="h-4 w-4 shrink-0" />
+                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Notification</p>
                   <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘T</p>
                 </Link>
@@ -53,7 +55,8 @@ export const SideBar: React.FC = () => {
                 className="w-full justify-start text-sm px-2"
               >
                 <a className="py-1 font-normal">
-                  <PackageCheck className="h-4 w-4 shrink-0" /> Automation
+                  <PackageCheck className="h-4 w-4 shrink-0" />
+                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Automation</p>
                   <div className="grow basis-0"></div>
                   <p className="text-xs text-slate-500">⌘A</p>
                 </a>

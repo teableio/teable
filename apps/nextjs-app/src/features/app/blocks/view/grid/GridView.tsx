@@ -42,6 +42,7 @@ export const GridView: React.FC = () => {
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
+  const isLoading = !view;
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
     useAsyncData(
@@ -211,7 +212,7 @@ export const GridView: React.FC = () => {
 
   useUpdateEffect(() => {
     gridRef.current?.forceUpdate();
-  }, [view?.filter]);
+  }, [view]);
 
   const onDelete = (selection: CombinedSelection) => {
     clear(selection);
@@ -227,7 +228,7 @@ export const GridView: React.FC = () => {
 
   return (
     <div ref={container} className="relative grow w-full overflow-hidden">
-      {isReadyToRender && (
+      {isReadyToRender && !isLoading ? (
         <Grid
           ref={gridRef}
           theme={theme}
@@ -258,6 +259,25 @@ export const GridView: React.FC = () => {
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
           onCopy={onCopy}
           onPaste={onPaste}
+        />
+      ) : (
+        <Grid
+          ref={gridRef}
+          theme={theme}
+          rowCount={3}
+          rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+          freezeColumnCount={0}
+          columns={Array.from({ length: 4 }).map(() => ({ name: '' }))}
+          smoothScrollX
+          smoothScrollY
+          customIcons={customIcons}
+          rowControls={rowControls}
+          style={{
+            marginLeft: 8,
+            width: 'calc(100% - 8px)',
+            height: '100%',
+          }}
+          getCellContent={getCellContent}
         />
       )}
       <DomBox />

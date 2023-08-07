@@ -94,6 +94,7 @@ export class TableOpenApiService {
           total: tableRo.records.length,
           fields: fieldVos,
           views: viewVos,
+          defaultViewId: viewVos[0].id,
           records,
         };
       }

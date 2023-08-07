@@ -7,7 +7,7 @@ export function useAddView() {
   const table = useTable();
   const views = useViews();
   const router = useRouter();
-  const viewName = views[views.length - 1].name + ' ' + views.length;
+  const viewName = views[views.length - 1]?.name + ' ' + views.length;
 
   return useCallback(async () => {
     if (!table) {
