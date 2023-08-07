@@ -1,3 +1,4 @@
+export * from './utils';
 export * from './ui/button';
 export * from './ui/calendar';
 export * from './ui/command';
@@ -15,3 +16,6 @@ export * from './ui/toaster';
 export * from './ui/use-toast';
 export * from './ui/tooltip';
 export * from './ui/checkbox';
+export * from './ui/avatar';
+export * from './ui/tabs';
+export * from './ui/card';

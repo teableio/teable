@@ -2,15 +2,12 @@ import type { ITableVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
+import DashboardPage from '@/features/app/dashboard/Pages';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { NextPageWithLayout } from '../_app';
 
 const Space: NextPageWithLayout = () => {
-  return (
-    <div className="grow flex flex-col h-full p-4 basis-[600px]">
-      <h1>Welcome to Teable</h1>
-    </div>
-  );
+  return <DashboardPage />;
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
