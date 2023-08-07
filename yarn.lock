@@ -7622,6 +7622,7 @@ __metadata:
     "@tanstack/react-query": 4.13.0
     "@teable-group/common-i18n": "workspace:^"
     "@teable-group/core": "workspace:^"
+    "@teable-group/icons": "workspace:^"
     "@teable-group/openapi": "workspace:^"
     "@teable-group/sdk": "workspace:^"
     "@teable/sharedb": 3.3.11
@@ -7950,7 +7951,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@teable-group/icons@workspace:*, @teable-group/icons@workspace:packages/icons":
+"@teable-group/icons@workspace:*, @teable-group/icons@workspace:^, @teable-group/icons@workspace:packages/icons":
   version: 0.0.0-use.local
   resolution: "@teable-group/icons@workspace:packages/icons"
   dependencies:
@@ -7965,7 +7966,7 @@ __metadata:
     chalk: 5.3.0
     dotenv: 16.3.1
     eslint: 8.26.0
-    figma-api-exporter: 0.0.2
+    figma-js: 1.16.0
     fs-extra: 11.1.1
     lodash: 4.17.21
     rimraf: 3.0.2
@@ -11026,15 +11027,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^0.19.1":
-  version: 0.19.2
-  resolution: "axios@npm:0.19.2"
-  dependencies:
-    follow-redirects: "npm:1.5.10"
-  checksum: dcace11a0a25fdf9b3b97fc9d011d23dd9c67cc13d91778080482ddddbbfe731f7410a090b11aa0bbbdf83686c5911ccb4289fd3683b7488c1b0c4d3c882380c
-  languageName: node
-  linkType: hard
-
 "axios@npm:^0.21.1":
   version: 0.21.4
   resolution: "axios@npm:0.21.4"
@@ -13809,15 +13801,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:=3.1.0":
-  version: 3.1.0
-  resolution: "debug@npm:3.1.0"
-  dependencies:
-    ms: "npm:2.0.0"
-  checksum: 0b52718ab957254a5b3ca07fc34543bc778f358620c206a08452251eb7fc193c3ea3505072acbf4350219c14e2d71ceb7bdaa0d3370aa630b50da790458d08b3
-  languageName: node
-  linkType: hard
-
 "debug@npm:^3.0.0, debug@npm:^3.2.7":
   version: 3.2.7
   resolution: "debug@npm:3.2.7"
@@ -16107,33 +16090,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"figma-api-exporter@npm:0.0.2":
-  version: 0.0.2
-  resolution: "figma-api-exporter@npm:0.0.2"
-  dependencies:
-    axios: "npm:^0.19.1"
-    figma-js: "npm:^1.9.0"
-    figma-transformer: "npm:^1.0.0"
-    fs: "npm:^0.0.1-security"
-    ramda: "npm:^0.26.1"
-    rimraf: "npm:^3.0.0"
-  checksum: aa69590a114f5553dcbd1848fd59ebef7cb66e27296072f616ff8ac8e08451cdbd3afaec5b88de078501e5c1350a4caae1d9705a3e14d5d79e376acb0119238d
-  languageName: node
-  linkType: hard
-
-"figma-js@npm:^1.9.0":
+"figma-js@npm:1.16.0":
   version: 1.16.0
   resolution: "figma-js@npm:1.16.0"
   dependencies:
     axios: "npm:^0.21.1"
   checksum: 17413bc2e851f5c9fc679939e78f74272ab5a28382d00e204c02c1166e36b63149f1aa625d0033017f9f4fa368d961a903295373358a767f62f4018585f6e337
-  languageName: node
-  linkType: hard
-
-"figma-transformer@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "figma-transformer@npm:1.0.0"
-  checksum: cd132af27f67708ce2f247ddc713e619726262b0e9696d0b51d31d6b955b9c952f8865f88b56da82b2e76df2e9e348c1994017278cd3302fe8474a053c9b04de
   languageName: node
   linkType: hard
 
@@ -16358,15 +16320,6 @@ __metadata:
   version: 1.1.0
   resolution: "fn.name@npm:1.1.0"
   checksum: e357144f48cfc9a7f52a82bbc6c23df7c8de639fce049cac41d41d62cabb740cdb9f14eddc6485e29c933104455bdd7a69bb14a9012cef9cd4fa252a4d0cf293
-  languageName: node
-  linkType: hard
-
-"follow-redirects@npm:1.5.10":
-  version: 1.5.10
-  resolution: "follow-redirects@npm:1.5.10"
-  dependencies:
-    debug: "npm:=3.1.0"
-  checksum: 0edc4b74e37e7b88ee716188a8f2a790238877c1d954f00c7b78d560f3bef40061c130536d13bee8e47b4e8e71edf1175a2de2729e51ab8206e4646b2370e484
   languageName: node
   linkType: hard
 
@@ -16699,13 +16652,6 @@ __metadata:
   version: 1.0.0
   resolution: "fs.realpath@npm:1.0.0"
   checksum: 99ddea01a7e75aa276c250a04eedeffe5662bce66c65c07164ad6264f9de18fb21be9433ead460e54cff20e31721c811f4fb5d70591799df5f85dce6d6746fd0
-  languageName: node
-  linkType: hard
-
-"fs@npm:^0.0.1-security":
-  version: 0.0.1-security
-  resolution: "fs@npm:0.0.1-security"
-  checksum: 53c6230e1faae9fa32c1df82c16a84b51b1243d20f3da2b64bd110bb472b73b9185169b703e008356e3cdc92d155088b617d9d39a63b5227a30b3621baad7f5d
   languageName: node
   linkType: hard
 
@@ -25155,13 +25101,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ramda@npm:^0.26.1":
-  version: 0.26.1
-  resolution: "ramda@npm:0.26.1"
-  checksum: 19c2730e44c129538151ae034c89be9b2c6a4ccc7c65cff57497418bc532ce09282f98cd927c39b0b03c6bc3f1d1a12d822b7b07f96a1634f4958a6c05b7b384
-  languageName: node
-  linkType: hard
-
 "randombytes@npm:^2.0.0, randombytes@npm:^2.0.1, randombytes@npm:^2.0.5, randombytes@npm:^2.1.0":
   version: 2.1.0
   resolution: "randombytes@npm:2.1.0"
@@ -26520,7 +26459,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rimraf@npm:3.0.2, rimraf@npm:^3.0.0, rimraf@npm:^3.0.2":
+"rimraf@npm:3.0.2, rimraf@npm:^3.0.2":
   version: 3.0.2
   resolution: "rimraf@npm:3.0.2"
   dependencies:
