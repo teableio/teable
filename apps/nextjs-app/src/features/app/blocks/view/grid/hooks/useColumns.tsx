@@ -2,12 +2,15 @@ import type { IAttachmentCellValue } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
+import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import { getFileCover } from '@/features/app/utils';
 import type { IGridColumn, ICell } from '../../../grid';
 import { CellType, EditorPosition } from '../../../grid';
 import { DateEditor, LinkEditor } from '../components';
 import { AttachmentEditor } from '../components/editor/AttachmentEditor';
+
+const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
 const generateColumns = (
   fields: IFieldInstance[],
@@ -50,20 +53,33 @@ const createCellValue2GridDisplay =
     const cellValue = record.getCellValue(id);
 
     switch (type) {
-      case FieldType.Date:
       case FieldType.Rollup:
       case FieldType.Formula:
       case FieldType.SingleLineText: {
-        const isDateField = type === FieldType.Date;
         return {
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
-          editorPosition: isDateField ? EditorPosition.Below : EditorPosition.Overlap,
-          customEditor: isDateField
-            ? (props) => <DateEditor field={field} record={record} {...props} />
-            : undefined,
+        };
+      }
+      case FieldType.Date: {
+        let displayData = '';
+        const cacheKey = `${id}-${cellValue}`;
+
+        if (cellValueStringCache.has(cacheKey)) {
+          displayData = cellValueStringCache.get(cacheKey) || '';
+        } else {
+          displayData = field.cellValue2String(cellValue);
+          cellValueStringCache.set(cacheKey, displayData);
+        }
+        return {
+          type: CellType.Text,
+          data: (cellValue as string) || '',
+          displayData,
+          readonly: isComputed,
+          editorPosition: EditorPosition.Below,
+          customEditor: (props) => <DateEditor field={field} record={record} {...props} />,
         };
       }
       case FieldType.Number: {

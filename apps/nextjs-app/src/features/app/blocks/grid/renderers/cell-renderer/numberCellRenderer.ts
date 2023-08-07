@@ -25,7 +25,6 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
       maxWidth: width - cellHorizontalPadding * 2,
       fill: cellTextColor,
       textAlign: 'right',
-      verticalAlign: 'top',
     });
   },
 };

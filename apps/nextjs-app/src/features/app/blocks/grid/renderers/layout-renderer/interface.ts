@@ -2,7 +2,6 @@ import type { IGridTheme } from '../../configs';
 import type { IGridColumn, IRowControlItem } from '../../interface';
 import type { ImageManager, SpriteManager } from '../../managers';
 import type { IRenderLayerProps } from '../../RenderLayer';
-import type { ICell } from '../cell-renderer';
 
 export interface ICellPosition {
   x: number;
@@ -12,7 +11,7 @@ export interface ICellPosition {
 }
 
 export interface ICellDrawerProps extends ICellPosition {
-  cell: ICell;
+  getCellContent: IRenderLayerProps['getCellContent'];
   theme: IGridTheme;
   fill?: string;
   stroke?: string;
@@ -59,5 +58,13 @@ export enum RenderRegion {
 }
 
 export interface ILayoutDrawerProps extends IRenderLayerProps {
-  shouldRebuild?: boolean;
+  shouldRerender?: boolean;
+}
+
+export interface ICacheDrawerProps {
+  containerWidth: number;
+  containerHeight: number;
+  pixelRatio: number;
+  shouldRerender?: boolean;
+  draw: (cacheCtx: CanvasRenderingContext2D) => void;
 }

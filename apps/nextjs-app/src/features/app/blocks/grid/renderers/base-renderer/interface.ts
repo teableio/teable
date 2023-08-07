@@ -81,9 +81,3 @@ export interface IMultiLineTextProps extends ITextBaseProps {
   fill?: string;
   lineHeight?: number;
 }
-
-export interface ITextProps extends ITextBaseProps {
-  x: number;
-  y: number;
-  fill?: string;
-}

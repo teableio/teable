@@ -7622,6 +7622,7 @@ __metadata:
     jest-css-modules-transform: 4.4.2
     jose: 4.10.3
     lodash: 4.17.21
+    lru-cache: 10.0.0
     lucide-react: 0.244.0
     marked: 4.2.12
     micro: 9.4.1
@@ -7668,6 +7669,7 @@ __metadata:
     superjson: 1.11.0
     symlink-dir: 5.0.1
     sync-directory: 5.1.9
+    tailwind-scrollbar: 3.0.5
     tailwindcss: 3.2.1
     ts-jest: 29.0.3
     ts-key-enum: 2.0.12
@@ -20314,6 +20316,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lru-cache@npm:10.0.0, lru-cache@npm:^9.1.1 || ^10.0.0":
+  version: 10.0.0
+  resolution: "lru-cache@npm:10.0.0"
+  checksum: 18f101675fe283bc09cda0ef1e3cc83781aeb8373b439f086f758d1d91b28730950db785999cd060d3c825a8571c03073e8c14512b6655af2188d623031baf50
+  languageName: node
+  linkType: hard
+
 "lru-cache@npm:^4.0.1":
   version: 4.1.5
   resolution: "lru-cache@npm:4.1.5"
@@ -20346,13 +20355,6 @@ __metadata:
   version: 7.10.1
   resolution: "lru-cache@npm:7.10.1"
   checksum: e8b190d71ed0fcd7b29c71a3e9b01f851c92d1ef8865ff06b5581ca991db1e5e006920ed4da8b56da1910664ed51abfd76c46fb55e82ac252ff6c970ff910d72
-  languageName: node
-  linkType: hard
-
-"lru-cache@npm:^9.1.1 || ^10.0.0":
-  version: 10.0.0
-  resolution: "lru-cache@npm:10.0.0"
-  checksum: 18f101675fe283bc09cda0ef1e3cc83781aeb8373b439f086f758d1d91b28730950db785999cd060d3c825a8571c03073e8c14512b6655af2188d623031baf50
   languageName: node
   linkType: hard
 
@@ -28181,6 +28183,15 @@ __metadata:
   version: 1.13.2
   resolution: "tailwind-merge@npm:1.13.2"
   checksum: 8f9de3bd1e6271f5980f863ab85e0103f062bf84d814d3188bf6870af7eb43725ea40493ef0693dedd652b668cbdfcd6544235b16b70d438ed20bca6118a9066
+  languageName: node
+  linkType: hard
+
+"tailwind-scrollbar@npm:3.0.5":
+  version: 3.0.5
+  resolution: "tailwind-scrollbar@npm:3.0.5"
+  peerDependencies:
+    tailwindcss: 3.x
+  checksum: 5bd7f36c90dce14f789d946fa37969d5951fd0282fdf0bac7ea38d7f252fc5d7acff942e21ccf1eca23cd6d31906dac08ef873530f296b5b75e01118d805cc91
   languageName: node
   linkType: hard
 
