@@ -11,7 +11,6 @@ import { dbType2knexFormat } from '../field/util';
 import type { ICellChange, IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ReferenceService, nameConsole, IOpsMap } from './reference.service';
-import { composeMaps } from './utils/compose-maps';
 
 export interface IRawOp {
   src: string;
@@ -32,6 +31,14 @@ interface IOpsData {
   };
   version: number;
   rawOp: IRawOp;
+}
+
+interface IPreparedContext {
+  fieldMap: IFieldMap;
+  topoOrdersByFieldId: { [fieldId: string]: ITopoItem[] };
+  tableId2DbTableName: { [tableId: string]: string };
+  dbTableName2fields: { [dbTableName: string]: IFieldInstance[] };
+  fieldId2TableId: { [fieldId: string]: string };
 }
 
 export interface IRawOpMap {
@@ -163,34 +170,23 @@ export class FieldBatchCalculationService extends ReferenceService {
     src: string,
     tableId: string,
     fieldIds: string[],
-    toDeleteFieldIds?: string[]
+    reset?: boolean
   ): Promise<IRawOpMap | undefined> {
-    const resetResult =
-      toDeleteFieldIds && (await this.getChangedOpsMapByReset(prisma, tableId, toDeleteFieldIds));
-    const calculateResult = await this.getChangedOpsMap(
-      prisma,
-      tableId,
-      fieldIds,
-      toDeleteFieldIds
-    );
+    const result = reset
+      ? await this.getChangedOpsMapByReset(prisma, tableId, fieldIds)
+      : await this.getChangedOpsMap(prisma, tableId, fieldIds);
 
-    console.log({ fieldIds, toDeleteFieldIds });
-    console.log({ resetResult, calculateResult });
-
-    if (!resetResult && !calculateResult) {
+    if (!result) {
       return;
     }
-    const opsMap = composeMaps([resetResult?.opsMap, calculateResult?.opsMap]);
-    const fieldMap = Object.assign({}, resetResult?.fieldMap, calculateResult?.fieldMap);
-    const tableId2DbTableName = Object.assign(
-      {},
-      resetResult?.tableId2DbTableName,
-      calculateResult?.tableId2DbTableName
-    );
+    const { opsMap, fieldMap, tableId2DbTableName } = result;
     return await this.batchSave(prisma, src, opsMap, fieldMap, tableId2DbTableName);
   }
 
-  private async prepareContexts(prisma: Prisma.TransactionClient, fieldIds: string[]) {
+  private async prepareContext(
+    prisma: Prisma.TransactionClient,
+    fieldIds: string[]
+  ): Promise<IPreparedContext> {
     const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
 
     // get all related field by undirected graph
@@ -229,8 +225,6 @@ export class FieldBatchCalculationService extends ReferenceService {
     let originRecordIdItems: { dbTableName: string; id: string }[] = [];
     for (const fieldId in topoOrdersByFieldId) {
       const topoOrders = topoOrdersByFieldId[fieldId];
-      // console.log('field:', fieldMap[fieldId]);
-      // console.log('topoOrders:', topoOrders);
       const linkOrders = this.getLinkOrderFromTopoOrders({
         tableId2DbTableName,
         topoOrders,
@@ -248,8 +242,6 @@ export class FieldBatchCalculationService extends ReferenceService {
         tableId2DbTableName,
         fieldMap[fieldId]
       );
-
-      console.log('getOriginComputedRecords', originItems);
 
       if (!originItems.length) {
         continue;
@@ -292,15 +284,21 @@ export class FieldBatchCalculationService extends ReferenceService {
   @Timing()
   async getChangedOpsMapByReset(
     prisma: Prisma.TransactionClient,
-    _tableId: string,
+    tableId: string,
     fieldIds: string[]
   ) {
     if (!fieldIds.length) {
       return undefined;
     }
 
-    const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
-      await this.createAuxiliaryData(prisma, fieldIds);
+    const context = await this.prepareContext(prisma, fieldIds);
+    const {
+      fieldMap,
+      topoOrdersByFieldId,
+      dbTableName2fields,
+      tableId2DbTableName,
+      fieldId2TableId,
+    } = context;
 
     const dbTableName2records = await this.getRecordsBatchByFieldId(prisma, dbTableName2fields);
 
@@ -326,29 +324,80 @@ export class FieldBatchCalculationService extends ReferenceService {
       return;
     }
 
-    const opsMap = this.formatChangesToOps(changes);
+    const remainsTopoOrders = Object.values(topoOrdersByFieldId).reduce<{
+      [fieldId: string]: ITopoItem[];
+    }>((pre, order) => {
+      const newOrder = [...order];
+      newOrder.shift();
+      if (newOrder.length) {
+        pre[newOrder[0].id] = newOrder;
+      }
+      return pre;
+    }, {});
+
+    // filter unnecessary fields
+    const remainsDbTableName2fields = Object.entries(dbTableName2fields).reduce<{
+      [dbTableName: string]: IFieldInstance[];
+    }>((pre, [key, fields]) => {
+      pre[key] = fields.filter((field) =>
+        Object.values(remainsTopoOrders)
+          .flat()
+          .flatMap((order) => order.dependencies)
+          .find((fieldId) => fieldId === field.id)
+      );
+      return pre;
+    }, {});
+
+    const remainsChanges = await this.calculateChanges(
+      prisma,
+      tableId,
+      {
+        ...context,
+        dbTableName2fields: remainsDbTableName2fields,
+        topoOrdersByFieldId: remainsTopoOrders,
+      },
+      fieldIds
+    );
+
+    // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
+    // nameConsole('remainsTopoOrders', remainsTopoOrders, fieldMap);
+
+    const opsMap = this.formatChangesToOps(
+      this.mergeDuplicateChange(changes.concat(remainsChanges))
+    );
     return { opsMap, fieldMap, tableId2DbTableName };
   }
 
   @Timing()
-  async getChangedOpsMap(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    fieldIds: string[],
-    resetFieldIds?: string[]
-  ) {
+  async getChangedOpsMap(prisma: Prisma.TransactionClient, tableId: string, fieldIds: string[]) {
     if (!fieldIds.length) {
       return undefined;
     }
 
+    const context = await this.prepareContext(prisma, fieldIds);
+    const { fieldMap, tableId2DbTableName } = context;
+    const changes = await this.calculateChanges(prisma, tableId, context);
+    if (!changes.length) {
+      return;
+    }
+
+    const opsMap = this.formatChangesToOps(this.mergeDuplicateChange(changes));
+    return { opsMap, fieldMap, tableId2DbTableName };
+  }
+
+  private async calculateChanges(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    context: IPreparedContext,
+    resetFieldIds?: string[]
+  ) {
     const {
       fieldMap,
       topoOrdersByFieldId,
       dbTableName2fields,
       tableId2DbTableName,
       fieldId2TableId,
-    } = await this.prepareContexts(prisma, fieldIds);
-
+    } = context;
     const { affectedRecordItems, originRecordIdItems } = await this.getRecordItems(prisma, {
       tableId,
       fieldId2TableId,
@@ -359,11 +408,10 @@ export class FieldBatchCalculationService extends ReferenceService {
 
     const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
 
-    // TODO: find out why those is empty
-    nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
-    nameConsole('originRecordIdItems', originRecordIdItems, fieldMap);
-    nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
-    nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);
+    // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
+    // nameConsole('originRecordIdItems', originRecordIdItems, fieldMap);
+    // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
+    // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);
 
     // record data source
     const dbTableName2records = await this.getRecordsBatch(prisma, {
@@ -372,21 +420,20 @@ export class FieldBatchCalculationService extends ReferenceService {
       dependentRecordItems,
       dbTableName2fields,
     });
-    nameConsole('dbTableName2records', dbTableName2records, fieldMap);
+    // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
+    // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
 
     if (resetFieldIds) {
       Object.values(dbTableName2records).forEach((records) => {
         records.forEach((record) => {
           resetFieldIds.forEach((fieldId) => {
-            console.log('clean:', record.fields[fieldId]);
             record.fields[fieldId] = null;
           });
         });
       });
     }
-    // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
 
-    const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
+    return Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
       const orderWithRecords = this.createTopoItemWithRecords({
         topoOrders,
         fieldMap,
@@ -396,18 +443,10 @@ export class FieldBatchCalculationService extends ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
-      // console.log('collectChanges:', topoOrders, orderWithRecords, fieldId2TableId);
       return pre.concat(
         this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId, tableId2DbTableName, {})
       );
     }, []);
-
-    if (!changes.length) {
-      return;
-    }
-
-    const opsMap = this.formatChangesToOps(this.mergeDuplicateChange(changes));
-    return { opsMap, fieldMap, tableId2DbTableName };
   }
 
   @Timing()

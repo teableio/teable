@@ -108,7 +108,15 @@ export class FieldOpenApiService {
     const connection = this.shareDbService.getConnection(transactionKey);
     await this.deleteDoc(connection, collection, symmetricFieldId);
 
-    return await this.fieldSupplementService.deleteLookupFieldReference(prisma, symmetricFieldId);
+    const errorFieldIds = await this.fieldSupplementService.deleteReference(
+      prisma,
+      symmetricFieldId
+    );
+    const errorLookupIds = await this.fieldSupplementService.deleteLookupFieldReference(
+      prisma,
+      symmetricFieldId
+    );
+    return errorFieldIds.concat(errorLookupIds);
   }
 
   private async createFieldInner(
@@ -183,11 +191,11 @@ export class FieldOpenApiService {
       );
       await this.fieldSupplementService.deleteForeignKey(prisma, tableId, linkFieldOptions);
       errorFieldIds.push(...lookupErrorFields);
-      const lookupErrorFieldsBySupply = await this.deleteSupplementFields(
+      const errorFieldsBySupply = await this.deleteSupplementFields(
         transactionKey,
         linkFieldOptions
       );
-      errorFieldIds.push(...lookupErrorFieldsBySupply);
+      errorFieldIds.push(...errorFieldsBySupply);
     }
 
     await this.markFieldsAsError(connection, collection, errorFieldIds);
@@ -199,11 +207,9 @@ export class FieldOpenApiService {
       prisma,
       src,
       tableId,
-      errorFieldIds,
-      [fieldId]
+      errorFieldIds.concat(fieldId),
+      true
     );
-
-    console.log('deleteFieldInner', JSON.stringify(rawOpsMap, null, 2));
 
     const snapshot = await this.deleteDoc(connection, collection, fieldId);
     rawOpsMap && this.publishOpsMap(rawOpsMap);

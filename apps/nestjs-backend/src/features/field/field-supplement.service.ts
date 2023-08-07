@@ -172,7 +172,7 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     const fieldRaws = await this.prismaService.field.findMany({
-      where: { id: { in: fieldIds } },
+      where: { id: { in: fieldIds }, deletedTime: null },
     });
 
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
@@ -391,7 +391,7 @@ export class FieldSupplementService implements ISupplementService {
     linkFieldId: string
   ): Promise<string[]> {
     const fieldsRaw = await prisma.field.findMany({
-      where: { lookupLinkedFieldId: linkFieldId },
+      where: { lookupLinkedFieldId: linkFieldId, deletedTime: null },
       select: { id: true },
     });
     const lookupFieldIds = fieldsRaw.map((field) => field.id);

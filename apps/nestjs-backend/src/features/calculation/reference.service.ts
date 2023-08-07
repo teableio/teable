@@ -205,12 +205,12 @@ export class ReferenceService {
 
     // get all related field by undirected graph
     const allFieldIds = this.flatGraph(undirectedGraph);
-
     // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
     // nameConsole('recordData', recordData, fieldMap);
+    // nameConsole('startFieldIds', startFieldIds, fieldMap);
     // nameConsole('allFieldIds', allFieldIds, fieldMap);
     // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
 
@@ -232,11 +232,11 @@ export class ReferenceService {
     // nameConsole('originRecordItems:', originRecordItems, fieldMap);
 
     // the origin change will lead to affected record changes
+    // console.log('fieldMap', fieldMap);
     let affectedRecordItems: IRecordRefItem[] = [];
     for (const fieldId in topoOrdersByFieldId) {
       const topoOrders = topoOrdersByFieldId[fieldId];
-      // console.log('field:', fieldMap[fieldId]);
-      // console.log('topoOrders:', topoOrders);
+      // nameConsole('topoOrders:', topoOrders, fieldMap);
       const linkOrders = this.getLinkOrderFromTopoOrders({
         tableId2DbTableName,
         topoOrders,
