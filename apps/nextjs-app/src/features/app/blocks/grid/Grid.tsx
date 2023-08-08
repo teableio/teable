@@ -43,6 +43,7 @@ export interface IGridExternalProps {
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
+  onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
 }
 
@@ -64,6 +65,7 @@ const {
   scrollBuffer,
   appendRowHeight,
   columnAppendBtnWidth,
+  columnStatisticHeight,
   rowHeight: defaultRowHeight,
   columnWidth: defaultColumnWidth,
   columnHeadHeight: defaultColumnHeaderHeight,
@@ -97,6 +99,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
+    onColumnStatisticClick,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -144,7 +147,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnCount: columns.length,
       freezeColumnCount,
       containerWidth: width,
-      containerHeight: height,
+      containerHeight: height - columnStatisticHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
@@ -220,13 +223,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
+          onContextMenu={onContextMenu}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
-          onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onColumnStatisticClick={onColumnStatisticClick}
         />
       </div>
 
@@ -236,7 +240,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         top={rowInitSize}
         left={columnInitSize}
         containerWidth={width}
-        containerHeight={height}
+        containerHeight={height - columnStatisticHeight}
         scrollWidth={totalWidth}
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}

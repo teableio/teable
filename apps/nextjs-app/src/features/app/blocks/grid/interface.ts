@@ -34,14 +34,15 @@ export enum SelectionRegionType {
 export enum RegionType {
   Cell = 'Cell',
   RowHeader = 'RowHeader',
-  ColumnHeader = 'ColumnHeader',
   AppendRow = 'AppendRow',
+  ColumnHeader = 'ColumnHeader',
   AppendColumn = 'AppendColumn',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnResizeHandler = 'ColumnResizeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
+  ColumnStatistic = 'ColumnStatistic',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
   Blank = 'Blank',
@@ -96,6 +97,7 @@ export interface IGridColumn {
   width?: number;
   hasMenu?: boolean;
   readonly?: boolean;
+  statistics?: Record<string, string>;
   customTheme?: Partial<IGridTheme>;
 }
 
