@@ -621,19 +621,19 @@ export const drawColumnHeaders = (
     rowInitSize + 1
   );
   ctx.clip();
-  const { fontSizeMD, fontFamily, columnHeaderBg, columnHeaderBgHovered, columnHeaderBgSelected } =
-    theme;
+  const { fontSizeMD, fontFamily, columnHeaderBgHovered, columnHeaderBgSelected } = theme;
   ctx.font = `normal ${fontSizeMD}px ${fontFamily}`;
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
+    const column = columns[columnIndex];
     const isHover =
       !isDragging &&
       [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
       hoverColumnIndex === columnIndex;
-    let fill = columnHeaderBg;
+    let fill = undefined;
 
     if (columnIndex === 0) {
       const isChecked = isRowSelection && isEqual(selectionRanges[0], [0, endRowIndex]);
@@ -654,16 +654,16 @@ export const drawColumnHeaders = (
       fill = columnHeaderBgHovered;
     }
 
-    columns[columnIndex] &&
+    column &&
       drawColumnHeader(ctx, {
         x: x + 0.5,
         y: 0.5,
         width: columnWidth,
         height: rowInitSize,
-        column: columns[columnIndex],
+        column: column,
         fill,
         hasMenu: isColumnHeaderMenuVisible,
-        theme,
+        theme: column.customTheme ? { ...theme, ...column.customTheme } : theme,
         spriteManager,
       });
   }

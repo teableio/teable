@@ -28,12 +28,20 @@ export class FormulaFieldCore extends FormulaAbstractCore {
 
   static convertExpressionIdToName(
     expression: string,
-    dependFieldMap: { [fieldId: string]: { name: string } }
+    dependFieldMap: { [fieldId: string]: { name: string } },
+    withFallback?: boolean
   ): string {
     const tree = this.parse(expression);
     const idToName = Object.entries(dependFieldMap).reduce<{ [fieldId: string]: string }>(
       (acc, [fieldId, field]) => {
-        acc[fieldId] = field.name;
+        acc[fieldId] = field?.name;
+        if (!acc[fieldId]) {
+          if (withFallback) {
+            acc[fieldId] = fieldId;
+          } else {
+            throw new Error(`Field ${fieldId} not found`);
+          }
+        }
         return acc;
       },
       {}

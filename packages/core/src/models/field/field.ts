@@ -23,6 +23,8 @@ export abstract class FieldCore implements IFieldVo {
 
   isComputed?: boolean;
 
+  hasError?: boolean;
+
   dbFieldType!: DbFieldType;
 
   abstract options: IFieldVo['options'];

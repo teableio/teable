@@ -30,7 +30,7 @@ export interface IAdapterService {
 }
 
 export interface ISupplementService {
-  supplementByCreate(
+  createSupplementation(
     prisma: Prisma.TransactionClient,
     collectionId: string,
     snapshot: unknown

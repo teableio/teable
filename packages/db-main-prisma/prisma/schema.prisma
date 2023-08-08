@@ -28,31 +28,33 @@ model TableMeta {
 }
 
 model Field {
-  id                   String    @id
-  name                 String
-  description          String?
-  options              String?
-  type                 String
-  cellValueType        String    @map("cell_value_type")
-  isMultipleCellValue  Boolean?  @map("is_multiple_cell_value")
-  dbFieldType          String    @map("db_field_type")
-  dbFieldName          String    @map("db_field_name")
-  notNull              Boolean?  @map("not_null")
-  unique               Boolean?
-  isPrimary            Boolean?  @map("is_primary")
-  isComputed           Boolean?  @map("is_computed")
-  isLookup             Boolean?  @map("is_lookup")
-  lookupLinkedFieldId  String?   @map("lookup_linked_field_id")
-  lookupOptions        String?   @map("lookup_options")
-  tableId              String    @map("table_id")
-  columnMeta           String    @map("column_meta")
-  version              Int
-  createdTime          DateTime  @default(now()) @map("created_time")
-  lastModifiedTime     DateTime  @updatedAt @map("last_modified_time")
-  deletedTime          DateTime? @map("deleted_time")
-  createdBy            String    @map("created_by")
-  lastModifiedBy       String    @map("last_modified_by")
-  table                TableMeta @relation(fields: [tableId], references: [id])
+  id                  String    @id
+  name                String
+  description         String?
+  options             String?
+  type                String
+  cellValueType       String    @map("cell_value_type")
+  isMultipleCellValue Boolean?  @map("is_multiple_cell_value")
+  dbFieldType         String    @map("db_field_type")
+  dbFieldName         String    @map("db_field_name")
+  notNull             Boolean?  @map("not_null")
+  unique              Boolean?
+  isPrimary           Boolean?  @map("is_primary")
+  isComputed          Boolean?  @map("is_computed")
+  isLookup            Boolean?  @map("is_lookup")
+  hasError            Boolean?  @map("has_error")
+  // the link field id that a lookup field is linked to
+  lookupLinkedFieldId String?   @map("lookup_linked_field_id")
+  lookupOptions       String?   @map("lookup_options")
+  tableId             String    @map("table_id")
+  columnMeta          String    @map("column_meta")
+  version             Int
+  createdTime         DateTime  @default(now()) @map("created_time")
+  lastModifiedTime    DateTime  @updatedAt @map("last_modified_time")
+  deletedTime         DateTime? @map("deleted_time")
+  createdBy           String    @map("created_by")
+  lastModifiedBy      String    @map("last_modified_by")
+  table               TableMeta @relation(fields: [tableId], references: [id])
 
   @@index([lookupLinkedFieldId])
   @@map("field")
@@ -82,12 +84,12 @@ model View {
 }
 
 model Ops {
-  collection       String
-  docId            String @map("doc_id")
-  version          Int
-  operation        String
-  createdTime      DateTime  @default(now()) @map("created_time")
-  createdBy        String    @map("created_by")
+  collection  String
+  docId       String   @map("doc_id")
+  version     Int
+  operation   String
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
 
   @@unique([collection, docId, version])
   @@index([collection, createdTime])

@@ -1,6 +1,5 @@
 import type { IFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import { useFieldStaticGetter } from '@teable-group/sdk';
 import { useTable } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
@@ -27,7 +26,7 @@ export const FieldSetting = (props: IFieldSetting) => {
     if (operator === FieldOperator.Edit) {
       const fieldId = props.field?.id;
 
-      table && fieldId && table.updateFieldById(fieldId, field);
+      table && fieldId && table.updateField(fieldId, field);
     }
   };
 

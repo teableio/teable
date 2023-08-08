@@ -9,7 +9,12 @@ export const fullTableVoSchema = z
     id: z.string().startsWith(IdPrefix.Table).openapi({
       description: 'The id of table.',
     }),
-    name: z.string(),
+    name: z.string().openapi({
+      description: 'The name of the table.',
+    }),
+    dbTableName: z.string().openapi({
+      description: 'the table name in the backend database schema.',
+    }),
     description: z.string().optional().openapi({
       description: 'The description of the table.',
     }),
@@ -57,6 +62,7 @@ export const tableRoSchema = fullTableVoSchema
   .omit({
     id: true,
     total: true,
+    dbTableName: true,
     lastModifiedTime: true,
     defaultViewId: true,
   })

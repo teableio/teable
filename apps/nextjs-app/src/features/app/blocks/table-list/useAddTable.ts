@@ -9,9 +9,16 @@ export function useAddTable() {
   return useCallback(async () => {
     const tableData = await space.createTable();
     const tableId = tableData.id;
-    router.push({
-      pathname: '/space/[tableId]',
-      query: { tableId: tableId },
-    });
+    const viewId = tableData.defaultViewId;
+    router.push(
+      {
+        pathname: '/space/[tableId]/[viewId]',
+        query: { tableId, viewId },
+      },
+      undefined,
+      {
+        shallow: Boolean(router.query.viewId),
+      }
+    );
   }, [router, space]);
 }

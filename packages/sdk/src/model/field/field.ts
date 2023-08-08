@@ -25,10 +25,17 @@ export abstract class Field extends FieldCore {
     return response.data.data;
   }
 
-  static async updateFieldById(tableId: string, fieldId: string, fieldRo: IFieldRo): Promise<void> {
+  static async updateField(tableId: string, fieldId: string, fieldRo: IFieldRo): Promise<void> {
     const response = await axios.put<IJsonApiSuccessResponse<void>>(
       `/api/table/${tableId}/field/${fieldId}`,
       fieldRo
+    );
+    return response.data.data;
+  }
+
+  static async deleteField(tableId: string, fieldId: string): Promise<void> {
+    const response = await axios.delete<IJsonApiSuccessResponse<void>>(
+      `/api/table/${tableId}/field/${fieldId}`
     );
     return response.data.data;
   }
@@ -86,14 +93,10 @@ export abstract class Field extends FieldCore {
   }
 
   async update(fieldRo: IFieldRo) {
-    return await Field.updateFieldById(this.tableId, this.id, fieldRo);
+    return await Field.updateField(this.tableId, this.id, fieldRo);
   }
 
   async delete(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.doc.del({}, (error) => {
-        error ? reject(error) : resolve(undefined);
-      });
-    });
+    return await Field.deleteField(this.tableId, this.id);
   }
 }

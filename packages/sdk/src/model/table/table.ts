@@ -81,8 +81,12 @@ export class Table extends TableCore {
     return Field.createField(this.id, fieldRo);
   }
 
-  async updateFieldById(fieldId: string, fieldRo: IFieldRo) {
-    return Field.updateFieldById(this.id, fieldId, fieldRo);
+  async updateField(fieldId: string, fieldRo: IFieldRo) {
+    return Field.updateField(this.id, fieldId, fieldRo);
+  }
+
+  async deleteField(fieldId: string) {
+    return Field.deleteField(this.id, fieldId);
   }
 
   async updateOrder(order: number) {

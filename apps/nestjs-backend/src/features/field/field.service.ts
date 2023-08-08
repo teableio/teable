@@ -13,6 +13,7 @@ import type {
   ISetFieldDescriptionOpContext,
   ISetFieldTypeOpContext,
   ISetFieldOptionsOpContext,
+  ISetFieldHasErrorOpContext,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
@@ -34,6 +35,7 @@ import { dbType2knexFormat } from './util';
 type IOpContexts =
   | ISetFieldNameOpContext
   | ISetFieldDescriptionOpContext
+  | ISetFieldHasErrorOpContext
   | ISetFieldTypeOpContext
   | ISetFieldOptionsOpContext
   | IAddColumnMetaOpContext
@@ -96,6 +98,7 @@ export class FieldService implements IAdapterService {
       unique,
       isPrimary,
       isComputed,
+      hasError,
       dbFieldType,
       cellValueType,
       isMultipleCellValue,
@@ -120,6 +123,7 @@ export class FieldService implements IAdapterService {
       columnMeta: JSON.stringify(columnMeta),
       isComputed,
       isLookup,
+      hasError,
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
@@ -359,6 +363,11 @@ export class FieldService implements IAdapterService {
     return { type: (opContext as ISetFieldTypeOpContext).newType };
   }
 
+  private handleFieldHasError(params: { opContext: IOpContexts }) {
+    const { opContext } = params;
+    return { hasError: (opContext as ISetFieldHasErrorOpContext).newError };
+  }
+
   private handleFieldOptions(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
@@ -425,6 +434,7 @@ export class FieldService implements IAdapterService {
       [OpName.SetFieldName]: this.handleFieldName,
       [OpName.SetFieldDescription]: this.handleFieldDescription,
       [OpName.SetFieldType]: this.handleFieldType,
+      [OpName.SetFieldHasError]: this.handleFieldHasError,
       [OpName.SetFieldOptions]: this.handleFieldOptions,
 
       [OpName.AddColumnMeta]: this.handleColumnMeta,
