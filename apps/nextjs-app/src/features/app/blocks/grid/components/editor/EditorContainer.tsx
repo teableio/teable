@@ -185,14 +185,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     editorRef.current?.setValue?.('');
   };
 
-  const onCopyInner = () => {
-    onCopy?.(selection);
-  };
-
-  const onPasteInner = () => {
-    onPaste?.(selection);
-  };
-
   function Editor() {
     if (readonly) return;
     switch (cellType) {
@@ -232,13 +224,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
-      <div
-        className="absolute z-10"
-        style={wrapStyle}
-        onCopy={onCopyInner}
-        onPaste={onPasteInner}
-        onKeyDown={onKeyDown}
-      >
+      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
         {customEditor
           ? customEditor(
               {
