@@ -134,6 +134,11 @@ export const fieldVoSchema = z.object({
       'Whether this field is computed field, you can not modify cellValue in computed field.',
   }),
 
+  hasError: z.boolean().optional().openapi({
+    description:
+      "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
+  }),
+
   cellValueType: z.nativeEnum(CellValueType).openapi({
     description: 'The cell value type of the field.',
   }),
@@ -162,7 +167,7 @@ export const fieldRoSchema = fieldVoSchema
     dbFieldType: true,
     dbFieldName: true,
     lookupOptions: true,
-    options: true,
+    hasError: true,
   })
   .merge(
     z.object({

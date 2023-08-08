@@ -19,14 +19,18 @@ export const FormulaOptions = (props: {
   const [errMsg, setErrMsg] = useState('');
   const [expressionByName, setExpressionByName] = useState<string>((): string => {
     return expression
-      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'))
+      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
       : '';
   });
 
   const cellValueType = useMemo(() => {
-    return expression
-      ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id')).cellValueType
-      : CellValueType.String;
+    try {
+      return expression
+        ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id')).cellValueType
+        : CellValueType.String;
+    } catch (e) {
+      return CellValueType.String;
+    }
   }, [expression, fields]);
 
   const onExpressionChange = (expressionByName: string) => {

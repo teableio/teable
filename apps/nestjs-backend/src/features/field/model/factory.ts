@@ -105,6 +105,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
     isLookup: fieldRaw.isLookup || undefined,
+    hasError: fieldRaw.hasError || undefined,
     lookupOptions:
       (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,
     cellValueType: fieldRaw.cellValueType as CellValueType,
