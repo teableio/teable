@@ -113,6 +113,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       };
     },
     forceUpdate,
+    setSelection: (selection: CombinedSelection) => {
+      interactionLayerRef.current?.setSelection(selection);
+    },
   }));
 
   const hasAppendRow = onRowAppend != null;

@@ -29,8 +29,8 @@ import type {
   IRowControlItem,
   IScrollState,
 } from './interface';
-import { MouseButtonType, RegionType, DragRegionType } from './interface';
-import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
+import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from './interface';
+import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { flatRanges, getRegionType } from './utils';
@@ -62,6 +62,7 @@ export interface IInteractionLayerProps
 
 export interface IInteractionLayerRef {
   onReset: () => void;
+  setSelection: (selection: CombinedSelection) => void;
 }
 
 export const InteractionLayerBase: ForwardRefRenderFunction<
@@ -100,6 +101,25 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   useImperativeHandle(ref, () => ({
     onReset,
+    setSelection: (selection: CombinedSelection) => {
+      const { type, ranges } = selection;
+
+      switch (type) {
+        case SelectionRegionType.Cells: {
+          setActiveCell(ranges[0]);
+          break;
+        }
+        case SelectionRegionType.Columns: {
+          setActiveCell([ranges[0][0], 0]);
+          break;
+        }
+        default: {
+          setActiveCell(null);
+          break;
+        }
+      }
+      setSelection(selection);
+    },
   }));
 
   const stageRef = useRef<HTMLDivElement | null>(null);
