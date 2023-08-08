@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { IOtOperation } from '@teable-group/core';
+import type { IOtOperation, IViewAggregateVo } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
+import { AggregateService } from '../features/aggregate/aggregate.service';
 import { DerivateChangeService } from './derivate-change.service';
 import type { RecordEvent } from './events';
 import { EventEnums } from './events';
@@ -34,9 +35,12 @@ export class ShareDbService extends ShareDBClass {
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly derivateChangeService: DerivateChangeService,
     private readonly transactionService: TransactionService,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    private readonly aggregateService: AggregateService
   ) {
     super({
+      presence: true,
+      doNotForwardSendPresenceErrorsToClient: true,
       db: sqliteDbAdapter,
     });
 
@@ -45,6 +49,16 @@ export class ShareDbService extends ShareDBClass {
     this.use('apply', this.onApply);
     // this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
+    this.use('receivePresence', (context, callback) => {
+      this.logger.log(context.presence.p);
+
+      callback();
+    });
+    this.use('sendPresence', (context, callback) => {
+      this.logger.log(context.presence.p);
+
+      callback();
+    });
   }
 
   getConnection(transactionKey: string) {
@@ -219,7 +233,7 @@ export class ShareDbService extends ShareDBClass {
 
     this.eventCollector.set(transactionKey, cacheEventArray);
 
-    if (!transactionCacheMeta) {
+    if (!transactionCacheMeta?.currentCount) {
       // When the `event group` corresponding to a transaction ID completes,
       // the `type` in the event group is analyzed to dispatch subsequent event tasks
       this.eventAssign(transactionKey, cacheEventArray);
@@ -296,6 +310,7 @@ export class ShareDbService extends ShareDBClass {
         recordId: context.id,
         context,
       };
+      //  sss
       this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
     }
   }
@@ -309,7 +324,58 @@ export class ShareDbService extends ShareDBClass {
         recordId: context.id,
         context,
       };
-      this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
+      // this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
+
+      // const viewId = context.op.op![0].m.viewId;
+      // if (viewId) {
+      const detect = RecordOpBuilder.editor.setRecord.detect(context.op.op![0]);
+
+      const emitAggregate = async (data?: IViewAggregateVo, err?: unknown): Promise<void> => {
+        if (err) {
+          this.logger.error(err);
+          return;
+        }
+
+        this.logger.log(data);
+
+        if (data) {
+          const d = Object.values(data)[0];
+          const channel = `${IdPrefix.View}_${collectionId}_${d.viewId}_aggregate`;
+          const presence = this.connect().getPresence(channel);
+          const localPresence = presence.create(d.viewId);
+          localPresence.submit(data, console.log);
+        }
+      };
+
+      const newVar = await this.aggregateService.calculateAggregates(
+        {
+          tableId: collectionId,
+          withFieldIds: detect ? [detect.fieldId] : undefined,
+        },
+        emitAggregate
+      );
+
+      this.logger.log(newVar);
+
+      // console.log(data);
+      //   // this.connect(`${IdPrefix.View}_${collectionId}`);
+      //   console.log(context.channels);
+      //   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      //   // this.logger.log((context.agent as any).subscribedQueries);
+      //   console.log(this.pubsub);
+
+      // for (const [k, v] of Object.entries(data)) {
+      //   // console.log(entriesKey);
+      //   const channel = `${IdPrefix.View}_${collectionId}_${k}_aggregate`;
+      //   const presence = this.connect().getPresence(channel);
+      //   const localPresence = presence.create(k);
+      //   localPresence.submit(v, console.log);
+      // }
+
+      //
+      //   const localPresence = presence.create();
+      //   localPresence.submit(data, console.log);
+      // }
     }
   }
 

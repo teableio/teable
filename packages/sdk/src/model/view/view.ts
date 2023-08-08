@@ -1,4 +1,9 @@
-import type { IFilter, IViewVo, IJsonApiSuccessResponse } from '@teable-group/core';
+import type {
+  IFilter,
+  IViewVo,
+  IJsonApiSuccessResponse,
+  IViewAggregateVo,
+} from '@teable-group/core';
 import { filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import axios from 'axios';
@@ -9,6 +14,13 @@ export abstract class View extends ViewCore {
   static async getViews(tableId: string) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
       `/api/table/${tableId}/view`
+    );
+    return response.data.data;
+  }
+
+  static async getViewAggregate(tableId: string, viewId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IViewAggregateVo>>(
+      `/api/table/${tableId}/aggregate/${viewId}`
     );
     return response.data.data;
   }
