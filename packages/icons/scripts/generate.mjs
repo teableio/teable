@@ -3,10 +3,13 @@ import { transform } from '@svgr/core';
 import axios from 'axios';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
-import figmaApiExporter from 'figma-api-exporter';
 import fs from 'fs-extra';
 import _ from 'lodash';
+import * as Figma from 'figma-js';
+
 dotenv.config();
+
+const componentsDir = 'src/components';
 
 // Add .env file
 const FIGMA_API_TOKEN = process.env.FIGMA_API_TOKEN;
@@ -25,7 +28,24 @@ if (!FIGMA_CANVAS) {
   throw new Error('Missing environment variable FIGMA_CANVAS');
 }
 
-const figmaApi = figmaApiExporter.default(FIGMA_API_TOKEN);
+const figmaApi = Figma.Client({ personalAccessToken: FIGMA_API_TOKEN });
+
+const getSvgs = async ({ fileId, canvas, group }) => {
+  const file = await figmaApi.file(fileId);
+  const { document } = file.data;
+  const iconsNode = document.children.find(({ name }) => name === canvas);
+  if (!iconsNode) {
+    throw new Error(`Couldn't find page with name ${canvas}`);
+  }
+  const usingIconNodes =
+    iconsNode.children.find(({ name, type }) => name === group && type === 'GROUP')?.children || [];
+  const usingNodeId = usingIconNodes.map(({ id }) => id);
+  const svgs = await figmaApi.fileImages(fileId, {
+    format: 'svg',
+    ids: usingNodeId,
+  });
+  return usingIconNodes.map(({ id, name }) => ({ id, name, url: svgs.data.images[id] }));
+};
 
 const downloadSVGsData = async (data) => {
   return Promise.all(
@@ -40,6 +60,9 @@ const downloadSVGsData = async (data) => {
 };
 
 const transformReactComponent = (svgList) => {
+  if (!fs.existsSync(componentsDir)) {
+    fs.mkdirSync(componentsDir);
+  }
   svgList.forEach((svg) => {
     const svgCode = svg.data;
     const svgName = svg.name.split('/').pop();
@@ -68,14 +91,13 @@ const transformReactComponent = (svgList) => {
       { componentName }
     );
     // 6. Write generated component to file system
-    fs.outputFileSync(path.resolve('src/components', componentFileName), componentCode);
+    fs.outputFileSync(path.resolve(componentsDir, componentFileName), componentCode);
     // fs.outputFileSync(path.resolve('src/icons', `${svgName}.svg`), svg.data);
   });
 };
 
 const genIndexContent = () => {
   let indexContent = '';
-  const componentsDir = path.resolve('src/components');
   const indexPath = path.resolve('src/index.ts');
 
   fs.readdirSync(componentsDir).forEach((componentFileName) => {
@@ -94,7 +116,7 @@ const genIndexContent = () => {
 
 const generate = async () => {
   console.log(chalk.magentaBright('-> Fetching icons metadata'));
-  const { svgs } = await figmaApi.getSvgs({ fileId: FIGMA_FILE_ID, canvas: FIGMA_CANVAS });
+  const svgs = await getSvgs({ fileId: FIGMA_FILE_ID, canvas: FIGMA_CANVAS, group: 'using' });
   console.log(chalk.blueBright('-> Downloading SVG code'));
   const svgsData = await downloadSVGsData(svgs);
   console.log(chalk.cyanBright('-> Converting to React components'));

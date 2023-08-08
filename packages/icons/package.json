@@ -21,7 +21,7 @@
     "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "lint": "echo \"No ESLint script defined\"",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "generate": "node ./script/generate.mjs"
+    "generate": "rm -rf src/components && node ./scripts/generate.mjs"
   },
   "peerDependencies": {
     "react": "^18.2.0",
@@ -42,7 +42,7 @@
     "chalk": "5.3.0",
     "dotenv": "16.3.1",
     "eslint": "8.26.0",
-    "figma-api-exporter": "0.0.2",
+    "figma-js": "1.16.0",
     "fs-extra": "11.1.1",
     "lodash": "4.17.21",
     "rimraf": "3.0.2"

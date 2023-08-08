@@ -7,8 +7,8 @@ import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
 import {
-  DEFAULT_MOUSE_STATE,
   GRID_DEFAULT,
+  DEFAULT_MOUSE_STATE,
   DEFAULT_DRAG_STATE,
   DEFAULT_COLUMN_RESIZE_STATE,
 } from './configs';
@@ -34,6 +34,8 @@ import type { CoordinateManager, ImageManager, SpriteManager } from './managers'
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import { flatRanges, getRegionType } from './utils';
+
+const { columnAppendBtnWidth, columnHeadHeight, columnStatisticHeight } = GRID_DEFAULT;
 
 export interface IInteractionLayerProps
   extends Omit<
@@ -93,6 +95,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
+    onColumnStatisticClick,
   } = props;
 
   useImperativeHandle(ref, () => ({
@@ -104,7 +107,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
-  const { containerWidth, containerHeight, freezeColumnCount } = coordInstance;
+  const { containerWidth, containerHeight } = coordInstance;
   const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
@@ -113,6 +116,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const visibleRegion = useVisibleRegion(coordInstance, scrollState);
   const {
     columnResizeState,
+    hoveredColumnResizeIndex,
     setColumnResizeState,
     onColumnResizeStart,
     onColumnResizeChange,
@@ -144,7 +148,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const getPosition = () => {
     const x = mousePosition.elX;
     const y = mousePosition.elY;
-    const { columnAppendBtnWidth } = GRID_DEFAULT;
     const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
       coordInstance;
     const rowIndex =
@@ -181,7 +184,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const getMouseState = () => {
     const position = getPosition();
     const { x, y } = position;
-    const { columnAppendBtnWidth } = GRID_DEFAULT;
     const { totalHeight, totalWidth } = coordInstance;
     const isOutOfBounds =
       scrollLeft + x > totalWidth + columnAppendBtnWidth || scrollTop + y > totalHeight;
@@ -217,6 +219,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.ColumnHeaderMenu:
       case RegionType.RowHeaderCheckbox:
       case RegionType.RowHeaderExpandHandler:
+      case RegionType.ColumnStatistic:
       case RegionType.AllCheckbox:
         return setCursor('pointer');
       case RegionType.RowHeaderDragHandler:
@@ -246,15 +249,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
           y: 0,
           width: coordInstance.getColumnWidth(columnIndex),
-          height: GRID_DEFAULT.columnHeadHeight,
+          height: columnHeadHeight,
         });
-      case RegionType.ColumnHeaderMenu: {
-        const x = coordInstance.getColumnOffset(columnIndex);
+      case RegionType.ColumnHeaderMenu:
         return onColumnHeaderMenuClick?.(columnIndex, {
-          x: columnIndex < freezeColumnCount ? x : x - scrollLeft,
+          x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
           y: 0,
           width: coordInstance.getColumnWidth(columnIndex),
-          height: GRID_DEFAULT.columnHeadHeight,
+          height: columnHeadHeight,
+        });
+      case RegionType.ColumnStatistic: {
+        return onColumnStatisticClick?.(columnIndex, {
+          x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
+          y: containerHeight,
+          width: coordInstance.getColumnWidth(columnIndex),
+          height: columnStatisticHeight,
         });
       }
       case RegionType.Cell: {
@@ -346,14 +355,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onMouseMove = () => {
     const mouseState = getMouseState();
     const { type } = mouseState;
-    setMouseState(mouseState);
+    setMouseState(() => mouseState);
     setCursorStyle(type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
     onDragChange(mouseState);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
-      onColumnResize?.(columns[columnIndex], newWidth, columnIndex, newWidth);
+      onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
   };
 
@@ -414,7 +423,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         ref={stageRef}
         style={{
           width: containerWidth,
-          height: containerHeight,
+          height: containerHeight + columnStatisticHeight,
           cursor,
         }}
         onClick={onSmartClick}
@@ -439,6 +448,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           selection={selection}
           isSelecting={isSelecting}
           columnResizeState={columnResizeState}
+          hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
           isColumnResizable={onColumnResize != null}

@@ -3,8 +3,7 @@ import { drawMultiLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';
 import type { IInternalCellRenderer, ITextCell, ICellRenderProps } from './interface';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const LINE_HEIGHT = 22;
+const { cellHorizontalPadding, cellVerticalPadding, cellTextLineHeight } = GRID_DEFAULT;
 
 export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
   type: CellType.Text,
@@ -17,18 +16,16 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
     if (displayData == null || displayData === '') return;
 
     const { cellTextColor } = theme;
-    const { cellHorizontalPadding, cellVerticalPadding } = GRID_DEFAULT;
     const renderHeight = height - cellVerticalPadding;
 
     drawMultiLineText(ctx, {
       x: x + cellHorizontalPadding,
       y: y + cellVerticalPadding,
       text: displayData,
-      maxLines: Math.floor(renderHeight / LINE_HEIGHT),
-      lineHeight: LINE_HEIGHT,
+      maxLines: Math.floor(renderHeight / cellTextLineHeight),
+      lineHeight: cellTextLineHeight,
       maxWidth: width - cellHorizontalPadding * 2,
       fill: cellTextColor,
-      verticalAlign: 'top',
     });
   },
 };

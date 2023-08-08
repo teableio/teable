@@ -39,15 +39,11 @@ export interface IGridExternalProps {
   onCellActivated?: (cell: ICellItem) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
-  onColumnResize?: (
-    column: IGridColumn,
-    newSize: number,
-    colIndex: number,
-    newSizeWithGrow: number
-  ) => void;
+  onColumnResize?: (column: IGridColumn, newSize: number, colIndex: number) => void;
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
+  onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
 }
 
@@ -69,6 +65,7 @@ const {
   scrollBuffer,
   appendRowHeight,
   columnAppendBtnWidth,
+  columnStatisticHeight,
   rowHeight: defaultRowHeight,
   columnWidth: defaultColumnWidth,
   columnHeadHeight: defaultColumnHeaderHeight,
@@ -102,15 +99,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
+    onColumnStatisticClick,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
     getBounds: (colIndex: number, rowIndex: number) => {
-      const { freezeColumnCount } = coordInstance;
       const { scrollTop, scrollLeft } = scrollState;
-      const offsetX = coordInstance.getColumnOffset(colIndex);
       return {
-        x: colIndex < freezeColumnCount ? offsetX : offsetX - scrollLeft,
+        x: coordInstance.getColumnRelativeOffset(colIndex, scrollLeft),
         y: coordInstance.getRowOffset(rowIndex) - scrollTop,
         width: coordInstance.getColumnWidth(colIndex),
         height: coordInstance.getRowHeight(rowIndex),
@@ -151,7 +147,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnCount: columns.length,
       freezeColumnCount,
       containerWidth: width,
-      containerHeight: height,
+      containerHeight: height - columnStatisticHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
@@ -227,13 +223,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
+          onContextMenu={onContextMenu}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
-          onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onColumnStatisticClick={onColumnStatisticClick}
         />
       </div>
 
@@ -243,7 +240,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         top={rowInitSize}
         left={columnInitSize}
         containerWidth={width}
-        containerHeight={height}
+        containerHeight={height - columnStatisticHeight}
         scrollWidth={totalWidth}
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}

@@ -1,3 +1,4 @@
+import { LRUCache } from 'lru-cache';
 import type {
   ILineProps,
   IMultiLineTextProps,
@@ -7,8 +8,13 @@ import type {
   IVector,
   IPoint,
   ICheckboxProps,
-  ITextProps,
 } from './interface';
+
+const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }> = new LRUCache({
+  max: 1000,
+});
+
+const multiLineTextInfoCache: LRUCache<string, string[]> = new LRUCache({ max: 1000 });
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
@@ -20,62 +26,72 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
     maxWidth,
     maxLines,
     isUnderline,
+    fontSize = 13,
     lineHeight = 22,
     textAlign = 'left',
     verticalAlign = 'middle',
   } = props;
 
-  const lines = [];
-  let currentLine = '';
+  let lines: string[] = [];
   const ellipsis = '...';
   const ellipsisWidth = ctx.measureText(ellipsis).width;
+  let currentLine = '';
   let currentLineWidth = 0;
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
+  const cacheKey = `${text}-${fontSize}-${maxWidth}-${maxLines}`;
+  const cachedLines = multiLineTextInfoCache.get(cacheKey);
 
-    if (char === '\n') {
-      lines.push(currentLine);
-      currentLine = '';
-      currentLineWidth = 0;
-      if (lines.length === maxLines) {
-        break;
-      }
-      continue;
-    }
+  if (cachedLines) {
+    lines = cachedLines;
+  } else {
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
 
-    const charWidth = ctx.measureText(char).width;
-
-    if (currentLineWidth + charWidth > maxWidth) {
-      if (lines.length < maxLines - 1) {
+      if (char === '\n') {
         lines.push(currentLine);
-        currentLine = char;
-        currentLineWidth = charWidth;
-      } else {
-        if (currentLineWidth + ellipsisWidth > maxWidth) {
-          let tempLine = currentLine;
-          let tempLineWidth = currentLineWidth;
-          while (tempLineWidth + ellipsisWidth > maxWidth) {
-            tempLine = tempLine.substring(0, tempLine.length - 1);
-            tempLineWidth -= ctx.measureText(tempLine[tempLine.length - 1]).width;
-          }
-          currentLine = tempLine;
-          currentLineWidth = tempLineWidth;
+        currentLine = '';
+        currentLineWidth = 0;
+        if (lines.length === maxLines) {
+          break;
         }
-        lines.push(currentLine + ellipsis);
-        break;
+        continue;
       }
-    } else {
-      currentLine += char;
-      currentLineWidth += charWidth;
+
+      const charWidth = ctx.measureText(char).width;
+
+      if (currentLineWidth + charWidth > maxWidth) {
+        if (lines.length < maxLines - 1) {
+          lines.push(currentLine);
+          currentLine = char;
+          currentLineWidth = charWidth;
+        } else {
+          if (currentLineWidth + ellipsisWidth > maxWidth) {
+            let tempLine = currentLine;
+            let tempLineWidth = currentLineWidth;
+            while (tempLineWidth + ellipsisWidth > maxWidth) {
+              tempLine = tempLine.substring(0, tempLine.length - 1);
+              tempLineWidth -= ctx.measureText(tempLine[tempLine.length - 1]).width;
+            }
+            currentLine = tempLine;
+            currentLineWidth = tempLineWidth;
+          }
+          lines.push(currentLine + ellipsis);
+          break;
+        }
+      } else {
+        currentLine += char;
+        currentLineWidth += charWidth;
+      }
     }
+
+    if (lines.length < maxLines && currentLine !== '') {
+      lines.push(currentLine);
+    }
+
+    multiLineTextInfoCache.set(cacheKey, lines);
   }
 
-  if (lines.length < maxLines && currentLine !== '') {
-    lines.push(currentLine);
-  }
-
-  const offsetY = 0;
+  const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
 
   if (fill) ctx.fillStyle = fill;
   ctx.textAlign = textAlign;
@@ -93,55 +109,62 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   }
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingleLineTextProps) => {
   const {
-    x,
-    y,
+    x = 0,
+    y = 0,
     text,
     fill,
+    fontSize = 13,
     textAlign = 'left',
-    verticalAlign = 'top',
+    verticalAlign = 'middle',
     maxWidth = Infinity,
     needRender = true,
   } = props;
+
   let width = 0;
   let displayText = '';
-  const ellipsis = '...';
-  const ellipsisWidth = ctx.measureText(ellipsis).width;
 
-  for (let i = 0; i < text.length; i++) {
-    displayText = text.substring(0, i + 1);
-    const char = text[i];
-    const charWidth = ctx.measureText(char).width;
-    width += charWidth;
+  const cacheKey = `${text}-${fontSize}-${maxWidth}`;
+  const cachedTextInfo = singleLineTextInfoCache.get(cacheKey);
 
-    if (width + ellipsisWidth > maxWidth) break;
+  if (cachedTextInfo) {
+    width = cachedTextInfo.width;
+    displayText = cachedTextInfo.text;
+  } else {
+    const ellipsis = '...';
+    const ellipsisWidth = ctx.measureText(ellipsis).width;
+
+    for (let i = 0; i < text.length; i++) {
+      displayText = text.substring(0, i + 1);
+      const char = text[i];
+      const charWidth = ctx.measureText(char).width;
+      width += charWidth;
+
+      if (width + ellipsisWidth > maxWidth) break;
+    }
+
+    const isDisplayEllipsis = width + ellipsisWidth > maxWidth;
+    displayText = isDisplayEllipsis ? displayText.slice(0, -1) + ellipsis : text;
+    width = isDisplayEllipsis ? maxWidth : width;
+
+    singleLineTextInfoCache.set(cacheKey, { text: displayText, width });
   }
 
-  const isDisplayEllipsis = width + ellipsisWidth > maxWidth;
-  displayText = isDisplayEllipsis ? displayText.slice(0, -1) + ellipsis : text;
-  width = isDisplayEllipsis ? maxWidth : width;
-
   if (needRender) {
+    const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
+    const finalX = textAlign === 'right' ? x + maxWidth : x;
     if (fill) ctx.fillStyle = fill;
     ctx.textAlign = textAlign;
     ctx.textBaseline = verticalAlign;
-    ctx.fillText(displayText, x, y);
+    ctx.fillText(displayText, finalX, y + offsetY);
   }
 
   return {
     text: displayText,
     width,
   };
-};
-
-export const drawText = (ctx: CanvasRenderingContext2D, props: ITextProps) => {
-  const { x, y, text, fill, textAlign = 'left', verticalAlign = 'top' } = props;
-
-  ctx.textAlign = textAlign;
-  ctx.textBaseline = verticalAlign;
-  if (fill) ctx.fillStyle = fill;
-  ctx.fillText(text, x, y);
 };
 
 export const drawLine = (ctx: CanvasRenderingContext2D, props: ILineProps) => {

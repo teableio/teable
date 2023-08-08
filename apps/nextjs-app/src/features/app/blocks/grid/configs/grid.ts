@@ -20,7 +20,11 @@ export const GRID_DEFAULT = {
   // Cell
   cellHorizontalPadding: 8,
   cellVerticalPadding: 10,
+  cellTextLineHeight: 22,
   fillHandlerSize: 5,
+
+  // Statistics
+  columnStatisticHeight: 40,
 
   // Others
   scrollBuffer: 100,

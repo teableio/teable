@@ -125,7 +125,7 @@ export const GridView: React.FC = () => {
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      gridViewStore.openHeaderMenu({ fieldIds: [fieldId], position: { x, y: height } });
+      gridViewStore.openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
     },
     [columns, gridViewStore]
   );
@@ -134,6 +134,15 @@ export const GridView: React.FC = () => {
     (colIndex: number) => {
       const fieldId = columns[colIndex].id;
       gridViewStore.openSetting({ fieldId, operator: FieldOperator.Edit });
+    },
+    [columns, gridViewStore]
+  );
+
+  const onColumnStatisticClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      const { x, y, width, height } = bounds;
+      const fieldId = columns[colIndex].id;
+      gridViewStore.openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
     },
     [columns, gridViewStore]
   );
@@ -254,6 +263,7 @@ export const GridView: React.FC = () => {
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
+          onColumnStatisticClick={onColumnStatisticClick}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}

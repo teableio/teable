@@ -1,12 +1,46 @@
-import { Bell, Home, PackageCheck } from '@teable-group/icons';
+import { Bell, Gauge, Home, PackageCheck } from '@teable-group/icons';
+import { cn } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { TableList } from '../table-list/TableList';
 import { SideBarFooter } from './SideBarFooter';
 import { SideBarHeader } from './SideBarHeader';
 
 export const SideBar: React.FC = () => {
+  const router = useRouter();
+  const pageRoutes: {
+    href: string;
+    text: string;
+    shortCutKey: string;
+    Icon: React.FC<{ className?: string }>;
+  }[] = [
+    {
+      href: '/space',
+      text: 'Home',
+      shortCutKey: '⌘H',
+      Icon: Home,
+    },
+    {
+      href: '/space/dashboard',
+      text: 'Dashboard',
+      shortCutKey: '⌘D',
+      Icon: Gauge,
+    },
+    {
+      href: '/space/notification',
+      text: 'Notification',
+      shortCutKey: '⌘T',
+      Icon: Bell,
+    },
+    {
+      href: '/space/automation',
+      text: 'Automation',
+      shortCutKey: '⌘A',
+      Icon: PackageCheck,
+    },
+  ];
   return (
     <div className="flex h-full flex-col overflow-hidden basis-[300px]">
       <SideBarHeader />
@@ -17,51 +51,28 @@ export const SideBar: React.FC = () => {
             <Input className="h-8" type="text" placeholder="Search" />
           </div>
           <ul>
-            <li>
-              <Button
-                variant="ghost"
-                size={'xs'}
-                asChild
-                className="w-full justify-start text-sm px-2"
-              >
-                <Link href="/space" className="font-normal">
-                  <Home className="h-4 w-4 shrink-0" />
-                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Home</p>
-                  <div className="grow basis-0"></div>
-                  <p className="text-xs text-slate-500">⌘H︎</p>
-                </Link>
-              </Button>
-            </li>
-            <li>
-              <Button
-                variant="ghost"
-                size={'xs'}
-                asChild
-                className="w-full justify-start text-sm px-2"
-              >
-                <Link className="py-1 font-normal" href="/space/dashboard">
-                  <Bell className="h-4 w-4 shrink-0" />
-                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Notification</p>
-                  <div className="grow basis-0"></div>
-                  <p className="text-xs text-slate-500">⌘T</p>
-                </Link>
-              </Button>
-            </li>
-            <li>
-              <Button
-                variant="ghost"
-                size={'xs'}
-                asChild
-                className="w-full justify-start text-sm px-2"
-              >
-                <a className="py-1 font-normal">
-                  <PackageCheck className="h-4 w-4 shrink-0" />
-                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">Automation</p>
-                  <div className="grow basis-0"></div>
-                  <p className="text-xs text-slate-500">⌘A</p>
-                </a>
-              </Button>
-            </li>
+            {pageRoutes.map(({ href, text, shortCutKey, Icon }) => {
+              return (
+                <li key={href}>
+                  <Button
+                    variant="ghost"
+                    size={'xs'}
+                    asChild
+                    className={cn(
+                      'w-full justify-start text-sm px-2 my-[2px]',
+                      href === router.pathname && 'bg-secondary'
+                    )}
+                  >
+                    <Link href={href} className="font-normal">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <p className="overflow-hidden text-ellipsis whitespace-nowrap">{text}</p>
+                      <div className="grow basis-0"></div>
+                      <p className="text-xs text-slate-500">{shortCutKey}</p>
+                    </Link>
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         </div>
         <TableList />
