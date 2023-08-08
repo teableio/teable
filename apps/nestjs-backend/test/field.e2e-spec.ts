@@ -496,6 +496,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     it('should delete a link with lookup field and a referenced formula', async () => {
+      const table1PrimaryField = table1.fields[0];
       const table2PrimaryField = table2.fields[0];
       const linkFieldRo: IFieldRo = {
         type: FieldType.Link,
@@ -505,6 +506,8 @@ describe('OpenAPI FieldController (e2e)', () => {
         } as ILinkFieldOptionsRo,
       };
       const linkField = await createField(table1.id, linkFieldRo);
+      const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
+
       const lookupFieldRo: IFieldRo = {
         type: table2PrimaryField.type,
         isLookup: true,
@@ -515,6 +518,16 @@ describe('OpenAPI FieldController (e2e)', () => {
         } as ILookupOptionsRo,
       };
       const lookupField = await createField(table1.id, lookupFieldRo);
+      const symLookupFieldRo: IFieldRo = {
+        type: table1PrimaryField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: table1PrimaryField.id,
+          linkFieldId: symmetricFieldId,
+        } as ILookupOptionsRo,
+      };
+      const symLookupField = await createField(table2.id, symLookupFieldRo);
 
       const formulaFieldRo: IFieldRo = {
         type: FieldType.Formula,
@@ -558,6 +571,11 @@ describe('OpenAPI FieldController (e2e)', () => {
         where: { id: lookupField.id },
       });
       expect(fieldRaw?.hasError).toBeTruthy();
+
+      const fieldRaw2 = await prisma.field.findUnique({
+        where: { id: symLookupField.id },
+      });
+      expect(fieldRaw2?.hasError).toBeTruthy();
     });
   });
 });

@@ -98,25 +98,37 @@ export class FieldOpenApiService {
     return await this.createDoc(connection, collection, snapshot);
   }
 
-  private async deleteSupplementFields(
-    transactionKey: string,
-    linkFieldOptions: ILinkFieldOptions
+  private async delateAndCleanRef(
+    prisma: Prisma.TransactionClient,
+    connection: Connection,
+    tableId: string,
+    fieldId: string,
+    isLinkField?: boolean
   ) {
-    const { symmetricFieldId, foreignTableId } = linkFieldOptions;
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
-    const collection = `${IdPrefix.Field}_${foreignTableId}`;
-    const connection = this.shareDbService.getConnection(transactionKey);
-    await this.deleteDoc(connection, collection, symmetricFieldId);
+    const collection = `${IdPrefix.Field}_${tableId}`;
+    const errorRefFieldIds = await this.fieldSupplementService.deleteReference(prisma, fieldId);
+    const errorLookupFieldIds =
+      isLinkField &&
+      (await this.fieldSupplementService.deleteLookupFieldReference(prisma, fieldId));
 
-    const errorFieldIds = await this.fieldSupplementService.deleteReference(
+    const errorFieldIds = errorLookupFieldIds
+      ? errorRefFieldIds.concat(errorLookupFieldIds)
+      : errorRefFieldIds;
+    await this.markFieldsAsError(connection, collection, errorFieldIds);
+
+    // src is a unique id for the client used by sharedb
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const src = (connection.agent as any).clientId;
+    const rawOpsMap = await this.fieldBatchCalculationService.calculateFields(
       prisma,
-      symmetricFieldId
+      src,
+      tableId,
+      errorFieldIds.concat(fieldId),
+      true
     );
-    const errorLookupIds = await this.fieldSupplementService.deleteLookupFieldReference(
-      prisma,
-      symmetricFieldId
-    );
-    return errorFieldIds.concat(errorLookupIds);
+
+    const snapshot = await this.deleteDoc(connection, collection, fieldId);
+    return { snapshot, rawOpsMap };
   }
 
   private async createFieldInner(
@@ -176,44 +188,28 @@ export class FieldOpenApiService {
         throw new NotFoundException(`field ${fieldId} not found`);
       });
 
-    const collection = `${IdPrefix.Field}_${tableId}`;
     const connection = this.shareDbService.getConnection(transactionKey);
-
-    const errorFieldIds: string[] = [];
-    const refErrorFields = await this.fieldSupplementService.deleteReference(prisma, fieldId);
-    errorFieldIds.push(...refErrorFields);
 
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);
-      const lookupErrorFields = await this.fieldSupplementService.deleteLookupFieldReference(
-        prisma,
-        fieldId
-      );
+      const { foreignTableId, symmetricFieldId } = linkFieldOptions;
       await this.fieldSupplementService.deleteForeignKey(prisma, tableId, linkFieldOptions);
-      errorFieldIds.push(...lookupErrorFields);
-      const errorFieldsBySupply = await this.deleteSupplementFields(
-        transactionKey,
-        linkFieldOptions
+      const result1 = await this.delateAndCleanRef(prisma, connection, tableId, fieldId, true);
+      const result2 = await this.delateAndCleanRef(
+        prisma,
+        connection,
+        foreignTableId,
+        symmetricFieldId,
+        true
       );
-      errorFieldIds.push(...errorFieldsBySupply);
+      result1.rawOpsMap && this.publishOpsMap(result1.rawOpsMap);
+      result2.rawOpsMap && this.publishOpsMap(result2.rawOpsMap);
+      return result1.snapshot;
+    } else {
+      const result = await this.delateAndCleanRef(prisma, connection, tableId, fieldId);
+      result.rawOpsMap && this.publishOpsMap(result.rawOpsMap);
+      return result.snapshot;
     }
-
-    await this.markFieldsAsError(connection, collection, errorFieldIds);
-
-    // src is a unique id for the client used by sharedb
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const src = (connection.agent as any).clientId;
-    const rawOpsMap = await this.fieldBatchCalculationService.calculateFields(
-      prisma,
-      src,
-      tableId,
-      errorFieldIds.concat(fieldId),
-      true
-    );
-
-    const snapshot = await this.deleteDoc(connection, collection, fieldId);
-    rawOpsMap && this.publishOpsMap(rawOpsMap);
-    return snapshot;
   }
 
   private async markFieldsAsError(connection: Connection, collection: string, fieldIds: string[]) {
@@ -225,7 +221,7 @@ export class FieldOpenApiService {
       const doc = connection.get(collection, fieldId);
       return new Promise<IFieldVo>((resolve, reject) => {
         doc.fetch((error) => {
-          if (error) reject(error);
+          if (error) return reject(error);
           doc.submitOp([op], undefined, (error) => {
             error ? reject(error) : resolve(doc.data);
           });

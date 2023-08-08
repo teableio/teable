@@ -17,36 +17,8 @@ import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
 import { isLinkCellValue } from './utils/detect-link';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity
-function replaceFieldIdsWithNames(obj: any, fieldMap: { [fieldId: string]: { name: string } }) {
-  if (typeof obj === 'object' && obj !== null) {
-    for (const key in obj) {
-      // eslint-disable-next-line no-prototype-builtins
-      if (obj.hasOwnProperty(key)) {
-        let newKey = key;
-        if (key.startsWith('fld') && fieldMap[key]) {
-          newKey = fieldMap[key].name;
-        }
-        obj[newKey] = replaceFieldIdsWithNames(obj[key], fieldMap);
-        if (newKey !== key) delete obj[key];
-      }
-    }
-  } else if (typeof obj === 'string' && obj.startsWith('fld') && fieldMap[obj]) {
-    obj = fieldMap[obj].name;
-  }
-  return obj;
-}
-
-export function nameConsole(
-  key: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  obj: any,
-  fieldMap: { [fieldId: string]: { name: string } }
-) {
-  obj = JSON.parse(JSON.stringify(obj));
-  console.log(key, JSON.stringify(replaceFieldIdsWithNames(obj, fieldMap), null, 2));
-}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { nameConsole } from './utils/name-console';
 
 export interface ITopoItem {
   id: string;
@@ -209,17 +181,17 @@ export class ReferenceService {
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
-    // nameConsole('recordData', recordData, fieldMap);
-    // nameConsole('startFieldIds', startFieldIds, fieldMap);
-    // nameConsole('allFieldIds', allFieldIds, fieldMap);
-    // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
-
     // topological sorting
     const topoOrdersByFieldId = this.getTopoOrdersByFieldId(
       startFieldIds,
       fieldMap,
       undirectedGraph
     );
+
+    // nameConsole('recordData', recordData, fieldMap);
+    // nameConsole('startFieldIds', startFieldIds, fieldMap);
+    // nameConsole('allFieldIds', allFieldIds, fieldMap);
+    // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
     // submitted changed records
@@ -270,6 +242,7 @@ export class ReferenceService {
       dbTableName2fields,
     });
     // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
+    // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
 
     const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
       const orderWithRecords = this.createTopoItemWithRecords({
@@ -281,7 +254,7 @@ export class ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
-      // console.log('collectChanges:', topoOrders, orderWithRecords, fieldId2TableId);
+      // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
       return pre.concat(
         this.collectChanges(
           orderWithRecords,
@@ -292,6 +265,7 @@ export class ReferenceService {
         )
       );
     }, []);
+    // nameConsole('changes', changes, fieldMap);
 
     return this.mergeDuplicateChange(changes);
   }
@@ -1224,7 +1198,7 @@ export class ReferenceService {
 
     // only need to return result with relationTo or selectIn
     return results
-      .filter((record) => record.__id && (record.selectIn || record.relationTo))
+      .filter((record) => record.__id)
       .map((record) => ({
         id: record.__id,
         dbTableName: record.dbTableName,

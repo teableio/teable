@@ -197,6 +197,7 @@ describe('ReferenceService', () => {
       ]);
 
       expect(records).toEqual([
+        { id: 'idA1', dbTableName: 'A' },
         { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
         { id: 'idB2', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
         { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
@@ -210,6 +211,8 @@ describe('ReferenceService', () => {
       ]);
 
       expect(recordsWithMultiInput).toEqual([
+        { id: 'idA1', dbTableName: 'A' },
+        { id: 'idA2', dbTableName: 'A' },
         { id: 'idB1', dbTableName: 'B', relationTo: 'idA1', fieldId: 'manyToOneA' },
         { id: 'idB2', dbTableName: 'B', relationTo: 'idA1', fieldId: 'manyToOneA' },
         { id: 'idB3', dbTableName: 'B', relationTo: 'idA2', fieldId: 'manyToOneA' },
@@ -284,6 +287,7 @@ describe('ReferenceService', () => {
 
       // manyToOneB: ['B1', 'B2']
       expect(records).toEqual([
+        { id: 'idC1', dbTableName: 'C' },
         { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyC', selectIn: 'C.__fk_manyToOneB' },
         { id: 'idA1', dbTableName: 'A', fieldId: 'oneToManyB', selectIn: 'B.__fk_manyToOneA' },
         { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },

@@ -1,4 +1,3 @@
-/* eslint-disable no-inner-declarations */
 import { Injectable } from '@nestjs/common';
 import type { ILookupOptionsVo, IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder, Relationship } from '@teable-group/core';
@@ -9,8 +8,9 @@ import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
 import type { ICellChange, IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
+import { ReferenceService, IOpsMap } from './reference.service';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ReferenceService, nameConsole, IOpsMap } from './reference.service';
+import { nameConsole } from './utils/name-console';
 
 export interface IRawOp {
   src: string;
