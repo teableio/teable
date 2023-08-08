@@ -1,10 +1,11 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
-  ViewProvider,
+  AggregateProvider,
+  AnchorContext,
   FieldProvider,
   RecordProvider,
   useTable,
-  AnchorContext,
+  ViewProvider,
 } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -34,23 +35,25 @@ export const Table: React.FC<ITableProps> = ({
   return (
     <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
       <ViewProvider serverData={viewServerData}>
-        <div className="grow flex flex-col h-full basis-[500px]">
-          <TableHeader />
-          <FieldProvider serverSideData={fieldServerData}>
-            <ToolBar />
-            <RecordProvider serverData={recordServerData}>
-              <ErrorBoundary
-                fallback={
-                  <div className="w-full h-full flex justify-center items-center">
-                    <FailAlert />
-                  </div>
-                }
-              >
-                {isHydrated && <GridView />}
-              </ErrorBoundary>
-            </RecordProvider>
-          </FieldProvider>
-        </div>
+        <AggregateProvider>
+          <div className="grow flex flex-col h-full basis-[500px]">
+            <TableHeader />
+            <FieldProvider serverSideData={fieldServerData}>
+              <ToolBar />
+              <RecordProvider serverData={recordServerData}>
+                <ErrorBoundary
+                  fallback={
+                    <div className="w-full h-full flex justify-center items-center">
+                      <FailAlert />
+                    </div>
+                  }
+                >
+                  {isHydrated && <GridView />}
+                </ErrorBoundary>
+              </RecordProvider>
+            </FieldProvider>
+          </div>
+        </AggregateProvider>
       </ViewProvider>
     </AnchorContext.Provider>
   );

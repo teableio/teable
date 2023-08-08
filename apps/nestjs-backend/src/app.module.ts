@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { DevtoolsModule } from '@nestjs/devtools-integration';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
 import { TeableConfigModule } from './configs/config.module';
 import { X_REQUEST_ID } from './const';
+import { AggregateOpenApiModule } from './features/aggregate/open-api/aggregate-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { ChatModule } from './features/chat/chat.module';
@@ -39,6 +39,7 @@ import { WsModule } from './ws/ws.module';
     AutomationModule,
     WsModule,
     SelectionModule,
+    AggregateOpenApiModule,
     EventEmitterModule.forRoot({
       // set this to `true` to use wildcards
       wildcard: false,
