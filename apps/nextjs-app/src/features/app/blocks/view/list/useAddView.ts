@@ -20,9 +20,13 @@ export function useAddView() {
       tableId: table.id,
     });
     const viewId = viewDoc.id;
-    router.push({
-      pathname: '/space/[tableId]/[viewId]',
-      query: { tableId: table.id, viewId },
-    });
+    router.push(
+      {
+        pathname: '/space/[tableId]/[viewId]',
+        query: { tableId: table.id, viewId },
+      },
+      undefined,
+      { shallow: Boolean(router.query.viewId) }
+    );
   }, [router, table, viewName]);
 }
