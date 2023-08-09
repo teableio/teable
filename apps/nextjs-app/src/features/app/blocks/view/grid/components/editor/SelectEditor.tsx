@@ -1,14 +1,18 @@
-import type { ISelectFieldOptions } from '@teable-group/core';
+import type {
+  IMultipleSelectCellValue,
+  ISelectFieldOptions,
+  ISingleSelectCellValue,
+} from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
 import { SelectEditorMain } from '@teable-group/sdk/components';
-import { isString } from 'lodash';
 import { useMemo } from 'react';
 import type { IWrapperEditorProps } from './type';
 
 export const SelectEditor = (props: IWrapperEditorProps) => {
   const { field, record, style, onCancel } = props;
-  const cellValue = record.getCellValue(field.id);
-  const values = isString(cellValue) ? [cellValue] : ((cellValue ?? []) as string[]);
+  const cellValue = record.getCellValue(field.id) as
+    | ISingleSelectCellValue
+    | IMultipleSelectCellValue;
   const selectComOptions = useMemo(() => {
     const choices = (field?.options as ISelectFieldOptions)?.choices || [];
     return choices.map(({ name, color }) => ({
@@ -21,15 +25,15 @@ export const SelectEditor = (props: IWrapperEditorProps) => {
 
   const isMultiple = field.type === FieldType.MultipleSelect;
 
-  const onChange = (value?: string[]) => {
-    record.updateCell(field.id, value?.length ? (isMultiple ? value : value[0]) : null);
+  const onChange = (value?: string[] | string) => {
+    record.updateCell(field.id, isMultiple && value?.length === 0 ? null : value);
     !isMultiple && onCancel?.();
   };
 
   return (
     <SelectEditorMain
       style={style}
-      value={values}
+      value={cellValue === null ? undefined : cellValue}
       onChange={onChange}
       isMultiple={isMultiple}
       options={selectComOptions}

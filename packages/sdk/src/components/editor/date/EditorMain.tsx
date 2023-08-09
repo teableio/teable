@@ -1,10 +1,9 @@
 import { Calendar } from '@teable-group/ui-lib';
+import type { ICellEditor } from '../type';
 
-export type IDateEditorMain = {
-  value?: Date;
+export interface IDateEditorMain extends ICellEditor<Date> {
   style?: React.CSSProperties;
-  onChange?: (value?: Date) => void;
-};
+}
 
 export const DateEditorMain = (props: IDateEditorMain) => {
   const { value, style, onChange } = props;

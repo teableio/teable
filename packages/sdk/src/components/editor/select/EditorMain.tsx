@@ -8,29 +8,44 @@ import {
   CommandList,
 } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { selectOnChange } from '../utils';
+import { useCallback } from 'react';
+import type { ICellEditor } from '../type';
 import { SelectTag } from './SelectTag';
 
-export type ISelectEditorMain = {
-  value?: string[];
+type SelectValue<T extends boolean> = T extends true ? string[] : string;
+
+export interface ISelectEditorMain<T extends boolean> extends ICellEditor<SelectValue<T>> {
   options?: {
     label: string;
     value: string;
     color?: string;
     backgroundColor?: string;
   }[];
-  isMultiple?: boolean;
-  onChange?: (value: string[]) => void;
+  isMultiple?: T;
   style?: React.CSSProperties;
   className?: string;
-};
+}
 
-export const SelectEditorMain = (props: ISelectEditorMain) => {
-  const { value: originValue = [], options = [], isMultiple, onChange, style, className } = props;
+export function SelectEditorMain<T extends boolean = false>(props: ISelectEditorMain<T>) {
+  const { value: originValue, options = [], isMultiple, onChange, style, className } = props;
+
   const onSelect = (val: string) => {
-    const newValue = selectOnChange(val, originValue, isMultiple);
-    onChange?.(newValue);
+    if (isMultiple === true) {
+      const innerValue = (originValue || []) as string[];
+      const newValue = innerValue?.includes(val)
+        ? innerValue.filter((v) => v !== val)
+        : innerValue.concat(val);
+      onChange?.(newValue as SelectValue<T>);
+    }
+    onChange?.(val as SelectValue<T>);
   };
+
+  const activeStatus = useCallback(
+    (value: string) => {
+      return isMultiple ? originValue?.includes(value) : originValue === value;
+    },
+    [isMultiple, originValue]
+  );
 
   return (
     <Command className={classNames('rounded-sm shadow-sm p-2 border', className)} style={style}>
@@ -43,7 +58,7 @@ export const SelectEditorMain = (props: ISelectEditorMain) => {
               <Check
                 className={classNames(
                   'mr-2 h-4 w-4',
-                  originValue?.includes(value) ? 'opacity-100' : 'opacity-0'
+                  activeStatus(value) ? 'opacity-100' : 'opacity-0'
                 )}
               />
               <SelectTag
@@ -57,4 +72,4 @@ export const SelectEditorMain = (props: ISelectEditorMain) => {
       </CommandList>
     </Command>
   );
-};
+}

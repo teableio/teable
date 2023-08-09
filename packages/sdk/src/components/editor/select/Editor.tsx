@@ -5,11 +5,13 @@ import type { ISelectEditorMain } from './EditorMain';
 import { SelectEditorMain } from './EditorMain';
 import { SelectTag } from './SelectTag';
 
-export const SelectEditor = (props: ISelectEditorMain) => {
-  const { value = [], options = [] } = props;
+export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain<T>) => {
+  const { value, options = [], isMultiple } = props;
   const [open, setOpen] = useState(false);
 
-  const displayOptions = options.filter((option) => value?.includes(option.value));
+  const displayOptions = options.filter((option) =>
+    isMultiple ? value?.includes(option.value) : value === option.value
+  );
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

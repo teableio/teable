@@ -2,9 +2,10 @@ import { Calendar } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
+import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
 
-export const DateEditor = (props: { value?: Date; onChange?: (value?: Date) => void }) => {
+export const DateEditor = (props: IDateEditorMain) => {
   const { value, onChange } = props;
   return (
     <Popover>

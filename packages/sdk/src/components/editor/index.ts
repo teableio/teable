@@ -1,4 +1,6 @@
 export * from './attachment';
 export * from './date';
-export * from './link';
 export * from './select';
+export * from './checkbox';
+export * from './text';
+export * from './number';
