@@ -1,8 +1,14 @@
 <div align="center">
-  <h1 align="center"><a aria-label="NextJs Monorepo" href="https://github.com/teable-group/teable"><img height="100px" src="static/assets/images/teable-vertical-linear.png" alt="Teable logo" /></a></h1>
-  <h3 align="center"><strong>An AI native visualization database that empowers everyone</strong></h3>
-  <p>We believe that databases will become the infrastructure of generative AI in the same way as computing power. By utilizing database capabilities, every enterprise, organization, and even individual can train their own private AI assistant to gain a competitive edge.</p>
+  <h1 align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="static/assets/images/teable-vertical-dark.png">
+      <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
+    </picture>
+  </h1>
+  <h3 align="center"><strong>Enrich your database with spreadsheet UX and collaboration</strong></h3>
+  <p>Teable is a no-code application building platform built on relational databases. It uses a simple, spreadsheet-like interface to create complex enterprise-level database applications. Unlock efficient app development with no-code, free from the hurdles of data security and scalability. </p>
 </div>
+
 <p align="center">
   <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
     <img alt="build" src="https://img.shields.io/github/workflow/status/teable-group/teable/CI-nextjs-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
@@ -30,39 +36,96 @@
   </a>
 </p>
 
+# Why Teable?
+
+No-code tools have significantly speed up how we get things done, allowing everyday folks to build amazing apps and changing the way many work and live. People like using spreadsheets to handle their data because it's easy, flexible, and great for team collaboration. They also prefer designing their app screens without being stuck with clunky templates.
+
+Giving non-techy people the ability to create their software sounds exciting. But that's just the start:
+
+- As businesses expand, their data needs intensify. No one wishes to hear that once their orders reach 100k, they'll outgrow their current interface. Yet, many no-code platforms falter at such scales.
+- Most no-code platforms are cloud-based. This means your important data sits with the provider, and switching to another platform can be a headache.
+- Sometimes, no-code tools can't do what you want because of their limitations, leaving users stuck.
+- If a tool becomes essential, you'll eventually need some tech expertise. But developers often find these platforms tricky.
+- Maintaining systems with complex setups can be hard for developers, especially if these aren't built using common software standards.
+- Systems that don't use these standards might need revamping or replacing, costing more in the long run. It might even mean ditching the no-code route and going back to traditional coding.
+
+### What we think the future of no-code products look like
+
+- An interface that anyone can use to build applications easily.
+- Easy access to data, letting users grab, move, and reuse their information as they wish.
+- Data privacy and choice, whether that's in the cloud, on-premise, or even just on your local.
+- It needs to work for developers too, not just everyday users.
+- It should handle lots of data, so it can grow with your business.
+- Flexibility to integrate with other software, combining strengths to get the job done.
+- Last, native AI integration to takes usability to the next level.
+
+In essence, Teable isn't just another no-code solution, it's a comprehensive answer to the evolving demands of modern software development, ensuring that everyone, regardless of their technical proficiency, has a platform tailored to their needs.
+
 # ✨Features
 
-### 🧠 Teable Copilot
+### 📊 Spreadsheet-like interface
 
-Native Integrated AI, Powered by GPT-3.5-turbo
+All you want is here
 
-- Chat 2 App. "Create a project management app for me"
-- Chat 2 Chart. "Analyze the data in the order table using a bar chart"
-- Chat 2 View. "I want to see the schedule for the past week and only display participants"
-- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer"
+- Cell Editing: Directly click and edit content within cells.
+- Formula Support: Input mathematical and logical formulas to auto-calculate values.
+- Drag-and-Fill: Drag the edges of cells to auto-populate series or duplicate values.
+- Data Sorting and Filtering: Sort data based on a column or multiple columns; use filters to view specific rows of data.
+- Data Formatting: formatting numbers, date, etc.
+- Row Styling & Conditional Formatting: Change row styles automatically based on specific conditions.
+- Charts & Visualization Tools: Create charts from table data such as bar charts, pie charts, line graphs, etc.
+- Data Validation: Limit or validate data that's entered into cells.
+- Freeze Columns: Freeze left column of the table so they remain visible while scrolling.
+- Import/Export Capabilities: Import data from other formats and export data, e.g., .csv, .xlsx.
+- Undo/Redo: Undo or redo recent changes.
+- Comments & Annotations: Attach comments to rows, providing explanations or feedback for other users.
+- Find & Replace: Search content within the table and replace it with new content.
 
-### 🔒 Privacy-First
+### 🗂️ Multiple Views
 
-You own your data, in spite of the cloud
+Visualize and interact with data in various ways best suited for their specific tasks.
 
-- Data storage local first
-- Offline desktop client support
-- Sync & collaboration to cloud in just one click
+- Table View: The default view of the table, which displays data in a spreadsheet-like format.
+- Kanban View: Displays data in a Kanban board, which is a visual representation of data in columns and cards.
+- Calendar View: Displays data in a calendar format, which is useful for tracking dates and events.
+- Gallery View: Displays data in a gallery format, which is useful for displaying images and other media.
+- Form View: Displays data in a form format, which is useful for collecting data.
+- Gantt View: Displays data in a Gantt chart, which is useful for tracking project schedules.
+- Timeline View: Displays data in a timeline format, which is useful for tracking events over time.
 
 ### 🚀 Super Fast
 
 Build in minutes scale to millions
 
-- Support for data sets of over one million rows
-- Support database indexes
-- Support server side render
+- Millions of data are easily processed, and there is no pressure to filter and sort
+- Automatic database indexing for maximum speed
+- Supports batch data operations at one time
 
 ### ⚡️ Real-time collaboration
 
 Designed for teams
 
-- Seamless real-time collaboration among multiple people
-- Thoughtful and detailed permission control ability
+- No need to refresh the page, data update in real time
+- Seamlessly integrate collaboration member invitation and management
+- Perfect permission management mechanism, from table to column level
+
+### 🧠 Copilot
+
+Native Integrated AI ability
+
+- Chat 2 App. "Create a project management app for me"
+- Chat 2 Chart. "Analyze the data in the order table using a bar chart"
+- Chat 2 View. "I want to see the schedule for the past week and only display participants"
+- Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer"
+- More actions...
+
+### 🔒 Privacy-First
+
+You own your data, in spite of the cloud
+
+- Data is optionally stored locally without server support
+- Offline desktop client support
+- Sync & collaboration to cloud in just one click
 
 ### 🧩 Extensions
 
@@ -87,11 +150,11 @@ Seamless integration with the software you are familiar with
 - No-code tools like appsmith...
 - Direct retrieve data with native sql
 
-### 🗄️ Database adapter
+### 🗄️ Support for multiple databases
 
-Choose the database you like
+Choose the Sql-database you like
 
-- Sqlite, PostgreSQL, MySQL, TiDB, Snowflake...
+- Sqlite, PostgreSQL, MySQL, MariaDB, TiDB...
 
 # Structure
 
@@ -100,7 +163,8 @@ Choose the database you like
 ```
 .
 ├── apps
-│   ├── nextjs-app          (front-end, include web and electron app )
+│   ├── electron            (desktop, include a electron app )
+│   ├── nextjs-app          (front-end, include a nextjs app)
 │   └── nestjs-backend      (backend, running on server or inside electron app)
 └── packages
     ├── common-i18n         (locales...)
@@ -127,8 +191,6 @@ cd packages/db-main-prisma
 yarn prisma generate
 # create db schema
 yarn prisma-db-push
-# fill seed data
-yarn prisma-db-seed
 ```
 
 #### 3. Config .env file
