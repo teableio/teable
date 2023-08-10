@@ -1,4 +1,4 @@
-import type { IFilter } from '../models';
+import type { IFilter, ISort } from '../models';
 import type { IdPrefix } from '../utils';
 
 export interface IFieldSnapshotQuery {
@@ -16,11 +16,7 @@ export interface IRecordSnapshotQuery {
   viewId?: string;
   type: IdPrefix.Record;
   filter?: IFilter;
-  orderBy?: {
-    column: string; // db column name for queryBuilder
-    order?: 'asc' | 'desc';
-    nulls?: 'first' | 'last';
-  }[];
+  orderBy?: ISort['sortObjs'];
   aggregate?: IAggregateQuery;
   offset?: number;
   limit?: number;

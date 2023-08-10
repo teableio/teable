@@ -3,12 +3,14 @@ import { AddViewBuilder } from './add-view';
 import { SetViewFilterBuilder } from './set-view-filter';
 import { SetViewNameBuilder } from './set-view-name';
 import { SetViewOptionBuilder } from './set-view-option';
+import { SetViewSortBuilder } from './set-view-sort';
 
 export abstract class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
     setViewName: new SetViewNameBuilder(),
     setViewFilter: new SetViewFilterBuilder(),
+    setViewSort: new SetViewSortBuilder(),
     setViewOption: new SetViewOptionBuilder(),
   };
 

@@ -25,6 +25,7 @@ import {
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
+  mergeWithDefaultSort,
   OpName,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -384,7 +385,7 @@ export class RecordService implements IAdapterService {
 
   async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+      select: { id: true, filter: true, sort: true },
       where: {
         tableId,
         ...(query.viewId ? { id: query.viewId } : {}),
@@ -400,6 +401,7 @@ export class RecordService implements IAdapterService {
       offset: query.skip,
       limit: query.take,
       filter: query.filter,
+      orderBy: query.orderBy,
       aggregate: {
         rowCount: true,
       },
@@ -654,12 +656,13 @@ export class RecordService implements IAdapterService {
     query: IRecordSnapshotQuery
   ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
     const defaultView = await prisma.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+      select: { id: true, filter: true, sort: true },
       where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
       orderBy: { order: 'asc' },
     });
     const viewId = defaultView.id;
     const dataFilter = await mergeWithDefaultFilter(defaultView.filter, query.filter);
+    const dataSort = await mergeWithDefaultSort(defaultView.sort, query.orderBy);
 
     const { limit = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
@@ -675,6 +678,7 @@ export class RecordService implements IAdapterService {
     const { queryBuilder } = await this.buildQuery(prisma, tableId, {
       ...query,
       filter: dataFilter,
+      orderBy: dataSort,
       viewId,
     });
     const sqlNative = queryBuilder.toSQL().toNative();

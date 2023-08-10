@@ -177,7 +177,9 @@ export class ShareDbService extends ShareDBClass {
 
     // Additional publish/subscribe `record channels` are required for changes to view properties
     if (docType === IdPrefix.View && context.op.op) {
-      const action = context.op.op.some((op) => ViewOpBuilder.editor.setViewFilter.detect(op));
+      const { setViewFilter, setViewSort } = ViewOpBuilder.editor;
+      const detectFns = [setViewFilter, setViewSort];
+      const action = context.op.op.some((op) => detectFns.some((fn) => fn?.detect(op)));
 
       if (action) {
         context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
