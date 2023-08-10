@@ -21,7 +21,14 @@ import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
 import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
+import {
+  useAsyncData,
+  useColumnOrder,
+  useColumnResize,
+  useColumnStatistics,
+  useColumns,
+  useGridTheme,
+} from './hooks';
 import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
@@ -37,6 +44,7 @@ export const GridView: React.FC = () => {
   const theme = useGridTheme();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
   const { columns, onColumnResize } = useColumnResize(originalColumns);
+  const { columnStatistics } = useColumnStatistics(columns);
   const { onColumnOrdered } = useColumnOrder();
   const gridViewStore = useGridViewStore();
   const preTableId = usePrevious(tableId);
@@ -243,6 +251,7 @@ export const GridView: React.FC = () => {
           theme={theme}
           rowCount={rowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+          columnStatistics={columnStatistics}
           freezeColumnCount={1}
           columns={columns}
           smoothScrollX

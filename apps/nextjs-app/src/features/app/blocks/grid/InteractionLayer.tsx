@@ -33,7 +33,7 @@ import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from
 import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
-import { flatRanges, getRegionType } from './utils';
+import { flatRanges, getRegionType, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight, columnStatisticHeight } = GRID_DEFAULT;
 
@@ -49,6 +49,8 @@ export interface IInteractionLayerProps
     | 'onVisibleRegionChanged'
   > {
   theme: IGridTheme;
+  width: number;
+  height: number;
   rowControls: IRowControlItem[];
   mouseState: IMouseState;
   scrollState: IScrollState;
@@ -71,6 +73,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 > = (props, ref) => {
   const {
     theme,
+    width,
+    height,
     columns,
     rowControls,
     mouseState,
@@ -78,6 +82,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     imageManager,
     spriteManager,
     coordInstance,
+    columnStatistics,
     setMouseState,
     scrollTo,
     scrollBy,
@@ -127,7 +132,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
-  const { containerWidth, containerHeight } = coordInstance;
+  const { containerHeight } = coordInstance;
   const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
@@ -206,7 +211,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { x, y } = position;
     const { totalHeight, totalWidth } = coordInstance;
     const isOutOfBounds =
-      scrollLeft + x > totalWidth + columnAppendBtnWidth || scrollTop + y > totalHeight;
+      scrollLeft + x > totalWidth + columnAppendBtnWidth ||
+      (scrollTop + y > totalHeight && !inRange(y, containerHeight, height));
     return {
       ...position,
       type: getRegionType({
@@ -221,6 +227,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         isOutOfBounds,
         hasAppendRow,
         hasAppendColumn,
+        columnStatistics,
+        height,
         theme,
       }),
       isOutOfBounds,
@@ -442,8 +450,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       <div
         ref={stageRef}
         style={{
-          width: containerWidth,
-          height: containerHeight + columnStatisticHeight,
+          width,
+          height,
           cursor,
         }}
         onClick={onSmartClick}
@@ -454,7 +462,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       >
         <RenderLayer
           theme={theme}
+          width={width}
+          height={height}
           columns={columns}
+          columnStatistics={columnStatistics}
           coordInstance={coordInstance}
           isEditing={isEditing}
           rowControls={rowControls}

@@ -888,7 +888,7 @@ export const drawFreezeRegionDivider = (
   props: ILayoutDrawerProps,
   dividerRegion: DividerRegion
 ) => {
-  const { theme, coordInstance, scrollState } = props;
+  const { theme, coordInstance, scrollState, height } = props;
   const { cellLineColor } = theme;
   const { scrollLeft } = scrollState;
   const { freezeRegionWidth, containerHeight } = coordInstance;
@@ -897,7 +897,7 @@ export const drawFreezeRegionDivider = (
 
   const isTop = dividerRegion === DividerRegion.Top;
   const startY = isTop ? 0 : containerHeight;
-  const endY = isTop ? containerHeight : containerHeight + columnStatisticHeight;
+  const endY = isTop ? containerHeight : height;
 
   ctx.save();
   ctx.beginPath();
@@ -926,8 +926,21 @@ export const drawColumnStatistics = (
   ctx: CanvasRenderingContext2D,
   props: ILayoutDrawerProps,
   renderRegion: RenderRegion
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ) => {
-  const { coordInstance, columns, theme, visibleRegion, mouseState, scrollState } = props;
+  const {
+    coordInstance,
+    columns,
+    theme,
+    height,
+    visibleRegion,
+    mouseState,
+    scrollState,
+    columnStatistics,
+  } = props;
+
+  if (columnStatistics == null) return;
+
   const { scrollLeft } = scrollState;
   let { startColumnIndex, stopColumnIndex } = visibleRegion;
   const { type, columnIndex: hoverColumnIndex } = mouseState;
@@ -944,7 +957,7 @@ export const drawColumnStatistics = (
     isFreezeRegion ? 0 : freezeRegionWidth,
     0,
     isFreezeRegion ? freezeRegionWidth : containerWidth - freezeRegionWidth,
-    containerHeight + columnStatisticHeight
+    height
   );
   ctx.clip();
   ctx.beginPath();
@@ -953,19 +966,8 @@ export const drawColumnStatistics = (
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
-    const column = columns[columnIndex];
-
-    if (column == null) continue;
-
-    const text = column.statistics?.total;
     const isHovered = type === RegionType.ColumnStatistic && columnIndex === hoverColumnIndex;
-    const textProp: Omit<ISingleLineTextProps, 'text'> = {
-      x: x + 0.5,
-      y: y + cellVerticalPadding,
-      textAlign: 'right',
-      maxWidth: columnWidth - 4,
-      fill: rowHeaderTextColor,
-    };
+    const column = columns[columnIndex];
 
     if (isHovered) {
       drawRect(ctx, {
@@ -975,7 +977,21 @@ export const drawColumnStatistics = (
         height: columnStatisticHeight,
         fill: columnHeaderBgHovered,
       });
+    }
 
+    if (column == null) continue;
+
+    const { id: columnId, name } = column;
+    const text = columnStatistics[columnId ?? name]?.total;
+    const textProp: Omit<ISingleLineTextProps, 'text'> = {
+      x: x + 0.5,
+      y: y + cellVerticalPadding,
+      textAlign: 'right',
+      maxWidth: columnWidth - 4,
+      fill: rowHeaderTextColor,
+    };
+
+    if (isHovered) {
       !text && drawSingleLineText(ctx, { ...textProp, text: 'Summary' });
     }
 
@@ -988,10 +1004,10 @@ export const drawColumnStatistics = (
 };
 
 export const drawRowCounter = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, theme } = props;
-  const { containerHeight, pureRowCount } = coordInstance;
+  const { coordInstance, theme, height } = props;
+  const { pureRowCount } = coordInstance;
   const { fontSizeXS, fontFamily, rowHeaderTextColor, columnHeaderBgSelected } = theme;
-  const y = containerHeight + 0.5;
+  const y = height - columnStatisticHeight + 0.5;
 
   ctx.save();
   ctx.beginPath();
@@ -1031,10 +1047,12 @@ export const drawColumnStatisticsRegion = (
   ctx: CanvasRenderingContext2D,
   props: ILayoutDrawerProps
 ) => {
-  const { coordInstance, theme } = props;
-  const { containerHeight, containerWidth } = coordInstance;
+  const { coordInstance, theme, columnStatistics, height } = props;
+  const { containerWidth } = coordInstance;
   const { columnHeaderBg, cellLineColor } = theme;
-  const y = containerHeight + 0.5;
+  const y = height - columnStatisticHeight + 0.5;
+
+  if (columnStatistics == null) return;
 
   drawLine(ctx, {
     x: 0,
@@ -1109,23 +1127,22 @@ export const drawGrid = (
   props: ILayoutDrawerProps,
   lastProps?: ILayoutDrawerProps
 ) => {
-  const { coordInstance, scrollState } = props;
+  const { coordInstance, scrollState, height: originHeight, columnStatistics } = props;
   const { isScrolling } = scrollState;
-  const { containerWidth, containerHeight } = coordInstance;
-  const realContainerHeight = containerHeight + columnStatisticHeight;
+  const { containerWidth } = coordInstance;
 
-  if (containerWidth === 0 || containerHeight === 0) return;
+  if (containerWidth === 0 || originHeight === 0) return;
 
   const pixelRatio = Math.ceil(window.devicePixelRatio ?? 1);
   const width = Math.ceil(containerWidth * pixelRatio);
-  const height = Math.ceil(realContainerHeight * pixelRatio);
+  const height = Math.ceil(originHeight * pixelRatio);
   const shouldRerender = isScrolling || computeShouldRerender(props, lastProps);
 
   if (mainCanvas.width !== width || mainCanvas.height !== height) {
     mainCanvas.width = width;
     mainCanvas.height = height;
     mainCanvas.style.width = containerWidth + 'px';
-    mainCanvas.style.height = realContainerHeight + 'px';
+    mainCanvas.style.height = originHeight + 'px';
   }
 
   const mainCtx = mainCanvas.getContext('2d');
@@ -1139,14 +1156,14 @@ export const drawGrid = (
   }
 
   mainCtx.beginPath();
-  mainCtx.rect(0, 0, containerWidth, realContainerHeight);
+  mainCtx.rect(0, 0, containerWidth, originHeight);
   mainCtx.clip();
 
   drawAppendRow(mainCtx, props);
 
   drawCacheContent(cacheCanvas, {
     containerWidth,
-    containerHeight: realContainerHeight,
+    containerHeight: originHeight,
     pixelRatio,
     shouldRerender,
     draw: (cacheCtx) => {
@@ -1169,7 +1186,7 @@ export const drawGrid = (
 
   drawRowCounter(mainCtx, props);
 
-  drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
+  columnStatistics != null && drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
 
   // TODO: Grid Filling Functionality Supplement
   // drawFillHandler(mainCtx, props);

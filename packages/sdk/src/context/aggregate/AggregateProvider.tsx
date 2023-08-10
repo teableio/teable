@@ -2,8 +2,7 @@ import type { IViewAggregateVo } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { Presence } from '@teable/sharedb/lib/client';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { View } from '../../model';
+import { useContext, useEffect, useState } from 'react';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
 import { AggregateContext } from './AggregateContext';
@@ -19,23 +18,11 @@ export const AggregateProvider: FC<IAggregateProviderProps> = ({ children }) => 
   const [remotePresence, setRemotePresence] = useState<Presence>();
   const [viewAggregate, setViewAggregate] = useState<IViewAggregateVo>({});
 
-  // const viewAggregateData = useCallback(async () => {
-  //   if (!tableId || !viewId) {
-  //     return;
-  //   }
-  //
-  //   const data = await View.getViewAggregate(tableId, viewId);
-  //   console.log('setViewAggregate', data);
-  //   // setViewAggregate(data);
-  //   return data;
-  // }, [tableId, viewId]);
-
   useEffect(() => {
     if (!tableId || !viewId || !connection) {
       return;
     }
 
-    // console.log(viewAggregateData());
     setRemotePresence(connection.getPresence(`${IdPrefix.View}_${tableId}_${viewId}_aggregate`));
 
     console.log('remotePresence.wantSubscribe', remotePresence?.wantSubscribe);
@@ -56,9 +43,5 @@ export const AggregateProvider: FC<IAggregateProviderProps> = ({ children }) => 
     };
   }, [connection, tableId, viewId, remotePresence]);
 
-  const value = useMemo(() => {
-    return viewAggregate;
-  }, [viewAggregate]);
-
-  return <AggregateContext.Provider value={value}>{children}</AggregateContext.Provider>;
+  return <AggregateContext.Provider value={viewAggregate}>{children}</AggregateContext.Provider>;
 };

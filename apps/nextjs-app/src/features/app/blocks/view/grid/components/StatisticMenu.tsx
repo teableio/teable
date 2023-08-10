@@ -1,4 +1,5 @@
-import { useField } from '@teable-group/sdk/hooks';
+import type { StatisticsFunc } from '@teable-group/core';
+import { useField, useViewId } from '@teable-group/sdk/hooks';
 import {
   Command,
   CommandGroup,
@@ -14,6 +15,7 @@ import { useGridViewStore } from '../store/gridView';
 import { getStatisticsMapByValueType } from '../utils';
 
 export const StatisticMenu = () => {
+  const activeViewId = useViewId();
   const { statisticMenu, closeStatisticMenu } = useGridViewStore();
   const { fieldId, position } = statisticMenu || {};
   const visible = Boolean(statisticMenu);
@@ -38,7 +40,11 @@ export const StatisticMenu = () => {
 
   const onSelect = (type: string) => {
     closeStatisticMenu();
-    console.log('Statistic type: ', type);
+    activeViewId &&
+      field?.updateColumnStatistic(
+        activeViewId,
+        type === 'None' ? undefined : (type as StatisticsFunc)
+      );
   };
 
   return (

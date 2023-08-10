@@ -30,6 +30,8 @@ export enum StatisticsFunc {
   PercentUnique = 'percentUnique',
   PercentChecked = 'percentChecked',
   PercentUnChecked = 'percentUnChecked',
+  EarliestDate = 'EarliestDate',
+  LatestDate = 'LatestDate',
   DateRangeOfDays = 'dateRangeOfDays',
   DateRangeOfMonths = 'dateRangeOfMonths',
 }

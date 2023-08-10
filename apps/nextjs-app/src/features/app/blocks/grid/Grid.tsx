@@ -18,6 +18,7 @@ import type {
   IMouseState,
   IPosition,
   IRowControlItem,
+  IColumnStatistics,
 } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -53,6 +54,7 @@ export interface IGridProps extends IGridExternalProps {
   rowCount: number;
   rowHeight?: number;
   style?: CSSProperties;
+  columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
 
@@ -74,6 +76,7 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
+    columnStatistics,
     freezeColumnCount = 1,
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
@@ -137,6 +140,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
+  const hasColumnStatistics = columnStatistics != null;
+  const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
 
@@ -150,7 +155,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnCount: columns.length,
       freezeColumnCount,
       containerWidth: width,
-      containerHeight: height - columnStatisticHeight,
+      containerHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
@@ -164,7 +169,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     });
   }, [
     width,
-    height,
+    containerHeight,
     columns,
     rowCount,
     rowHeight,
@@ -207,12 +212,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
           ref={interactionLayerRef}
+          width={width}
+          height={height}
           theme={theme}
           columns={columns}
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
           coordInstance={coordInstance}
+          columnStatistics={columnStatistics}
           scrollState={scrollState}
           mouseState={mouseState}
           setMouseState={setMouseState}
@@ -243,7 +251,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         top={rowInitSize}
         left={columnInitSize}
         containerWidth={width}
-        containerHeight={height - columnStatisticHeight}
+        containerHeight={containerHeight}
         scrollWidth={totalWidth}
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}

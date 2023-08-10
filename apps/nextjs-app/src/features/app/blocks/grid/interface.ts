@@ -90,6 +90,15 @@ interface IGroupHeaderRow extends IRowBase {
 
 export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
 
+export interface IColumnStatistics {
+  [columnId: string]: IColumnStatistic;
+}
+
+export interface IColumnStatistic {
+  total: string;
+  [key: string]: string;
+}
+
 export interface IGridColumn {
   id?: string;
   name: string;
@@ -97,7 +106,6 @@ export interface IGridColumn {
   width?: number;
   hasMenu?: boolean;
   readonly?: boolean;
-  statistics?: Record<string, string>;
   customTheme?: Partial<IGridTheme>;
 }
 

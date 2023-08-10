@@ -8,12 +8,14 @@ interface ICheckRegionProps
   extends Pick<
     IRenderLayerProps,
     | 'theme'
+    | 'height'
     | 'scrollState'
     | 'dragState'
     | 'selection'
     | 'isSelecting'
     | 'columnResizeState'
     | 'coordInstance'
+    | 'columnStatistics'
   > {
   rowControls: IRowControlItem[];
   isOutOfBounds: boolean;
@@ -74,12 +76,11 @@ const checkIsAppendColumn = (props: ICheckRegionProps): RegionType | null => {
 };
 
 const checkIsColumnStatistic = (props: ICheckRegionProps): RegionType | null => {
-  const { position, coordInstance } = props;
+  const { position, columnStatistics, height } = props;
+  if (columnStatistics == null) return null;
   const { y, columnIndex } = position;
-  const { containerHeight } = coordInstance;
   const { columnStatisticHeight } = GRID_DEFAULT;
-  const isColumnStatistic =
-    inRange(y, containerHeight, containerHeight + columnStatisticHeight) && columnIndex > -1;
+  const isColumnStatistic = inRange(y, height - columnStatisticHeight, height) && columnIndex > -1;
   return isColumnStatistic ? RegionType.ColumnStatistic : null;
 };
 

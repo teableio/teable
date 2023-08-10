@@ -3,6 +3,4 @@
 import type { IViewAggregateVo } from '@teable-group/core';
 import React from 'react';
 
-export const AggregateContext = React.createContext<{
-  viewAggregate?: IViewAggregateVo;
-}>(null!);
+export const AggregateContext = React.createContext<IViewAggregateVo | null>(null);

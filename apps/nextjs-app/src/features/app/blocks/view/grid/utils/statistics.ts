@@ -1,6 +1,27 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { CellValueType, StatisticsFunc } from '@teable-group/core';
 
+export const statisticFunc2NameMap = {
+  [StatisticsFunc.Empty]: 'Empty',
+  [StatisticsFunc.Filled]: 'Filled',
+  [StatisticsFunc.Unique]: 'Unique',
+  [StatisticsFunc.Max]: 'Max',
+  [StatisticsFunc.Min]: 'Min',
+  [StatisticsFunc.Sum]: 'Sum',
+  [StatisticsFunc.Average]: 'Average',
+  [StatisticsFunc.Checked]: 'Checked',
+  [StatisticsFunc.UnChecked]: 'Unchecked',
+  [StatisticsFunc.PercentEmpty]: 'Percent Empty',
+  [StatisticsFunc.PercentFilled]: 'Percent Filled',
+  [StatisticsFunc.PercentUnique]: 'Percent Unique',
+  [StatisticsFunc.PercentChecked]: 'Percent Checked',
+  [StatisticsFunc.PercentUnChecked]: 'Percent Unchecked',
+  [StatisticsFunc.EarliestDate]: 'Earliest Date',
+  [StatisticsFunc.LatestDate]: 'Latest Date',
+  [StatisticsFunc.DateRangeOfDays]: 'Date Range (days)',
+  [StatisticsFunc.DateRangeOfMonths]: 'Date Range (months)',
+};
+
 export const getStatisticsMapByValueType = (type?: CellValueType) => {
   switch (type) {
     case CellValueType.String:
@@ -44,9 +65,9 @@ export const getStatisticsMapByValueType = (type?: CellValueType) => {
       return [
         { type: 'None', name: 'None' },
         { type: StatisticsFunc.Checked, name: 'Checked' },
-        { type: StatisticsFunc.UnChecked, name: 'UnChecked' },
+        { type: StatisticsFunc.UnChecked, name: 'Unchecked' },
         { type: StatisticsFunc.PercentChecked, name: 'Percent Checked' },
-        { type: StatisticsFunc.PercentUnChecked, name: 'Percent UnChecked' },
+        { type: StatisticsFunc.PercentUnChecked, name: 'Percent Unchecked' },
       ];
     default:
       return [];

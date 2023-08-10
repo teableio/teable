@@ -16,6 +16,8 @@ export interface IRenderLayerProps
   extends Pick<
     IInteractionLayerProps,
     | 'theme'
+    | 'width'
+    | 'height'
     | 'columns'
     | 'rowControls'
     | 'imageManager'
@@ -23,6 +25,7 @@ export interface IRenderLayerProps
     | 'scrollState'
     | 'getCellContent'
     | 'coordInstance'
+    | 'columnStatistics'
   > {
   isEditing: boolean;
   visibleRegion: IVisibleRegion;
@@ -42,6 +45,8 @@ export interface IRenderLayerProps
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {
   const {
     theme,
+    width,
+    height,
     columns,
     isEditing,
     rowControls,
@@ -56,6 +61,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isSelecting,
     coordInstance,
     getCellContent,
+    columnStatistics,
     columnResizeState,
     hoveredColumnResizeIndex,
     isRowAppendEnable,
@@ -64,7 +70,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isColumnHeaderMenuVisible,
   } = props;
   const { isDragging } = dragState;
-  const { containerWidth, containerHeight } = coordInstance;
+  const { containerWidth } = coordInstance;
   const { columnIndex: resizingColumnIndex } = columnResizeState;
   const { x, y, columnIndex, rowIndex, type, isOutOfBounds } = originMouseState;
   const isColumnResizing = resizingColumnIndex > -1;
@@ -102,6 +108,8 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     const lastProps = lastPropsRef.current;
     const props = {
       theme,
+      width,
+      height,
       columns,
       isEditing,
       rowControls,
@@ -116,6 +124,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isSelecting,
       coordInstance,
       getCellContent,
+      columnStatistics,
       columnResizeState,
       hoveredColumnResizeIndex,
       isRowAppendEnable,
@@ -127,6 +136,8 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     drawGrid(mainCanvas, cacheCanvas, props, lastProps);
   }, [
     theme,
+    width,
+    height,
     columns,
     isEditing,
     rowControls,
@@ -142,6 +153,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isSelecting,
     coordInstance,
     getCellContent,
+    columnStatistics,
     columnResizeState,
     hoveredColumnResizeIndex,
     isRowAppendEnable,
@@ -157,7 +169,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       className="pointer-events-none"
       style={{
         width: containerWidth,
-        height: containerHeight,
+        height,
         backgroundColor: theme.cellBg,
       }}
     />
