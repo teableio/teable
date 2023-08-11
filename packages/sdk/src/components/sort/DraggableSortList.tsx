@@ -2,9 +2,9 @@ import type { ISort, ISortItem } from '@teable-group/core';
 import { DraggableHandle, Trash2 } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { useEffect, useState } from 'react';
 import type { OnDragEndResponder } from 'react-beautiful-dnd';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useIsHydrated } from '../../hooks';
 import { SortItem } from './SortItem';
 
 interface IDraggableSortProps {
@@ -15,7 +15,8 @@ interface IDraggableSortProps {
 
 function DraggableSortList(props: IDraggableSortProps) {
   const { sorts, onChange, selectedFields } = props;
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsHydrated();
+
   const onDragEnd: OnDragEndResponder = (result) => {
     if (!result.destination) return;
 
@@ -42,9 +43,6 @@ function DraggableSortList(props: IDraggableSortProps) {
     });
     onChange(newSorts);
   };
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>

@@ -1,6 +1,6 @@
 import { ChevronsUpDown, TeableNew } from '@teable-group/icons';
+import { useIsHydrated } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { ThemePicker } from '../../components/ThemePicker';
 
 export const SideBarHeader: React.FC = () => {

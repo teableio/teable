@@ -1,3 +1,4 @@
+import { useIsHydrated } from '@teable-group/sdk';
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
