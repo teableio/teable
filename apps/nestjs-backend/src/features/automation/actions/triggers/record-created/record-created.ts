@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EventEnums, RecordEvent } from '../../../../../share-db/events';
+import type { RecordEvent } from '../../../../../share-db/events';
+import { EventEnums } from '../../../../../share-db/events';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema } from '../../action-core';
 import { TriggerCore } from '../trigger-core';
@@ -15,9 +16,9 @@ export interface ITriggerRecordCreatedOptions {
 
 @Injectable()
 export class TriggerRecordCreated extends TriggerCore<RecordEvent> {
-  @OnEvent(EventEnums.RecordCreated, { async: true })
+  // @OnEvent(EventEnums.RecordCreated, { async: true })
   async listenerTrigger(event: RecordEvent) {
-    const { tableId, recordId, context } = event;
+    const { tableId, recordId, snapshot } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordCreated]);
 
     this.logger.log({
@@ -35,7 +36,7 @@ export class TriggerRecordCreated extends TriggerCore<RecordEvent> {
         const { actions, decisionGroups } = await this.splitAction(workflow.actions);
 
         const trigger = {
-          [`trigger.${workflow.trigger.id}`]: context.snapshot?.data,
+          [`trigger.${workflow.trigger.id}`]: snapshot,
         };
 
         this.callActionEngine(trigger, actions, decisionGroups);

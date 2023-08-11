@@ -2,12 +2,12 @@ import type { IOpContextBase } from '@teable-group/core/dist/op-builder/interfac
 import type { EventEnums } from './event.enum';
 import type { IEventBase } from './interfaces/event-base.interface';
 
-type IEventName = Extract<EventEnums, EventEnums.RecordCreated | EventEnums.RecordUpdated>;
+type IEventName = Extract<EventEnums, EventEnums.ViewCreated | EventEnums.ViewUpdated>;
 
-export class RecordEvent implements IEventBase {
+export class ViewEvent implements IEventBase {
   eventName!: IEventName;
   tableId!: string;
-  recordId!: string;
+  viewId!: string;
   snapshot!: unknown;
   ops!: IOpContextBase[];
 }

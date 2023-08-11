@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { IOtOperation, IViewAggregateVo } from '@teable-group/core';
-import { IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
+import type { IOtOperation } from '@teable-group/core';
+import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
-import { AggregateService } from '../features/aggregate/aggregate.service';
 import { DerivateChangeService } from './derivate-change.service';
-import type { RecordEvent } from './events';
+import type { FieldEvent, RecordEvent, ViewEvent } from './events';
 import { EventEnums } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
@@ -35,8 +34,7 @@ export class ShareDbService extends ShareDBClass {
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly derivateChangeService: DerivateChangeService,
     private readonly transactionService: TransactionService,
-    private readonly eventEmitter: EventEmitter2,
-    private readonly aggregateService: AggregateService
+    private readonly eventEmitter: EventEmitter2 // private readonly aggregateService: AggregateService
   ) {
     super({
       presence: true,
@@ -49,16 +47,6 @@ export class ShareDbService extends ShareDBClass {
     this.use('apply', this.onApply);
     // this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
-    this.use('receivePresence', (context, callback) => {
-      this.logger.log(context.presence.p);
-
-      callback();
-    });
-    this.use('sendPresence', (context, callback) => {
-      this.logger.log(context.presence.p);
-
-      callback();
-    });
   }
 
   getConnection(transactionKey: string) {
@@ -210,7 +198,7 @@ export class ShareDbService extends ShareDBClass {
 
   private onSubmitRequestEnd(error: Error, context: ShareDBClass.middleware.SubmitContext) {
     const extra = context.extra as { [key: string]: unknown };
-    const transactionKey = extra?.transactionKey as string;
+    const transactionKey = extra?.transactionKey ?? context.agent.custom?.transactionKey;
 
     if (error) {
       this.logger.error(error);
@@ -303,79 +291,79 @@ export class ShareDbService extends ShareDBClass {
 
   private async createEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
     const [docType, collectionId] = context.collection.split('_');
+    if (!context.op.op) {
+      return;
+    }
+
     if (IdPrefix.Record == docType) {
       const eventValue: RecordEvent = {
         eventName: EventEnums.RecordCreated,
         tableId: collectionId,
         recordId: context.id,
-        context,
+        snapshot: context.snapshot?.data,
+        ops: RecordOpBuilder.ops2Contexts(context.op.op),
       };
-      //  sss
+
       this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
+    } else if (IdPrefix.Field == docType) {
+      const eventValue: FieldEvent = {
+        eventName: EventEnums.FieldCreated,
+        tableId: collectionId,
+        fieldId: context.id,
+        snapshot: context.snapshot?.data,
+        ops: FieldOpBuilder.ops2Contexts(context.op.op),
+      };
+
+      this.eventEmitter.emitAsync(EventEnums.FieldCreated, eventValue);
+    } else if (IdPrefix.View == docType) {
+      const eventValue: ViewEvent = {
+        eventName: EventEnums.ViewCreated,
+        tableId: collectionId,
+        viewId: context.id,
+        snapshot: context.snapshot?.data,
+        ops: ViewOpBuilder.ops2Contexts(context.op.op),
+      };
+
+      this.eventEmitter.emitAsync(EventEnums.ViewCreated, eventValue);
     }
   }
 
   private async editEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
     const [docType, collectionId] = context.collection.split('_');
+    if (!context.op.op) {
+      return;
+    }
+
     if (IdPrefix.Record == docType) {
       const eventValue: RecordEvent = {
         eventName: EventEnums.RecordUpdated,
         tableId: collectionId,
         recordId: context.id,
-        context,
-      };
-      // this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
-
-      // const viewId = context.op.op![0].m.viewId;
-      // if (viewId) {
-      const detect = RecordOpBuilder.editor.setRecord.detect(context.op.op![0]);
-
-      const emitAggregate = async (data?: IViewAggregateVo, err?: unknown): Promise<void> => {
-        if (err) {
-          this.logger.error(err);
-          return;
-        }
-
-        this.logger.log(data);
-
-        if (data) {
-          const d = Object.values(data)[0];
-          const channel = `${IdPrefix.View}_${collectionId}_${d.viewId}_aggregate`;
-          const presence = this.connect().getPresence(channel);
-          const localPresence = presence.create(d.viewId);
-          localPresence.submit(data, console.log);
-        }
+        snapshot: context.snapshot?.data,
+        ops: RecordOpBuilder.ops2Contexts(context.op.op),
       };
 
-      const newVar = await this.aggregateService.calculateAggregates(
-        {
-          tableId: collectionId,
-          withFieldIds: detect ? [detect.fieldId] : undefined,
-        },
-        emitAggregate
-      );
+      this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
+    } else if (IdPrefix.Field == docType) {
+      const eventValue: FieldEvent = {
+        eventName: EventEnums.FieldUpdated,
+        tableId: collectionId,
+        fieldId: context.id,
+        snapshot: context.snapshot?.data,
+        ops: FieldOpBuilder.ops2Contexts(context.op.op),
+      };
 
-      this.logger.log(newVar);
+      this.eventEmitter.emitAsync(EventEnums.FieldUpdated, eventValue);
+    } else if (IdPrefix.View == docType) {
+      const eventValue: ViewEvent = {
+        eventName: EventEnums.ViewUpdated,
+        tableId: collectionId,
+        viewId: context.id,
+        snapshot: context.snapshot?.data,
+        ops: ViewOpBuilder.ops2Contexts(context.op.op),
+      };
 
-      // console.log(data);
-      //   // this.connect(`${IdPrefix.View}_${collectionId}`);
-      //   console.log(context.channels);
-      //   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      //   // this.logger.log((context.agent as any).subscribedQueries);
-      //   console.log(this.pubsub);
-
-      // for (const [k, v] of Object.entries(data)) {
-      //   // console.log(entriesKey);
-      //   const channel = `${IdPrefix.View}_${collectionId}_${k}_aggregate`;
-      //   const presence = this.connect().getPresence(channel);
-      //   const localPresence = presence.create(k);
-      //   localPresence.submit(v, console.log);
-      // }
-
-      //
-      //   const localPresence = presence.create();
-      //   localPresence.submit(data, console.log);
-      // }
+      this.eventEmitter.emitAsync(EventEnums.ViewUpdated, eventValue);
     }
   }
 
