@@ -111,7 +111,7 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   filter: filterSchema.optional().openapi({
     type: 'object',
   }),
-  orderBy: sortItemSchema.array().optional().openapi({
+  orderBy: sortItemSchema.array().nonempty().optional().openapi({
     type: 'array',
   }),
 });
