@@ -3,7 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetRecordOpContext } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { map, intersection, isEmpty } from 'lodash';
-import type { RecordEvent } from '../../../../../share-db/events';
+import type { RecordUpdatedEvent } from '../../../../../share-db/events';
 import { EventEnums } from '../../../../../share-db/events';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
@@ -23,9 +23,9 @@ export interface ITriggerRecordUpdated {
 }
 
 @Injectable()
-export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
+export class TriggerRecordUpdated extends TriggerCore<RecordUpdatedEvent> {
   // @OnEvent(EventEnums.RecordUpdated, { async: true })
-  async listenerTrigger(event: RecordEvent) {
+  async listenerTrigger(event: RecordUpdatedEvent) {
     const { tableId, recordId, snapshot, ops } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordUpdated]);
 

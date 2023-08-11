@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAggregates, IFilter, IViewAggregateVo } from '@teable-group/core';
+import type { IAggregations, IFilter, IViewAggregationVo } from '@teable-group/core';
 import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { AsyncFunction } from 'async';
@@ -37,24 +37,24 @@ type IStatisticField = {
 
 type ITaskResult = {
   viewId: string;
-  rawAggregateData: { [field: string]: unknown } | undefined;
+  rawAggregationData: { [field: string]: unknown } | undefined;
   executionTime: number;
 };
 
 @Injectable()
-export class AggregateService {
-  private logger = new Logger(AggregateService.name);
+export class AggregationService {
+  private logger = new Logger(AggregationService.name);
   private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(private prisma: PrismaService) {}
 
-  async calculateAggregates(
+  async calculateAggregations(
     params: {
       tableId: string;
       withFieldIds?: string[];
       withView?: IWithView;
     },
-    callBack?: (data?: IViewAggregateVo, error?: unknown) => Promise<void>
+    callBack?: (data?: IViewAggregationVo, error?: unknown) => Promise<void>
   ) {
     const { tableId, withFieldIds, withView } = params;
 
@@ -100,15 +100,15 @@ export class AggregateService {
     });
     const taskResults = await async.parallel<ITaskResult, ITaskResult[]>(allTasks);
 
-    const viewAggregateResult: IViewAggregateVo = {};
-    // Format task results and populate viewAggregateResult
+    const viewAggregationResult: IViewAggregationVo = {};
+    // Format task results and populate viewAggregationResult
     if (taskResults) {
       taskResults.map(this.formatTaskResult).forEach((res) => {
         if (!res) return;
-        viewAggregateResult[res.viewId] = res;
+        viewAggregationResult[res.viewId] = res;
       });
     }
-    return viewAggregateResult;
+    return viewAggregationResult;
   }
 
   private async getViewStatisticsData(
@@ -142,22 +142,27 @@ export class AggregateService {
       });
     }
 
-    const fieldIds = withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
-    const { fieldInstances, fieldInstanceMap } = await this.getFieldsData(tableId, fieldIds);
+    const { fieldInstances, fieldInstanceMap } = await this.getFieldsData(tableId);
+
+    const targetFieldIds =
+      withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
+    const filteredFieldInstances = fieldInstances.filter((instance) => {
+      return !targetFieldIds || targetFieldIds.includes(instance.id);
+    });
 
     viewStatisticsData.forEach((vsd) => {
       vsd.statisticFields = this.getStatisticFields(
         vsd.viewId,
-        fieldInstances,
+        filteredFieldInstances,
         withView?.customFieldStats
       );
     });
     return { viewStatisticsData, fieldInstanceMap };
   }
 
-  private async getFieldsData(tableId: string, fieldIds?: string[]) {
+  private async getFieldsData(tableId: string) {
     const fieldsRaw = await this.prisma.field.findMany({
-      where: { ...(fieldIds ? { id: { in: fieldIds } } : {}), tableId, deletedTime: null },
+      where: { tableId, deletedTime: null },
     });
 
     const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
@@ -209,8 +214,8 @@ export class AggregateService {
       return undefined;
     }
 
-    // Function to get aggregate data
-    const getAggregateData = async (
+    // Function to get aggregation data
+    const getAggregationData = async (
       prisma: Prisma.TransactionClient,
       queryBuilder: Knex.QueryBuilder
     ) => {
@@ -218,9 +223,9 @@ export class AggregateService {
         new FilterQueryTranslator(queryBuilder, fieldInstanceMap, filter).translateToSql();
       }
 
-      // Get aggregate functions for each field
+      // Get Aggregation functions for each field
       statisticFields.forEach(({ fieldId, dbFieldName, statisticFunc }) => {
-        this.getAggregateFn(queryBuilder, fieldId, dbFieldName, statisticFunc);
+        this.getAggregationFn(queryBuilder, fieldId, dbFieldName, statisticFunc);
       });
 
       const sqlNative = queryBuilder.toSQL().toNative();
@@ -232,11 +237,11 @@ export class AggregateService {
 
     // Return promise that resolves to task result
     return new Promise<ITaskResult>((resolve, reject) => {
-      getAggregateData(this.prisma, queryBuilder)
-        .then((rawAggregateData) => {
+      getAggregationData(this.prisma, queryBuilder)
+        .then((rawAggregationData) => {
           resolve({
             viewId,
-            rawAggregateData: rawAggregateData && rawAggregateData[0],
+            rawAggregationData: rawAggregationData && rawAggregationData[0],
             executionTime: new Date().getTime(),
           });
         })
@@ -245,16 +250,16 @@ export class AggregateService {
   }
 
   private formatTaskResult(taskResult: ITaskResult) {
-    const aggregates: IAggregates = {};
-    for (const [key, value] of Object.entries(taskResult.rawAggregateData || {})) {
-      const [fieldId, funcName] = key.split('_');
+    const aggregations: IAggregations = {};
+    for (const [key, value] of Object.entries(taskResult.rawAggregationData || {})) {
+      const [fieldId, aggFunc] = key.split('_');
       const convertValue =
         typeof value === 'bigint' || typeof value === 'number' ? Number(value) : String(value);
 
-      aggregates[fieldId] = {
+      aggregations[fieldId] = {
         total: {
           value: convertValue,
-          funcName,
+          aggFunc: aggFunc as StatisticsFunc,
         },
       };
     }
@@ -262,11 +267,11 @@ export class AggregateService {
     return {
       viewId: taskResult.viewId,
       executionTime: taskResult.executionTime,
-      aggregates,
+      aggregations,
     };
   }
 
-  private getAggregateFn(
+  private getAggregationFn(
     kq: Knex.QueryBuilder,
     fieldId: string,
     dbFieldName: string,

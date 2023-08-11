@@ -1,6 +1,6 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
-  AggregateProvider,
+  AggregationProvider,
   AnchorContext,
   FieldProvider,
   RecordProvider,
@@ -35,7 +35,7 @@ export const Table: React.FC<ITableProps> = ({
   return (
     <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
       <ViewProvider serverData={viewServerData}>
-        <AggregateProvider>
+        <AggregationProvider>
           <div className="grow flex flex-col h-full basis-[500px]">
             <TableHeader />
             <FieldProvider serverSideData={fieldServerData}>
@@ -53,7 +53,7 @@ export const Table: React.FC<ITableProps> = ({
               </RecordProvider>
             </FieldProvider>
           </div>
-        </AggregateProvider>
+        </AggregationProvider>
       </ViewProvider>
     </AnchorContext.Provider>
   );

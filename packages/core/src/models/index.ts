@@ -4,4 +4,4 @@ export * from './view';
 export * from './interface';
 export * from './record';
 export * from './op';
-export * from './aggregate';
+export * from './aggregation';

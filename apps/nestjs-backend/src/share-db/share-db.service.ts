@@ -6,11 +6,18 @@ import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
 import { DerivateChangeService } from './derivate-change.service';
-import type { FieldEvent, RecordEvent, ViewEvent } from './events';
-import { EventEnums } from './events';
+import {
+  FieldCreatedEvent,
+  FieldUpdatedEvent,
+  RecordCreatedEvent,
+  RecordUpdatedEvent,
+  ViewCreatedEvent,
+  ViewUpdatedEvent,
+} from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
+import { IEventBase } from 'src/share-db/events/interfaces/event-base.interface';
 
 enum IEventType {
   Create = 'create',
@@ -34,7 +41,7 @@ export class ShareDbService extends ShareDBClass {
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly derivateChangeService: DerivateChangeService,
     private readonly transactionService: TransactionService,
-    private readonly eventEmitter: EventEmitter2 // private readonly aggregateService: AggregateService
+    private readonly eventEmitter: EventEmitter2
   ) {
     super({
       presence: true,
@@ -258,9 +265,10 @@ export class ShareDbService extends ShareDBClass {
       if (uniqueType.length === 1) {
         if (uniqueType.includes(IEventType.Edit)) {
           return IEventType.Edit;
-        }
-        if (uniqueType.includes(IEventType.Delete)) {
+        } else if (uniqueType.includes(IEventType.Delete)) {
           return IEventType.Delete;
+        } else {
+          return IEventType.Create;
         }
       } else {
         if (uniqueType.includes(IEventType.Create)) {
@@ -291,40 +299,21 @@ export class ShareDbService extends ShareDBClass {
 
   private async createEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
     const [docType, collectionId] = context.collection.split('_');
-    if (!context.op.op) {
+    if (!context.op.create) {
       return;
     }
 
+    let eventValue: IEventBase | undefined;
     if (IdPrefix.Record == docType) {
-      const eventValue: RecordEvent = {
-        eventName: EventEnums.RecordCreated,
-        tableId: collectionId,
-        recordId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: RecordOpBuilder.ops2Contexts(context.op.op),
-      };
-
-      this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
+      eventValue = new RecordCreatedEvent(collectionId, context.id, context.snapshot?.data);
     } else if (IdPrefix.Field == docType) {
-      const eventValue: FieldEvent = {
-        eventName: EventEnums.FieldCreated,
-        tableId: collectionId,
-        fieldId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: FieldOpBuilder.ops2Contexts(context.op.op),
-      };
-
-      this.eventEmitter.emitAsync(EventEnums.FieldCreated, eventValue);
+      eventValue = new FieldCreatedEvent(collectionId, context.id, context.snapshot?.data);
     } else if (IdPrefix.View == docType) {
-      const eventValue: ViewEvent = {
-        eventName: EventEnums.ViewCreated,
-        tableId: collectionId,
-        viewId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: ViewOpBuilder.ops2Contexts(context.op.op),
-      };
+      eventValue = new ViewCreatedEvent(collectionId, context.id, context.snapshot?.data);
+    }
 
-      this.eventEmitter.emitAsync(EventEnums.ViewCreated, eventValue);
+    if (eventValue) {
+      this.eventEmitter.emitAsync(eventValue.eventName, eventValue.toJSON());
     }
   }
 
@@ -334,36 +323,32 @@ export class ShareDbService extends ShareDBClass {
       return;
     }
 
+    let eventValue: IEventBase | undefined;
     if (IdPrefix.Record == docType) {
-      const eventValue: RecordEvent = {
-        eventName: EventEnums.RecordUpdated,
-        tableId: collectionId,
-        recordId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: RecordOpBuilder.ops2Contexts(context.op.op),
-      };
-
-      this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
+      eventValue = new RecordUpdatedEvent(
+        collectionId,
+        context.id,
+        context.snapshot?.data,
+        RecordOpBuilder.ops2Contexts(context.op.op)
+      );
     } else if (IdPrefix.Field == docType) {
-      const eventValue: FieldEvent = {
-        eventName: EventEnums.FieldUpdated,
-        tableId: collectionId,
-        fieldId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: FieldOpBuilder.ops2Contexts(context.op.op),
-      };
-
-      this.eventEmitter.emitAsync(EventEnums.FieldUpdated, eventValue);
+      eventValue = new FieldUpdatedEvent(
+        collectionId,
+        context.id,
+        context.snapshot?.data,
+        FieldOpBuilder.ops2Contexts(context.op.op)
+      );
     } else if (IdPrefix.View == docType) {
-      const eventValue: ViewEvent = {
-        eventName: EventEnums.ViewUpdated,
-        tableId: collectionId,
-        viewId: context.id,
-        snapshot: context.snapshot?.data,
-        ops: ViewOpBuilder.ops2Contexts(context.op.op),
-      };
+      eventValue = new ViewUpdatedEvent(
+        collectionId,
+        context.id,
+        context.snapshot?.data,
+        ViewOpBuilder.ops2Contexts(context.op.op)
+      );
+    }
 
-      this.eventEmitter.emitAsync(EventEnums.ViewUpdated, eventValue);
+    if (eventValue) {
+      this.eventEmitter.emitAsync(eventValue.eventName, eventValue.toJSON());
     }
   }
 

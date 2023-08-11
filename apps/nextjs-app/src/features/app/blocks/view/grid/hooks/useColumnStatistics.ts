@@ -1,31 +1,29 @@
-import type { IViewAggregateVo, StatisticsFunc } from '@teable-group/core';
-import { useAggregate, useTableId, useViewId } from '@teable-group/sdk/hooks';
-import { View } from '@teable-group/sdk/model';
+import type { IViewAggregationVo } from '@teable-group/core';
+import { useAggregation, useViewId } from '@teable-group/sdk/hooks';
 import { isEmpty } from 'lodash';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useUpdateEffect } from 'react-use';
-import type { IGridColumn, IColumnStatistics } from '../../../grid';
+import type { IColumnStatistics, IGridColumn } from '../../../grid';
 import { statisticFunc2NameMap } from '../utils';
 
 export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
-  const tableId = useTableId();
-  const remoteStatistics = useAggregate();
+  const remoteStatistics = useAggregation();
   const [columnStatistics, setColumnStatistics] = useState<IColumnStatistics>({});
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
 
-  const getColumnStatistics = (source: IViewAggregateVo | null, viewId: string) => {
+  const getColumnStatistics = (source: IViewAggregationVo | null, viewId: string) => {
     if (source == null || source[viewId] == null) return;
-    const aggregates = source[viewId].aggregates;
-    if (isEmpty(aggregates)) return;
+    const aggregations = source[viewId].aggregations;
+    if (isEmpty(aggregations)) return;
 
     return columnsRef.current?.reduce((acc, column) => {
       const { id: columnId } = column;
-      const { value, funcName } = aggregates[columnId] || {};
+      const { total, ...groups } = aggregations[columnId] || {};
 
-      if (value != null) {
-        acc[columnId] = { total: `${statisticFunc2NameMap[funcName as StatisticsFunc]} ${value}` };
+      if (total != null) {
+        acc[columnId] = { total: `${statisticFunc2NameMap[total.aggFunc]} ${total.value}` };
       }
       return acc;
     }, {} as IColumnStatistics);
@@ -43,18 +41,6 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
       ...partialColumnStatistics,
     });
   }, [remoteStatistics, viewId]);
-
-  useEffect(() => {
-    if (tableId == null || viewId == null) return;
-
-    View.getViewAggregate(tableId, viewId).then((res) => {
-      const newColumnStatistics = getColumnStatistics(res, viewId);
-      if (newColumnStatistics == null) {
-        return setColumnStatistics({});
-      }
-      setColumnStatistics(newColumnStatistics);
-    });
-  }, [tableId, viewId]);
 
   return { columnStatistics };
 }

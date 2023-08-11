@@ -16,5 +16,5 @@ export * from './use-space';
 export * from './use-undo-manager';
 export * from './use-records';
 export * from './use-record';
-export * from './use-aggregate';
+export * from './use-aggregation';
 export * from './use-field-static-gettter';

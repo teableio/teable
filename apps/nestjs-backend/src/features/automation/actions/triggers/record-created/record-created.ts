@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { RecordEvent } from '../../../../../share-db/events';
+import type { RecordCreatedEvent } from '../../../../../share-db/events';
 import { EventEnums } from '../../../../../share-db/events';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema } from '../../action-core';
@@ -15,9 +15,9 @@ export interface ITriggerRecordCreatedOptions {
 }
 
 @Injectable()
-export class TriggerRecordCreated extends TriggerCore<RecordEvent> {
+export class TriggerRecordCreated extends TriggerCore<RecordCreatedEvent> {
   // @OnEvent(EventEnums.RecordCreated, { async: true })
-  async listenerTrigger(event: RecordEvent) {
+  async listenerTrigger(event: RecordCreatedEvent) {
     const { tableId, recordId, snapshot } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordCreated]);
 

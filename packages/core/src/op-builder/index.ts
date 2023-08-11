@@ -1,3 +1,5 @@
+export type { IOpContextBase } from './interface';
+
 export * from './view';
 export * from './field';
 export * from './record';
