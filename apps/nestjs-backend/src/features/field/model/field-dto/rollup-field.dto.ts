@@ -9,7 +9,7 @@ import {
 import type { IRollupFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
-import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
+import { DatetimeFormattingDto, NumberFormattingDto } from '../formatting.dto';
 
 @ApiExtraModels(DatetimeFormattingDto)
 @ApiExtraModels(NumberFormattingDto)

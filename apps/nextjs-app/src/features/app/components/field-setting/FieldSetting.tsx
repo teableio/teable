@@ -1,45 +1,62 @@
-import type { IFieldRo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
+import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
+import { useToast } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useState } from 'react';
+import { fromZodError } from 'zod-validation-error';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
 import { FieldOperator } from './type';
 
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
+
   const { operator } = props;
   const onCancel = () => {
     props.onCancel?.();
   };
 
-  const onConfirm = (field: IFieldRo) => {
-    props.onConfirm?.(field);
-
+  const onConfirm = async (field: IFieldRo) => {
     if (operator === FieldOperator.Add) {
-      table?.createField(field);
-      return;
+      await table?.createField(field);
     }
 
     if (operator === FieldOperator.Edit) {
       const fieldId = props.field?.id;
-
-      table && fieldId && table.updateField(fieldId, field);
+      table && fieldId && (await table.updateField(fieldId, field));
     }
+
+    props.onConfirm?.(field);
   };
 
   return <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />;
 };
 
+const getOriginOptions = (type?: FieldType, options?: IFieldOptionsRo) => {
+  if (!type) {
+    return {};
+  }
+
+  const schema = getOptionsSchema(type);
+  const result = schema && schema.strip().safeParse(options);
+
+  if (!result || !result.success) {
+    return {};
+  }
+
+  return result.data;
+};
+
 const FieldSettingBase = (props: IFieldSetting) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
+  const { toast } = useToast();
   const [field, setField] = useState<IFieldRo>({
     name: originField?.name,
     type: originField?.type || FieldType.SingleLineText,
     description: originField?.description,
-    options: originField?.options,
+    options: getOriginOptions(originField?.type, originField?.options),
     isLookup: originField?.isLookup,
     lookupOptions: originField?.lookupOptions,
   });
@@ -67,7 +84,17 @@ const FieldSettingBase = (props: IFieldSetting) => {
   };
 
   const onConfirmInner = () => {
-    onConfirm?.(field);
+    const result = updateFieldRoSchema.safeParse(field);
+    if (result.success) {
+      console.log('confirmField', result.data);
+      return onConfirm?.(result.data);
+    }
+
+    toast({
+      title: 'Options Error',
+      variant: 'destructive',
+      description: fromZodError(result.error).message,
+    });
   };
 
   const title = operator === FieldOperator.Add ? 'Add Field' : 'Edit Field';
