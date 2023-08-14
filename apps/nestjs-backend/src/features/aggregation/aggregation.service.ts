@@ -147,7 +147,7 @@ export class AggregationService {
     const targetFieldIds =
       withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
     const filteredFieldInstances = fieldInstances.filter((instance) => {
-      return !targetFieldIds || targetFieldIds.includes(instance.id);
+      return !targetFieldIds?.length || targetFieldIds.includes(instance.id);
     });
 
     viewStatisticsData.forEach((vsd) => {

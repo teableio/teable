@@ -5,6 +5,7 @@ import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teabl
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
 import { map, orderBy, uniq } from 'lodash';
+import type { IEventBase } from 'src/share-db/events/interfaces/event-base.interface';
 import { DerivateChangeService } from './derivate-change.service';
 import {
   FieldCreatedEvent,
@@ -17,7 +18,6 @@ import {
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
-import { IEventBase } from 'src/share-db/events/interfaces/event-base.interface';
 
 enum IEventType {
   Create = 'create',

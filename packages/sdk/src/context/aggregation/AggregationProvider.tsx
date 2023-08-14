@@ -12,6 +12,8 @@ interface IAggregationProviderProps {
   children: ReactNode;
 }
 
+const previousSet = new Set();
+
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
@@ -26,19 +28,10 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
 
     setRemotePresence(connection.getPresence(`${IdPrefix.View}_${tableId}_${viewId}_aggregation`));
 
-    console.log(
-      'remotePresence.wantSubscribe: ',
-      remotePresence?.wantSubscribe,
-      'subscribed: ',
-      remotePresence?.subscribed
-    );
-
     if (!remotePresence?.subscribed) {
       remotePresence?.subscribe((err) => err && console.error);
       remotePresence?.on('receive', (id, viewAggregation: IViewAggregationVo) => {
-        console.log(remotePresence?.remotePresences);
-
-        console.log(`receive: ${id} - aggregation: ${JSON.stringify(viewAggregation, null, 4)}`);
+        console.log(`receive: ${id} - aggregation:`, viewAggregation);
         setViewAggregation(viewAggregation);
       });
     }
@@ -50,17 +43,14 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
 
   useEffect(() => {
     if (tableId == null || viewId == null) return;
-
-    const controller = new AbortController();
+    if (previousSet.has(`${tableId}-${viewId}`)) return;
+    previousSet.add(`${tableId}-${viewId}`);
 
     View.getViewAggregation(tableId, viewId).then((res) => {
-      console.log('AggregationProvider - getViewAggregation', res);
+      previousSet.clear();
       setViewAggregation(res);
     });
-    return () => {
-      controller.abort();
-    };
-  }, [tableId, viewId]);
+  }, [tableId, viewId, connection]);
 
   return (
     <AggregationContext.Provider value={viewAggregation}>{children}</AggregationContext.Provider>

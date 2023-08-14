@@ -1,6 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { CellValueType, StatisticsFunc } from '@teable-group/core';
 
+export const percentStatisticFuncs = new Set([
+  StatisticsFunc.PercentEmpty,
+  StatisticsFunc.PercentFilled,
+  StatisticsFunc.PercentUnique,
+  StatisticsFunc.PercentChecked,
+  StatisticsFunc.PercentUnChecked,
+]);
+
 export const statisticFunc2NameMap = {
   [StatisticsFunc.Empty]: 'Empty',
   [StatisticsFunc.Filled]: 'Filled',
@@ -37,6 +45,7 @@ export const getStatisticsMapByValueType = (type?: CellValueType) => {
     case CellValueType.Number:
       return [
         { type: 'None', name: 'None' },
+        { type: StatisticsFunc.Sum, name: 'Sum' },
         { type: StatisticsFunc.Average, name: 'Average' },
         { type: StatisticsFunc.Min, name: 'Min' },
         { type: StatisticsFunc.Max, name: 'Max' },
@@ -56,8 +65,8 @@ export const getStatisticsMapByValueType = (type?: CellValueType) => {
         { type: StatisticsFunc.PercentEmpty, name: 'Percent Empty' },
         { type: StatisticsFunc.PercentFilled, name: 'Percent Filled' },
         { type: StatisticsFunc.PercentUnique, name: 'Percent Unique' },
-        { type: StatisticsFunc.Min, name: 'Earliest Date' },
-        { type: StatisticsFunc.Max, name: 'Latest Date' },
+        { type: StatisticsFunc.EarliestDate, name: 'Earliest Date' },
+        { type: StatisticsFunc.LatestDate, name: 'Latest Date' },
         { type: StatisticsFunc.DateRangeOfDays, name: 'Date Range (days)' },
         { type: StatisticsFunc.DateRangeOfMonths, name: 'Date Range (months)' },
       ];
