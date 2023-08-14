@@ -89,6 +89,8 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
       `${instance.name} has invalid options, ${fromZodError(result.error)}`
     );
   }
+  // prune options
+  instance.options = result.data;
   return instance;
 }
 

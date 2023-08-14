@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IFieldVo, ILinkFieldOptions, IOtOperation, IUpdateFieldRo } from '@teable-group/core';
 import { getUniqName, FieldType, IdPrefix, FieldOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -293,21 +293,15 @@ export class FieldOpenApiService {
       async (prisma, transactionKey) => {
         const fieldVo = await this.fieldService.getField(tableId, fieldId, prisma);
         if (!fieldVo) {
-          throw new HttpException(`Not found fieldId(${fieldId})`, HttpStatus.NOT_FOUND);
+          throw new BadRequestException(`Not found fieldId(${fieldId})`);
         }
 
         const oldFieldInstance = createFieldInstanceByVo(fieldVo);
 
-        let newFieldInstance: IFieldInstance;
-        try {
-          newFieldInstance = createFieldInstanceByRo({
-            ...fieldVo,
-            ...updateFieldRo,
-          });
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) {
-          throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-        }
+        const newFieldInstance = createFieldInstanceByRo({
+          ...fieldVo,
+          ...updateFieldRo,
+        });
 
         // Avoid some unnecessary changes, first differences to find out the key with changes
         const updateKeys = (Object.keys(updateFieldRo) as (keyof IUpdateFieldRo)[]).filter(

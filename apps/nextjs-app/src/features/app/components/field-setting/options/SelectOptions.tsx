@@ -1,7 +1,8 @@
 import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
 import { randomColor, ColorUtils, Colors } from '@teable-group/core';
-import AddCircleIcon from '@teable-group/ui-lib/icons/app/add-circle.svg';
+import { PlusCircle } from '@teable-group/icons';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
+import { Input } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
@@ -83,10 +84,10 @@ export const SelectOptions = (props: {
               </PopoverContent>
             </Popover>
             <div className="flex-1 px-2">
-              <input
+              <Input
                 ref={(el) => (inputRefs.current[i] = el)}
                 // eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-                className="input input-ghost input-sm hover:border-opacity-30 focus:outline-none w-full max-w-xs"
+                className="h-7"
                 type="text"
                 value={names[i] || ''}
                 onChange={(e) => changeName(e.target.value, i)}
@@ -110,7 +111,7 @@ export const SelectOptions = (props: {
           variant={'ghost'}
           onClick={addOption}
         >
-          <AddCircleIcon />
+          <PlusCircle className="w-4 h-4" />
           Add option
         </Button>
       </li>
