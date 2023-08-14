@@ -3,6 +3,7 @@ import type {
   IJsonApiResponse,
   ITableListVo,
   IJsonApiErrorResponse,
+  IRecord,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import axios from 'axios';
@@ -61,6 +62,12 @@ export class SsrApi {
   async getDefaultViewId(tableId: string) {
     return this.axios
       .get<IJsonApiResponse<{ id: string }>>(`/table/${tableId}/defaultViewId`)
+      .then(({ data }) => data);
+  }
+
+  async getRecord(tableId: string, recordId: string) {
+    return this.axios
+      .get<IJsonApiResponse<IRecord>>(`/table/${tableId}/record/${recordId}`)
       .then(({ data }) => data);
   }
 }

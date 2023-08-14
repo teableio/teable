@@ -5,28 +5,29 @@ import {
   RecordProvider,
   useTable,
   AnchorContext,
+  ExpandRecordProvider,
 } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { FailAlert } from '../table-list/FailAlert';
 import { ToolBar } from '../tool-bar/ToolBar';
-import { GridView } from '../view/grid/GridView';
+import { View } from '../view/View';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
-  recordServerData: { records: IRecord[]; total: number };
+  recordsServerData: { records: IRecord[]; total: number };
+  recordServerData?: IRecord;
 }
 
 export const Table: React.FC<ITableProps> = ({
   fieldServerData,
   viewServerData,
+  recordsServerData,
   recordServerData,
 }) => {
-  const isHydrated = useIsHydrated();
   const table = useTable();
   useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
   const router = useRouter();
@@ -38,7 +39,7 @@ export const Table: React.FC<ITableProps> = ({
           <TableHeader />
           <FieldProvider serverSideData={fieldServerData}>
             <ToolBar />
-            <RecordProvider serverData={recordServerData}>
+            <RecordProvider serverData={recordsServerData}>
               <ErrorBoundary
                 fallback={
                   <div className="w-full h-full flex justify-center items-center">
@@ -46,7 +47,9 @@ export const Table: React.FC<ITableProps> = ({
                   </div>
                 }
               >
-                {isHydrated && <GridView />}
+                <ExpandRecordProvider serverData={recordServerData}>
+                  <View />
+                </ExpandRecordProvider>
               </ErrorBoundary>
             </RecordProvider>
           </FieldProvider>
