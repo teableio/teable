@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicated-branches */
-import { BadRequestException } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILookupOptionsVo } from '@teable-group/core';
 import {
   DbFieldType,
@@ -10,7 +9,6 @@ import {
 } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
-import { fromZodError } from 'zod-validation-error';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
@@ -32,66 +30,53 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
   // generate Id first
   const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
 
-  const instance = (() => {
-    switch (createFieldRo.type) {
-      case FieldType.SingleLineText:
-        return SingleLineTextFieldDto.factory(fieldRo);
-      case FieldType.Number:
-        return NumberFieldDto.factory(fieldRo);
-      case FieldType.SingleSelect:
-        return SingleSelectFieldDto.factory(fieldRo);
-      case FieldType.MultipleSelect:
-        return MultipleSelectFieldDto.factory(fieldRo);
-      case FieldType.Link:
-        return LinkFieldDto.factory(fieldRo);
-      case FieldType.Formula:
-        return FormulaFieldDto.factory(fieldRo);
-      case FieldType.Attachment:
-        return AttachmentFieldDto.factory(fieldRo);
-      case FieldType.Date:
-        return DateFieldDto.factory(fieldRo);
-      case FieldType.Checkbox:
-        return CheckboxFieldDto.factory(fieldRo);
-      case FieldType.Rollup:
-        return RollupFieldDto.factory(fieldRo);
-      case FieldType.Button:
-      case FieldType.CreatedBy:
-      case FieldType.Email:
-      case FieldType.LastModifiedBy:
-      case FieldType.LongText:
-      case FieldType.PhoneNumber:
-      case FieldType.URL:
-      case FieldType.User:
-      case FieldType.AutoNumber:
-      case FieldType.Count:
-      case FieldType.CreatedTime:
-      case FieldType.Duration:
-      case FieldType.LastModifiedTime:
-      case FieldType.Rating:
-      case FieldType.Currency:
-      case FieldType.Percent:
-        return plainToInstance(SingleLineTextFieldDto, {
-          ...fieldRo,
-          type: FieldType.SingleLineText,
-          isComputed: false,
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-        } as SingleLineTextFieldDto);
-      default:
-        assertNever(createFieldRo.type);
-    }
-  })();
-
-  const result = instance.validateOptions();
-
-  if (!result.success) {
-    throw new BadRequestException(
-      `${instance.name} has invalid options, ${fromZodError(result.error)}`
-    );
+  switch (createFieldRo.type) {
+    case FieldType.SingleLineText:
+      return SingleLineTextFieldDto.factory(fieldRo);
+    case FieldType.Number:
+      return NumberFieldDto.factory(fieldRo);
+    case FieldType.SingleSelect:
+      return SingleSelectFieldDto.factory(fieldRo);
+    case FieldType.MultipleSelect:
+      return MultipleSelectFieldDto.factory(fieldRo);
+    case FieldType.Link:
+      return LinkFieldDto.factory(fieldRo);
+    case FieldType.Formula:
+      return FormulaFieldDto.factory(fieldRo);
+    case FieldType.Attachment:
+      return AttachmentFieldDto.factory(fieldRo);
+    case FieldType.Date:
+      return DateFieldDto.factory(fieldRo);
+    case FieldType.Checkbox:
+      return CheckboxFieldDto.factory(fieldRo);
+    case FieldType.Rollup:
+      return RollupFieldDto.factory(fieldRo);
+    case FieldType.Button:
+    case FieldType.CreatedBy:
+    case FieldType.Email:
+    case FieldType.LastModifiedBy:
+    case FieldType.LongText:
+    case FieldType.PhoneNumber:
+    case FieldType.URL:
+    case FieldType.User:
+    case FieldType.AutoNumber:
+    case FieldType.Count:
+    case FieldType.CreatedTime:
+    case FieldType.Duration:
+    case FieldType.LastModifiedTime:
+    case FieldType.Rating:
+    case FieldType.Currency:
+    case FieldType.Percent:
+      return plainToInstance(SingleLineTextFieldDto, {
+        ...fieldRo,
+        type: FieldType.SingleLineText,
+        isComputed: false,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+      } as SingleLineTextFieldDto);
+    default:
+      assertNever(createFieldRo.type);
   }
-  // prune options
-  instance.options = result.data;
-  return instance;
 }
 
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {

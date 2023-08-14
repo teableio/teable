@@ -9,7 +9,7 @@ import type {
 } from '@teable-group/core';
 import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
+import { axios } from '../../config/axios';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
 import { View } from '../view';

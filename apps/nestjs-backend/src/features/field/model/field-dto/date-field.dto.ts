@@ -3,7 +3,7 @@ import { DateFieldCore, Relationship, CellValueType, DbFieldType } from '@teable
 import type { IDateFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
-import { DatetimeFormattingDto } from './formatting.dto';
+import { DatetimeFormattingDto } from '../formatting.dto';
 
 export class DateOptionsDto implements IDateFieldOptions {
   @ApiProperty({

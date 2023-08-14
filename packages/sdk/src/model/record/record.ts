@@ -8,8 +8,9 @@ import type {
 } from '@teable-group/core';
 import { RecordOpBuilder, RecordCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
+import { axios } from '../../config/axios';
 import type { IFieldInstance } from '../field/factory';
+
 export class Record extends RecordCore {
   static async createRecords(tableId: string, recordRo: ICreateRecordsRo) {
     const response = await axios.post<IJsonApiSuccessResponse<void>>(

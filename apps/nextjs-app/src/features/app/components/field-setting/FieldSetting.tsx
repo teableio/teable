@@ -18,19 +18,17 @@ export const FieldSetting = (props: IFieldSetting) => {
     props.onCancel?.();
   };
 
-  const onConfirm = (field: IFieldRo) => {
-    props.onConfirm?.(field);
-
+  const onConfirm = async (field: IFieldRo) => {
     if (operator === FieldOperator.Add) {
-      table?.createField(field);
-      return;
+      await table?.createField(field);
     }
 
     if (operator === FieldOperator.Edit) {
       const fieldId = props.field?.id;
-
-      table && fieldId && table.updateField(fieldId, field);
+      table && fieldId && (await table.updateField(fieldId, field));
     }
+
+    props.onConfirm?.(field);
   };
 
   return <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />;

@@ -1,7 +1,7 @@
 import type { IFieldRo, IFieldVo, IJsonApiSuccessResponse } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
+import { axios } from '../../config/axios';
 
 export abstract class Field extends FieldCore {
   tableId!: string;
