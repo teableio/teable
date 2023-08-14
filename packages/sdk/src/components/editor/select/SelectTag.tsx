@@ -1,4 +1,5 @@
 import classNames from 'classnames';
+import React from 'react';
 
 export interface ISelectTag {
   label: string;
@@ -7,13 +8,19 @@ export interface ISelectTag {
   className?: string;
 }
 
-export const SelectTag = ({ label, color, backgroundColor, className }: ISelectTag) => {
+export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) => {
+  const { label, color, backgroundColor, className, children } = props;
   return (
     <div
-      className={classNames('px-2 rounded-lg bg-secondary text-secondary-foreground', className)}
+      className={classNames(
+        'text-sm px-2 rounded-lg bg-secondary text-secondary-foreground overflow-hidden',
+        className
+      )}
       style={{ color, backgroundColor }}
+      title={label}
     >
-      {label}
+      <p className="truncate flex-1">{label}</p>
+      {children}
     </div>
   );
 };

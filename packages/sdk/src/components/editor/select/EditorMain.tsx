@@ -12,9 +12,9 @@ import { useCallback } from 'react';
 import type { ICellEditor } from '../type';
 import { SelectTag } from './SelectTag';
 
-type SelectValue<T extends boolean> = T extends true ? string[] : string;
+export type ISelectValue<T extends boolean> = T extends true ? string[] : string;
 
-export interface ISelectEditorMain<T extends boolean> extends ICellEditor<SelectValue<T>> {
+export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelectValue<T>> {
   options?: {
     label: string;
     value: string;
@@ -35,9 +35,10 @@ export function SelectEditorMain<T extends boolean = false>(props: ISelectEditor
       const newValue = innerValue?.includes(val)
         ? innerValue.filter((v) => v !== val)
         : innerValue.concat(val);
-      onChange?.(newValue as SelectValue<T>);
+      onChange?.(newValue as ISelectValue<T>);
+      return;
     }
-    onChange?.(val as SelectValue<T>);
+    onChange?.(val === originValue ? undefined : (val as ISelectValue<T>));
   };
 
   const activeStatus = useCallback(
@@ -49,8 +50,8 @@ export function SelectEditorMain<T extends boolean = false>(props: ISelectEditor
 
   return (
     <Command className={classNames('rounded-sm shadow-sm p-2 border', className)} style={style}>
+      <CommandInput placeholder="Search option" />
       <CommandList>
-        <CommandInput placeholder="Search option" />
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {options.map(({ label, value, backgroundColor, color }) => (

@@ -22,13 +22,11 @@ export const DragAndCopy = (props: { onChange?: (files: FileList) => void }) => 
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-16 flex flex-col focus:bg-red">
       <div
         className={classNames(
-          'flex-1 w-full bg-foreground/10 text-foreground/60 rounded-md flex items-center justify-center',
-          {
-            'border border-dashed border-foreground': isFileDragIn,
-          }
+          'flex-1 w-full bg-foreground/5 text-foreground/60 rounded-md flex items-center justify-center border border-dashed',
+          isFileDragIn && 'border-foreground'
         )}
         onDrop={handleFileDrop}
         onDragEnter={() => setIsFileDragIn(true)}

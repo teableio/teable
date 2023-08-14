@@ -88,21 +88,22 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   }, [attachments, uploadingFiles]);
 
   const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="overflow-y-scroll relative flex-1" ref={listRef}>
         {len === 0 && <DragAndCopy onChange={uploadAttachment} />}
         {len > 0 && (
-          <ul className="absolute -right-2 w-full h-full flex flex-wrap">
+          <ul className="-right-2 w-full h-full flex flex-wrap">
             {attachments.map((attachment) => (
-              <li key={attachment.id} className="w-28 h-28 pr-1 mr-1 flex flex-col">
-                <div className="group flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden">
+              <li key={attachment.id} className="w-28 h-28 pr-1 mr-1 mb-2 flex flex-col">
+                <div className="relative group flex-1 border border-border cursor-pointer rounded-md overflow-hidden">
                   <img
                     className="w-full h-full"
                     src={getFileCover(attachment.mimetype, attachment.url)}
                     alt={attachment.name}
                   />
-                  <ul className="absolute top-0 right-0 opacity-0 flex justify-end group-hover:opacity-100 space-x-1 bg-foreground/50 p-1 w-full">
+                  <ul className="absolute top-0 right-0 hidden justify-end group-hover:flex space-x-1 bg-foreground/20 p-1 w-full">
                     {/* <li>
                       <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
                         <FullscreenIcon />
