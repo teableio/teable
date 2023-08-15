@@ -10,7 +10,7 @@ export const Modal: FC<
     onClose?: () => void;
   }>
 > = (props) => {
-  const { hideActivity } = useExpandRecord();
+  const { showActivity } = useExpandRecord();
   const { children, container, visible, onClose } = props;
 
   return (
@@ -18,7 +18,7 @@ export const Modal: FC<
       <DialogContent
         closeable={false}
         container={container}
-        className={classNames('h-full block p-0 max-w-5xl', hideActivity && 'max-w-3xl')}
+        className={classNames('h-full block p-0 max-w-3xl', showActivity && 'max-w-5xl')}
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
       >
         {children}

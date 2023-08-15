@@ -14,13 +14,13 @@ interface IExpandRecord {
 interface IExpandRecordState {
   model?: IExpandRecordModel;
   records: IExpandRecord[];
-  hideActivity?: boolean;
+  showActivity?: boolean;
   updateModel: (model?: IExpandRecordModel) => void;
   getRecordById: (recordId: string) => IExpandRecord | undefined;
   addExpandRecord: (record: IExpandRecord) => { existed: boolean };
   updateExpandRecord: (tableId: string, recordId: string, record: Partial<IExpandRecord>) => void;
   removeExpandRecord: (tableId?: string, recordId?: string) => void;
-  updateHideActivity: (hideActivity?: boolean) => void;
+  updateShowActivity: (showActivity?: boolean) => void;
 }
 
 export const useExpandRecord = create<IExpandRecordState>()(
@@ -72,13 +72,13 @@ export const useExpandRecord = create<IExpandRecordState>()(
           return { ...state, records: [] };
         });
       },
-      updateHideActivity: (hideActivity) => {
-        set((state) => ({ ...state, hideActivity }));
+      updateShowActivity: (showActivity) => {
+        set((state) => ({ ...state, showActivity }));
       },
     }),
     {
       name: 'expandRecord',
-      partialize: (data) => ({ model: data.model, hideActivity: data.hideActivity }),
+      partialize: (data) => ({ model: data.model, showActivity: data.showActivity }),
     }
   )
 );

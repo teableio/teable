@@ -14,12 +14,13 @@ export const RecordEditor = (props: {
 }) => {
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { fields, record, onChange } = props;
+  const vertical = width > EDITOR_VERTICAL_MIN;
   return (
     <div ref={ref} className="max-w-2xl mx-auto space-y-6">
       {fields.map((field) => (
         <RecordEditorItem
           key={field.id}
-          vertical={width > EDITOR_VERTICAL_MIN}
+          vertical={vertical}
           field={field}
           record={record}
           onChange={onChange}
