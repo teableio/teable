@@ -12,6 +12,7 @@ import {
   useViewId,
 } from '@teable-group/sdk';
 import { isEqual } from 'lodash';
+import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useUpdateEffect } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
@@ -27,6 +28,7 @@ import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
 
 export const GridView: React.FC = () => {
+  const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const tableId = useTableId() as string;
   const table = useTable();
@@ -226,8 +228,26 @@ export const GridView: React.FC = () => {
     paste(selection);
   };
 
+  const onRowExpand = (rowIndex: number) => {
+    const { nodeId, viewId } = router.query;
+    const recordId = records[rowIndex]?.id;
+    if (!recordId) {
+      return;
+    }
+    router.push(
+      {
+        pathname: '/space/[nodeId]/[viewId]/[recordId]',
+        query: { nodeId, viewId, recordId },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   return (
-    <div ref={container} className="relative grow w-full overflow-hidden">
+    <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
         <Grid
           ref={gridRef}
@@ -259,6 +279,7 @@ export const GridView: React.FC = () => {
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
           onCopy={onCopy}
           onPaste={onPaste}
+          onRowExpand={onRowExpand}
         />
       ) : (
         <Grid

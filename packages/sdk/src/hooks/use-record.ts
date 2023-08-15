@@ -1,3 +1,4 @@
+import type { IRecord } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import { keyBy } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
@@ -7,16 +8,18 @@ import { useConnection } from './use-connection';
 import { useFields } from './use-fields';
 import { useTableId } from './use-table-id';
 
-export const useRecord = (recordId: string | undefined) => {
-  const { connection } = useConnection();
+export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
+  const { connection, connected } = useConnection();
   const tableId = useTableId();
 
   const fields = useFields();
 
-  const [instance, setInstance] = useState<Record>();
+  const [instance, setInstance] = useState<Record | undefined>(() => {
+    return initData && !connected ? createRecordInstance(initData) : undefined;
+  });
 
   useEffect(() => {
-    if (!recordId) {
+    if (!connection || !recordId) {
       return undefined;
     }
     const doc = connection.get(`${IdPrefix.Record}_${tableId}`, recordId);
@@ -33,15 +36,19 @@ export const useRecord = (recordId: string | undefined) => {
       setInstance(createRecordInstance(doc.data, doc));
     };
 
-    doc.on('op', listeners);
+    doc.subscribe(() => {
+      doc.on('op', listeners);
+    });
 
     return () => {
       doc.removeListener('op', listeners);
+      doc.unsubscribe();
+      !doc.listenerCount && doc.destroy();
     };
   }, [connection, recordId, tableId]);
 
   return useMemo(() => {
-    if (!instance) {
+    if (!instance || !fields.length) {
       return undefined;
     }
     const fieldMap = keyBy(fields, 'id');
