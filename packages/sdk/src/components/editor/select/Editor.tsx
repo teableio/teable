@@ -1,7 +1,8 @@
 import { X } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { useRef, useState } from 'react';
+import { keyBy } from 'lodash';
+import { useMemo, useRef, useState } from 'react';
 import type { ISelectEditorMain, ISelectValue } from './EditorMain';
 import { SelectEditorMain } from './EditorMain';
 import { SelectTag } from './SelectTag';
@@ -11,12 +12,13 @@ export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain
   const [open, setOpen] = useState(false);
   const selectRef = useRef<HTMLButtonElement>(null);
 
-  const displayOptions = options.filter((option) =>
-    isMultiple ? value?.includes(option.value) : value === option.value
-  );
+  const optionsMap = useMemo(() => keyBy(options, 'value'), [options]);
+  const arrayValue = isMultiple ? (value as string[]) : value ? [value] : [];
+
+  const displayOptions = arrayValue?.map((value) => optionsMap[value as string]).filter(Boolean);
 
   const onDelete = (val: string) => {
-    const newValue = isMultiple ? (value as string[])?.filter((v) => v === val) : undefined;
+    const newValue = isMultiple ? (value as string[])?.filter((v) => v !== val) : undefined;
     onChange?.(newValue as ISelectValue<T>);
   };
 
@@ -36,13 +38,13 @@ export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain
           role="combobox"
           aria-expanded={open}
           className={classNames(
-            'w-full h-auto min-h-[32px] flex flex-wrap justify-start hover:bg-transparent',
+            'w-full h-auto min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
             className
           )}
         >
-          {displayOptions.map(({ value, label, backgroundColor, color }) => (
+          {displayOptions?.map(({ value, label, backgroundColor, color }) => (
             <SelectTag
-              className="mr-2 flex items-center"
+              className="flex items-center"
               key={value}
               label={label}
               color={color}

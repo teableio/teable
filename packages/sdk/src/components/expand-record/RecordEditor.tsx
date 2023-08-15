@@ -60,14 +60,12 @@ const RecordEditorItem = (props: {
           {field.name}
         </div>
       </div>
-      <div className="overflow-hidden flex-1">
-        <CellEditor
-          className="p-0.5"
-          cellValue={cellValue}
-          onChange={onChangeInner}
-          field={field}
-        />
-      </div>
+      <CellEditor
+        className="min-w-0 flex-1 p-0.5"
+        cellValue={cellValue}
+        onChange={onChangeInner}
+        field={field}
+      />
     </div>
   );
 };

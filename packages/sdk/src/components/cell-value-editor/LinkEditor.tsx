@@ -1,9 +1,13 @@
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
+import { Plus, X } from '@teable-group/icons';
+import { Button, Popover, PopoverContent, PopoverTrigger, useToast } from '@teable-group/ui-lib';
+import { noop } from 'lodash';
 import { useMemo } from 'react';
 import { AnchorProvider } from '../../context';
 import { useRecords } from '../../hooks';
-import { SelectEditor } from '../editor';
+import { SelectEditorMain } from '../editor';
+import { useExpandRecord } from '../expand-record';
 
 interface ILinkEditorProps {
   options: ILinkFieldOptions;
@@ -55,7 +59,7 @@ const LinkEditorInner = (props: ILinkEditorProps) => {
   };
 
   return (
-    <SelectEditor
+    <SelectEditorMain
       value={values}
       options={choices}
       isMultiple={isMultiple}
@@ -64,12 +68,76 @@ const LinkEditorInner = (props: ILinkEditorProps) => {
   );
 };
 
-export const LinkEditor = (props: ILinkEditorProps) => {
+export const LinkEditorMain = (props: ILinkEditorProps) => {
   const { options } = props;
   const { foreignTableId } = options;
   return (
     <AnchorProvider tableId={foreignTableId}>
       <LinkEditorInner {...props} />
     </AnchorProvider>
+  );
+};
+
+export const LinkEditor = (props: ILinkEditorProps) => {
+  const { cellValue, options, onChange } = props;
+  const { toast } = useToast();
+  const { addExpandRecord } = useExpandRecord();
+  const { foreignTableId, relationship } = options;
+
+  const cvArray = Array.isArray(cellValue) || !cellValue ? cellValue : [cellValue];
+  const isMultiple = relationship !== Relationship.ManyOne;
+
+  const onRecordClick = (recordId: string) => {
+    const { existed } = addExpandRecord({
+      tableId: foreignTableId,
+      recordId,
+      recordIds: cvArray?.map((cv) => cv.id),
+    });
+    existed && toast({ description: 'This record is already open.' });
+  };
+
+  const onDeleteRecord = (recordId: string) => {
+    onChange?.(
+      isMultiple ? (cellValue as ILinkCellValue[])?.filter((cv) => cv.id !== recordId) : undefined
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      {cvArray?.map(({ id, title }) => (
+        <div
+          key={id}
+          tabIndex={-1}
+          role={'button'}
+          className="relative rounded-md border px-4 py-2 font-mono text-sm shadow-sm cursor-pointer group"
+          onClick={() => onRecordClick(id)}
+          onKeyDown={noop}
+        >
+          {title || 'Unnamed record'}
+          <Button
+            className="absolute w-4 h-4 right-0 top-0 rounded-full translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100"
+            size={'icon'}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteRecord(id);
+            }}
+          >
+            <X />
+          </Button>
+        </div>
+      ))}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline">
+            <Plus />
+            Add Record
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0">
+          <LinkEditorMain {...props} />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 };

@@ -49,7 +49,7 @@ export function SelectEditorMain<T extends boolean = false>(props: ISelectEditor
   );
 
   return (
-    <Command className={classNames('rounded-sm shadow-sm p-2 border', className)} style={style}>
+    <Command className={className} style={style}>
       <CommandInput placeholder="Search option" />
       <CommandList>
         <CommandEmpty>No found.</CommandEmpty>

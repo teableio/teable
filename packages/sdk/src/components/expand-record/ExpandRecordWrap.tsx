@@ -1,7 +1,7 @@
 import { type FC, type PropsWithChildren } from 'react';
-import { IExpandRecordModel } from './context';
 import { Modal } from './Modal';
 import { Panel } from './Panel';
+import { IExpandRecordModel } from './type';
 
 export const ExpandRecordWrap: FC<
   PropsWithChildren<{

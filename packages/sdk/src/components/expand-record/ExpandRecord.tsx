@@ -1,24 +1,25 @@
+import type { IRecord } from '@teable-group/core';
 import { isEqual } from 'lodash';
-import { useContext } from 'react';
 import { useFields, useRecord } from '../../hooks';
-import type { IExpandRecordModel } from './context';
-import { ExpandRecordContext } from './context';
 import { ExpandRecordTitle } from './ExpandRecordTitle';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
+import { useExpandRecord } from './store';
+import type { IExpandRecordModel } from './type';
 
 interface IExpandRecordProps {
   recordId?: string;
   visible?: boolean;
   forceModel?: IExpandRecordModel;
+  serverData?: IRecord;
   onClose?: () => void;
 }
 
 export const ExpandRecord = (props: IExpandRecordProps) => {
-  const { recordId, visible, forceModel, onClose } = props;
-  const { serverRecord, model } = useContext(ExpandRecordContext);
+  const { recordId, visible, forceModel, serverData, onClose } = props;
+  const { model } = useExpandRecord();
   const fields = useFields();
-  const record = useRecord(recordId, serverRecord);
+  const record = useRecord(recordId, serverData);
   const onChange = (newValue: unknown, fieldId: string) => {
     if (isEqual(record?.getCellValue(fieldId), newValue)) {
       return;

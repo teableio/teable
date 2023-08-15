@@ -19,7 +19,7 @@ export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
   });
 
   useEffect(() => {
-    if (!recordId) {
+    if (!connection || !recordId) {
       return undefined;
     }
     const doc = connection.get(`${IdPrefix.Record}_${tableId}`, recordId);
@@ -48,7 +48,7 @@ export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
   }, [connection, recordId, tableId]);
 
   return useMemo(() => {
-    if (!instance) {
+    if (!instance || !fields.length) {
       return undefined;
     }
     const fieldMap = keyBy(fields, 'id');

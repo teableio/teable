@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { useContext, type FC, type PropsWithChildren } from 'react';
-import { ExpandRecordContext } from './context';
+import { type FC, type PropsWithChildren } from 'react';
+import { useExpandRecord } from './store';
 
 export const Modal: FC<
   PropsWithChildren<{
@@ -10,11 +10,11 @@ export const Modal: FC<
     onClose?: () => void;
   }>
 > = (props) => {
-  const { hideActivity } = useContext(ExpandRecordContext);
+  const { hideActivity } = useExpandRecord();
   const { children, container, visible, onClose } = props;
 
   return (
-    <Dialog open={visible} onOpenChange={onClose}>
+    <Dialog open={visible} onOpenChange={onClose} modal>
       <DialogContent
         closeable={false}
         container={container}

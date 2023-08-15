@@ -67,7 +67,9 @@ export class SsrApi {
 
   async getRecord(tableId: string, recordId: string) {
     return this.axios
-      .get<IJsonApiResponse<IRecord>>(`/table/${tableId}/record/${recordId}`)
+      .get<IJsonApiResponse<IRecord>>(`/table/${tableId}/record/${recordId}`, {
+        params: { fieldKeyType: FieldKeyType.Id },
+      })
       .then(({ data }) => data);
   }
 }
