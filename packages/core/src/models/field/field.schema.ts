@@ -219,10 +219,30 @@ export const getOptionsSchema = (type: FieldType) => {
 };
 
 const refineOptions = (
-  data: { type: FieldType; options?: IFieldOptionsRo },
+  data: {
+    type: FieldType;
+    isLookup?: boolean;
+    lookupOptions?: ILookupOptionsRo;
+    options?: IFieldOptionsRo;
+  },
   ctx: RefinementCtx
 ) => {
-  if (!data.options) {
+  const { type, isLookup, lookupOptions, options } = data;
+  if (isLookup && !lookupOptions) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lookupOptions is required when isLookup is true.',
+    });
+  }
+
+  if (!isLookup && lookupOptions && type !== FieldType.Rollup) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lookupOptions is not allowed when isLookup is not true.',
+    });
+  }
+
+  if (!options) {
     return;
   }
   const schema = getOptionsSchema(data.type);
