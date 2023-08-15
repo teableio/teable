@@ -3,7 +3,7 @@ import { ExpandRecorder, useExpandRecord } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 
-export const ExpandRecordContainer = (props: { recordServerData: IRecord }) => {
+export const ExpandRecordContainer = (props: { recordServerData?: IRecord }) => {
   const { recordServerData } = props;
   const router = useRouter();
   const { nodeId, viewId, recordId } = router.query;
