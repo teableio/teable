@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CalculationModule } from '../features/calculation/calculation.module';
 import { TableModule } from '../features/table/table.module';
 import { PrismaService } from '../prisma.service';
@@ -9,7 +8,7 @@ import { SqliteDbAdapter } from './sqlite.adapter';
 import { TransactionService } from './transaction.service';
 
 @Module({
-  imports: [TableModule, CalculationModule, EventEmitterModule],
+  imports: [TableModule, CalculationModule],
   providers: [
     ShareDbService,
     SqliteDbAdapter,

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../../../prisma.service';
 import { AggregationModule } from '../aggregation.module';
 import { AggregationService } from '../aggregation.service';
 import { AggregationOpenApiController } from './aggregation-open-api.controller';

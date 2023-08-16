@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
 import { TeableConfigModule } from './configs/config.module';
 import { X_REQUEST_ID } from './const';
+import { TeableEventEmitterModule } from './event-emitter/event-emitter.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
@@ -31,6 +31,7 @@ import { WsModule } from './ws/ws.module';
       },
     }),
     TeableLoggerModule.register(),
+    TeableEventEmitterModule.register(),
     NextModule,
     FileTreeModule,
     TableOpenApiModule,
@@ -40,7 +41,6 @@ import { WsModule } from './ws/ws.module';
     WsModule,
     SelectionModule,
     AggregationOpenApiModule,
-    EventEmitterModule.forRoot(),
   ],
 })
 export class AppModule {}

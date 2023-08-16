@@ -1,16 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAggregations, IFilter, IViewAggregationVo } from '@teable-group/core';
-import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
+import { mergeWithDefaultFilter, ViewType, StatisticsFunc } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { AsyncFunction } from 'async';
 import async from 'async';
+import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { keyBy } from 'lodash';
+import { difference, keyBy } from 'lodash';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FilterQueryTranslator } from '../record/translator/filter-query-translator';
+import { getSimpleAggRawSql } from './aggregation-function-mappings';
 
 type IWithView = {
   viewId: string;
@@ -30,16 +32,17 @@ type IViewStatisticsData = {
 }[];
 
 type IStatisticField = {
-  fieldId: string;
-  dbFieldName: string;
+  field: IFieldInstance;
   statisticFunc: StatisticsFunc;
 };
 
 type ITaskResult = {
   viewId: string;
-  rawAggregationData: { [field: string]: unknown } | undefined;
+  rawAggregationData?: { [field: string]: unknown };
   executionTime: number;
 };
+
+export type IAggCalcCallback = (data?: IViewAggregationVo, error?: unknown) => Promise<void>;
 
 @Injectable()
 export class AggregationService {
@@ -54,7 +57,7 @@ export class AggregationService {
       withFieldIds?: string[];
       withView?: IWithView;
     },
-    callBack?: (data?: IViewAggregationVo, error?: unknown) => Promise<void>
+    callBack?: IAggCalcCallback
   ) {
     const { tableId, withFieldIds, withView } = params;
 
@@ -68,9 +71,10 @@ export class AggregationService {
     // 2.Get database table name
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
-    const allTasks: AsyncFunction<ITaskResult>[] = [];
+    // 3.Create aggregation all task
+    const asyncTasks: Array<AsyncFunction<ITaskResult>> = [];
     viewStatisticsData.forEach(({ viewId, filter, statisticFields }) => {
-      const aggregationTask = this.createAggregationTask(
+      const aggregationTask = this.createAggTask(
         dbTableName,
         viewId,
         fieldInstanceMap,
@@ -78,6 +82,11 @@ export class AggregationService {
         statisticFields
       );
       if (!aggregationTask) {
+        this.setAggDefaultToNull(
+          asyncTasks,
+          { viewId, withFieldIds, withView, statisticFields },
+          callBack
+        );
         return;
       }
 
@@ -95,10 +104,9 @@ export class AggregationService {
             next(err);
           });
       };
-
-      allTasks.push(asyncFunction);
+      asyncTasks.push(asyncFunction);
     });
-    const taskResults = await async.parallel<ITaskResult, ITaskResult[]>(allTasks);
+    const taskResults = await async.parallel<ITaskResult, ITaskResult[]>(asyncTasks);
 
     const viewAggregationResult: IViewAggregationVo = {};
     // Format task results and populate viewAggregationResult
@@ -146,9 +154,11 @@ export class AggregationService {
 
     const targetFieldIds =
       withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
-    const filteredFieldInstances = fieldInstances.filter((instance) => {
-      return !targetFieldIds?.length || targetFieldIds.includes(instance.id);
-    });
+    const filteredFieldInstances = !targetFieldIds?.length
+      ? fieldInstances
+      : fieldInstances.filter((instance) => {
+          return targetFieldIds.includes(instance.id);
+        });
 
     viewStatisticsData.forEach((vsd) => {
       vsd.statisticFields = this.getStatisticFields(
@@ -182,7 +192,8 @@ export class AggregationService {
     const statisticFields: IStatisticField[] = [];
     const customFieldStatsMap = keyBy(customFieldStats, 'fieldId');
 
-    fieldInstances.forEach(({ id: fieldId, dbFieldName, columnMeta }) => {
+    fieldInstances.forEach((instance) => {
+      const { id: fieldId, columnMeta } = instance;
       const viewFieldMeta = columnMeta[viewId];
 
       if (viewFieldMeta || customFieldStatsMap) {
@@ -191,8 +202,7 @@ export class AggregationService {
 
         if (hidden !== true && func) {
           statisticFields.push({
-            fieldId,
-            dbFieldName,
+            field: instance,
             statisticFunc: func,
           });
         }
@@ -201,31 +211,35 @@ export class AggregationService {
     return statisticFields;
   }
 
-  private createAggregationTask(
+  private createAggTask(
     dbTableName: string,
     viewId: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
     statisticFields?: IStatisticField[]
   ) {
-    const queryBuilder = this.knex(dbTableName);
-
     if (!statisticFields?.length) {
-      return undefined;
+      return;
     }
+
+    const tableAlias = 'main_table';
+    const queryBuilder = this.knex
+      .with(tableAlias, (qb) => {
+        qb.select('*').from(dbTableName);
+        if (filter) {
+          new FilterQueryTranslator(qb, fieldInstanceMap, filter).translateToSql();
+        }
+      })
+      .from(tableAlias);
 
     // Function to get aggregation data
     const getAggregationData = async (
       prisma: Prisma.TransactionClient,
       queryBuilder: Knex.QueryBuilder
     ) => {
-      if (filter) {
-        new FilterQueryTranslator(queryBuilder, fieldInstanceMap, filter).translateToSql();
-      }
-
       // Get Aggregation functions for each field
-      statisticFields.forEach(({ fieldId, dbFieldName, statisticFunc }) => {
-        this.getAggregationFn(queryBuilder, fieldId, dbFieldName, statisticFunc);
+      statisticFields.forEach(({ field, statisticFunc }) => {
+        this.getAggregationFunc(queryBuilder, tableAlias, field, statisticFunc);
       });
 
       const sqlNative = queryBuilder.toSQL().toNative();
@@ -249,19 +263,59 @@ export class AggregationService {
     });
   }
 
-  private formatTaskResult(taskResult: ITaskResult) {
+  private setAggDefaultToNull(
+    allTasks: Array<AsyncFunction<ITaskResult>>,
+    params: {
+      viewId: string;
+      withFieldIds?: string[];
+      withView?: IWithView;
+      statisticFields?: IStatisticField[];
+    },
+    callBack?: IAggCalcCallback
+  ) {
+    const { withFieldIds, withView, statisticFields, viewId } = params;
+    if (!withFieldIds && !withView) {
+      return;
+    }
+
+    const targetFieldIds =
+      withView?.customFieldStats?.map((field) => field.fieldId) ?? withFieldIds;
+    const sourceFieldIds = statisticFields?.map((v) => v.field.id) || [];
+    const diffFieldIds = difference(targetFieldIds, sourceFieldIds);
+
+    diffFieldIds.forEach((fieldId) => {
+      const asyncFunction = (next: (err?: Error | null, data?: ITaskResult) => void) => {
+        const taskResult = {
+          viewId,
+          rawAggregationData: {
+            [fieldId]: null,
+          },
+          executionTime: new Date().getTime(),
+        };
+
+        callBack &&
+          callBack({
+            [taskResult.viewId]: this.formatTaskResult(taskResult),
+          });
+
+        next(null, taskResult);
+      };
+      allTasks.push(asyncFunction);
+    });
+  }
+
+  private formatTaskResult = (taskResult: ITaskResult) => {
     const aggregations: IAggregations = {};
     for (const [key, value] of Object.entries(taskResult.rawAggregationData || {})) {
-      const [fieldId, aggFunc] = key.split('_');
-      const convertValue =
-        typeof value === 'bigint' || typeof value === 'number' ? Number(value) : String(value);
+      const [fieldId, aggFunc] = key.split('_') as [string, StatisticsFunc | undefined];
 
-      aggregations[fieldId] = {
-        total: {
-          value: convertValue,
-          aggFunc: aggFunc as StatisticsFunc,
-        },
-      };
+      const convertValue = this.formatConvertValue(value, aggFunc);
+
+      if (fieldId) {
+        aggregations[fieldId] = aggFunc
+          ? { total: { value: convertValue, aggFunc: aggFunc } }
+          : null;
+      }
     }
 
     return {
@@ -269,62 +323,59 @@ export class AggregationService {
       executionTime: taskResult.executionTime,
       aggregations,
     };
-  }
+  };
 
-  private getAggregationFn(
+  private formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
+    let convertValue =
+      typeof currentValue === 'bigint' || typeof currentValue === 'number'
+        ? Number(currentValue)
+        : currentValue?.toString() ?? null;
+
+    if (aggFunc === StatisticsFunc.DateRangeOfMonths) {
+      const [maxTime, minTime] = (currentValue as string).split(',');
+
+      if (!maxTime || !minTime) {
+        convertValue = 0;
+      } else {
+        convertValue = dayjs(maxTime).diff(minTime, 'month');
+      }
+    }
+    return convertValue;
+  };
+
+  private getAggregationFunc(
     kq: Knex.QueryBuilder,
-    fieldId: string,
-    dbFieldName: string,
+    dbTableName: string,
+    field: IFieldInstance,
     func: StatisticsFunc
   ) {
     let rawSql: string;
-    switch (func) {
-      case StatisticsFunc.Empty:
-      case StatisticsFunc.UnChecked:
-        // rawSql = `sum(case when ${dbFieldName} is null then 1 else 0 end)`;
-        rawSql = `count(*) - count(${dbFieldName})`;
-        break;
-      case StatisticsFunc.Filled:
-      case StatisticsFunc.Checked:
-        rawSql = `count(${dbFieldName})`;
-        break;
-      case StatisticsFunc.Unique:
-        rawSql = `count(distinct ${dbFieldName})`;
-        break;
-      case StatisticsFunc.Max:
-      case StatisticsFunc.LatestDate:
-        rawSql = `max(${dbFieldName})`;
-        break;
-      case StatisticsFunc.Min:
-      case StatisticsFunc.EarliestDate:
-        rawSql = `min(${dbFieldName})`;
-        break;
-      case StatisticsFunc.Sum:
-        rawSql = `sum(${dbFieldName})`;
-        break;
-      case StatisticsFunc.Average:
-        rawSql = `avg(${dbFieldName})`;
-        break;
-      case StatisticsFunc.PercentEmpty:
-      case StatisticsFunc.PercentUnChecked:
-        rawSql = `((count(*) - count(${dbFieldName})) * 1.0 / count(*)) * 100`;
-        break;
-      case StatisticsFunc.PercentFilled:
-      case StatisticsFunc.PercentChecked:
-        rawSql = `(count(${dbFieldName}) * 1.0 / COUNT(*)) * 100`;
-        break;
-      case StatisticsFunc.PercentUnique:
-        rawSql = `(count(distinct ${dbFieldName}) * 1.0 / count(*)) * 100`;
-        break;
-      case StatisticsFunc.DateRangeOfDays:
-        rawSql = `floor(julianday(max(${dbFieldName})) - julianday(min(${dbFieldName})))`;
-        break;
-      case StatisticsFunc.DateRangeOfMonths:
-        // 使用别的方式
-        break;
+
+    const { id: fieldId, isMultipleCellValue } = field;
+
+    const ignoreMcvFunc = [
+      StatisticsFunc.Empty,
+      StatisticsFunc.UnChecked,
+      StatisticsFunc.Filled,
+      StatisticsFunc.Checked,
+      StatisticsFunc.PercentEmpty,
+      StatisticsFunc.PercentUnChecked,
+      StatisticsFunc.PercentFilled,
+      StatisticsFunc.PercentChecked,
+    ];
+    if (isMultipleCellValue && !ignoreMcvFunc.includes(func)) {
+      const joinTable = `${fieldId}_mcv`;
+
+      const withRawSql = getSimpleAggRawSql(dbTableName, field, func);
+      kq.with(`${fieldId}_mcv`, this.knex.raw(withRawSql));
+      kq.join(this.knex.raw(joinTable));
+
+      rawSql = `${joinTable}.value`;
+    } else {
+      rawSql = getSimpleAggRawSql(dbTableName, field, func);
     }
 
-    return kq.select(this.knex.raw(`${rawSql!} as ${fieldId}_${func}`));
+    return kq.select(this.knex.raw(`${rawSql} as ${fieldId}_${func}`));
   }
 
   private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {

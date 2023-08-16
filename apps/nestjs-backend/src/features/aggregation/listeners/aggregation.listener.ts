@@ -3,14 +3,14 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetColumnMetaOpContext, IViewAggregationVo } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import { get } from 'lodash';
+import { IEventBase } from '../../../event-emitter/interfaces/event-base.interface';
 import type {
   FieldUpdatedEvent,
   RecordCreatedEvent,
   RecordUpdatedEvent,
   ViewUpdatedEvent,
-} from '../../../share-db/events';
-import { EventEnums } from '../../../share-db/events';
-import { IEventBase } from '../../../share-db/events/interfaces/event-base.interface';
+} from '../../../event-emitter/model';
+import { EventEnums } from '../../../event-emitter/model';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { AggregationService } from '../aggregation.service';
 

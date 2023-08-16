@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { CellValueType, StatisticsFunc } from '@teable-group/core';
+import { CellValueType, FieldType, StatisticsFunc } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk';
 
 export const percentStatisticFuncs = new Set([
   StatisticsFunc.PercentEmpty,
@@ -30,8 +31,24 @@ export const statisticFunc2NameMap = {
   [StatisticsFunc.DateRangeOfMonths]: 'Date Range (months)',
 };
 
-export const getStatisticsMapByValueType = (type?: CellValueType) => {
-  switch (type) {
+export const getValidStatisticFunc = (field?: IFieldInstance) => {
+  if (!field) {
+    return [];
+  }
+
+  const { cellValueType, type } = field;
+
+  if (type === FieldType.Link) {
+    return [
+      { type: 'None', name: 'None' },
+      { type: StatisticsFunc.Empty, name: 'Empty' },
+      { type: StatisticsFunc.Filled, name: 'Filled' },
+      { type: StatisticsFunc.PercentEmpty, name: 'Percent Empty' },
+      { type: StatisticsFunc.PercentFilled, name: 'Percent Filled' },
+    ];
+  }
+
+  switch (cellValueType) {
     case CellValueType.String:
       return [
         { type: 'None', name: 'None' },
@@ -78,7 +95,5 @@ export const getStatisticsMapByValueType = (type?: CellValueType) => {
         { type: StatisticsFunc.PercentChecked, name: 'Percent Checked' },
         { type: StatisticsFunc.PercentUnChecked, name: 'Percent Unchecked' },
       ];
-    default:
-      return [];
   }
 };

@@ -3,8 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetRecordOpContext } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { map, intersection, isEmpty } from 'lodash';
-import type { RecordUpdatedEvent } from '../../../../../share-db/events';
-import { EventEnums } from '../../../../../share-db/events';
+import type { RecordUpdatedEvent } from '../../../../../event-emitter/model';
+import { EventEnums } from '../../../../../event-emitter/model';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema, IObjectArraySchema } from '../../action-core';
@@ -26,7 +26,7 @@ export interface ITriggerRecordUpdated {
 export class TriggerRecordUpdated extends TriggerCore<RecordUpdatedEvent> {
   // @OnEvent(EventEnums.RecordUpdated, { async: true })
   async listenerTrigger(event: RecordUpdatedEvent) {
-    const { tableId, recordId, snapshot, ops } = event;
+    const { tableId, recordId, ops } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordUpdated]);
 
     this.logger.log({
@@ -61,7 +61,8 @@ export class TriggerRecordUpdated extends TriggerCore<RecordUpdatedEvent> {
 
         const trigger = {
           // [`trigger.${workflow.trigger.id}`]: context.snapshot?.data,
-          [`trigger.${workflow.trigger.id}`]: snapshot,
+          // [`trigger.${workflow.trigger.id}`]: snapshot,
+          [`trigger.${workflow.trigger.id}`]: {},
         };
 
         this.callActionEngine(trigger, actions, decisionGroups);

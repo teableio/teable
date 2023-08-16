@@ -12,7 +12,7 @@ import {
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { useGridViewStore } from '../store/gridView';
-import { getStatisticsMapByValueType } from '../utils';
+import { getValidStatisticFunc } from '../utils';
 
 export const StatisticMenu = () => {
   const activeViewId = useViewId();
@@ -27,7 +27,6 @@ export const StatisticMenu = () => {
     : {};
 
   const field = useField(fieldId);
-  const cellValueType = field?.cellValueType;
   const fieldStatisticRef = useRef<HTMLDivElement>(null);
 
   useClickAway(fieldStatisticRef, () => {
@@ -36,7 +35,7 @@ export const StatisticMenu = () => {
 
   if (fieldId == null) return null;
 
-  const menuItems = getStatisticsMapByValueType(cellValueType);
+  const menuItems = getValidStatisticFunc(field);
 
   const onSelect = (type: string) => {
     closeStatisticMenu();

@@ -1,5 +1,5 @@
 import type { IOpContextBase } from '@teable-group/core';
-import type { EventEnums } from 'src/share-db/events';
+import type { EventEnums } from 'src/event-emitter/model';
 
 export interface IEventBase {
   eventName: EventEnums;
