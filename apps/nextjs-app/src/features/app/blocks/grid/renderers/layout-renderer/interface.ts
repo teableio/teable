@@ -1,16 +1,9 @@
 import type { IGridTheme } from '../../configs';
-import type { IGridColumn, IRowControlItem } from '../../interface';
+import type { ICellPosition, IGridColumn, IRectangle, IRowControlItem } from '../../interface';
 import type { ImageManager, SpriteManager } from '../../managers';
 import type { IRenderLayerProps } from '../../RenderLayer';
 
-export interface ICellPosition {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface ICellDrawerProps extends ICellPosition {
+export interface ICellDrawerProps extends IRectangle {
   getCellContent: IRenderLayerProps['getCellContent'];
   theme: IGridTheme;
   fill?: string;
@@ -19,9 +12,10 @@ export interface ICellDrawerProps extends ICellPosition {
   rowIndex: number;
   columnIndex: number;
   imageManager: ImageManager;
+  hoverCellPosition: ICellPosition | null;
 }
 
-export interface IRowHeaderDrawerProps extends ICellPosition {
+export interface IRowHeaderDrawerProps extends IRectangle {
   displayIndex: string;
   theme: IGridTheme;
   isHover: boolean;
@@ -32,7 +26,7 @@ export interface IRowHeaderDrawerProps extends ICellPosition {
   isChecked?: boolean;
 }
 
-export interface IFieldHeadDrawerProps extends ICellPosition {
+export interface IFieldHeadDrawerProps extends IRectangle {
   column: IGridColumn;
   theme: IGridTheme;
   spriteManager: SpriteManager;
@@ -40,13 +34,13 @@ export interface IFieldHeadDrawerProps extends ICellPosition {
   hasMenu?: boolean;
 }
 
-export interface IAppendColumnDrawerProps extends ICellPosition {
+export interface IAppendColumnDrawerProps extends IRectangle {
   theme: IGridTheme;
   isHover: boolean;
   isColumnAppendEnable?: boolean;
 }
 
-export interface IGridHeaderDrawerProps extends ICellPosition {
+export interface IGridHeaderDrawerProps extends IRectangle {
   theme: IGridTheme;
   isChecked: boolean;
   rowControls: IRowControlItem[];

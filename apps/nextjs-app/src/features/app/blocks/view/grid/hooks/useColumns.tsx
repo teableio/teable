@@ -1,12 +1,12 @@
-import { ColorUtils, FieldType } from '@teable-group/core';
-import type { IAttachmentCellValue } from '@teable-group/core';
+import { CellValueType, ColorUtils, FieldType, formatNumberToString } from '@teable-group/core';
+import type { IAttachmentCellValue, INumberFormatting } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import { getFileCover } from '@/features/app/utils';
-import type { IGridColumn, ICell } from '../../../grid';
+import type { IGridColumn, ICell, INumberShowAs, ChartType } from '../../../grid';
 import { CellType, EditorPosition } from '../../../grid';
 import { DateEditor, LinkEditor } from '../components';
 import { AttachmentEditor } from '../components/editor/AttachmentEditor';
@@ -51,12 +51,10 @@ const createCellValue2GridDisplay =
 
     if (field == null) return { type: CellType.Loading };
 
-    const { id, type, isComputed, isMultipleCellValue: isMultiple } = field;
+    const { id, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
     const cellValue = record.getCellValue(id);
 
     switch (type) {
-      case FieldType.Rollup:
-      case FieldType.Formula:
       case FieldType.SingleLineText: {
         return {
           type: CellType.Text,
@@ -84,12 +82,46 @@ const createCellValue2GridDisplay =
           customEditor: (props) => <DateEditor field={field} record={record} {...props} />,
         };
       }
-      case FieldType.Number: {
+      case FieldType.Number:
+      case FieldType.Rollup:
+      case FieldType.Formula: {
+        if (cellValueType !== CellValueType.Number) {
+          return {
+            type: CellType.Text,
+            data: (cellValue as string) || '',
+            displayData: field.cellValue2String(cellValue),
+            readonly: isComputed,
+          };
+        }
+
+        const { showAs: optionShowAs, formatting } = field.options;
+        const showAs =
+          optionShowAs == null
+            ? undefined
+            : {
+                ...optionShowAs,
+                color: ColorUtils.getHexForColor(optionShowAs.color),
+              };
+
+        if (showAs && isMultiple && Array.isArray(cellValue)) {
+          return {
+            type: CellType.Chart,
+            data: cellValue as number[],
+            displayData: cellValue.map((v) =>
+              formatNumberToString(v, formatting as INumberFormatting)
+            ),
+            readonly: isComputed,
+            chartType: showAs.type as unknown as ChartType,
+            color: showAs.color,
+          };
+        }
+
         return {
           type: CellType.Number,
-          data: (cellValue as number) || undefined,
+          data: cellValue as number,
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
+          showAs: showAs as unknown as INumberShowAs,
         };
       }
       case FieldType.MultipleSelect:

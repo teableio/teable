@@ -6,7 +6,7 @@ import { StatisticsFunc } from '../view/constant';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,
-  numberFieldOptionsSchema,
+  numberFieldOptionsVoSchema,
   selectFieldOptionsSchema,
   singlelineTextFieldOptionsSchema,
   formulaFieldOptionsSchema,
@@ -15,6 +15,7 @@ import {
   attachmentFieldOptionsSchema,
   rollupFieldOptionsSchema,
   linkFieldOptionsRoSchema,
+  numberFieldOptionsRoSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -66,7 +67,6 @@ export const unionFieldOptions = z.union([
   rollupFieldOptionsSchema,
   formulaFieldOptionsSchema,
   selectFieldOptionsSchema,
-  numberFieldOptionsSchema,
   linkFieldOptionsSchema,
   dateFieldOptionsSchema,
   checkboxFieldOptionsSchema,
@@ -74,9 +74,17 @@ export const unionFieldOptions = z.union([
   singlelineTextFieldOptionsSchema,
 ]);
 
-export const unionFieldOptionsVoSchema = unionFieldOptions.or(linkFieldOptionsSchema);
+export const unionFieldOptionsVoSchema = z.union([
+  unionFieldOptions,
+  linkFieldOptionsSchema,
+  numberFieldOptionsVoSchema,
+]);
 
-export const unionFieldOptionsRoSchema = unionFieldOptions.or(linkFieldOptionsRoSchema);
+export const unionFieldOptionsRoSchema = z.union([
+  unionFieldOptions,
+  linkFieldOptionsRoSchema,
+  numberFieldOptionsRoSchema,
+]);
 
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
 
@@ -184,7 +192,7 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.URL:
       return false;
     case FieldType.Number:
-      return numberFieldOptionsSchema;
+      return numberFieldOptionsRoSchema;
     case FieldType.Currency:
       return false;
     case FieldType.Percent:

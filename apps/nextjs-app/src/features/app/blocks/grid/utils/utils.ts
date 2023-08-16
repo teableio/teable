@@ -29,6 +29,12 @@ export const isWindowsOS = () => {
 };
 
 export const hexToRGBA = (hex: string, alpha = 1) => {
+  const [r, g, b] = parseToRGB(hex);
+  if (r == null || g == null || b == null) return hex;
+  return `rgba(${+r},${+g},${+b},${alpha})`;
+};
+
+export const parseToRGB = (hex: string) => {
   let r, g, b;
 
   if (hex.length === 4) {
@@ -40,6 +46,6 @@ export const hexToRGBA = (hex: string, alpha = 1) => {
     g = '0x' + hex[3] + hex[4];
     b = '0x' + hex[5] + hex[6];
   }
-  if (r == null || g == null || b == null) return hex;
-  return `rgba(${+r},${+g},${+b},${alpha})`;
+  if (r == null || g == null || b == null) return [];
+  return [+r, +g, +b];
 };

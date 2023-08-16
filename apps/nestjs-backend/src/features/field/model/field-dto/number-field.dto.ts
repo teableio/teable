@@ -1,15 +1,25 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { CellValueType, DbFieldType, NumberFieldCore, Relationship } from '@teable-group/core';
 import type { INumberFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
 import { NumberFormattingDto } from '../formatting.dto';
+import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
 
 export class NumberOptionsDto implements INumberFieldOptions {
   @ApiProperty({
     type: NumberFormattingDto,
   })
   formatting!: NumberFormattingDto;
+
+  @ApiPropertyOptional({
+    description: 'show as options for the result of the number',
+    oneOf: [
+      { $ref: getSchemaPath(SingleNumberShowAsDto) },
+      { $ref: getSchemaPath(MultiNumberShowAsDto) },
+    ],
+  })
+  showAs?: SingleNumberShowAsDto;
 }
 
 export class NumberFieldDto extends NumberFieldCore implements IFieldBase {

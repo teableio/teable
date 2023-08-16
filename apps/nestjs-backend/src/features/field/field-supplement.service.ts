@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  CellValueType,
   IFieldRo,
   IFormulaFieldOptions,
   ILinkFieldOptions,
@@ -9,6 +8,7 @@ import type {
   IRollupFieldOptions,
 } from '@teable-group/core';
 import {
+  CellValueType,
   getDefaultFormatting,
   FieldType,
   generateFieldId,
@@ -146,11 +146,17 @@ export class FieldSupplementService implements ISupplementService {
     const formatting =
       (field.options as INumberFieldOptions)?.formatting ??
       getDefaultFormatting(lookupFieldRaw.cellValueType as CellValueType);
-    const options = lookupFieldOptions
-      ? formatting
-        ? { ...lookupFieldOptions, formatting }
-        : lookupFieldOptions
-      : undefined;
+    const showAs = (field.options as INumberFieldOptions)?.showAs;
+    let options = lookupFieldOptions ? { ...lookupFieldOptions } : undefined;
+
+    if (options) {
+      if (formatting) {
+        options = { ...lookupFieldOptions, formatting };
+      }
+      if (showAs || lookupFieldRaw.cellValueType === CellValueType.Number) {
+        options = { ...options, showAs };
+      }
+    }
 
     return {
       ...field,
@@ -188,9 +194,11 @@ export class FieldSupplementService implements ISupplementService {
       fieldMap
     );
 
+    const showAs = (field.options as IFormulaFieldOptions)?.showAs;
     const formatting =
       (field.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
-    const options = formatting ? { ...field.options, formatting } : field.options;
+    let options = formatting ? { ...field.options, formatting } : field.options;
+    options = showAs || cellValueType === CellValueType.Number ? { ...options, showAs } : options;
 
     return {
       ...field,
@@ -221,8 +229,13 @@ export class FieldSupplementService implements ISupplementService {
 
     const { cellValueType, isMultipleCellValue } = valueType;
 
+    const showAs = options?.showAs;
     const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
-    const fulfilledOptions = formatting ? { ...field.options, formatting } : field.options;
+    let fulfilledOptions = formatting ? { ...field.options, formatting } : field.options;
+    fulfilledOptions =
+      showAs || cellValueType === CellValueType.Number
+        ? { ...fulfilledOptions, showAs }
+        : fulfilledOptions;
 
     return {
       ...field,

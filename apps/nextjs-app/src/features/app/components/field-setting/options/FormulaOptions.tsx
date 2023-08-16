@@ -1,4 +1,4 @@
-import type { IFormulaFieldOptions, IUnionFormatting } from '@teable-group/core';
+import type { IFormulaFieldOptions, INumberShowAs, IUnionFormatting } from '@teable-group/core';
 import { CellValueType } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
 import { FormulaField } from '@teable-group/sdk/model';
@@ -6,6 +6,7 @@ import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { keyBy } from 'lodash';
 import { useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
+import { UnionShowAs } from '../show-as/UnionShowAs';
 
 export const FormulaOptions = (props: {
   options: Partial<IFormulaFieldOptions> | undefined;
@@ -23,13 +24,13 @@ export const FormulaOptions = (props: {
       : '';
   });
 
-  const cellValueType = useMemo(() => {
+  const { cellValueType, isMultipleCellValue } = useMemo(() => {
     try {
       return expression
-        ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id')).cellValueType
-        : CellValueType.String;
+        ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id'))
+        : { cellValueType: CellValueType.String, isMultipleCellValue: false };
     } catch (e) {
-      return CellValueType.String;
+      return { cellValueType: CellValueType.String, isMultipleCellValue: false };
     }
   }, [expression, fields]);
 
@@ -56,6 +57,10 @@ export const FormulaOptions = (props: {
     onChange?.({ formatting });
   };
 
+  const onShowAsChange = (value?: INumberShowAs) => {
+    onChange?.({ showAs: value });
+  };
+
   return (
     <div className="w-full space-y-2">
       {!isLookup && (
@@ -76,6 +81,16 @@ export const FormulaOptions = (props: {
             cellValueType={cellValueType}
             formatting={formatting}
             onChange={onFormattingChange}
+          />
+        </div>
+      )}
+      {!errMsg && (
+        <div className="space-y-2">
+          <UnionShowAs
+            showAs={options?.showAs}
+            cellValueType={cellValueType}
+            isMultipleCellValue={isMultipleCellValue}
+            onChange={onShowAsChange}
           />
         </div>
       )}
