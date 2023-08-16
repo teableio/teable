@@ -10,6 +10,7 @@ import type { IFormulaFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-g
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
 import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
+import { MultiNumberShowAsDto, SingleNumberShowAsDto } from './show-as.dto';
 
 @ApiExtraModels(DatetimeFormattingDto)
 @ApiExtraModels(NumberFormattingDto)
@@ -27,6 +28,15 @@ export class FormulaOptionsDto implements IFormulaFieldOptions {
     ],
   })
   formatting?: NumberFormattingDto;
+
+  @ApiPropertyOptional({
+    description: 'show as options for the result of the formula',
+    oneOf: [
+      { $ref: getSchemaPath(SingleNumberShowAsDto) },
+      { $ref: getSchemaPath(MultiNumberShowAsDto) },
+    ],
+  })
+  showAs?: SingleNumberShowAsDto;
 }
 
 export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {

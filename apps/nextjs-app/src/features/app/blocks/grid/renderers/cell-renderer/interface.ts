@@ -1,7 +1,7 @@
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
-import type { IRectangle } from '../../interface';
+import type { ICellPosition, IRectangle } from '../../interface';
 import type { ImageManager } from '../../managers';
 
 export enum CellType {
@@ -9,6 +9,7 @@ export enum CellType {
   Number = 'Number',
   Select = 'Select',
   Image = 'Image',
+  Chart = 'Chart',
   Boolean = 'Boolean',
   Loading = 'Loading',
 }
@@ -51,10 +52,36 @@ export interface ITextCell extends IEditableCell {
   displayData: string;
 }
 
+export enum NumberDisplayType {
+  Ring = 'Ring',
+  Bar = 'Bar',
+}
+
+export interface INumberShowAs {
+  type: NumberDisplayType;
+  color: string;
+  maxValue: number;
+  showValue: boolean;
+}
+
 export interface INumberCell extends IEditableCell {
   type: CellType.Number;
   data: number | null | undefined;
   displayData: string;
+  showAs?: INumberShowAs;
+}
+
+export enum ChartType {
+  Bar = 'Bar',
+  Line = 'Line',
+}
+
+export interface IChartCell extends IEditableCell {
+  type: CellType.Chart;
+  data: number[];
+  displayData: string[];
+  chartType?: ChartType;
+  color?: string;
 }
 
 export interface IBooleanCell extends IEditableCell {
@@ -89,7 +116,13 @@ export interface IImageCell extends IEditableCell {
   displayData: string[];
 }
 
-export type IInnerCell = ITextCell | INumberCell | ISelectCell | IImageCell | IBooleanCell;
+export type IInnerCell =
+  | ITextCell
+  | INumberCell
+  | ISelectCell
+  | IImageCell
+  | IBooleanCell
+  | IChartCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 
@@ -97,17 +130,17 @@ export type ICellRenderProps = {
   ctx: CanvasRenderingContext2D;
   theme: IGridTheme;
   rect: IRectangle;
-  columnIndex: number;
   rowIndex: number;
+  columnIndex: number;
   imageManager: ImageManager;
+  hoverCellPosition: ICellPosition | null;
   isActive?: boolean;
 };
 
 export interface ICellClickProps {
   width: number;
   height: number;
-  hoverCellX: number;
-  hoverCellY: number;
+  hoverCellPosition: ICellPosition;
   theme: IGridTheme;
 }
 

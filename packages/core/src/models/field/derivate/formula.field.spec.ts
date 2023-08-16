@@ -1,10 +1,24 @@
 import { plainToInstance } from 'class-transformer';
+import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { FormulaFieldCore } from './formula.field';
 import { NumberFieldCore } from './number.field';
 
 describe('FormulaFieldCore', () => {
+  const singleNumberShowAsProps = {
+    type: SingleNumberDisplayType.Ring,
+    color: Colors.TealBright,
+    showValue: false,
+    maxValue: 100,
+  };
+
+  const multiNumberShowAsProps = {
+    type: MultiNumberDisplayType.Line,
+    color: Colors.TealBright,
+  };
+
   const numberFormulaJson = {
     id: 'fld666',
     name: 'formulaField',
@@ -21,6 +35,7 @@ describe('FormulaFieldCore', () => {
     options: {
       expression: '{fld123} + 2',
       formatting: { precision: 2 },
+      showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
     isComputed: true,
@@ -65,6 +80,7 @@ describe('FormulaFieldCore', () => {
         time: TimeFormatting.None,
         timeZone: 'Etc/GMT',
       },
+      showAs: undefined,
     },
     cellValueType: CellValueType.DateTime,
   });
@@ -74,6 +90,7 @@ describe('FormulaFieldCore', () => {
     options: {
       ...numberFormulaJson.options,
       formatting: undefined,
+      showAs: undefined,
     },
     cellValueType: CellValueType.Boolean,
   });
@@ -83,11 +100,61 @@ describe('FormulaFieldCore', () => {
     options: {
       ...numberFormulaJson.options,
       formatting: { precision: 2 },
+      showAs: multiNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
     isLookup: true,
     isMultipleCellValue: true,
   });
+
+  const invalidShowAsTestCases = [
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: true,
+      isLookup: true,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: multiNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.DateTime,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Boolean,
+      isMultipleCellValue: false,
+    },
+  ];
 
   describe('basic function', () => {
     it('should convert cellValue to string', () => {
@@ -258,6 +325,10 @@ describe('FormulaFieldCore', () => {
           isMultipleCellValue: false,
         }).validateOptions().success
       ).toBeFalsy();
+
+      invalidShowAsTestCases.forEach((field) => {
+        expect(plainToInstance(FormulaFieldCore, field).validateOptions().success).toBeFalsy();
+      });
     });
 
     it('should get default options', () => {

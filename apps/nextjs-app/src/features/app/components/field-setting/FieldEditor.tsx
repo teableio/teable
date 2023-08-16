@@ -92,6 +92,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             options={field.options as IFieldOptionsProps['options']}
             type={field.type}
             isLookup={field.isLookup}
+            lookupOptions={field.lookupOptions}
             updateFieldOptions={updateFieldOptions}
           />
         </>
@@ -114,6 +115,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
               options={field.options as IFieldOptionsProps['options']}
               type={field.type}
               isLookup={field.isLookup}
+              lookupOptions={field.lookupOptions}
               updateFieldOptions={updateFieldOptions}
             />
           )}
@@ -126,6 +128,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
         options={field.options as IFieldOptionsProps['options']}
         type={field.type}
         isLookup={field.isLookup}
+        lookupOptions={field.lookupOptions}
         updateFieldOptions={updateFieldOptions}
       />
     );

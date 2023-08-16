@@ -4,6 +4,7 @@ import { EvalVisitor } from '../../../formula/visitor';
 import { FieldType, CellValueType } from '../constant';
 import type { ILookupOptionsVo } from '../field.schema';
 import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
+import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 import { SingleLineTextFieldCore } from './single-line-text.field';
 
@@ -18,6 +19,7 @@ export const rollupFieldOptionsSchema = z
   .object({
     expression: z.enum(ROLLUP_FUNCTIONS),
     formatting: unionFormattingSchema.optional(),
+    showAs: numberShowAsSchema.optional(),
   })
   .strict();
 
@@ -65,6 +67,7 @@ export class RollupFieldCore extends FormulaAbstractCore {
       .object({
         expression: rollupFieldOptionsSchema.shape.expression,
         formatting: getFormattingSchema(this.cellValueType),
+        showAs: getShowAsSchema(this.cellValueType, this.isMultipleCellValue),
       })
       .safeParse(this.options);
   }

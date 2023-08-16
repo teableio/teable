@@ -6,10 +6,12 @@ import {
   formatNumberToString,
   numberFormattingSchema,
 } from '../formatting';
+import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 
 export const numberFieldOptionsSchema = z
   .object({
     formatting: numberFormattingSchema,
+    showAs: numberShowAsSchema.optional(),
   })
   .strict();
 
@@ -72,7 +74,12 @@ export class NumberFieldCore extends FieldCore {
   }
 
   validateOptions() {
-    return numberFieldOptionsSchema.safeParse(this.options);
+    return z
+      .object({
+        formatting: numberFormattingSchema,
+        showAs: getShowAsSchema(this.cellValueType, this.isMultipleCellValue),
+      })
+      .safeParse(this.options);
   }
 
   validateCellValue(value: unknown) {

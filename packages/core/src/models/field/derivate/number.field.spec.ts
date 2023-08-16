@@ -1,13 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
+import { Colors } from '../colors';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import type { INumberFieldOptions } from './number.field';
+import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { NumberFieldCore } from './number.field';
 
 describe('NumberFieldCore', () => {
   let field: NumberFieldCore;
   let multipleLookupField: NumberFieldCore;
+
+  const singleNumberShowAsProps = {
+    type: SingleNumberDisplayType.Ring,
+    color: Colors.TealBright,
+    showValue: false,
+    maxValue: 100,
+  };
+
+  const multiNumberShowAsProps = {
+    type: MultiNumberDisplayType.Line,
+    color: Colors.TealBright,
+  };
 
   const json = {
     id: 'test',
@@ -17,10 +30,31 @@ describe('NumberFieldCore', () => {
     dbFieldType: DbFieldType.Real,
     options: {
       formatting: { precision: 2 },
+      showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
     isComputed: false,
   };
+
+  const invalidShowAsTestCases = [
+    {
+      ...json,
+      options: {
+        ...json.options,
+        showAs: singleNumberShowAsProps,
+      },
+      isMultipleCellValue: true,
+      isComputed: true,
+      isLookup: true,
+    },
+    {
+      ...json,
+      options: {
+        ...json.options,
+        showAs: multiNumberShowAsProps,
+      },
+    },
+  ];
 
   beforeEach(() => {
     field = plainToInstance(NumberFieldCore, json);
@@ -66,27 +100,31 @@ describe('NumberFieldCore', () => {
 
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      const options: INumberFieldOptions = {
-        formatting: { precision: 2 },
-      };
-      const field = plainToInstance(NumberFieldCore, {
-        ...json,
-        ...options,
-      });
-      const result = field.validateOptions();
-      expect(result.success).toBe(true);
+      expect(
+        plainToInstance(NumberFieldCore, {
+          ...json,
+          options: {
+            ...json.options,
+            formatting: { precision: 2 },
+          },
+        }).validateOptions().success
+      ).toBe(true);
     });
 
     it('should return failure if options are invalid', () => {
-      const options: INumberFieldOptions = {
-        formatting: { precision: -1 }, // invalid precision value
-      } as any;
-      const field = plainToInstance(NumberFieldCore, {
-        ...json,
-        options,
+      expect(
+        plainToInstance(NumberFieldCore, {
+          ...json,
+          options: {
+            ...json.options,
+            formatting: { precision: -1 }, // invalid precision value
+          },
+        }).validateOptions().success
+      ).toBe(false);
+
+      invalidShowAsTestCases.forEach((field) => {
+        expect(plainToInstance(NumberFieldCore, field).validateOptions().success).toBeFalsy();
       });
-      const result = field.validateOptions();
-      expect(result.success).toBe(false);
     });
   });
 });

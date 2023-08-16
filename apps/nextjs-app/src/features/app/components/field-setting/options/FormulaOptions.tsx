@@ -1,19 +1,27 @@
-import type { IFormulaFieldOptions, IUnionFormatting } from '@teable-group/core';
-import { CellValueType } from '@teable-group/core';
+import type {
+  IFormulaFieldOptions,
+  ILookupOptionsRo,
+  INumberShowAs,
+  IUnionFormatting,
+} from '@teable-group/core';
+import { CellValueType, Relationship } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
+import type { LinkField } from '@teable-group/sdk/model';
 import { FormulaField } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { keyBy } from 'lodash';
 import { useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
+import { UnionShowAs } from '../show-as/UnionShowAs';
 
 export const FormulaOptions = (props: {
   options: Partial<IFormulaFieldOptions> | undefined;
   isLookup?: boolean;
   cellValueType?: CellValueType;
+  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IFormulaFieldOptions>) => void;
 }) => {
-  const { options = {}, isLookup, onChange } = props;
+  const { options = {}, isLookup, lookupOptions, onChange } = props;
   const { formatting, expression } = options;
   const fields = useFields();
   const [errMsg, setErrMsg] = useState('');
@@ -22,6 +30,19 @@ export const FormulaOptions = (props: {
       ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
       : '';
   });
+
+  const isMultipleCellValue = useMemo(() => {
+    const { linkFieldId } = lookupOptions || {};
+    if (linkFieldId == null) return false;
+
+    const linkField = fields.find((f) => f.id === linkFieldId) as LinkField;
+
+    if (linkField == null) return;
+
+    const relationship = linkField.options.relationship;
+
+    return relationship !== Relationship.ManyOne;
+  }, [fields, lookupOptions]);
 
   const cellValueType = useMemo(() => {
     try {
@@ -56,6 +77,10 @@ export const FormulaOptions = (props: {
     onChange?.({ formatting });
   };
 
+  const onShowAsChange = (value?: INumberShowAs) => {
+    onChange?.({ showAs: value });
+  };
+
   return (
     <div className="w-full space-y-2">
       {!isLookup && (
@@ -76,6 +101,16 @@ export const FormulaOptions = (props: {
             cellValueType={cellValueType}
             formatting={formatting}
             onChange={onFormattingChange}
+          />
+        </div>
+      )}
+      {!errMsg && (
+        <div className="space-y-2">
+          <UnionShowAs
+            showAs={options?.showAs}
+            cellValueType={cellValueType}
+            isMultipleCellValue={isMultipleCellValue}
+            onChange={onShowAsChange}
           />
         </div>
       )}
