@@ -108,7 +108,7 @@ export const fieldVoSchema = z.object({
     example: 'this is a summary',
   }),
 
-  options: unionFieldOptionsRoSchema.openapi({
+  options: unionFieldOptionsVoSchema.openapi({
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
   }),
