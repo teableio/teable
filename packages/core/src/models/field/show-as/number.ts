@@ -2,13 +2,13 @@ import { z } from 'zod';
 import { Colors } from '../colors';
 
 export enum SingleNumberDisplayType {
-  Bar = 'Bar',
-  Ring = 'Ring',
+  Bar = 'bar',
+  Ring = 'ring',
 }
 
 export enum MultiNumberDisplayType {
-  Bar = 'Bar',
-  Line = 'Line',
+  Bar = 'bar',
+  Line = 'line',
 }
 
 export const singleNumberShowAsSchema = z.object({

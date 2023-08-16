@@ -53,8 +53,8 @@ export interface ITextCell extends IEditableCell {
 }
 
 export enum NumberDisplayType {
-  Ring = 'Ring',
-  Bar = 'Bar',
+  Ring = 'ring',
+  Bar = 'bar',
 }
 
 export interface INumberShowAs {
@@ -72,8 +72,8 @@ export interface INumberCell extends IEditableCell {
 }
 
 export enum ChartType {
-  Bar = 'Bar',
-  Line = 'Line',
+  Bar = 'bar',
+  Line = 'line',
 }
 
 export interface IChartCell extends IEditableCell {
