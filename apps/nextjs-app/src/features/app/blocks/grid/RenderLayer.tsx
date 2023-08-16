@@ -8,6 +8,7 @@ import type {
   IDragState,
   IMouseState,
   IColumnResizeState,
+  ICellPosition,
 } from './interface';
 import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
@@ -31,6 +32,8 @@ export interface IRenderLayerProps
   mouseState: IMouseState;
   selection: CombinedSelection;
   isSelecting: boolean;
+  forceRenderFlag: string;
+  hoverCellPosition: ICellPosition | null;
   hoveredColumnResizeIndex: number;
   columnResizeState: IColumnResizeState;
   isRowAppendEnable?: boolean;
@@ -51,10 +54,12 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     activeCell,
     dragState,
     scrollState,
+    hoverCellPosition,
     mouseState: originMouseState,
     selection,
     isSelecting,
     coordInstance,
+    forceRenderFlag,
     getCellContent,
     columnResizeState,
     hoveredColumnResizeIndex,
@@ -86,8 +91,6 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isOutOfBounds,
       x: 0,
       y: 0,
-      hoverCellX: 0,
-      hoverCellY: 0,
     };
   }, [columnIndex, rowIndex, type, isOutOfBounds]);
 
@@ -111,10 +114,12 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       activeCell,
       dragState,
       scrollState,
+      hoverCellPosition,
       mouseState: mousePosition ? { ...mouseState, ...mousePosition } : mouseState,
       selection,
       isSelecting,
       coordInstance,
+      forceRenderFlag,
       getCellContent,
       columnResizeState,
       hoveredColumnResizeIndex,
@@ -141,8 +146,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     selection,
     isSelecting,
     coordInstance,
+    forceRenderFlag,
     getCellContent,
     columnResizeState,
+    hoverCellPosition,
     hoveredColumnResizeIndex,
     isRowAppendEnable,
     isColumnResizable,

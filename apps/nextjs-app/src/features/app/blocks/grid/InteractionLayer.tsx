@@ -24,6 +24,7 @@ import { useDrag } from './hooks/useDrag';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
 import type {
   ICellItem,
+  ICellPosition,
   IInnerCell,
   IMouseState,
   IRowControlItem,
@@ -47,6 +48,7 @@ export interface IInteractionLayerProps
     | 'onVisibleRegionChanged'
   > {
   theme: IGridTheme;
+  forceRenderFlag: string;
   rowControls: IRowControlItem[];
   mouseState: IMouseState;
   scrollState: IScrollState;
@@ -75,6 +77,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     imageManager,
     spriteManager,
     coordInstance,
+    forceRenderFlag,
     setMouseState,
     scrollTo,
     scrollBy,
@@ -102,6 +105,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const stageRef = useRef<HTMLDivElement | null>(null);
   const mousePosition = useMouse(stageRef);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
+  const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
   const { containerWidth, containerHeight, freezeColumnCount } = coordInstance;
@@ -141,13 +145,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const isResizing = columnResizeState.columnIndex > -1;
   const { isCellSelection, ranges: selectionRanges } = selection;
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   const getPosition = () => {
     const x = mousePosition.elX;
     const y = mousePosition.elY;
     const { columnAppendBtnWidth } = GRID_DEFAULT;
-    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, freezeColumnCount } =
-      coordInstance;
+    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize } = coordInstance;
     const rowIndex =
       y < 0 ? -Infinity : y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
     const columnIndex =
@@ -160,15 +162,28 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           ? -1
           : coordInstance.getColumnStartIndex(x)
         : coordInstance.getColumnStartIndex(scrollLeft + x);
+
+    return { x, y, rowIndex, columnIndex };
+  };
+
+  const getHoverCellPosition = (mouseState: IMouseState) => {
+    const { rowIndex, columnIndex, x, y } = mouseState;
     const offsetX = coordInstance.getColumnOffset(columnIndex);
     const isCellRange = columnIndex > -1 && rowIndex > -1;
-    const hoverCellX = isCellRange
-      ? columnIndex < freezeColumnCount
-        ? x - offsetX
-        : x - offsetX + scrollLeft
-      : 0;
-    const hoverCellY = isCellRange ? y - coordInstance.getRowOffset(rowIndex) + scrollTop : 0;
-    return { x, y, rowIndex, columnIndex, hoverCellX, hoverCellY };
+    let position: ICellPosition | null = null;
+
+    if (isCellRange) {
+      const cell = getCellContent([columnIndex, rowIndex]);
+      const cellRenderer = getCellRenderer(cell.type);
+
+      if (cellRenderer.needsHoverPosition) {
+        position = [
+          columnIndex < freezeColumnCount ? x - offsetX : x - offsetX + scrollLeft,
+          y - coordInstance.getRowOffset(rowIndex) + scrollTop,
+        ];
+      }
+    }
+    return position;
   };
 
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
@@ -234,7 +249,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const mouseState = getMouseState();
     onSelectionClick(event, mouseState);
-    const { type, columnIndex, hoverCellX, hoverCellY } = mouseState;
+    const { type, columnIndex } = mouseState;
     if (regionType !== type) return;
 
     switch (type) {
@@ -264,12 +279,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         if (cell.readonly) return;
         const cellRenderer = getCellRenderer(cell.type);
         const cellClick = cellRenderer.onClick;
-        if (cellClick && onCellEdited) {
+        if (cellClick && onCellEdited && hoverCellPosition) {
           const newValue = cellClick(cell as never, {
-            hoverCellX,
-            hoverCellY,
             width: coordInstance.getColumnWidth(columnIndex),
             height: coordInstance.getRowHeight(rowIndex),
+            hoverCellPosition,
             theme,
           });
           if (newValue === undefined) return;
@@ -325,16 +339,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   };
 
   const onCellPosition = (mouseState: IMouseState) => {
-    const { columnIndex, rowIndex, hoverCellX, hoverCellY } = mouseState;
+    const { columnIndex, rowIndex } = mouseState;
     const cell = getCellContent([columnIndex, rowIndex]);
     const cellRenderer = getCellRenderer(cell.type);
     if (cell.readonly) return;
-    if (cellRenderer.needsHoverPosition) {
+    if (cellRenderer.needsHover && hoverCellPosition) {
       const isBound = cellRenderer.checkWithinBound?.({
         width: coordInstance.getColumnWidth(columnIndex),
         height: coordInstance.getRowHeight(rowIndex),
-        hoverCellX,
-        hoverCellY,
+        hoverCellPosition,
         theme,
       });
       return isBound ? setCursor('pointer') : undefined;
@@ -346,9 +359,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const onMouseMove = () => {
     const mouseState = getMouseState();
-    const { type } = mouseState;
+    const hoverCellPosition = getHoverCellPosition(mouseState);
+    setHoverCellPosition(() => hoverCellPosition);
     setMouseState(() => mouseState);
-    setCursorStyle(type);
+    setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
     onDragChange(mouseState);
@@ -439,7 +453,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           dragState={dragState}
           selection={selection}
           isSelecting={isSelecting}
+          forceRenderFlag={forceRenderFlag}
           columnResizeState={columnResizeState}
+          hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}

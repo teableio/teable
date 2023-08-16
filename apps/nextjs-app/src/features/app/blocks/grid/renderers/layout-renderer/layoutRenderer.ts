@@ -36,12 +36,15 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     theme,
     rowIndex,
     columnIndex,
+    hoverCellPosition,
     imageManager,
     isActive,
     getCellContent,
   } = props;
+
   const cell = getCellContent([columnIndex, rowIndex]);
   const cellRenderer = getCellRenderer(cell.type);
+
   cellRenderer.draw(cell as never, {
     ctx,
     theme,
@@ -54,6 +57,7 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     rowIndex,
     columnIndex,
     imageManager,
+    hoverCellPosition,
     isActive,
   });
 };
@@ -70,6 +74,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     isSelecting,
     rowControls,
     isRowAppendEnable,
+    hoverCellPosition,
     getCellContent,
     theme,
     imageManager,
@@ -85,7 +90,12 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
   const { isRowSelection, isColumnSelection } = selection;
   const { scrollLeft, scrollTop } = scrollState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
-  const { rowIndex: hoverRowIndex, type: hoverRegionType, isOutOfBounds } = mouseState;
+  const {
+    columnIndex: hoverColumnIndex,
+    rowIndex: hoverRowIndex,
+    type: hoverRegionType,
+    isOutOfBounds,
+  } = mouseState;
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
@@ -101,10 +111,11 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isColumnActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
     const isFirstColumn = columnIndex === 0;
+    const isColumnHovered = hoverColumnIndex === columnIndex;
 
     for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
       const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
-      const isHover =
+      const isRowHovered =
         !isOutOfBounds &&
         !isSelecting &&
         ROW_RELATED_REGIONS.has(hoverRegionType) &&
@@ -123,7 +134,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
 
       if (isCellSelected || isRowSelected || isColumnActive) {
         fill = cellBgSelected;
-      } else if (isHover || isRowActive) {
+      } else if (isRowHovered || isRowActive) {
         fill = cellBgHovered;
       }
 
@@ -134,7 +145,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           width: columnInitSize,
           height: rowHeight,
           displayIndex: String(rowIndex + 1),
-          isHover: isHover || isRowActive,
+          isHover: isRowHovered || isRowActive,
           isChecked: isRowSelection && isRowSelected,
           rowControls,
           theme,
@@ -149,6 +160,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         height: rowHeight,
         rowIndex,
         columnIndex,
+        hoverCellPosition: isColumnHovered && isRowHovered ? hoverCellPosition : null,
         getCellContent,
         imageManager,
         theme,
@@ -284,7 +296,15 @@ export const drawCells = (
 };
 
 export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, activeCell, scrollState, getCellContent, imageManager, theme } = props;
+  const {
+    activeCell,
+    scrollState,
+    coordInstance,
+    hoverCellPosition,
+    getCellContent,
+    imageManager,
+    theme,
+  } = props;
   const { scrollTop, scrollLeft } = scrollState;
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
@@ -327,6 +347,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     height: height,
     rowIndex,
     columnIndex,
+    hoverCellPosition,
     getCellContent,
     isActive: true,
     imageManager,
@@ -915,7 +936,9 @@ export const computeShouldRerender = (current: ILayoutDrawerProps, last?: ILayou
     current.columns === last.columns &&
     current.getCellContent === last.getCellContent &&
     current.coordInstance === last.coordInstance &&
-    current.visibleRegion === last.visibleRegion
+    current.visibleRegion === last.visibleRegion &&
+    current.forceRenderFlag === last.forceRenderFlag &&
+    current.hoverCellPosition === last.hoverCellPosition
   );
 };
 

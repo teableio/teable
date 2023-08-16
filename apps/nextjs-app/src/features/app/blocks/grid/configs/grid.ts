@@ -31,8 +31,6 @@ export const GRID_DEFAULT = {
 export const DEFAULT_MOUSE_STATE = {
   x: 0,
   y: 0,
-  hoverCellX: 0,
-  hoverCellY: 0,
   rowIndex: -Infinity,
   columnIndex: -Infinity,
   type: RegionType.None,

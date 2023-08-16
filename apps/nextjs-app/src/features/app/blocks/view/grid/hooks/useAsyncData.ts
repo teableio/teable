@@ -8,6 +8,8 @@ import type { ICell, IInnerCell } from '../../../grid/renderers';
 import { CellType } from '../../../grid/renderers';
 import { reorder } from '../utils';
 
+const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
+
 export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
 export type IRowToCell<T> = (row: T, col: number) => ICell;
 export type IRowEditedCallback<T> = (
@@ -40,7 +42,7 @@ export const useAsyncData = (
   const records = useRecords(query, initRecords);
   const [loadedRecords, setLoadedRecords] = useState<Record[]>(records);
 
-  const [visiblePages, setVisiblePages] = useState<IRectangle>({ x: 0, y: 0, width: 0, height: 0 });
+  const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
 
@@ -114,6 +116,7 @@ export const useAsyncData = (
 
   const reset = useCallback(() => {
     setLoadedRecords([]);
+    setVisiblePages(defaultVisiblePages);
   }, []);
 
   const onRowOrdered = useCallback(
