@@ -3,8 +3,8 @@ import { CellValueType, DbFieldType, NumberFieldCore, Relationship } from '@teab
 import type { INumberFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
-import { NumberFormattingDto } from './formatting.dto';
-import { MultiNumberShowAsDto, SingleNumberShowAsDto } from './show-as.dto';
+import { NumberFormattingDto } from '../formatting.dto';
+import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
 
 export class NumberOptionsDto implements INumberFieldOptions {
   @ApiProperty({

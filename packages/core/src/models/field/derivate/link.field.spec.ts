@@ -5,7 +5,7 @@ import { FieldType, DbFieldType, CellValueType, Relationship } from '../constant
 import { FieldCore } from '../field';
 import type { IFieldVo } from '../field.schema';
 import type { ILinkCellValue } from './link.field';
-import { LinkFieldCore } from './link.field';
+import { linkFieldOptionsRoSchema, LinkFieldCore } from './link.field';
 
 describe('LinkFieldCore', () => {
   let field: LinkFieldCore;
@@ -132,6 +132,21 @@ describe('LinkFieldCore', () => {
         options: null,
       });
       expect(field.validateOptions().success).toBe(false);
+    });
+
+    it('should validate ro schema with strip', () => {
+      const object = {
+        relationship: 'manyOne',
+        foreignTableId: 'tblERSkHpp4KDRK1hvL',
+        lookupFieldId: 'fldXWPHcgSGeKgFFuOI',
+        dbForeignKeyName: '__fk_fldiBBKwOZuW8rlrtoW',
+        symmetricFieldId: 'fld8bh5u0MkjdmtFCxv',
+      };
+      expect(linkFieldOptionsRoSchema.safeParse(object).success).toBeFalsy();
+      expect(linkFieldOptionsRoSchema.strip().parse(object)).toEqual({
+        relationship: 'manyOne',
+        foreignTableId: 'tblERSkHpp4KDRK1hvL',
+      });
     });
   });
 });

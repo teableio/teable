@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IFieldVo, ILinkFieldOptions, IOtOperation, IUpdateFieldRo } from '@teable-group/core';
 import { getUniqName, FieldType, IdPrefix, FieldOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
-import { isEmpty, isEqual, noop } from 'lodash';
+import { differenceBy, isEmpty, isEqual, noop } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { Timing } from '../../../utils/timing';
@@ -17,7 +17,11 @@ import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByRo, createFieldInstanceByVo } from '../model/factory';
+import type { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
+import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
+import type { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
+import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
 
 @Injectable()
 export class FieldOpenApiService {
@@ -293,21 +297,15 @@ export class FieldOpenApiService {
       async (prisma, transactionKey) => {
         const fieldVo = await this.fieldService.getField(tableId, fieldId, prisma);
         if (!fieldVo) {
-          throw new HttpException(`Not found fieldId(${fieldId})`, HttpStatus.NOT_FOUND);
+          throw new BadRequestException(`Not found fieldId(${fieldId})`);
         }
 
         const oldFieldInstance = createFieldInstanceByVo(fieldVo);
 
-        let newFieldInstance: IFieldInstance;
-        try {
-          newFieldInstance = createFieldInstanceByRo({
-            ...fieldVo,
-            ...updateFieldRo,
-          });
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) {
-          throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-        }
+        const newFieldInstance = createFieldInstanceByRo({
+          ...fieldVo,
+          ...updateFieldRo,
+        });
 
         // Avoid some unnecessary changes, first differences to find out the key with changes
         const updateKeys = (Object.keys(updateFieldRo) as (keyof IUpdateFieldRo)[]).filter(
@@ -329,6 +327,64 @@ export class FieldOpenApiService {
     );
   }
 
+  modifyLookupOptions() {
+    throw new BadRequestException('Not support modify lookup options');
+  }
+
+  modifyFormulaOptions(
+    newField: RollupFieldDto | FormulaFieldDto,
+    oldField: RollupFieldDto | FormulaFieldDto
+  ) {
+    if (newField.options.expression !== oldField.options.expression) {
+      throw new BadRequestException('Not support modify rollup expression');
+    }
+    return FieldOpBuilder.editor.setFieldOptions.build({
+      newOptions: newField.options,
+      oldOptions: oldField.options,
+    });
+  }
+
+  modifySelectOptions(
+    newField: SingleSelectFieldDto | MultipleSelectFieldDto,
+    oldField: SingleSelectFieldDto | MultipleSelectFieldDto
+  ) {
+    const deletedChoices = differenceBy(newField.options.choices, oldField.options.choices, 'name');
+    if (deletedChoices.length) {
+      throw new BadRequestException('Not support delete choices');
+    }
+
+    return FieldOpBuilder.editor.setFieldOptions.build({
+      newOptions: newField.options,
+      oldOptions: oldField.options,
+    });
+  }
+
+  modifyOptions(newField: IFieldInstance, oldField: IFieldInstance) {
+    switch (newField.type) {
+      case FieldType.Link:
+        throw new BadRequestException("Not support modify field's options of link type");
+      case FieldType.Rollup:
+        return this.modifyFormulaOptions(newField as RollupFieldDto, oldField as RollupFieldDto);
+      case FieldType.Formula:
+        return this.modifyFormulaOptions(newField as FormulaFieldDto, oldField as FormulaFieldDto);
+      case FieldType.SingleSelect:
+        return this.modifySelectOptions(
+          newField as SingleSelectFieldDto,
+          oldField as SingleSelectFieldDto
+        );
+      case FieldType.MultipleSelect:
+        return this.modifySelectOptions(
+          newField as MultipleSelectFieldDto,
+          oldField as MultipleSelectFieldDto
+        );
+    }
+
+    return FieldOpBuilder.editor.setFieldOptions.build({
+      newOptions: newField.options,
+      oldOptions: oldField.options,
+    });
+  }
+
   updateField2Ops(
     keys: string[],
     newFieldInstance: IFieldInstance,
@@ -337,6 +393,18 @@ export class FieldOpenApiService {
     return keys
       .map((key) => {
         switch (key) {
+          case 'type': {
+            throw new BadRequestException('Not support update field type');
+          }
+          case 'isLookup': {
+            throw new BadRequestException('Not support update field isLookup');
+          }
+          case 'lookupOptions': {
+            throw new BadRequestException('Not support update field lookupOptions');
+          }
+          case 'options': {
+            return this.modifyOptions(newFieldInstance, oldFieldInstance);
+          }
           case 'name': {
             return FieldOpBuilder.editor.setFieldName.build({
               newName: newFieldInstance.name,
@@ -349,29 +417,8 @@ export class FieldOpenApiService {
               oldDescription: oldFieldInstance.description!,
             });
           }
-          case 'type': {
-            return FieldOpBuilder.editor.setFieldType.build({
-              newType: newFieldInstance.type,
-              oldType: oldFieldInstance.type,
-            });
-          }
-          case 'options': {
-            return FieldOpBuilder.editor.setFieldOptions.build({
-              newOptions: newFieldInstance.options,
-              oldOptions: oldFieldInstance.options,
-            });
-          }
-          case 'isLookup': {
-            return FieldOpBuilder.editor.setFieldOptions.build({
-              newOptions: newFieldInstance.isLookup,
-              oldOptions: oldFieldInstance.isLookup,
-            });
-          }
-          case 'lookupOptions': {
-            return FieldOpBuilder.editor.setFieldOptions.build({
-              newOptions: newFieldInstance.lookupOptions,
-              oldOptions: oldFieldInstance.lookupOptions,
-            });
+          case 'columnMeta': {
+            throw new BadRequestException("Not support update field's columnMeta");
           }
           default:
             return null;

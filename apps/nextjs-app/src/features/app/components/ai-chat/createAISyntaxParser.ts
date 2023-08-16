@@ -32,8 +32,8 @@ export function createAISyntaxParser() {
         const views = await View.getViews(tableId);
         viewId = views[0].id;
         router.push({
-          pathname: '/space/[tableId]/[viewId]',
-          query: { tableId, viewId },
+          pathname: '/space/[nodeId]/[viewId]',
+          query: { nodeId: tableId, viewId },
         });
         return;
       }

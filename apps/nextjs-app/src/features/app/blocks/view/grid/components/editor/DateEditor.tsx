@@ -15,5 +15,12 @@ export const DateEditor = (props: IWrapperEditorProps) => {
   const value = useMemo(() => new Date(dateTime), [dateTime]);
 
   // TODO: Replace Date Editor
-  return <DateEditorMain style={style} value={value} onChange={setDateTime} />;
+  return (
+    <DateEditorMain
+      className="rounded-md border bg-background"
+      style={style}
+      value={value}
+      onChange={setDateTime}
+    />
+  );
 };

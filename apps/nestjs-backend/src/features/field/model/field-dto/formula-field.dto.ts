@@ -9,8 +9,8 @@ import {
 import type { IFormulaFieldOptions, ILookupOptionsVo, IFieldRo } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { IFieldBase } from '../field-base';
-import { DatetimeFormattingDto, NumberFormattingDto } from './formatting.dto';
-import { MultiNumberShowAsDto, SingleNumberShowAsDto } from './show-as.dto';
+import { DatetimeFormattingDto, NumberFormattingDto } from '../formatting.dto';
+import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
 
 @ApiExtraModels(DatetimeFormattingDto)
 @ApiExtraModels(NumberFormattingDto)
