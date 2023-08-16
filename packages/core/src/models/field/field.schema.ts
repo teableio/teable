@@ -159,6 +159,8 @@ export const fieldVoSchema = z.object({
 
 export type IFieldVo = z.infer<typeof fieldVoSchema>;
 
+export type IFieldPropertyKey = keyof Omit<IFieldVo, 'id'>;
+
 export const getOptionsSchema = (type: FieldType) => {
   switch (type) {
     case FieldType.SingleLineText:

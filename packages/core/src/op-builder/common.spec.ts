@@ -28,4 +28,18 @@ describe('Common', () => {
     const result = pathMatcher<{ id: number }>(path, matchList);
     expect(result).toBeNull();
   });
+
+  it('should not match path if wildcard (*) is more then actual path length', () => {
+    const path = ['user', '123'];
+    const matchList = ['user', '123', '*'];
+    const result = pathMatcher<{ id: number }>(path, matchList);
+    expect(result).toBeNull();
+  });
+
+  it('should not match path if wildcard (*) is less then actual path length', () => {
+    const path = ['user', '123', 'key'];
+    const matchList = ['user', '*'];
+    const result = pathMatcher<{ id: number }>(path, matchList);
+    expect(result).toBeNull();
+  });
 });
