@@ -65,7 +65,6 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <FormulaOptions
           options={options as IFormulaFieldOptions}
           isLookup={isLookup}
-          lookupOptions={lookupOptions}
           onChange={updateFieldOptions}
         />
       );
@@ -82,7 +81,6 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <RollupOptions
           options={options as IRollupFieldOptions}
           isLookup={isLookup}
-          lookupOptions={lookupOptions}
           onChange={updateFieldOptions}
         />
       );

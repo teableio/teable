@@ -1,12 +1,6 @@
-import type {
-  IFormulaFieldOptions,
-  ILookupOptionsRo,
-  INumberShowAs,
-  IUnionFormatting,
-} from '@teable-group/core';
-import { CellValueType, Relationship } from '@teable-group/core';
+import type { IFormulaFieldOptions, INumberShowAs, IUnionFormatting } from '@teable-group/core';
+import { CellValueType } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
-import type { LinkField } from '@teable-group/sdk/model';
 import { FormulaField } from '@teable-group/sdk/model';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { keyBy } from 'lodash';
@@ -18,10 +12,9 @@ export const FormulaOptions = (props: {
   options: Partial<IFormulaFieldOptions> | undefined;
   isLookup?: boolean;
   cellValueType?: CellValueType;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IFormulaFieldOptions>) => void;
 }) => {
-  const { options = {}, isLookup, lookupOptions, onChange } = props;
+  const { options = {}, isLookup, onChange } = props;
   const { formatting, expression } = options;
   const fields = useFields();
   const [errMsg, setErrMsg] = useState('');
@@ -31,26 +24,13 @@ export const FormulaOptions = (props: {
       : '';
   });
 
-  const isMultipleCellValue = useMemo(() => {
-    const { linkFieldId } = lookupOptions || {};
-    if (linkFieldId == null) return false;
-
-    const linkField = fields.find((f) => f.id === linkFieldId) as LinkField;
-
-    if (linkField == null) return;
-
-    const relationship = linkField.options.relationship;
-
-    return relationship !== Relationship.ManyOne;
-  }, [fields, lookupOptions]);
-
-  const cellValueType = useMemo(() => {
+  const { cellValueType, isMultipleCellValue } = useMemo(() => {
     try {
       return expression
-        ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id')).cellValueType
-        : CellValueType.String;
+        ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id'))
+        : { cellValueType: CellValueType.String, isMultipleCellValue: false };
     } catch (e) {
-      return CellValueType.String;
+      return { cellValueType: CellValueType.String, isMultipleCellValue: false };
     }
   }, [expression, fields]);
 

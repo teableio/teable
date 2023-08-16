@@ -1,12 +1,5 @@
-import type {
-  ILookupOptionsRo,
-  INumberShowAs,
-  IRollupFieldOptions,
-  IUnionFormatting,
-} from '@teable-group/core';
-import { assertNever, ROLLUP_FUNCTIONS, CellValueType, Relationship } from '@teable-group/core';
-import { useFields } from '@teable-group/sdk/hooks';
-import type { LinkField } from '@teable-group/sdk/model';
+import type { INumberShowAs, IRollupFieldOptions, IUnionFormatting } from '@teable-group/core';
+import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
 import { RollupField } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
@@ -16,31 +9,20 @@ import { UnionShowAs } from '../show-as/UnionShowAs';
 export const RollupOptions = (props: {
   options: Partial<IRollupFieldOptions> | undefined;
   isLookup?: boolean;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
-  const { options = {}, isLookup, lookupOptions, onChange } = props;
+  const { options = {}, isLookup, onChange } = props;
   const { formatting, expression } = options;
-  const fields = useFields();
 
-  const cellValueType = useMemo(() => {
-    return expression
-      ? RollupField.getParsedValueType(expression).cellValueType
-      : CellValueType.String;
+  const { cellValueType, isMultipleCellValue } = useMemo(() => {
+    try {
+      return expression
+        ? RollupField.getParsedValueType(expression)
+        : { cellValueType: CellValueType.String, isMultipleCellValue: false };
+    } catch (e) {
+      return { cellValueType: CellValueType.String, isMultipleCellValue: false };
+    }
   }, [expression]);
-
-  const isMultipleCellValue = useMemo(() => {
-    const { linkFieldId } = lookupOptions || {};
-    if (linkFieldId == null) return false;
-
-    const linkField = fields.find((f) => f.id === linkFieldId) as LinkField;
-
-    if (linkField == null) return;
-
-    const relationship = linkField.options.relationship;
-
-    return relationship !== Relationship.ManyOne;
-  }, [fields, lookupOptions]);
 
   const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
     onChange?.({
