@@ -1,7 +1,7 @@
 import type { ILinkCellValue } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import type { LinkField } from '@teable-group/sdk';
-import { AnchorProvider, LinkEditorMain, useRecords } from '@teable-group/sdk';
+import { AnchorProvider, SelectEditorMain, useRecords } from '@teable-group/sdk';
 import { useMemo } from 'react';
 import type { FC } from 'react';
 import type { IEditorProps } from '../../../../grid/components';
@@ -38,7 +38,8 @@ const LinkEditorInner: FC<IEditorProps & IWrapperEditorProps> = (props) => {
     value: id,
   }));
 
-  const onChange = (recordIds: string[]) => {
+  const onChange = (value?: string[] | string) => {
+    const recordIds = value ? (isMultiple ? (value as string[]) : [value as string]) : [];
     const arrayCellValue = Array.isArray(cellValue) ? cellValue : cellValue ? [cellValue] : [];
     const newCellValue = recordIds.map((id) => ({
       id,
@@ -50,7 +51,7 @@ const LinkEditorInner: FC<IEditorProps & IWrapperEditorProps> = (props) => {
   };
 
   return (
-    <LinkEditorMain
+    <SelectEditorMain
       style={style}
       value={values}
       options={choices}

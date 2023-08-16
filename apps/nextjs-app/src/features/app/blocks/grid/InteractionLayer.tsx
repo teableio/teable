@@ -91,6 +91,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onPaste,
     onDelete,
     onRowAppend,
+    onRowExpand,
     onRowOrdered,
     onCellEdited,
     onCellActivated,
@@ -264,7 +265,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const mouseState = getMouseState();
     onSelectionClick(event, mouseState);
-    const { type, columnIndex, hoverCellX, hoverCellY } = mouseState;
+    const { type, rowIndex, columnIndex, hoverCellX, hoverCellY } = mouseState;
     if (regionType !== type) return;
 
     switch (type) {
@@ -272,6 +273,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return onRowAppend?.();
       case RegionType.AppendColumn:
         return onColumnAppend?.();
+      case RegionType.RowHeaderExpandHandler:
+        return onRowExpand?.(rowIndex);
       case RegionType.ColumnResizeHandler:
         return onColumnHeaderClick?.(columnIndex, {
           x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),

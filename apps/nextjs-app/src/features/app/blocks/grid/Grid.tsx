@@ -38,6 +38,7 @@ export interface IGridExternalProps {
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
+  onRowExpand?: (rowIndex: number) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
   onColumnResize?: (column: IGridColumn, newSize: number, colIndex: number) => void;
@@ -91,6 +92,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onPaste,
     onDelete,
     onRowAppend,
+    onRowExpand,
     onRowOrdered,
     onCellEdited,
     onCellActivated,
@@ -231,6 +233,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onPaste={onPaste}
           onDelete={onDelete}
           onRowAppend={onRowAppend}
+          onRowExpand={onRowExpand}
           onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}

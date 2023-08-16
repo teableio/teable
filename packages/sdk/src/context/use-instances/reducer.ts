@@ -32,14 +32,13 @@ export function instanceReducer<T, R extends { id: string }>(
       ];
     case 'remove':
       return [...state.slice(0, action.index), ...state.slice(action.index + action.docs.length)];
-    case 'move':
-      return action.docs.map((doc) => {
-        const instance = state.find((item) => item.id === doc.id);
-        if (!instance) {
-          throw new Error('Cannot find moved item');
-        }
-        return instance;
-      });
+    case 'move': {
+      const { docs, from, to } = action;
+      const newInstance = [...state];
+      const moveInstance = newInstance.splice(from, docs.length);
+      newInstance.splice.apply(newInstance, [to, 0, ...moveInstance]);
+      return newInstance;
+    }
     case 'clear': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (state[0] && (state[0] as any).doc) {

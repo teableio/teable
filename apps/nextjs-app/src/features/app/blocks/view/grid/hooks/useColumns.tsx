@@ -1,9 +1,10 @@
-import type { IAttachmentCellValue } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
+import type { IAttachmentCellValue } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
+import colors from 'tailwindcss/colors';
 import { getFileCover } from '@/features/app/utils';
 import type { IGridColumn, ICell } from '../../../grid';
 import { CellType, EditorPosition } from '../../../grid';
@@ -34,6 +35,7 @@ const generateColumns = (
         id,
         name,
         width,
+        customTheme: field.hasError ? { columnHeaderBg: colors.rose[100] } : undefined,
         hasMenu: true,
         icon: iconString(type, isLookup),
       };

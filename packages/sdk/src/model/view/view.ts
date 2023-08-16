@@ -6,7 +6,7 @@ import type {
 } from '@teable-group/core';
 import { filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
+import { axios } from '../../config/axios';
 
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;

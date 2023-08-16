@@ -9,7 +9,7 @@ import type {
 } from '@teable-group/core';
 import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
-import axios from 'axios';
+import { axios } from '../../config/axios';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
 import { View } from '../view';
@@ -81,8 +81,12 @@ export class Table extends TableCore {
     return Field.createField(this.id, fieldRo);
   }
 
-  async updateFieldById(fieldId: string, fieldRo: IFieldRo) {
-    return Field.updateFieldById(this.id, fieldId, fieldRo);
+  async updateField(fieldId: string, fieldRo: IFieldRo) {
+    return Field.updateField(this.id, fieldId, fieldRo);
+  }
+
+  async deleteField(fieldId: string) {
+    return Field.deleteField(this.id, fieldId);
   }
 
   async updateOrder(order: number) {
