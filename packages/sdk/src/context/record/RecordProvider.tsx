@@ -52,6 +52,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
     });
 
     return () => {
+      setRowCount(0);
       query.destroy();
     };
   }, [tableId, connection, viewId]);
