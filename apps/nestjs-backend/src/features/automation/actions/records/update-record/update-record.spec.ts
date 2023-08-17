@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import { ConsoleLogger } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
@@ -14,6 +13,7 @@ import {
   generateWorkflowActionId,
 } from '@teable-group/core';
 import { TeableConfigModule } from '../../../../../configs/config.module';
+import { TeableEventEmitterModule } from '../../../../../event-emitter/event-emitter.module';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
@@ -44,7 +44,7 @@ describe('Update-Record Action Test', () => {
         TableOpenApiModule,
         RecordOpenApiModule,
         FieldModule,
-        EventEmitterModule.forRoot(),
+        TeableEventEmitterModule.register(),
       ],
     }).compile();
 

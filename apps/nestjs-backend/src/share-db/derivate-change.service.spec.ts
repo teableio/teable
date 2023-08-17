@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import { PrismaService } from '../prisma.service';
@@ -17,6 +18,7 @@ describe('DerivateChangeService', () => {
         ReferenceService,
         TransactionService,
         PrismaService,
+        { provide: EventEmitterService, useValue: { ops2Event: jest.fn() } },
       ],
     }).compile();
 

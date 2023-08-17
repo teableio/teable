@@ -1,6 +1,6 @@
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
 import { AggregationModule } from './aggregation.module';
 import { AggregationService } from './aggregation.service';
 
@@ -9,18 +9,13 @@ describe('AggregateService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [AggregationModule, EventEmitterModule.forRoot()],
+      imports: [AggregationModule, TeableEventEmitterModule.register()],
     }).compile();
 
     service = module.get<AggregationService>(AggregationService);
   });
 
-  it('test1', async () => {
-    // expect(service).toBeDefined();
-    const data = await service.calculateAggregations({
-      tableId: 'tblUa0zJX7Qm3f5OJER',
-    });
-
-    console.log(JSON.stringify(data, null, 2));
+  it('should be defined', () => {
+    expect(service).toBeDefined();
   });
 });

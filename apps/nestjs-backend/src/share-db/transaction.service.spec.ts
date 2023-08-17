@@ -2,6 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../src/prisma.service';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { TransactionService } from './transaction.service';
 
 jest.useFakeTimers();
@@ -16,6 +17,7 @@ describe('TransactionService', () => {
         TransactionService,
         // Mock the PrismaService
         { provide: PrismaService, useValue: { $transaction: jest.fn() } },
+        { provide: EventEmitterService, useValue: { ops2Event: jest.fn() } },
       ],
     }).compile();
     jest.useRealTimers();
