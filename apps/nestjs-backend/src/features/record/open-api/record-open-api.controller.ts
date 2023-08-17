@@ -26,6 +26,7 @@ import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
+import { RecordPipe } from './record.pipe';
 
 @ApiBearerAuth()
 @ApiTags('record')
@@ -43,7 +44,7 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsQuerySchema)) query: IGetRecordsQuery
+    @Query(new ZodValidationPipe(getRecordsQuerySchema), RecordPipe) query: IGetRecordsQuery
   ): Promise<ApiResponse<IRecordsVo>> {
     const records = await this.recordService.getRecords(tableId, query);
     return responseWrap(records);

@@ -119,10 +119,9 @@ export class EventEmitterService {
 
           const refData = cacheData.get(editOp.d);
 
-          const eventType =
-            refData?.eventType != IEventType.Edit ? refData?.eventType : IEventType.Edit;
+          const eventType = refData?.eventType ?? IEventType.Edit;
 
-          const recordId = refData?.recordId != editOp.d ? refData?.recordId : editOp.d;
+          const recordId = refData?.recordId ?? editOp.d;
 
           data = { ...data, recordId, eventType };
 
