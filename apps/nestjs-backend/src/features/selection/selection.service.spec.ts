@@ -151,7 +151,7 @@ describe('selectionService', () => {
       );
 
       // Verify the result
-      expect(result).toEqual({ records: expectedRecords });
+      expect(result).toEqual(expectedRecords);
     });
   });
 
@@ -335,8 +335,8 @@ describe('selectionService', () => {
       };
 
       const mockRecords = [
-        { id: 'recordId1', recordOrder: {}, fields: {} },
-        { id: 'recordId2', recordOrder: {}, fields: {} },
+        { id: 'recordId1', fields: {} },
+        { id: 'recordId2', fields: {} },
       ];
 
       const mockNewFields = [
@@ -345,17 +345,16 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByRo);
 
       const mockNewRecords = [
-        { id: 'newRecordId1', recordOrder: {}, fields: {} },
-        { id: 'newRecordId2', recordOrder: {}, fields: {} },
+        { id: 'newRecordId1', fields: {} },
+        { id: 'newRecordId2', fields: {} },
       ];
 
       jest.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
       jest.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
-      jest.spyOn(recordService, 'getRecords').mockResolvedValue({
-        records: mockRecords.slice(pasteRo.cell[1]),
-        total: mockRecords.length,
-      });
+      jest
+        .spyOn(recordService, 'getRecordsFields')
+        .mockResolvedValue(mockRecords.slice(pasteRo.cell[1]));
 
       jest.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
 
@@ -375,7 +374,7 @@ describe('selectionService', () => {
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);
       expect(recordService.getRowCount).toHaveBeenCalledWith(prismaService, tableId, viewId);
-      expect(recordService.getRecords).toHaveBeenCalledWith(tableId, {
+      expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
         take: tableData.length,
@@ -411,7 +410,6 @@ describe('selectionService', () => {
     const records = [
       {
         id: 'record1',
-        recordOrder: {},
         fields: {
           field1: '1',
           field2: '2',

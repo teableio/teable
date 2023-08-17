@@ -1,5 +1,5 @@
 import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
-import { useRecords, useViewId } from '@teable-group/sdk';
+import { useRecords, useRowCount, useViewId } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange } from 'lodash';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -19,13 +19,15 @@ export type IRowEditedCallback<T> = (
 ) => T | undefined;
 
 type IRes = {
-  records: Record[];
+  recordMap: IRecordIndexMap;
   reset: () => void;
   onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
   onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
   getCellContent: (cell: ICellItem) => ICell;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
+
+export type IRecordIndexMap = { [i in number]: Record };
 
 export const useAsyncData = (
   toCell: IRowToCell<Record>,
@@ -37,11 +39,16 @@ export const useAsyncData = (
     limit: 150,
   });
   const viewId = useViewId();
+  const rowCount = useRowCount();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(query, initRecords);
-  const [loadedRecords, setLoadedRecords] = useState<Record[]>(records);
-
+  const [loadedRecords, setLoadedRecords] = useState<IRecordIndexMap>(() =>
+    records.reduce((acc, record, i) => {
+      acc[i] = record;
+      return acc;
+    }, {} as IRecordIndexMap)
+  );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
@@ -53,14 +60,15 @@ export const useAsyncData = (
       const cacheLen = 600;
       const [cacheStartIndex, cacheEndIndex] = [
         Math.max(startIndex - cacheLen / 2, 0),
-        startIndex + data.length,
+        startIndex + data.length + cacheLen / 2,
       ];
-      const cacheStart = preLoadedRecords.slice(cacheStartIndex, startIndex);
-      const cacheEnd = preLoadedRecords.slice(cacheEndIndex, cacheEndIndex + cacheLen / 2);
-      const cacheData = [...cacheStart, ...data, ...cacheEnd];
-      const newRecordsState: Record[] = [];
-      for (let i = 0; i < cacheData.length; i++) {
-        newRecordsState[cacheStartIndex + i] = cacheData[i];
+      const newRecordsState: IRecordIndexMap = {};
+      for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
+        if (startIndex <= i && i < startIndex + data.length) {
+          newRecordsState[i] = data[i - startIndex];
+          continue;
+        }
+        newRecordsState[i] = preLoadedRecords[i];
       }
       return newRecordsState;
     });
@@ -148,7 +156,7 @@ export const useAsyncData = (
         throw new Error('Can not find view id');
       }
 
-      const newOrders = reorder(rowIndexCollection, newRowIndex, loadedRecords.length, (index) => {
+      const newOrders = reorder(rowIndexCollection, newRowIndex, rowCount, (index) => {
         return loadedRecords[index].recordOrder[viewId];
       });
 
@@ -156,7 +164,7 @@ export const useAsyncData = (
         record.updateRecordOrder(viewId, newOrders[index]);
       });
     },
-    [loadedRecords, viewId]
+    [loadedRecords, viewId, rowCount]
   );
 
   return {
@@ -164,7 +172,7 @@ export const useAsyncData = (
     onVisibleRegionChanged,
     onCellEdited,
     onRowOrdered,
-    records: loadedRecords,
+    recordMap: loadedRecords,
     reset,
   };
 };
