@@ -331,6 +331,10 @@ export class AggregationService {
         ? Number(currentValue)
         : currentValue?.toString() ?? null;
 
+    if (!aggFunc) {
+      return convertValue;
+    }
+
     if (aggFunc === StatisticsFunc.DateRangeOfMonths) {
       const [maxTime, minTime] = (currentValue as string).split(',');
 
@@ -339,6 +343,16 @@ export class AggregationService {
       } else {
         convertValue = dayjs(maxTime).diff(minTime, 'month');
       }
+    }
+    const defaultToZero = [
+      StatisticsFunc.PercentEmpty,
+      StatisticsFunc.PercentFilled,
+      StatisticsFunc.PercentUnique,
+      StatisticsFunc.PercentChecked,
+      StatisticsFunc.PercentUnChecked,
+    ];
+    if (defaultToZero.includes(aggFunc)) {
+      convertValue = convertValue ?? 0;
     }
     return convertValue;
   };
