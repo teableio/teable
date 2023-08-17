@@ -1,10 +1,11 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
-  ViewProvider,
+  AggregationProvider,
+  AnchorContext,
   FieldProvider,
   RecordProvider,
   useTable,
-  AnchorContext,
+  ViewProvider,
 } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -38,26 +39,28 @@ export const Table: React.FC<ITableProps> = ({
   return (
     <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
       <ViewProvider serverData={viewServerData}>
-        <div className="grow flex flex-col h-full basis-[500px]">
-          <TableHeader />
-          <FieldProvider serverSideData={fieldServerData}>
-            <ToolBar />
-            <RecordProvider serverData={recordsServerData}>
-              <ErrorBoundary
-                fallback={
-                  <div className="w-full h-full flex justify-center items-center">
-                    <FailAlert />
+        <AggregationProvider>
+          <div className="grow flex flex-col h-full basis-[500px]">
+            <TableHeader />
+            <FieldProvider serverSideData={fieldServerData}>
+              <ToolBar />
+              <RecordProvider serverData={recordsServerData}>
+                <ErrorBoundary
+                  fallback={
+                    <div className="w-full h-full flex justify-center items-center">
+                      <FailAlert />
+                    </div>
+                  }
+                >
+                  <div className="w-full grow overflow-hidden">
+                    {isHydrated && <GridView />}
+                    {isHydrated && <ExpandRecordContainer recordServerData={recordServerData} />}
                   </div>
-                }
-              >
-                <div className="w-full grow overflow-hidden">
-                  {isHydrated && <GridView />}
-                  {isHydrated && <ExpandRecordContainer recordServerData={recordServerData} />}
-                </div>
-              </ErrorBoundary>
-            </RecordProvider>
-          </FieldProvider>
-        </div>
+                </ErrorBoundary>
+              </RecordProvider>
+            </FieldProvider>
+          </div>
+        </AggregationProvider>
       </ViewProvider>
     </AnchorContext.Provider>
   );

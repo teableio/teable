@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
+import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { map, orderBy, uniq } from 'lodash';
+import { orderBy } from 'lodash';
+import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
+import { FieldUpdatedEvent, RecordUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import { DerivateChangeService } from './derivate-change.service';
-import type { RecordEvent } from './events';
-import { EventEnums } from './events';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
@@ -37,6 +37,8 @@ export class ShareDbService extends ShareDBClass {
     private readonly eventEmitter: EventEmitter2
   ) {
     super({
+      presence: true,
+      doNotForwardSendPresenceErrorsToClient: true,
       db: sqliteDbAdapter,
     });
 
@@ -195,8 +197,9 @@ export class ShareDbService extends ShareDBClass {
   // }
 
   private onSubmitRequestEnd(error: Error, context: ShareDBClass.middleware.SubmitContext) {
-    const extra = context.extra as { [key: string]: unknown };
-    const transactionKey = extra?.transactionKey as string;
+    const extra = context.extra as ITransactionMeta;
+    const isBackend = Boolean(context.agent.custom?.isBackend);
+    const transactionKey = extra?.transactionKey;
 
     if (error) {
       this.logger.error(error);
@@ -204,11 +207,14 @@ export class ShareDbService extends ShareDBClass {
       return;
     }
 
+    if (isBackend) {
+      return;
+    }
+
     let cacheEventArray = this.eventCollector.get(transactionKey);
     const transactionCacheMeta = this.transactionService.getCache(transactionKey);
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const eventType = this.getEventType(context.op)!;
+    const eventType = this.getEventType(context.op);
     const cacheEventMeta: IEventCollectorMeta = {
       type: eventType,
       sort: transactionCacheMeta?.currentCount ?? (cacheEventArray?.length ?? 0) + 1,
@@ -219,7 +225,7 @@ export class ShareDbService extends ShareDBClass {
 
     this.eventCollector.set(transactionKey, cacheEventArray);
 
-    if (!transactionCacheMeta) {
+    if (!transactionCacheMeta?.currentCount) {
       // When the `event group` corresponding to a transaction ID completes,
       // the `type` in the event group is analyzed to dispatch subsequent event tasks
       this.eventAssign(transactionKey, cacheEventArray);
@@ -235,82 +241,62 @@ export class ShareDbService extends ShareDBClass {
 
   private getEventType(
     op: ShareDBClass.CreateOp | ShareDBClass.DeleteOp | ShareDBClass.EditOp
-  ): IEventType | undefined {
+  ): IEventType {
     if ('create' in op) {
       return IEventType.Create;
-    }
-    if ('op' in op) {
+    } else if ('op' in op) {
       return IEventType.Edit;
-    }
-    if ('del' in op) {
+    } else {
       return IEventType.Delete;
     }
   }
 
-  private async eventAssign(
-    transactionKey: string,
-    cacheEventArray: IEventCollectorMeta[]
-  ): Promise<void> {
-    const getType = (types: IEventType[]): IEventType | undefined => {
-      const uniqueType = uniq(types);
-      if (uniqueType.length === 1) {
-        if (uniqueType.includes(IEventType.Edit)) {
-          return IEventType.Edit;
-        }
-        if (uniqueType.includes(IEventType.Delete)) {
-          return IEventType.Delete;
-        }
-      } else {
-        if (uniqueType.includes(IEventType.Create)) {
-          return IEventType.Create;
-        }
-      }
-    };
-
-    const allTypes = map(cacheEventArray, 'type');
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const type = getType(allTypes)!;
-    const lastContext = orderBy(cacheEventArray, 'sort', 'desc')[0].context;
-
-    if (type === IEventType.Create) {
-      this.createEvent(lastContext);
-    }
-
-    if (type === IEventType.Edit) {
-      this.editEvent(lastContext);
-    }
-
-    if (type === IEventType.Delete) {
-      // Delete Event
+  /*
+   * Only some of the `modify` operations use op, `create` and `delete` are performed by the API, so currently only `modify` is assigned events
+   */
+  private eventAssign(transactionKey: string, cacheEventArray: IEventCollectorMeta[]): void {
+    if (cacheEventArray.some((event) => event.type === IEventType.Edit)) {
+      this.editEvent(orderBy(cacheEventArray, 'sort', 'desc').map((event) => event.context));
     }
 
     this.removeEventCollector(transactionKey);
   }
 
-  private async createEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
-    const [docType, collectionId] = context.collection.split('_');
-    if (IdPrefix.Record == docType) {
-      const eventValue: RecordEvent = {
-        eventName: EventEnums.RecordCreated,
-        tableId: collectionId,
-        recordId: context.id,
-        context,
-      };
-      this.eventEmitter.emitAsync(EventEnums.RecordCreated, eventValue);
-    }
-  }
+  private editEvent(contexts: ShareDBClass.middleware.SubmitContext[]): void {
+    contexts.forEach((context) => {
+      const [docType, collectionId] = context.collection.split('_');
+      if (!context.op.op) {
+        return;
+      }
 
-  private async editEvent(context: ShareDBClass.middleware.SubmitContext): Promise<void> {
-    const [docType, collectionId] = context.collection.split('_');
-    if (IdPrefix.Record == docType) {
-      const eventValue: RecordEvent = {
-        eventName: EventEnums.RecordUpdated,
-        tableId: collectionId,
-        recordId: context.id,
-        context,
-      };
-      this.eventEmitter.emitAsync(EventEnums.RecordUpdated, eventValue);
-    }
+      let eventValue: IEventBase | undefined;
+      if (IdPrefix.Record == docType) {
+        eventValue = new RecordUpdatedEvent(
+          collectionId,
+          context.id,
+          // context.snapshot?.data,
+          RecordOpBuilder.ops2Contexts(context.op.op)
+        );
+      } else if (IdPrefix.Field == docType) {
+        eventValue = new FieldUpdatedEvent(
+          collectionId,
+          context.id,
+          // context.snapshot?.data,
+          FieldOpBuilder.ops2Contexts(context.op.op)
+        );
+      } else if (IdPrefix.View == docType) {
+        eventValue = new ViewUpdatedEvent(
+          collectionId,
+          context.id,
+          // context.snapshot?.data,
+          ViewOpBuilder.ops2Contexts(context.op.op)
+        );
+      }
+
+      if (eventValue) {
+        this.eventEmitter.emit(eventValue.eventName, eventValue.toJSON());
+      }
+    });
   }
 
   async submitOps(collection: string, id: string, ops: IOtOperation[]) {

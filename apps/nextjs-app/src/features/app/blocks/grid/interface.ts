@@ -34,14 +34,15 @@ export enum SelectionRegionType {
 export enum RegionType {
   Cell = 'Cell',
   RowHeader = 'RowHeader',
-  ColumnHeader = 'ColumnHeader',
   AppendRow = 'AppendRow',
+  ColumnHeader = 'ColumnHeader',
   AppendColumn = 'AppendColumn',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnResizeHandler = 'ColumnResizeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
+  ColumnStatistic = 'ColumnStatistic',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
   Blank = 'Blank',
@@ -86,6 +87,15 @@ interface IGroupHeaderRow extends IRowBase {
 }
 
 export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
+
+export interface IColumnStatistics {
+  [columnId: string]: IColumnStatistic | null;
+}
+
+export interface IColumnStatistic {
+  total: string;
+  [key: string]: string;
+}
 
 export interface IGridColumn {
   id?: string;

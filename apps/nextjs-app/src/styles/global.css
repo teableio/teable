@@ -13,3 +13,8 @@ svg.icon {
 [type='search']:focus {
   box-shadow: inherit;
 }
+
+html,
+body {
+  overflow: hidden;
+}

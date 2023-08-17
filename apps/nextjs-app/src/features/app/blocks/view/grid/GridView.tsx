@@ -22,7 +22,14 @@ import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
 import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
+import {
+  useAsyncData,
+  useColumnOrder,
+  useColumnResize,
+  useColumnStatistics,
+  useColumns,
+  useGridTheme,
+} from './hooks';
 import type { IRecordIndexMap } from './hooks/useAsyncData';
 import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
@@ -40,6 +47,7 @@ export const GridView: React.FC = () => {
   const theme = useGridTheme();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
   const { columns, onColumnResize } = useColumnResize(originalColumns);
+  const { columnStatistics } = useColumnStatistics(columns);
   const { onColumnOrdered } = useColumnOrder();
   const gridViewStore = useGridViewStore();
   const preTableId = usePrevious(tableId);
@@ -141,6 +149,15 @@ export const GridView: React.FC = () => {
     (colIndex: number) => {
       const fieldId = columns[colIndex].id;
       gridViewStore.openSetting({ fieldId, operator: FieldOperator.Edit });
+    },
+    [columns, gridViewStore]
+  );
+
+  const onColumnStatisticClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      const { x, y, width, height } = bounds;
+      const fieldId = columns[colIndex].id;
+      gridViewStore.openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
     },
     [columns, gridViewStore]
   );
@@ -255,6 +272,7 @@ export const GridView: React.FC = () => {
           theme={theme}
           rowCount={rowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+          columnStatistics={columnStatistics}
           freezeColumnCount={1}
           columns={columns}
           smoothScrollX
@@ -275,6 +293,7 @@ export const GridView: React.FC = () => {
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
+          onColumnStatisticClick={onColumnStatisticClick}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}

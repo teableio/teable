@@ -11,7 +11,7 @@ import type {
 export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
   type: CellType.Boolean,
   needsHover: true,
-  needsHoverPosition: false,
+  needsHoverPosition: true,
   draw: (cell: IBooleanCell, props: ICellRenderProps) => {
     const { data, isMultiple } = cell;
     const { ctx, rect, theme } = props;

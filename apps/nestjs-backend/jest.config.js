@@ -31,7 +31,7 @@ const config = {
   rootDir: './',
   testMatch: ['<rootDir>/{src,test}/**/*.{spec,test,e2e-spec}.{js,jsx,ts,tsx}'],
   transform: {
-    '^.+\\.m?[tj]sx?$': [
+    '^.+\\.m?[t]sx?$': [
       'ts-jest',
       {
         tsconfig: tsConfigFile,

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
 import { PrismaService } from '../../prisma.service';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
@@ -26,7 +26,7 @@ describe('selectionService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [SelectionModule, EventEmitterModule.forRoot()],
+      imports: [SelectionModule, TeableEventEmitterModule.register()],
     })
       .overrideProvider(PrismaService)
       .useValue({

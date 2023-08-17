@@ -3,7 +3,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { noop } from 'lodash';
+import { map, noop } from 'lodash';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { PrismaService } from '../prisma.service';
 import type { ShareDbService } from './share-db.service';
 
@@ -28,7 +29,10 @@ export class TransactionService {
     }
   > = new Map();
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly eventService: EventEmitterService
+  ) {}
 
   private async newTransaction(tsMeta: ITransactionMeta) {
     let tasksPromiseCb:
@@ -116,6 +120,9 @@ export class TransactionService {
       pendingPublish.forEach((p: any) => {
         shareDbService.pubsub.publish(p.channels, p.op, noop);
       });
+
+      const ops = map(pendingPublish, 'op');
+      this.eventService.ops2Event(ops);
     }
   }
 

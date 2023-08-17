@@ -117,8 +117,8 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingleLineTextProps) => {
   const {
-    x,
-    y,
+    x = 0,
+    y = 0,
     text,
     fill,
     fontSize = 13,
@@ -159,10 +159,11 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
 
   if (needRender) {
     const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
+    const finalX = textAlign === 'right' ? x + maxWidth : x;
     if (fill) ctx.fillStyle = fill;
     ctx.textAlign = textAlign;
     ctx.textBaseline = verticalAlign;
-    ctx.fillText(displayText, x, y + offsetY);
+    ctx.fillText(displayText, finalX, y + offsetY);
   }
 
   return {

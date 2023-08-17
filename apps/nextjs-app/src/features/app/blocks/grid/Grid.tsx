@@ -19,6 +19,7 @@ import type {
   IMouseState,
   IPosition,
   IRowControlItem,
+  IColumnStatistics,
 } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -45,6 +46,7 @@ export interface IGridExternalProps {
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
+  onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
 }
 
@@ -54,6 +56,7 @@ export interface IGridProps extends IGridExternalProps {
   rowCount: number;
   rowHeight?: number;
   style?: CSSProperties;
+  columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
 
@@ -66,6 +69,7 @@ const {
   scrollBuffer,
   appendRowHeight,
   columnAppendBtnWidth,
+  columnStatisticHeight,
   rowHeight: defaultRowHeight,
   columnWidth: defaultColumnWidth,
   columnHeadHeight: defaultColumnHeaderHeight,
@@ -74,6 +78,7 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
+    columnStatistics,
     freezeColumnCount = 1,
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
@@ -100,6 +105,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
+    onColumnStatisticClick,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -113,6 +119,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       };
     },
     forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
+    setSelection: (selection: CombinedSelection) => {
+      interactionLayerRef.current?.setSelection(selection);
+    },
   }));
 
   const hasAppendRow = onRowAppend != null;
@@ -134,6 +143,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
+  const hasColumnStatistics = columnStatistics != null;
+  const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
 
@@ -147,7 +158,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnCount: columns.length,
       freezeColumnCount,
       containerWidth: width,
-      containerHeight: height,
+      containerHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
@@ -161,7 +172,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     });
   }, [
     width,
-    height,
+    containerHeight,
     columns,
     rowCount,
     rowHeight,
@@ -208,12 +219,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
           ref={interactionLayerRef}
+          width={width}
+          height={height}
           theme={theme}
           columns={columns}
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
           coordInstance={coordInstance}
+          columnStatistics={columnStatistics}
           scrollState={scrollState}
           mouseState={mouseState}
           setMouseState={setMouseState}
@@ -229,13 +243,14 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
+          onContextMenu={onContextMenu}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
-          onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onColumnStatisticClick={onColumnStatisticClick}
         />
       </div>
 
@@ -245,7 +260,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         top={rowInitSize}
         left={columnInitSize}
         containerWidth={width}
-        containerHeight={height}
+        containerHeight={containerHeight}
         scrollWidth={totalWidth}
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}

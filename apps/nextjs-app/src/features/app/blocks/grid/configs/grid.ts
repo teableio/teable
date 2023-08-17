@@ -23,6 +23,9 @@ export const GRID_DEFAULT = {
   cellTextLineHeight: 22,
   fillHandlerSize: 5,
 
+  // Statistics
+  columnStatisticHeight: 40,
+
   // Others
   scrollBuffer: 100,
   cellScrollBuffer: 16,

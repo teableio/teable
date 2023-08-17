@@ -1,7 +1,6 @@
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { CloseLeftSide } from './CloseLeftSide';
 import 'allotment/dist/style.css';
 import { OpenLeftSide } from './OpenLeftSide';
@@ -19,16 +18,6 @@ export const ResizablePane: React.FC<{
   );
 
   const [left, center, right] = children;
-  const isHydrated = useIsHydrated();
-  if (!isHydrated) {
-    return (
-      <>
-        {left}
-        {center}
-        {right}
-      </>
-    );
-  }
 
   return (
     <>

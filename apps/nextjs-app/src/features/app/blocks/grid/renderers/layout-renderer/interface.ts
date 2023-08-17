@@ -51,6 +51,11 @@ export enum RenderRegion {
   Other = 'Other',
 }
 
+export enum DividerRegion {
+  Top = 'Top',
+  Bottom = 'Bottom',
+}
+
 export interface ILayoutDrawerProps extends IRenderLayerProps {
   shouldRerender?: boolean;
 }

@@ -1,16 +1,19 @@
 import { create } from 'zustand';
-import type { IHeaderMenu, IRecordMenu, ISetting } from './type';
+import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu } from './type';
 
 interface IGridViewState {
   setting?: ISetting;
   headerMenu?: IHeaderMenu;
   recordMenu?: IRecordMenu;
+  statisticMenu?: IStatisticMenu;
   openSetting: (props: ISetting) => void;
   closeSetting: () => void;
   openHeaderMenu: (props: IHeaderMenu) => void;
   closeHeaderMenu: () => void;
   openRecordMenu: (props: IRecordMenu) => void;
   closeRecordMenu: () => void;
+  openStatisticMenu: (props: IStatisticMenu) => void;
+  closeStatisticMenu: () => void;
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
@@ -68,6 +71,25 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
       return {
         ...state,
         recordMenu: undefined,
+      };
+    });
+  },
+  openStatisticMenu: (props) => {
+    set((state) => {
+      return {
+        ...state,
+        statisticMenu: props,
+      };
+    });
+  },
+  closeStatisticMenu: () => {
+    set((state) => {
+      if (state.statisticMenu == null) {
+        return state;
+      }
+      return {
+        ...state,
+        statisticMenu: undefined,
       };
     });
   },
