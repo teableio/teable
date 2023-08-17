@@ -1,13 +1,10 @@
 import type { IViewAggregationVo } from '@teable-group/core';
 import { useAggregation, useFields, useViewId } from '@teable-group/sdk/hooks';
-import { isEmpty, omit } from 'lodash';
+import { statisticsValue2DisplayValue } from '@teable-group/sdk/utils';
+import { isEmpty } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../../../grid';
-import { percentStatisticFuncs, statisticFunc2NameMap } from '../utils';
-
-export const percentFormatting = (value: number) => {
-  return value % 1 === 0 ? Math.round(value) : value.toFixed(2);
-};
+import { statisticFunc2NameMap } from '../utils';
 
 export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
@@ -28,7 +25,13 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
 
     return columnsRef.current?.reduce((acc, column, index) => {
       const { id: columnId } = column;
-      const { total } = aggregations[columnId] || {};
+      const columnAggregations = aggregations[columnId];
+      if (columnAggregations === null) {
+        acc[columnId] = null;
+        lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
+        return acc;
+      }
+      const { total } = columnAggregations ?? {};
       const field = fieldsRef.current?.[index];
       const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
       const isNewest = executionTime > prevExecutionTime;
@@ -37,13 +40,12 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
         const { aggFunc, value } = total;
 
         if (value == null) {
+          acc[columnId] = null;
           lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
-          return omit(acc, [columnId]);
+          return acc;
         }
 
-        const displayValue = percentStatisticFuncs.has(aggFunc)
-          ? `${percentFormatting(value as number)}%`
-          : field.cellValue2String(value);
+        const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
         acc[columnId] = {
           total: `${statisticFunc2NameMap[aggFunc]} ${displayValue}`,
         };

@@ -137,7 +137,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
-  const { containerHeight } = coordInstance;
+  const { containerHeight, freezeColumnCount } = coordInstance;
   const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;

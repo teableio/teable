@@ -142,7 +142,7 @@ export const useSelection = (coordInstance: CoordinateManager) => {
     // eslint-disable-next-line sonarjs/cognitive-complexity
   ) => {
     const { x, y, columnIndex, rowIndex, type } = mouseState;
-    if (type === RegionType.Blank) return;
+    if ([RegionType.Blank, RegionType.ColumnStatistic].includes(type)) return;
     const {
       isCellSelection: isPrevCellSelection,
       isRowSelection: isPrevRowSelection,

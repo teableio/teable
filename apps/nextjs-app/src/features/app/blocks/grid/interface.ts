@@ -89,7 +89,7 @@ interface IGroupHeaderRow extends IRowBase {
 export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
 
 export interface IColumnStatistics {
-  [columnId: string]: IColumnStatistic;
+  [columnId: string]: IColumnStatistic | null;
 }
 
 export interface IColumnStatistic {

@@ -1,3 +1,3 @@
 export * from './getSpriteMap';
-export * from './statistics';
+export * from './statistic';
 export * from './order';

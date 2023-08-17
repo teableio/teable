@@ -2,14 +2,6 @@
 import { CellValueType, FieldType, StatisticsFunc } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
 
-export const percentStatisticFuncs = new Set([
-  StatisticsFunc.PercentEmpty,
-  StatisticsFunc.PercentFilled,
-  StatisticsFunc.PercentUnique,
-  StatisticsFunc.PercentChecked,
-  StatisticsFunc.PercentUnChecked,
-]);
-
 export const statisticFunc2NameMap = {
   [StatisticsFunc.Empty]: 'Empty',
   [StatisticsFunc.Filled]: 'Filled',
