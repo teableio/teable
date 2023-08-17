@@ -26,15 +26,16 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
     return columnsRef.current?.reduce((acc, column, index) => {
       const { id: columnId } = column;
       const columnAggregations = aggregations[columnId];
-      if (columnAggregations === null) {
+      const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
+      const isNewest = executionTime > prevExecutionTime;
+
+      if (columnAggregations === null && isNewest) {
         acc[columnId] = null;
         lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
         return acc;
       }
       const { total } = columnAggregations ?? {};
       const field = fieldsRef.current?.[index];
-      const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
-      const isNewest = executionTime > prevExecutionTime;
 
       if (total != null && isNewest) {
         const { aggFunc, value } = total;
