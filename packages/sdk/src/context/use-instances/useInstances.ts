@@ -86,9 +86,8 @@ export function useInstances<T, R extends { id: string }>({
         query?.removeAllListeners();
         opListenersRef.clear();
       };
-      clear();
       if (!query?.sent || query.ready) {
-        query?.destroy();
+        query?.destroy(clear);
         return;
       }
       query.once('ready', () => {

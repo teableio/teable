@@ -23,6 +23,7 @@ import type { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useAsyncData, useColumnOrder, useColumnResize, useColumns, useGridTheme } from './hooks';
+import type { IRecordIndexMap } from './hooks/useAsyncData';
 import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
@@ -46,7 +47,7 @@ export const GridView: React.FC = () => {
   const { copy, paste, clear } = useSelectionOperation();
   const isLoading = !view;
 
-  const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, records } =
+  const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, recordMap } =
     useAsyncData(
       useCallback(
         (record, col) => {
@@ -99,7 +100,11 @@ export const GridView: React.FC = () => {
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
-      const extractIds = (start: number, end: number, source: (Record | IGridColumn)[]) => {
+      const extractIds = (
+        start: number,
+        end: number,
+        source: (Record | IGridColumn)[] | IRecordIndexMap
+      ) => {
         return Array.from({ length: end - start + 1 })
           .map((_, index) => {
             const item = source[start + index];
@@ -111,7 +116,7 @@ export const GridView: React.FC = () => {
       if (isCellSelection || isRowSelection) {
         const start = isCellSelection ? ranges[0][1] : ranges[0][0];
         const end = isCellSelection ? ranges[1][1] : ranges[0][1];
-        const recordIds = extractIds(start, end, records);
+        const recordIds = extractIds(start, end, recordMap);
         gridViewStore.openRecordMenu({ position, recordIds });
       }
       if (isColumnSelection) {
@@ -120,7 +125,7 @@ export const GridView: React.FC = () => {
         gridViewStore.openHeaderMenu({ position, fieldIds });
       }
     },
-    [gridViewStore, records, columns]
+    [gridViewStore, recordMap, columns]
   );
 
   const onColumnHeaderMenuClick = useCallback(
@@ -226,7 +231,7 @@ export const GridView: React.FC = () => {
 
   const onRowExpand = (rowIndex: number) => {
     const { nodeId, viewId } = router.query;
-    const recordId = records[rowIndex]?.id;
+    const recordId = recordMap[rowIndex]?.id;
     if (!recordId) {
       return;
     }
