@@ -27,7 +27,7 @@ export class SelectionService {
   ) {}
 
   private async columnsSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
-    const { records } = await this.recordService.getRecords(tableId, {
+    const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: 0,
       take: -1,
@@ -45,15 +45,15 @@ export class SelectionService {
 
   private async rowsSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
     const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
-    let records: IRecord[] = [];
+    let records: Pick<IRecord, 'id' | 'fields'>[] = [];
     for (const [start, end] of ranges) {
-      const recordsVo = await this.recordService.getRecords(tableId, {
+      const recordsFields = await this.recordService.getRecordsFields(tableId, {
         viewId,
         skip: start,
         take: end + 1 - start,
         fieldKeyType: FieldKeyType.Id,
       });
-      records = records.concat(recordsVo.records);
+      records = records.concat(recordsFields);
     }
 
     return {
@@ -68,7 +68,7 @@ export class SelectionService {
       viewId,
       filterHidden: true,
     });
-    const { records } = await this.recordService.getRecords(tableId, {
+    const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: start[1],
       take: end[1] + 1 - start[1],
@@ -105,11 +105,12 @@ export class SelectionService {
     transactionKey: string;
   }) {
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    return await this.recordOpenApiService.multipleCreateRecords(
+    const createdRecords = await this.recordOpenApiService.multipleCreateRecords(
       tableId,
       { records },
       transactionKey
     );
+    return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
 
   private async expandColumns({
@@ -214,7 +215,7 @@ export class SelectionService {
   }: {
     tableData: string[][];
     fields: IFieldInstance[];
-    records: IRecord[];
+    records: Pick<IRecord, 'id' | 'fields'>[];
   }) {
     const attachments = await this.collectionAttachment({
       fields,
@@ -260,7 +261,6 @@ export class SelectionService {
         fieldInstance.cellValue2String(record.fields[fieldInstance.id] as never)
       )
     );
-
     return {
       content: rectangleData.map((row) => row.join('\t')).join('\n'),
       header: fields,
@@ -280,7 +280,7 @@ export class SelectionService {
       viewId
     );
 
-    const { records } = await this.recordService.getRecords(tableId, {
+    const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: row,
       take: tableData.length,
@@ -313,7 +313,7 @@ export class SelectionService {
         const expandRows = await this.expandRows({ tableId, numRowsToExpand, transactionKey });
 
         const updateFields = effectFields.concat(expandColumns.map(createFieldInstanceByVo));
-        const updateRecords = records.concat(expandRows.records);
+        const updateRecords = records.concat(expandRows);
 
         // Fill cells
         const updateRecordsRo = await this.fillCells({
