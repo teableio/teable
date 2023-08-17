@@ -14,7 +14,7 @@ import {
 import { isEqual } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePrevious, useMount, useUpdateEffect } from 'react-use';
+import { usePrevious, useMount } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { Grid, CellType, RowControlType } from '../../grid';
@@ -228,10 +228,6 @@ export const GridView: React.FC = () => {
   }, []);
 
   const gridRef = useRef<IGridRef>(null);
-
-  useUpdateEffect(() => {
-    gridRef.current?.forceUpdate();
-  }, [view]);
 
   const onDelete = (selection: CombinedSelection) => {
     clear(selection);

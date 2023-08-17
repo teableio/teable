@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useClickAway, useUpdate } from 'react-use';
+import { useClickAway } from 'react-use';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
@@ -117,7 +118,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         height: coordInstance.getRowHeight(rowIndex),
       };
     },
-    forceUpdate,
+    forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
     setSelection: (selection: CombinedSelection) => {
       interactionLayerRef.current?.setSelection(selection);
     },
@@ -135,7 +136,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
   );
 
-  const forceUpdate = useUpdate();
+  const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
@@ -183,11 +184,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   ]);
 
   const spriteManager = useMemo(
-    () => new SpriteManager(customIcons, () => forceUpdate()),
-    [customIcons, forceUpdate]
+    () => new SpriteManager(customIcons, () => setForceRenderFlag(uniqueId('grid_'))),
+    [customIcons]
   );
 
-  const imageManager = useMemo<ImageManager>(() => new ImageManager(), []);
+  const imageManager = useMemo<ImageManager>(() => {
+    const imgManager = new ImageManager();
+    imgManager.setCallback(() => setForceRenderFlag(uniqueId('grid_')));
+    return imgManager;
+  }, []);
 
   const scrollTo = useCallback((sl?: number, st?: number) => {
     scrollerRef.current?.scrollTo(sl, st);
@@ -227,6 +232,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           mouseState={mouseState}
           setMouseState={setMouseState}
           getCellContent={getCellContent}
+          forceRenderFlag={forceRenderFlag}
           scrollTo={scrollTo}
           scrollBy={scrollBy}
           onCopy={onCopy}

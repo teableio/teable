@@ -56,8 +56,6 @@ export type IRange = ICellRange | IColumnRange | IRowRange;
 
 export interface IMouseState extends IRegionPosition {
   type: RegionType;
-  hoverCellX: number;
-  hoverCellY: number;
   isOutOfBounds: boolean;
 }
 
@@ -148,6 +146,8 @@ export interface IRowControlItem {
 }
 
 export type ICellItem = [colIndex: number, rowIndex: number];
+
+export type ICellPosition = [x: number, y: number];
 
 export interface IPositionWithBounds {
   bounds: IRectangle;

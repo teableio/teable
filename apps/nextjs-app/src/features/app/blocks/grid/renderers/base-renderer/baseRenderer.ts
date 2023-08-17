@@ -1,4 +1,5 @@
 import { LRUCache } from 'lru-cache';
+import { parseToRGB } from '../../utils';
 import type {
   ILineProps,
   IMultiLineTextProps,
@@ -8,6 +9,10 @@ import type {
   IVector,
   IPoint,
   ICheckboxProps,
+  IRingProps,
+  IProcessBarProps,
+  IChartLineProps,
+  IChartBarProps,
 } from './interface';
 
 const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }> = new LRUCache({
@@ -340,43 +345,224 @@ export const drawCheckbox = (ctx: CanvasRenderingContext2D, props: ICheckboxProp
   }
 };
 
-let metricsSize = 0;
-let metricsCache: Record<string, TextMetrics | undefined> = {};
+export const drawRing = (ctx: CanvasRenderingContext2D, props: IRingProps) => {
+  const { x, y, radius, lineWidth = 5, value, maxValue, color } = props;
+  const startAngle = -Math.PI / 2;
+  const angle = value > maxValue ? 2 * Math.PI : (value / maxValue) * 2 * Math.PI;
 
-const makeCacheKey = (ctx: CanvasRenderingContext2D, text: string, font?: string) => {
-  return `${text}_${font ?? ctx.font}`;
+  ctx.save();
+
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.2;
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+  ctx.stroke();
+
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, startAngle, angle + startAngle);
+  ctx.stroke();
+
+  ctx.restore();
 };
 
-export const measureTextCached = (
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  font?: string
-): TextMetrics => {
-  const key = makeCacheKey(ctx, text, font);
-  let metrics = metricsCache[key];
+export const drawProcessBar = (ctx: CanvasRenderingContext2D, props: IProcessBarProps) => {
+  const { x, y, width, height, radius = 4, value, maxValue, color } = props;
+  const progressWidth = value > maxValue ? width : (value / maxValue) * width;
 
-  if (metrics === undefined) {
-    metrics = ctx.measureText(text);
-    metricsCache[key] = metrics;
-    metricsSize++;
+  ctx.save();
+
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.2;
+
+  ctx.beginPath();
+  drawRect(ctx, { x, y, width, height, radius });
+  ctx.fill();
+
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  drawRect(ctx, { x, y, width: progressWidth, height, radius });
+  ctx.fill();
+
+  ctx.restore();
+};
+
+export const drawChartLine = (ctx: CanvasRenderingContext2D, props: IChartLineProps) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    values,
+    displayValues = [],
+    color,
+    axisColor,
+    yAxis,
+    font,
+    hoverX,
+    hoverAmount = 0,
+  } = props;
+  const [minY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
+  const delta = maxY - minY === 0 ? 1 : maxY - minY;
+  const zeroY = maxY <= 0 ? y : minY >= 0 ? y + height : y + height * (maxY / delta);
+
+  let drawValues = values.map((d) => Math.min(1, Math.max(0, (d - minY) / delta)));
+
+  if (drawValues.length === 1) {
+    drawValues = [drawValues[0], drawValues[0]];
   }
-  if (metricsSize > 10000) {
-    metricsCache = {};
-    metricsSize = 0;
+
+  if (minY <= 0 && maxY >= 0) {
+    ctx.beginPath();
+    ctx.moveTo(x, zeroY);
+    ctx.lineTo(x + width, zeroY);
+
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = axisColor;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
-  return metrics;
+  ctx.beginPath();
+
+  const xStep = width / (drawValues.length - 1);
+  const points = drawValues.map((val, index) => {
+    return {
+      x: x + xStep * index,
+      y: y + height - val * height,
+    };
+  });
+
+  if (points.length > 2) {
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 0; i < points.length - 2; i++) {
+      const xControl = (points[i].x + points[i + 1].x) / 2;
+      const yControl = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, xControl, yControl);
+    }
+    const curIndex = points.length - 2;
+    ctx.quadraticCurveTo(
+      points[curIndex].x,
+      points[curIndex].y,
+      points[curIndex + 1].x,
+      points[curIndex + 1].y
+    );
+  } else {
+    ctx.moveTo(points[0].x, points[0].y);
+    ctx.lineTo(points[1].x, points[1].y);
+  }
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1 + hoverAmount * 0.5;
+  ctx.stroke();
+
+  ctx.lineTo(x + width, zeroY);
+  ctx.lineTo(x, zeroY);
+  ctx.closePath();
+
+  ctx.globalAlpha = 0.2 + 0.2 * hoverAmount;
+  const grad = ctx.createLinearGradient(0, y, 0, y + height * 1.4);
+  grad.addColorStop(0, color);
+
+  const [r, g, b] = parseToRGB(color);
+  grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  if (hoverX != null) {
+    ctx.beginPath();
+    const closest = Math.min(values.length - 1, Math.max(0, Math.round(hoverX / xStep)));
+    ctx.moveTo(x + closest * xStep, y);
+    ctx.lineTo(x + closest * xStep, y + height);
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = axisColor;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = axisColor;
+    ctx.textBaseline = 'top';
+    ctx.fillText(displayValues[closest] ?? values[closest], x, y);
+    ctx.restore();
+  }
 };
 
-const canUseDOM = !!(
-  typeof window !== 'undefined' &&
-  window.document &&
-  window.document.createElement
-);
+export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProps) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    values,
+    displayValues = [],
+    color,
+    axisColor,
+    yAxis,
+    font,
+    hoverX,
+  } = props;
 
-export const bufferContext = () => {
-  const canvas = canUseDOM && <HTMLCanvasElement>document.createElement('canvas');
-  return canvas ? canvas.getContext('2d') : null;
+  const [minY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
+  const delta = maxY - minY === 0 ? 1 : maxY - minY;
+  const zeroY = maxY <= 0 ? y : minY >= 0 ? y + height : y + height * (maxY / delta);
+
+  const drawValues = values.map((d) => Math.min(1, Math.max(0, (d - minY) / delta)));
+
+  if (minY <= 0 && maxY >= 0) {
+    ctx.beginPath();
+    ctx.moveTo(x, zeroY);
+    ctx.lineTo(x + width, zeroY);
+
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = axisColor;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.beginPath();
+  const margin = 2;
+  const spacing = (drawValues.length - 1) * margin;
+  const barWidth = (width - spacing) / drawValues.length;
+
+  let drawX = x;
+  for (const val of drawValues) {
+    let barY = y + height - val * height;
+    barY = barY === zeroY ? zeroY - 0.5 : barY;
+    ctx.moveTo(drawX, zeroY);
+    ctx.lineTo(drawX + barWidth, zeroY);
+    ctx.lineTo(drawX + barWidth, barY);
+    ctx.lineTo(drawX, barY);
+
+    drawX += barWidth + margin;
+  }
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  if (hoverX != null) {
+    ctx.beginPath();
+    const xStep = width / drawValues.length;
+    const closest = Math.min(drawValues.length - 1, Math.max(0, Math.floor(hoverX / xStep)));
+    const finalHoverX = x + (closest + 0.5) * xStep;
+    ctx.moveTo(finalHoverX, y);
+    ctx.lineTo(finalHoverX, y + height);
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = axisColor;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.font = font;
+    ctx.fillStyle = axisColor;
+    ctx.textBaseline = 'top';
+    ctx.fillText(displayValues[closest] ?? values[closest], x, y);
+    ctx.restore();
+  }
 };
-
-export const bufferCtx = bufferContext();

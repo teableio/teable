@@ -8,6 +8,8 @@ import type { ICell, IInnerCell } from '../../../grid/renderers';
 import { CellType } from '../../../grid/renderers';
 import { reorder } from '../utils';
 
+const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
+
 export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
 export type IRowToCell<T> = (row: T, col: number) => ICell;
 export type IRowEditedCallback<T> = (
@@ -40,17 +42,25 @@ export const useAsyncData = (
   const records = useRecords(query, initRecords);
   const [loadedRecords, setLoadedRecords] = useState<Record[]>(records);
 
-  const [visiblePages, setVisiblePages] = useState<IRectangle>({ x: 0, y: 0, width: 0, height: 0 });
+  const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
 
   useEffect(() => {
     const startIndex = queryRef.current.offset ?? 0;
     const data = records;
-    setLoadedRecords((prevLoadedRecords) => {
-      const newRecordsState: Record[] = [...prevLoadedRecords];
-      for (let i = 0; i < data.length; i++) {
-        newRecordsState[startIndex + i] = records[i];
+    setLoadedRecords((preLoadedRecords) => {
+      const cacheLen = 600;
+      const [cacheStartIndex, cacheEndIndex] = [
+        Math.max(startIndex - cacheLen / 2, 0),
+        startIndex + data.length,
+      ];
+      const cacheStart = preLoadedRecords.slice(cacheStartIndex, startIndex);
+      const cacheEnd = preLoadedRecords.slice(cacheEndIndex, cacheEndIndex + cacheLen / 2);
+      const cacheData = [...cacheStart, ...data, ...cacheEnd];
+      const newRecordsState: Record[] = [];
+      for (let i = 0; i < cacheData.length; i++) {
+        newRecordsState[cacheStartIndex + i] = cacheData[i];
       }
       return newRecordsState;
     });
@@ -114,6 +124,7 @@ export const useAsyncData = (
 
   const reset = useCallback(() => {
     setLoadedRecords([]);
+    setVisiblePages(defaultVisiblePages);
   }, []);
 
   const onRowOrdered = useCallback(

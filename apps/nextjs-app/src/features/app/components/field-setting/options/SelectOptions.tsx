@@ -119,7 +119,13 @@ export const SelectOptions = (props: {
   );
 };
 
-const ColorPicker = ({ color, onSelect }: { color: Colors; onSelect: (color: Colors) => void }) => {
+export const ColorPicker = ({
+  color,
+  onSelect,
+}: {
+  color: Colors;
+  onSelect: (color: Colors) => void;
+}) => {
   const colors = Object.values(Colors);
   return (
     <div className="flex w-80 p-2 flex-wrap">

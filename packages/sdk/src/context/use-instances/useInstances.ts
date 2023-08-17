@@ -76,12 +76,12 @@ export function useInstances<T, R extends { id: string }>({
     if (query && isEqual(queryParams, query.query) && collection === query.collection) {
       return;
     }
-    // for easy component refresh clean data when switch & loading
-    dispatch({ type: 'clear' });
     setQuery(connection.createSubscribeQuery<T>(collection, queryParams || {}));
     const opListenersRef = opListeners.current;
 
     return () => {
+      // for easy component refresh clean data when switch & loading
+      dispatch({ type: 'clear' });
       const clear = () => {
         query?.removeAllListeners();
         opListenersRef.clear();
@@ -101,7 +101,6 @@ export function useInstances<T, R extends { id: string }>({
     if (!query) {
       return;
     }
-    dispatch({ type: 'clear' });
 
     query.on('ready', () => handleReady(query));
 
