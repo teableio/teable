@@ -45,8 +45,8 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
       setRowCount(count);
     });
 
-    query.on('changed', () => {
-      const count = query.extra?.rowCount ?? 0;
+    query.on('extra', (extra) => {
+      const count = extra?.rowCount ?? 0;
       console.log('rowCount:changed:', count);
       setRowCount(count);
     });
