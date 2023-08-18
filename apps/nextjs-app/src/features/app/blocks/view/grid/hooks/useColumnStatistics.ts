@@ -19,9 +19,9 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   fieldsRef.current = fields;
 
   const getColumnStatistics = (source: IViewAggregationVo | null, viewId: string) => {
-    if (source == null || source[viewId] == null) return;
+    if (source == null || source[viewId] == null) return {};
     const { aggregations, executionTime } = source[viewId];
-    if (isEmpty(aggregations)) return;
+    if (isEmpty(aggregations)) return {};
 
     return columnsRef.current?.reduce((acc, column, index) => {
       const { id: columnId } = column;
