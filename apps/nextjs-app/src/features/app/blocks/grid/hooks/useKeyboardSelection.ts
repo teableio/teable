@@ -1,6 +1,6 @@
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_DEFAULT } from '../configs';
@@ -51,8 +51,10 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     onPaste,
     onDelete,
     onRowAppend,
+    stageRef,
     editorRef,
   } = props;
+  const mousetrapRef = useRef<Mousetrap.MousetrapInstance>();
   const { scrollLeft, scrollTop } = scrollState;
   const {
     pureRowCount,
@@ -94,7 +96,15 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   useEffect(() => {
-    const mousetrap = new Mousetrap();
+    if (!stageRef.current) {
+      return;
+    }
+    let mousetrap = mousetrapRef.current;
+    if (!mousetrap) {
+      mousetrap = new Mousetrap(stageRef.current);
+      mousetrapRef.current = mousetrap;
+    }
+
     mousetrap.stopCallback = () => {
       return false;
     };
@@ -211,7 +221,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     });
 
     return () => {
-      mousetrap.reset();
+      mousetrap?.reset();
     };
   });
 };

@@ -27,6 +27,7 @@ export interface IEditorContainerProps
     | 'onRowAppend'
     | 'onCellActivated'
   > {
+  stageRef: React.MutableRefObject<HTMLDivElement | null>;
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;
@@ -67,6 +68,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     scrollState,
     activeCell,
     selection,
+    stageRef,
     scrollTo,
     onCopy,
     onPaste,
@@ -169,6 +171,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setSelection,
     onCellActivated,
     editorRef,
+    stageRef,
   });
 
   const onChangeInner = (value: unknown) => {
