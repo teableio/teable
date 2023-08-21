@@ -1,18 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type {
-  IFieldRo,
-  ILookupOptionsVo,
-  ISelectFieldChoice,
-  ISelectFieldOptions,
-} from '@teable-group/core';
-import {
-  CellValueType,
-  DbFieldType,
-  Relationship,
-  SingleSelectFieldCore,
-  Colors,
-} from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
+import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
+import { SingleSelectFieldCore, Colors } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
 
 class SingleSelectOption implements ISelectFieldChoice {
@@ -41,23 +29,6 @@ export class SingleSelectOptionsDto implements ISelectFieldOptions {
 }
 
 export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
-  static factory(fieldRo: IFieldRo) {
-    const isLookup = fieldRo.isLookup;
-    const isMultipleCellValue =
-      fieldRo.lookupOptions &&
-      (fieldRo.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne;
-
-    return plainToInstance(SingleSelectFieldDto, {
-      ...fieldRo,
-      name: fieldRo.name ?? 'Select',
-      options: fieldRo.options ?? this.defaultOptions(),
-      isComputed: isLookup,
-      cellValueType: CellValueType.String,
-      dbFieldType: isMultipleCellValue ? DbFieldType.Json : DbFieldType.Text,
-      isMultipleCellValue,
-    } as SingleSelectFieldDto);
-  }
-
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return JSON.stringify(value);

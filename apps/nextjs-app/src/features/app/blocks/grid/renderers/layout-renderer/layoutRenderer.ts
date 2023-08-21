@@ -312,6 +312,7 @@ export const drawCells = (
 export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
   const {
     activeCell,
+    mouseState,
     scrollState,
     coordInstance,
     hoverCellPosition,
@@ -320,6 +321,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     theme,
   } = props;
   const { scrollTop, scrollLeft } = scrollState;
+  const { rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex } = mouseState;
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
 
@@ -361,7 +363,8 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     height: height,
     rowIndex,
     columnIndex,
-    hoverCellPosition,
+    hoverCellPosition:
+      hoverRowIndex === rowIndex && hoverColumnIndex === columnIndex ? hoverCellPosition : null,
     getCellContent,
     isActive: true,
     imageManager,
@@ -481,6 +484,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
           isChecked,
         });
       } else {
+        if (isChecked && !isHover && type === RowControlType.Expand) continue;
         spriteManager.drawSprite(ctx, {
           sprite: icon || spriteIconMap[type],
           x: x + offsetX - halfSize,

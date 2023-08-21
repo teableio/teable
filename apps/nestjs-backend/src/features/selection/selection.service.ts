@@ -6,6 +6,7 @@ import { isNumber, isString, omit } from 'lodash';
 import { TransactionService } from '../..//share-db/transaction.service';
 import { PrismaService } from '../../prisma.service';
 import { ShareDbService } from '../../share-db/share-db.service';
+import { FieldSupplementService } from '../field/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo, createFieldInstanceByVo } from '../field/model/factory';
@@ -22,6 +23,7 @@ export class SelectionService {
     private prismaService: PrismaService,
     private recordOpenApiService: RecordOpenApiService,
     private fieldOpenApiService: FieldOpenApiService,
+    private fieldSupplementService: FieldSupplementService,
     private transactionService: TransactionService,
     private shareDbService: ShareDbService
   ) {}
@@ -133,7 +135,8 @@ export class SelectionService {
         : {
             type: FieldType.SingleLineText,
           };
-      const fieldInstance = createFieldInstanceByRo(field);
+      const fieldRo = await this.fieldSupplementService.prepareField(field);
+      const fieldInstance = createFieldInstanceByRo(fieldRo);
       const newField = await this.fieldOpenApiService.createField(
         tableId,
         fieldInstance,

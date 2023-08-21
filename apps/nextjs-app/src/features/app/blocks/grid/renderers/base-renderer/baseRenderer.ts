@@ -382,11 +382,16 @@ export const drawProcessBar = (ctx: CanvasRenderingContext2D, props: IProcessBar
   drawRect(ctx, { x, y, width, height, radius });
   ctx.fill();
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, progressWidth, height);
+  ctx.clip();
+
   ctx.fillStyle = color;
   ctx.globalAlpha = 1;
-  ctx.beginPath();
-  drawRect(ctx, { x, y, width: progressWidth, height, radius });
+  drawRect(ctx, { x, y, width, height, radius });
   ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 };
@@ -487,13 +492,17 @@ export const drawChartLine = (ctx: CanvasRenderingContext2D, props: IChartLinePr
 
     ctx.save();
     ctx.font = font;
-    ctx.fillStyle = axisColor;
-    ctx.textBaseline = 'top';
-    ctx.fillText(displayValues[closest] ?? values[closest], x, y);
+    drawSingleLineText(ctx, {
+      x,
+      y,
+      text: displayValues[closest] ?? values[closest],
+      fill: axisColor,
+    });
     ctx.restore();
   }
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProps) => {
   const {
     x,
@@ -509,7 +518,9 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
     hoverX,
   } = props;
 
-  const [minY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
+  const barMaxWidth = 8;
+  const [originMinY, maxY] = yAxis ?? [Math.min(...values), Math.max(...values)];
+  const minY = originMinY > 0 ? 0 : originMinY;
   const delta = maxY - minY === 0 ? 1 : maxY - minY;
   const zeroY = maxY <= 0 ? y : minY >= 0 ? y + height : y + height * (maxY / delta);
 
@@ -521,7 +532,7 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
     ctx.lineTo(x + width, zeroY);
 
     ctx.globalAlpha = 0.4;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 0.5;
     ctx.strokeStyle = axisColor;
     ctx.stroke();
     ctx.globalAlpha = 1;
@@ -530,7 +541,7 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
   ctx.beginPath();
   const margin = 2;
   const spacing = (drawValues.length - 1) * margin;
-  const barWidth = (width - spacing) / drawValues.length;
+  const barWidth = Math.min((width - spacing) / drawValues.length, barMaxWidth);
 
   let drawX = x;
   for (const val of drawValues) {
@@ -546,11 +557,17 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
   ctx.fillStyle = color;
   ctx.fill();
 
-  if (hoverX != null) {
+  if (hoverX != null && hoverX >= 0) {
     ctx.beginPath();
-    const xStep = width / drawValues.length;
-    const closest = Math.min(drawValues.length - 1, Math.max(0, Math.floor(hoverX / xStep)));
-    const finalHoverX = x + (closest + 0.5) * xStep;
+    const xStep = Math.min(width / drawValues.length, barMaxWidth + margin);
+    const closest =
+      hoverX > drawX - x - margin
+        ? null
+        : Math.min(drawValues.length - 1, Math.max(0, Math.floor(hoverX / xStep)));
+
+    if (closest == null) return;
+
+    const finalHoverX = x + closest * xStep + (xStep - margin) / 2;
     ctx.moveTo(finalHoverX, y);
     ctx.lineTo(finalHoverX, y + height);
 
@@ -560,9 +577,12 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
 
     ctx.save();
     ctx.font = font;
-    ctx.fillStyle = axisColor;
-    ctx.textBaseline = 'top';
-    ctx.fillText(displayValues[closest] ?? values[closest], x, y);
+    drawSingleLineText(ctx, {
+      x,
+      y,
+      text: displayValues[closest] ?? values[closest],
+      fill: axisColor,
+    });
     ctx.restore();
   }
 };
