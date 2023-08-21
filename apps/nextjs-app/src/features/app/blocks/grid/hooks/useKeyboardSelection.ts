@@ -1,6 +1,6 @@
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_DEFAULT } from '../configs';
@@ -51,10 +51,8 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     onPaste,
     onDelete,
     onRowAppend,
-    stageRef,
     editorRef,
   } = props;
-  const mousetrapRef = useRef<Mousetrap.MousetrapInstance>();
   const { scrollLeft, scrollTop } = scrollState;
   const {
     pureRowCount,
@@ -96,20 +94,11 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   useEffect(() => {
-    if (!stageRef.current) {
-      return;
-    }
-    let mousetrap = mousetrapRef.current;
-    if (!mousetrap) {
-      mousetrap = new Mousetrap(stageRef.current);
-      mousetrapRef.current = mousetrap;
-    }
-
-    mousetrap.stopCallback = () => {
+    Mousetrap.prototype.stopCallback = () => {
       return false;
     };
 
-    mousetrap.bind(SELECTION_MOVE_HOTKEYS, (e: ExtendedKeyboardEvent, combo: string) => {
+    Mousetrap.bind(SELECTION_MOVE_HOTKEYS, (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const isSelectionExpand = combo.includes('shift');
@@ -159,7 +148,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
-    mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
+    Mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const ranges = [
@@ -169,7 +158,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
-    mousetrap.bind(
+    Mousetrap.bind(
       ['del', 'backspace', 'mod+c', 'mod+v'],
       (e: ExtendedKeyboardEvent, combo: string) => {
         if (!activeCell || isEditing) return;
@@ -185,7 +174,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       }
     );
 
-    mousetrap.bind('enter', () => {
+    Mousetrap.bind('enter', () => {
       if (!activeCell) return;
       const { isColumnSelection, ranges: selectionRanges } = selection;
       const cellRenderer = getCellRenderer(cell.type);
@@ -215,13 +204,13 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       }
     });
 
-    mousetrap.bind('esc', () => {
+    Mousetrap.bind('esc', () => {
       if (!activeCell) return;
       setEditing(false);
     });
 
     return () => {
-      mousetrap?.reset();
+      Mousetrap.reset();
     };
   });
 };

@@ -509,7 +509,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
       <EditorContainer
         ref={editorContainerRef}
-        stageRef={stageRef}
         theme={theme}
         isEditing={isEditing}
         scrollTo={scrollTo}
