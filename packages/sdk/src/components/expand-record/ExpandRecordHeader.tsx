@@ -1,7 +1,7 @@
 import { X } from '@teable-group/icons';
 import { Button, Separator } from '@teable-group/ui-lib';
 
-export const ExpandRecordTitle = (props: { title?: string; onClose?: () => void }) => {
+export const ExpandRecordHeader = (props: { title?: string; onClose?: () => void }) => {
   const { title, onClose } = props;
   return (
     <div className="w-full h-12 flex items-center px-4 border-b border-solid border-border">

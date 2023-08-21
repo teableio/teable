@@ -1,7 +1,8 @@
 import type { IRecord } from '@teable-group/core';
+import { Skeleton } from '@teable-group/ui-lib';
 import { isEqual } from 'lodash';
 import { useFields, useRecord } from '../../hooks';
-import { ExpandRecordTitle } from './ExpandRecordTitle';
+import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
 import { useExpandRecord } from './store';
@@ -30,12 +31,12 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   return (
     <ExpandRecordWrap model={forceModel || model} visible={visible} onClose={onClose}>
       <div className="h-full flex flex-col overflow-x-auto">
-        <ExpandRecordTitle title={record?.name} onClose={onClose} />
+        <ExpandRecordHeader title={record?.name} onClose={onClose} />
         <div className="flex-1 pt-6 px-9 pb-9 min-w-[300px] overflow-y-scroll">
-          {record ? (
+          {fields.length > 0 ? (
             <RecordEditor record={record} fields={fields} onChange={onChange} />
           ) : (
-            <span>Loading</span>
+            <Skeleton className="h-10 w-full rounded" />
           )}
         </div>
       </div>

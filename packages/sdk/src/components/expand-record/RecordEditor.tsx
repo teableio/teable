@@ -9,7 +9,7 @@ const EDITOR_VERTICAL_MIN = 570;
 
 export const RecordEditor = (props: {
   fields: Field[];
-  record: Record;
+  record: Record | undefined;
   onChange?: (newValue: unknown, fieldId: string) => void;
 }) => {
   const [ref, { width }] = useMeasure<HTMLDivElement>();
@@ -32,7 +32,7 @@ export const RecordEditor = (props: {
 
 const RecordEditorItem = (props: {
   field: Field;
-  record: Record;
+  record: Record | undefined;
   vertical?: boolean;
   onChange?: (newValue: unknown, fieldId: string) => void;
 }) => {
@@ -41,7 +41,7 @@ const RecordEditorItem = (props: {
   const fieldStaticeGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticeGetter(type, isLookup);
 
-  const cellValue = record.getCellValue(field.id);
+  const cellValue = record?.getCellValue(field.id);
   const onChangeInner = (value: unknown) => {
     onChange?.(value, field.id);
   };
@@ -66,6 +66,7 @@ const RecordEditorItem = (props: {
         cellValue={cellValue}
         onChange={onChangeInner}
         field={field}
+        disabled={!record}
       />
     </div>
   );
