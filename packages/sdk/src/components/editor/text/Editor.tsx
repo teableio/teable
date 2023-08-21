@@ -5,7 +5,7 @@ import type { ICellEditor } from '../type';
 type ITextEditor = ICellEditor<string>;
 
 export const TextEditor = (props: ITextEditor) => {
-  const { value, onChange, className } = props;
+  const { value, onChange, className, disabled, style } = props;
 
   const [text, setText] = useState<string>(value || '');
 
@@ -17,5 +17,14 @@ export const TextEditor = (props: ITextEditor) => {
     onChange?.(text);
   };
 
-  return <Input className={className} value={text} onChange={onChangeInner} onBlur={onBlur} />;
+  return (
+    <Input
+      style={style}
+      className={className}
+      value={text}
+      onChange={onChangeInner}
+      onBlur={onBlur}
+      disabled={disabled}
+    />
+  );
 };

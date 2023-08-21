@@ -13,6 +13,7 @@ interface ILinkEditorProps {
   options: ILinkFieldOptions;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+  disabled?: boolean;
 }
 
 const LinkEditorInner = (props: ILinkEditorProps) => {
@@ -79,7 +80,7 @@ export const LinkEditorMain = (props: ILinkEditorProps) => {
 };
 
 export const LinkEditor = (props: ILinkEditorProps) => {
-  const { cellValue, options, onChange } = props;
+  const { cellValue, options, onChange, disabled } = props;
   const { toast } = useToast();
   const { addExpandRecord } = useExpandRecord();
   const { foreignTableId, relationship } = options;
@@ -122,13 +123,14 @@ export const LinkEditor = (props: ILinkEditorProps) => {
               e.stopPropagation();
               onDeleteRecord(id);
             }}
+            disabled={disabled}
           >
             <X />
           </Button>
         </div>
       ))}
       <Popover>
-        <PopoverTrigger asChild>
+        <PopoverTrigger asChild disabled={disabled}>
           <Button variant="outline">
             <Plus />
             Add Record

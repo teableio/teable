@@ -1,9 +1,7 @@
 import type { Field } from '../../model';
+import type { ICellEditor } from '../editor/type';
 
-export interface ICellValueEditor {
-  style?: React.CSSProperties;
-  className?: string;
+export interface ICellValueEditor extends Omit<ICellEditor<unknown>, 'value'> {
   cellValue?: unknown;
   field: Field;
-  onChange?: (value?: unknown) => void;
 }

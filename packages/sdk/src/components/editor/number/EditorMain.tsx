@@ -5,7 +5,7 @@ import type { ICellEditor } from '../type';
 type INumberEditor = ICellEditor<number>;
 
 export const NumberEditorMain = (props: INumberEditor) => {
-  const { value, onChange, className } = props;
+  const { value, onChange, className, disabled, style } = props;
 
   const [number, setNumber] = useState<number | undefined>(value);
 
@@ -18,5 +18,14 @@ export const NumberEditorMain = (props: INumberEditor) => {
     setNumber(isNaN(numberValue) ? undefined : numberValue);
   };
 
-  return <Input className={className} value={number} onChange={onChangeInner} onBlur={onBlur} />;
+  return (
+    <Input
+      style={style}
+      className={className}
+      value={number}
+      onChange={onChangeInner}
+      onBlur={onBlur}
+      disabled={disabled}
+    />
+  );
 };

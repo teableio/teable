@@ -24,7 +24,7 @@ import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: ICellValueEditor) => {
-  const { field, cellValue, onChange } = props;
+  const { field, cellValue, onChange, disabled } = props;
   const { type, options } = field;
 
   const selectOptions = useCallback((options: ISelectFieldOptions) => {
@@ -44,12 +44,18 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             className="h-8"
             value={cellValue as ISingleLineTextCellValue}
             onChange={onChange}
+            disabled={disabled}
           ></TextEditor>
         );
       }
       case FieldType.Number: {
         return (
-          <NumberEditor className="h-8" value={cellValue as INumberCellValue} onChange={onChange} />
+          <NumberEditor
+            className="h-8"
+            value={cellValue as INumberCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
       }
       case FieldType.SingleSelect: {
@@ -58,6 +64,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             value={cellValue as ISingleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
+            disabled={disabled}
           />
         );
       }
@@ -68,6 +75,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             isMultiple
+            disabled={disabled}
           />
         );
       }
@@ -79,6 +87,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
               className="w-6 h-6"
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
+              disabled={disabled}
             />
           </div>
         );
@@ -93,7 +102,13 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         );
       }
       case FieldType.Attachment: {
-        return <AttachmentEditor value={cellValue as IAttachmentCellValue} onChange={onChange} />;
+        return (
+          <AttachmentEditor
+            value={cellValue as IAttachmentCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
       }
       case FieldType.Link: {
         return (
@@ -101,11 +116,12 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
             options={options as ILinkFieldOptions}
             onChange={onChange}
+            disabled={disabled}
           />
         );
       }
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, cellValue, onChange, selectOptions, options]);
+  }, [type, cellValue, onChange, disabled, selectOptions, options]);
 };
