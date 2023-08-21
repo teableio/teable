@@ -347,7 +347,6 @@ describe('ReferenceService', () => {
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
           isMultipleCellValue: true,
-          isComputed: false,
         } as LinkFieldDto),
         // {
         //   dbTableName: 'A',
@@ -370,7 +369,6 @@ describe('ReferenceService', () => {
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
           isMultipleCellValue: true,
-          isComputed: false,
         } as LinkFieldDto),
         // fieldB is a special field depend on oneToManyC, may be convert it to formula field
         fieldB: createFieldInstanceByRo({
@@ -398,8 +396,6 @@ describe('ReferenceService', () => {
           },
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
-          isMultipleCellValue: false,
-          isComputed: false,
         } as LinkFieldDto),
         // {
         //   dbTableName: 'B',
@@ -422,7 +418,6 @@ describe('ReferenceService', () => {
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
           isMultipleCellValue: true,
-          isComputed: false,
         } as LinkFieldDto),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
@@ -430,8 +425,6 @@ describe('ReferenceService', () => {
           type: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
-          isMultipleCellValue: false,
-          isComputed: false,
         } as SingleLineTextFieldDto),
         // {
         //   dbTableName: 'C',
@@ -453,8 +446,6 @@ describe('ReferenceService', () => {
           },
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
-          isMultipleCellValue: false,
-          isComputed: false,
         } as LinkFieldDto),
       };
 
@@ -723,8 +714,6 @@ describe('ReferenceService', () => {
           },
           cellValueType: CellValueType.Number,
           dbFieldType: DbFieldType.Real,
-          isMultipleCellValue: false,
-          isComputed: false,
         } as NumberFieldDto),
         fieldB: createFieldInstanceByRo({
           id: 'fieldB',
@@ -734,9 +723,8 @@ describe('ReferenceService', () => {
             expression: '{fieldA} & {fieldC}',
           },
           cellValueType: CellValueType.String,
-          isMultipleCellValue: false,
-          isComputed: true,
           dbFieldType: DbFieldType.Text,
+          isComputed: true,
         } as FormulaFieldDto),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
@@ -744,8 +732,6 @@ describe('ReferenceService', () => {
           type: FieldType.SingleLineText,
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Text,
-          isMultipleCellValue: false,
-          isComputed: false,
         } as SingleLineTextFieldDto),
       };
 

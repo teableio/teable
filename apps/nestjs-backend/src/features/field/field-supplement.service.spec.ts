@@ -32,8 +32,6 @@ describe('FieldSupplementService', () => {
         options: {},
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
-        isMultipleCellValue: false,
-        isComputed: false,
       };
       const result = await service.prepareField(field);
       expect(result).toEqual(preparedField);

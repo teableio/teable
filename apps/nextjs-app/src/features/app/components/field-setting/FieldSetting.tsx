@@ -84,7 +84,6 @@ const FieldSettingBase = (props: IFieldSetting) => {
   };
 
   const onConfirmInner = () => {
-    console.log('field', field);
     const result = updateFieldRoSchema.safeParse(field);
     if (result.success) {
       console.log('confirmField', result.data);

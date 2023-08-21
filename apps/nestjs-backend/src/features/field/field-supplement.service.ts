@@ -188,11 +188,6 @@ export class FieldSupplementService implements ISupplementService {
       (field.options as INumberFieldOptions)?.formatting ??
       getDefaultFormatting(lookupCellValueType as CellValueType);
     const showAs = (field.options as INumberFieldOptions)?.showAs;
-    // const options = lookupFieldOptions
-    //   ? formatting
-    //     ? { ...lookupFieldOptions, formatting }
-    //     : lookupFieldOptions
-    //   : undefined;
     let options = lookupFieldOptions ? { ...lookupFieldOptions } : undefined;
 
     if (options) {
@@ -311,8 +306,6 @@ export class FieldSupplementService implements ISupplementService {
       options: options ?? SingleLineTextFieldCore.defaultOptions(),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Text,
-      isMultipleCellValue: false,
-      isComputed: false,
     };
   }
 
@@ -325,8 +318,6 @@ export class FieldSupplementService implements ISupplementService {
       options: options ?? NumberFieldCore.defaultOptions(),
       cellValueType: CellValueType.Number,
       dbFieldType: DbFieldType.Real,
-      isMultipleCellValue: false,
-      isComputed: false,
     };
   }
 
@@ -339,8 +330,6 @@ export class FieldSupplementService implements ISupplementService {
       options: options ?? SelectFieldCore.defaultOptions(),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Text,
-      isMultipleCellValue: false,
-      isComputed: false,
     };
   }
 
@@ -354,7 +343,6 @@ export class FieldSupplementService implements ISupplementService {
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
       isMultipleCellValue: true,
-      isComputed: false,
     };
   }
 
@@ -368,7 +356,6 @@ export class FieldSupplementService implements ISupplementService {
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
       isMultipleCellValue: true,
-      isComputed: false,
     };
   }
 
@@ -381,8 +368,6 @@ export class FieldSupplementService implements ISupplementService {
       options: options ?? DateFieldCore.defaultOptions(),
       cellValueType: CellValueType.DateTime,
       dbFieldType: DbFieldType.DateTime,
-      isMultipleCellValue: false,
-      isComputed: false,
     };
   }
 
@@ -395,8 +380,6 @@ export class FieldSupplementService implements ISupplementService {
       options: options ?? CheckboxFieldCore.defaultOptions(),
       cellValueType: CellValueType.Boolean,
       dbFieldType: DbFieldType.Integer,
-      isMultipleCellValue: false,
-      isComputed: false,
     };
   }
 
@@ -463,7 +446,7 @@ export class FieldSupplementService implements ISupplementService {
         symmetricFieldId: field.id,
       },
       isMultipleCellValue,
-      isComputed: Boolean(field.isLookup),
+      isComputed: field.isLookup,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
     } as IFieldRo) as LinkFieldDto;
