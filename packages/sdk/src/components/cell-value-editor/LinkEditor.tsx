@@ -131,7 +131,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
       ))}
       <Popover>
         <PopoverTrigger asChild disabled={disabled}>
-          <Button variant="outline">
+          <Button variant="outline" size={'sm'}>
             <Plus />
             Add Record
           </Button>

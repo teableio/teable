@@ -5,6 +5,7 @@ import type { IExpandRecordModel } from './type';
 
 interface IExpandRecord {
   tableId: string;
+  viewId?: string;
   recordId: string;
   recordIds?: string[];
   serverData?: IRecord;

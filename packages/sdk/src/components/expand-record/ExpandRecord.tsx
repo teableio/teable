@@ -1,7 +1,8 @@
 import type { IRecord } from '@teable-group/core';
 import { Skeleton } from '@teable-group/ui-lib';
 import { isEqual } from 'lodash';
-import { useFields, useRecord } from '../../hooks';
+import { useMemo } from 'react';
+import { useFields, useRecord, useViewId } from '../../hooks';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
@@ -19,8 +20,20 @@ interface IExpandRecordProps {
 export const ExpandRecord = (props: IExpandRecordProps) => {
   const { recordId, visible, forceModel, serverData, onClose } = props;
   const { model } = useExpandRecord();
-  const fields = useFields();
+  const viewId = useViewId();
+  const allFields = useFields({ widthHidden: true });
   const record = useRecord(recordId, serverData);
+
+  const fields = useMemo(
+    () => (viewId ? allFields.filter((field) => !field.columnMeta?.[viewId]?.hidden) : []),
+    [allFields, viewId]
+  );
+
+  const hiddenFields = useMemo(
+    () => (viewId ? allFields.filter((field) => field.columnMeta?.[viewId]?.hidden) : []),
+    [allFields, viewId]
+  );
+
   const onChange = (newValue: unknown, fieldId: string) => {
     if (isEqual(record?.getCellValue(fieldId), newValue)) {
       return;
@@ -34,7 +47,12 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
         <ExpandRecordHeader title={record?.name} onClose={onClose} />
         <div className="flex-1 pt-6 px-9 pb-9 min-w-[300px] overflow-y-scroll">
           {fields.length > 0 ? (
-            <RecordEditor record={record} fields={fields} onChange={onChange} />
+            <RecordEditor
+              record={record}
+              fields={fields}
+              hiddenFields={hiddenFields}
+              onChange={onChange}
+            />
           ) : (
             <Skeleton className="h-10 w-full rounded" />
           )}

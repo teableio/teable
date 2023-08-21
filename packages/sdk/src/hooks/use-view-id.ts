@@ -1,8 +1,9 @@
 import { useContext } from 'react';
-import { AnchorContext } from '../context';
+import { AnchorContext, ViewContext } from '../context';
 
 // use current active view id
-export function useViewId() {
+export function useViewId(): string | undefined {
   const { viewId } = useContext(AnchorContext);
-  return viewId;
+  const { views } = useContext(ViewContext);
+  return viewId || views[0]?.id;
 }

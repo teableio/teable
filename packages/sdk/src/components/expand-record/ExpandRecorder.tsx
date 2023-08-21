@@ -1,5 +1,5 @@
 import type { FC, PropsWithChildren } from 'react';
-import { AnchorProvider } from '../../context';
+import { AnchorProvider, ViewProvider } from '../../context';
 import { useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
 import { useExpandRecord } from './store';
@@ -10,7 +10,11 @@ const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const currentTableId = useTableId();
 
   if (tableId !== currentTableId) {
-    return <AnchorProvider tableId={tableId}>{children}</AnchorProvider>;
+    return (
+      <AnchorProvider tableId={tableId}>
+        <ViewProvider>{children}</ViewProvider>
+      </AnchorProvider>
+    );
   }
   return <>{children}</>;
 };
