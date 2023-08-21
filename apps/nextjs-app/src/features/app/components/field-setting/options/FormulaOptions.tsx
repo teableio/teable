@@ -36,10 +36,13 @@ export const FormulaOptions = (props: {
   const isLookupFieldMultiple = useIsMultipleCellValue(isLookup, lookupField, lookupOptions);
 
   const { cellValueType, isMultipleCellValue } = useMemo(() => {
-    const defaultResult = {
-      cellValueType: lookupField?.cellValueType ?? CellValueType.String,
-      isMultipleCellValue: false,
-    };
+    if (isLookup && lookupField) {
+      return {
+        cellValueType: lookupField.cellValueType,
+        isMultipleCellValue: lookupField.isMultipleCellValue,
+      };
+    }
+    const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
     try {
       return expression
         ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id'))
@@ -47,7 +50,7 @@ export const FormulaOptions = (props: {
     } catch (e) {
       return defaultResult;
     }
-  }, [expression, fields, lookupField?.cellValueType]);
+  }, [expression, fields, isLookup, lookupField]);
 
   const onExpressionChange = (expressionByName: string) => {
     try {
