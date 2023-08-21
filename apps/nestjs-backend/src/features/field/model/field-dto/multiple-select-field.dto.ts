@@ -1,6 +1,4 @@
-import type { IFieldRo } from '@teable-group/core';
-import { CellValueType, DbFieldType, MultipleSelectFieldCore } from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
+import { MultipleSelectFieldCore } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
 import { SingleSelectOptionsDto } from './single-select-field.dto';
 
@@ -8,20 +6,6 @@ import { SingleSelectOptionsDto } from './single-select-field.dto';
 export const MultipleSelectOptionsDto = SingleSelectOptionsDto;
 
 export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements IFieldBase {
-  static factory(fieldRo: IFieldRo) {
-    const isLookup = fieldRo.isLookup;
-
-    return plainToInstance(MultipleSelectFieldDto, {
-      ...fieldRo,
-      name: fieldRo.name ?? 'Tags',
-      options: fieldRo.options ?? this.defaultOptions(),
-      isComputed: isLookup,
-      cellValueType: CellValueType.String,
-      isMultipleCellValue: true,
-      dbFieldType: DbFieldType.Json,
-    } as MultipleSelectFieldDto);
-  }
-
   convertCellValue2DBValue(value: unknown): unknown {
     return value == null ? value : JSON.stringify(value);
   }

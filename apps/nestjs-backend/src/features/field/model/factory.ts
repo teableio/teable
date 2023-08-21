@@ -1,12 +1,11 @@
-/* eslint-disable sonarjs/no-duplicated-branches */
-import type { IFieldRo, IFieldVo, ILookupOptionsVo } from '@teable-group/core';
-import {
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILookupOptionsVo,
   DbFieldType,
-  assertNever,
   CellValueType,
-  FieldType,
-  generateFieldId,
 } from '@teable-group/core';
+import { assertNever, FieldType, generateFieldId } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
@@ -32,25 +31,25 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
 
   switch (createFieldRo.type) {
     case FieldType.SingleLineText:
-      return SingleLineTextFieldDto.factory(fieldRo);
+      return plainToInstance(SingleLineTextFieldDto, fieldRo);
     case FieldType.Number:
-      return NumberFieldDto.factory(fieldRo);
+      return plainToInstance(NumberFieldDto, fieldRo);
     case FieldType.SingleSelect:
-      return SingleSelectFieldDto.factory(fieldRo);
+      return plainToInstance(SingleSelectFieldDto, fieldRo);
     case FieldType.MultipleSelect:
-      return MultipleSelectFieldDto.factory(fieldRo);
+      return plainToInstance(MultipleSelectFieldDto, fieldRo);
     case FieldType.Link:
-      return LinkFieldDto.factory(fieldRo);
+      return plainToInstance(LinkFieldDto, fieldRo);
     case FieldType.Formula:
-      return FormulaFieldDto.factory(fieldRo);
+      return plainToInstance(FormulaFieldDto, fieldRo);
     case FieldType.Attachment:
-      return AttachmentFieldDto.factory(fieldRo);
+      return plainToInstance(AttachmentFieldDto, fieldRo);
     case FieldType.Date:
-      return DateFieldDto.factory(fieldRo);
+      return plainToInstance(DateFieldDto, fieldRo);
     case FieldType.Checkbox:
-      return CheckboxFieldDto.factory(fieldRo);
+      return plainToInstance(CheckboxFieldDto, fieldRo);
     case FieldType.Rollup:
-      return RollupFieldDto.factory(fieldRo);
+      return plainToInstance(RollupFieldDto, fieldRo);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -67,13 +66,7 @@ export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
     case FieldType.Rating:
     case FieldType.Currency:
     case FieldType.Percent:
-      return plainToInstance(SingleLineTextFieldDto, {
-        ...fieldRo,
-        type: FieldType.SingleLineText,
-        isComputed: false,
-        cellValueType: CellValueType.String,
-        dbFieldType: DbFieldType.Text,
-      } as SingleLineTextFieldDto);
+      return plainToInstance(SingleLineTextFieldDto, fieldRo);
     default:
       assertNever(createFieldRo.type);
   }

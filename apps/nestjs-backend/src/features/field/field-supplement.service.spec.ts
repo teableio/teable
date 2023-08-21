@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldRo } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
+import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '../../prisma.service';
 import { FieldSupplementService } from './field-supplement.service';
 import { createFieldInstanceByRo } from './model/factory';
@@ -26,8 +26,17 @@ describe('FieldSupplementService', () => {
         name: 'text',
         type: FieldType.SingleLineText,
       };
+      const preparedField = {
+        name: 'text',
+        type: FieldType.SingleLineText,
+        options: {},
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        isMultipleCellValue: false,
+        isComputed: false,
+      };
       const result = await service.prepareField(field);
-      expect(result).toBe(field);
+      expect(result).toEqual(preparedField);
     });
 
     it('should prepare the options for a link field', async () => {
