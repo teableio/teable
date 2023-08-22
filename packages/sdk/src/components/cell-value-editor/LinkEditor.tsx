@@ -3,11 +3,11 @@ import { Relationship } from '@teable-group/core';
 import { Plus, X } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, useToast } from '@teable-group/ui-lib';
 import { noop } from 'lodash';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AnchorProvider } from '../../context';
 import { useRecords } from '../../hooks';
 import { SelectEditorMain } from '../editor';
-import { useExpandRecord } from '../expand-record';
+import { ExpandRecorder } from '../expand-record';
 
 interface ILinkEditorProps {
   options: ILinkFieldOptions;
@@ -82,19 +82,26 @@ export const LinkEditorMain = (props: ILinkEditorProps) => {
 export const LinkEditor = (props: ILinkEditorProps) => {
   const { cellValue, options, onChange, disabled } = props;
   const { toast } = useToast();
-  const { addExpandRecord } = useExpandRecord();
+  const [expandRecordId, setExpandRecordId] = useState<string>();
   const { foreignTableId, relationship } = options;
 
   const cvArray = Array.isArray(cellValue) || !cellValue ? cellValue : [cellValue];
   const isMultiple = relationship !== Relationship.ManyOne;
+  const recordIds = cvArray?.map((cv) => cv.id);
+
+  const updateExpandRecordId = (recordId?: string) => {
+    if (recordId) {
+      const existed = document.getElementById(`${foreignTableId}-${recordId}`);
+      if (existed) {
+        toast({ description: 'This record is already open.' });
+        return;
+      }
+    }
+    setExpandRecordId(recordId);
+  };
 
   const onRecordClick = (recordId: string) => {
-    const { existed } = addExpandRecord({
-      tableId: foreignTableId,
-      recordId,
-      recordIds: cvArray?.map((cv) => cv.id),
-    });
-    existed && toast({ description: 'This record is already open.' });
+    updateExpandRecordId(recordId);
   };
 
   const onDeleteRecord = (recordId: string) => {
@@ -129,6 +136,13 @@ export const LinkEditor = (props: ILinkEditorProps) => {
           </Button>
         </div>
       ))}
+      <ExpandRecorder
+        tableId={foreignTableId}
+        recordId={expandRecordId}
+        recordIds={recordIds}
+        onUpdateRecordIdCallback={updateExpandRecordId}
+        onClose={() => updateExpandRecordId(undefined)}
+      />
       <Popover>
         <PopoverTrigger asChild disabled={disabled}>
           <Button variant="outline" size={'sm'}>

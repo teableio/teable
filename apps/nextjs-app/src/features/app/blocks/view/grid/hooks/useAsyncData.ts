@@ -27,7 +27,7 @@ type IRes = {
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
 
-export type IRecordIndexMap = { [i in number]: Record };
+export type IRecordIndexMap = { [i: number | string]: Record };
 
 export const useAsyncData = (
   toCell: IRowToCell<Record>,
@@ -131,7 +131,7 @@ export const useAsyncData = (
   );
 
   const reset = useCallback(() => {
-    setLoadedRecords([]);
+    setLoadedRecords({});
     setVisiblePages(defaultVisiblePages);
   }, []);
 

@@ -1,5 +1,5 @@
 import { Input } from '@teable-group/ui-lib';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ICellEditor } from '../type';
 
 type INumberEditor = ICellEditor<number>;
@@ -8,6 +8,10 @@ export const NumberEditorMain = (props: INumberEditor) => {
   const { value, onChange, className, disabled, style } = props;
 
   const [number, setNumber] = useState<number | undefined>(value);
+
+  useEffect(() => {
+    setNumber(value);
+  }, [value]);
 
   const onBlur = () => {
     onChange?.(number);
