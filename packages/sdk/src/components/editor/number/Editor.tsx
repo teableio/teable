@@ -1,17 +1,21 @@
 import { Input } from '@teable-group/ui-lib';
-import { useEffect, useState } from 'react';
-import type { ICellEditor } from '../type';
+import type { ForwardRefRenderFunction } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
+import type { ICellEditor, IEditorRef } from '../type';
 
 type INumberEditor = ICellEditor<number>;
 
-export const NumberEditorMain = (props: INumberEditor) => {
+export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INumberEditor> = (
+  props,
+  ref
+) => {
   const { value, onChange, className, disabled, style } = props;
 
   const [number, setNumber] = useState<number | undefined>(value);
 
-  useEffect(() => {
-    setNumber(value);
-  }, [value]);
+  useImperativeHandle(ref, () => ({
+    setValue: setNumber,
+  }));
 
   const onBlur = () => {
     onChange?.(number);
@@ -26,10 +30,12 @@ export const NumberEditorMain = (props: INumberEditor) => {
     <Input
       style={style}
       className={className}
-      value={number}
+      value={number || ''}
       onChange={onChangeInner}
       onBlur={onBlur}
       disabled={disabled}
     />
   );
 };
+
+export const NumberEditor = forwardRef(NumberEditorBase);

@@ -11,7 +11,7 @@ import type {
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   AttachmentEditor,
   CheckboxEditor,
@@ -20,12 +20,19 @@ import {
   SelectEditor,
   TextEditor,
 } from '../editor';
+import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: ICellValueEditor) => {
   const { field, cellValue, onChange, disabled } = props;
   const { type, options } = field;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<IEditorRef<any>>(null);
+
+  useEffect(() => {
+    editorRef?.current?.setValue?.(cellValue);
+  }, [cellValue]);
 
   const selectOptions = useCallback((options: ISelectFieldOptions) => {
     return options.choices.map(({ name, color }) => ({
@@ -41,6 +48,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.SingleLineText: {
         return (
           <TextEditor
+            ref={editorRef}
             className="h-8"
             value={cellValue as ISingleLineTextCellValue}
             onChange={onChange}
@@ -51,6 +59,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Number: {
         return (
           <NumberEditor
+            ref={editorRef}
             className="h-8"
             value={cellValue as INumberCellValue}
             onChange={onChange}
