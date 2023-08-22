@@ -32,17 +32,20 @@ export class NumberFieldCore extends FieldCore {
     };
   }
 
-  cellValue2String(cellValue: number | number[] | undefined) {
+  cellValue2String(cellValue?: unknown) {
     if (cellValue == null) {
       return '';
     }
-    const formatting = this.options.formatting;
 
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
-      return cellValue.map((v) => formatNumberToString(v, formatting)).join(', ');
+      return cellValue.map((v) => this.item2String(v)).join(', ');
     }
 
-    return formatNumberToString(cellValue as number, formatting);
+    return this.item2String(cellValue as number);
+  }
+
+  item2String(value?: unknown): string {
+    return formatNumberToString(value as number, this.options.formatting);
   }
 
   convertStringToCellValue(value: string): number | null {

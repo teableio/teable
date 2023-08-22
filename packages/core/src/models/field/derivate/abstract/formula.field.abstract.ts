@@ -6,7 +6,7 @@ import type { RootContext } from '../../../../formula/parser/Formula';
 import { Formula } from '../../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../../formula/parser/FormulaLexer';
 import { EvalVisitor } from '../../../../formula/visitor';
-import type { IRecord } from '../../../record/record.schema';
+import type { ITinyRecord } from '../../../record/record.schema';
 import { CellValueType } from '../../constant';
 import { FieldCore } from '../../field';
 import type { INumberFormatting, IDatetimeFormatting, IUnionFormatting } from '../../formatting';
@@ -28,16 +28,6 @@ export abstract class FormulaAbstractCore extends FieldCore {
     return parser.root();
   }
 
-  static getParsedValueType(expression: string, dependFieldMap: { [fieldId: string]: FieldCore }) {
-    const tree = this.parse(expression);
-    const visitor = new EvalVisitor(dependFieldMap);
-    const typedValue = visitor.visit(tree);
-    return {
-      cellValueType: typedValue.type,
-      isMultipleCellValue: typedValue.isMultiple,
-    };
-  }
-
   options!: {
     expression: string;
     formatting?: IUnionFormatting;
@@ -57,36 +47,38 @@ export abstract class FormulaAbstractCore extends FieldCore {
     return this._tree;
   }
 
-  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: IRecord) {
+  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: ITinyRecord) {
     const visitor = new EvalVisitor(dependFieldMap, record);
     return visitor.visit(this.tree);
   }
 
-  cellValue2String(cellValue: unknown) {
-    const formatting = this.options.formatting;
-    const formatter = (value: unknown) => {
-      switch (this.cellValueType) {
-        case CellValueType.Number:
-          return formatNumberToString(value as number, formatting as INumberFormatting);
-        case CellValueType.DateTime:
-          return formatDateToString(value as string, formatting as IDatetimeFormatting);
-      }
-      return String(value);
-    };
-
+  cellValue2String(cellValue?: unknown) {
     if (cellValue == null) {
       return '';
     }
 
     if (this.isMultipleCellValue) {
-      return (cellValue as unknown[]).map((v) => formatter(v)).join(', ');
+      return (cellValue as unknown[]).map((v) => this.item2String(v)).join(', ');
     }
-    return formatter(cellValue);
+
+    return this.item2String(cellValue);
   }
 
   // formula do not support
   convertStringToCellValue(_value: string): null {
     return null;
+  }
+
+  item2String(value?: unknown) {
+    const formatting = this.options.formatting;
+
+    switch (this.cellValueType) {
+      case CellValueType.Number:
+        return formatNumberToString(value as number, formatting as INumberFormatting);
+      case CellValueType.DateTime:
+        return formatDateToString(value as string, formatting as IDatetimeFormatting);
+    }
+    return value == null ? '' : String(value);
   }
 
   // formula do not support

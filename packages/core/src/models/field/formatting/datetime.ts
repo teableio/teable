@@ -48,7 +48,10 @@ export const defaultDatetimeFormatting: IDatetimeFormatting = {
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 
-export const formatDateToString = (cellValue: string, formatting: IDatetimeFormatting) => {
+export const formatDateToString = (
+  cellValue: string | undefined,
+  formatting: IDatetimeFormatting
+) => {
   if (cellValue == null) {
     return '';
   }

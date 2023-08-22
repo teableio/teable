@@ -30,6 +30,22 @@ export abstract class SelectFieldCore extends FieldCore {
     return selectFieldOptionsSchema.safeParse(this.options);
   }
 
+  cellValue2String(cellValue?: unknown) {
+    if (cellValue == null) {
+      return '';
+    }
+
+    if (Array.isArray(cellValue)) {
+      return cellValue.map((value) => this.item2String(value)).join(', ');
+    }
+
+    return cellValue as string;
+  }
+
+  item2String(value?: unknown): string {
+    return value ? String(value) : '';
+  }
+
   validateCellValue(cellValue: unknown) {
     const choiceNames = this.options.choices.map((v) => v.name);
 

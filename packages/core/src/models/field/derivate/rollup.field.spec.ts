@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { plainToInstance } from 'class-transformer';
-import { DbFieldType, FieldType, CellValueType } from '../constant';
+import { DbFieldType, FieldType, CellValueType, Relationship } from '../constant';
 import { DateFormattingPreset, TimeFormatting } from '../formatting';
 import { NumberFieldCore } from './number.field';
 import { RollupFieldCore } from './rollup.field';
@@ -99,19 +99,31 @@ describe('RollupFieldCore', () => {
     });
 
     it('should return current typed value with field context', () => {
-      expect(RollupFieldCore.getParsedValueType('countall({values})')).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType('countall({values})', Relationship.ManyOne, numberField)
+      ).toEqual({
         cellValueType: CellValueType.Number,
       });
 
-      expect(RollupFieldCore.getParsedValueType('sum({values})')).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType('sum({values})', Relationship.ManyOne, numberField)
+      ).toEqual({
         cellValueType: CellValueType.Number,
       });
 
-      expect(RollupFieldCore.getParsedValueType('concatenate({values})')).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType(
+          'concatenate({values})',
+          Relationship.ManyOne,
+          numberField
+        )
+      ).toEqual({
         cellValueType: CellValueType.String,
       });
 
-      expect(RollupFieldCore.getParsedValueType('and({values})')).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType('and({values})', Relationship.ManyOne, numberField)
+      ).toEqual({
         cellValueType: CellValueType.Boolean,
       });
     });

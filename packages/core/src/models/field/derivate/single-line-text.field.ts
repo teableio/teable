@@ -21,11 +21,15 @@ export class SingleLineTextFieldCore extends FieldCore {
     return {};
   }
 
-  cellValue2String(cellValue: string | string[] | undefined) {
+  cellValue2String(cellValue?: unknown) {
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
       return cellValue.join(', ');
     }
     return (cellValue as string) ?? '';
+  }
+
+  item2String(value?: unknown): string {
+    return value ? String(value) : '';
   }
 
   convertStringToCellValue(value: string): string | null {

@@ -3,7 +3,9 @@ import type { IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
-import type { ICellChange, IOpsMap } from '../features/calculation/reference.service';
+import type { IOpsMap } from '../features/calculation/reference.service';
+import type { ICellChange } from '../features/calculation/utils/changes';
+import { formatChangesToOps } from '../features/calculation/utils/changes';
 import { composeMaps } from '../features/calculation/utils/compose-maps';
 import { TransactionService } from './transaction.service';
 import type { ITransactionMeta } from './transaction.service';
@@ -65,9 +67,9 @@ export class DerivateChangeService {
         const cellChanges = derivate?.cellChanges || [];
         const fkRecordMap = derivate?.fkRecordMap || {};
 
-        const opsMapOrigin = this.referenceService.formatChangesToOps(changes);
-        const opsMapByLink = this.referenceService.formatChangesToOps(cellChanges);
-        const opsMapByCalculate = await this.referenceService.calculateOpsMap(
+        const opsMapOrigin = formatChangesToOps(changes);
+        const opsMapByLink = formatChangesToOps(cellChanges);
+        const { opsMap: opsMapByCalculate } = await this.referenceService.calculateOpsMap(
           prisma,
           composeMaps([opsMapOrigin, opsMapByLink]),
           fkRecordMap

@@ -11,18 +11,6 @@ export class SingleSelectFieldCore extends SelectFieldCore {
 
   cellValueType!: CellValueType.String;
 
-  cellValue2String(cellValue?: string) {
-    if (cellValue == null) {
-      return '';
-    }
-
-    if (Array.isArray(cellValue)) {
-      return cellValue.join(', ');
-    }
-
-    return cellValue;
-  }
-
   convertStringToCellValue(value: string): string | null {
     if (this.isLookup) {
       return null;

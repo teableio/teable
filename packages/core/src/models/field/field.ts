@@ -51,7 +51,7 @@ export abstract class FieldCore implements IFieldVo {
    * caution:
    * this function should handle the case that item is undefined
    */
-  item2String?(value?: unknown): string;
+  abstract item2String(value?: unknown): string;
 
   abstract cellValue2String(value?: unknown): string;
 

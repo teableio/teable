@@ -8,12 +8,8 @@ import type {
   IFieldVo,
   IGetFieldsQuery,
   ISetColumnMetaOpContext,
-  ISetFieldNameOpContext,
   ISnapshotBase,
-  ISetFieldDescriptionOpContext,
-  ISetFieldTypeOpContext,
-  ISetFieldOptionsOpContext,
-  ISetFieldHasErrorOpContext,
+  ISetFieldPropertyOpContext,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
@@ -33,14 +29,10 @@ import {
 import { dbType2knexFormat } from './util';
 
 type IOpContexts =
-  | ISetFieldNameOpContext
-  | ISetFieldDescriptionOpContext
-  | ISetFieldHasErrorOpContext
-  | ISetFieldTypeOpContext
-  | ISetFieldOptionsOpContext
   | IAddColumnMetaOpContext
   | ISetColumnMetaOpContext
-  | IDeleteColumnMetaOpContext;
+  | IDeleteColumnMetaOpContext
+  | ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IAdapterService {
@@ -348,29 +340,10 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  private handleFieldName(params: { opContext: IOpContexts }) {
+  private handleFieldProperty(params: { opContext: IOpContexts }) {
     const { opContext } = params;
-    return { name: (opContext as ISetFieldNameOpContext).newName };
-  }
-
-  private handleFieldDescription(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { description: (opContext as ISetFieldDescriptionOpContext).newDescription };
-  }
-
-  private handleFieldType(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { type: (opContext as ISetFieldTypeOpContext).newType };
-  }
-
-  private handleFieldHasError(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { hasError: (opContext as ISetFieldHasErrorOpContext).newError };
-  }
-
-  private handleFieldOptions(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
+    const { key, newValue } = opContext as ISetFieldPropertyOpContext;
+    return { [key]: newValue };
   }
 
   private async handleColumnMeta(params: {
@@ -431,12 +404,7 @@ export class FieldService implements IAdapterService {
     }
   ) {
     const opHandlers = {
-      [OpName.SetFieldName]: this.handleFieldName,
-      [OpName.SetFieldDescription]: this.handleFieldDescription,
-      [OpName.SetFieldType]: this.handleFieldType,
-      [OpName.SetFieldHasError]: this.handleFieldHasError,
-      [OpName.SetFieldOptions]: this.handleFieldOptions,
-
+      [OpName.SetFieldProperty]: this.handleFieldProperty,
       [OpName.AddColumnMeta]: this.handleColumnMeta,
       [OpName.SetColumnMeta]: this.handleColumnMeta,
       [OpName.DeleteColumnMeta]: this.handleColumnMeta,

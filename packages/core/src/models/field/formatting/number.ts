@@ -6,7 +6,10 @@ export const numberFormattingSchema = z.object({
 
 export type INumberFormatting = z.infer<typeof numberFormattingSchema>;
 
-export const formatNumberToString = (cellValue: number, formatting: INumberFormatting) => {
+export const formatNumberToString = (
+  cellValue: number | undefined,
+  formatting: INumberFormatting
+) => {
   if (cellValue == null) {
     return '';
   }

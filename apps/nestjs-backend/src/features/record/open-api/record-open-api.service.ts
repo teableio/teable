@@ -23,6 +23,7 @@ import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
+import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import type { IFieldInstance } from '../../field/model/factory';
@@ -129,12 +130,10 @@ export class RecordOpenApiService {
     const cellChanges = derivate?.cellChanges || [];
     const fkRecordMap = derivate?.fkRecordMap || {};
 
-    const opsMapByLink = cellChanges.length
-      ? this.referenceService.formatChangesToOps(cellChanges)
-      : {};
+    const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
 
     // calculate by origin ops and link derivation
-    const opsMapByCalculation = await this.referenceService.calculateOpsMap(
+    const { opsMap: opsMapByCalculation } = await this.referenceService.calculateOpsMap(
       prisma,
       composeMaps([opsMapOrigin, opsMapByLink]),
       fkRecordMap
@@ -161,7 +160,7 @@ export class RecordOpenApiService {
       records
     );
 
-    const opsMapOrigin = this.referenceService.formatChangesToOps(
+    const opsMapOrigin = formatChangesToOps(
       opsContexts.map((data) => {
         return {
           tableId,

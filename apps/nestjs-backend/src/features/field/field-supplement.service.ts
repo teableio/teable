@@ -206,14 +206,18 @@ export class FieldSupplementService implements ISupplementService {
       batchFieldRos
     );
     const options = field.options as IRollupFieldOptions;
-
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
     if (!options) {
       throw new BadRequestException('rollup field options is required');
     }
 
     let valueType;
     try {
-      valueType = RollupFieldDto.getParsedValueType(options.expression);
+      valueType = RollupFieldDto.getParsedValueType(
+        options.expression,
+        lookupOptions.relationship,
+        lookupField
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       throw new BadRequestException(e.message);
@@ -234,6 +238,10 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
+  /**
+   * prepare properties for computed field to make sure it's valid
+   * this method do not do any db update
+   */
   async prepareField(fieldRo: IFieldRo, batchFieldRos?: IFieldRo[]): Promise<IFieldRo> {
     if (fieldRo.isLookup) {
       return await this.prepareLookupField(fieldRo, batchFieldRos);
@@ -254,7 +262,7 @@ export class FieldSupplementService implements ISupplementService {
     return fieldRo;
   }
 
-  private async generateSymmetricField(
+  async generateSymmetricField(
     prisma: Prisma.TransactionClient,
     tableId: string,
     field: LinkFieldDto
@@ -299,7 +307,7 @@ export class FieldSupplementService implements ISupplementService {
     await prisma.$executeRawUnsafe(alterTableQuery);
   }
 
-  private async deleteForeignKeyField(
+  private async cleanForeignKeyField(
     prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
     dbForeignKeyName: string
@@ -314,11 +322,7 @@ export class FieldSupplementService implements ISupplementService {
     await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async createSupplementation(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    field: LinkFieldDto
-  ) {
+  async createForeignKey(prisma: Prisma.TransactionClient, tableId: string, field: LinkFieldDto) {
     if (field.type !== FieldType.Link) {
       throw new Error('only link field need to create supplement field');
     }
@@ -332,11 +336,9 @@ export class FieldSupplementService implements ISupplementService {
     if (relationship === Relationship.ManyOne) {
       await this.createForeignKeyField(prisma, tableId, dbForeignKeyName);
     }
-
-    return await this.generateSymmetricField(prisma, tableId, field);
   }
 
-  async deleteForeignKey(
+  async cleanForeignKey(
     prisma: Prisma.TransactionClient,
     tableId: string,
     options: ILinkFieldOptions
@@ -344,11 +346,11 @@ export class FieldSupplementService implements ISupplementService {
     const { foreignTableId, relationship, dbForeignKeyName } = options;
 
     if (relationship === Relationship.OneMany) {
-      await this.deleteForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
     }
 
     if (relationship === Relationship.ManyOne) {
-      await this.deleteForeignKeyField(prisma, tableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(prisma, tableId, dbForeignKeyName);
     }
   }
 
@@ -386,6 +388,9 @@ export class FieldSupplementService implements ISupplementService {
     return refRaw.map((ref) => ref.toFieldId);
   }
 
+  /**
+   * the lookup field that attach to the deleted, should delete to field reference
+   */
   async deleteLookupFieldReference(
     prisma: Prisma.TransactionClient,
     linkFieldId: string

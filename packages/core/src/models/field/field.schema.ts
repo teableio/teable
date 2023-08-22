@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { RefinementCtx } from 'zod';
 import { z } from 'zod';
 import { assertNever } from '../../asserts';
+import type { IEnsureKeysMatchInterface } from '../../types/ensure-keys';
 import { IdPrefix } from '../../utils';
 import { StatisticsFunc } from '../view/constant';
 import { CellValueType, DbFieldType, FieldType } from './constant';
@@ -160,6 +162,33 @@ export const fieldVoSchema = z.object({
 export type IFieldVo = z.infer<typeof fieldVoSchema>;
 
 export type IFieldPropertyKey = keyof Omit<IFieldVo, 'id'>;
+
+export const FIELD_PROPERTIES = [
+  'type',
+  'description',
+  'options',
+  'name',
+  'isLookup',
+  'lookupOptions',
+  'notNull',
+  'unique',
+  'isPrimary',
+  'columnMeta',
+  'isComputed',
+  'hasError',
+  'cellValueType',
+  'isMultipleCellValue',
+  'dbFieldType',
+  'dbFieldName',
+] as const;
+
+// make sure FIELD_PROPERTIES is exactly equals IFieldVo
+// if here throw error, you should update FIELD_PROPERTIES
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const fieldPropertiesValid: IEnsureKeysMatchInterface<
+  Omit<IFieldVo, 'id'>,
+  typeof FIELD_PROPERTIES
+> = true;
 
 export const getOptionsSchema = (type: FieldType) => {
   switch (type) {

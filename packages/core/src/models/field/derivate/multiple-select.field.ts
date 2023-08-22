@@ -13,10 +13,6 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
 
   isMultipleCellValue = true;
 
-  cellValue2String(cellValue?: string[]) {
-    return cellValue ? cellValue.join(', ') : '';
-  }
-
   convertStringToCellValue(value: string): string[] | null {
     if (value === '' || value == null) {
       return null;

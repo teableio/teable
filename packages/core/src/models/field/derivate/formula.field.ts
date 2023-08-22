@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { ConversionVisitor } from '../../../formula';
+import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
 import type { FieldType, CellValueType } from '../constant';
+import type { FieldCore } from '../field';
 import { unionFormattingSchema, getFormattingSchema, getDefaultFormatting } from '../formatting';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
@@ -72,6 +73,16 @@ export class FormulaFieldCore extends FormulaAbstractCore {
     const tree = this.parse(expression);
     const visitor = new FieldReferenceVisitor();
     return Array.from(new Set(visitor.visit(tree)));
+  }
+
+  static getParsedValueType(expression: string, dependFieldMap: { [fieldId: string]: FieldCore }) {
+    const tree = this.parse(expression);
+    const visitor = new EvalVisitor(dependFieldMap);
+    const typedValue = visitor.visit(tree);
+    return {
+      cellValueType: typedValue.type,
+      isMultipleCellValue: typedValue.isMultiple,
+    };
   }
 
   type!: FieldType.Formula;

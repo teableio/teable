@@ -58,39 +58,9 @@ describe('FieldSupplementService', () => {
       /* mock object */
     };
 
-    // assume field is a link field
-    const field: any = {
-      type: FieldType.Link,
-      options: {
-        foreignTableId: 'foreignTableId',
-        relationship: Relationship.ManyOne,
-      },
-    };
-
     it('should throw an error if the field is not a link field', async () => {
       const nonLinkField: any = { type: FieldType.SingleLineText /* other properties */ };
-      await expect(
-        service.createSupplementation(prisma, 'tableId', nonLinkField)
-      ).rejects.toThrow();
-    });
-
-    it('should create symmetric field, foreign key field, and link reference for a link field', async () => {
-      // setup mocks
-      const sField = {
-        type: FieldType.Link,
-        options: {
-          foreignTableId: 'tableId',
-          relationship: Relationship.OneMany,
-        },
-      };
-      service['generateSymmetricField'] = jest.fn().mockResolvedValue(sField);
-      service['createForeignKeyField'] = jest.fn().mockResolvedValue(undefined);
-
-      const symmetricField = await service.createSupplementation(prisma, 'tableId', field);
-
-      expect(symmetricField).toBe(sField);
-      expect(service['generateSymmetricField']).toHaveBeenCalled();
-      expect(service['createForeignKeyField']).toHaveBeenCalledTimes(1);
+      await expect(service.createForeignKey(prisma, 'tableId', nonLinkField)).rejects.toThrow();
     });
   });
 

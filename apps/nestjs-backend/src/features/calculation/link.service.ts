@@ -4,7 +4,8 @@ import { FieldType, Relationship } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { cloneDeep, isEqual, set } from 'lodash';
-import type { ICellChange, IFkRecordMapByDbTableName } from './reference.service';
+import type { IFkRecordMapByDbTableName } from './reference.service';
+import type { ICellChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 
 export interface ITinyLinkField {
