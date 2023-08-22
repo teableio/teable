@@ -68,16 +68,16 @@ export class TableController {
   }
 
   @ApiOperation({ summary: 'Delete table' })
-  @ApiOkResponse({ description: 'The table has been removed to trash.' })
+  @ApiOkResponse({ description: 'The table has been deleted' })
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Delete(':tableId')
   async archiveTable(@Param('tableId') tableId: string) {
-    const result = await this.tableOpenApiService.archiveTable(tableId);
+    const result = await this.tableOpenApiService.deleteTable(tableId);
     return responseWrap(result);
   }
 
   @Delete('arbitrary/:tableId')
   deleteTableArbitrary(@Param('tableId') tableId: string) {
-    return this.tableService.deleteTableArbitrary(tableId);
+    return this.tableOpenApiService.deleteTable(tableId);
   }
 }
