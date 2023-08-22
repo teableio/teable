@@ -1,14 +1,16 @@
 import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
 import { useRecords, useRowCount, useViewId } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
-import { inRange } from 'lodash';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { inRange, debounce } from 'lodash';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { ICellItem, IGridProps, IRectangle } from '../../../grid';
 import type { ICell, IInnerCell } from '../../../grid/renderers';
 import { CellType } from '../../../grid/renderers';
 import { reorder } from '../utils';
 
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const PAGE_SIZE = 300;
 
 export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
 export type IRowToCell<T> = (row: T, col: number) => ICell;
@@ -36,7 +38,7 @@ export const useAsyncData = (
 ): IRes => {
   const [query, setQuery] = useState<Omit<IRecordSnapshotQuery, 'type'>>({
     offset: 0,
-    limit: 150,
+    limit: PAGE_SIZE,
   });
   const viewId = useViewId();
   const rowCount = useRowCount();
@@ -57,7 +59,7 @@ export const useAsyncData = (
     const startIndex = queryRef.current.offset ?? 0;
     const data = records;
     setLoadedRecords((preLoadedRecords) => {
-      const cacheLen = 600;
+      const cacheLen = PAGE_SIZE * 2;
       const [cacheStartIndex, cacheEndIndex] = [
         Math.max(startIndex - cacheLen / 2, 0),
         startIndex + data.length + cacheLen / 2,
@@ -81,13 +83,17 @@ export const useAsyncData = (
         return cv;
       }
 
-      const visibleStartIndex = cv.offset <= y ? cv.offset - 50 : cv.offset + 50;
-      const visibleEndIndex = visibleStartIndex + 150;
+      const pageOffsetSize = PAGE_SIZE / 3;
+      const pageGap = PAGE_SIZE / 3;
+
+      const visibleStartIndex =
+        cv.offset <= y ? cv.offset - pageOffsetSize : cv.offset + pageOffsetSize;
+      const visibleEndIndex = visibleStartIndex + PAGE_SIZE;
       const viewInRange =
         inRange(y, visibleStartIndex, visibleEndIndex) &&
         inRange(y + height, visibleStartIndex, visibleEndIndex);
       if (!viewInRange) {
-        const offset = Math.floor(y / 25) * 25 - 25;
+        const offset = Math.floor(y / pageGap) * pageGap - pageGap;
         return {
           ...cv,
           offset: Math.max(0, offset),
@@ -97,13 +103,17 @@ export const useAsyncData = (
     });
   }, [visiblePages]);
 
+  const updateVisiblePages = useMemo(() => {
+    return debounce(setVisiblePages, 30);
+  }, []);
+
   const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
     (r) => {
       const { y, height } = visiblePagesRef.current;
       if (r.y === y && r.height === height) return;
-      setVisiblePages(r);
+      updateVisiblePages(r);
     },
-    []
+    [updateVisiblePages]
   );
 
   const onCellEdited = useCallback(
