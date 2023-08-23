@@ -15,11 +15,12 @@ import { isEqual } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount } from 'react-use';
+import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import { Grid, CellType, RowControlType } from '../../grid';
+import { Grid, CellType, RowControlType, SelectionRegionType } from '../../grid';
 import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
-import type { CombinedSelection } from '../../grid/managers';
+import { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import {
@@ -35,7 +36,12 @@ import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
 
-export const GridView: React.FC = () => {
+interface IGridViewProps {
+  expandRecordRef: React.RefObject<IExpandRecordContainerRef>;
+}
+
+export const GridView: React.FC<IGridViewProps> = (props) => {
+  const { expandRecordRef } = props;
   const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const tableId = useTableId() as string;
@@ -101,6 +107,32 @@ export const GridView: React.FC = () => {
       reset();
     }
   }, [reset, tableId, preTableId]);
+
+  useEffect(() => {
+    const recordIds = Object.keys(recordMap)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => recordMap[key]?.id)
+      .filter(Boolean);
+    expandRecordRef.current?.updateRecordIds?.(recordIds);
+  }, [expandRecordRef, recordMap]);
+
+  // The recordId on the route changes, and the activeCell needs to change with it
+  useEffect(() => {
+    const recordId = router.query.recordId as string;
+    if (recordId && isReadyToRender) {
+      const recordIndex = Number(
+        Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
+      );
+
+      recordIndex > 0 &&
+        gridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [
+            [0, recordIndex],
+            [0, recordIndex],
+          ])
+        );
+    }
+  }, [router.query.recordId, recordMap, isReadyToRender]);
 
   useMount(() => setReadyToRender(true));
 

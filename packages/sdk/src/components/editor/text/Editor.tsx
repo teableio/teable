@@ -1,13 +1,17 @@
 import { Input } from '@teable-group/ui-lib';
-import { useState } from 'react';
-import type { ICellEditor } from '../type';
+import type { ForwardRefRenderFunction } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
+import type { ICellEditor, IEditorRef } from '../type';
 
 type ITextEditor = ICellEditor<string>;
 
-export const TextEditor = (props: ITextEditor) => {
-  const { value, onChange, className } = props;
-
+const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> = (props, ref) => {
+  const { value, onChange, className, disabled, style } = props;
   const [text, setText] = useState<string>(value || '');
+
+  useImperativeHandle(ref, () => ({
+    setValue: (value?: string) => setText(value || ''),
+  }));
 
   const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
     setText(e.target.value);
@@ -17,5 +21,16 @@ export const TextEditor = (props: ITextEditor) => {
     onChange?.(text);
   };
 
-  return <Input className={className} value={text} onChange={onChangeInner} onBlur={onBlur} />;
+  return (
+    <Input
+      style={style}
+      className={className}
+      value={text}
+      onChange={onChangeInner}
+      onBlur={onBlur}
+      disabled={disabled}
+    />
+  );
 };
+
+export const TextEditor = forwardRef(TextEditorBase);

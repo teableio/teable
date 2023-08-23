@@ -63,6 +63,7 @@ export interface IGridProps extends IGridExternalProps {
 export interface IGridRef {
   getBounds: (colIndex: number, rowIndex: number) => IRectangle | null;
   forceUpdate: () => void;
+  setSelection: (selection: CombinedSelection) => void;
 }
 
 const {

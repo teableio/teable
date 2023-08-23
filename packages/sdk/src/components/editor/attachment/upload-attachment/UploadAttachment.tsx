@@ -14,6 +14,7 @@ import { AttachmentManager } from './uploadManage';
 export interface IUploadAttachment {
   attachments: IAttachmentCellValue;
   onChange: (attachment: IAttachmentCellValue) => void;
+  disabled?: boolean;
 }
 
 type IUploadFileMap = { [key: string]: { progress: number; file: File } };
@@ -21,7 +22,7 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 const attachmentManager = new AttachmentManager(2);
 
 export const UploadAttachment = (props: IUploadAttachment) => {
-  const { attachments, onChange } = props;
+  const { attachments, onChange, disabled } = props;
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
@@ -92,7 +93,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="overflow-y-scroll relative flex-1" ref={listRef}>
-        {len === 0 && <DragAndCopy onChange={uploadAttachment} />}
+        {len === 0 && <DragAndCopy onChange={uploadAttachment} disabled={disabled} />}
         {len > 0 && (
           <ul className="-right-2 w-full h-full flex flex-wrap">
             {attachments.map((attachment) => (
@@ -123,6 +124,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         variant={'ghost'}
                         className="h-5 w-5 p-0 rounded-full focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => onDelete(attachment.id)}
+                        disabled={disabled}
                       >
                         <X />
                       </Button>
@@ -157,7 +159,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           </ul>
         )}
       </div>
-      <FileInput onChange={uploadAttachment} />
+      {!disabled && <FileInput onChange={uploadAttachment} />}
     </div>
   );
 };

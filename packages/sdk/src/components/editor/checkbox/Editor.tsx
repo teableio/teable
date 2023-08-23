@@ -4,7 +4,7 @@ import type { ICellEditor } from '../type';
 type ICheckboxEditor = ICellEditor<boolean>;
 
 export const CheckboxEditor = (props: ICheckboxEditor) => {
-  const { value, onChange, className, style } = props;
+  const { value, onChange, className, style, disabled } = props;
 
   return (
     <Checkbox
@@ -14,6 +14,7 @@ export const CheckboxEditor = (props: ICheckboxEditor) => {
       onCheckedChange={(checked) => {
         onChange?.(Boolean(checked));
       }}
+      disabled={disabled}
     />
   );
 };

@@ -11,7 +11,7 @@ import type {
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   AttachmentEditor,
   CheckboxEditor,
@@ -20,12 +20,19 @@ import {
   SelectEditor,
   TextEditor,
 } from '../editor';
+import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: ICellValueEditor) => {
-  const { field, cellValue, onChange } = props;
+  const { field, cellValue, onChange, disabled } = props;
   const { type, options } = field;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<IEditorRef<any>>(null);
+
+  useEffect(() => {
+    editorRef?.current?.setValue?.(cellValue);
+  }, [cellValue]);
 
   const selectOptions = useCallback((options: ISelectFieldOptions) => {
     return options.choices.map(({ name, color }) => ({
@@ -41,15 +48,23 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.SingleLineText: {
         return (
           <TextEditor
+            ref={editorRef}
             className="h-8"
             value={cellValue as ISingleLineTextCellValue}
             onChange={onChange}
+            disabled={disabled}
           ></TextEditor>
         );
       }
       case FieldType.Number: {
         return (
-          <NumberEditor className="h-8" value={cellValue as INumberCellValue} onChange={onChange} />
+          <NumberEditor
+            ref={editorRef}
+            className="h-8"
+            value={cellValue as INumberCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
       }
       case FieldType.SingleSelect: {
@@ -58,6 +73,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             value={cellValue as ISingleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
+            disabled={disabled}
           />
         );
       }
@@ -68,6 +84,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             isMultiple
+            disabled={disabled}
           />
         );
       }
@@ -79,6 +96,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
               className="w-6 h-6"
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
+              disabled={disabled}
             />
           </div>
         );
@@ -93,7 +111,13 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         );
       }
       case FieldType.Attachment: {
-        return <AttachmentEditor value={cellValue as IAttachmentCellValue} onChange={onChange} />;
+        return (
+          <AttachmentEditor
+            value={cellValue as IAttachmentCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
       }
       case FieldType.Link: {
         return (
@@ -101,11 +125,12 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
             options={options as ILinkFieldOptions}
             onChange={onChange}
+            disabled={disabled}
           />
         );
       }
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, cellValue, onChange, selectOptions, options]);
+  }, [type, cellValue, onChange, disabled, selectOptions, options]);
 };
