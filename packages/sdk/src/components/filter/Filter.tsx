@@ -245,7 +245,7 @@ function Filter(props: IFilterProps) {
         >
           <div className="text-[11px] px-4 py-2 bg-accent max-w-full flex justify-start items-center rounded-t">
             <Share2 className="h-4 w-4 shrink-0 mr-4" />
-            <span className="text-zinc-500">
+            <span className="text-muted-foreground">
               This view is being used in a view share link. Modifications to the view configuration
               will also change the view share link.
             </span>
@@ -254,7 +254,7 @@ function Filter(props: IFilterProps) {
             {filters?.filterSet?.length ? (
               <div className="pt-3 px-4">{title}</div>
             ) : (
-              <div className="text-gray-400 pt-4 px-4">{emptyText}</div>
+              <div className="text-muted-foreground pt-4 px-4">{emptyText}</div>
             )}
           </div>
           <div className="px-4 pt-3">{conditionCreator()}</div>
