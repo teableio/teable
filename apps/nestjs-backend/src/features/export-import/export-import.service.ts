@@ -1,7 +1,7 @@
-import * as fs from 'fs';
+import fs from 'fs';
+import zlib from 'zlib';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
-import zlib from 'zlib';
 import { PrismaService } from '../../prisma.service';
 
 @Injectable()
@@ -29,9 +29,6 @@ export class ExportImportService {
       throw new NotFoundException('File not found at provided URL');
     }
     await this.prismaService.$disconnect();
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
 
     await new Promise((resolve, reject) => {
       const gunzip = zlib.createGunzip();
