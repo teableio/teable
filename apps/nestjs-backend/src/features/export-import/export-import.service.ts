@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as archiver from 'archiver';
 import axios from 'axios';
+import fsExtra from 'fs-extra';
 import * as unzipper from 'unzipper';
 import { PrismaService } from '../../prisma.service';
 
@@ -10,6 +11,13 @@ export class ExportImportService {
   private logger = new Logger(ExportImportService.name);
 
   constructor(private readonly prismaService: PrismaService) {}
+
+  private getFilePermissions(filePath: string) {
+    const stats = fsExtra.statSync(filePath);
+    // Extracting the permissions from the mode using a more accurate mask
+    return (stats.mode & 0o777).toString(8);
+  }
+
   async createZipStream(filePath: string): Promise<NodeJS.ReadableStream> {
     await this.prune();
     const archive = archiver.create('zip');
@@ -27,12 +35,17 @@ export class ExportImportService {
       throw new NotFoundException('File not found at provided URL');
     }
 
-    return new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       response.data
         .pipe(unzipper.Extract({ path: outputDir }))
         .on('close', resolve)
         .on('error', reject);
     });
+    const permissionBefore = this.getFilePermissions(outputDir);
+    this.logger.log('permissionBefore:' + permissionBefore);
+    fsExtra.chmodSync(outputDir, '755');
+    const permissionAfter = this.getFilePermissions(outputDir);
+    this.logger.log('permissionAfter:' + permissionAfter);
   }
 
   async logDatabaseSize() {
