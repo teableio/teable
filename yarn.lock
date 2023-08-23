@@ -7995,6 +7995,7 @@ __metadata:
     "@storybook/react": 6.5.13
     "@tailwindcss/aspect-ratio": 0.4.2
     "@teable-group/eslint-config-bases": "workspace:^"
+    "@teable-group/icons": "workspace:^"
     "@testing-library/jest-dom": 5.16.5
     "@testing-library/react": 13.4.0
     "@types/jest": 29.2.0

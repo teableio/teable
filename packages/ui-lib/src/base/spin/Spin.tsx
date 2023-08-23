@@ -1,7 +1,8 @@
-import classNames from 'classnames';
+import { cn } from '../../shadcn';
+
 export const Spin: React.FC<{ className?: string }> = ({ className }) => {
   return (
-    <svg className={classNames('animate-spin h-5 w-5', className)} viewBox="0 0 24 24">
+    <svg className={cn('animate-spin h-5 w-5', className)} viewBox="0 0 24 24">
       <path
         className="opacity-75"
         fill="currentColor"

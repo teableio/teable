@@ -15,7 +15,7 @@ export const View = (props: IView) => {
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
 
   return (
-    <div className="w-full grow overflow-hidden">
+    <div className="w-full grow overflow-hidden pl-2">
       {isHydrated && <GridView expandRecordRef={expandRecordRef} />}
       {isHydrated && (
         <ExpandRecordContainer ref={expandRecordRef} recordServerData={recordServerData} />

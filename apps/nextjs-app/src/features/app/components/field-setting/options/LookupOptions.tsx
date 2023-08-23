@@ -3,8 +3,8 @@ import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
+import { Selector } from '@teable-group/ui-lib/base';
 import { useMemo } from 'react';
-import { Selector } from '../Selector';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;

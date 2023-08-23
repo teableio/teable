@@ -28,7 +28,8 @@ export class ExportImportService {
     if (response.status !== 200) {
       throw new NotFoundException('File not found at provided URL');
     }
-    await this.prismaService.$disconnect();
+
+    await this.prismaService.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
 
     await new Promise((resolve, reject) => {
       const gunzip = zlib.createGunzip();
@@ -98,7 +99,8 @@ export class ExportImportService {
     );
 
     this.logger.log('prune succeed!');
-    await this.prismaService.$executeRawUnsafe('VACUUM');
+    // await this.prismaService.$queryRaw`VACUUM`;
+    await this.prismaService.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
     this.logger.log('vacuum db space succeed!');
     return await this.logDatabaseSize();
   }

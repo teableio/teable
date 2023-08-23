@@ -7,10 +7,10 @@ import type {
 import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { RollupField } from '@teable-group/sdk/model';
+import { Selector } from '@teable-group/ui-lib/base';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { useIsMultipleCellValue } from '../hooks';
-import { Selector } from '../Selector';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
 export const RollupOptions = (props: {

@@ -190,8 +190,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             <span className="label-text mb-2">Type</span>
           </div>
           <SelectFieldType
-            value={field.type}
-            isLookup={field.isLookup}
+            value={field.isLookup ? 'lookup' : field.type}
             onChange={updateFieldTypeWithLookup}
           />
           <p className="text-xs font-medium text-left text-slate-500">

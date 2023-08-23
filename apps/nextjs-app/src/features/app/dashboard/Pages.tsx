@@ -1,3 +1,4 @@
+import { AnchorProvider } from '@teable-group/sdk/context';
 import {
   Tabs,
   TabsList,
@@ -8,57 +9,34 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  Button,
+  Skeleton,
 } from '@teable-group/ui-lib/shadcn';
-import { Search } from 'lucide-react';
-import Image from 'next/image';
-import { CalendarDateRangePicker } from './components/DateRangePicker';
-import { MainNav } from './components/MainNav';
+import { useRef, useState } from 'react';
+import { useIsHydrated } from '@/lib/use-is-hydrated';
+import { GridView } from '../blocks/view/grid/GridView';
+import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
+import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
 import { Overview } from './components/Overview';
+import { Pickers } from './components/Pickers';
 import { RecentSales } from './components/RecentSales';
-import TeamSwitcher from './components/TeamSwitcher';
-import { UserNav } from './components/UserNav';
 
-export default function DashboardPage() {
+export function DashboardPage() {
+  const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
+  const isHydrated = useIsHydrated();
+  const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
+  const { viewId, tableId } = anchor;
+
   return (
-    <>
-      <div className="md:hidden">
-        <Image
-          src="/examples/dashboard-light.png"
-          width={1280}
-          height={866}
-          alt="Dashboard"
-          className="block dark:hidden"
-        />
-        <Image
-          src="/examples/dashboard-dark.png"
-          width={1280}
-          height={866}
-          alt="Dashboard"
-          className="hidden dark:block"
-        />
-      </div>
-      <div className="hidden flex-col md:flex">
-        <div className="border-b">
-          <div className="flex h-16 items-center px-4">
-            <TeamSwitcher />
-            <MainNav className="mx-6" />
-            <div className="ml-auto flex items-center space-x-4">
-              <Search />
-              <UserNav />
-            </div>
-          </div>
-        </div>
-        <div className="flex-1 space-y-4 p-8 pt-6">
-          <div className="flex items-center justify-between space-y-2">
+    <AnchorProvider viewId={viewId} tableId={tableId} fallback={<Skeleton />}>
+      {isHydrated && <ExpandRecordContainer ref={expandRecordRef} />}
+      <div className="flex-col md:flex h-full">
+        <div className="flex flex-col flex-1 gap-4 px-8 h-full overflow-y-auto">
+          <div className="flex items-center justify-between space-y-2 sticky top-0 bg-white z-10 pt-6 pb-2">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-            <div className="flex items-center space-x-2">
-              <CalendarDateRangePicker />
-              <Button>Download</Button>
-            </div>
+            <Pickers setAnchor={setAnchor} />
           </div>
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList>
+            <TabsList className="shrink-0">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="analytics" disabled>
                 Analytics
@@ -70,7 +48,7 @@ export default function DashboardPage() {
                 Notifications
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="space-y-4">
+            <TabsContent value="overview" className="grow space-y-4">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -83,14 +61,14 @@ export default function DashboardPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      className="h-4 w-4 text-muted-foreground"
+                      className="text-muted-foreground h-4 w-4"
                     >
                       <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                     </svg>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">$45,231.89</div>
-                    <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+                    <p className="text-muted-foreground text-xs">+20.1% from last month</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -104,7 +82,7 @@ export default function DashboardPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      className="h-4 w-4 text-muted-foreground"
+                      className="text-muted-foreground h-4 w-4"
                     >
                       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
@@ -113,7 +91,7 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">+2350</div>
-                    <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+                    <p className="text-muted-foreground text-xs">+180.1% from last month</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -127,7 +105,7 @@ export default function DashboardPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      className="h-4 w-4 text-muted-foreground"
+                      className="text-muted-foreground h-4 w-4"
                     >
                       <rect width="20" height="14" x="2" y="5" rx="2" />
                       <path d="M2 10h20" />
@@ -135,7 +113,7 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">+12,234</div>
-                    <p className="text-xs text-muted-foreground">+19% from last month</p>
+                    <p className="text-muted-foreground text-xs">+19% from last month</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -149,14 +127,14 @@ export default function DashboardPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      className="h-4 w-4 text-muted-foreground"
+                      className="text-muted-foreground h-4 w-4"
                     >
                       <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                     </svg>
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">+573</div>
-                    <p className="text-xs text-muted-foreground">+201 since last hour</p>
+                    <p className="text-muted-foreground text-xs">+201 since last hour</p>
                   </CardContent>
                 </Card>
               </div>
@@ -179,10 +157,15 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
               </div>
+              <div className="grid grid-cols-1">
+                <div className="h-[600px] w-full overflow-hidden rounded-xl border bg-card text-card-foreground shadow ">
+                  {viewId && <GridView expandRecordRef={expandRecordRef} />}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
       </div>
-    </>
+    </AnchorProvider>
   );
 }

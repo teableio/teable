@@ -43,6 +43,7 @@ export class PrismaService
       console.error('Failed due to:', error);
       process.exit(1);
     });
+    await this.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
 
     if (process.env.NODE_ENV === 'production') return;
 

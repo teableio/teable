@@ -1,8 +1,8 @@
 import type { ILinkFieldOptionsRo } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { useTables } from '@teable-group/sdk/hooks';
+import { Selector } from '@teable-group/ui-lib/base';
 import { Label, Switch } from '@teable-group/ui-lib/shadcn';
-import { SelectTable } from '../SelectTable';
 
 export const LinkOptions = (props: {
   options: Partial<ILinkFieldOptionsRo> | undefined;
@@ -30,9 +30,14 @@ export const LinkOptions = (props: {
   }
 
   return (
-    <div className="space-y-2 w-full">
+    <div className="gap-2 w-full flex flex-col">
       <span className="neutral-content label-text">Link table</span>
-      <SelectTable value={foreignTableId} onChange={onForeignTableIdChange} tables={tables} />
+      <Selector
+        selectedId={foreignTableId}
+        onChange={onForeignTableIdChange}
+        candidates={tables}
+        placeholder="Select table..."
+      />
       <div className="flex items-center space-x-2">
         <Switch
           id="field-options-auto-fill"

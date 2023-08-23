@@ -31,7 +31,7 @@ export interface IFieldStatic {
   title: string;
   defaultOptions: unknown;
   // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-explicit-any
-  Icon: any;
+  Icon: React.FC<any>;
 }
 
 export const useFieldStaticGetter = () => {
