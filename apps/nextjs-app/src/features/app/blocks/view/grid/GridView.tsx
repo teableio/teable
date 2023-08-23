@@ -11,6 +11,7 @@ import {
   useView,
   useViewId,
 } from '@teable-group/sdk';
+import { Skeleton } from '@teable-group/ui-lib/shadcn';
 import { isEqual } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -334,24 +335,13 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           onRowExpand={onRowExpand}
         />
       ) : (
-        <Grid
-          ref={gridRef}
-          theme={theme}
-          rowCount={3}
-          rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
-          freezeColumnCount={0}
-          columns={Array.from({ length: 4 }).map(() => ({ name: '' }))}
-          smoothScrollX
-          smoothScrollY
-          customIcons={customIcons}
-          rowControls={rowControls}
-          style={{
-            marginLeft: 8,
-            width: 'calc(100% - 8px)',
-            height: '100%',
-          }}
-          getCellContent={getCellContent}
-        />
+        <div className="flex items-center space-x-4 w-full">
+          <div className="space-y-3 px-2 w-full">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+          </div>
+        </div>
       )}
       <DomBox />
     </div>

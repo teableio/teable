@@ -19,7 +19,7 @@ export interface IEditorContainerProps
     IInteractionLayerProps,
     | 'theme'
     | 'coordInstance'
-    | 'scrollTo'
+    | 'scrollToItem'
     | 'getCellContent'
     | 'onCopy'
     | 'onPaste'
@@ -67,7 +67,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     scrollState,
     activeCell,
     selection,
-    scrollTo,
+    scrollToItem,
     onCopy,
     onPaste,
     onChange,
@@ -156,10 +156,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     cell: cellContent,
     isEditing,
     activeCell,
-    scrollState,
     selection,
     coordInstance,
-    scrollTo,
+    scrollToItem,
     onCopy,
     onPaste,
     onDelete,

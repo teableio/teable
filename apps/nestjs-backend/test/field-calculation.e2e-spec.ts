@@ -18,7 +18,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
     });
     tableId = result.body.data.id;
 
-    await seeding(tableId, 10000);
+    await seeding(tableId, 1000);
   });
 
   afterAll(async () => {

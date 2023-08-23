@@ -60,8 +60,8 @@ export interface IInteractionLayerProps
   spriteManager: SpriteManager;
   coordInstance: CoordinateManager;
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
-  scrollTo: (sl?: number, st?: number) => void;
   scrollBy: (deltaX: number, deltaY: number) => void;
+  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
 }
 
 export interface IInteractionLayerRef {
@@ -87,7 +87,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnStatistics,
     forceRenderFlag,
     setMouseState,
-    scrollTo,
+    scrollToItem,
     scrollBy,
     getCellContent,
     onCopy,
@@ -115,11 +115,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
       switch (type) {
         case SelectionRegionType.Cells: {
-          setActiveCell(ranges[0]);
+          const activeCell = ranges[0];
+          setActiveCell(activeCell);
+          scrollToItem(activeCell);
           break;
         }
         case SelectionRegionType.Columns: {
-          setActiveCell([ranges[0][0], 0]);
+          const activeCell = [ranges[0][0], 0] as ICellItem;
+          setActiveCell(activeCell);
+          scrollToItem(activeCell);
           break;
         }
         default: {
@@ -511,7 +515,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         ref={editorContainerRef}
         theme={theme}
         isEditing={isEditing}
-        scrollTo={scrollTo}
+        scrollToItem={scrollToItem}
         setEditing={setEditing}
         activeCell={activeCell}
         setActiveCell={setActiveCell}
