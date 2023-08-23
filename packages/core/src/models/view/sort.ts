@@ -9,7 +9,7 @@ export type IOrder = z.infer<typeof orders>;
 const orders = z.union([asc, desc]);
 
 export const sortItemSchema = z.object({
-  column: z.string(),
+  fieldId: z.string(),
   order: orders,
 });
 

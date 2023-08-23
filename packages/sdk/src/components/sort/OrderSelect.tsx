@@ -1,5 +1,4 @@
 import type { IOrder, FieldCore } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
 import { Checked, Square } from '@teable-group/icons';
 import {
   Select,
@@ -14,44 +13,25 @@ import { useFields } from '../../hooks';
 
 interface IOrderProps {
   value: IOrder;
-  column: string;
+  fieldId: string;
   onSelect: (value: IOrder) => void;
 }
-//   if (!type) {
-//     return DEFAULTOPTIONS;
-//   }
-
-//   switch (type) {
-//     case FieldType.SingleLineText:
-//       return DEFAULTOPTIONS;
-//     case FieldType.Number:
-//       return NUMBEROPTIONS;
-//     case FieldType.Checkbox:
-//       return CHECKBOXOPTIONS;
-//     case FieldType.SingleSelect:
-//       return SELECTOPTIONS;
-//     case FieldType.MultipleSelect:
-//       return SELECTOPTIONS;
-//     default:
-//       return DEFAULTOPTIONS;
-//   }
-// };
 
 function OrderSelect(props: IOrderProps) {
-  const { value, onSelect, column } = props;
+  const { value, onSelect, fieldId } = props;
 
   const fields = useFields();
 
   const field = useMemo(() => {
     const map: Record<string, FieldCore> = {};
     fields.forEach((field) => {
-      map[field.dbFieldName] = field;
+      map[field.id] = field;
     });
-    return map[column];
-  }, [column, fields]);
+    return map[fieldId];
+  }, [fieldId, fields]);
 
   const options = useMemo(() => {
-    const { type, cellValueType } = field;
+    const { cellValueType } = field;
 
     const DEFAULTOPTIONS = [
       {
@@ -75,16 +55,16 @@ function OrderSelect(props: IOrderProps) {
       },
     ];
 
-    const SELECTOPTIONS = [
-      {
-        value: 'asc',
-        label: 'first → last',
-      },
-      {
-        value: 'desc',
-        label: 'last → first',
-      },
-    ];
+    // const SELECTOPTIONS = [
+    //   {
+    //     value: 'asc',
+    //     label: 'first → last',
+    //   },
+    //   {
+    //     value: 'desc',
+    //     label: 'last → first',
+    //   },
+    // ];
 
     const CHECKBOXOPTIONS = [
       {
@@ -127,12 +107,13 @@ function OrderSelect(props: IOrderProps) {
     }
 
     /**
+     * todo
      * for select type
      * sort should sort by option's order
      */
-    if (type === FieldType.SingleSelect || type === FieldType.MultipleSelect) {
-      option = SELECTOPTIONS;
-    }
+    // if (type === FieldType.SingleSelect || type === FieldType.MultipleSelect) {
+    //   option = SELECTOPTIONS;
+    // }
 
     return option || DEFAULTOPTIONS;
   }, [field]);

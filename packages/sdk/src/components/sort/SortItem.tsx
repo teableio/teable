@@ -10,14 +10,14 @@ interface ISortItemProps {
 }
 
 enum ISortKey {
-  COLUMN = 'column',
+  FIELDID = 'fieldId',
   ASCENDING = 'order',
 }
 
 function SortItem(props: ISortItemProps) {
   const { index, value, onSelect, ...restProps } = props;
 
-  const { column, order } = value;
+  const { fieldId, order } = value;
 
   const selectHandler = (_key: keyof ISortItem, _value: ISortItem[keyof ISortItem]) => {
     onSelect?.(index, { ...value, [_key]: _value });
@@ -26,15 +26,15 @@ function SortItem(props: ISortItemProps) {
   return (
     <div className="flex py-2">
       <SortFieldSelect
-        value={column}
+        value={fieldId}
+        onSelect={(value) => selectHandler(ISortKey.FIELDID, value)}
         {...restProps}
-        onSelect={(value) => selectHandler(ISortKey.COLUMN, value)}
       />
 
       <OrderSelect
         value={order}
         onSelect={(value) => selectHandler(ISortKey.ASCENDING, value)}
-        column={column}
+        fieldId={fieldId}
       />
     </div>
   );

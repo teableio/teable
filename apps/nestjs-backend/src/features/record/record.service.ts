@@ -42,6 +42,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { FilterQueryTranslator } from './translator/filter-query-translator';
+import { SortQueryTranslator } from './translator/sort-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -244,7 +245,7 @@ export class RecordService implements IAdapterService {
     const queryBuilder = this.knex(dbTableName).select(select ?? '__id');
 
     let fieldMap;
-    if (filter) {
+    if (filter || orderBy.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(prisma, tableId);
       fieldMap = fields.reduce((map, field) => {
@@ -256,13 +257,19 @@ export class RecordService implements IAdapterService {
 
     // All `where` condition-related construction work
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
+    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(
+      orderBy,
+      orderFieldName,
+      fieldMap
+    );
+
     filterQueryTranslator
       .translateToSql()
       .andWhere(where)
-      .orderBy(orderFieldName, 'asc')
-      .orderBy(orderBy)
+      .orderBy(translatedOrderby)
       .offset(offset)
       .limit(limit);
+
     return { queryBuilder };
   }
 

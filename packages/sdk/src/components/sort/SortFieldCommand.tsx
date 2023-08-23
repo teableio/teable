@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 import { useFields, useFieldStaticGetter } from '../../hooks';
 
 interface ISortFieldCommand {
-  onSelect?: (column: string) => void;
+  onSelect?: (fieldId: string) => void;
   className?: string;
   selectedFields?: string[];
 }
@@ -24,7 +24,7 @@ function SortFieldCommand(props: ISortFieldCommand) {
 
   const mergeFields = useMemo(() => {
     return fields.filter((field) =>
-      selectedFields?.length ? !selectedFields.includes(field.dbFieldName) : true
+      selectedFields?.length ? !selectedFields.includes(field.id) : true
     );
   }, [fields, selectedFields]);
 
@@ -38,11 +38,7 @@ function SortFieldCommand(props: ISortFieldCommand) {
             mergeFields.map((field) => {
               const { Icon } = fieldStaticGetter(field.type, field.isLookup);
               return (
-                <CommandItem
-                  key={field.dbFieldName}
-                  onSelect={() => onSelect?.(field.dbFieldName)}
-                  className="flex"
-                >
+                <CommandItem key={field.id} onSelect={() => onSelect?.(field.id)} className="flex">
                   <Icon className="shrink-0"></Icon>
                   <span className="pl-3 truncate">{field.name}</span>
                 </CommandItem>

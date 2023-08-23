@@ -20,7 +20,7 @@ function SortFieldSelect(props: ISortFieldSelect) {
   const displayName = useMemo(() => {
     const map: Record<string, string> = {};
     fields.forEach((field) => {
-      map[field.dbFieldName] = field.name;
+      map[field.id] = field.name;
     });
     return map[value];
   }, [fields, value]);

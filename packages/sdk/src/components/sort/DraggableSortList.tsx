@@ -55,7 +55,7 @@ function DraggableSortList(props: IDraggableSortProps) {
               style={{ listStyle: 'none', padding: 0, height: 'auto' }}
             >
               {sorts.map((sort, index) => (
-                <Draggable key={sort.column} draggableId={sort.column} index={index}>
+                <Draggable key={sort.fieldId} draggableId={sort.fieldId} index={index}>
                   {(provided) => (
                     <li
                       className="flex items-center"
@@ -69,7 +69,7 @@ function DraggableSortList(props: IDraggableSortProps) {
                       }}
                     >
                       <SortItem
-                        key={sort.column}
+                        key={sort.fieldId}
                         value={sort}
                         index={index}
                         onSelect={selectHandler}

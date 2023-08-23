@@ -22,7 +22,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
       type: IdPrefix.Record,
       orderBy: [
         {
-          column: '__created_time',
+          fieldId: '__created_time',
           order: 'desc',
         },
       ],

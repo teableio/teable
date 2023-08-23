@@ -26,7 +26,7 @@ function Sort(props: ISortProps) {
   const [innerSorts, setInnerSorts] = useState(sorts);
 
   const selectedFields = useMemo(
-    () => innerSorts?.sortObjs?.map((sort) => sort.column) || [],
+    () => innerSorts?.sortObjs?.map((sort) => sort.fieldId) || [],
     [innerSorts?.sortObjs]
   );
 
@@ -73,11 +73,11 @@ function Sort(props: ISortProps) {
     [innerSorts]
   );
 
-  const fieldSelectHandler = (column: string) => {
+  const fieldSelectHandler = (fieldId: string) => {
     setInnerSorts({
       sortObjs: [
         {
-          column: column,
+          fieldId: fieldId,
           order: 'asc',
         },
       ],
@@ -103,7 +103,7 @@ function Sort(props: ISortProps) {
         sortObjs: [
           ...innerSorts.sortObjs,
           {
-            column: value,
+            fieldId: value,
             order: 'asc',
           },
         ],
