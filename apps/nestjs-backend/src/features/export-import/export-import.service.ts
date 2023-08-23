@@ -1,9 +1,7 @@
 import * as fs from 'fs';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import * as archiver from 'archiver';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
-import fsExtra from 'fs-extra';
-import * as unzipper from 'unzipper';
+import zlib from 'zlib';
 import { PrismaService } from '../../prisma.service';
 
 @Injectable()
@@ -11,22 +9,18 @@ export class ExportImportService {
   private logger = new Logger(ExportImportService.name);
 
   constructor(private readonly prismaService: PrismaService) {}
-
-  private getFilePermissions(filePath: string) {
-    const stats = fsExtra.statSync(filePath);
-    // Extracting the permissions from the mode using a more accurate mask
-    return (stats.mode & 0o777).toString(8);
-  }
-
   async createZipStream(filePath: string): Promise<NodeJS.ReadableStream> {
     await this.prune();
-    const archive = archiver.create('zip');
-    archive.append(fs.createReadStream(filePath), { name: 'main.db' });
-    archive.finalize();
-    return archive;
+    const gzip = zlib.createGzip();
+    const source = fs.createReadStream(filePath);
+    source.pipe(gzip);
+    return gzip;
   }
 
-  async downloadAndUnzip(url: string, outputDir: string): Promise<void> {
+  async downloadAndUnzip(url: string, filePath: string): Promise<void> {
+    if (!url) {
+      throw new BadRequestException('URL is required');
+    }
     const response = await axios.get(url, {
       responseType: 'stream',
     });
@@ -34,18 +28,19 @@ export class ExportImportService {
     if (response.status !== 200) {
       throw new NotFoundException('File not found at provided URL');
     }
+    await this.prismaService.$disconnect();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
 
     await new Promise((resolve, reject) => {
+      const gunzip = zlib.createGunzip();
       response.data
-        .pipe(unzipper.Extract({ path: outputDir }))
-        .on('close', resolve)
+        .pipe(gunzip)
+        .pipe(fs.createWriteStream(filePath))
+        .on('finish', resolve)
         .on('error', reject);
     });
-    const permissionBefore = this.getFilePermissions(outputDir);
-    this.logger.log('permissionBefore:' + permissionBefore);
-    fsExtra.chmodSync(outputDir, '777');
-    const permissionAfter = this.getFilePermissions(outputDir);
-    this.logger.log('permissionAfter:' + permissionAfter);
   }
 
   async logDatabaseSize() {

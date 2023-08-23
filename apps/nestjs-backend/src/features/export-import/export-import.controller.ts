@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Res,
-  HttpCode,
-  HttpStatus,
-  Logger,
-  BadRequestException,
-  Body,
-} from '@nestjs/common';
+import { Controller, Get, Post, Res, HttpCode, HttpStatus, Logger, Body } from '@nestjs/common';
 import { dbPath } from '@teable-group/db-main-prisma';
 import { Response } from 'express';
 import { ExportImportService } from './export-import.service';
@@ -33,17 +23,6 @@ export class ExportImportController {
   @Post('import')
   @HttpCode(HttpStatus.NO_CONTENT)
   async importFile(@Body('url') url: string): Promise<void> {
-    this.logger.log('import url:' + url);
-    const regex = /^(.*\/)/;
-    const match = filePath.match(regex);
-    const outputDir = match?.[1];
-    if (!url) {
-      throw new BadRequestException('URL is required');
-    }
-    this.logger.log('outputDir:' + outputDir);
-    if (!outputDir) {
-      throw new BadRequestException('outputDir is required');
-    }
-    await this.exportImportService.downloadAndUnzip(url, outputDir);
+    await this.exportImportService.downloadAndUnzip(url, filePath);
   }
 }
