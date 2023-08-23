@@ -39,6 +39,11 @@ export class PrismaService
   async onModuleInit() {
     await this.$connect();
 
+    await this.$queryRaw`PRAGMA journal_mode = WAL;`.catch((error) => {
+      console.error('Failed due to:', error);
+      process.exit(1);
+    });
+
     if (process.env.NODE_ENV === 'production') return;
 
     this.$on('query', async (e) => {
