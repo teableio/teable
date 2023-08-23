@@ -43,7 +43,7 @@ export class ExportImportService {
     });
     const permissionBefore = this.getFilePermissions(outputDir);
     this.logger.log('permissionBefore:' + permissionBefore);
-    fsExtra.chmodSync(outputDir, '755');
+    fsExtra.chmodSync(outputDir, '777');
     const permissionAfter = this.getFilePermissions(outputDir);
     this.logger.log('permissionAfter:' + permissionAfter);
   }
