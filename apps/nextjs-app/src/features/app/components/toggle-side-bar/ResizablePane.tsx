@@ -2,7 +2,6 @@ import { useIsHydrated } from '@teable-group/sdk';
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { CloseLeftSide } from './CloseLeftSide';
 import 'allotment/dist/style.css';
 import { OpenLeftSide } from './OpenLeftSide';

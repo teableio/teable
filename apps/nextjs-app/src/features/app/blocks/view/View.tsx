@@ -1,6 +1,6 @@
 import type { IRecord } from '@teable-group/core';
+import { useIsHydrated } from '@teable-group/sdk';
 import { useRef } from 'react';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import type { IExpandRecordContainerRef } from '../../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../../components/ExpandRecordContainer';
 import { GridView } from './grid/GridView';
