@@ -214,9 +214,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
       >((pre, type) => {
         const IconComponent = getFieldStatic(type, false)?.Icon;
         const LookupIconComponent = getFieldStatic(type, true)?.Icon;
-        if (IconComponent) {
-          pre.push({ type: type, IconComponent });
-        }
+        pre.push({ type: type, IconComponent });
         if (LookupIconComponent) {
           pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
         }
@@ -313,8 +311,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           customIcons={customIcons}
           rowControls={rowControls}
           style={{
-            marginLeft: 8,
-            width: 'calc(100% - 8px)',
+            width: '100%',
             height: '100%',
           }}
           getCellContent={getCellContent}

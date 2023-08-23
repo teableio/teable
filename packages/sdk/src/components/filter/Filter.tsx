@@ -68,8 +68,7 @@ function Filter(props: IFilterProps) {
   // use the primary to be default metadata
   const defaultIFilterItem = useMemo<IFilterItem>(() => {
     const defaultField = fields.find((field) => field.isPrimary);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const defaultOpertor = getValidFilterOperators(defaultField!);
+    const defaultOpertor = defaultField && getValidFilterOperators(defaultField);
     return {
       operator: defaultOpertor?.[0],
       value: null,

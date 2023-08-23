@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { FieldProvider } from '../field';
-import { RecordProvider } from '../record';
+import { FieldContext, FieldProvider } from '../field';
+import { RecordContext, RecordProvider } from '../record';
+import { ViewContext, ViewProvider } from '../view';
 import { AnchorContext } from './AnchorContext';
 
 export interface IAnchorProvider {
@@ -22,9 +23,19 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
 
   return (
     <AnchorContext.Provider value={value}>
-      <FieldProvider fallback={fallback}>
-        <RecordProvider>{children}</RecordProvider>
-      </FieldProvider>
+      {tableId ? (
+        <FieldProvider fallback={fallback}>
+          <ViewProvider>
+            <RecordProvider>{children}</RecordProvider>
+          </ViewProvider>
+        </FieldProvider>
+      ) : (
+        <FieldContext.Provider value={{ fields: [] }}>
+          <ViewContext.Provider value={{ views: [] }}>
+            <RecordContext.Provider value={{ rowCount: 0 }}>{children}</RecordContext.Provider>
+          </ViewContext.Provider>
+        </FieldContext.Provider>
+      )}
     </AnchorContext.Provider>
   );
 };

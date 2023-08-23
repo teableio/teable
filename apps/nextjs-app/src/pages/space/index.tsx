@@ -2,7 +2,7 @@ import type { ITableVo } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
-import DashboardPage from '@/features/app/dashboard/Pages';
+import { DashboardPage } from '@/features/app/dashboard/Pages';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { NextPageWithLayout } from '../_app';
 
