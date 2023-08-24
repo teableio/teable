@@ -5,8 +5,10 @@ import type {
   IFieldVo,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
+  IRecord,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
+import qs from 'qs';
 import request from 'supertest';
 import { initApp } from './utils/init-app';
 
@@ -181,5 +183,49 @@ describe('OpenAPI RecordController (e2e)', () => {
       .expect(201);
 
     console.timeEnd(`create ${count} records`);
+  });
+
+  it('/api/table/{tableId}/record sort (GET)', async () => {
+    type ICountRecord = IRecord & {
+      fields: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        Count: number;
+      };
+    };
+
+    // select count field to sort
+    const countFiledId = fields.find((field) => field.name === 'Count')?.id;
+
+    const records = Array.from({ length: 3 }).map((_, i) => ({
+      fields: {
+        [fields[1].name]: i,
+      },
+    }));
+
+    await request(app.getHttpServer())
+      .post(`/api/table/${tableId}/record`)
+      .send({
+        records,
+      })
+      .expect(201);
+
+    const result = await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .query(
+        qs.stringify(
+          {
+            orderBy: [{ fieldId: countFiledId, order: 'asc' }],
+          },
+          { arrayFormat: 'brackets' }
+        )
+      )
+      .expect(200);
+
+    const originRecords = [...result.body.data.records];
+    const manualSortRecords = result.body.data.records.sort(
+      (a: ICountRecord, b: ICountRecord) => a?.fields?.Count - b?.fields?.Count
+    );
+
+    expect(originRecords).toEqual(manualSortRecords);
   });
 });

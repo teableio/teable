@@ -166,7 +166,7 @@ function Filter(props: IFilterProps) {
 
   /**
    * different from other way to update filters, delete need to back to parent path
-   * becase current filter item only can delelte from it's parent
+   * because current filter item only can delete from it's parent
    * @param path Filter Object Path
    * @param index the index of filterSet which need to delete
    * @returns void
@@ -257,7 +257,7 @@ function Filter(props: IFilterProps) {
             )}
           </div>
           <div className="px-4 pt-3">{conditionCreator()}</div>
-          <div className="flex p-3 w-max ">
+          <div className="flex p-3 w-max">
             <Button
               variant="ghost"
               size="xs"

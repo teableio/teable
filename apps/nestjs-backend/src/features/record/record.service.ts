@@ -25,6 +25,7 @@ import {
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
+  mergeWithDefaultSort,
   OpName,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -41,6 +42,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { FilterQueryTranslator } from './translator/filter-query-translator';
+import { SortQueryTranslator } from './translator/sort-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -243,7 +245,7 @@ export class RecordService implements IAdapterService {
     const queryBuilder = this.knex(dbTableName).select(select ?? '__id');
 
     let fieldMap;
-    if (filter) {
+    if (filter || orderBy.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(prisma, tableId);
       fieldMap = fields.reduce((map, field) => {
@@ -255,13 +257,19 @@ export class RecordService implements IAdapterService {
 
     // All `where` condition-related construction work
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
+    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(
+      orderBy,
+      orderFieldName,
+      fieldMap
+    );
+
     filterQueryTranslator
       .translateToSql()
       .andWhere(where)
-      .orderBy(orderFieldName, 'asc')
-      .orderBy(orderBy)
+      .orderBy(translatedOrderby)
       .offset(offset)
       .limit(limit);
+
     return { queryBuilder };
   }
 
@@ -384,7 +392,7 @@ export class RecordService implements IAdapterService {
 
   async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+      select: { id: true, filter: true, sort: true },
       where: {
         tableId,
         ...(query.viewId ? { id: query.viewId } : {}),
@@ -400,6 +408,7 @@ export class RecordService implements IAdapterService {
       offset: query.skip,
       limit: query.take,
       filter: query.filter,
+      orderBy: query.orderBy,
       aggregate: {
         rowCount: true,
       },
@@ -654,12 +663,13 @@ export class RecordService implements IAdapterService {
     query: IRecordSnapshotQuery
   ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
     const defaultView = await prisma.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+      select: { id: true, filter: true, sort: true },
       where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
       orderBy: { order: 'asc' },
     });
     const viewId = defaultView.id;
     const dataFilter = await mergeWithDefaultFilter(defaultView.filter, query.filter);
+    const dataSort = await mergeWithDefaultSort(defaultView.sort, query.orderBy);
 
     const { limit = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
@@ -675,6 +685,7 @@ export class RecordService implements IAdapterService {
     const { queryBuilder } = await this.buildQuery(prisma, tableId, {
       ...query,
       filter: dataFilter,
+      orderBy: dataSort,
       viewId,
     });
     const sqlNative = queryBuilder.toSQL().toNative();

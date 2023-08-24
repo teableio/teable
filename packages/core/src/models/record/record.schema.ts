@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { z } from 'zod';
 import { IdPrefix } from '../../utils';
-import { filterSchema } from '../view';
+import { filterSchema, sortItemSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -110,6 +110,9 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   }),
   filter: filterSchema.optional().openapi({
     type: 'object',
+  }),
+  orderBy: sortItemSchema.array().nonempty().optional().openapi({
+    type: 'array',
   }),
 });
 
