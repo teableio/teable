@@ -1,4 +1,5 @@
 import { StatisticsFunc } from '@teable-group/core';
+import { useIsHydrated } from '@teable-group/sdk';
 import { useViewId } from '@teable-group/sdk/hooks';
 import {
   TabsContent,
@@ -9,13 +10,13 @@ import {
   CardTitle,
 } from '@teable-group/ui-lib/shadcn';
 import { useRef } from 'react';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { GridView } from '../blocks/view/grid/GridView';
 import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
 import { Overview } from './components/Overview';
 import { RecentSales } from './components/RecentSales';
 import { useAggregates } from './hooks/useAggregates';
+
 const test = [
   StatisticsFunc.Sum,
   StatisticsFunc.Average,
