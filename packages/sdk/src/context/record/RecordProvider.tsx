@@ -20,12 +20,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
     const param: IRecordSnapshotQuery = {
       viewId,
       type: IdPrefix.Record,
-      orderBy: [
-        {
-          fieldId: '__created_time',
-          order: 'desc',
-        },
-      ],
+      orderBy: [],
       aggregate: {
         rowCount: true,
       },
