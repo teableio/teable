@@ -16,7 +16,7 @@ export const System: React.FC = () => {
     }
     setLoading(true);
     try {
-      await axios.post('/export-import/import', { url });
+      await axios.post('/api/export-import/import', { url });
     } catch (e) {
       toast({
         variant: 'destructive',
