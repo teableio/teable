@@ -1,3 +1,4 @@
+import { useIsHydrated } from '@teable-group/sdk';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import {
   Tabs,
@@ -12,8 +13,8 @@ import {
   Skeleton,
 } from '@teable-group/ui-lib/shadcn';
 import { useRef, useState } from 'react';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { GridView } from '../blocks/view/grid/GridView';
+
 import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
 import { Overview } from './components/Overview';
