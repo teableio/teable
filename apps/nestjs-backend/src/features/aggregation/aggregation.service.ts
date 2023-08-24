@@ -1,6 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { IAggregations, IFilter, IViewAggregationVo } from '@teable-group/core';
-import { mergeWithDefaultFilter, ViewType, StatisticsFunc } from '@teable-group/core';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type {
+  IAggregations,
+  IAggregationsValue,
+  IFilter,
+  IViewAggregationVo,
+} from '@teable-group/core';
+import { FieldKeyType, mergeWithDefaultFilter, ViewType, StatisticsFunc } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { AsyncFunction } from 'async';
 import async from 'async';
@@ -117,6 +122,47 @@ export class AggregationService {
       });
     }
     return viewAggregationResult;
+  }
+
+  async calculateSpecifyAggregation(
+    tableId: string,
+    fieldIdOrName: string,
+    viewId: string,
+    func: StatisticsFunc,
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
+  ): Promise<IAggregationsValue> {
+    let fieldId = fieldIdOrName;
+    if (fieldKeyType === FieldKeyType.Name) {
+      const fieldRaw = await this.prisma.field
+        .findFirstOrThrow({
+          where: { [fieldKeyType]: fieldIdOrName, tableId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException('Field not found');
+        });
+      fieldId = fieldRaw.id;
+    }
+
+    const result = await this.calculateAggregations({
+      tableId,
+      withView: {
+        viewId,
+        customFieldStats: [
+          {
+            fieldId,
+            statisticFunc: func,
+          },
+        ],
+      },
+      withFieldIds: [fieldId],
+    });
+
+    const agg = result[viewId].aggregations?.[fieldId]?.total;
+    if (!agg) {
+      throw new BadRequestException('Aggregation not found');
+    }
+    return agg;
   }
 
   private async getViewStatisticsData(

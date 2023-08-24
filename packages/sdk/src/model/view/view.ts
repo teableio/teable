@@ -4,8 +4,16 @@ import type {
   IViewVo,
   IJsonApiSuccessResponse,
   IViewAggregationVo,
+  StatisticsFunc,
+  IAggregationsValue,
 } from '@teable-group/core';
-import { filterSchema, sortSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
+import {
+  FieldKeyType,
+  sortSchema,
+  filterSchema,
+  ViewCore,
+  ViewOpBuilder,
+} from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { axios } from '../../config/axios';
 
@@ -22,6 +30,19 @@ export abstract class View extends ViewCore {
   static async getViewAggregation(tableId: string, viewId: string) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewAggregationVo>>(
       `/api/table/${tableId}/aggregation/${viewId}`
+    );
+    return response.data.data;
+  }
+
+  static async getAggregationByFunc(
+    tableId: string,
+    viewId: string,
+    fieldId: string,
+    func: StatisticsFunc
+  ) {
+    const response = await axios.get<IJsonApiSuccessResponse<IAggregationsValue>>(
+      `/api/table/${tableId}/aggregation/${viewId}/${fieldId}/${func}`,
+      { params: { fieldKeyType: FieldKeyType.Id } }
     );
     return response.data.data;
   }

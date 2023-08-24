@@ -5,7 +5,7 @@ import { Plus, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
-import produce from 'immer';
+import { produce } from 'immer';
 import { cloneDeep, isEqual, set, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';

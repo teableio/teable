@@ -13,7 +13,7 @@ export const statisticsValue2DisplayValue = (
   statFunc: StatisticsFunc,
   value: string | number | null,
   field: IFieldInstance
-) => {
+): string | null => {
   if (value == null) return null;
 
   const { cellValueType } = field;
@@ -26,7 +26,7 @@ export const statisticsValue2DisplayValue = (
     case StatisticsFunc.UnChecked:
     case StatisticsFunc.DateRangeOfDays:
     case StatisticsFunc.DateRangeOfMonths: {
-      return value;
+      return String(value);
     }
     case StatisticsFunc.Max:
     case StatisticsFunc.Min:
@@ -37,7 +37,7 @@ export const statisticsValue2DisplayValue = (
       if ([CellValueType.Number, CellValueType.DateTime].includes(cellValueType)) {
         return field.cellValue2String(value);
       }
-      return value;
+      return String(value);
     }
     case StatisticsFunc.PercentEmpty:
     case StatisticsFunc.PercentFilled:
