@@ -1,4 +1,4 @@
-import axios from '@teable-group/openapi/src/axios';
+import { axios } from '@teable-group/sdk/config/axios';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useState } from 'react';

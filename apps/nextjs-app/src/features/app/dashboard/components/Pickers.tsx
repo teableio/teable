@@ -7,7 +7,6 @@ import { Button, useToast } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useEffect } from 'react';
 import z from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import { CalendarDateRangePicker } from './DateRangePicker';
 
 export const Pickers: React.FC<{
   setAnchor(anchor: { tableId?: string; viewId?: string }): void;
@@ -46,7 +45,6 @@ export const Pickers: React.FC<{
 
   return (
     <div className="flex items-center gap-2">
-      <CalendarDateRangePicker />
       <Selector
         selectedId={table?.id}
         onChange={(tableId) => {
