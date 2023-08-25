@@ -1,13 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type {
   IAggregations,
+  IAggregationsValue,
   IFilter,
   IViewAggregationVo,
   IViewRowCountVo,
   IViewAggregationValue,
   IViewRowCountValue,
 } from '@teable-group/core';
-import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
+import { FieldKeyType, mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
@@ -81,6 +82,52 @@ export class AggregationService {
       rowCount: true,
     };
     return (await this.performAggregation(params, config)) as IViewRowCountVo;
+  }
+
+  async calculateSpecifyAggregation(
+    tableId: string,
+    fieldIdOrName: string,
+    viewId: string,
+    func: StatisticsFunc,
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
+  ): Promise<IAggregationsValue> {
+    let fieldId = fieldIdOrName;
+    if (fieldKeyType === FieldKeyType.Name) {
+      const fieldRaw = await this.prisma.field
+        .findFirstOrThrow({
+          where: { [fieldKeyType]: fieldIdOrName, tableId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException('Field not found');
+        });
+      fieldId = fieldRaw.id;
+    }
+
+    const result = await this.performAggregation(
+      {
+        tableId,
+        withView: {
+          viewId,
+          customFieldStats: [
+            {
+              fieldId,
+              statisticFunc: func,
+            },
+          ],
+        },
+        withFieldIds: [fieldId],
+      },
+      {
+        fieldAggregation: true,
+      }
+    );
+
+    const agg = result[viewId].aggregations?.[fieldId]?.total;
+    if (!agg) {
+      throw new BadRequestException('Aggregation not found');
+    }
+    return agg;
   }
 
   async performAggregation(

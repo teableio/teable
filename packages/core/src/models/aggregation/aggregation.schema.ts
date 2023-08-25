@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { IdPrefix } from '../../utils';
 import { StatisticsFunc } from './statistics-func.enum';
 
+export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
+
 export const aggregationsValueSchema = z.object({
   value: z.union([z.string(), z.number()]).nullable(),
-  aggFunc: z.nativeEnum(StatisticsFunc),
+  aggFunc: aggFuncSchema,
 });
 
 export type IAggregationsValue = z.infer<typeof aggregationsValueSchema>;
@@ -13,8 +15,12 @@ export const aggregationsSchema = z.record(
   z.string().startsWith(IdPrefix.Field),
   z
     .union([
-      z.object({ total: aggregationsValueSchema }),
-      z.record(z.union([z.literal('total'), z.string()]), aggregationsValueSchema),
+      z.object({ total: aggregationsValueSchema }).openapi({
+        description: 'Aggregations by all data in field',
+      }),
+      z.record(z.union([z.literal('total'), z.string()]), aggregationsValueSchema).openapi({
+        description: 'Aggregations by grouped data in field',
+      }),
     ])
     .nullable()
 );

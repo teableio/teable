@@ -29,7 +29,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/sdk.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "run-s test-unit-jest",
-    "test-unit-jest": "jest --config jest.config.js --colors --logHeapUsage --silent",
+    "test-unit-jest": "jest --config jest.config.js --colors --logHeapUsage",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {
@@ -43,6 +43,8 @@
     "classnames": "2.3.2",
     "dayjs": "1.11.8",
     "dequal": "^2.0.3",
+    "immer": "10.0.2",
+    "knex": "2.4.0",
     "lodash": "4.17.21",
     "react-use": "17.4.0",
     "reconnecting-websocket": "4.4.0",

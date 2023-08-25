@@ -1,7 +1,6 @@
-import { useTableId, useTables } from '@teable-group/sdk';
+import { useTableId, useTables, useIsHydrated } from '@teable-group/sdk';
 import type { OnDragEndResponder } from 'react-beautiful-dnd';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
 import { TableListItem } from './TableListItem';
 
 export const DraggableList: React.FC = () => {

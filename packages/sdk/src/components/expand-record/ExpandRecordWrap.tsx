@@ -5,16 +5,17 @@ import { IExpandRecordModel } from './type';
 
 export const ExpandRecordWrap: FC<
   PropsWithChildren<{
-    visible?: boolean;
     model?: IExpandRecordModel;
+    visible?: boolean;
+    showActivity?: boolean;
     onClose?: () => void;
   }>
 > = (props) => {
-  const { children, model, visible, onClose } = props;
+  const { children, model, visible, showActivity, onClose } = props;
 
   if (model === IExpandRecordModel.Modal)
     return (
-      <Modal visible={visible} onClose={onClose}>
+      <Modal visible={visible} showActivity={showActivity} onClose={onClose}>
         {children}
       </Modal>
     );

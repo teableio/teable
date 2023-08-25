@@ -2,12 +2,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IRecord } from '@teable-group/core';
-import { CellValueType, FieldType, Relationship } from '@teable-group/core';
+import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRo } from '../field/model/factory';
+import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import type { NumberFieldDto } from '../field/model/field-dto/number-field.dto';
+import type { SingleLineTextFieldDto } from '../field/model/field-dto/single-line-text-field.dto';
 import { CalculationModule } from './calculation.module';
 import type { ITopoItemWithRecords } from './reference.service';
 import { ReferenceService } from './reference.service';
@@ -340,7 +344,10 @@ describe('ReferenceService', () => {
             dbForeignKeyName: 'dbForeignKeyName1',
             symmetricFieldId: 'symmetricField1',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+          isMultipleCellValue: true,
+        } as LinkFieldDto),
         // {
         //   dbTableName: 'A',
         //   fieldId: 'oneToManyB',
@@ -359,7 +366,10 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'manyToOneA',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+          isMultipleCellValue: true,
+        } as LinkFieldDto),
         // fieldB is a special field depend on oneToManyC, may be convert it to formula field
         fieldB: createFieldInstanceByRo({
           id: 'fieldB',
@@ -369,9 +379,10 @@ describe('ReferenceService', () => {
             expression: '{oneToManyC}',
           },
           cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
           isMultipleCellValue: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any),
+          isComputed: true,
+        } as FormulaFieldDto),
         manyToOneA: createFieldInstanceByRo({
           id: 'manyToOneA',
           name: 'manyToOneA',
@@ -383,7 +394,9 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneA',
             symmetricFieldId: 'oneToManyB',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+        } as LinkFieldDto),
         // {
         //   dbTableName: 'B',
         //   fieldId: 'oneToManyC',
@@ -402,12 +415,17 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'manyToOneB',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+          isMultipleCellValue: true,
+        } as LinkFieldDto),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+        } as SingleLineTextFieldDto),
         // {
         //   dbTableName: 'C',
         //   fieldId: 'manyToOneB',
@@ -426,7 +444,9 @@ describe('ReferenceService', () => {
             dbForeignKeyName: '__fk_manyToOneB',
             symmetricFieldId: 'oneToManyC',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+        } as LinkFieldDto),
       };
 
       fieldId2TableId = {
@@ -692,7 +712,9 @@ describe('ReferenceService', () => {
           options: {
             formatting: { precision: 1 },
           },
-        }),
+          cellValueType: CellValueType.Number,
+          dbFieldType: DbFieldType.Real,
+        } as NumberFieldDto),
         fieldB: createFieldInstanceByRo({
           id: 'fieldB',
           name: 'fieldB',
@@ -700,12 +722,17 @@ describe('ReferenceService', () => {
           options: {
             expression: '{fieldA} & {fieldC}',
           },
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          isComputed: true,
+        } as FormulaFieldDto),
         fieldC: createFieldInstanceByRo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
-        }),
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+        } as SingleLineTextFieldDto),
       };
 
       const fieldId2TableId = {

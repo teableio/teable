@@ -18,6 +18,7 @@ export interface ScrollerProps
   left?: number;
   top?: number;
   scrollEnable?: boolean;
+  scrollState: IScrollState;
   setScrollState: React.Dispatch<React.SetStateAction<IScrollState>>;
 }
 
@@ -39,6 +40,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     smoothScrollX,
     smoothScrollY,
     scrollEnable = true,
+    scrollState,
     setScrollState,
     onVisibleRegionChanged,
   } = props;
@@ -108,11 +110,11 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
 
     const { startRowIndex, stopRowIndex } = getVerticalRangeInfo(
       coordInstance,
-      scrollProps.scrollTop ?? verticalScrollRef.current.scrollTop
+      scrollProps.scrollTop ?? scrollState.scrollTop
     );
     const { startColumnIndex, stopColumnIndex } = getHorizontalRangeInfo(
       coordInstance,
-      scrollProps.scrollLeft ?? horizontalScrollRef.current.scrollLeft
+      scrollProps.scrollLeft ?? scrollState.scrollLeft
     );
 
     onVisibleRegionChanged?.({
@@ -185,7 +187,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     <>
       <div
         ref={horizontalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-scroll overflow-y-hidden h-4 left-0 bottom-[2px] scrollbar scrollbar-h-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-ring/60"
+        className="absolute will-change-transform cursor-pointer overflow-x-scroll overflow-y-hidden h-4 left-0 bottom-[2px] scrollbar scrollbar-h-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-foreground/40"
         style={{
           left,
           width: containerWidth - left,
@@ -202,7 +204,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       </div>
       <div
         ref={verticalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-hidden overflow-y-scroll w-4 right-[2px] scrollbar scrollbar-w-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-ring/60 scrollbar-min-thumb"
+        className="absolute will-change-transform cursor-pointer overflow-x-hidden overflow-y-scroll w-4 right-[2px] scrollbar scrollbar-w-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-foreground/40 scrollbar-min-thumb"
         style={{
           top,
           height: containerHeight - top,

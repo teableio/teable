@@ -45,7 +45,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           )}
         >
           <div className="flex justify-between p-1">
-            <span className="leading-10 rounded pl-2 text-[13px] text-[#5c5f65]">
+            <span className="leading-10 rounded pl-2 text-[13px] text-muted-foreground">
               Any of the following are true…
             </span>
 

@@ -1,10 +1,24 @@
 import type { ITableVo } from '@teable-group/core';
+import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import DashboardPage from '@/features/app/dashboard/Pages';
+import { SsrApi } from '@/backend/api/rest/table.ssr';
+import { DashboardPage } from '@/features/app/dashboard/Pages';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { NextPageWithLayout } from '../_app';
 
 const Node: NextPageWithLayout = () => <DashboardPage />;
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const result = await new SsrApi().getTables();
+  if (!result.success) {
+    throw new Error('Failed to fetch tables');
+  }
+  return {
+    props: {
+      tableServerData: result.data,
+    },
+  };
+};
 
 Node.getLayout = function getLayout(
   page: ReactElement,

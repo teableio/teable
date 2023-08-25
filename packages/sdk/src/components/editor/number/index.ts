@@ -1,2 +1,2 @@
-export * from './EditorMain';
-export { NumberEditorMain as NumberEditor } from './EditorMain';
+export * from './Editor';
+export { NumberEditor as NumberEditorMain } from './Editor';

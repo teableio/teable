@@ -63,11 +63,14 @@ export interface IGridProps extends IGridExternalProps {
 export interface IGridRef {
   getBounds: (colIndex: number, rowIndex: number) => IRectangle | null;
   forceUpdate: () => void;
+  setSelection: (selection: CombinedSelection) => void;
+  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
 }
 
 const {
   scrollBuffer,
   appendRowHeight,
+  cellScrollBuffer,
   columnAppendBtnWidth,
   columnStatisticHeight,
   rowHeight: defaultRowHeight,
@@ -118,6 +121,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         height: coordInstance.getRowHeight(rowIndex),
       };
     },
+    scrollToItem,
     forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
     setSelection: (selection: CombinedSelection) => {
       interactionLayerRef.current?.setSelection(selection);
@@ -202,6 +206,39 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollerRef.current?.scrollBy(deltaX, deltaY);
   }, []);
 
+  const scrollToItem = useCallback(
+    (position: [columnIndex: number, rowIndex: number]) => {
+      const { containerHeight, containerWidth, freezeRegionWidth, freezeColumnCount, rowInitSize } =
+        coordInstance;
+      const { scrollTop, scrollLeft } = scrollState;
+      const [columnIndex, rowIndex] = position;
+      const isFreezeColumn = columnIndex < freezeColumnCount;
+
+      if (!isFreezeColumn) {
+        const offsetX = coordInstance.getColumnOffset(columnIndex);
+        const columnWidth = coordInstance.getColumnWidth(columnIndex);
+        const deltaLeft = Math.min(offsetX - scrollLeft - freezeRegionWidth, 0);
+        const deltaRight = Math.max(offsetX + columnWidth - scrollLeft - containerWidth, 0);
+        const sl = scrollLeft + deltaLeft + deltaRight;
+        if (sl !== scrollLeft) {
+          const scrollBuffer =
+            deltaLeft < 0 ? -cellScrollBuffer : deltaRight > 0 ? cellScrollBuffer : 0;
+          scrollTo(sl + scrollBuffer, undefined);
+        }
+      }
+
+      const rowHeight = coordInstance.getRowHeight(rowIndex);
+      const offsetY = coordInstance.getRowOffset(rowIndex);
+      const deltaTop = Math.min(offsetY - scrollTop - rowInitSize, 0);
+      const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight, 0);
+      const st = scrollTop + deltaTop + deltaBottom;
+      if (st !== scrollTop) {
+        scrollTo(undefined, st);
+      }
+    },
+    [coordInstance, scrollState, scrollTo]
+  );
+
   const onMouseDown = useCallback(() => {
     containerRef.current?.focus();
   }, []);
@@ -233,7 +270,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           setMouseState={setMouseState}
           getCellContent={getCellContent}
           forceRenderFlag={forceRenderFlag}
-          scrollTo={scrollTo}
+          scrollToItem={scrollToItem}
           scrollBy={scrollBy}
           onCopy={onCopy}
           onPaste={onPaste}
@@ -266,6 +303,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
         containerRef={containerRef}
+        scrollState={scrollState}
         setScrollState={setScrollState}
         scrollEnable={mouseState.type !== RegionType.None}
         onVisibleRegionChanged={onVisibleRegionChanged}

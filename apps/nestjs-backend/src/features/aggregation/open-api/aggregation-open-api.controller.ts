@@ -40,4 +40,26 @@ export class AggregationOpenApiController {
     const result = await this.aggregationOpenApiService.getViewRowCount(tableId, viewId);
     return responseWrap(result);
   }
+
+  @Get(':viewId/:fieldIdOrName/:func')
+  @ApiOperation({ summary: 'Get a specify aggregation from view by field and func name' })
+  @ApiOkResponse({
+    type: ApiResponse<IAggregationsValue>,
+  })
+  async getViewAggregatesByFunc(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Param('fieldIdOrName') fieldIdOrName: string,
+    @Param('func', new ZodValidationPipe(aggFuncSchema)) func: StatisticsFunc,
+    @Query('fieldKeyType', new ZodValidationPipe(fieldKeyTypeRoSchema)) fieldKeyType?: FieldKeyType
+  ): Promise<ApiResponse<IAggregationsValue>> {
+    const result = await this.aggregationService.calculateSpecifyAggregation(
+      tableId,
+      fieldIdOrName,
+      viewId,
+      func,
+      fieldKeyType
+    );
+    return responseWrap(result);
+  }
 }

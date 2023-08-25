@@ -1,28 +1,44 @@
-import type { INumberShowAs, IRollupFieldOptions, IUnionFormatting } from '@teable-group/core';
+import type {
+  ILookupOptionsRo,
+  INumberShowAs,
+  IRollupFieldOptions,
+  IUnionFormatting,
+} from '@teable-group/core';
 import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
+import type { IFieldInstance } from '@teable-group/sdk/model';
 import { RollupField } from '@teable-group/sdk/model';
+import { Selector } from '@teable-group/ui-lib/base';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
-import { Selector } from '../Selector';
+import { useIsMultipleCellValue } from '../hooks';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
 export const RollupOptions = (props: {
   options: Partial<IRollupFieldOptions> | undefined;
   isLookup?: boolean;
+  lookupField?: IFieldInstance;
+  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
-  const { options = {}, isLookup, onChange } = props;
+  const { options = {}, isLookup, lookupField, lookupOptions, onChange } = props;
   const { formatting, expression } = options;
 
+  const isLookupFieldMultiple = useIsMultipleCellValue(isLookup, lookupField, lookupOptions);
+
   const { cellValueType, isMultipleCellValue } = useMemo(() => {
-    try {
-      return expression
-        ? RollupField.getParsedValueType(expression)
-        : { cellValueType: CellValueType.String, isMultipleCellValue: false };
-    } catch (e) {
-      return { cellValueType: CellValueType.String, isMultipleCellValue: false };
+    if (isLookup && lookupField) {
+      return {
+        cellValueType: lookupField.cellValueType,
+        isMultipleCellValue: lookupField.isMultipleCellValue,
+      };
     }
-  }, [expression]);
+    const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
+    try {
+      return expression ? RollupField.getParsedValueType(expression) : defaultResult;
+    } catch (e) {
+      return defaultResult;
+    }
+  }, [expression, isLookup, lookupField]);
 
   const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
     onChange?.({
@@ -32,7 +48,23 @@ export const RollupOptions = (props: {
 
   const onFormattingChange = (value?: IUnionFormatting) => {
     const formatting = value;
+    if (isLookup) {
+      return onChange?.({
+        formatting,
+        expression: (lookupField?.options as IRollupFieldOptions)?.expression ?? expression,
+      });
+    }
     onChange?.({ formatting });
+  };
+
+  const onShowAsChange = (value?: INumberShowAs) => {
+    if (isLookup) {
+      return onChange?.({
+        showAs: value,
+        expression: (lookupField?.options as IRollupFieldOptions)?.expression ?? expression,
+      });
+    }
+    onChange?.({ showAs: value });
   };
 
   const candidates = useMemo(() => {
@@ -61,10 +93,6 @@ export const RollupOptions = (props: {
     });
   }, []);
 
-  const onShowAsChange = (value?: INumberShowAs) => {
-    onChange?.({ showAs: value });
-  };
-
   return (
     <div className="w-full space-y-2">
       {!isLookup && (
@@ -91,7 +119,7 @@ export const RollupOptions = (props: {
         <UnionShowAs
           showAs={options?.showAs}
           cellValueType={cellValueType}
-          isMultipleCellValue={isMultipleCellValue}
+          isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
           onChange={onShowAsChange}
         />
       </div>

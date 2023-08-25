@@ -6,7 +6,7 @@ export interface IDateEditorMain extends ICellEditor<Date> {
 }
 
 export const DateEditorMain = (props: IDateEditorMain) => {
-  const { value, style, className, onChange } = props;
+  const { value, style, className, onChange, disabled } = props;
 
   const onSelect = (value?: Date) => {
     onChange?.(value);
@@ -19,6 +19,7 @@ export const DateEditorMain = (props: IDateEditorMain) => {
       selected={value}
       onSelect={onSelect}
       className={className}
+      disabled={disabled}
     />
   );
 };

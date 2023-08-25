@@ -8,7 +8,7 @@ import { SelectEditorMain } from './EditorMain';
 import { SelectTag } from './SelectTag';
 
 export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain<T>) => {
-  const { value, options = [], isMultiple, onChange, className, style } = props;
+  const { value, options = [], isMultiple, onChange, className, style, disabled } = props;
   const [open, setOpen] = useState(false);
   const selectRef = useRef<HTMLButtonElement>(null);
 
@@ -31,7 +31,7 @@ export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger ref={selectRef} asChild>
+      <PopoverTrigger ref={selectRef} asChild disabled={disabled}>
         <Button
           style={style}
           variant="outline"

@@ -8,7 +8,9 @@ import { TeableEventEmitterModule } from './event-emitter/event-emitter.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
+import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
+import { ExportImportModule } from './features/export-import/export-import.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
@@ -34,7 +36,9 @@ import { WsModule } from './ws/ws.module';
     TeableEventEmitterModule.register(),
     NextModule,
     FileTreeModule,
+    ExportImportModule,
     TableOpenApiModule,
+    BaseModule,
     ChatModule,
     AttachmentsModule,
     AutomationModule,

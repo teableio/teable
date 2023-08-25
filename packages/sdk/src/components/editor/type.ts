@@ -3,4 +3,10 @@ export interface ICellEditor<T> {
   style?: React.CSSProperties;
   value?: T;
   onChange?: (value?: T) => void;
+  disabled?: boolean;
+}
+
+export interface IEditorRef<T> {
+  focus?: () => void;
+  setValue?: (value?: T) => void;
 }

@@ -1,41 +1,78 @@
-import type { FC, PropsWithChildren } from 'react';
-import { AnchorProvider } from '../../context';
+import type { IRecord } from '@teable-group/core';
+import { useToast } from '@teable-group/ui-lib';
+import { type FC, type PropsWithChildren } from 'react';
+import { useLocalStorage } from 'react-use';
+import { AnchorProvider, ViewProvider } from '../../context';
 import { useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
-import { useExpandRecord } from './store';
-import { IExpandRecordModel } from './type';
+import type { IExpandRecordModel } from './type';
 
 const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const { tableId, children } = props;
   const currentTableId = useTableId();
 
   if (tableId !== currentTableId) {
-    return <AnchorProvider tableId={tableId}>{children}</AnchorProvider>;
+    return (
+      <AnchorProvider tableId={tableId}>
+        <ViewProvider>{children}</ViewProvider>
+      </AnchorProvider>
+    );
   }
   return <>{children}</>;
 };
 
-export const ExpandRecorder = () => {
-  const { records, removeExpandRecord } = useExpandRecord();
+interface IExpandRecorderProps {
+  tableId: string;
+  viewId?: string;
+  recordId?: string;
+  recordIds?: string[];
+  model?: IExpandRecordModel;
+  serverData?: IRecord;
+  onClose?: () => void;
+  onUpdateRecordIdCallback?: (recordId: string) => void;
+}
 
-  const onCloseInner = (recordId: string, tableId?: string, onClose?: () => void) => {
-    onClose?.();
-    removeExpandRecord(tableId, recordId);
+export const ExpandRecorder = (props: IExpandRecorderProps) => {
+  const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
+    props;
+  const { toast } = useToast();
+  const [showActivity, setShowActivity] = useLocalStorage<boolean>('showActivity', true);
+
+  if (!recordId) {
+    return <></>;
+  }
+
+  const updateCurrentRecordId = (recordId: string) => {
+    onUpdateRecordIdCallback?.(recordId);
+  };
+
+  const onCopyUrl = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url);
+    toast({ description: 'Copy to clipboard' });
+  };
+
+  const onShowActivity = () => {
+    setShowActivity(!showActivity);
   };
 
   return (
-    <div>
-      {records.map(({ recordId, tableId, serverData, onClose }) => (
-        <Wrap key={`${tableId}-${recordId}`} tableId={tableId}>
-          <ExpandRecord
-            visible
-            recordId={recordId}
-            serverData={serverData}
-            forceModel={IExpandRecordModel.Modal}
-            onClose={() => onCloseInner(recordId, tableId, onClose)}
-          />
-        </Wrap>
-      ))}
+    <div id={`${tableId}-${recordId}`}>
+      <Wrap tableId={tableId}>
+        <ExpandRecord
+          visible
+          model={model}
+          recordId={recordId}
+          recordIds={recordIds}
+          serverData={serverData?.id === recordId ? serverData : undefined}
+          showActivity={showActivity}
+          onClose={onClose}
+          onPrev={updateCurrentRecordId}
+          onNext={updateCurrentRecordId}
+          onCopyUrl={onCopyUrl}
+          onShowActivity={onShowActivity}
+        />
+      </Wrap>
     </div>
   );
 };

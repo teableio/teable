@@ -1,72 +1,56 @@
-import classNames from 'classnames';
-import { useMeasure } from 'react-use';
-import { useFieldStaticGetter } from '../../hooks';
+import { Button } from '@teable-group/ui-lib';
+import { useRef } from 'react';
+import { useMeasure, useToggle } from 'react-use';
 import type { Field, Record } from '../../model';
-import { CellEditor } from '../cell-value-editor';
+import { RecordEditorItem } from './RecordEditorItem';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const EDITOR_VERTICAL_MIN = 570;
 
 export const RecordEditor = (props: {
   fields: Field[];
-  record: Record;
+  record: Record | undefined;
+  hiddenFields?: Field[];
   onChange?: (newValue: unknown, fieldId: string) => void;
 }) => {
   const [ref, { width }] = useMeasure<HTMLDivElement>();
-  const { fields, record, onChange } = props;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const { fields, hiddenFields = [], record, onChange } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
-  return (
-    <div ref={ref} className="max-w-2xl mx-auto space-y-6">
-      {fields.map((field) => (
-        <RecordEditorItem
-          key={field.id}
-          vertical={vertical}
-          field={field}
-          record={record}
-          onChange={onChange}
-        />
-      ))}
-    </div>
-  );
-};
-
-const RecordEditorItem = (props: {
-  field: Field;
-  record: Record;
-  vertical?: boolean;
-  onChange?: (newValue: unknown, fieldId: string) => void;
-}) => {
-  const { field, record, vertical, onChange } = props;
-  const { type, isLookup } = field;
-  const fieldStaticeGetter = useFieldStaticGetter();
-  const { Icon } = fieldStaticeGetter(type, isLookup);
-
-  const cellValue = record.getCellValue(field.id);
-  const onChangeInner = (value: unknown) => {
-    onChange?.(value, field.id);
-  };
+  const [showHiddenFields, toggle] = useToggle(false);
 
   return (
-    <div className={classNames('space-y-2', vertical && 'flex space-y-0 space-x-2')}>
-      <div className={classNames('w-full flex items-top space-x-1', vertical && 'w-36')}>
-        <div className="w-5 h-5 flex items-center">
-          <Icon />
-        </div>
-        <div
-          className={classNames(
-            'text-sm flex-1 truncate',
-            vertical && 'break-words whitespace-normal'
-          )}
-        >
-          {field.name}
-        </div>
+    <div ref={ref} className="max-w-2xl">
+      <div ref={wrapRef} className="space-y-6 mx-auto">
+        {fields.map((field) => (
+          <RecordEditorItem
+            key={field.id}
+            vertical={vertical}
+            field={field}
+            record={record}
+            onChange={onChange}
+          />
+        ))}
+        {hiddenFields.length !== 0 && (
+          <div className="flex items-center gap-2">
+            <div className="border-top-width h-[1px] flex-1 bg-border" />
+            <Button variant={'outline'} size={'xs'} onClick={toggle}>
+              {showHiddenFields ? 'Hide' : 'Show'} {hiddenFields.length} hidden field
+            </Button>
+            <div className="border-top-width h-[1px] flex-1 bg-border" />
+          </div>
+        )}
+        {showHiddenFields &&
+          hiddenFields?.map((field) => (
+            <RecordEditorItem
+              key={field.id}
+              vertical={vertical}
+              field={field}
+              record={record}
+              onChange={onChange}
+            />
+          ))}
       </div>
-      <CellEditor
-        className="min-w-0 flex-1 p-0.5"
-        cellValue={cellValue}
-        onChange={onChangeInner}
-        field={field}
-      />
     </div>
   );
 };

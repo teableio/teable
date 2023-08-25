@@ -1,3 +1,4 @@
+import { useIsHydrated } from '@teable-group/sdk';
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -18,6 +19,16 @@ export const ResizablePane: React.FC<{
   );
 
   const [left, center, right] = children;
+  const isHydrated = useIsHydrated();
+  if (!isHydrated) {
+    return (
+      <>
+        {left}
+        {center}
+        {right}
+      </>
+    );
+  }
 
   return (
     <>

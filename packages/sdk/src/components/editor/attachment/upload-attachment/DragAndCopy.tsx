@@ -1,7 +1,11 @@
 import classNames from 'classnames';
 import { useState } from 'react';
 
-export const DragAndCopy = (props: { onChange?: (files: FileList) => void }) => {
+export const DragAndCopy = (props: {
+  onChange?: (files: FileList) => void;
+  disabled?: boolean;
+}) => {
+  const { onChange, disabled } = props;
   const [isFileDragIn, setIsFileDragIn] = useState(false);
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -18,15 +22,16 @@ export const DragAndCopy = (props: { onChange?: (files: FileList) => void }) => 
 
   const uploadFiles = (files: FileList) => {
     if (files.length === 0) return;
-    props.onChange?.(files);
+    onChange?.(files);
   };
 
   return (
-    <div className="w-full h-16 flex flex-col focus:bg-red">
+    <div className="w-full h-full min-h-[64px] flex flex-col focus:bg-red">
       <div
         className={classNames(
           'flex-1 w-full bg-foreground/5 text-foreground/60 rounded-md flex items-center justify-center border border-dashed',
-          isFileDragIn && 'border-foreground'
+          isFileDragIn && 'border-foreground',
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
         onDrop={handleFileDrop}
         onDragEnter={() => setIsFileDragIn(true)}

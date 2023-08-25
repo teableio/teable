@@ -15,7 +15,7 @@ export class OpListenersManager<T> {
     doc.on('op', handler);
     this.opListeners.set(doc.id, () => {
       doc.removeListener('op', handler);
-      doc.destroy();
+      doc.listenerCount('op') === 0 && doc.destroy();
     });
   }
 

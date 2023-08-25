@@ -11,11 +11,9 @@ import { RowCountProvider } from '@teable-group/sdk/context/aggregation/RowCount
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
-import { useIsHydrated } from '@/lib/use-is-hydrated';
-import { ExpandRecordContainer } from '../../components/ExpandRecordContainer';
 import { FailAlert } from '../table-list/FailAlert';
 import { ToolBar } from '../tool-bar/ToolBar';
-import { GridView } from '../view/grid/GridView';
+import { View } from '../view/View';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
@@ -34,7 +32,6 @@ export const Table: React.FC<ITableProps> = ({
   const table = useTable();
   const router = useRouter();
   const { nodeId, viewId } = router.query;
-  const isHydrated = useIsHydrated();
   useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
 
   return (
@@ -54,10 +51,7 @@ export const Table: React.FC<ITableProps> = ({
                       </div>
                     }
                   >
-                    <div className="w-full grow overflow-hidden">
-                      {isHydrated && <GridView />}
-                      {isHydrated && <ExpandRecordContainer recordServerData={recordServerData} />}
-                    </div>
+                    <View recordServerData={recordServerData} />
                   </ErrorBoundary>
                 </RowCountProvider>
               </RecordProvider>

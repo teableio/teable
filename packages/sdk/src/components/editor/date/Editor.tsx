@@ -6,11 +6,11 @@ import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
 
 export const DateEditor = (props: IDateEditorMain) => {
-  const { value, onChange, className } = props;
+  const { value, onChange, className, disabled } = props;
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant={'outline'}
           className={classNames(

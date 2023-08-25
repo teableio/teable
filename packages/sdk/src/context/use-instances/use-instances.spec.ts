@@ -10,6 +10,7 @@ describe('useInstances hook', () => {
     on: jest.fn(),
     once: jest.fn(),
     removeAllListeners: jest.fn(),
+    removeListener: jest.fn(),
     destroy: jest.fn(),
   };
 
@@ -18,6 +19,7 @@ describe('useInstances hook', () => {
       ...arg,
       on: jest.fn(),
       destroy: jest.fn(),
+      listenerCount: jest.fn(),
       removeEventListener: jest.fn(),
       removeListener: jest.fn(),
     } as any);
