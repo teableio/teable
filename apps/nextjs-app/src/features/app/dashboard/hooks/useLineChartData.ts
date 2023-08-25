@@ -1,5 +1,5 @@
 import { CellValueType, FieldType } from '@teable-group/core';
-import { useFields, useTable } from '@teable-group/sdk/hooks';
+import { useFields, useTable, useViewId } from '@teable-group/sdk/hooks';
 import { Base } from '@teable-group/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -11,6 +11,7 @@ interface IData {
 export function useLineChartData() {
   const fields = useFields();
   const table = useTable();
+  const viewId = useViewId();
   const [data, setData] = useState<IData[]>([]);
   const selectField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
@@ -24,7 +25,7 @@ export function useLineChartData() {
     [fields]
   );
   useEffect(() => {
-    if (!table || !selectField || !numberField) {
+    if (!table || !selectField || !numberField || !viewId) {
       return;
     }
     if (table.id !== selectField.tableId) {
@@ -38,11 +39,10 @@ export function useLineChartData() {
       .min(numberColumn + ' as total')
       .avg(numberColumn + ' as average')
       .groupBy(nameColumn)
-      .toSQL()
-      .toNative();
+      .toString();
 
     console.log('useLineChartData:sqlQuery:', nativeSql);
-    Base.sqlQuery(nativeSql).then((result) => {
+    Base.sqlQuery(table.id, viewId, nativeSql).then((result) => {
       console.log('useLineChartData:sqlQuery:', result);
       setData(
         (result as IData[]).map(({ total, average }) => ({
@@ -51,6 +51,6 @@ export function useLineChartData() {
         }))
       );
     });
-  }, [fields, selectField, numberField, table]);
+  }, [fields, selectField, numberField, table, viewId]);
   return data;
 }

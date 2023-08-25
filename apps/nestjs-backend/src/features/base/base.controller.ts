@@ -12,7 +12,7 @@ export class BaseController {
 
   @Post('sqlQuery')
   async sqlQuery(@Body(new ZodValidationPipe(sqlQuerySchemaRo)) param: ISqlQuerySchemaRo) {
-    const snapshot = await this.baseService.sqlQuery(param.sql, param.bindings);
+    const snapshot = await this.baseService.sqlQuery(param.tableId, param.viewId, param.sql);
     return responseWrap(snapshot);
   }
 }

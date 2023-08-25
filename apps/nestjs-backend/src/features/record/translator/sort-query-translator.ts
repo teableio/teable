@@ -13,12 +13,14 @@ export class SortQueryTranslator {
       return defaultOrderby;
     }
 
-    return orderBy.map((order) => {
-      const field = fields[order?.fieldId];
-      return {
-        column: field?.dbFieldName || order.fieldId,
-        order: order.order,
-      };
-    });
+    return defaultOrderby.concat(
+      orderBy.map((order) => {
+        const field = fields[order?.fieldId];
+        return {
+          column: field?.dbFieldName || order.fieldId,
+          order: order.order,
+        };
+      })
+    );
   }
 }
