@@ -7677,7 +7677,6 @@ __metadata:
     "@types/supertest": 2.0.12
     "@types/ws": 8.5.3
     ajv: 8.12.0
-    async: 3.2.4
     axios: 1.1.3
     class-transformer: 0.5.1
     class-validator: 0.14.0
@@ -7712,7 +7711,7 @@ __metadata:
     prettier: 2.7.1
     reflect-metadata: 0.1.13
     rimraf: 3.0.2
-    rxjs: 7.5.7
+    rxjs: 7.8.1
     sharp: 0.32.1
     supertest: 6.3.3
     symlink-dir: 5.0.1
@@ -10830,19 +10829,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"async@npm:3.2.4, async@npm:^3.2.3":
-  version: 3.2.4
-  resolution: "async@npm:3.2.4"
-  checksum: 43d07459a4e1d09b84a20772414aa684ff4de085cbcaec6eea3c7a8f8150e8c62aa6cd4e699fe8ee93c3a5b324e777d34642531875a0817a35697522c1b02e89
-  languageName: node
-  linkType: hard
-
 "async@npm:^2.6.3":
   version: 2.6.4
   resolution: "async@npm:2.6.4"
   dependencies:
     lodash: "npm:^4.17.14"
   checksum: a52083fb32e1ebe1d63e5c5624038bb30be68ff07a6c8d7dfe35e47c93fc144bd8652cbec869e0ac07d57dde387aa5f1386be3559cdee799cb1f789678d88e19
+  languageName: node
+  linkType: hard
+
+"async@npm:^3.2.3":
+  version: 3.2.4
+  resolution: "async@npm:3.2.4"
+  checksum: 43d07459a4e1d09b84a20772414aa684ff4de085cbcaec6eea3c7a8f8150e8c62aa6cd4e699fe8ee93c3a5b324e777d34642531875a0817a35697522c1b02e89
   languageName: node
   linkType: hard
 

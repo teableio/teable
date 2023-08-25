@@ -1,38 +1,38 @@
-import type { IViewAggregationVo } from '@teable-group/core';
-import { getAggregationChannel } from '@teable-group/core/dist/models/channel';
+import type { IViewRowCountVo } from '@teable-group/core';
+import { getRowCountChannel } from '@teable-group/core/dist/models/channel';
 import type { Presence } from '@teable/sharedb/lib/client';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import { View } from '../../model';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
-import { AggregationContext } from './AggregationContext';
+import { RowCountContext } from './RowCountContext';
 
-interface IAggregationProviderProps {
+interface IRowCountProviderProps {
   children: ReactNode;
 }
 
 const previousSet = new Set();
 
-export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
+export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [viewAggregation, setViewAggregation] = useState<IViewAggregationVo>({});
+  const [rowCount, setRowCount] = useState<number>(0);
 
   useEffect(() => {
     if (!tableId || !viewId || !connection) {
       return;
     }
 
-    const channel = getAggregationChannel(tableId, viewId);
+    const channel = getRowCountChannel(tableId, viewId);
     setRemotePresence(connection.getPresence(channel));
 
     if (!remotePresence?.subscribed) {
       remotePresence?.subscribe((err) => err && console.error);
-      remotePresence?.on('receive', (id, viewAggregation: IViewAggregationVo) => {
-        setViewAggregation(viewAggregation);
+      remotePresence?.on('receive', (id, res: IViewRowCountVo) => {
+        setRowCount(res[viewId].rowCount ?? 0);
       });
     }
 
@@ -46,13 +46,11 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
     if (previousSet.has(`${tableId}-${viewId}`)) return;
     previousSet.add(`${tableId}-${viewId}`);
 
-    View.getViewAggregation(tableId, viewId).then((res) => {
+    View.getViewRowCount(tableId, viewId).then((res) => {
       previousSet.clear();
-      setViewAggregation(res);
+      setRowCount(res[viewId].rowCount ?? 0);
     });
   }, [tableId, viewId, connection]);
 
-  return (
-    <AggregationContext.Provider value={viewAggregation}>{children}</AggregationContext.Provider>
-  );
+  return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
 };

@@ -270,7 +270,7 @@ export const GridView: React.FC = () => {
         <Grid
           ref={gridRef}
           theme={theme}
-          rowCount={rowCount}
+          rowCount={rowCount ?? Object.keys(recordMap)?.length}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
           columnStatistics={columnStatistics}
           freezeColumnCount={1}

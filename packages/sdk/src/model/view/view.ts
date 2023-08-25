@@ -3,6 +3,7 @@ import type {
   IViewVo,
   IJsonApiSuccessResponse,
   IViewAggregationVo,
+  IViewRowCountVo,
 } from '@teable-group/core';
 import { filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
@@ -21,6 +22,13 @@ export abstract class View extends ViewCore {
   static async getViewAggregation(tableId: string, viewId: string) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewAggregationVo>>(
       `/api/table/${tableId}/aggregation/${viewId}`
+    );
+    return response.data.data;
+  }
+
+  static async getViewRowCount(tableId: string, viewId: string) {
+    const response = await axios.get<IJsonApiSuccessResponse<IViewRowCountVo>>(
+      `/api/table/${tableId}/aggregation/${viewId}/rowCount`
     );
     return response.data.data;
   }

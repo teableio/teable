@@ -9,6 +9,11 @@ export const percentFormatting = (value: number) => {
   return (Math.floor(value * pow) / pow).toString();
 };
 
+export const bytesToMB = (bytes: number) => {
+  const mb = bytes / 1048576;
+  return (mb <= 1 ? 0 : mb.toFixed(2)).toString();
+};
+
 export const statisticsValue2DisplayValue = (
   statFunc: StatisticsFunc,
   value: string | number | null,
@@ -45,6 +50,9 @@ export const statisticsValue2DisplayValue = (
     case StatisticsFunc.PercentChecked:
     case StatisticsFunc.PercentUnChecked: {
       return `${percentFormatting(value as number)}%`;
+    }
+    case StatisticsFunc.TotalAttachmentSize: {
+      return `${bytesToMB(value as number)}MB`;
     }
   }
 };

@@ -6,9 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  IAggregateQueryResult,
   IAttachmentCellValue,
-  IAttachmentItem,
   ICreateRecordsRo,
   IGetRecordsQuery,
   IRecord,
@@ -17,6 +15,7 @@ import type {
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
+  IExtraResult,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -196,20 +195,11 @@ export class RecordService implements IAdapterService {
       .map((dbValues) => `(${dbValues.map((value) => JSON.stringify(value)).join(', ')})`)
       .join(',\n');
 
-    // console.log('allDbFieldNames: ', allDbFieldNames);
-    // console.log('dbFieldSQL: ', dbFieldSQL);
-    // console.log('dbValueMatrix: ', dbValueMatrix);
-    // console.log('dbValuesSQL: ', dbValuesSQL);
-
-    const result = await prisma.$executeRawUnsafe(`
+    return await prisma.$executeRawUnsafe(`
       INSERT INTO ${dbTableName} (${dbFieldSQL})
       VALUES 
         ${dbValuesSQL};
     `);
-
-    console.log('sqlExecuteResult: ', result);
-
-    return result;
   }
 
   // we have to support multiple action, because users will do it in batch
@@ -400,9 +390,6 @@ export class RecordService implements IAdapterService {
       offset: query.skip,
       limit: query.take,
       filter: query.filter,
-      aggregate: {
-        rowCount: true,
-      },
     });
 
     const recordSnapshot = await this.getSnapshotBulk(
@@ -412,16 +399,8 @@ export class RecordService implements IAdapterService {
       undefined,
       query.fieldKeyType || FieldKeyType.Name
     );
-
-    const total = queryResult.extra?.rowCount;
-
-    if (total == undefined) {
-      throw new InternalServerErrorException('Can not get row count');
-    }
-
     return {
       records: recordSnapshot.map((r) => r.data),
-      total,
     };
   }
 
@@ -638,21 +617,11 @@ export class RecordService implements IAdapterService {
       });
   }
 
-  transformAttachmentCellValue(
-    cellValue: string[] | null,
-    attachmentsMap: { [key: string]: IAttachmentItem }
-  ) {
-    if (!cellValue) {
-      return null;
-    }
-    return cellValue.map((atc) => attachmentsMap[atc]).filter(Boolean);
-  }
-
   async getDocIdsByQuery(
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery
-  ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
+  ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const defaultView = await prisma.view.findFirstOrThrow({
       select: { id: true, filter: true },
       where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
@@ -684,12 +653,6 @@ export class RecordService implements IAdapterService {
       ...sqlNative.bindings
     );
     const ids = result.map((r) => r.__id);
-
-    if (query.aggregate?.rowCount) {
-      const rowCount = await this.getRowCount(prisma, tableId, viewId, queryBuilder);
-      return { ids, extra: { rowCount } };
-    }
-
     return { ids };
   }
 

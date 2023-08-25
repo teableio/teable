@@ -5,7 +5,7 @@ export interface IViewPageProps {
   tableServerData: ITableVo[];
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
-  recordsServerData: { records: IRecord[]; total: number };
+  recordsServerData: { records: IRecord[] };
 }
 
 export const getViewPageServerData = async (
@@ -16,12 +16,12 @@ export const getViewPageServerData = async (
   const tableResult = await api.getTable(nodeId as string, viewId as string);
   if (tableResult.success) {
     const tablesResult = await api.getTables();
-    const { fields, views, records, total } = tableResult.data;
+    const { fields, views, records } = tableResult.data;
     return {
       tableServerData: tablesResult.success ? tablesResult.data : [],
       fieldServerData: fields,
       viewServerData: views,
-      recordsServerData: { records, total },
+      recordsServerData: { records },
     };
   }
   return undefined;

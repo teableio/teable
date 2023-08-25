@@ -7,6 +7,7 @@ import {
   useTable,
   ViewProvider,
 } from '@teable-group/sdk';
+import { RowCountProvider } from '@teable-group/sdk/context/aggregation/RowCountProvider';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
@@ -45,18 +46,20 @@ export const Table: React.FC<ITableProps> = ({
             <FieldProvider serverSideData={fieldServerData}>
               <ToolBar />
               <RecordProvider serverData={recordsServerData}>
-                <ErrorBoundary
-                  fallback={
-                    <div className="w-full h-full flex justify-center items-center">
-                      <FailAlert />
+                <RowCountProvider>
+                  <ErrorBoundary
+                    fallback={
+                      <div className="w-full h-full flex justify-center items-center">
+                        <FailAlert />
+                      </div>
+                    }
+                  >
+                    <div className="w-full grow overflow-hidden">
+                      {isHydrated && <GridView />}
+                      {isHydrated && <ExpandRecordContainer recordServerData={recordServerData} />}
                     </div>
-                  }
-                >
-                  <div className="w-full grow overflow-hidden">
-                    {isHydrated && <GridView />}
-                    {isHydrated && <ExpandRecordContainer recordServerData={recordServerData} />}
-                  </div>
-                </ErrorBoundary>
+                  </ErrorBoundary>
+                </RowCountProvider>
               </RecordProvider>
             </FieldProvider>
           </div>

@@ -60,7 +60,7 @@ export function getSimpleAggRawSql(
     }
     case StatisticsFunc.PercentUnique: {
       if (isMultipleCellValue) {
-        return `select (count(distinct json_each.value)* 1.0 / count(*)) * 100 as value from ${dbTableName}, json_each(${dbTableName}.${dbFieldName})`;
+        return `select (count(distinct json_each.value) * 1.0 / count(*)) * 100 as value from ${dbTableName}, json_each(${dbTableName}.${dbFieldName})`;
       }
       return `(count(distinct ${dbTableName}.${dbFieldName}) * 1.0 / count(*)) * 100`;
     }
@@ -75,6 +75,9 @@ export function getSimpleAggRawSql(
         return `select max(json_each.value) || ',' || min(json_each.value) as value from ${dbTableName}, json_each(${dbTableName}.${dbFieldName})`;
       }
       return `max(${dbTableName}.${dbFieldName}) || ',' || min(${dbTableName}.${dbFieldName})`;
+    }
+    case StatisticsFunc.TotalAttachmentSize: {
+      return `select sum(json_extract(json_each.value, '$.size')) as value from ${dbTableName}, json_each(${dbTableName}.${dbFieldName})`;
     }
   }
 }

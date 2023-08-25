@@ -1,10 +1,10 @@
+import { statisticFunc2NameMap } from '@teable-group/core';
 import type { IViewAggregationVo } from '@teable-group/core';
 import { useAggregation, useFields, useViewId } from '@teable-group/sdk/hooks';
 import { statisticsValue2DisplayValue } from '@teable-group/sdk/utils';
 import { isEmpty } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../../../grid';
-import { statisticFunc2NameMap } from '../utils';
 
 export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
