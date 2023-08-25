@@ -1,10 +1,12 @@
-import { CellValueType, FieldType } from '@teable-group/core';
+import type { ISelectFieldOptions } from '@teable-group/core';
+import { Colors, ColorUtils, CellValueType, FieldType } from '@teable-group/core';
 import { useFields, useTable } from '@teable-group/sdk/hooks';
 import { Base } from '@teable-group/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IData {
   name: string;
+  color: string;
   total: number;
 }
 
@@ -46,6 +48,10 @@ export function useChartData() {
         (result as IData[]).map(({ total, name }) => ({
           name: name || 'Untitled',
           total: total || 0,
+          color: ColorUtils.getHexForColor(
+            (groupingField.options as ISelectFieldOptions).choices.find((c) => c.name === name)
+              ?.color || Colors.TealLight1
+          ),
         }))
       );
     });

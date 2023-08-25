@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@teable-group/ui-lib/shadcn';
-import { Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useChartData } from '../hooks/useChartData';
 
 export function PieChartCard({ className }: { className?: string }) {
@@ -57,7 +57,11 @@ export function PieChartCard({ className }: { className?: string }) {
               nameKey="name"
               stroke="hsl(var(--background))"
               fill="hsl(var(--foreground))"
-            />
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={data[index].color} />
+              ))}
+            </Pie>
           </PieChart>
         </ResponsiveContainer>
       </CardContent>
