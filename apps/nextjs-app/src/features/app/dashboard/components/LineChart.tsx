@@ -13,10 +13,8 @@ export function LineChartCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Exercise Minutes</CardTitle>
-        <CardDescription>
-          Your excercise minutes are ahead of where you normally are.
-        </CardDescription>
+        <CardTitle>Comparison</CardTitle>
+        <CardDescription>Compare average and minimum values.</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="h-[200px]">

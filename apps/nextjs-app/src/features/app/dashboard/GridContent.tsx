@@ -6,8 +6,8 @@ import { useRef } from 'react';
 import { GridView } from '../blocks/view/grid/GridView';
 import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
+import { BarChartCard } from './components/BarChart';
 import { LineChartCard } from './components/LineChart';
-import { Overview } from './components/Overview';
 import { PieChartCard } from './components/PieChart';
 import { useAggregates } from './hooks/useAggregates';
 
@@ -59,7 +59,7 @@ export const GridContent: React.FC = () => {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <Overview />
+            <BarChartCard />
           </CardContent>
         </Card>
         <PieChartCard className="col-span-4" />

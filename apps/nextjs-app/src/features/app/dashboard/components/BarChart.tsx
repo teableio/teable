@@ -1,7 +1,7 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { useChartData } from '../hooks/useChartData';
 
-export function Overview() {
+export function BarChartCard() {
   const data = useChartData();
   return (
     <ResponsiveContainer width="100%" height={350}>
