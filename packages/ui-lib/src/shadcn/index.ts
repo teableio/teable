@@ -19,3 +19,5 @@ export * from './ui/checkbox';
 export * from './ui/avatar';
 export * from './ui/tabs';
 export * from './ui/card';
+export * from './ui/separator';
+export * from './ui/skeleton';

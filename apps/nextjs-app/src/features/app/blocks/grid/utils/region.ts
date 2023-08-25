@@ -8,12 +8,14 @@ interface ICheckRegionProps
   extends Pick<
     IRenderLayerProps,
     | 'theme'
+    | 'height'
     | 'scrollState'
     | 'dragState'
     | 'selection'
     | 'isSelecting'
     | 'columnResizeState'
     | 'coordInstance'
+    | 'columnStatistics'
   > {
   rowControls: IRowControlItem[];
   isOutOfBounds: boolean;
@@ -36,6 +38,7 @@ export const getRegionType = (props: ICheckRegionProps): RegionType => {
     checkIfColumnResizing(props) ||
     checkIfDragging(props) ||
     checkIsAppendColumn(props) ||
+    checkIsColumnStatistic(props) ||
     checkIsAllCheckbox(props) ||
     checkIsAppendRow(props) ||
     checkIsRowHeader(props) ||
@@ -70,6 +73,15 @@ const checkIsAppendColumn = (props: ICheckRegionProps): RegionType | null => {
   const { position, hasAppendColumn } = props;
   const { rowIndex, columnIndex } = position;
   return hasAppendColumn && rowIndex >= -1 && columnIndex === -2 ? RegionType.AppendColumn : null;
+};
+
+const checkIsColumnStatistic = (props: ICheckRegionProps): RegionType | null => {
+  const { position, columnStatistics, height } = props;
+  if (columnStatistics == null) return null;
+  const { y, columnIndex } = position;
+  const { columnStatisticHeight } = GRID_DEFAULT;
+  const isColumnStatistic = inRange(y, height - columnStatisticHeight, height) && columnIndex > -1;
+  return isColumnStatistic ? RegionType.ColumnStatistic : null;
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): RegionType | null => {

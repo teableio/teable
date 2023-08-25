@@ -39,6 +39,18 @@ export class CombinedSelection {
   }
 
   public set(type: SelectionRegionType, ranges: IRange[]) {
+    if (!Array.isArray(ranges)) {
+      throw Error('Ranges of the selection should be an array type!');
+    }
+
+    if (type === SelectionRegionType.Cells && ranges.length < 2) {
+      throw Error('Ranges of type cells should have a length greater than 2!');
+    }
+
+    if ([SelectionRegionType.Columns, SelectionRegionType.Rows].includes(type) && !ranges.length) {
+      throw Error('Ranges of type columns or rows should have a length greater than 1!');
+    }
+
     return new CombinedSelection(type, ranges);
   }
 

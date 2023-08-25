@@ -2,13 +2,13 @@ import type { ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
-import type { LinkField } from '@teable-group/sdk/model';
+import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
+import { Selector } from '@teable-group/ui-lib/base';
 import { useMemo } from 'react';
-import { Selector } from '../Selector';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;
-  onChange: (id: string, type: FieldType) => void;
+  onChange: (lookupField: IFieldInstance) => void;
 }> = ({ selectedId, onChange }) => {
   const fields = useFields();
   const table = useTable();
@@ -22,8 +22,7 @@ const SelectFieldByTableId: React.FC<{
         placeholder="Select a field..."
         selectedId={selectedId}
         onChange={(id) => {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          onChange(id, fields.find((f) => f.id === id)!.type);
+          onChange(fields.find((f) => f.id === id) as IFieldInstance);
         }}
         candidates={fields.map((f) => {
           const Icon = getFieldStatic(f.type, f.isLookup).Icon;
@@ -40,7 +39,7 @@ const SelectFieldByTableId: React.FC<{
 
 export const LookupOptions = (props: {
   options: Partial<ILookupOptionsRo> | undefined;
-  onChange?: (options: Partial<ILookupOptionsRo> & { type?: FieldType }) => void;
+  onChange?: (options: Partial<ILookupOptionsRo> & { lookupField?: IFieldInstance }) => void;
 }) => {
   const { options = {}, onChange } = props;
   const fields = useFields();
@@ -75,8 +74,8 @@ export const LookupOptions = (props: {
             <AnchorProvider tableId={options.foreignTableId}>
               <SelectFieldByTableId
                 selectedId={options.lookupFieldId}
-                onChange={(fieldId: string, fieldType: FieldType) =>
-                  onChange?.({ lookupFieldId: fieldId, type: fieldType })
+                onChange={(lookupField: IFieldInstance) =>
+                  onChange?.({ lookupFieldId: lookupField.id, lookupField })
                 }
               />
             </AnchorProvider>

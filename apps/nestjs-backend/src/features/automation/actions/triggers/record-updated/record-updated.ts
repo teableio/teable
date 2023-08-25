@@ -3,7 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ISetRecordOpContext } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { map, intersection, isEmpty } from 'lodash';
-import { EventEnums, RecordEvent } from '../../../../../share-db/events';
+import type { RecordUpdatedEvent } from '../../../../../event-emitter/model';
+import { EventEnums } from '../../../../../event-emitter/model';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema, IObjectArraySchema } from '../../action-core';
@@ -22,10 +23,10 @@ export interface ITriggerRecordUpdated {
 }
 
 @Injectable()
-export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
-  @OnEvent(EventEnums.RecordUpdated, { async: true })
-  async listenerTrigger(event: RecordEvent) {
-    const { tableId, recordId, context } = event;
+export class TriggerRecordUpdated extends TriggerCore<RecordUpdatedEvent> {
+  // @OnEvent(EventEnums.RecordUpdated, { async: true })
+  async listenerTrigger(event: RecordUpdatedEvent) {
+    const { tableId, recordId, ops } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordUpdated]);
 
     this.logger.log({
@@ -45,11 +46,11 @@ export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
           ITriggerRecordUpdated
         >(workflow.trigger.inputExpressions as ITriggerRecordUpdatedSchema).parse();
 
-        const setRecordOps = context.op?.op?.reduce((pre, cur) => {
-          pre.push(RecordOpBuilder.editor.setRecord.detect(cur));
-          return pre;
-        }, [] as ISetRecordOpContext[]);
-        const changeFields = map(setRecordOps, 'fieldId');
+        // const setRecordOps = context.op?.op?.reduce((pre, cur) => {
+        //   pre.push(RecordOpBuilder.editor.setRecord.detect(cur));
+        //   return pre;
+        // }, [] as ISetRecordOpContext[]);
+        const changeFields = map(ops, 'fieldId');
 
         const sameField = intersection(triggerInput.watchFields as string[], changeFields);
         if (isEmpty(sameField)) {
@@ -59,7 +60,9 @@ export class TriggerRecordUpdated extends TriggerCore<RecordEvent> {
         const { actions, decisionGroups } = await this.splitAction(workflow.actions);
 
         const trigger = {
-          [`trigger.${workflow.trigger.id}`]: context.snapshot?.data,
+          // [`trigger.${workflow.trigger.id}`]: context.snapshot?.data,
+          // [`trigger.${workflow.trigger.id}`]: snapshot,
+          [`trigger.${workflow.trigger.id}`]: {},
         };
 
         this.callActionEngine(trigger, actions, decisionGroups);

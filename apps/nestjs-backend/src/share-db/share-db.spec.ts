@@ -1,6 +1,6 @@
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { TeableEventEmitterModule } from '../event-emitter/event-emitter.module';
 import { ShareDbModule } from './share-db.module';
 import { ShareDbService } from './share-db.service';
 
@@ -11,7 +11,7 @@ describe('ShareDb', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ShareDbModule, EventEmitterModule.forRoot()],
+      imports: [ShareDbModule, TeableEventEmitterModule.register()],
     }).compile();
 
     provider = module.get<ShareDbService>(ShareDbService);

@@ -35,8 +35,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       >
         <Link
           href={{
-            pathname: '/space/[tableId]/[viewId]',
-            query: { tableId: tableId, viewId: view.id },
+            pathname: '/space/[nodeId]/[viewId]',
+            query: { nodeId: tableId, viewId: view.id },
           }}
           title={view.name}
           onDoubleClick={() => {

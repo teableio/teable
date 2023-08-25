@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useClickAway, useUpdate } from 'react-use';
+import { useClickAway } from 'react-use';
 import type { IGridTheme } from './configs';
 import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
@@ -18,6 +19,7 @@ import type {
   IMouseState,
   IPosition,
   IRowControlItem,
+  IColumnStatistics,
 } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -37,12 +39,14 @@ export interface IGridExternalProps {
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCellActivated?: (cell: ICellItem) => void;
+  onRowExpand?: (rowIndex: number) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
   onColumnResize?: (column: IGridColumn, newSize: number, colIndex: number) => void;
   onColumnHeaderClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderDblClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
+  onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
 }
 
@@ -52,18 +56,23 @@ export interface IGridProps extends IGridExternalProps {
   rowCount: number;
   rowHeight?: number;
   style?: CSSProperties;
+  columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
 
 export interface IGridRef {
   getBounds: (colIndex: number, rowIndex: number) => IRectangle | null;
   forceUpdate: () => void;
+  setSelection: (selection: CombinedSelection) => void;
+  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
 }
 
 const {
   scrollBuffer,
   appendRowHeight,
+  cellScrollBuffer,
   columnAppendBtnWidth,
+  columnStatisticHeight,
   rowHeight: defaultRowHeight,
   columnWidth: defaultColumnWidth,
   columnHeadHeight: defaultColumnHeaderHeight,
@@ -72,6 +81,7 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
+    columnStatistics,
     freezeColumnCount = 1,
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
@@ -86,6 +96,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onPaste,
     onDelete,
     onRowAppend,
+    onRowExpand,
     onRowOrdered,
     onCellEdited,
     onCellActivated,
@@ -97,6 +108,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
+    onColumnStatisticClick,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -109,7 +121,11 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         height: coordInstance.getRowHeight(rowIndex),
       };
     },
-    forceUpdate,
+    scrollToItem,
+    forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
+    setSelection: (selection: CombinedSelection) => {
+      interactionLayerRef.current?.setSelection(selection);
+    },
   }));
 
   const hasAppendRow = onRowAppend != null;
@@ -124,13 +140,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
   );
 
-  const forceUpdate = useUpdate();
+  const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
+  const hasColumnStatistics = columnStatistics != null;
+  const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
 
@@ -144,7 +162,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnCount: columns.length,
       freezeColumnCount,
       containerWidth: width,
-      containerHeight: height,
+      containerHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
@@ -158,7 +176,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     });
   }, [
     width,
-    height,
+    containerHeight,
     columns,
     rowCount,
     rowHeight,
@@ -170,11 +188,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   ]);
 
   const spriteManager = useMemo(
-    () => new SpriteManager(customIcons, () => forceUpdate()),
-    [customIcons, forceUpdate]
+    () => new SpriteManager(customIcons, () => setForceRenderFlag(uniqueId('grid_'))),
+    [customIcons]
   );
 
-  const imageManager = useMemo<ImageManager>(() => new ImageManager(), []);
+  const imageManager = useMemo<ImageManager>(() => {
+    const imgManager = new ImageManager();
+    imgManager.setCallback(() => setForceRenderFlag(uniqueId('grid_')));
+    return imgManager;
+  }, []);
 
   const scrollTo = useCallback((sl?: number, st?: number) => {
     scrollerRef.current?.scrollTo(sl, st);
@@ -183,6 +205,39 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const scrollBy = useCallback((deltaX: number, deltaY: number) => {
     scrollerRef.current?.scrollBy(deltaX, deltaY);
   }, []);
+
+  const scrollToItem = useCallback(
+    (position: [columnIndex: number, rowIndex: number]) => {
+      const { containerHeight, containerWidth, freezeRegionWidth, freezeColumnCount, rowInitSize } =
+        coordInstance;
+      const { scrollTop, scrollLeft } = scrollState;
+      const [columnIndex, rowIndex] = position;
+      const isFreezeColumn = columnIndex < freezeColumnCount;
+
+      if (!isFreezeColumn) {
+        const offsetX = coordInstance.getColumnOffset(columnIndex);
+        const columnWidth = coordInstance.getColumnWidth(columnIndex);
+        const deltaLeft = Math.min(offsetX - scrollLeft - freezeRegionWidth, 0);
+        const deltaRight = Math.max(offsetX + columnWidth - scrollLeft - containerWidth, 0);
+        const sl = scrollLeft + deltaLeft + deltaRight;
+        if (sl !== scrollLeft) {
+          const scrollBuffer =
+            deltaLeft < 0 ? -cellScrollBuffer : deltaRight > 0 ? cellScrollBuffer : 0;
+          scrollTo(sl + scrollBuffer, undefined);
+        }
+      }
+
+      const rowHeight = coordInstance.getRowHeight(rowIndex);
+      const offsetY = coordInstance.getRowOffset(rowIndex);
+      const deltaTop = Math.min(offsetY - scrollTop - rowInitSize, 0);
+      const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight, 0);
+      const st = scrollTop + deltaTop + deltaBottom;
+      if (st !== scrollTop) {
+        scrollTo(undefined, st);
+      }
+    },
+    [coordInstance, scrollState, scrollTo]
+  );
 
   const onMouseDown = useCallback(() => {
     containerRef.current?.focus();
@@ -201,32 +256,38 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
           ref={interactionLayerRef}
+          width={width}
+          height={height}
           theme={theme}
           columns={columns}
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
           coordInstance={coordInstance}
+          columnStatistics={columnStatistics}
           scrollState={scrollState}
           mouseState={mouseState}
           setMouseState={setMouseState}
           getCellContent={getCellContent}
-          scrollTo={scrollTo}
+          forceRenderFlag={forceRenderFlag}
+          scrollToItem={scrollToItem}
           scrollBy={scrollBy}
           onCopy={onCopy}
           onPaste={onPaste}
           onDelete={onDelete}
           onRowAppend={onRowAppend}
+          onRowExpand={onRowExpand}
           onRowOrdered={onRowOrdered}
           onCellEdited={onCellEdited}
           onCellActivated={onCellActivated}
+          onContextMenu={onContextMenu}
           onColumnAppend={onColumnAppend}
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
-          onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onColumnStatisticClick={onColumnStatisticClick}
         />
       </div>
 
@@ -236,12 +297,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         top={rowInitSize}
         left={columnInitSize}
         containerWidth={width}
-        containerHeight={height}
+        containerHeight={containerHeight}
         scrollWidth={totalWidth}
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
         containerRef={containerRef}
+        scrollState={scrollState}
         setScrollState={setScrollState}
         scrollEnable={mouseState.type !== RegionType.None}
         onVisibleRegionChanged={onVisibleRegionChanged}

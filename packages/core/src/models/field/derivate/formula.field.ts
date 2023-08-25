@@ -4,12 +4,14 @@ import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor'
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
 import { unionFormattingSchema, getFormattingSchema, getDefaultFormatting } from '../formatting';
+import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const formulaFieldOptionsSchema = z
   .object({
     expression: z.string(),
     formatting: unionFormattingSchema.optional(),
+    showAs: numberShowAsSchema.optional(),
   })
   .strict();
 
@@ -99,6 +101,7 @@ export class FormulaFieldCore extends FormulaAbstractCore {
       .object({
         expression: z.string(),
         formatting: getFormattingSchema(this.cellValueType),
+        showAs: getShowAsSchema(this.cellValueType, this.isMultipleCellValue),
       })
       .safeParse(this.options);
   }

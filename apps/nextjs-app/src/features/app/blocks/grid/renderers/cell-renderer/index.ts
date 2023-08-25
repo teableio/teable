@@ -1,4 +1,5 @@
 import { booleanCellRenderer } from './booleanCellRenderer';
+import { chartCellRenderer } from './chartCellRenderer';
 import { imageCellRenderer } from './imageCellRenderer';
 import { CellType } from './interface';
 import { loadingCellRenderer } from './loadingCellRenderer';
@@ -20,6 +21,8 @@ export const getCellRenderer = (cellType: CellType) => {
       return selectCellRenderer;
     case CellType.Image:
       return imageCellRenderer;
+    case CellType.Chart:
+      return chartCellRenderer;
     case CellType.Loading:
     default:
       return loadingCellRenderer;

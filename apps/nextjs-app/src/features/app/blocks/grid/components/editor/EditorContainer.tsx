@@ -19,7 +19,7 @@ export interface IEditorContainerProps
     IInteractionLayerProps,
     | 'theme'
     | 'coordInstance'
-    | 'scrollTo'
+    | 'scrollToItem'
     | 'getCellContent'
     | 'onCopy'
     | 'onPaste'
@@ -67,7 +67,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     scrollState,
     activeCell,
     selection,
-    scrollTo,
+    scrollToItem,
     onCopy,
     onPaste,
     onChange,
@@ -156,10 +156,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     cell: cellContent,
     isEditing,
     activeCell,
-    scrollState,
     selection,
     coordInstance,
-    scrollTo,
+    scrollToItem,
     onCopy,
     onPaste,
     onDelete,
@@ -183,14 +182,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (!isPrintableKey(event.nativeEvent)) return;
     setEditing(true);
     editorRef.current?.setValue?.('');
-  };
-
-  const onCopyInner = () => {
-    onCopy?.(selection);
-  };
-
-  const onPasteInner = () => {
-    onPaste?.(selection);
   };
 
   function Editor() {
@@ -232,13 +223,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
-      <div
-        className="absolute z-10"
-        style={wrapStyle}
-        onCopy={onCopyInner}
-        onPaste={onPasteInner}
-        onKeyDown={onKeyDown}
-      >
+      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
         {customEditor
           ? customEditor(
               {

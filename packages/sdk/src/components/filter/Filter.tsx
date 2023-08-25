@@ -5,7 +5,7 @@ import { Plus, Share2 } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
-import produce from 'immer';
+import { produce } from 'immer';
 import { cloneDeep, isEqual, set, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -68,8 +68,7 @@ function Filter(props: IFilterProps) {
   // use the primary to be default metadata
   const defaultIFilterItem = useMemo<IFilterItem>(() => {
     const defaultField = fields.find((field) => field.isPrimary);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const defaultOpertor = getValidFilterOperators(defaultField!);
+    const defaultOpertor = defaultField && getValidFilterOperators(defaultField);
     return {
       operator: defaultOpertor?.[0],
       value: null,
@@ -167,7 +166,7 @@ function Filter(props: IFilterProps) {
 
   /**
    * different from other way to update filters, delete need to back to parent path
-   * becase current filter item only can delelte from it's parent
+   * because current filter item only can delete from it's parent
    * @param path Filter Object Path
    * @param index the index of filterSet which need to delete
    * @returns void
@@ -245,7 +244,7 @@ function Filter(props: IFilterProps) {
         >
           <div className="text-[11px] px-4 py-2 bg-accent max-w-full flex justify-start items-center rounded-t">
             <Share2 className="h-4 w-4 shrink-0 mr-4" />
-            <span className="text-zinc-500">
+            <span className="text-muted-foreground">
               This view is being used in a view share link. Modifications to the view configuration
               will also change the view share link.
             </span>
@@ -254,11 +253,11 @@ function Filter(props: IFilterProps) {
             {filters?.filterSet?.length ? (
               <div className="pt-3 px-4">{title}</div>
             ) : (
-              <div className="text-gray-400 pt-4 px-4">{emptyText}</div>
+              <div className="text-muted-foreground pt-4 px-4">{emptyText}</div>
             )}
           </div>
           <div className="px-4 pt-3">{conditionCreator()}</div>
-          <div className="flex p-3 w-max ">
+          <div className="flex p-3 w-max">
             <Button
               variant="ghost"
               size="xs"

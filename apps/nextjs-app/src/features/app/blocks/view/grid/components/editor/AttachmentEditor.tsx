@@ -9,7 +9,7 @@ export const AttachmentEditor = (props: IWrapperEditorProps & IEditorProps) => {
   const { record, field, isEditing, setEditing } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
-  const setAttachments = (attachments: IAttachmentCellValue) => {
+  const setAttachments = (attachments?: IAttachmentCellValue) => {
     record.updateCell(field.id, attachments);
   };
 

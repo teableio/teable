@@ -9,14 +9,15 @@ import type {
   IAggregateQueryResult,
   IAttachmentCellValue,
   IAttachmentItem,
+  ICreateRecordsRo,
+  IGetRecordsQuery,
+  IMakeRequired,
+  IRecord,
   IRecordSnapshotQuery,
   IRecordsVo,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
-  IGetRecordsQuery,
-  IRecord,
-  ICreateRecordsRo,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -25,6 +26,7 @@ import {
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
+  mergeWithDefaultSort,
   OpName,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -41,6 +43,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { FilterQueryTranslator } from './translator/filter-query-translator';
+import { SortQueryTranslator } from './translator/sort-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -99,6 +102,24 @@ export class RecordService implements IAdapterService {
     }
 
     return userFields;
+  }
+
+  private dbRecord2RecordFields(
+    record: IRecord['fields'],
+    fields: IFieldInstance[],
+    fieldMap: Record<string, IFieldInstance>,
+    fieldKeyType?: FieldKeyType
+  ) {
+    return fields.reduce<IRecord['fields']>((acc, field) => {
+      const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
+      const dbCellValue = record[field.dbFieldName];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cellValue = fieldMap[fieldNameOrId].convertDBValue2CellValue(dbCellValue as any);
+      if (cellValue != null) {
+        acc[fieldNameOrId] = cellValue;
+      }
+      return acc;
+    }, {});
   }
 
   async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
@@ -213,19 +234,36 @@ export class RecordService implements IAdapterService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery & {
-      idOnly?: boolean;
+      select?: string | string[];
       viewId: string;
     }
   ) {
-    const { viewId, orderBy = [], offset = 0, limit = 10, idOnly, filter, where = {} } = query;
+    const {
+      viewId,
+      orderBy: extraOrderBy,
+      offset = 0,
+      limit = 10,
+      select,
+      filter: extraFilter,
+      where = {},
+    } = query;
+
+    const view = await prisma.view.findFirstOrThrow({
+      select: { id: true, filter: true, sort: true },
+      where: { tableId, id: viewId, deletedTime: null },
+      orderBy: { order: 'asc' },
+    });
+
+    const filter = mergeWithDefaultFilter(view.filter, extraFilter);
+    const orderBy = mergeWithDefaultSort(view.sort, extraOrderBy);
 
     const dbTableName = await this.getDbTableName(prisma, tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
 
-    const queryBuilder = this.knex(dbTableName).select(idOnly ? '__id' : '*');
+    const queryBuilder = select ? this.knex(dbTableName).select(select) : this.knex(dbTableName);
 
     let fieldMap;
-    if (filter) {
+    if (filter || orderBy.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(prisma, tableId);
       fieldMap = fields.reduce((map, field) => {
@@ -237,13 +275,19 @@ export class RecordService implements IAdapterService {
 
     // All `where` condition-related construction work
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
+    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(
+      orderBy,
+      orderFieldName,
+      fieldMap
+    );
+
     filterQueryTranslator
       .translateToSql()
       .andWhere(where)
-      .orderBy(orderBy)
-      .orderBy(orderFieldName, 'asc')
+      .orderBy(translatedOrderby)
       .offset(offset)
       .limit(limit);
+
     return { queryBuilder };
   }
 
@@ -366,7 +410,7 @@ export class RecordService implements IAdapterService {
 
   async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+      select: { id: true, filter: true, sort: true },
       where: {
         tableId,
         ...(query.viewId ? { id: query.viewId } : {}),
@@ -382,6 +426,7 @@ export class RecordService implements IAdapterService {
       offset: query.skip,
       limit: query.take,
       filter: query.filter,
+      orderBy: query.orderBy,
       aggregate: {
         rowCount: true,
       },
@@ -581,27 +626,20 @@ export class RecordService implements IAdapterService {
       .whereIn('__id', recordIds)
       .toSQL()
       .toNative();
-
     const result = await prisma.$queryRawUnsafe<
       ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
     >(sqlNative.sql, ...sqlNative.bindings);
 
+    const recordIdsMap = recordIds.reduce((acc, recordId, currentIndex) => {
+      acc[recordId] = currentIndex;
+      return acc;
+    }, {} as { [recordId: string]: number });
+
     return result
       .sort((a, b) => {
-        return recordIds.indexOf(a.__id) - recordIds.indexOf(b.__id);
+        return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
       .map((record) => {
-        const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
-          const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
-          const dbCellValue = record[field.dbFieldName];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const cellValue = fieldMap[fieldNameOrId].convertDBValue2CellValue(dbCellValue as any);
-          if (cellValue != null) {
-            acc[fieldNameOrId] = cellValue;
-          }
-          return acc;
-        }, {});
-
         const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
           (acc, vFieldName, index) => {
             acc[allViews[index].id] = record[vFieldName] as number;
@@ -615,7 +653,7 @@ export class RecordService implements IAdapterService {
           v: record.__version,
           type: 'json0',
           data: {
-            fields: fieldsData,
+            fields: this.dbRecord2RecordFields(record, fields, fieldMap, fieldKeyType),
             id: record.__id,
             createdTime: record.__created_time?.toISOString(),
             lastModifiedTime: record.__last_modified_time?.toISOString(),
@@ -642,13 +680,11 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: IRecordSnapshotQuery
   ): Promise<{ ids: string[]; extra?: IAggregateQueryResult }> {
-    const defaultView = await prisma.view.findFirstOrThrow({
-      select: { id: true, filter: true },
+    const { id: viewId } = await prisma.view.findFirstOrThrow({
+      select: { id: true },
       where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
       orderBy: { order: 'asc' },
     });
-    const viewId = defaultView.id;
-    const dataFilter = await mergeWithDefaultFilter(defaultView.filter, query.filter);
 
     const { limit = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
@@ -656,17 +692,17 @@ export class RecordService implements IAdapterService {
     }
 
     if (limit > 1000) {
-      throw new BadRequestException("limit can't be greater than 1000");
+      throw new BadRequestException(`limit can't be greater than ${limit}`);
     }
 
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     const { queryBuilder } = await this.buildQuery(prisma, tableId, {
       ...query,
-      filter: dataFilter,
+      select: '__id',
       viewId,
-      idOnly: true,
     });
+
     const sqlNative = queryBuilder.toSQL().toNative();
 
     const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
@@ -681,5 +717,41 @@ export class RecordService implements IAdapterService {
     }
 
     return { ids };
+  }
+
+  async getRecordsFields(
+    tableId: string,
+    query: IMakeRequired<IGetRecordsQuery, 'viewId'>
+  ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
+    if (identify(tableId) !== IdPrefix.Table) {
+      throw new InternalServerErrorException('query collection must be table id');
+    }
+    const prisma = this.prismaService;
+    const { skip, take, filter, orderBy, fieldKeyType, projection, viewId } = query;
+
+    const fields = await this.getFieldsByProjection(prisma, tableId, projection, fieldKeyType);
+    const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
+    const fieldNames = fields.map((f) => f.dbFieldName);
+
+    const { queryBuilder } = await this.buildQuery(prisma, tableId, {
+      type: IdPrefix.Record,
+      viewId: viewId,
+      offset: skip,
+      limit: take,
+      filter,
+      orderBy,
+      select: fieldNames.concat('__id'),
+    });
+    const sqlNative = queryBuilder.toSQL().toNative();
+    const result = await prisma.$queryRawUnsafe<
+      (Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
+    >(sqlNative.sql, ...sqlNative.bindings);
+
+    return result.map((record) => {
+      return {
+        id: record.__id,
+        fields: this.dbRecord2RecordFields(record, fields, fieldMap, fieldKeyType),
+      };
+    });
   }
 }

@@ -65,8 +65,8 @@ export interface ITextBaseProps {
 }
 
 export interface ISingleLineTextProps extends ITextBaseProps {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   fill?: string;
   maxWidth?: number;
   needSetFont?: boolean;
@@ -81,3 +81,33 @@ export interface IMultiLineTextProps extends ITextBaseProps {
   fill?: string;
   lineHeight?: number;
 }
+
+export interface IRingProps {
+  x: number;
+  y: number;
+  radius: number;
+  value: number;
+  maxValue: number;
+  color: string;
+  lineWidth?: number;
+}
+
+export interface IProcessBarProps extends IRectangle {
+  value: number;
+  maxValue: number;
+  color: string;
+  radius?: number;
+}
+
+export interface IChartLineProps extends IRectangle {
+  values: number[];
+  color: string;
+  axisColor: string;
+  font: string;
+  hoverX?: number;
+  hoverAmount?: number;
+  yAxis?: [number, number];
+  displayValues?: string[];
+}
+
+export type IChartBarProps = Omit<IChartLineProps, 'hoverAmount'>;

@@ -23,6 +23,9 @@ export const GRID_DEFAULT = {
   cellTextLineHeight: 22,
   fillHandlerSize: 5,
 
+  // Statistics
+  columnStatisticHeight: 40,
+
   // Others
   scrollBuffer: 100,
   cellScrollBuffer: 16,
@@ -31,8 +34,6 @@ export const GRID_DEFAULT = {
 export const DEFAULT_MOUSE_STATE = {
   x: 0,
   y: 0,
-  hoverCellX: 0,
-  hoverCellY: 0,
   rowIndex: -Infinity,
   columnIndex: -Infinity,
   type: RegionType.None,

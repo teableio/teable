@@ -1,4 +1,9 @@
-import type { IFieldRo, IFieldVo, IJsonApiSuccessResponse } from '@teable-group/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  IJsonApiSuccessResponse,
+  StatisticsFunc,
+} from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { axios } from '../../config/axios';
@@ -50,15 +55,6 @@ export abstract class Field extends FieldCore {
     });
   }
 
-  async updateName(name: string): Promise<void> {
-    const fieldOperation = FieldOpBuilder.editor.setFieldName.build({
-      newName: name,
-      oldName: this.name,
-    });
-
-    return await this.submitOperation(fieldOperation);
-  }
-
   async updateColumnWidth(viewId: string, width: number): Promise<void> {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
@@ -89,6 +85,22 @@ export abstract class Field extends FieldCore {
       oldMetaValue: this.columnMeta[viewId].order,
     });
 
+    return await this.submitOperation(fieldOperation);
+  }
+
+  async updateColumnStatistic(
+    viewId: string,
+    statisticFunc?: StatisticsFunc | null
+  ): Promise<void> {
+    if (statisticFunc === this.columnMeta[viewId]?.statisticFunc) {
+      return;
+    }
+    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'statisticFunc',
+      newMetaValue: statisticFunc,
+      oldMetaValue: this.columnMeta[viewId]?.statisticFunc,
+    });
     return await this.submitOperation(fieldOperation);
   }
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './abstract/select.field.abstract';
 
-export const singleSelectCelValueSchema = z.string().nullable();
+export const singleSelectCelValueSchema = z.string();
 
 export type ISingleSelectCellValue = z.infer<typeof singleSelectCelValueSchema>;
 

@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
-import { DevtoolsModule } from '@nestjs/devtools-integration';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
 import { TeableConfigModule } from './configs/config.module';
 import { X_REQUEST_ID } from './const';
+import { TeableEventEmitterModule } from './event-emitter/event-emitter.module';
+import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AutomationModule } from './features/automation/automation.module';
+import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
+import { ExportImportModule } from './features/export-import/export-import.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
@@ -31,30 +33,18 @@ import { WsModule } from './ws/ws.module';
       },
     }),
     TeableLoggerModule.register(),
+    TeableEventEmitterModule.register(),
     NextModule,
     FileTreeModule,
+    ExportImportModule,
     TableOpenApiModule,
+    BaseModule,
     ChatModule,
     AttachmentsModule,
     AutomationModule,
     WsModule,
     SelectionModule,
-    EventEmitterModule.forRoot({
-      // set this to `true` to use wildcards
-      wildcard: false,
-      // the delimiter used to segment namespaces
-      delimiter: '_',
-      // set this to `true` if you want to emit the newListener event
-      newListener: false,
-      // set this to `true` if you want to emit the removeListener event
-      removeListener: false,
-      // the maximum amount of listeners that can be assigned to an event
-      maxListeners: 10,
-      // show event name in memory leak message when more than maximum amount of listeners is assigned
-      verboseMemoryLeak: false,
-      // disable throwing uncaughtException if an error event is emitted and it has no listeners
-      ignoreErrors: false,
-    }),
+    AggregationOpenApiModule,
   ],
 })
 export class AppModule {}

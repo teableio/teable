@@ -13,6 +13,23 @@ export interface IUseInstancesProps<T, R> {
   queryParams: unknown;
 }
 
+const queryDestroy = (query: Query | undefined, cb?: () => void) => {
+  if (!query) {
+    return;
+  }
+  if (!query.sent || query.ready) {
+    query?.destroy(cb);
+    return;
+  }
+  query.once('ready', () => {
+    query.destroy(() => {
+      query.removeAllListeners();
+      query.results.forEach((doc) => doc.listenerCount('op') === 0 && doc.destroy());
+      cb?.();
+    });
+  });
+};
+
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
  * keep every instance the latest data
@@ -32,9 +49,10 @@ export function useInstances<T, R extends { id: string }>({
   );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
+  const preQueryRef = useRef<Query<T>>();
 
   const handleReady = useCallback((query: Query<T>) => {
-    console.log(`${query.collection}:ready:`, query.results);
+    console.log(`${query.collection}:ready:`, query.query);
     dispatch({ type: 'ready', results: query.results });
     query.results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
@@ -70,50 +88,57 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   useEffect(() => {
-    if (!collection || !connection) {
-      return;
-    }
-    if (query && isEqual(queryParams, query.query) && collection === query.collection) {
-      return;
-    }
-    // for easy component refresh clean data when switch & loading
-    dispatch({ type: 'clear' });
-    setQuery(connection.createSubscribeQuery<T>(collection, queryParams || {}));
-    const opListenersRef = opListeners.current;
-
-    return () => {
-      const clear = () => {
-        query?.removeAllListeners();
-        opListenersRef.clear();
-      };
-      clear();
-      if (!query?.sent || query.ready) {
-        query?.destroy();
-        return;
+    setQuery((query) => {
+      if (!collection || !connection) {
+        return undefined;
       }
-      query.once('ready', () => {
-        query.destroy(clear);
-      });
+      if (query && isEqual(queryParams, query.query) && collection === query.collection) {
+        return query;
+      }
+
+      queryDestroy(preQueryRef.current);
+      const newQuery = connection.createSubscribeQuery<T>(collection, queryParams || {});
+      preQueryRef.current = newQuery;
+      return newQuery;
+    });
+  }, [connection, collection, queryParams]);
+
+  useEffect(() => {
+    return () => {
+      // for easy component refresh clean data when switch & loading
+      dispatch({ type: 'clear' });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      queryDestroy(query, () => opListeners.current.clear());
     };
-  }, [connection, collection, queryParams, query]);
+  }, [query]);
 
   useEffect(() => {
     if (!query) {
       return;
     }
-    dispatch({ type: 'clear' });
 
-    query.on('ready', () => handleReady(query));
-
-    query.on('changed', (docs) => {
+    const readyListener = () => handleReady(query);
+    const changedListener = (docs: Doc<T>[]) => {
       console.log(`${docs[0]?.collection}:changed:`, docs);
-    });
+    };
+
+    query.on('ready', readyListener);
+
+    query.on('changed', changedListener);
 
     query.on('insert', handleInsert);
 
     query.on('remove', handleRemove);
 
     query.on('move', handleMove);
+
+    return () => {
+      query.removeListener('ready', readyListener);
+      query.removeListener('changed', changedListener);
+      query.removeListener('insert', handleInsert);
+      query.removeListener('remove', handleRemove);
+      query.removeListener('move', handleMove);
+    };
   }, [query, handleInsert, handleRemove, handleMove, handleReady]);
 
   return instances;

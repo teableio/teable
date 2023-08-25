@@ -2,7 +2,6 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "./src",
     "target": "esnext",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
@@ -16,7 +15,10 @@
     "declarationDir": "./dist",
     "composite": true,
     "sourceMap": true,
-    "incremental": true
+    "incremental": true,
+    "paths": {
+      "@teable-group/icons": ["../../../packages/icons/src/index"]
+    }
   },
   "references": [
     { "path": "../core" },

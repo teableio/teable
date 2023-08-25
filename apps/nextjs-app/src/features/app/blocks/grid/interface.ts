@@ -34,14 +34,15 @@ export enum SelectionRegionType {
 export enum RegionType {
   Cell = 'Cell',
   RowHeader = 'RowHeader',
-  ColumnHeader = 'ColumnHeader',
   AppendRow = 'AppendRow',
+  ColumnHeader = 'ColumnHeader',
   AppendColumn = 'AppendColumn',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnResizeHandler = 'ColumnResizeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
+  ColumnStatistic = 'ColumnStatistic',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
   Blank = 'Blank',
@@ -55,8 +56,6 @@ export type IRange = ICellRange | IColumnRange | IRowRange;
 
 export interface IMouseState extends IRegionPosition {
   type: RegionType;
-  hoverCellX: number;
-  hoverCellY: number;
   isOutOfBounds: boolean;
 }
 
@@ -88,6 +87,15 @@ interface IGroupHeaderRow extends IRowBase {
 }
 
 export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
+
+export interface IColumnStatistics {
+  [columnId: string]: IColumnStatistic | null;
+}
+
+export interface IColumnStatistic {
+  total: string;
+  [key: string]: string;
+}
 
 export interface IGridColumn {
   id?: string;
@@ -138,6 +146,8 @@ export interface IRowControlItem {
 }
 
 export type ICellItem = [colIndex: number, rowIndex: number];
+
+export type ICellPosition = [x: number, y: number];
 
 export interface IPositionWithBounds {
   bounds: IRectangle;

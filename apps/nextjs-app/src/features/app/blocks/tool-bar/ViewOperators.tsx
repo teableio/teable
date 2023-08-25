@@ -1,4 +1,4 @@
-import type { IFilter } from '@teable-group/core';
+import type { IFilter, ISort } from '@teable-group/core';
 import {
   ArrowUpDown,
   LayoutList,
@@ -6,7 +6,7 @@ import {
   Filter as FilterIcon,
   EyeOff,
 } from '@teable-group/icons';
-import { Filter, HideFields, RowHeight, useFields } from '@teable-group/sdk';
+import { Filter, HideFields, RowHeight, useFields, Sort } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useToast } from '@teable-group/ui-lib';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -39,6 +39,27 @@ export const ViewOperators: React.FC = () => {
     [toast, view]
   );
 
+  const onSortChange = useCallback(
+    async (value: ISort | null) => {
+      try {
+        await view?.setSort?.(value);
+      } catch (e) {
+        let message;
+        if (e instanceof z.ZodError) {
+          message = fromZodError(e).message;
+        } else {
+          message = (e as Error).message;
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description: message,
+        });
+      }
+    },
+    [toast, view]
+  );
+
   if (!view || !fields.length) {
     return <div></div>;
   }
@@ -57,7 +78,7 @@ export const ViewOperators: React.FC = () => {
           </Button>
         )}
       </HideFields>
-      <Filter filters={view?.filter as IFilter} onChange={onFilterChange}>
+      <Filter filters={(view?.filter || null) as IFilter} onChange={onFilterChange}>
         {(text, isActive) => (
           <Button
             variant={'ghost'}
@@ -69,10 +90,18 @@ export const ViewOperators: React.FC = () => {
           </Button>
         )}
       </Filter>
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <ArrowUpDown className="text-sm w-4 h-4" />
-        Sort
-      </Button>
+      <Sort sorts={(view?.sort || null) as ISort} onChange={onSortChange}>
+        {(text: string, isActive) => (
+          <Button
+            className={classNames('font-normal', { 'bg-secondary': isActive })}
+            size={'xs'}
+            variant={'ghost'}
+          >
+            <ArrowUpDown className="text-sm w-4 h-4" />
+            <span className="truncate">{text}</span>
+          </Button>
+        )}
+      </Sort>
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
         <LayoutList className="text-sm w-4 h-4" />
         Group

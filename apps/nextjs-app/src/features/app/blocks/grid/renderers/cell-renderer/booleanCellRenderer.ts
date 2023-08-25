@@ -50,13 +50,14 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     }
   },
   checkWithinBound: (props: ICellClickProps) => {
-    const { hoverCellX, hoverCellY, width, height, theme } = props;
+    const { hoverCellPosition, width, height, theme } = props;
+    const [x, y] = hoverCellPosition;
     const { iconSizeSM } = theme;
     const halfIconSize = iconSizeSM / 2;
 
     return Boolean(
-      inRange(hoverCellX, width / 2 - halfIconSize, width / 2 + halfIconSize) &&
-        inRange(hoverCellY, height / 2 - halfIconSize, height / 2 + halfIconSize)
+      inRange(x, width / 2 - halfIconSize, width / 2 + halfIconSize) &&
+        inRange(y, height / 2 - halfIconSize, height / 2 + halfIconSize)
     );
   },
   onClick: (cell: IBooleanCell, props: ICellClickProps) => {

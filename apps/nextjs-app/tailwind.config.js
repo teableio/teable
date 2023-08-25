@@ -10,5 +10,21 @@ module.exports = uiConfig({
   content: [filePath, sdkPath, uiLibPath],
   darkMode: ['class'],
   theme: {},
-  plugins: [scrollbarPlugin({ nocompatible: true })],
+  plugins: [
+    scrollbarPlugin({ nocompatible: true }),
+    function ({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-min-thumb': {
+          '&::-webkit-scrollbar-thumb': {
+            minHeight: '32px',
+          },
+          '&::-webkit-scrollbar-thumb:vertical': {
+            minHeight: '32px',
+          },
+        },
+      };
+
+      addUtilities(newUtilities);
+    },
+  ],
 });

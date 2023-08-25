@@ -3,7 +3,6 @@ import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
 import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
-import { GRID_DEFAULT } from '../configs';
 import { getCellRenderer } from '../renderers';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -28,22 +27,19 @@ const SELECTION_MOVE_HOTKEYS = [
 ];
 
 interface ISelectionKeyboardProps
-  extends Omit<IEditorContainerProps, 'theme' | 'onChange' | 'getCellContent'> {
+  extends Omit<IEditorContainerProps, 'theme' | 'onChange' | 'scrollState' | 'getCellContent'> {
   cell: IInnerCell;
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }
-
-const { cellScrollBuffer } = GRID_DEFAULT;
 
 export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   const {
     cell,
     isEditing,
     activeCell,
-    scrollState,
     coordInstance,
     selection,
-    scrollTo,
+    scrollToItem,
     setEditing,
     setActiveCell,
     setSelection,
@@ -53,53 +49,15 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     onRowAppend,
     editorRef,
   } = props;
-  const { scrollLeft, scrollTop } = scrollState;
-  const {
-    pureRowCount,
-    columnCount,
-    freezeRegionWidth,
-    freezeColumnCount,
-    containerWidth,
-    containerHeight,
-    rowInitSize,
-  } = coordInstance;
-
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  const scrollToCell = (position: [columnIndex: number, rowIndex: number]) => {
-    const [columnIndex, rowIndex] = position;
-    const isFreezeColumn = columnIndex < freezeColumnCount;
-
-    if (!isFreezeColumn) {
-      const offsetX = coordInstance.getColumnOffset(columnIndex);
-      const columnWidth = coordInstance.getColumnWidth(columnIndex);
-      const deltaLeft = Math.min(offsetX - scrollLeft - freezeRegionWidth, 0);
-      const deltaRight = Math.max(offsetX + columnWidth - scrollLeft - containerWidth, 0);
-      const sl = scrollLeft + deltaLeft + deltaRight;
-      if (sl !== scrollLeft) {
-        const scrollBuffer =
-          deltaLeft < 0 ? -cellScrollBuffer : deltaRight > 0 ? cellScrollBuffer : 0;
-        scrollTo(sl + scrollBuffer, undefined);
-      }
-    }
-
-    const rowHeight = coordInstance.getRowHeight(rowIndex);
-    const offsetY = coordInstance.getRowOffset(rowIndex);
-    const deltaTop = Math.min(offsetY - scrollTop - rowInitSize, 0);
-    const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight, 0);
-    const st = scrollTop + deltaTop + deltaBottom;
-    if (st !== scrollTop) {
-      scrollTo(undefined, st);
-    }
-  };
+  const { pureRowCount, columnCount } = coordInstance;
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   useEffect(() => {
-    const mousetrap = new Mousetrap();
-    mousetrap.stopCallback = () => {
+    Mousetrap.prototype.stopCallback = () => {
       return false;
     };
 
-    mousetrap.bind(SELECTION_MOVE_HOTKEYS, (e: ExtendedKeyboardEvent, combo: string) => {
+    Mousetrap.bind(SELECTION_MOVE_HOTKEYS, (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const isSelectionExpand = combo.includes('shift');
@@ -144,12 +102,12 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       const newRange = <IRange>[columnIndex, rowIndex];
       const ranges = isSelectionExpand ? [selection.ranges[0], newRange] : [newRange, newRange];
 
-      scrollToCell([columnIndex, rowIndex]);
+      scrollToItem([columnIndex, rowIndex]);
       !isSelectionExpand && setActiveCell(newRange);
       setSelection(selection.setRanges(ranges));
     });
 
-    mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
+    Mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
       const ranges = [
@@ -159,7 +117,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
-    mousetrap.bind(
+    Mousetrap.bind(
       ['del', 'backspace', 'mod+c', 'mod+v'],
       (e: ExtendedKeyboardEvent, combo: string) => {
         if (!activeCell || isEditing) return;
@@ -175,7 +133,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       }
     );
 
-    mousetrap.bind('enter', () => {
+    Mousetrap.bind('enter', () => {
       if (!activeCell) return;
       const { isColumnSelection, ranges: selectionRanges } = selection;
       const cellRenderer = getCellRenderer(cell.type);
@@ -198,20 +156,20 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
           }
           setActiveCell(newRange);
           setEditing(false);
-          scrollToCell(newRange as IRange);
+          scrollToItem(newRange as IRange);
         });
       } else {
         setEditing(true);
       }
     });
 
-    mousetrap.bind('esc', () => {
+    Mousetrap.bind('esc', () => {
       if (!activeCell) return;
       setEditing(false);
     });
 
     return () => {
-      mousetrap.reset();
+      Mousetrap.reset();
     };
   });
 };

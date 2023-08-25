@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'packages/**'
+      - 'apps/**'
       - 'package.json'
       - '*.lock'
       - '.yarnrc.yml'
@@ -21,6 +22,7 @@ on:
       - reopened
     paths:
       - 'packages/**'
+      - 'apps/**'
       - 'package.json'
       - '*.lock'
       - '.yarnrc.yml'
@@ -86,4 +88,4 @@ jobs:
       # Test packages that have changed (--include & --since)
       - name: Unit tests changed packages
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' run test
+          yarn workspaces foreach -tv --include '@teable-group/*' run test --silent

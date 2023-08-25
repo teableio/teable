@@ -1,5 +1,6 @@
 import type { ViewType } from './constant';
 import type { IFilter } from './filter';
+import type { ISort } from './sort';
 import type { IViewVo } from './view.schema';
 
 export abstract class ViewCore implements IViewVo {
@@ -13,7 +14,7 @@ export abstract class ViewCore implements IViewVo {
 
   filter?: IFilter;
 
-  sort?: unknown;
+  sort?: ISort;
 
   group?: unknown;
 

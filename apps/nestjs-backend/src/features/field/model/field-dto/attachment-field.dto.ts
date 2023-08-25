@@ -1,28 +1,8 @@
-import type { IFieldRo, IAttachmentItem } from '@teable-group/core';
-import {
-  AttachmentFieldCore,
-  CellValueType,
-  DbFieldType,
-  generateAttachmentId,
-} from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
+import type { IAttachmentItem } from '@teable-group/core';
+import { AttachmentFieldCore, generateAttachmentId } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
-  static factory(fieldRo: IFieldRo) {
-    const isLookup = fieldRo.isLookup;
-
-    return plainToInstance(AttachmentFieldDto, {
-      ...fieldRo,
-      name: fieldRo.name ?? 'Attachments',
-      options: fieldRo.options ?? this.defaultOptions(),
-      isComputed: isLookup,
-      cellValueType: CellValueType.String,
-      isMultipleCellValue: true,
-      dbFieldType: DbFieldType.Json,
-    } as AttachmentFieldDto);
-  }
-
   static getTokenByString(value: string): string | undefined {
     const url = value.match(/\((.*?)\)/)?.[1];
     const paths = url?.split('/') || [];

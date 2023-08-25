@@ -32,8 +32,8 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
       >
         <Link
           href={{
-            pathname: '/space/[tableId]/[viewId]',
-            query: { tableId: table.id, viewId: table.defaultViewId },
+            pathname: '/space/[nodeId]/[viewId]',
+            query: { nodeId: table.id, viewId: table.defaultViewId },
           }}
           title={table.name}
           // when switch between tables, page will not change we should just do shallow routing

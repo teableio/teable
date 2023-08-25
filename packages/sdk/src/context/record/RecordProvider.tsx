@@ -20,12 +20,7 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
     const param: IRecordSnapshotQuery = {
       viewId,
       type: IdPrefix.Record,
-      orderBy: [
-        {
-          column: '__created_time',
-          order: 'desc',
-        },
-      ],
+      orderBy: [],
       aggregate: {
         rowCount: true,
       },
@@ -45,13 +40,14 @@ export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, ser
       setRowCount(count);
     });
 
-    query.on('changed', () => {
-      const count = query.extra?.rowCount ?? 0;
+    query.on('extra', (extra) => {
+      const count = extra?.rowCount ?? 0;
       console.log('rowCount:changed:', count);
       setRowCount(count);
     });
 
     return () => {
+      setRowCount(0);
       query.destroy();
     };
   }, [tableId, connection, viewId]);

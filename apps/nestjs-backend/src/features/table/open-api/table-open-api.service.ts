@@ -18,6 +18,7 @@ import {
   TableOpBuilder,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { createFieldInstanceByRo } from '../../field/model/factory';
@@ -30,6 +31,7 @@ import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly recordOpenApiService: RecordOpenApiService,
@@ -153,12 +155,13 @@ export class TableOpenApiService {
     return TableOpBuilder.creator.build(tableVo);
   }
 
-  async archiveTable(tableId: string) {
+  async deleteTable(tableId: string) {
     const collection = `${IdPrefix.Table}_node`;
     return await this.transactionService.$transaction(
       this.shareDbService,
-      async (_, transactionKey) => {
+      async (prisma, transactionKey) => {
         const doc = this.shareDbService.getConnection(transactionKey).get(collection, tableId);
+        // delete field for table
         await new Promise((resolve, reject) => {
           doc.fetch((error) => {
             if (error) return reject(error);
@@ -169,6 +172,36 @@ export class TableOpenApiService {
             });
           });
         });
+
+        await prisma.field.deleteMany({
+          where: { tableId },
+        });
+
+        // delete view for table
+        await prisma.view.deleteMany({
+          where: { tableId },
+        });
+
+        // clear tableMeta
+        const deleteTable = await prisma.tableMeta.delete({
+          where: { id: tableId },
+        });
+        const dbTableName = deleteTable.dbTableName;
+        this.logger.log('Dropping: ', dbTableName);
+
+        // clear ops
+        await prisma.ops.deleteMany({
+          where: { collection: tableId },
+        });
+        await prisma.ops.deleteMany({
+          where: { docId: tableId },
+        });
+        // drop db table
+        await prisma.$executeRawUnsafe(`DROP TABLE ${dbTableName}`);
+      },
+      {
+        maxWait: 100000,
+        timeout: 100000,
       }
     );
   }

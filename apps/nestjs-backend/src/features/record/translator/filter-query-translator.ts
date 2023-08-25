@@ -18,8 +18,8 @@ import {
 } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { includes, invert, isObject } from 'lodash';
-import type { AbstractCellValueFilter } from 'src/features/record/translator/abstract/cell-value-filter.abstract';
 import type { IFieldInstance } from '../../field/model/factory';
+import type { AbstractCellValueFilter } from './abstract/cell-value-filter.abstract';
 import { BooleanCellValueFilterAdapter } from './adapter/boolean-cell-value-filter.adapter';
 import { DatetimeCellValueFilterAdapter } from './adapter/datetime-cell-value-filter.adapter';
 import { JsonCellValueFilterAdapter } from './adapter/json-cell-value-filter.adapter';
