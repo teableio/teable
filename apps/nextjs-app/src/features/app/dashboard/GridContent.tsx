@@ -1,27 +1,21 @@
 import { StatisticsFunc } from '@teable-group/core';
 import { useIsHydrated } from '@teable-group/sdk';
 import { useViewId } from '@teable-group/sdk/hooks';
-import {
-  TabsContent,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@teable-group/ui-lib/shadcn';
+import { TabsContent, Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
 import { useRef } from 'react';
 import { GridView } from '../blocks/view/grid/GridView';
 import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
-import { Overview } from './components/Overview';
-import { RecentSales } from './components/RecentSales';
+import { BarChartCard } from './components/BarChart';
+import { LineChartCard } from './components/LineChart';
+import { PieChartCard } from './components/PieChart';
 import { useAggregates } from './hooks/useAggregates';
 
 const test = [
+  StatisticsFunc.Average,
+  StatisticsFunc.Sum,
   StatisticsFunc.Sum,
   StatisticsFunc.Average,
-  StatisticsFunc.Filled,
-  StatisticsFunc.Unique,
 ];
 
 export const GridContent: React.FC = () => {
@@ -59,24 +53,19 @@ export const GridContent: React.FC = () => {
           </Card>
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-8">
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
-            <Overview />
+            <BarChartCard />
           </CardContent>
         </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Sales</CardTitle>
-            <CardDescription>You made 265 sales this month.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentSales />
-          </CardContent>
-        </Card>
+        <PieChartCard className="col-span-4" />
+      </div>
+      <div className="grid grid-cols-1">
+        <LineChartCard />
       </div>
       <div className="grid grid-cols-1">
         {isHydrated && <ExpandRecordContainer ref={expandRecordRef} />}

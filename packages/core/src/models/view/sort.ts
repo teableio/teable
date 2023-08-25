@@ -36,15 +36,15 @@ export type ISortItem = z.infer<typeof sortItemSchema>;
 
 export type ISort = z.infer<typeof sortSchema>;
 
-export async function mergeWithDefaultSort(
+export function mergeWithDefaultSort(
   defaultViewSort: string | null,
   querySort?: ISort['sortObjs']
 ) {
   if (!defaultViewSort && !querySort) {
-    return;
+    return [];
   }
 
-  const parseSort = await sortStringSchema.safeParseAsync(defaultViewSort);
+  const parseSort = sortStringSchema.safeParse(defaultViewSort);
 
   const viewSort = parseSort.success ? parseSort.data : undefined;
 

@@ -36,15 +36,15 @@ export const filterStringSchema = z.string().transform((val, ctx) => {
   return filterSchema.parse(jsonValue);
 });
 
-export async function mergeWithDefaultFilter(
+export function mergeWithDefaultFilter(
   defaultViewFilter?: string | null,
   queryFilter?: IFilter
-): Promise<IFilter | undefined> {
+): IFilter | undefined {
   if (!defaultViewFilter && !queryFilter) {
     return undefined;
   }
 
-  const parseFilter = await filterStringSchema.safeParseAsync(defaultViewFilter);
+  const parseFilter = filterStringSchema.safeParse(defaultViewFilter);
   const viewFilter = parseFilter.success ? parseFilter.data : undefined;
 
   let mergeFilter = viewFilter;

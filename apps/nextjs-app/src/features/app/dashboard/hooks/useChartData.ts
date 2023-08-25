@@ -1,17 +1,19 @@
-import { CellValueType, FieldType } from '@teable-group/core';
-import { useFields, useTable } from '@teable-group/sdk/hooks';
+import type { ISelectFieldOptions } from '@teable-group/core';
+import { Colors, ColorUtils, CellValueType, FieldType } from '@teable-group/core';
+import { useFields, useTable, useView } from '@teable-group/sdk/hooks';
 import { Base } from '@teable-group/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 interface IData {
   name: string;
+  color: string;
   total: number;
 }
 
-export function Overview() {
+export function useChartData() {
   const fields = useFields();
   const table = useTable();
+  const view = useView();
   const [data, setData] = useState<IData[]>([]);
   const groupingField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
@@ -25,7 +27,7 @@ export function Overview() {
     [fields]
   );
   useEffect(() => {
-    if (!table || !groupingField || !numberField) {
+    if (!table || !groupingField || !numberField || !view) {
       return;
     }
     if (table.id !== groupingField.tableId) {
@@ -37,34 +39,22 @@ export function Overview() {
       .sum(`${numberField.dbFieldName} as total`)
       .groupBy(groupingField.dbFieldName)
       .orderBy(groupingField.dbFieldName, 'desc')
-      .toSQL()
-      .toNative();
+      .toString();
 
     console.log('sqlQuery:', nativeSql);
-    Base.sqlQuery(nativeSql).then((result) => {
+    Base.sqlQuery(table.id, view.id, nativeSql).then((result) => {
       console.log('sqlQuery:', result);
       setData(
         (result as IData[]).map(({ total, name }) => ({
           name: name || 'Untitled',
           total: total || 0,
+          color: ColorUtils.getHexForColor(
+            (groupingField.options as ISelectFieldOptions).choices.find((c) => c.name === name)
+              ?.color || Colors.TealLight1
+          ),
         }))
       );
     });
-  }, [fields, groupingField, numberField, table]);
-
-  return (
-    <ResponsiveContainer width="100%" height={350}>
-      <BarChart data={data}>
-        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-        <YAxis
-          stroke="#888888"
-          fontSize={12}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(value) => `$${value}`}
-        />
-        <Bar dataKey="total" fill="#adfa1d" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+  }, [fields, groupingField, numberField, table, view]);
+  return data;
 }
