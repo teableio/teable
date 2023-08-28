@@ -48,6 +48,11 @@ export function mergeWithDefaultSort(
 
   const viewSort = parseSort.success ? parseSort.data : undefined;
 
+  // should clear sort query when sort manually
+  if (!viewSort?.shouldAutoSort) {
+    return [];
+  }
+
   let mergeSort = viewSort?.sortObjs || [];
 
   if (querySort?.length) {
