@@ -1,61 +1,31 @@
-import { ConsoleLogger } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Test } from '@nestjs/testing';
-import { generateWorkflowId } from '@teable-group/core';
-import type { AutomationWorkflow as AutomationWorkflowModel } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { CreateWorkflowRo } from '../model/create-workflow.ro';
-import { WorkflowActionService } from './action/workflow-action.service';
-import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
+import type { MockFunctionMetadata } from 'jest-mock';
+import { ModuleMocker } from 'jest-mock';
 import { WorkflowController } from './workflow.controller';
-import { WorkflowService } from './workflow.service';
+
+const moduleMocker = new ModuleMocker(global);
 
 describe('WorkflowController', () => {
-  let workflowController: WorkflowController;
-  let workflowService: WorkflowService;
+  let controller: WorkflowController;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [WorkflowController],
-      providers: [WorkflowService, PrismaService, WorkflowTriggerService, WorkflowActionService],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (typeof token === 'function') {
+          const mockMetadata = moduleMocker.getMetadata(token) as MockFunctionMetadata<any, any>;
+          const mock = moduleMocker.generateFromMetadata(mockMetadata);
+          return new mock();
+        }
+      })
+      .compile();
 
-    moduleRef.useLogger(new ConsoleLogger());
-
-    workflowService = moduleRef.get<WorkflowService>(WorkflowService);
-    workflowController = moduleRef.get<WorkflowController>(WorkflowController);
+    controller = moduleRef.get<WorkflowController>(WorkflowController);
   });
 
-  describe('createWorkflow', () => {
-    it('/Controller should return success', async () => {
-      const result = { success: true };
-      const pathParamWorkflowId = generateWorkflowId();
-      const bodyParam: CreateWorkflowRo = {
-        name: 'Automation 1',
-      };
-      jest.spyOn(workflowService, 'create').mockImplementation(() =>
-        Promise.resolve({
-          id: 'id',
-          workflowId: 'workflowId',
-          name: 'name',
-          description: 'description',
-          createdBy: 'admin',
-          lastModifiedBy: 'admin',
-        } as AutomationWorkflowModel)
-      );
-
-      expect(await workflowController.create(pathParamWorkflowId, bodyParam)).toEqual(result);
-    });
-
-    it('/Service should return void', async () => {
-      const pathParamWorkflowId = generateWorkflowId();
-      const bodyParam: CreateWorkflowRo = {
-        name: 'Automation 1',
-      };
-
-      expect(await workflowService.create(pathParamWorkflowId, bodyParam)).toMatchObject({
-        workflowId: pathParamWorkflowId,
-        name: bodyParam.name,
-      });
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });

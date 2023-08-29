@@ -1,18 +1,18 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import {
-  ApiOperation,
-  ApiTags,
-  ApiOkResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
 } from '@nestjs/swagger';
+import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getTableQuerySchema,
   ICreateTableRo,
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
-import type { ITableVo, ITableListVo, ITableFullVo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';

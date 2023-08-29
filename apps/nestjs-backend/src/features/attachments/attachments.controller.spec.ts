@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { AttachmentsController } from './attachments.controller';
 import { AttachmentsModule } from './attachments.module';
 
@@ -10,7 +11,13 @@ describe('AttachmentsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AttachmentsController],
       imports: [AttachmentsModule],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     controller = module.get<AttachmentsController>(AttachmentsController);
   });

@@ -1,7 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { TeableEventEmitterModule } from '../../../event-emitter/event-emitter.module';
-import { AggregationOpenApiModule } from './aggregation-open-api.module';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { AggregationService } from '../aggregation.service';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 describe('AggregationOpenApiService', () => {
@@ -9,8 +9,14 @@ describe('AggregationOpenApiService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [AggregationOpenApiModule, TeableEventEmitterModule.register()],
-    }).compile();
+      providers: [AggregationOpenApiService, AggregationService],
+    })
+      .useMocker((token) => {
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<AggregationOpenApiService>(AggregationOpenApiService);
   });

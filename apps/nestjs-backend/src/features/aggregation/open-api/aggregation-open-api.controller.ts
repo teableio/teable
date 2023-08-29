@@ -2,8 +2,8 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { IViewAggregationVo, IViewRowCountVo } from '@teable-group/core';
 import { IViewAggregationRo, viewAggregationRo } from '@teable-group/core';
-import { ZodValidationPipe } from 'src/zod.validation.pipe';
 import { ApiResponse, responseWrap } from '../../../utils';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @ApiBearerAuth()
