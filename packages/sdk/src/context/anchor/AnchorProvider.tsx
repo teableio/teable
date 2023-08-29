@@ -32,7 +32,7 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
       ) : (
         <FieldContext.Provider value={{ fields: [] }}>
           <ViewContext.Provider value={{ views: [] }}>
-            <RecordContext.Provider value={{ rowCount: 0 }}>{children}</RecordContext.Provider>
+            <RecordContext.Provider value={{}}>{children}</RecordContext.Provider>
           </ViewContext.Provider>
         </FieldContext.Provider>
       )}
