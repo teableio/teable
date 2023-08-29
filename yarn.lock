@@ -7415,6 +7415,8 @@ __metadata:
     ts-jest: 29.0.3
     tsx: 3.11.0
     typescript: 4.8.4
+  peerDependencies:
+    "@nestjs/common": ^9.3.9
   languageName: unknown
   linkType: soft
 
