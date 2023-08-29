@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type {
   ISetColumnMetaOpContext,
-  IViewAggregationVo,
-  IViewRowCountVo,
+  IRawAggregationVo,
+  IRawRowCountVo,
 } from '@teable-group/core';
 import { getAggregationChannel, getRowCountChannel } from '@teable-group/core/dist/models/channel';
 import { get } from 'lodash';
@@ -114,7 +114,7 @@ export class AggregationListener {
 
   private async emitAggregation(
     tableId: string,
-    data: IViewAggregationVo | IViewRowCountVo | null,
+    data: IRawAggregationVo | IRawRowCountVo | null,
     err?: unknown
   ): Promise<void> {
     if (err) {

@@ -13,9 +13,11 @@ export function useAggregates(funcs: StatisticsFunc[]) {
   >([]);
   const viewId = useViewId();
   const sortedFields = useMemo(
-    () => fields.filter((field) => field.cellValueType === CellValueType.Number).concat(fields),
+    () => fields.filter((field) => field.cellValueType === CellValueType.Number),
     [fields]
   );
+
+  console.log('sortedFields', sortedFields);
 
   useEffect(() => {
     if (!sortedFields.length || sortedFields[0].tableId !== table?.id) {
@@ -27,23 +29,44 @@ export function useAggregates(funcs: StatisticsFunc[]) {
       if (!field || !table?.id || !viewId) {
         return;
       }
-      return View.getAggregationByFunc(table.id, viewId, field.id, func);
+      return View.getViewAggregation(table.id, viewId, {
+        field: {
+          [func]: [field.id],
+        },
+      });
     });
-    Promise.all(promises).then((aggregates) =>
-      setAggregates(
-        aggregates.map((aggregate, i) => {
-          if (!aggregate) return null;
-          return {
-            value: statisticsValue2DisplayValue(
-              funcs[i],
-              aggregate?.value || null,
-              sortedFields[i]
-            ),
-            name: sortedFields[i].name,
-            func: funcs[i],
-          };
-        })
-      )
+
+    // promises.
+    // console.log(promises);
+    // if (table?.id && viewId) {
+    //   View.getViewAggregation(table.id, viewId, {
+    //     field: {
+    //       average: ['fldQLZIifmSf2Sw3jiO', 'fldTeyAHzbkXVZgPerx'],
+    //       sum: ['fldTeyAHzbkXVZgPerx', 'fldTeyAHzbkXVZgPerx'],
+    //     },
+    //   }).then((aggregates) => {
+    //     console.log('aggregates', aggregates);
+    //   });
+    // }
+
+    Promise.all(promises).then(
+      (aggregates) => {
+        console.log('aggregates', aggregates);
+      }
+      // setAggregates(
+      //   aggregates.map((aggregate, i) => {
+      //     if (!aggregate) return null;
+      //     return {
+      //       value: statisticsValue2DisplayValue(
+      //         funcs[i],
+      //         aggregate?.value || null,
+      //         sortedFields[i]
+      //       ),
+      //       name: sortedFields[i].name,
+      //       func: funcs[i],
+      //     };
+      //   })
+      // )
     );
   }, [funcs, sortedFields, table, viewId]);
 

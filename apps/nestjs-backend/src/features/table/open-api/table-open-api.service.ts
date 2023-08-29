@@ -18,7 +18,7 @@ import {
   TableOpBuilder,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../../prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { createFieldInstanceByRo } from '../../field/model/factory';

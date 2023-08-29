@@ -3,10 +3,13 @@ import type {
   ISort,
   IViewVo,
   IJsonApiSuccessResponse,
-  IViewAggregationVo,
-  IViewRowCountVo,
+  IRawAggregationVo,
+  IRawRowCountVo,
   StatisticsFunc,
-  IAggregationsValue,
+  IRawAggregationsValue,
+  IViewAggregationRo,
+  IViewRowCountVo,
+  IViewAggregationVo,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -28,9 +31,10 @@ export abstract class View extends ViewCore {
     return response.data.data;
   }
 
-  static async getViewAggregation(tableId: string, viewId: string) {
+  static async getViewAggregation(tableId: string, viewId: string, query?: IViewAggregationRo) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewAggregationVo>>(
-      `/api/table/${tableId}/aggregation/${viewId}`
+      `/api/table/${tableId}/aggregation/${viewId}`,
+      { params: query }
     );
     return response.data.data;
   }
@@ -38,19 +42,6 @@ export abstract class View extends ViewCore {
   static async getViewRowCount(tableId: string, viewId: string) {
     const response = await axios.get<IJsonApiSuccessResponse<IViewRowCountVo>>(
       `/api/table/${tableId}/aggregation/${viewId}/rowCount`
-    );
-    return response.data.data;
-  }
-
-  static async getAggregationByFunc(
-    tableId: string,
-    viewId: string,
-    fieldId: string,
-    func: StatisticsFunc
-  ) {
-    const response = await axios.get<IJsonApiSuccessResponse<IAggregationsValue>>(
-      `/api/table/${tableId}/aggregation/${viewId}/${fieldId}/${func}`,
-      { params: { fieldKeyType: FieldKeyType.Id } }
     );
     return response.data.data;
   }

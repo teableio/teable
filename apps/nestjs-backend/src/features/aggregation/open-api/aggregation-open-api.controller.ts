@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { IViewAggregationVo, IViewRowCountVo } from '@teable-group/core';
-import { viewAggregationRo, IViewAggregationRo } from '@teable-group/core';
+import { IViewAggregationRo, viewAggregationRo } from '@teable-group/core';
 import { ZodValidationPipe } from 'src/zod.validation.pipe';
 import { ApiResponse, responseWrap } from '../../../utils';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
@@ -38,28 +38,6 @@ export class AggregationOpenApiController {
     @Param('viewId') viewId: string
   ): Promise<ApiResponse<IViewRowCountVo>> {
     const result = await this.aggregationOpenApiService.getViewRowCount(tableId, viewId);
-    return responseWrap(result);
-  }
-
-  @Get(':viewId/:fieldIdOrName/:func')
-  @ApiOperation({ summary: 'Get a specify aggregation from view by field and func name' })
-  @ApiOkResponse({
-    type: ApiResponse<IAggregationsValue>,
-  })
-  async getViewAggregatesByFunc(
-    @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string,
-    @Param('fieldIdOrName') fieldIdOrName: string,
-    @Param('func', new ZodValidationPipe(aggFuncSchema)) func: StatisticsFunc,
-    @Query('fieldKeyType', new ZodValidationPipe(fieldKeyTypeRoSchema)) fieldKeyType?: FieldKeyType
-  ): Promise<ApiResponse<IAggregationsValue>> {
-    const result = await this.aggregationService.calculateSpecifyAggregation(
-      tableId,
-      fieldIdOrName,
-      viewId,
-      func,
-      fieldKeyType
-    );
     return responseWrap(result);
   }
 }

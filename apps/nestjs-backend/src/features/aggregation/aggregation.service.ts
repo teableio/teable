@@ -1,22 +1,21 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
-  IAggregations,
-  IAggregationsValue,
   IFilter,
-  IViewAggregationVo,
-  IViewRowCountVo,
-  IViewAggregationValue,
-  IViewRowCountValue,
+  IRawAggregations,
+  IRawAggregationValue,
+  IRawAggregationVo,
+  IRawRowCountValue,
+  IRawRowCountVo,
 } from '@teable-group/core';
-import { FieldKeyType, mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
+import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import dayjs from 'dayjs';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { difference, keyBy, sortBy } from 'lodash';
+import { difference, groupBy, isEmpty, sortBy } from 'lodash';
 import type { Observable } from 'rxjs';
 import { catchError, firstValueFrom, from, mergeMap, of, Subject, tap, toArray } from 'rxjs';
-import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FilterQueryTranslator } from '../record/translator/filter-query-translator';
@@ -51,9 +50,9 @@ type ITaskResult = {
   rawRowCountData?: number;
 };
 
-export type IAggCalcCallback = (
-  data: IViewAggregationVo | IViewRowCountVo | null,
-  error?: unknown
+export type IAggregationCalcCallback = (
+  data: IRawAggregationVo | IRawRowCountVo | null,
+  error?: Error
 ) => Promise<void>;
 
 @Injectable()
@@ -63,73 +62,20 @@ export class AggregationService {
 
   constructor(private prisma: PrismaService) {}
 
-  async calculateViewField(params: {
-    tableId: string;
-    withFieldIds?: string[];
-    withView?: IWithView;
-  }): Promise<IViewAggregationVo> {
-    const config = {
-      fieldAggregation: true,
-    };
-    return (await this.performAggregation(params, config)) as IViewAggregationVo;
-  }
-
-  async calculateViewRowCount(params: {
-    tableId: string;
-    withView?: Omit<IWithView, 'customFieldStats'>;
-  }): Promise<IViewRowCountVo> {
-    const config = {
-      rowCount: true,
-    };
-    return (await this.performAggregation(params, config)) as IViewRowCountVo;
-  }
-
-  async calculateSpecifyAggregation(
-    tableId: string,
-    fieldIdOrName: string,
-    viewId: string,
-    func: StatisticsFunc,
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
-  ): Promise<IAggregationsValue> {
-    let fieldId = fieldIdOrName;
-    if (fieldKeyType === FieldKeyType.Name) {
-      const fieldRaw = await this.prisma.field
-        .findFirstOrThrow({
-          where: { [fieldKeyType]: fieldIdOrName, tableId, deletedTime: null },
-          select: { id: true },
-        })
-        .catch(() => {
-          throw new BadRequestException('Field not found');
-        });
-      fieldId = fieldRaw.id;
-    }
-
-    const result = await this.performAggregation(
-      {
-        tableId,
-        withView: {
-          viewId,
-          customFieldStats: [
-            {
-              fieldId,
-              statisticFunc: func,
-            },
-          ],
-        },
-        withFieldIds: [fieldId],
-      },
-      {
-        fieldAggregation: true,
-      }
-    );
-
-    const agg = result[viewId].aggregations?.[fieldId]?.total;
-    if (!agg) {
-      throw new BadRequestException('Aggregation not found');
-    }
-    return agg;
-  }
-
+  /**
+   * This method calculates the aggregations for a specified view.
+   *
+   * @param params - The parameters for the calculation.
+   * @param params.tableId - The ID of the table.
+   * @param params.withFieldIds - Optional. The IDs of the fields to be included in the calculation.
+   * @param params.withView - Optional. The view configuration.
+   *
+   * @param config - The configuration for the calculation.
+   * @param config.fieldAggregation - Optional. A flag indicating whether field aggregation should be performed.
+   * @param config.rowCount - Optional. A flag indicating whether row count should be calculated.
+   *
+   * @param callBack - Optional. A callback function to handle the result of the calculation.
+   */
   async performAggregation(
     params: {
       tableId: string;
@@ -140,8 +86,8 @@ export class AggregationService {
       fieldAggregation?: boolean;
       rowCount?: boolean;
     },
-    callBack?: IAggCalcCallback
-  ): Promise<IViewAggregationVo | IViewRowCountVo> {
+    callBack?: IAggregationCalcCallback
+  ): Promise<IRawAggregationVo | IRawRowCountVo> {
     const { tableId, withFieldIds, withView } = params;
     const { fieldAggregation, rowCount } = config;
 
@@ -157,7 +103,7 @@ export class AggregationService {
 
     // 3.Create aggregation all task
     const tasks: Array<Observable<ITaskResult | null>> = [];
-    const callBackSubject = new Subject<IViewAggregationVo | IViewRowCountVo>();
+    const callBackSubject = new Subject<IRawAggregationVo | IRawRowCountVo>();
 
     this.sortByStatistic(viewStatisticsData).forEach(({ viewId, filter, statisticFields }) => {
       if (rowCount) {
@@ -203,7 +149,7 @@ export class AggregationService {
       )
     );
 
-    const result: IViewAggregationVo | IViewRowCountVo = {};
+    const result: IRawAggregationVo | IRawRowCountVo = {};
     // Format task results and populate viewAggregationResult
     if (taskResults) {
       taskResults
@@ -281,26 +227,36 @@ export class AggregationService {
     fieldInstances: IFieldInstance[],
     customFieldStats?: ICustomFieldStats[]
   ) {
-    let statisticFields: IStatisticField[] | undefined;
-    const customFieldStatsMap = keyBy(customFieldStats, 'fieldId');
+    let calculatedStatisticFields: IStatisticField[] | undefined;
+    const customFieldStatsGrouped = groupBy(customFieldStats, 'fieldId');
 
-    fieldInstances.forEach((instance) => {
-      const { id: fieldId, columnMeta } = instance;
+    fieldInstances.forEach((fieldInstance) => {
+      const { id: fieldId, columnMeta } = fieldInstance;
       const viewFieldMeta = columnMeta[viewId];
+      const customFieldStats = customFieldStatsGrouped[fieldId];
 
-      if (viewFieldMeta || customFieldStatsMap) {
+      if (viewFieldMeta || customFieldStats) {
         const { hidden, statisticFunc } = viewFieldMeta;
-        const func = customFieldStatsMap[fieldId]?.statisticFunc ?? statisticFunc;
+        const statisticFuncList = customFieldStats
+          ?.filter((item) => item.statisticFunc)
+          ?.map((item) => item.statisticFunc) as StatisticsFunc[];
 
-        if (hidden !== true && func) {
-          (statisticFields = statisticFields ?? []).push({
-            field: instance,
-            statisticFunc: func,
+        const funcList = !isEmpty(statisticFuncList)
+          ? statisticFuncList
+          : statisticFunc && [statisticFunc];
+
+        if (hidden !== true && funcList && funcList.length) {
+          const statisticFieldList = funcList.map((item) => {
+            return {
+              field: fieldInstance,
+              statisticFunc: item,
+            };
           });
+          (calculatedStatisticFields = calculatedStatisticFields ?? []).push(...statisticFieldList);
         }
       }
     });
-    return statisticFields;
+    return calculatedStatisticFields;
   }
 
   private createAggTask(
@@ -311,7 +267,7 @@ export class AggregationService {
       filter?: IFilter;
       statisticFields?: IStatisticField[];
     },
-    callBackSubject: Subject<IViewAggregationVo | IViewRowCountVo>
+    callBackSubject: Subject<IRawAggregationVo | IRawRowCountVo>
   ) {
     const { dbTableName, viewId, fieldInstanceMap, filter, statisticFields } = params;
     if (!statisticFields?.length) {
@@ -365,7 +321,7 @@ export class AggregationService {
       withView?: IWithView;
       statisticFields?: IStatisticField[];
     },
-    callBackSubject: Subject<IViewAggregationVo | IViewRowCountVo>
+    callBackSubject: Subject<IRawAggregationVo | IRawRowCountVo>
   ) {
     const { withView, statisticFields } = params;
     const viewId = withView && withView?.viewId;
@@ -399,7 +355,7 @@ export class AggregationService {
       fieldInstanceMap: Record<string, IFieldInstance>;
       filter?: IFilter;
     },
-    callBackSubject: Subject<IViewAggregationVo | IViewRowCountVo>
+    callBackSubject: Subject<IRawAggregationVo | IRawRowCountVo>
   ) {
     const { dbTableName, viewId, fieldInstanceMap, filter } = params;
 
@@ -426,7 +382,7 @@ export class AggregationService {
 
   private wrapTaskAsObservable(
     task: Promise<ITaskResult> | Observable<ITaskResult>,
-    callBackSubject: Subject<IViewAggregationVo | IViewRowCountVo>
+    callBackSubject: Subject<IRawAggregationVo | IRawRowCountVo>
   ): Observable<ITaskResult | null> {
     return from(task).pipe(
       tap((taskResult) => {
@@ -434,8 +390,8 @@ export class AggregationService {
 
         formatTaskResult &&
           callBackSubject.next({ [taskResult.viewId]: formatTaskResult } as
-            | IViewAggregationVo
-            | IViewRowCountVo);
+            | IRawAggregationVo
+            | IRawRowCountVo);
       }),
       catchError((err) => {
         callBackSubject.error(err);
@@ -446,18 +402,19 @@ export class AggregationService {
 
   private formatTaskResult = (
     taskResult: ITaskResult
-  ): IViewAggregationValue | IViewRowCountValue | undefined => {
-    if (taskResult.rawAggregationData) {
-      const aggregations: IAggregations = {};
+  ): IRawAggregationValue | IRawRowCountValue | undefined => {
+    if (taskResult.rawAggregationData != null) {
+      const aggregations: IRawAggregations = [];
       for (const [key, value] of Object.entries(taskResult.rawAggregationData)) {
         const [fieldId, aggFunc] = key.split('_') as [string, StatisticsFunc | undefined];
 
         const convertValue = this.formatConvertValue(value, aggFunc);
 
         if (fieldId) {
-          aggregations[fieldId] = aggFunc
-            ? { total: { value: convertValue, aggFunc: aggFunc } }
-            : null;
+          aggregations.push({
+            fieldId,
+            total: aggFunc ? { value: convertValue, aggFunc: aggFunc } : null,
+          });
         }
       }
 
@@ -468,7 +425,7 @@ export class AggregationService {
       };
     }
 
-    if (taskResult.rawRowCountData) {
+    if (taskResult.rawRowCountData != null) {
       return {
         viewId: taskResult.viewId,
         executionTime: taskResult.executionTime,
@@ -487,7 +444,7 @@ export class AggregationService {
       return convertValue;
     }
 
-    if (aggFunc === StatisticsFunc.DateRangeOfMonths) {
+    if (aggFunc === StatisticsFunc.DateRangeOfMonths && currentValue) {
       const [maxTime, minTime] = (currentValue as string).split(',');
 
       if (!maxTime || !minTime) {

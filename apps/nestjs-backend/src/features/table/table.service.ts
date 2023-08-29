@@ -13,8 +13,7 @@ import type {
   IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import { Prisma, visualTableSql } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
+import { Prisma, visualTableSql, PrismaService } from '@teable-group/db-main-prisma';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';

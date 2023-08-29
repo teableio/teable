@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../src/prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import { TransactionService } from './transaction.service';
 

@@ -10,6 +10,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
 import { openApiDocumentation } from '@teable-group/openapi';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
@@ -26,15 +27,22 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
+  app.use(helmet());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
-  const swagger = configService.get<ISwaggerConfig>('swagger')!;
-  if (swagger.enabled) {
+  const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
+  const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
+
+  if (swaggerConfig?.enabled) {
     const jsonString = JSON.stringify(openApiDocumentation);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     SwaggerModule.setup('/docs', app, openApiDocumentation as any);
+  }
+
+  if (securityWebConfig?.cors.enabled) {
+    app.enableCors();
   }
 
   const redocOptions: RedocOptions = {
@@ -46,11 +54,6 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   // Instead of using SwaggerModule.setup() you call this module
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
-
-  const securityWeb = configService.get<ISecurityWebConfig>('security.web')!;
-  if (securityWeb.cors.enabled) {
-    app.enableCors();
-  }
 }
 
 export async function bootstrap() {
@@ -60,6 +63,8 @@ export async function bootstrap() {
 
     const logger = app.get(Logger);
     app.useLogger(logger);
+
+    app.enableShutdownHooks();
 
     await setUpAppMiddleware(app, configService);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any

@@ -33,6 +33,9 @@
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "postinstall": "yarn prisma generate"
   },
+  "peerDependencies": {
+    "@nestjs/common": "^9.3.9"
+  },
   "dependencies": {
     "@prisma/client": "5.1.1",
     "dotenv-flow-cli": "1.0.0",

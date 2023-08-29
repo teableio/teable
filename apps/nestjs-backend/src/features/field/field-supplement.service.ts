@@ -25,9 +25,9 @@ import {
   CheckboxFieldCore,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
-import { PrismaService } from '../../prisma.service';
 import type { ISupplementService } from '../../share-db/interface';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';

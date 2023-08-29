@@ -1,17 +1,21 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type {
+  IRawAggregationVo,
+  IRawRowCountVo,
   IViewAggregationRo,
   IViewAggregationVo,
   IViewRowCountVo,
   StatisticsFunc,
 } from '@teable-group/core';
 import { getValidStatisticFunc } from '@teable-group/core';
-import { forIn, isEmpty, map, uniqBy } from 'lodash';
+import { forIn, isEmpty, map } from 'lodash';
 import type { IWithView } from '../aggregation.service';
 import { AggregationService } from '../aggregation.service';
 
 @Injectable()
 export class AggregationOpenApiService {
+  private logger = new Logger(AggregationOpenApiService.name);
+
   constructor(private readonly aggregationService: AggregationService) {}
 
   async getViewAggregations(
@@ -38,27 +42,41 @@ export class AggregationOpenApiService {
       withView = { ...withView, customFieldStats: validFieldStats };
     }
 
-    return this.aggregationService.calculateViewField({ tableId: tableId, withView });
+    const result = (await this.aggregationService.performAggregation(
+      { tableId: tableId, withView },
+      { fieldAggregation: true }
+    )) as IRawAggregationVo;
+
+    return {
+      viewId: result?.[viewId]?.viewId,
+      aggregations: result?.[viewId]?.aggregations,
+    };
   }
 
   async getViewRowCount(tableId: string, viewId: string): Promise<IViewRowCountVo> {
-    return this.aggregationService.calculateViewRowCount({ tableId, withView: { viewId } });
+    const result = (await this.aggregationService.performAggregation(
+      { tableId, withView: { viewId } },
+      { rowCount: true }
+    )) as IRawRowCountVo;
+
+    return {
+      rowCount: result[viewId].rowCount,
+    };
   }
 
   private async validFieldStats(
     tableId: string,
     fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }>
   ) {
-    const uniqueFieldStats = uniqBy(fieldStatistics, 'fieldId');
-    if (isEmpty(uniqueFieldStats)) {
+    if (isEmpty(fieldStatistics)) {
       return;
     }
     let result: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> | undefined;
 
-    const fieldIds = uniqueFieldStats.map((item) => item.fieldId);
+    const fieldIds = fieldStatistics.map((item) => item.fieldId);
     const { fieldInstanceMap } = await this.aggregationService.getFieldsData(tableId, fieldIds);
 
-    uniqueFieldStats.forEach(({ fieldId, statisticFunc }) => {
+    fieldStatistics.forEach(({ fieldId, statisticFunc }) => {
       const fieldInstance = fieldInstanceMap[fieldId];
       if (!fieldInstance) {
         throw new BadRequestException(`field: '${fieldId}' is invalid`);

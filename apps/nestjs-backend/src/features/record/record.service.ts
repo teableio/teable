@@ -29,11 +29,11 @@ import {
   OpName,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import knex from 'knex';
 import { keyBy } from 'lodash';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
-import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';

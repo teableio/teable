@@ -19,8 +19,6 @@ export const statisticsValue2DisplayValue = (
   value: string | number | null,
   field: IFieldInstance
 ): string | null => {
-  if (value == null) return null;
-
   const { cellValueType } = field;
 
   switch (statFunc) {
@@ -31,7 +29,7 @@ export const statisticsValue2DisplayValue = (
     case StatisticsFunc.UnChecked:
     case StatisticsFunc.DateRangeOfDays:
     case StatisticsFunc.DateRangeOfMonths: {
-      return String(value);
+      return String(defaultToZero(value, statFunc));
     }
     case StatisticsFunc.Max:
     case StatisticsFunc.Min:
@@ -40,7 +38,7 @@ export const statisticsValue2DisplayValue = (
     case StatisticsFunc.LatestDate:
     case StatisticsFunc.EarliestDate: {
       if ([CellValueType.Number, CellValueType.DateTime].includes(cellValueType)) {
-        return field.cellValue2String(value);
+        return field.cellValue2String(defaultToZero(value, statFunc));
       }
       return String(value);
     }
@@ -55,4 +53,17 @@ export const statisticsValue2DisplayValue = (
       return `${bytesToMB(value as number)}MB`;
     }
   }
+};
+
+const defaultToZero = (value: unknown, statFunc: StatisticsFunc) => {
+  const defaultToZero = [
+    StatisticsFunc.DateRangeOfDays,
+    StatisticsFunc.DateRangeOfMonths,
+    StatisticsFunc.Sum,
+  ];
+  if (defaultToZero.includes(statFunc) && !value) {
+    return 0;
+  }
+
+  return value;
 };

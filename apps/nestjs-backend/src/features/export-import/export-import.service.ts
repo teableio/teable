@@ -1,8 +1,8 @@
 import fs from 'fs';
 import zlib from 'zlib';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import axios from 'axios';
-import { PrismaService } from '../../prisma.service';
 
 @Injectable()
 export class ExportImportService {

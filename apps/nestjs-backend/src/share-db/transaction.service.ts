@@ -3,9 +3,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { map, noop } from 'lodash';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
-import { PrismaService } from '../prisma.service';
 import type { ShareDbService } from './share-db.service';
 
 export interface ITransactionMeta {

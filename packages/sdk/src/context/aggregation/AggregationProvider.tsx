@@ -1,8 +1,9 @@
-import type { IViewAggregationVo } from '@teable-group/core';
+import type { IRawAggregationVo } from '@teable-group/core';
 import { getAggregationChannel } from '@teable-group/core/dist/models/channel';
 import type { Presence } from '@teable/sharedb/lib/client';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
+import { useIsHydrated } from '../../hooks';
 import { View } from '../../model';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
@@ -12,14 +13,13 @@ interface IAggregationProviderProps {
   children: ReactNode;
 }
 
-const previousSet = new Set();
-
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
+  const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [viewAggregation, setViewAggregation] = useState<IViewAggregationVo>({});
+  const [viewAggregation, setViewAggregation] = useState<IRawAggregationVo>({});
 
   useEffect(() => {
     if (!tableId || !viewId || !connection) {
@@ -31,7 +31,7 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
 
     if (!remotePresence?.subscribed) {
       remotePresence?.subscribe((err) => err && console.error);
-      remotePresence?.on('receive', (id, viewAggregation: IViewAggregationVo) => {
+      remotePresence?.on('receive', (id, viewAggregation: IRawAggregationVo) => {
         setViewAggregation(viewAggregation);
       });
     }
@@ -42,15 +42,17 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   }, [connection, remotePresence, tableId, viewId]);
 
   useEffect(() => {
-    if (tableId == null || viewId == null) return;
-    if (previousSet.has(`${tableId}-${viewId}`)) return;
-    previousSet.add(`${tableId}-${viewId}`);
+    if (tableId == null || viewId == null || !isHydrated) return;
 
     View.getViewAggregation(tableId, viewId).then((res) => {
-      previousSet.clear();
-      setViewAggregation(res);
+      setViewAggregation({
+        [viewId]: {
+          ...res,
+          executionTime: new Date().getTime(),
+        },
+      });
     });
-  }, [tableId, viewId, connection]);
+  }, [tableId, viewId, connection, isHydrated]);
 
   return (
     <AggregationContext.Provider value={viewAggregation}>{children}</AggregationContext.Provider>

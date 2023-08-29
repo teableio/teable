@@ -24,7 +24,7 @@ export class DevWsGateway implements OnModuleInit {
   };
 
   handleError = (error: Error) => {
-    this.logger.error('ws:on:error', error);
+    this.logger.error('ws:on:error', error?.stack);
   };
 
   handleClose = () => {
