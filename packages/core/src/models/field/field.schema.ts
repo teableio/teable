@@ -2,7 +2,7 @@ import type { RefinementCtx } from 'zod';
 import { z } from 'zod';
 import { assertNever } from '../../asserts';
 import { IdPrefix } from '../../utils';
-import { StatisticsFunc } from '../view/constant';
+import { StatisticsFunc } from '../aggregation';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,

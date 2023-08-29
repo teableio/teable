@@ -1,10 +1,10 @@
-import type { IViewAggregationVo } from '@teable-group/core';
+import type { IRawAggregationVo } from '@teable-group/core';
+import { statisticFunc2NameMap } from '@teable-group/core';
 import { useAggregation, useFields, useViewId } from '@teable-group/sdk/hooks';
 import { statisticsValue2DisplayValue } from '@teable-group/sdk/utils';
-import { isEmpty } from 'lodash';
+import { isEmpty, keyBy } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../../../grid';
-import { statisticFunc2NameMap } from '../utils';
 
 export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
@@ -18,33 +18,31 @@ export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   columnsRef.current = columns;
   fieldsRef.current = fields;
 
-  const getColumnStatistics = (source: IViewAggregationVo | null, viewId: string) => {
+  const getColumnStatistics = (source: IRawAggregationVo | null, viewId: string) => {
     if (source == null || source[viewId] == null) return {};
     const { aggregations, executionTime } = source[viewId];
     if (isEmpty(aggregations)) return {};
+    const aggregationMap = keyBy(aggregations, 'fieldId');
 
     return columnsRef.current?.reduce((acc, column, index) => {
       const { id: columnId } = column;
-      const columnAggregations = aggregations[columnId];
+
+      const columnAggregations = aggregationMap[columnId];
       const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
       const isNewest = executionTime > prevExecutionTime;
 
-      if (columnAggregations === null && isNewest) {
+      const { total } = columnAggregations ?? {};
+
+      if ((columnAggregations === null || total === null) && isNewest) {
         acc[columnId] = null;
         lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
         return acc;
       }
-      const { total } = columnAggregations ?? {};
+
       const field = fieldsRef.current?.[index];
 
       if (total != null && isNewest) {
         const { aggFunc, value } = total;
-
-        if (value == null) {
-          acc[columnId] = null;
-          lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
-          return acc;
-        }
 
         const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
         acc[columnId] = {

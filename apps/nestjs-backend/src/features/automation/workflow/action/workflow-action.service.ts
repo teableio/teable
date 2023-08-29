@@ -5,8 +5,8 @@ import type {
   AutomationWorkflowAction as AutomationWorkflowActionModel,
   Prisma,
 } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, keyBy, isNil } from 'lodash';
-import { PrismaService } from '../../../../prisma.service';
 import { DEFAULT_DECISION_SCHEMA } from '../../actions';
 import { MetaKit } from '../../engine/json-schema/meta-kit';
 import { ActionTypeEnums } from '../../enums/action-type.enum';

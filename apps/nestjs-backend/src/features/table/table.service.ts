@@ -13,8 +13,7 @@ import type {
   IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import { Prisma, visualTableSql } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
+import { Prisma, visualTableSql, PrismaService } from '@teable-group/db-main-prisma';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
@@ -182,7 +181,7 @@ export class TableService implements IAdapterService {
     const tableMeta = await this.getTableMeta(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
-    const { records, total } = await this.recordService.getRecords(tableId, {
+    const { records } = await this.recordService.getRecords(tableId, {
       viewId,
       skip: 0,
       take: 50,
@@ -196,7 +195,6 @@ export class TableService implements IAdapterService {
       fields,
       views,
       records,
-      total,
     };
   }
   async getTable(tableId: string, query: IGetTableQuery): Promise<ITableVo> {

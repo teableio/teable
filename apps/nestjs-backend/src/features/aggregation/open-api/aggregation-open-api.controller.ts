@@ -1,58 +1,43 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import {
-  aggFuncSchema,
-  FieldKeyType,
-  fieldKeyTypeRoSchema,
-  StatisticsFunc,
-} from '@teable-group/core';
-import type { IAggregationsValue, IViewAggregationVo } from '@teable-group/core';
+import type { IViewAggregationVo, IViewRowCountVo } from '@teable-group/core';
+import { IViewAggregationRo, viewAggregationRo } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
-import { AggregationService } from '../aggregation.service';
+import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @ApiBearerAuth()
 @ApiTags('aggregation')
 @Controller('api/table/:tableId/aggregation')
 export class AggregationOpenApiController {
-  constructor(private readonly aggregationService: AggregationService) {}
+  constructor(private readonly aggregationOpenApiService: AggregationOpenApiService) {}
 
   @Get(':viewId')
   @ApiOperation({ summary: 'Get a view aggregates' })
   @ApiOkResponse({
-    description: 'View',
+    description: 'View Aggregation',
     type: ApiResponse<IViewAggregationVo>,
   })
-  async getViewAggregates(
+  async getViewAggregations(
     @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string
+    @Param('viewId') viewId: string,
+    @Query(new ZodValidationPipe(viewAggregationRo)) query?: IViewAggregationRo
   ): Promise<ApiResponse<IViewAggregationVo>> {
-    const result = await this.aggregationService.calculateAggregations({
-      tableId,
-      withView: { viewId },
-    });
+    const result = await this.aggregationOpenApiService.getViewAggregations(tableId, viewId, query);
     return responseWrap(result);
   }
 
-  @Get(':viewId/:fieldIdOrName/:func')
-  @ApiOperation({ summary: 'Get a specify aggregation from view by field and func name' })
+  @Get(':viewId/rowCount')
+  @ApiOperation({ summary: 'Get a view total record size' })
   @ApiOkResponse({
-    type: ApiResponse<IAggregationsValue>,
+    description: 'View Row Count',
+    type: ApiResponse<IViewRowCountVo>,
   })
-  async getViewAggregatesByFunc(
+  async getViewRowCount(
     @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string,
-    @Param('fieldIdOrName') fieldIdOrName: string,
-    @Param('func', new ZodValidationPipe(aggFuncSchema)) func: StatisticsFunc,
-    @Query('fieldKeyType', new ZodValidationPipe(fieldKeyTypeRoSchema)) fieldKeyType?: FieldKeyType
-  ): Promise<ApiResponse<IAggregationsValue>> {
-    const result = await this.aggregationService.calculateSpecifyAggregation(
-      tableId,
-      fieldIdOrName,
-      viewId,
-      func,
-      fieldKeyType
-    );
+    @Param('viewId') viewId: string
+  ): Promise<ApiResponse<IViewRowCountVo>> {
+    const result = await this.aggregationOpenApiService.getViewRowCount(tableId, viewId);
     return responseWrap(result);
   }
 }

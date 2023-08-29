@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { FieldModule } from '../field.module';
@@ -9,7 +8,7 @@ import { FieldOpenApiService } from './field-open-api.service';
 @Module({
   imports: [FieldModule, ShareDbModule, CalculationModule],
   controllers: [FieldOpenApiController],
-  providers: [FieldOpenApiService, PrismaService],
+  providers: [FieldOpenApiService],
   exports: [FieldOpenApiService],
 })
 export class FieldOpenApiModule {}

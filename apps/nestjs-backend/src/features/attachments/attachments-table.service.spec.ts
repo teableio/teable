@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../../src/prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { AttachmentsTableService } from './attachments-table.service';
 
 describe('AttachmentsService', () => {

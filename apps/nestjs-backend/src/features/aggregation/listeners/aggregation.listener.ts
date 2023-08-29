@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { ISetColumnMetaOpContext, IViewAggregationVo } from '@teable-group/core';
-import { IdPrefix } from '@teable-group/core';
+import type {
+  ISetColumnMetaOpContext,
+  IRawAggregationVo,
+  IRawRowCountVo,
+} from '@teable-group/core';
+import { getAggregationChannel, getRowCountChannel } from '@teable-group/core/dist/models/channel';
 import { get } from 'lodash';
 import { IEventBase } from '../../../event-emitter/interfaces/event-base.interface';
 import type {
@@ -12,6 +16,7 @@ import type {
 } from '../../../event-emitter/model';
 import { EventEnums } from '../../../event-emitter/model';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import type { IWithView } from '../aggregation.service';
 import { AggregationService } from '../aggregation.service';
 
 @Injectable()
@@ -27,23 +32,28 @@ export class AggregationListener {
   @OnEvent(EventEnums.ViewUpdated, { async: true })
   @OnEvent(EventEnums.FieldUpdated, { async: true })
   private async onTableChange(event: IEventBase) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let calculate: any;
+    let calculateParams:
+      | { tableId: string; withFieldIds?: string[]; withView?: IWithView }
+      | undefined = undefined;
+    const calculateConfig: { fieldAggregation?: boolean; rowCount?: boolean } = {
+      fieldAggregation: true,
+    };
 
     if ([EventEnums.RecordCreated, EventEnums.RecordUpdated].includes(event.eventName)) {
       const recordEvent = event as RecordCreatedEvent | RecordUpdatedEvent;
-      const fieldIds: string[] = [];
+      let fieldIds: string[] | undefined;
       const { tableId, ops } = recordEvent;
 
       ops?.forEach((op) => {
         const fieldId = get(op, 'fieldId');
-        fieldId && fieldIds.push(fieldId as string);
+        fieldId && (fieldIds = fieldIds ?? []).push(fieldId);
       });
 
-      calculate = {
+      calculateParams = {
         tableId,
         withFieldIds: fieldIds,
       };
+      calculateConfig['rowCount'] = true;
     }
 
     if (
@@ -64,7 +74,7 @@ export class AggregationListener {
 
       const viewId = (ops[0] as ISetColumnMetaOpContext).viewId;
 
-      calculate = {
+      calculateParams = {
         tableId,
         withView: {
           viewId,
@@ -85,24 +95,26 @@ export class AggregationListener {
     ) {
       const viewEvent = event as ViewUpdatedEvent;
       const { tableId, viewId } = viewEvent;
-      calculate = {
+      calculateParams = {
         tableId,
         withView: {
           viewId,
         },
       };
+      calculateConfig['rowCount'] = true;
     }
 
-    if (calculate) {
-      this.aggregationService.calculateAggregations(calculate, (data, error) =>
-        this.emitAggregation((calculate as { tableId: string }).tableId, data, error)
+    if (calculateParams) {
+      const { tableId } = calculateParams;
+      this.aggregationService.performAggregation(calculateParams, calculateConfig, (data, error) =>
+        this.emitAggregation(tableId, data, error)
       );
     }
   }
 
   private async emitAggregation(
     tableId: string,
-    data?: IViewAggregationVo,
+    data: IRawAggregationVo | IRawRowCountVo | null,
     err?: unknown
   ): Promise<void> {
     if (err) {
@@ -110,12 +122,20 @@ export class AggregationListener {
       return;
     }
 
-    const viewAggregation = data && Object.values(data)[0];
+    const firstData = data && Object.values(data)[0];
 
-    if (viewAggregation) {
-      const channel = `${IdPrefix.View}_${tableId}_${viewAggregation.viewId}_aggregation`;
+    let channel = undefined;
+    if ('aggregations' in firstData) {
+      channel = getAggregationChannel(tableId, firstData.viewId);
+    }
+
+    if ('rowCount' in firstData) {
+      channel = getRowCountChannel(tableId, firstData.viewId);
+    }
+
+    if (firstData && channel) {
       const presence = this.shareDbService.connect().getPresence(channel);
-      const localPresence = presence.create(viewAggregation.viewId);
+      const localPresence = presence.create(firstData.viewId);
       localPresence.submit(data, (error) => {
         error && this.logger.error(error);
       });

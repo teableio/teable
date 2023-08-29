@@ -1,16 +1,15 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { TeableEventEmitterModule } from '../../../event-emitter/event-emitter.module';
-import { ViewOpenApiModule } from './view-open-api.module';
-import { ViewOpenApiService } from './view-open-api.service';
+import { AggregationService } from '../aggregation.service';
+import { AggregationOpenApiService } from './aggregation-open-api.service';
 
-describe('ViewOpenApiService', () => {
-  let service: ViewOpenApiService;
+describe('AggregationOpenApiService', () => {
+  let service: AggregationOpenApiService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ViewOpenApiModule, TeableEventEmitterModule.register()],
+      providers: [AggregationOpenApiService, AggregationService],
     })
       .useMocker((token) => {
         if (token === PrismaService) {
@@ -19,7 +18,7 @@ describe('ViewOpenApiService', () => {
       })
       .compile();
 
-    service = module.get<ViewOpenApiService>(ViewOpenApiService);
+    service = module.get<AggregationOpenApiService>(AggregationOpenApiService);
   });
 
   it('should be defined', () => {

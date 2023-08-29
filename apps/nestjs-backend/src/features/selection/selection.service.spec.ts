@@ -3,8 +3,8 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
 import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
-import { PrismaService } from '../../prisma.service';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -26,7 +26,7 @@ describe('selectionService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [SelectionModule, TeableEventEmitterModule.register()],
+      imports: [SelectionModule, PrismaModule, TeableEventEmitterModule.register()],
     })
       .overrideProvider(PrismaService)
       .useValue({

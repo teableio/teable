@@ -1,5 +1,5 @@
-import { ConsoleLogger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { TeableConfigModule } from '../../../../configs/config.module';
 import { TeableEventEmitterModule } from '../../../../event-emitter/event-emitter.module';
 import { AutomationModule } from '../../automation.module';
@@ -8,7 +8,6 @@ import ajv from '../../engine/json-schema/ajv';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IWebhookSchema } from './webhook';
 
-jest.setTimeout(100000000);
 describe('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
 
@@ -19,9 +18,13 @@ describe('Webhook Action Test', () => {
         AutomationModule,
         TeableEventEmitterModule.register(),
       ],
-    }).compile();
-
-    moduleRef.useLogger(new ConsoleLogger());
+    })
+      .useMocker((token) => {
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
   });

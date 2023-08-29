@@ -29,7 +29,6 @@ export function PieChartCard({ className }: { className?: string }) {
           >
             <Tooltip
               content={({ active, payload }) => {
-                console.log(active, payload);
                 if (active && payload && payload.length) {
                   return (
                     <div className="rounded-lg border bg-background p-2 shadow-sm">

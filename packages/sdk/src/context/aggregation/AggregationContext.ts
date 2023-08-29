@@ -1,4 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IViewAggregationVo } from '@teable-group/core';
+import type { IRawAggregationVo } from '@teable-group/core';
 import React from 'react';
-export const AggregationContext = React.createContext<IViewAggregationVo | null>(null);
+export const AggregationContext = React.createContext<IRawAggregationVo | null>(null);
