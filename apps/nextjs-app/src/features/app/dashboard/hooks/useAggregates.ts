@@ -17,57 +17,38 @@ export function useAggregates(funcs: StatisticsFunc[]) {
     [fields]
   );
 
-  console.log('sortedFields', sortedFields);
-
   useEffect(() => {
     if (!sortedFields.length || sortedFields[0].tableId !== table?.id) {
       return;
     }
 
-    const promises = funcs.map((func, i) => {
+    const statsList = funcs.reduce((pre, cur, i) => {
       const field = sortedFields[i];
       if (!field || !table?.id || !viewId) {
-        return;
+        return pre;
       }
-      return View.getViewAggregation(table.id, viewId, {
-        field: {
-          [func]: [field.id],
-        },
-      });
+      (pre[cur] = pre[cur] ?? []).push(field.id);
+      return pre;
+    }, {} as { [func in StatisticsFunc]: string[] });
+
+    if (!table?.id || !viewId || !Object.keys(statsList)?.length) {
+      return;
+    }
+
+    View.getViewAggregation(table.id, viewId, {
+      field: statsList,
+    }).then(({ aggregations }) => {
+      setAggregates(
+        aggregations.map((aggregate, i) => {
+          const { total } = aggregate;
+          return {
+            name: sortedFields[i].name,
+            func: funcs[i],
+            value: statisticsValue2DisplayValue(funcs[i], total?.value || null, sortedFields[i]),
+          };
+        })
+      );
     });
-
-    // promises.
-    // console.log(promises);
-    // if (table?.id && viewId) {
-    //   View.getViewAggregation(table.id, viewId, {
-    //     field: {
-    //       average: ['fldQLZIifmSf2Sw3jiO', 'fldTeyAHzbkXVZgPerx'],
-    //       sum: ['fldTeyAHzbkXVZgPerx', 'fldTeyAHzbkXVZgPerx'],
-    //     },
-    //   }).then((aggregates) => {
-    //     console.log('aggregates', aggregates);
-    //   });
-    // }
-
-    Promise.all(promises).then(
-      (aggregates) => {
-        console.log('aggregates', aggregates);
-      }
-      // setAggregates(
-      //   aggregates.map((aggregate, i) => {
-      //     if (!aggregate) return null;
-      //     return {
-      //       value: statisticsValue2DisplayValue(
-      //         funcs[i],
-      //         aggregate?.value || null,
-      //         sortedFields[i]
-      //       ),
-      //       name: sortedFields[i].name,
-      //       func: funcs[i],
-      //     };
-      //   })
-      // )
-    );
   }, [funcs, sortedFields, table, viewId]);
 
   return aggregates;
