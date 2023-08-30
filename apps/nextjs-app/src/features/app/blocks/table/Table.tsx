@@ -19,7 +19,7 @@ import { TableHeader } from './table-header/TableHeader';
 export interface ITableProps {
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
-  recordsServerData: { records: IRecord[]; total: number };
+  recordsServerData: { records: IRecord[] };
   recordServerData?: IRecord;
 }
 

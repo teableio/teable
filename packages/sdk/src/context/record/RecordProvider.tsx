@@ -6,7 +6,7 @@ import { RecordContext } from './RecordContext';
 
 export interface IRecordProviderContext {
   children: ReactNode;
-  serverData?: { records: IRecord[]; total: number };
+  serverData?: { records: IRecord[] };
 }
 
 export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, serverData }) => {
