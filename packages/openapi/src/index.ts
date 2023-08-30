@@ -7,3 +7,4 @@ export * from './generate.schema';
 export { AttachmentPath, AttachmentSchema, AttachmentApi } from './attachment';
 export { RecordPath, RecordSchema, RecordApi } from './record';
 export { SelectionSchema, SelectionApi, SelectionPath } from './selection';
+export { AuthSchema, AuthPath } from './auth';

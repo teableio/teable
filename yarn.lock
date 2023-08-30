@@ -3974,6 +3974,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mapbox/node-pre-gyp@npm:^1.0.11":
+  version: 1.0.11
+  resolution: "@mapbox/node-pre-gyp@npm:1.0.11"
+  dependencies:
+    detect-libc: ^2.0.0
+    https-proxy-agent: ^5.0.0
+    make-dir: ^3.1.0
+    node-fetch: ^2.6.7
+    nopt: ^5.0.0
+    npmlog: ^5.0.1
+    rimraf: ^3.0.2
+    semver: ^7.3.5
+    tar: ^6.1.11
+  bin:
+    node-pre-gyp: bin/node-pre-gyp
+  checksum: b848f6abc531a11961d780db813cc510ca5a5b6bf3184d72134089c6875a91c44d571ba6c1879470020803f7803609e7b2e6e429651c026fe202facd11d444b8
+  languageName: node
+  linkType: hard
+
 "@mdx-js/mdx@npm:^1.6.22":
   version: 1.6.22
   resolution: "@mdx-js/mdx@npm:1.6.22"
@@ -4199,7 +4218,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/jwt@npm:^10.0.3":
+"@nestjs/jwt@npm:10.1.0, @nestjs/jwt@npm:^10.0.3":
   version: 10.1.0
   resolution: "@nestjs/jwt@npm:10.1.0"
   dependencies:
@@ -4271,7 +4290,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/passport@npm:^10.0.1":
+"@nestjs/passport@npm:10.0.1, @nestjs/passport@npm:^10.0.1":
   version: 10.0.1
   resolution: "@nestjs/passport@npm:10.0.1"
   peerDependencies:
@@ -8476,6 +8495,8 @@ __metadata:
     "@nestjs/core": 10.2.2
     "@nestjs/devtools-integration": 0.1.5
     "@nestjs/event-emitter": 2.0.2
+    "@nestjs/jwt": 10.1.0
+    "@nestjs/passport": 10.0.1
     "@nestjs/platform-express": 10.2.2
     "@nestjs/platform-ws": 10.2.2
     "@nestjs/swagger": 7.1.10
@@ -8489,6 +8510,8 @@ __metadata:
     "@teable/sharedb": 3.3.11
     "@teamwork/websocket-json-stream": 2.0.0
     "@types/async": 3.2.20
+    "@types/bcrypt": 5.0.0
+    "@types/cors": 2.8.12
     "@types/express": 4.17.17
     "@types/jest": 29.5.4
     "@types/markdown-it": 13.0.1
@@ -8496,10 +8519,13 @@ __metadata:
     "@types/multer": 1.4.7
     "@types/node": 18.11.7
     "@types/nodemailer": 6.4.9
+    "@types/passport-jwt": 3.0.9
+    "@types/passport-local": 1.0.35
     "@types/supertest": 2.0.12
     "@types/ws": 8.5.5
     ajv: 8.12.0
     axios: 1.5.0
+    bcrypt: 5.1.1
     class-transformer: 0.5.1
     class-validator: 0.14.0
     cross-env: 7.0.3
@@ -8528,6 +8554,9 @@ __metadata:
     next: 13.0.2
     nodemailer: 6.9.4
     npm-run-all: 4.1.5
+    passport: 0.6.0
+    passport-jwt: 4.0.1
+    passport-local: 1.0.0
     pino-http: 8.4.0
     pino-pretty: 10.2.0
     prettier: 2.7.1
@@ -9085,6 +9114,15 @@ __metadata:
   dependencies:
     "@babel/types": "npm:^7.3.0"
   checksum: a797ea09c72307569e3ee08aa3900ca744ce3091114084f2dc59b67a45ee7d01df7865252790dbfa787a7915ce892cdc820c9b920f3683292765fc656b08dc63
+  languageName: node
+  linkType: hard
+
+"@types/bcrypt@npm:5.0.0":
+  version: 5.0.0
+  resolution: "@types/bcrypt@npm:5.0.0"
+  dependencies:
+    "@types/node": "*"
+  checksum: 063c32c7a519d64768dfc0169a319b8244d6a6cb50a355c93992b3c5fee1dbc236526a1111f0e7bb25abc8b0473e5f40a5edfeb8b33cad2a6ea35aa2d7d7db14
   languageName: node
   linkType: hard
 
@@ -9712,7 +9750,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/passport-jwt@npm:^3.0.9":
+"@types/passport-jwt@npm:3.0.9, @types/passport-jwt@npm:^3.0.9":
   version: 3.0.9
   resolution: "@types/passport-jwt@npm:3.0.9"
   dependencies:
@@ -9723,7 +9761,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/passport-local@npm:^1.0.35":
+"@types/passport-local@npm:1.0.35, @types/passport-local@npm:^1.0.35":
   version: 1.0.35
   resolution: "@types/passport-local@npm:1.0.35"
   dependencies:
@@ -12335,6 +12373,16 @@ __metadata:
   version: 5.0.3
   resolution: "basic-ftp@npm:5.0.3"
   checksum: 8b04e88eb85a64de9311721bb0707c9cd70453eefdd854cab85438e6f46fb6c597ddad57ed1acf0a9ede3c677b14e657f51051688a5f23d6f3ea7b5d9073b850
+  languageName: node
+  linkType: hard
+
+"bcrypt@npm:5.1.1":
+  version: 5.1.1
+  resolution: "bcrypt@npm:5.1.1"
+  dependencies:
+    "@mapbox/node-pre-gyp": ^1.0.11
+    node-addon-api: ^5.0.0
+  checksum: 13523b1b1c8f7d7162001d197a600db038f995e0dfca67182f8c88d6de045a1f31b8e4d8a51d6a123ade57fc3828c0be828ea7ee57f7a08d24cd82c92bbaa441
   languageName: node
   linkType: hard
 
@@ -25221,6 +25269,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-addon-api@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "node-addon-api@npm:5.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 2508bd2d2981945406243a7bd31362fc7af8b70b8b4d65f869c61731800058fb818cc2fd36c8eac714ddd0e568cc85becf5e165cebbdf7b5024d5151bbc75ea1
+  languageName: node
+  linkType: hard
+
 "node-addon-api@npm:^6.1.0":
   version: 6.1.0
   resolution: "node-addon-api@npm:6.1.0"
@@ -26787,7 +26844,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"passport-jwt@npm:^4.0.1":
+"passport-jwt@npm:4.0.1, passport-jwt@npm:^4.0.1":
   version: 4.0.1
   resolution: "passport-jwt@npm:4.0.1"
   dependencies:
@@ -26806,7 +26863,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"passport-local@npm:^1.0.0":
+"passport-local@npm:1.0.0, passport-local@npm:^1.0.0":
   version: 1.0.0
   resolution: "passport-local@npm:1.0.0"
   dependencies:
@@ -26879,7 +26936,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"passport@npm:^0.6.0":
+"passport@npm:0.6.0, passport@npm:^0.6.0":
   version: 0.6.0
   resolution: "passport@npm:0.6.0"
   dependencies:

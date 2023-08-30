@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -15,12 +15,14 @@ import {
 } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AuthGuard } from '../../auth/guard/auth.guard';
 import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
 @ApiTags('table')
 @Controller('api/table')
+@UseGuards(AuthGuard)
 export class TableController {
   constructor(
     private readonly tableService: TableService,
