@@ -15,8 +15,8 @@ import {
   SingleLineTextFieldCore,
   FieldType,
 } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import request from 'supertest';
-import { PrismaService } from '../src/prisma.service';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { SelectionSchema } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
-import { PrismaService } from '../../prisma.service';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldSupplementService } from '../field/field-supplement.service';

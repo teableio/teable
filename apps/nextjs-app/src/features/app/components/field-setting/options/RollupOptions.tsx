@@ -26,19 +26,25 @@ export const RollupOptions = (props: {
   const isLookupFieldMultiple = useIsMultipleCellValue(isLookup, lookupField, lookupOptions);
 
   const { cellValueType, isMultipleCellValue } = useMemo(() => {
-    if (isLookup && lookupField) {
+    const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
+    if (!lookupField) {
+      return defaultResult;
+    }
+
+    if (isLookup) {
       return {
         cellValueType: lookupField.cellValueType,
         isMultipleCellValue: lookupField.isMultipleCellValue,
       };
     }
-    const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
     try {
-      return expression ? RollupField.getParsedValueType(expression) : defaultResult;
+      return expression
+        ? RollupField.getParsedValueType(expression, lookupField, isLookupFieldMultiple)
+        : defaultResult;
     } catch (e) {
       return defaultResult;
     }
-  }, [expression, isLookup, lookupField]);
+  }, [expression, isLookup, isLookupFieldMultiple, lookupField]);
 
   const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
     onChange?.({

@@ -166,15 +166,20 @@ export const useAsyncData = (
         throw new Error('Can not find view id');
       }
 
-      const newOrders = reorder(rowIndexCollection, newRowIndex, rowCount, (index) => {
-        return loadedRecords[index].recordOrder[viewId];
-      });
+      const newOrders = reorder(
+        rowIndexCollection,
+        newRowIndex,
+        rowCount ?? initRecords?.length ?? 0,
+        (index) => {
+          return loadedRecords[index].recordOrder[viewId];
+        }
+      );
 
       operationRecords.forEach((record, index) => {
         record.updateRecordOrder(viewId, newOrders[index]);
       });
     },
-    [loadedRecords, viewId, rowCount]
+    [loadedRecords, viewId, rowCount, initRecords?.length]
   );
 
   return {

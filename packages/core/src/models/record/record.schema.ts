@@ -146,8 +146,9 @@ export const recordsVoSchema = z.object({
     ],
     description: 'Array of record objects ',
   }),
-  total: z.number().openapi({
-    description: 'Total number of records in this query.',
+  offset: z.string().optional().openapi({
+    description:
+      'If more records exist, the response includes an offset. Use this offset for fetching the next page of records.',
   }),
 });
 
@@ -178,9 +179,7 @@ export const createRecordsRoSchema = z
 
 export type ICreateRecordsRo = z.infer<typeof createRecordsRoSchema>;
 
-export const createRecordsVoSchema = recordsVoSchema.omit({
-  total: true,
-});
+export const createRecordsVoSchema = recordsVoSchema;
 
 export type ICreateRecordsVo = z.infer<typeof createRecordsVoSchema>;
 

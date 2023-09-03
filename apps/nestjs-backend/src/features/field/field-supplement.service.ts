@@ -26,9 +26,9 @@ import {
   CheckboxFieldCore,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
-import { PrismaService } from '../../prisma.service';
 import type { ISupplementService } from '../../share-db/interface';
 import { FieldService } from './field.service';
 import type { IFieldInstance } from './model/factory';
@@ -292,8 +292,8 @@ export class FieldSupplementService implements ISupplementService {
     try {
       valueType = RollupFieldDto.getParsedValueType(
         options.expression,
-        lookupOptions.relationship,
-        lookupField
+        lookupField,
+        lookupField.isMultipleCellValue || linkFieldRaw.isMultipleCellValue || false
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {

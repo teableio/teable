@@ -3,7 +3,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
-import { PrismaService } from '../../prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldModule } from './field.module';
 import { createFieldInstanceByVo } from './model/factory';

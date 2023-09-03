@@ -153,23 +153,12 @@ describe('recordsVoSchema', () => {
         recordOrder: {},
       },
     ],
-    total: 1,
+    offset: 'offset',
   };
 
   it('validates successfully for valid data', () => {
     const result = recordsVoSchema.safeParse(validData);
     expect(result.success).toBe(true);
-  });
-
-  it('fails for missing required fields', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any = { ...validData };
-    delete data.total;
-    const result = recordsVoSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Required');
-    }
   });
 
   it('fails for invalid records (non-array)', () => {
@@ -178,15 +167,6 @@ describe('recordsVoSchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.errors[0].message).toEqual('Expected array, received string');
-    }
-  });
-
-  it('fails for invalid total (non-number)', () => {
-    const data = { ...validData, total: 'invalidTotal' };
-    const result = recordsVoSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Expected number, received string');
     }
   });
 });

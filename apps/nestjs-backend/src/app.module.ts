@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '@teable-group/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
@@ -34,6 +35,7 @@ import { WsModule } from './ws/ws.module';
     }),
     TeableLoggerModule.register(),
     TeableEventEmitterModule.register(),
+    PrismaModule,
     NextModule,
     FileTreeModule,
     ExportImportModule,

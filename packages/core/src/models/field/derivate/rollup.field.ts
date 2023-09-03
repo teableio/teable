@@ -2,7 +2,6 @@ import { instanceToInstance } from 'class-transformer';
 import { z } from 'zod';
 import { EvalVisitor } from '../../../formula/visitor';
 import type { CellValueType, FieldType } from '../constant';
-import { Relationship } from '../constant';
 import type { FieldCore } from '../field';
 import type { ILookupOptionsVo } from '../field.schema';
 import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
@@ -40,15 +39,15 @@ export class RollupFieldCore extends FormulaAbstractCore {
 
   static getParsedValueType(
     expression: string,
-    relationship: Relationship,
-    dependentField: FieldCore
+    dependentField: FieldCore,
+    isMultipleCellValue: boolean
   ) {
     const tree = this.parse(expression);
     // generate a virtual field to evaluate the expression
     const clonedInstance = instanceToInstance(dependentField);
     clonedInstance.id = 'values';
     clonedInstance.name = 'values';
-    clonedInstance.isMultipleCellValue = relationship !== Relationship.ManyOne;
+    clonedInstance.isMultipleCellValue = isMultipleCellValue;
     // field type is not important here
     const visitor = new EvalVisitor({
       values: clonedInstance,

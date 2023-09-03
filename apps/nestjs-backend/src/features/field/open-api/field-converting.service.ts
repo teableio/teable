@@ -14,6 +14,7 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import {
+  Relationship,
   FieldKeyType,
   randomColor,
   FIELD_PROPERTIES,
@@ -206,11 +207,11 @@ export class FieldConvertingService {
   private updateRollupField(field: RollupFieldDto, fieldMap: IFieldMap) {
     const ops: (IOtOperation | undefined)[] = [];
     const { lookupFieldId, relationship } = field.lookupOptions;
-    const dependentField = fieldMap[lookupFieldId];
+    const lookupField = fieldMap[lookupFieldId];
     const { cellValueType, isMultipleCellValue } = RollupFieldDto.getParsedValueType(
       field.options.expression,
-      relationship,
-      dependentField
+      lookupField,
+      lookupField.isMultipleCellValue || relationship !== Relationship.ManyOne
     );
 
     if (field.cellValueType !== cellValueType) {

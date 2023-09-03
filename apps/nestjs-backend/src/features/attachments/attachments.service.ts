@@ -2,10 +2,10 @@ import { createHash } from 'crypto';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { AttachmentSchema } from '@teable-group/openapi';
 import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
-import { PrismaService } from '../../prisma.service';
 import { Storage } from './plugins/storage';
 
 @Injectable()

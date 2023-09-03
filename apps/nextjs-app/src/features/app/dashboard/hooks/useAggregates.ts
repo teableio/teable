@@ -13,7 +13,7 @@ export function useAggregates(funcs: StatisticsFunc[]) {
   >([]);
   const viewId = useViewId();
   const sortedFields = useMemo(
-    () => fields.filter((field) => field.cellValueType === CellValueType.Number).concat(fields),
+    () => fields.filter((field) => field.cellValueType === CellValueType.Number),
     [fields]
   );
 
@@ -22,29 +22,33 @@ export function useAggregates(funcs: StatisticsFunc[]) {
       return;
     }
 
-    const promises = funcs.map((func, i) => {
+    const statsList = funcs.reduce((pre, cur, i) => {
       const field = sortedFields[i];
       if (!field || !table?.id || !viewId) {
-        return;
+        return pre;
       }
-      return View.getAggregationByFunc(table.id, viewId, field.id, func);
-    });
-    Promise.all(promises).then((aggregates) =>
+      (pre[cur] = pre[cur] ?? []).push(field.id);
+      return pre;
+    }, {} as { [func in StatisticsFunc]: string[] });
+
+    if (!table?.id || !viewId || !Object.keys(statsList)?.length) {
+      return;
+    }
+
+    View.getViewAggregation(table.id, viewId, {
+      field: statsList,
+    }).then(({ aggregations }) => {
       setAggregates(
-        aggregates.map((aggregate, i) => {
-          if (!aggregate) return null;
+        aggregations.map((aggregate, i) => {
+          const { total } = aggregate;
           return {
-            value: statisticsValue2DisplayValue(
-              funcs[i],
-              aggregate?.value || null,
-              sortedFields[i]
-            ),
             name: sortedFields[i].name,
             func: funcs[i],
+            value: statisticsValue2DisplayValue(funcs[i], total?.value || null, sortedFields[i]),
           };
         })
-      )
-    );
+      );
+    });
   }, [funcs, sortedFields, table, viewId]);
 
   return aggregates;

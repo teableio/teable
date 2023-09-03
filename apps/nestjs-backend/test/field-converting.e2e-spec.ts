@@ -51,13 +51,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     values: unknown[] = []
   ) {
     const sourceField = await createField(app, table.id, sourceFieldRo);
-    await Promise.all(
-      values.map(
-        (value, i) =>
-          value != null &&
-          updateRecordByApi(app, table.id, table.records[i].id, sourceField.id, value)
-      )
-    );
+    for (const i in values) {
+      const value = values[i];
+      value != null &&
+        (await updateRecordByApi(app, table.id, table.records[i].id, sourceField.id, value));
+    }
     await updateField(app, table.id, sourceField.id, newFieldRo);
     const newField = await getField(app, table.id, sourceField.id);
     const records = await Promise.all(
@@ -246,7 +244,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual({ title: 'y', id: records[3].id });
     });
 
-    it.only('should convert text to lookup', async () => {
+    it('should convert text to lookup', async () => {
       const linkFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
@@ -255,14 +253,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
       const linkField = await createField(app, table1.id, linkFieldRo);
-      console.log('linkField', linkField);
       // set primary key 'x' in table2
       await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add a link record
-      const result = await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
-      console.log('updateRecordByApi1:', result);
 
       const newFieldRo: IFieldRo = {
         type: FieldType.SingleLineText,

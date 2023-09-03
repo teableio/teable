@@ -1,8 +1,6 @@
-import { ConfigService } from '@nestjs/config';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { TeableEventEmitterModule } from '../event-emitter/event-emitter.module';
-import { ShareDbModule } from '../share-db/share-db.module';
+import { ShareDbService } from '../share-db/share-db.service';
 import { WsGateway } from './ws.gateway';
 
 describe('WSGateway', () => {
@@ -10,9 +8,14 @@ describe('WSGateway', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ShareDbModule, TeableEventEmitterModule.register()],
-      providers: [WsGateway, ConfigService],
-    }).compile();
+      providers: [WsGateway],
+    })
+      .useMocker((token) => {
+        if (token === ShareDbService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<WsGateway>(WsGateway);
   });

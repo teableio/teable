@@ -13,9 +13,9 @@ import type {
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
-import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';

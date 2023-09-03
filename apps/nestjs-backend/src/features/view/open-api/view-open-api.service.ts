@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IColumnMeta, IViewVo } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, OpName, ViewOpBuilder } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import type { IViewInstance } from '../model/factory';

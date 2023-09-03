@@ -8,6 +8,7 @@ import {
   IdPrefix,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { CreateOp, DeleteOp, EditOp } from '@teable/sharedb';
 import ShareDb from '@teable/sharedb';
 import type { SnapshotMeta } from '@teable/sharedb/lib/sharedb';
@@ -16,7 +17,6 @@ import { FieldService } from '../features/field/field.service';
 import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
-import { PrismaService } from '../prisma.service';
 import type { IAdapterService } from './interface';
 import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';

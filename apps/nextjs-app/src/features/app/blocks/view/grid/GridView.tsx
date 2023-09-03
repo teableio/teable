@@ -301,7 +301,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         <Grid
           ref={gridRef}
           theme={theme}
-          rowCount={rowCount}
+          rowCount={rowCount ?? ssrRecords?.length ?? 0}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
           columnStatistics={columnStatistics}
           freezeColumnCount={1}

@@ -4,10 +4,9 @@ import type {
   AutomationWorkflow as AutomationWorkflowModel,
   Prisma,
 } from '@teable-group/db-main-prisma';
-import { PrismaManager } from '@teable-group/db-main-prisma';
+import { PrismaManager, PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy, isEmpty } from 'lodash';
-import { PrismaService } from '../../../prisma.service';
 import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
 import type { CreateWorkflowRo } from '../model/create-workflow.ro';
 import { WorkflowVo } from '../model/workflow.vo';

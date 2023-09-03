@@ -11,7 +11,7 @@ import type {
 } from '@teable-group/core';
 import { generateViewId, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { IAdapterService } from '../../share-db/interface';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw } from './model/factory';

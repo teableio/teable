@@ -1,4 +1,4 @@
-import type { OnModuleInit } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
@@ -7,7 +7,7 @@ import { Server } from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 
 @Injectable()
-export class DevWsGateway implements OnModuleInit {
+export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(DevWsGateway.name);
 
   server!: Server;
@@ -24,7 +24,7 @@ export class DevWsGateway implements OnModuleInit {
   };
 
   handleError = (error: Error) => {
-    this.logger.error('ws:on:error', error);
+    this.logger.error('ws:on:error', error?.stack);
   };
 
   handleClose = () => {
@@ -42,5 +42,13 @@ export class DevWsGateway implements OnModuleInit {
     this.server.on('error', this.handleError);
 
     this.server.on('close', this.handleClose);
+  }
+
+  onModuleDestroy() {
+    this.server.close((err) => {
+      if (err) {
+        this.logger.error('DevWsGateway close error', err?.stack);
+      }
+    });
   }
 }

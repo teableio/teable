@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
-import { DbFieldType, FieldType, CellValueType, Relationship } from '../constant';
+import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { DateFormattingPreset, TimeFormatting } from '../formatting';
 import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { NumberFieldCore } from './number.field';
@@ -165,37 +165,25 @@ describe('RollupFieldCore', () => {
     });
 
     it('should return current typed value with field context', () => {
-      expect(
-        RollupFieldCore.getParsedValueType('countall({values})', Relationship.ManyOne, numberField)
-      ).toEqual({
+      expect(RollupFieldCore.getParsedValueType('countall({values})', numberField, false)).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
         cellValueType: CellValueType.Number,
       });
 
       expect(
-        RollupFieldCore.getParsedValueType('sum({values})', Relationship.ManyOne, numberField)
-      ).toEqual({
-        cellValueType: CellValueType.Number,
-      });
-
-      expect(
-        RollupFieldCore.getParsedValueType('sum({values})', Relationship.ManyOne, numberField)
-      ).toEqual({
-        cellValueType: CellValueType.Number,
-      });
-
-      expect(
-        RollupFieldCore.getParsedValueType(
-          'concatenate({values})',
-          Relationship.ManyOne,
-          numberField
-        )
+        RollupFieldCore.getParsedValueType('concatenate({values})', numberField, false)
       ).toEqual({
         cellValueType: CellValueType.String,
       });
 
-      expect(
-        RollupFieldCore.getParsedValueType('and({values})', Relationship.ManyOne, numberField)
-      ).toEqual({
+      expect(RollupFieldCore.getParsedValueType('and({values})', numberField, false)).toEqual({
         cellValueType: CellValueType.Boolean,
       });
     });

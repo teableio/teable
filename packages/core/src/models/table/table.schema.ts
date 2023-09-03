@@ -30,9 +30,6 @@ export const fullTableVoSchema = z
     records: recordSchema.array().openapi({
       description: 'The records of the table.',
     }),
-    total: z.number().openapi({
-      description: 'Total number of records in this query.',
-    }),
     order: z.number().openapi({
       description: 'The order is a floating number, table will sort by it in the folder.',
     }),
@@ -53,7 +50,6 @@ export const tableVoSchema = fullTableVoSchema.partial({
   fields: true,
   views: true,
   records: true,
-  total: true,
 });
 
 export type ITableVo = z.infer<typeof tableVoSchema>;
@@ -61,7 +57,6 @@ export type ITableVo = z.infer<typeof tableVoSchema>;
 export const tableRoSchema = fullTableVoSchema
   .omit({
     id: true,
-    total: true,
     dbTableName: true,
     lastModifiedTime: true,
     defaultViewId: true,
@@ -127,8 +122,7 @@ export const getTableQuerySchema = z.object({
     .pipe(z.boolean())
     .optional()
     .openapi({
-      description:
-        'If true return table content. including fields, views, first 50 records and total count of records.',
+      description: 'If true return table content. including fields, views, first 50 records.',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });

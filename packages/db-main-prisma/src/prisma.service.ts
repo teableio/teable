@@ -1,7 +1,7 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
-import type { Prisma } from '@teable-group/db-main-prisma';
 
 @Injectable()
 export class PrismaService
@@ -39,11 +39,10 @@ export class PrismaService
   async onModuleInit() {
     await this.$connect();
 
-    await this.$queryRaw`PRAGMA journal_mode = WAL;`.catch((error) => {
-      console.error('Failed due to:', error);
+    await this.$queryRaw`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;`.catch((error) => {
+      this.logger.error('Prisma Set `PRAGMA` Failed due to:', error.stack);
       process.exit(1);
     });
-    await this.$queryRaw`PRAGMA wal_checkpoint(FULL);`;
 
     if (process.env.NODE_ENV === 'production') return;
 
