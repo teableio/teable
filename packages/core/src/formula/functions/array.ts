@@ -29,10 +29,12 @@ export class CountAll extends ArrayFunc {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eval(params: TypedValue<any | any[] | null[]>[]): number {
+    if (params.length === 1 && params[0].value == null) {
+      return 0;
+    }
     return params.reduce((result, param) => {
       if (param.isMultiple) {
         if (!Array.isArray(param.value) || param.value === null) {
-          result += 1;
           return result;
         }
         result += param.value.reduce((pre, v) => {

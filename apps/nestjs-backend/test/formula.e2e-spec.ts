@@ -1,8 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptionsRo, ITableFullVo } from '@teable-group/core';
 import { Relationship, FieldType, generateFieldId } from '@teable-group/core';
 import request from 'supertest';
-import { initApp } from './utils/init-app';
+import { initApp, createField } from './utils/init-app';
 
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
@@ -151,14 +151,6 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   it('should calculate primary field when have link relationship', async () => {
-    async function createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
-      const result = await request(app.getHttpServer())
-        .post(`/api/table/${tableId}/field`)
-        .send(fieldRo)
-        .expect(201);
-      return result.body.data;
-    }
-
     const result2 = await request(app.getHttpServer()).post('/api/table').expect(201);
     const table2: ITableFullVo = result2.body.data;
     const linkFieldRo: IFieldRo = {
@@ -176,9 +168,9 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    await createField(table1Id, linkFieldRo);
+    await createField(app, table1Id, linkFieldRo);
 
-    const formulaField = await createField(table2.id, formulaFieldRo);
+    const formulaField = await createField(app, table2.id, formulaFieldRo);
 
     console.log('----------------------');
     const updateResult1 = await request(app.getHttpServer())

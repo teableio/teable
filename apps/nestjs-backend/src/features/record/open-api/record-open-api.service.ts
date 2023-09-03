@@ -46,17 +46,17 @@ export class RecordOpenApiService {
 
   async multipleCreateRecords(
     tableId: string,
-    createRecordsRo: ICreateRecordsRo,
-    transactionKey?: string
+    createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
-    if (transactionKey) {
-      return await this.createRecords(transactionKey, tableId, createRecordsRo);
-    }
-
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (_, transactionKey) => {
-        return await this.createRecords(transactionKey, tableId, createRecordsRo);
+        return await this.createRecords(
+          transactionKey,
+          tableId,
+          createRecordsRo.records,
+          createRecordsRo.fieldKeyType
+        );
       }
     );
   }
@@ -131,7 +131,6 @@ export class RecordOpenApiService {
     const fkRecordMap = derivate?.fkRecordMap || {};
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
-
     // calculate by origin ops and link derivation
     const { opsMap: opsMapByCalculation } = await this.referenceService.calculateOpsMap(
       prisma,
@@ -257,14 +256,14 @@ export class RecordOpenApiService {
     });
   }
 
-  private async createRecords(
+  async createRecords(
     transactionKey: string,
     tableId: string,
-    createRecordsRo: ICreateRecordsRo
+    recordsRo: { id?: string; fields: Record<string, unknown> }[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
-    const fieldKeyType = createRecordsRo.fieldKeyType ?? FieldKeyType.Name;
-    const snapshots = createRecordsRo.records.map(() => {
-      const recordId = generateRecordId();
+    const snapshots = recordsRo.map((record) => {
+      const recordId = record.id || generateRecordId();
       return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });
     });
 
@@ -286,7 +285,7 @@ export class RecordOpenApiService {
     const plainRecords = await this.appendDefaultValue(
       transactionKey,
       tableId,
-      createRecordsRo.records.map((s, i) => ({ id: snapshots[i].id, fields: s.fields })),
+      recordsRo.map((s, i) => ({ id: snapshots[i].id, fields: s.fields })),
       fieldKeyType
     );
 
@@ -313,7 +312,7 @@ export class RecordOpenApiService {
       records: snapshots.map((snapshot) => {
         const record = records.find((record) => record.id === snapshot.id);
         if (record) {
-          return this.convertFieldKeyInRecord(record, fields, createRecordsRo.fieldKeyType);
+          return this.convertFieldKeyInRecord(record, fields, fieldKeyType);
         }
         return snapshot;
       }),

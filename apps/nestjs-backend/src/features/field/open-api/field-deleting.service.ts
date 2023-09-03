@@ -75,19 +75,33 @@ export class FieldDeletingService {
       : errorRefFieldIds;
     await this.markFieldsAsError(connection, collection, errorFieldIds);
 
-    // src is a unique id for the client used by sharedb
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const src = (connection.agent as any).clientId;
-    const rawOpsMap = await this.fieldBatchCalculationService.calculateFields(
+    const rawOpsMap = await this.cleanField(
       prisma,
-      src,
+      connection,
       tableId,
-      errorFieldIds.concat(fieldId),
-      true
+      errorFieldIds.concat(fieldId)
     );
 
     const snapshot = await this.deleteDoc(connection, collection, fieldId);
     return { snapshot, rawOpsMap };
+  }
+
+  async cleanField(
+    prisma: Prisma.TransactionClient,
+    connection: Connection,
+    tableId: string,
+    fieldIds: string[]
+  ) {
+    // src is a unique id for the client used by sharedb
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const src = (connection.agent as any).clientId;
+    return await this.fieldBatchCalculationService.calculateFields(
+      prisma,
+      src,
+      tableId,
+      fieldIds,
+      true
+    );
   }
 
   async deleteField(transactionKey: string, tableId: string, fieldId: string): Promise<IFieldVo> {

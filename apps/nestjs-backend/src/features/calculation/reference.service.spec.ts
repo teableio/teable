@@ -7,7 +7,7 @@ import type { Knex } from 'knex';
 import knex from 'knex';
 import { PrismaService } from '../../prisma.service';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRo } from '../field/model/factory';
+import { createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { NumberFieldDto } from '../field/model/field-dto/number-field.dto';
@@ -322,6 +322,7 @@ describe('ReferenceService', () => {
     let fieldId2TableId: { [fieldId: string]: string };
     let recordMap: { [recordId: string]: IRecord };
     let ordersWithRecords: ITopoItemWithRecords[];
+    let tableId2DbTableName: { [tableId: string]: string };
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
@@ -333,7 +334,7 @@ describe('ReferenceService', () => {
 
     beforeEach(() => {
       fieldMap = {
-        fieldA: createFieldInstanceByRo({
+        fieldA: createFieldInstanceByVo({
           id: 'fieldA',
           name: 'fieldA',
           type: FieldType.Link,
@@ -355,7 +356,7 @@ describe('ReferenceService', () => {
         //   relationship: Relationship.OneMany,
         //   linkedTable: 'B',
         // },
-        oneToManyB: createFieldInstanceByRo({
+        oneToManyB: createFieldInstanceByVo({
           id: 'oneToManyB',
           name: 'oneToManyB',
           type: FieldType.Link,
@@ -371,7 +372,7 @@ describe('ReferenceService', () => {
           isMultipleCellValue: true,
         } as LinkFieldDto),
         // fieldB is a special field depend on oneToManyC, may be convert it to formula field
-        fieldB: createFieldInstanceByRo({
+        fieldB: createFieldInstanceByVo({
           id: 'fieldB',
           name: 'fieldB',
           type: FieldType.Formula,
@@ -383,7 +384,7 @@ describe('ReferenceService', () => {
           isMultipleCellValue: true,
           isComputed: true,
         } as FormulaFieldDto),
-        manyToOneA: createFieldInstanceByRo({
+        manyToOneA: createFieldInstanceByVo({
           id: 'manyToOneA',
           name: 'manyToOneA',
           type: FieldType.Link,
@@ -404,7 +405,7 @@ describe('ReferenceService', () => {
         //   relationship: Relationship.OneMany,
         //   linkedTable: 'C',
         // },
-        oneToManyC: createFieldInstanceByRo({
+        oneToManyC: createFieldInstanceByVo({
           id: 'oneToManyC',
           name: 'oneToManyC',
           type: FieldType.Link,
@@ -419,7 +420,7 @@ describe('ReferenceService', () => {
           dbFieldType: DbFieldType.Json,
           isMultipleCellValue: true,
         } as LinkFieldDto),
-        fieldC: createFieldInstanceByRo({
+        fieldC: createFieldInstanceByVo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,
@@ -433,7 +434,7 @@ describe('ReferenceService', () => {
         //   relationship: Relationship.ManyOne,
         //   linkedTable: 'B',
         // },
-        manyToOneB: createFieldInstanceByRo({
+        manyToOneB: createFieldInstanceByVo({
           id: 'manyToOneB',
           name: 'manyToOneB',
           type: FieldType.Link,
@@ -457,6 +458,12 @@ describe('ReferenceService', () => {
         oneToManyC: 'B',
         fieldC: 'C',
         manyToOneB: 'C',
+      };
+
+      tableId2DbTableName = {
+        A: 'A',
+        B: 'B',
+        C: 'C',
       };
 
       recordMap = {
@@ -486,7 +493,7 @@ describe('ReferenceService', () => {
         idB2: {
           id: 'idB2',
           fields: {
-            fieldB: 'C3',
+            fieldB: ['C3'],
             manyToOneA: { title: 'A1', id: 'idA1' },
             oneToManyC: [{ title: 'C3', id: 'idC3' }],
           },
@@ -566,7 +573,7 @@ describe('ReferenceService', () => {
         ordersWithRecords,
         fieldMap,
         fieldId2TableId,
-        {},
+        tableId2DbTableName,
         {}
       );
       // 3. Assert
@@ -705,7 +712,7 @@ describe('ReferenceService', () => {
 
     it('should correctly collect changes for Computed fields', () => {
       const fieldMap = {
-        fieldA: createFieldInstanceByRo({
+        fieldA: createFieldInstanceByVo({
           id: 'fieldA',
           name: 'fieldA',
           type: FieldType.Number,
@@ -715,7 +722,7 @@ describe('ReferenceService', () => {
           cellValueType: CellValueType.Number,
           dbFieldType: DbFieldType.Real,
         } as NumberFieldDto),
-        fieldB: createFieldInstanceByRo({
+        fieldB: createFieldInstanceByVo({
           id: 'fieldB',
           name: 'fieldB',
           type: FieldType.Formula,
@@ -726,7 +733,7 @@ describe('ReferenceService', () => {
           dbFieldType: DbFieldType.Text,
           isComputed: true,
         } as FormulaFieldDto),
-        fieldC: createFieldInstanceByRo({
+        fieldC: createFieldInstanceByVo({
           id: 'fieldC',
           name: 'fieldC',
           type: FieldType.SingleLineText,

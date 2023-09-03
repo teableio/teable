@@ -543,6 +543,10 @@ export class FieldCalculationService {
     fieldMap: { [fieldId: string]: IFieldInstance },
     opsData: IOpsData[]
   ) {
+    if (!opsData.length) {
+      return;
+    }
+
     const tempTableName = `${dbTableName}_temp`;
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
     const columnNames = fieldIds

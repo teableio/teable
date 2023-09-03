@@ -8,7 +8,7 @@ import {
 } from '@nestjs/swagger';
 import {
   getTableQuerySchema,
-  ICreateTableRo,
+  ICreateTablePreparedRo,
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
@@ -61,7 +61,7 @@ export class TableController {
   @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Post()
   async createTable(
-    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
+    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTablePreparedRo
   ): Promise<ApiResponse<ITableFullVo>> {
     const result = await this.tableOpenApiService.createTable(createTableRo);
     return responseWrap(result);

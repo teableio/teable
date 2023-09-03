@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IFieldVo, IUpdateFieldRo } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable-group/core';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import type { IFieldInstance } from '../model/factory';
+import { FieldSupplementService } from '../field-supplement.service';
+import { createFieldInstanceByVo } from '../model/factory';
 import { FieldConvertingService } from './field-converting.service';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
@@ -15,17 +16,16 @@ export class FieldOpenApiService {
     private readonly transactionService: TransactionService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
-    private readonly fieldConvertingService: FieldConvertingService
+    private readonly fieldConvertingService: FieldConvertingService,
+    private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
-  async createField(tableId: string, fieldInstance: IFieldInstance, transactionKey?: string) {
-    if (transactionKey) {
-      return await this.fieldCreatingService.createField(transactionKey, tableId, fieldInstance);
-    }
-
+  async createField(tableId: string, fieldRo: IFieldRo) {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (_, transactionKey) => {
+        const fieldVo = await this.fieldSupplementService.prepareCreateField(fieldRo);
+        const fieldInstance = createFieldInstanceByVo(fieldVo);
         return await this.fieldCreatingService.createField(transactionKey, tableId, fieldInstance);
       }
     );

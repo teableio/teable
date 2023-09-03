@@ -97,6 +97,14 @@ export const tableRoSchema = fullTableVoSchema
 
 export type ICreateTableRo = z.infer<typeof tableRoSchema>;
 
+export const tablePreparedRoSchema = tableRoSchema.merge(
+  z.object({
+    fields: fieldVoSchema.array().optional(),
+  })
+);
+
+export type ICreateTablePreparedRo = z.infer<typeof tablePreparedRoSchema>;
+
 export type ITableOp = Pick<
   ITableVo,
   'id' | 'name' | 'description' | 'order' | 'icon' | 'lastModifiedTime'

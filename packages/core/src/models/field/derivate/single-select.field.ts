@@ -11,13 +11,17 @@ export class SingleSelectFieldCore extends SelectFieldCore {
 
   cellValueType!: CellValueType.String;
 
-  convertStringToCellValue(value: string): string | null {
+  convertStringToCellValue(value: string, shouldExtend?: boolean): string | null {
     if (this.isLookup) {
       return null;
     }
 
     if (value === '' || value == null) {
       return null;
+    }
+
+    if (shouldExtend) {
+      return String(value);
     }
 
     if (this.options.choices.find((c) => c.name === value)) {

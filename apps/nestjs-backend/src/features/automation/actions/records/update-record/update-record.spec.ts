@@ -114,7 +114,7 @@ describe('Update-Record Action Test', () => {
     const result = await tableOpenApiService.createTable({
       name: 'table1-automation-add',
       views: DEFAULT_VIEWS,
-      fields: DEFAULT_FIELDS,
+      fields: DEFAULT_FIELDS as IFieldVo[],
       records: DEFAULT_RECORD_DATA,
     });
     return result.id;

@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
+import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { SelectionSchema } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
-import { TransactionService } from '../..//share-db/transaction.service';
 import { PrismaService } from '../../prisma.service';
 import { ShareDbService } from '../../share-db/share-db.service';
+import { TransactionService } from '../../share-db/transaction.service';
 import { FieldSupplementService } from '../field/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRo, createFieldInstanceByVo } from '../field/model/factory';
+import { createFieldInstanceByVo } from '../field/model/factory';
 import { AttachmentFieldDto } from '../field/model/field-dto/attachment-field.dto';
-import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { FieldCreatingService } from '../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 
@@ -22,7 +22,7 @@ export class SelectionService {
     private fieldService: FieldService,
     private prismaService: PrismaService,
     private recordOpenApiService: RecordOpenApiService,
-    private fieldOpenApiService: FieldOpenApiService,
+    private fieldCreatingService: FieldCreatingService,
     private fieldSupplementService: FieldSupplementService,
     private transactionService: TransactionService,
     private shareDbService: ShareDbService
@@ -107,10 +107,10 @@ export class SelectionService {
     transactionKey: string;
   }) {
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    const createdRecords = await this.recordOpenApiService.multipleCreateRecords(
+    const createdRecords = await this.recordOpenApiService.createRecords(
+      transactionKey,
       tableId,
-      { records },
-      transactionKey
+      records
     );
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
@@ -135,12 +135,12 @@ export class SelectionService {
         : {
             type: FieldType.SingleLineText,
           };
-      const fieldRo = await this.fieldSupplementService.prepareField(field);
-      const fieldInstance = createFieldInstanceByRo(fieldRo);
-      const newField = await this.fieldOpenApiService.createField(
+      const fieldVo = await this.fieldSupplementService.prepareCreateField(field);
+      const fieldInstance = createFieldInstanceByVo(fieldVo);
+      const newField = await this.fieldCreatingService.createField(
+        transactionKey,
         tableId,
-        fieldInstance,
-        transactionKey
+        fieldInstance
       );
       res.push(newField);
     }
@@ -236,7 +236,10 @@ export class SelectionService {
         if (stringValue === null) {
           recordField[field.id] = null;
         } else {
-          recordField[field.id] = field.convertStringToCellValue(stringValue, attachments);
+          recordField[field.id] = (field as FieldCore).convertStringToCellValue(
+            stringValue,
+            attachments
+          );
         }
 
         updateRecordsRo[row] = {

@@ -11,10 +11,11 @@ import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-grou
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
-import { difference, groupBy, intersectionBy, uniq } from 'lodash';
+import { difference, groupBy, intersectionBy, keyBy, uniq } from 'lodash';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
+import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import type { ICellChange } from './utils/changes';
 import { mergeDuplicateChange, formatChangesToOps } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -62,7 +63,7 @@ export interface ITopoItemWithRecords extends ITopoItem {
   recordItems: IRecordItem[];
 }
 
-export interface IFkRecordMapByDbTableName {
+export interface IFkOpMap {
   [dbTableName: string]: {
     [recordId: string]: {
       [fkField: string]: string | null;
@@ -104,31 +105,26 @@ export class ReferenceService {
    * 1. calculate the delete operation
    * 2. update foreignKey
    * 3. calculate the others operation
+   *
+   * fkOpMap is a map of foreignKey update operation. linkDerivation generate fkOpMap operation,
+   * but we need it do calculation, so we have to pass origin fkOpMap it to calculateOpsMap.
    */
-  async calculateOpsMap(
-    prisma: Prisma.TransactionClient,
-    opsMap: IOpsMap,
-    fkRecordMap: IFkRecordMapByDbTableName = {}
-  ) {
+  async calculateOpsMap(prisma: Prisma.TransactionClient, opsMap: IOpsMap, fkOpMap: IFkOpMap = {}) {
     const { recordDataMapWithDelete, recordDataMapRemains } =
       this.splitOpsMapToRecordDataMap(opsMap);
 
     // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
     // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
-    // console.log('updateForeignKey:', JSON.stringify(fkRecordMap, null, 2));
+    // console.log('updateForeignKey:', JSON.stringify(fkOpMap, null, 2));
     const resultBefore = await this.calculateRecordDataMap(
       prisma,
       recordDataMapWithDelete,
-      fkRecordMap
+      fkOpMap
     );
-    // console.log('cellChangesBefore', cellChangesBefore);
-    await this.updateForeignKey(prisma, fkRecordMap);
-    const resultAfter = await this.calculateRecordDataMap(
-      prisma,
-      recordDataMapRemains,
-      fkRecordMap
-    );
-    // console.log('cellChangesAfter', cellChangesAfter);
+    // console.log('resultBefore', resultBefore?.cellChanges);
+    await this.updateForeignKey(prisma, fkOpMap);
+    const resultAfter = await this.calculateRecordDataMap(prisma, recordDataMapRemains, fkOpMap);
+    // console.log('resultAfter', resultAfter);
     const changes = resultBefore.cellChanges.concat(resultAfter.cellChanges);
     const fieldMap = Object.assign({}, resultBefore.fieldMap, resultAfter.fieldMap);
     const tableId2DbTableName = Object.assign(
@@ -178,7 +174,7 @@ export class ReferenceService {
     prisma: Prisma.TransactionClient,
     tableId: string,
     recordData: IRecordData[],
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkOpMap: IFkOpMap
   ) {
     if (!recordData.length) {
       return;
@@ -276,7 +272,7 @@ export class ReferenceService {
           fieldMap,
           fieldId2TableId,
           tableId2DbTableName,
-          fkRecordMap
+          fkOpMap
         )
       );
     }, []);
@@ -385,14 +381,14 @@ export class ReferenceService {
   private async calculateRecordDataMap(
     prisma: Prisma.TransactionClient,
     recordDataMap: IRecordDataMap,
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkOpMap: IFkOpMap
   ) {
     const cellChanges: ICellChange[] = [];
     const allTableId2DbTableName: { [tableId: string]: string } = {};
     const allFieldMap: IFieldMap = {};
     for (const tableId in recordDataMap) {
       const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
-      const calculateResult = await this.calculate(prisma, tableId, recordData, fkRecordMap);
+      const calculateResult = await this.calculate(prisma, tableId, recordData, fkOpMap);
       if (calculateResult) {
         const { changes, fieldMap, tableId2DbTableName } = calculateResult;
         Object.assign(allTableId2DbTableName, tableId2DbTableName);
@@ -408,11 +404,25 @@ export class ReferenceService {
     };
   }
 
-  // for lookup field, cellValues should be flat
+  // for lookup field, cellValues should be flat and filter
   private flatOriginLookup(lookupValues: unknown[] | unknown) {
     if (Array.isArray(lookupValues)) {
-      const filtered = lookupValues.flat().filter((value) => value != null);
-      return filtered.length ? filtered : null;
+      const flatten = lookupValues.flat().filter((value) => value != null);
+      return flatten.length ? flatten : null;
+    }
+    return lookupValues;
+  }
+
+  // for computed field, inner array cellValues should be join to string
+  private joinOriginLookup(lookupField: IFieldInstance, lookupValues: unknown[] | unknown) {
+    if (Array.isArray(lookupValues)) {
+      const flatten = lookupValues.map((value) => {
+        if (Array.isArray(value)) {
+          return lookupField.cellValue2String(value);
+        }
+        return value;
+      });
+      return flatten.length ? flatten : null;
     }
     return lookupValues;
   }
@@ -423,7 +433,7 @@ export class ReferenceService {
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkRecordMap: IFkOpMap
   ) {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.lookupOptions) {
@@ -463,7 +473,13 @@ export class ReferenceService {
         return this.flatOriginLookup(lookupValues);
       }
 
-      return this.calculateRollup(field, relationship, lookupField, record, lookupValues);
+      return this.calculateRollup(
+        field,
+        relationship,
+        lookupField,
+        record,
+        this.joinOriginLookup(lookupField, lookupValues)
+      );
     }
 
     if (field.type === FieldType.Formula) {
@@ -473,11 +489,9 @@ export class ReferenceService {
     throw new Error(`Unsupported field type ${field.type}`);
   }
 
-  private calculateFormula(field: IFieldInstance, fieldMap: IFieldMap, recordItem: IRecordItem) {
-    if (field.type === FieldType.Formula) {
-      const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
-      return typedValue.toPlain();
-    }
+  private calculateFormula(field: FormulaFieldDto, fieldMap: IFieldMap, recordItem: IRecordItem) {
+    const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
+    return typedValue.toPlain();
   }
 
   /**
@@ -491,7 +505,7 @@ export class ReferenceService {
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordTableMap: IFkRecordMapByDbTableName
+    fkRecordTableMap: IFkOpMap
   ) {
     const fieldId = lookupField.id;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -567,10 +581,7 @@ export class ReferenceService {
     }
   }
 
-  private async updateForeignKey(
-    prisma: Prisma.TransactionClient,
-    fkRecordMap: IFkRecordMapByDbTableName
-  ) {
+  private async updateForeignKey(prisma: Prisma.TransactionClient, fkRecordMap: IFkOpMap) {
     for (const dbTableName in fkRecordMap) {
       for (const recordId in fkRecordMap[dbTableName]) {
         const updateParam = fkRecordMap[dbTableName][recordId];
@@ -650,7 +661,7 @@ export class ReferenceService {
     fieldMap: IFieldMap,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkRecordMap: IFkOpMap
   ) {
     // detail changes
     const changes: ICellChange[] = [];
@@ -810,11 +821,11 @@ export class ReferenceService {
     dependentRecordItems: IRecordRefItem[];
   }): ITinyRecord[] {
     const { linkFieldId, dependentRecordItems, record, foreignTableRecords } = params;
-
+    const foreignTableRecordsIndexed = keyBy(foreignTableRecords, 'id');
     return dependentRecordItems
       .filter((item) => item.relationTo === record.id && item.fieldId === linkFieldId)
       .map((item) => {
-        const record = foreignTableRecords.find((r) => r.id === item.id);
+        const record = foreignTableRecordsIndexed[item.id];
         if (!record) {
           throw new Error('Can not find link record');
         }
@@ -954,7 +965,7 @@ export class ReferenceService {
     dbTableName2fields: { [tableId: string]: IFieldInstance[] }
   ) {
     return Object.entries(formattedResults).reduce<{
-      [dbTableName: string]: Pick<ITinyRecord, 'id' | 'fields'>[];
+      [dbTableName: string]: ITinyRecord[];
     }>((acc, e) => {
       const [dbTableName, recordMap] = e;
       const fields = dbTableName2fields[dbTableName];
@@ -975,7 +986,7 @@ export class ReferenceService {
       const records = allRecordByDbTableName[cover.dbTableName];
       const record = records.find((r) => r.id === cover.id);
       if (!record) {
-        throw new Error('Can not find record in DB');
+        throw new Error(`Can not find record: ${cover.id} in DB`);
       }
       record.fields[cover.fieldId] = cover.newValue;
     });

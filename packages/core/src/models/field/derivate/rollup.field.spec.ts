@@ -178,6 +178,12 @@ describe('RollupFieldCore', () => {
       });
 
       expect(
+        RollupFieldCore.getParsedValueType('sum({values})', Relationship.ManyOne, numberField)
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
         RollupFieldCore.getParsedValueType(
           'concatenate({values})',
           Relationship.ManyOne,

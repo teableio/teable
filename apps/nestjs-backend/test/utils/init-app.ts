@@ -3,7 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IRecord, IUpdateRecordRo } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecord, IRecordsVo, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import { json, urlencoded } from 'express';
 import request from 'supertest';
@@ -67,6 +67,17 @@ export async function updateRecordByApi(
   ).body.data;
 }
 
+export async function getRecords(app: INestApplication, tableId: string): Promise<IRecordsVo> {
+  return (
+    await request(app.getHttpServer())
+      .get(`/api/table/${tableId}/record`)
+      .query({
+        fieldKeyType: FieldKeyType.Id,
+      })
+      .expect(200)
+  ).body.data;
+}
+
 export async function getRecord(
   app: INestApplication,
   tableId: string,
@@ -80,4 +91,43 @@ export async function getRecord(
       })
       .expect(200)
   ).body.data;
+}
+
+export async function createField(
+  app: INestApplication,
+  tableId: string,
+  fieldRo: IFieldRo
+): Promise<IFieldVo> {
+  const result = await request(app.getHttpServer())
+    .post(`/api/table/${tableId}/field`)
+    .send(fieldRo);
+  if (result.status !== 201) {
+    console.error(result.body);
+  }
+  expect(result.status).toEqual(201);
+  return result.body.data;
+}
+
+export async function updateField(
+  app: INestApplication,
+  tableId: string,
+  fieldId: string,
+  fieldRo: IFieldRo
+): Promise<IFieldVo> {
+  const result = await request(app.getHttpServer())
+    .put(`/api/table/${tableId}/field/${fieldId}`)
+    .send(fieldRo)
+    .expect(200);
+  return result.body.data;
+}
+
+export async function getField(
+  app: INestApplication,
+  tableId: string,
+  fieldId: string
+): Promise<IFieldVo> {
+  const result = await request(app.getHttpServer())
+    .get(`/api/table/${tableId}/field/${fieldId}`)
+    .expect(200);
+  return result.body.data;
 }

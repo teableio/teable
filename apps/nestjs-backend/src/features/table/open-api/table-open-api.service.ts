@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
+  ICreateTablePreparedRo,
   ICreateTableRo,
-  IFieldRo,
   IFieldVo,
   ITableFullVo,
   ITableOp,
@@ -18,11 +18,10 @@ import {
   TableOpBuilder,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../../prisma.service';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
-import { createFieldInstanceByRo } from '../../field/model/factory';
-import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { createFieldInstanceByVo } from '../../field/model/factory';
+import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { createViewInstanceByRo } from '../../view/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -31,12 +30,11 @@ import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly transactionService: TransactionService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly fieldOpenApiService: FieldOpenApiService
+    private readonly fieldCreatingService: FieldCreatingService
   ) {}
 
   private async createView(transactionKey: string, tableId: string, viewRos: IViewRo[]) {
@@ -51,29 +49,34 @@ export class TableOpenApiService {
     transactionKey: string,
     tableId: string,
     viewVos: IViewVo[],
-    fieldRos: IFieldRo[]
+    fieldVos: IFieldVo[]
   ) {
-    const fieldVos: IFieldVo[] = [];
-    for (const fieldRo of fieldRos) {
+    const fieldSnapshots: IFieldVo[] = [];
+    for (const fieldVo of fieldVos) {
       viewVos.forEach((view, index) => {
-        fieldRo['columnMeta'] = { ...fieldRo.columnMeta, [view.id]: { order: index } };
+        fieldVo['columnMeta'] = { ...fieldVo.columnMeta, [view.id]: { order: index } };
       });
-      const fieldInstance = createFieldInstanceByRo(fieldRo);
-      const fieldVo = await this.fieldOpenApiService.createField(
+      const fieldInstance = createFieldInstanceByVo(fieldVo);
+      const fieldSnapshot = await this.fieldCreatingService.createField(
+        transactionKey,
         tableId,
-        fieldInstance,
-        transactionKey
+        fieldInstance
       );
-      fieldVos.push(fieldVo);
+      fieldSnapshots.push(fieldSnapshot);
     }
-    return fieldVos;
+    return fieldSnapshots;
   }
 
-  private async createRecord(transactionKey: string, tableId: string, data: ICreateRecordsRo) {
-    return this.recordOpenApiService.multipleCreateRecords(tableId, data, transactionKey);
+  private async createRecords(transactionKey: string, tableId: string, data: ICreateRecordsRo) {
+    return this.recordOpenApiService.createRecords(
+      transactionKey,
+      tableId,
+      data.records,
+      data.fieldKeyType
+    );
   }
 
-  async createTable(tableRo: ICreateTableRo): Promise<ITableFullVo> {
+  async createTable(tableRo: ICreateTablePreparedRo): Promise<ITableFullVo> {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
@@ -86,7 +89,7 @@ export class TableOpenApiService {
 
         const viewVos = await this.createView(transactionKey, tableId, tableRo.views);
         const fieldVos = await this.createField(transactionKey, tableId, viewVos, tableRo.fields);
-        const { records } = await this.createRecord(transactionKey, tableId, {
+        const { records } = await this.createRecords(transactionKey, tableId, {
           records: tableRo.records,
           fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
         });
