@@ -10,6 +10,7 @@ import type {
   ISnapshotBase,
   ISetFieldPropertyOpContext,
   DbFieldType,
+  ILookupOptionsVo,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
@@ -87,6 +88,7 @@ export class FieldService implements IAdapterService {
       isComputed,
       isLookup,
       hasError,
+      // add lookupLinkedFieldId for indexing
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
@@ -265,8 +267,16 @@ export class FieldService implements IAdapterService {
   private handleFieldProperty(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
-    if (key === 'options' || key === 'lookupOptions') {
-      return { [key]: JSON.stringify(newValue) };
+    if (key === 'options') {
+      return { options: JSON.stringify(newValue) };
+    }
+
+    if (key === 'lookupOptions') {
+      return {
+        lookupOptions: JSON.stringify(newValue),
+        // update lookupLinkedFieldId for indexing
+        lookupLinkedFieldId: (newValue as ILookupOptionsVo | null)?.linkFieldId || null,
+      };
     }
     return { [key]: newValue };
   }

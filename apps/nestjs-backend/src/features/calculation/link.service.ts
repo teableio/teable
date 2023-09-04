@@ -61,13 +61,17 @@ export class LinkService {
   private readonly knex = knex({ client: 'sqlite3' });
 
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
-    return contexts.filter((ctx) => {
-      if (isLinkCellValue(ctx.newValue)) {
-        return true;
-      }
+    return contexts
+      .filter((ctx) => {
+        if (isLinkCellValue(ctx.newValue)) {
+          return true;
+        }
 
-      return isLinkCellValue(ctx.oldValue);
-    });
+        return isLinkCellValue(ctx.oldValue);
+      })
+      .map((ctx) => {
+        return { ...ctx, oldValue: isLinkCellValue(ctx.oldValue) ? ctx.oldValue : undefined };
+      });
   }
 
   private async getTinyFieldsByIds(prisma: Prisma.TransactionClient, fieldIds: string[]) {
@@ -235,12 +239,12 @@ export class LinkService {
       if (field.options.relationship === Relationship.OneMany) {
         if (newValue && !Array.isArray(newValue)) {
           throw new BadRequestException(
-            'ManyMany relationship newValue should have multiple records'
+            `OneMany relationship newValue should have multiple records, received: ${newValue}`
           );
         }
         if (oldValue && !Array.isArray(oldValue)) {
           throw new BadRequestException(
-            'ManyMany relationship oldValue should have multiple records'
+            `OneMany relationship oldValue should have multiple records, received: ${oldValue}`
           );
         }
         const paramCommon = {

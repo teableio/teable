@@ -214,11 +214,11 @@ export class FieldConvertingLinkService {
       if (newField.isMultipleCellValue) {
         newCellValueTitle = oldField.isMultipleCellValue
           ? (oldCellValue as unknown[]).map((item) => oldField.item2String(item))
-          : [oldField.item2String(oldCellValue)];
+          : oldField.item2String(oldCellValue).split(', ');
       } else {
         newCellValueTitle = oldField.isMultipleCellValue
           ? [oldField.item2String((oldCellValue as unknown[])[0])]
-          : [oldField.item2String(oldCellValue)];
+          : [oldField.item2String(oldCellValue).split(', ')[0]];
       }
 
       const newCellValue: ILinkCellValue[] = [];

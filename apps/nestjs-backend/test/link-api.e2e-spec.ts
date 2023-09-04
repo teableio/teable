@@ -3,11 +3,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  IRecord,
+  ITableFullVo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import request from 'supertest';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
-import { initApp } from './utils/init-app';
+import { initApp, updateRecordByApi, createField, getRecords } from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
@@ -23,8 +29,8 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   afterEach(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`);
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2Id}`);
+    table1Id && (await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1Id}`));
+    table2Id && (await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2Id}`));
   });
 
   describe('create table with link field', () => {
@@ -536,6 +542,147 @@ describe('OpenAPI link (e2e)', () => {
         'table2_1',
         'table2_2',
       ]);
+    });
+  });
+
+  describe('multi link with depends same field', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      const result1 = await request(app.getHttpServer()).post('/api/table').send({
+        name: 'table1',
+      });
+      table1 = result1.body.data;
+      table1Id = table1.id;
+      const result2 = await request(app.getHttpServer()).post('/api/table').send({
+        name: 'table2',
+      });
+      table2 = result2.body.data;
+      table2Id = table2.id;
+    });
+
+    it('should update many-one record when add both many-one and many-one link', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const oneManyFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      // set primary key 'x' in table2
+      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // get get a oneManyField involved
+      const manyOneField = await createField(app, table1.id, manyOneFieldRo);
+      await createField(app, table1.id, oneManyFieldRo);
+
+      await updateRecordByApi(app, table1.id, table1.records[0].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+
+      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'y');
+
+      const { records: table1Records } = await getRecords(app, table1.id);
+      expect(table1Records[0].fields[manyOneField.id]).toEqual({
+        title: 'y',
+        id: table2.records[0].id,
+      });
+    });
+
+    it('should update one-many record when add both many-one and many-one link', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const oneManyFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      // set primary key 'x' in table2
+      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // get get a oneManyField involved
+      const oneManyField = await createField(app, table1.id, oneManyFieldRo);
+      const manyOneField = await createField(app, table1.id, manyOneFieldRo);
+
+      const lookupOneManyField = await createField(app, table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: oneManyField.id,
+        },
+      });
+
+      const rollupOneManyField = await createField(app, table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: oneManyField.id,
+        },
+      });
+
+      const lookupManyOneField = await createField(app, table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: manyOneField.id,
+        },
+      });
+
+      const rollupManyOneField = await createField(app, table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: manyOneField.id,
+        },
+      });
+
+      await updateRecordByApi(app, table1.id, table1.records[0].id, oneManyField.id, [
+        {
+          id: table2.records[0].id,
+        },
+      ]);
+
+      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'y');
+
+      const { records: table1Records } = await getRecords(app, table1.id);
+      expect(table1Records[0].fields[oneManyField.id]).toEqual([
+        {
+          title: 'y',
+          id: table2.records[0].id,
+        },
+      ]);
+      expect(table1Records[0].fields[lookupOneManyField.id]).toEqual(['y']);
+      expect(table1Records[0].fields[rollupOneManyField.id]).toEqual(1);
+      expect(table1Records[0].fields[lookupManyOneField.id]).toEqual(undefined);
+      expect(table1Records[0].fields[rollupManyOneField.id]).toEqual(undefined);
     });
   });
 });
