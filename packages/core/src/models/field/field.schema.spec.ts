@@ -1,9 +1,10 @@
-import { FieldType } from './constant';
+import { CellValueType, FieldType } from './constant';
+import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { NumberFieldCore } from './derivate/number.field';
 import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
 
 describe('field Schema Test', () => {
-  it('validates options for fieldRo', () => {
+  it('should return true when options validate', () => {
     const options = {
       expression: '1 + 1',
       formatting: {
@@ -16,7 +17,17 @@ describe('field Schema Test', () => {
     result.success && expect(result.data).toEqual(options);
   });
 
-  it('validates options with type', () => {
+  it('should return true when options and type match', () => {
+    const fieldRo = {
+      type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(true);
+  });
+
+  it('should return false when options and type mismatch', () => {
     const fieldRo = {
       type: FieldType.SingleLineText,
       options: NumberFieldCore.defaultOptions(),
@@ -24,5 +35,62 @@ describe('field Schema Test', () => {
 
     const result = fieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(false);
+  });
+
+  it('should return true when isLookup with lookupOptions', () => {
+    const fieldRo = {
+      type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: 'tableId',
+        lookupFieldId: 'fieldId',
+        linkFieldId: 'fieldId',
+      },
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(true);
+  });
+
+  it('should return false when isLookup without lookupOptions', () => {
+    const fieldRo = {
+      type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
+      isLookup: true,
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(false);
+  });
+
+  it('should return false when lookupOptions without isLookup', () => {
+    const fieldRo = {
+      type: FieldType.SingleLineText,
+      options: SingleLineTextFieldCore.defaultOptions(),
+      lookupOptions: {
+        foreignTableId: 'tableId',
+        lookupFieldId: 'fieldId',
+        linkFieldId: 'fieldId',
+      },
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(false);
+  });
+
+  it('should return true when lookupOptions without isLookup in rollup field', () => {
+    const fieldRo = {
+      type: FieldType.Rollup,
+      options: RollupFieldCore.defaultOptions(CellValueType.String),
+      lookupOptions: {
+        foreignTableId: 'tableId',
+        lookupFieldId: 'fieldId',
+        linkFieldId: 'fieldId',
+      },
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(true);
   });
 });

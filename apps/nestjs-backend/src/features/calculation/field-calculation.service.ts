@@ -2,27 +2,18 @@ import { Injectable } from '@nestjs/common';
 import type { ILookupOptionsVo, IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
+import knex from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
+import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
-import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
-import type { ICellChange, IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
+import type { IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
 import { ReferenceService, IOpsMap } from './reference.service';
+import type { ICellChange } from './utils/changes';
+import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { nameConsole } from './utils/name-console';
-
-export interface IRawOp {
-  src: string;
-  seq: number;
-  op: IOtOperation[];
-  v: number;
-  m: {
-    ts: number;
-  };
-  c?: string;
-  d?: string;
-}
 
 interface IOpsData {
   recordId: string;
@@ -33,7 +24,7 @@ interface IOpsData {
   rawOp: IRawOp;
 }
 
-interface IPreparedContext {
+export interface ITopoOrdersContext {
   fieldMap: IFieldMap;
   topoOrdersByFieldId: { [fieldId: string]: ITopoItem[] };
   tableId2DbTableName: { [tableId: string]: string };
@@ -41,14 +32,12 @@ interface IPreparedContext {
   fieldId2TableId: { [fieldId: string]: string };
 }
 
-export interface IRawOpMap {
-  [tableId: string]: {
-    [recordId: string]: IRawOp;
-  };
-}
-
 @Injectable()
-export class FieldBatchCalculationService extends ReferenceService {
+export class FieldCalculationService {
+  constructor(private readonly referenceService: ReferenceService) {}
+
+  protected readonly knex = knex({ client: 'sqlite3' });
+
   private async getSelfOriginRecords(prisma: Prisma.TransactionClient, dbTableName: string) {
     const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();
 
@@ -183,21 +172,24 @@ export class FieldBatchCalculationService extends ReferenceService {
     return await this.batchSave(prisma, src, opsMap, fieldMap, tableId2DbTableName);
   }
 
-  private async prepareContext(
+  async getTopoOrdersContext(
     prisma: Prisma.TransactionClient,
     fieldIds: string[]
-  ): Promise<IPreparedContext> {
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, fieldIds);
+  ): Promise<ITopoOrdersContext> {
+    const undirectedGraph = await this.referenceService.getDependentNodesCTE(prisma, fieldIds);
 
     // get all related field by undirected graph
-    const allFieldIds = uniq(this.flatGraph(undirectedGraph).concat(fieldIds));
+    const allFieldIds = uniq(this.referenceService.flatGraph(undirectedGraph).concat(fieldIds));
 
     // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
-      await this.createAuxiliaryData(prisma, allFieldIds);
+      await this.referenceService.createAuxiliaryData(prisma, allFieldIds);
 
     // topological sorting
-    const topoOrdersByFieldId = this.getTopoOrdersByFieldId(fieldIds, fieldMap, undirectedGraph);
+    const topoOrdersByFieldId = this.referenceService.getTopoOrdersByFieldId(
+      fieldIds,
+      undirectedGraph
+    );
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
     return {
@@ -225,7 +217,7 @@ export class FieldBatchCalculationService extends ReferenceService {
     let originRecordIdItems: { dbTableName: string; id: string }[] = [];
     for (const fieldId in topoOrdersByFieldId) {
       const topoOrders = topoOrdersByFieldId[fieldId];
-      const linkOrders = this.getLinkOrderFromTopoOrders({
+      const linkOrders = this.referenceService.getLinkOrderFromTopoOrders({
         tableId2DbTableName,
         topoOrders,
         fieldMap,
@@ -249,7 +241,11 @@ export class FieldBatchCalculationService extends ReferenceService {
 
       // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
       // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
-      const items = await this.getAffectedRecordItems(prisma, linkOrders, originItems);
+      const items = await this.referenceService.getAffectedRecordItems(
+        prisma,
+        linkOrders,
+        originItems
+      );
       // nameConsole('fieldId:', { fieldId }, fieldMap);
       // nameConsole('affectedRecordItems:', items, fieldMap);
       affectedRecordItems = affectedRecordItems.concat(items);
@@ -258,7 +254,7 @@ export class FieldBatchCalculationService extends ReferenceService {
     return { affectedRecordItems, originRecordIdItems };
   }
 
-  private async getRecordsBatchByFieldId(
+  async getRecordsBatchByFields(
     prisma: Prisma.TransactionClient,
     dbTableName2fields: { [dbTableName: string]: IFieldInstance[] }
   ) {
@@ -269,7 +265,7 @@ export class FieldBatchCalculationService extends ReferenceService {
       // deduplication is needed
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat([...preservedFieldName]);
+        .concat(['__id']);
       const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
       const result = await prisma.$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
         nativeSql.sql,
@@ -278,7 +274,7 @@ export class FieldBatchCalculationService extends ReferenceService {
       results[dbTableName] = result;
     }
 
-    return this.formatRecordQueryResult(results, dbTableName2fields);
+    return this.referenceService.formatRecordQueryResult(results, dbTableName2fields);
   }
 
   @Timing()
@@ -291,7 +287,7 @@ export class FieldBatchCalculationService extends ReferenceService {
       return undefined;
     }
 
-    const context = await this.prepareContext(prisma, fieldIds);
+    const context = await this.getTopoOrdersContext(prisma, fieldIds);
     const {
       fieldMap,
       topoOrdersByFieldId,
@@ -300,7 +296,7 @@ export class FieldBatchCalculationService extends ReferenceService {
       fieldId2TableId,
     } = context;
 
-    const dbTableName2records = await this.getRecordsBatchByFieldId(prisma, dbTableName2fields);
+    const dbTableName2records = await this.getRecordsBatchByFields(prisma, dbTableName2fields);
 
     const changes = Object.values(fieldIds).reduce<ICellChange[]>((cellChanges, fieldId) => {
       const tableId = fieldId2TableId[fieldId];
@@ -362,9 +358,7 @@ export class FieldBatchCalculationService extends ReferenceService {
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
     // nameConsole('remainsTopoOrders', remainsTopoOrders, fieldMap);
 
-    const opsMap = this.formatChangesToOps(
-      this.mergeDuplicateChange(changes.concat(remainsChanges))
-    );
+    const opsMap = formatChangesToOps(mergeDuplicateChange(changes.concat(remainsChanges)));
     return { opsMap, fieldMap, tableId2DbTableName };
   }
 
@@ -374,21 +368,21 @@ export class FieldBatchCalculationService extends ReferenceService {
       return undefined;
     }
 
-    const context = await this.prepareContext(prisma, fieldIds);
+    const context = await this.getTopoOrdersContext(prisma, fieldIds);
     const { fieldMap, tableId2DbTableName } = context;
     const changes = await this.calculateChanges(prisma, tableId, context);
     if (!changes.length) {
       return;
     }
 
-    const opsMap = this.formatChangesToOps(this.mergeDuplicateChange(changes));
+    const opsMap = formatChangesToOps(mergeDuplicateChange(changes));
     return { opsMap, fieldMap, tableId2DbTableName };
   }
 
   private async calculateChanges(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    context: IPreparedContext,
+    context: ITopoOrdersContext,
     resetFieldIds?: string[]
   ) {
     const {
@@ -406,7 +400,10 @@ export class FieldBatchCalculationService extends ReferenceService {
       fieldMap,
     });
 
-    const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
+    const dependentRecordItems = await this.referenceService.getDependentRecordItems(
+      prisma,
+      affectedRecordItems
+    );
 
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
     // nameConsole('originRecordIdItems', originRecordIdItems, fieldMap);
@@ -414,7 +411,7 @@ export class FieldBatchCalculationService extends ReferenceService {
     // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);
 
     // record data source
-    const dbTableName2records = await this.getRecordsBatch(prisma, {
+    const dbTableName2records = await this.referenceService.getRecordsBatch(prisma, {
       originRecordItems: originRecordIdItems,
       affectedRecordItems,
       dependentRecordItems,
@@ -434,7 +431,7 @@ export class FieldBatchCalculationService extends ReferenceService {
     }
 
     return Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
-      const orderWithRecords = this.createTopoItemWithRecords({
+      const orderWithRecords = this.referenceService.createTopoItemWithRecords({
         topoOrders,
         fieldMap,
         tableId2DbTableName,
@@ -444,13 +441,19 @@ export class FieldBatchCalculationService extends ReferenceService {
         dependentRecordItems,
       });
       return pre.concat(
-        this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId, tableId2DbTableName, {})
+        this.referenceService.collectChanges(
+          orderWithRecords,
+          fieldMap,
+          fieldId2TableId,
+          tableId2DbTableName,
+          {}
+        )
       );
     }, []);
   }
 
   @Timing()
-  private async batchSave(
+  async batchSave(
     prisma: Prisma.TransactionClient,
     src: string,
     opsMap: IOpsMap,
@@ -540,6 +543,10 @@ export class FieldBatchCalculationService extends ReferenceService {
     fieldMap: { [fieldId: string]: IFieldInstance },
     opsData: IOpsData[]
   ) {
+    if (!opsData.length) {
+      return;
+    }
+
     const tempTableName = `${dbTableName}_temp`;
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
     const columnNames = fieldIds

@@ -17,7 +17,7 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import request from 'supertest';
-import { getRecord, initApp, updateRecordByApi } from './utils/init-app';
+import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
@@ -120,15 +120,6 @@ describe('OpenAPI FieldController (e2e)', () => {
         .expect(201);
       return result.body.data;
     }
-
-    async function createField(fieldRo: IFieldRo): Promise<IFieldVo> {
-      const result = await request(app.getHttpServer())
-        .post(`/api/table/${table1.id}/field`)
-        .send(fieldRo)
-        .expect(201);
-      return result.body.data;
-    }
-
     it('basic field', async () => {
       const textField = await createFieldByType(FieldType.SingleLineText);
       expect(textField.name).toEqual('Label');
@@ -203,7 +194,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     describe('relational field', () => {
       it('should generate semantic field name for link and lookup and rollup field ', async () => {
-        const linkField = await createField({
+        const linkField = await createField(app, table1.id, {
           type: FieldType.Link,
           options: {
             foreignTableId: table2.id,
@@ -219,8 +210,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         const symmetricalLinkField = table2.fields.find((f) => f.type === FieldType.Link);
 
         expect(symmetricalLinkField?.name).toEqual(table1.name);
-
-        const lookupField = await createField({
+        const lookupField = await createField(app, table1.id, {
           type: FieldType.SingleLineText,
           lookupOptions: {
             foreignTableId: table2.id,
@@ -233,7 +223,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         expect(lookupField.name).toEqual(`${table2.fields[0].name} (from ${table2.name})`);
         expect(lookupField.options).toEqual({});
 
-        const rollupField = await createField({
+        const rollupField = await createField(app, table1.id, {
           type: FieldType.Rollup,
           options: {
             expression: 'sum({values})',

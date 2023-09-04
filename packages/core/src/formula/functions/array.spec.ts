@@ -28,4 +28,24 @@ describe('ArrayFunc', () => {
       expect(result2).toBe(3);
     });
   });
+
+  it('should count null to 0', () => {
+    const countAllFunc = new CountAll();
+
+    const result1 = countAllFunc.eval([new TypedValue(null, CellValueType.Number, true)]);
+    expect(result1).toBe(0);
+
+    const result2 = countAllFunc.eval([new TypedValue(null, CellValueType.String)]);
+    expect(result2).toBe(0);
+  });
+
+  it('should count [null] to 1', () => {
+    const countAllFunc = new CountAll();
+
+    const result1 = countAllFunc.eval([new TypedValue([null], CellValueType.Number, true)]);
+    expect(result1).toBe(1);
+
+    const result2 = countAllFunc.eval([new TypedValue([[null]], CellValueType.String, true)]);
+    expect(result2).toBe(1);
+  });
 });

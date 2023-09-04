@@ -32,6 +32,8 @@ export const recordSchema = z.object({
 
 export type IRecord = z.infer<typeof recordSchema>;
 
+export type ITinyRecord = Pick<IRecord, 'id' | 'fields'>;
+
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {
     errorMap: () => ({ message: 'Error fieldKeyType, You should set it to "name" or "id"' }),

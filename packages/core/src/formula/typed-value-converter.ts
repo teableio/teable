@@ -29,12 +29,16 @@ export class TypedValueConverter {
     const firstAcceptValueType = func.acceptValueType.values().next().value;
 
     const converted = typedValue.isMultiple
-      ? (typedValue.value as unknown[]).map((v) =>
+      ? (typedValue.value as unknown[])?.map((v) =>
           this.convertUnsupportedValue(v, typedValue.type, firstAcceptValueType)
         )
       : this.convertUnsupportedValue(typedValue.value, typedValue.type, firstAcceptValueType);
 
-    return new TypedValue(converted, firstAcceptValueType, typedValue.isMultiple);
+    return new TypedValue(
+      converted == null ? null : converted,
+      firstAcceptValueType,
+      typedValue.isMultiple
+    );
   }
 
   private convertUnsupportedValue(

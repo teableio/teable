@@ -55,15 +55,6 @@ export abstract class Field extends FieldCore {
     });
   }
 
-  async updateName(name: string): Promise<void> {
-    const fieldOperation = FieldOpBuilder.editor.setFieldName.build({
-      newName: name,
-      oldName: this.name,
-    });
-
-    return await this.submitOperation(fieldOperation);
-  }
-
   async updateColumnWidth(viewId: string, width: number): Promise<void> {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,

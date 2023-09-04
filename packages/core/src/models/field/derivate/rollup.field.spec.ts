@@ -165,19 +165,25 @@ describe('RollupFieldCore', () => {
     });
 
     it('should return current typed value with field context', () => {
-      expect(RollupFieldCore.getParsedValueType('countall({values})')).toEqual({
+      expect(RollupFieldCore.getParsedValueType('countall({values})', numberField, false)).toEqual({
         cellValueType: CellValueType.Number,
       });
 
-      expect(RollupFieldCore.getParsedValueType('sum({values})')).toEqual({
+      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
         cellValueType: CellValueType.Number,
       });
 
-      expect(RollupFieldCore.getParsedValueType('concatenate({values})')).toEqual({
+      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
+        RollupFieldCore.getParsedValueType('concatenate({values})', numberField, false)
+      ).toEqual({
         cellValueType: CellValueType.String,
       });
 
-      expect(RollupFieldCore.getParsedValueType('and({values})')).toEqual({
+      expect(RollupFieldCore.getParsedValueType('and({values})', numberField, false)).toEqual({
         cellValueType: CellValueType.Boolean,
       });
     });
@@ -194,7 +200,6 @@ describe('RollupFieldCore', () => {
               fields: {
                 values: [1, 2],
               },
-              recordOrder: {},
             }
           )
           .toPlain()

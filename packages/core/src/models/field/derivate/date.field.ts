@@ -34,15 +34,13 @@ export class DateFieldCore extends FieldCore {
     };
   }
 
-  cellValue2String(cellValue: string | string[] | undefined) {
+  cellValue2String(cellValue?: unknown) {
     if (cellValue == null) return '';
-    const formatting = this.options.formatting;
-
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {
-      return cellValue.map((v) => formatDateToString(v, formatting)).join(', ');
+      return cellValue.map((v) => this.item2String(v)).join(', ');
     }
 
-    return formatDateToString(cellValue as string, formatting);
+    return this.item2String(cellValue as string);
   }
 
   convertStringToCellValue(value: string): string | null {
@@ -59,6 +57,10 @@ export class DateFieldCore extends FieldCore {
     } catch (e) {
       return null;
     }
+  }
+
+  item2String(item?: unknown) {
+    return formatDateToString(item as string, this.options.formatting);
   }
 
   repair(value: unknown) {

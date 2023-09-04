@@ -4,7 +4,8 @@ import { FieldType, Relationship } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { cloneDeep, isEqual, set } from 'lodash';
-import type { ICellChange, IFkRecordMapByDbTableName } from './reference.service';
+import type { IFkOpMap } from './reference.service';
+import type { ICellChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 
 export interface ITinyLinkField {
@@ -354,7 +355,7 @@ export class LinkService {
     fkFieldNameMap: { [fkFieldName: string]: Set<string> },
     updatedRecordMapByTableId: IRecordMapByTableId
   ) {
-    const fkRecordMap: IFkRecordMapByDbTableName = {};
+    const fkRecordMap: IFkOpMap = {};
     for (const tableId in updatedRecordMapByTableId) {
       if (!fkFieldNameMap[tableId]) {
         continue;
@@ -485,7 +486,7 @@ export class LinkService {
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     linkContexts: ILinkCellContext[]
-  ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkRecordMapByDbTableName }> {
+  ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkOpMap }> {
     const { recordMapByTableId, updateForeignKeyParams } =
       this.getRecordMapStructAndForeignKeyParams(tableId, fieldMapByTableId, linkContexts);
 

@@ -1,4 +1,4 @@
-import type { ISnapshotBase } from '@teable-group/core';
+import type { IOtOperation, ISnapshotBase } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { DB } from '@teable/sharedb';
 export interface IAdapterService {
@@ -30,7 +30,7 @@ export interface IAdapterService {
 }
 
 export interface ISupplementService {
-  createSupplementation(
+  createForeignKey(
     prisma: Prisma.TransactionClient,
     collectionId: string,
     snapshot: unknown
@@ -39,4 +39,22 @@ export interface ISupplementService {
 
 export interface IShareDbConfig {
   db: DB;
+}
+
+export interface IRawOp {
+  src: string;
+  seq: number;
+  op: IOtOperation[];
+  v: number;
+  m: {
+    ts: number;
+  };
+  c?: string;
+  d?: string;
+}
+
+export interface IRawOpMap {
+  [tableId: string]: {
+    [recordId: string]: IRawOp;
+  };
 }

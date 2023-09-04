@@ -1,11 +1,5 @@
-import type {
-  IFieldRo,
-  IFieldVo,
-  ILookupOptionsVo,
-  DbFieldType,
-  CellValueType,
-} from '@teable-group/core';
-import { assertNever, FieldType, generateFieldId } from '@teable-group/core';
+import type { IFieldVo, DbFieldType, CellValueType } from '@teable-group/core';
+import { assertNever, FieldType } from '@teable-group/core';
 import type { Field } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
@@ -18,59 +12,6 @@ import { NumberFieldDto } from './field-dto/number-field.dto';
 import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
-
-export interface IPreparedRo {
-  cellValueType: CellValueType;
-  isLookup?: boolean;
-  lookupOptions?: ILookupOptionsVo;
-}
-
-export function createFieldInstanceByRo(createFieldRo: IFieldRo) {
-  // generate Id first
-  const fieldRo = createFieldRo.id ? createFieldRo : { ...createFieldRo, id: generateFieldId() };
-
-  switch (createFieldRo.type) {
-    case FieldType.SingleLineText:
-      return plainToInstance(SingleLineTextFieldDto, fieldRo);
-    case FieldType.Number:
-      return plainToInstance(NumberFieldDto, fieldRo);
-    case FieldType.SingleSelect:
-      return plainToInstance(SingleSelectFieldDto, fieldRo);
-    case FieldType.MultipleSelect:
-      return plainToInstance(MultipleSelectFieldDto, fieldRo);
-    case FieldType.Link:
-      return plainToInstance(LinkFieldDto, fieldRo);
-    case FieldType.Formula:
-      return plainToInstance(FormulaFieldDto, fieldRo);
-    case FieldType.Attachment:
-      return plainToInstance(AttachmentFieldDto, fieldRo);
-    case FieldType.Date:
-      return plainToInstance(DateFieldDto, fieldRo);
-    case FieldType.Checkbox:
-      return plainToInstance(CheckboxFieldDto, fieldRo);
-    case FieldType.Rollup:
-      return plainToInstance(RollupFieldDto, fieldRo);
-    case FieldType.Button:
-    case FieldType.CreatedBy:
-    case FieldType.Email:
-    case FieldType.LastModifiedBy:
-    case FieldType.LongText:
-    case FieldType.PhoneNumber:
-    case FieldType.URL:
-    case FieldType.User:
-    case FieldType.AutoNumber:
-    case FieldType.Count:
-    case FieldType.CreatedTime:
-    case FieldType.Duration:
-    case FieldType.LastModifiedTime:
-    case FieldType.Rating:
-    case FieldType.Currency:
-    case FieldType.Percent:
-      return plainToInstance(SingleLineTextFieldDto, fieldRo);
-    default:
-      assertNever(createFieldRo.type);
-  }
-}
 
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
   return {

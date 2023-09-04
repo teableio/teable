@@ -13,17 +13,15 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
 
   isMultipleCellValue = true;
 
-  cellValue2String(cellValue?: string[]) {
-    return cellValue ? cellValue.join(', ') : '';
-  }
-
-  convertStringToCellValue(value: string): string[] | null {
+  convertStringToCellValue(value: string, shouldExtend?: boolean): string[] | null {
     if (value === '' || value == null) {
       return null;
     }
 
     let cellValue = value.split(', ');
-    cellValue = cellValue.filter((value) => this.options.choices.find((c) => c.name === value));
+    cellValue = shouldExtend
+      ? cellValue
+      : cellValue.filter((value) => this.options.choices.find((c) => c.name === value));
 
     if (cellValue.length === 0) {
       return null;

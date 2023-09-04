@@ -5,7 +5,8 @@ import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldSupplementService } from './field-supplement.service';
-import { createFieldInstanceByRo } from './model/factory';
+import { FieldModule } from './field.module';
+import { createFieldInstanceByVo } from './model/factory';
 
 describe('FieldSupplementService', () => {
   let service: FieldSupplementService;
@@ -13,7 +14,7 @@ describe('FieldSupplementService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [FieldSupplementService, { provide: PrismaService, useValue: {} }],
+      imports: [FieldModule],
     }).compile();
 
     service = module.get<FieldSupplementService>(FieldSupplementService);
@@ -33,8 +34,10 @@ describe('FieldSupplementService', () => {
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
       };
-      const result = await service.prepareField(field);
-      expect(result).toEqual(preparedField);
+      const result = await service.prepareCreateField(field);
+      expect(result).toMatchObject(preparedField);
+      expect(result.dbFieldName).toBeTruthy();
+      expect(result.id).toBeTruthy();
     });
 
     it('should prepare the options for a link field', async () => {
@@ -52,7 +55,7 @@ describe('FieldSupplementService', () => {
       const mockField = { id: 'mockFieldId' };
       (prismaService as any).field = { findFirstOrThrow: jest.fn().mockResolvedValue(mockField) };
 
-      const result = await service.prepareField(field);
+      const result = await service.prepareCreateField(field);
       expect(result.id).toBeDefined();
       expect(result.options).toMatchObject({ lookupFieldId: mockField.id });
       expect(prismaService.field.findFirstOrThrow).toHaveBeenCalled();
@@ -65,39 +68,9 @@ describe('FieldSupplementService', () => {
       /* mock object */
     };
 
-    // assume field is a link field
-    const field: any = {
-      type: FieldType.Link,
-      options: {
-        foreignTableId: 'foreignTableId',
-        relationship: Relationship.ManyOne,
-      },
-    };
-
     it('should throw an error if the field is not a link field', async () => {
       const nonLinkField: any = { type: FieldType.SingleLineText /* other properties */ };
-      await expect(
-        service.createSupplementation(prisma, 'tableId', nonLinkField)
-      ).rejects.toThrow();
-    });
-
-    it('should create symmetric field, foreign key field, and link reference for a link field', async () => {
-      // setup mocks
-      const sField = {
-        type: FieldType.Link,
-        options: {
-          foreignTableId: 'tableId',
-          relationship: Relationship.OneMany,
-        },
-      };
-      service['generateSymmetricField'] = jest.fn().mockResolvedValue(sField);
-      service['createForeignKeyField'] = jest.fn().mockResolvedValue(undefined);
-
-      const symmetricField = await service.createSupplementation(prisma, 'tableId', field);
-
-      expect(symmetricField).toBe(sField);
-      expect(service['generateSymmetricField']).toHaveBeenCalled();
-      expect(service['createForeignKeyField']).toHaveBeenCalledTimes(1);
+      await expect(service.createForeignKey(prisma, 'tableId', nonLinkField)).rejects.toThrow();
     });
   });
 
@@ -115,9 +88,13 @@ describe('FieldSupplementService', () => {
           dbForeignKeyName: '__fk_linkFieldId',
           symmetricFieldId: 'symmetricFieldId',
         },
+        dbFieldName: 'link',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        columnMeta: {},
       };
       (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
-      await service['createReference'](prismaService, createFieldInstanceByRo(linkField));
+      await service['createReference'](prismaService, createFieldInstanceByVo(linkField));
 
       expect(prismaService.reference.create).toBeCalledWith({
         data: {
@@ -136,9 +113,13 @@ describe('FieldSupplementService', () => {
         options: {
           expression: 'concat({field1Id} + {field2Id}, {field3Id})',
         },
+        dbFieldName: 'formula',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        columnMeta: {},
       };
       (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
-      await service['createReference'](prismaService, createFieldInstanceByRo(formulaField));
+      await service['createReference'](prismaService, createFieldInstanceByVo(formulaField));
 
       expect(prismaService.reference.create).toHaveBeenNthCalledWith(1, {
         data: {

@@ -1,12 +1,12 @@
-import { plainToInstance } from 'class-transformer';
+import { instanceToInstance } from 'class-transformer';
 import { z } from 'zod';
 import { EvalVisitor } from '../../../formula/visitor';
-import { FieldType, CellValueType } from '../constant';
+import type { CellValueType, FieldType } from '../constant';
+import type { FieldCore } from '../field';
 import type { ILookupOptionsVo } from '../field.schema';
 import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
 import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
-import { SingleLineTextFieldCore } from './single-line-text.field';
 
 export const ROLLUP_FUNCTIONS = [
   'countall({values})',
@@ -37,17 +37,20 @@ export class RollupFieldCore extends FormulaAbstractCore {
     };
   }
 
-  static getParsedValueType(expression: string) {
+  static getParsedValueType(
+    expression: string,
+    dependentField: FieldCore,
+    isMultipleCellValue: boolean
+  ) {
     const tree = this.parse(expression);
     // generate a virtual field to evaluate the expression
+    const clonedInstance = instanceToInstance(dependentField);
+    clonedInstance.id = 'values';
+    clonedInstance.name = 'values';
+    clonedInstance.isMultipleCellValue = isMultipleCellValue;
     // field type is not important here
     const visitor = new EvalVisitor({
-      values: plainToInstance(SingleLineTextFieldCore, {
-        type: FieldType.SingleLineText,
-        id: 'values',
-        name: 'values',
-        cellValueType: CellValueType.String,
-      }),
+      values: clonedInstance,
     });
     const typedValue = visitor.visit(tree);
     return {

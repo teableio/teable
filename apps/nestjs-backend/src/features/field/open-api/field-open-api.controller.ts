@@ -1,16 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpException,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -27,13 +16,12 @@ import {
   IUpdateFieldRo,
   updateFieldRoSchema,
   fieldRoSchema,
+  IFieldRo,
 } from '@teable-group/core';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { FieldService } from '../field.service';
-import { IFieldInstance } from '../model/factory';
 import { FieldOpenApiService } from './field-open-api.service';
-import { FieldPipe } from './field.pipe';
 
 @ApiBearerAuth()
 @ApiTags('field')
@@ -54,12 +42,8 @@ export class FieldOpenApiController {
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string
   ): Promise<ApiResponse<IFieldVo>> {
-    try {
-      const fieldVo = await this.fieldService.getField(tableId, fieldId);
-      return responseWrap(fieldVo);
-    } catch (e) {
-      throw new HttpException('field no found', HttpStatus.NOT_FOUND);
-    }
+    const fieldVo = await this.fieldService.getField(tableId, fieldId);
+    return responseWrap(fieldVo);
   }
 
   @Get()
@@ -88,9 +72,9 @@ export class FieldOpenApiController {
   })
   async createField(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(fieldRoSchema), FieldPipe) fieldInstance: IFieldInstance
+    @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
   ): Promise<ApiResponse<IFieldVo>> {
-    const fieldVo = await this.fieldOpenApiService.createField(tableId, fieldInstance);
+    const fieldVo = await this.fieldOpenApiService.createField(tableId, fieldRo);
     return responseWrap(fieldVo);
   }
 
