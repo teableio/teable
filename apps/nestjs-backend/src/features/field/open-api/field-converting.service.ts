@@ -941,6 +941,7 @@ export class FieldConvertingService {
       id: fieldId,
       name: fieldVo.name,
       dbFieldName: fieldVo.dbFieldName,
+      columnMeta: fieldVo.columnMeta,
       ...updateFieldRo,
     });
     await this.updateDbFieldName(prisma, tableId, newFieldVo, fieldVo);
