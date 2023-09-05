@@ -5,3 +5,4 @@ export * from './record';
 export * from './table';
 export * from './view';
 export * from './aggregation';
+export * from './session';

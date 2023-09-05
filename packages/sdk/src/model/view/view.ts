@@ -2,22 +2,11 @@ import type {
   IFilter,
   ISort,
   IViewVo,
-  IJsonApiSuccessResponse,
-  IRawAggregationVo,
-  IRawRowCountVo,
-  StatisticsFunc,
-  IRawAggregationsValue,
   IViewAggregationRo,
   IViewRowCountVo,
   IViewAggregationVo,
 } from '@teable-group/core';
-import {
-  FieldKeyType,
-  sortSchema,
-  filterSchema,
-  ViewCore,
-  ViewOpBuilder,
-} from '@teable-group/core';
+import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { axios } from '../../config/axios';
 
@@ -25,25 +14,23 @@ export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
   static async getViews(tableId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
-      `/api/table/${tableId}/view`
-    );
-    return response.data.data;
+    const response = await axios.get<IViewVo[]>(`/table/${tableId}/view`);
+    return response.data;
   }
 
   static async getViewAggregation(tableId: string, viewId: string, query?: IViewAggregationRo) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewAggregationVo>>(
-      `/api/table/${tableId}/aggregation/${viewId}`,
+    const response = await axios.get<IViewAggregationVo>(
+      `/table/${tableId}/aggregation/${viewId}`,
       { params: query }
     );
-    return response.data.data;
+    return response.data;
   }
 
   static async getViewRowCount(tableId: string, viewId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewRowCountVo>>(
-      `/api/table/${tableId}/aggregation/${viewId}/rowCount`
+    const response = await axios.get<IViewRowCountVo>(
+      `/table/${tableId}/aggregation/${viewId}/rowCount`
     );
-    return response.data.data;
+    return response.data;
   }
 
   private async submitOperation(operation: unknown): Promise<void> {

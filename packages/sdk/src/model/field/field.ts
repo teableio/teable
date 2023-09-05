@@ -1,9 +1,4 @@
-import type {
-  IFieldRo,
-  IFieldVo,
-  IJsonApiSuccessResponse,
-  StatisticsFunc,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { axios } from '../../config/axios';
@@ -13,36 +8,25 @@ export abstract class Field extends FieldCore {
 
   static async getFields(tableId: string, viewId?: string) {
     const params = viewId ? { viewId } : {};
-    const response = await axios.get<IJsonApiSuccessResponse<IFieldVo[]>>(
-      `/api/table/${tableId}/field`,
-      {
-        params,
-      }
-    );
-    return response.data.data;
+    const response = await axios.get<IFieldVo[]>(`/table/${tableId}/field`, {
+      params,
+    });
+    return response.data;
   }
 
   static async createField(tableId: string, fieldRo: IFieldRo) {
-    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
-      `/api/table/${tableId}/field`,
-      fieldRo
-    );
-    return response.data.data;
+    const response = await axios.post<IFieldVo>(`/table/${tableId}/field`, fieldRo);
+    return response.data;
   }
 
   static async updateField(tableId: string, fieldId: string, fieldRo: IFieldRo): Promise<void> {
-    const response = await axios.put<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/field/${fieldId}`,
-      fieldRo
-    );
-    return response.data.data;
+    const response = await axios.put<void>(`/table/${tableId}/field/${fieldId}`, fieldRo);
+    return response.data;
   }
 
   static async deleteField(tableId: string, fieldId: string): Promise<void> {
-    const response = await axios.delete<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/field/${fieldId}`
-    );
-    return response.data.data;
+    const response = await axios.delete<void>(`/table/${tableId}/field/${fieldId}`);
+    return response.data;
   }
 
   protected doc!: Doc<IFieldVo>;

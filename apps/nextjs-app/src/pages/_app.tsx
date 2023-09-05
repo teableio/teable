@@ -1,24 +1,24 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import axios from 'axios';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-extendZodWithOpenApi(z);
-
 import type { NextPage } from 'next';
 import { appWithTranslation } from 'next-i18next';
-import type { AppProps as NextAppProps } from 'next/app';
+import type { AppContext, AppProps as NextAppProps } from 'next/app';
+import App from 'next/app';
 import Head from 'next/head';
 import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
-
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config';
 import { AppProviders } from '../AppProviders';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+extendZodWithOpenApi(z);
 
 /**
  * Import global styles, global css or polyfills here
@@ -48,6 +48,7 @@ export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P
 
 type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
+  user?: unknown;
 };
 
 /**
@@ -74,13 +75,41 @@ const MyApp = (appProps: AppPropsWithLayout) => {
  * Generally don't enable getInitialProp if you don't need to,
  * all your pages will be served server-side (no static optimizations).
  */
-/*
-MyApp.getInitialProps = async appContext => {
-   // calls page's `getInitialProps` and fills `appProps.pageProps`
-   const appProps = await App.getInitialProps(appContext)
-   return { ...appProps }
-}
-*/
+
+MyApp.getInitialProps = async (appContext: AppContext) => {
+  // calls page's `getInitialProps` and fills `appProps.pageProps`
+  const appProps = await App.getInitialProps(appContext);
+  const res = appContext.ctx.res;
+  const host = appContext.ctx.req?.headers.host || '';
+  const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
+  if (!res) {
+    return { ...appProps };
+  }
+  try {
+    const user = await axios.get(`http://${host}/api/auth/user/me`, {
+      headers: { cookie: appContext.ctx.req?.headers.cookie },
+    });
+    // Already logged in
+    if (user && isLoginPage) {
+      res.writeHead(302, {
+        Location: `/space`,
+      });
+      res.end();
+    }
+    return { ...appProps, user: user.data };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    if (error.code && error.status && !isLoginPage) {
+      const redirect = encodeURIComponent(appContext.ctx.req?.url || '');
+      const query = redirect ? `redirect=${redirect}` : '';
+      res.writeHead(302, {
+        Location: `/auth/login?${query}`,
+      });
+      res.end();
+    }
+  }
+  return { ...appProps };
+};
 
 export default appWithTranslation(MyApp, {
   ...nextI18nextConfig,

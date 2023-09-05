@@ -1,5 +1,5 @@
-import { SelectionSchema, SelectionApi } from '@teable-group/openapi';
-import { useTableId, useViewId } from '@teable-group/sdk';
+import { SelectionSchema } from '@teable-group/openapi';
+import { SelectionApi, useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
 import { SelectionRegionType } from '../../../grid';
@@ -35,10 +35,7 @@ export const useSelectionOperation = () => {
         ranges,
         ...(type ? { type } : {}),
       });
-      if (!data.success) {
-        return;
-      }
-      const { content, header } = data.data;
+      const { content, header } = data;
       await navigator.clipboard.writeText(content);
       sessionStorage.setItem(copyHeaderKey, JSON.stringify(header));
       toaster.update({ id: toaster.id, title: 'Copied success!' });

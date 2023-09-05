@@ -1,6 +1,7 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import express from 'express';
+import { Public } from '../auth/decorators/public.decorator';
 import { NextService } from './next.service';
 
 @Controller('/')
@@ -8,6 +9,7 @@ export class NextController {
   constructor(private nextService: NextService) {}
 
   @ApiExcludeEndpoint()
+  @Public()
   @Get([
     '/',
     'favicon.ico',

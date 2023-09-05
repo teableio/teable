@@ -2,7 +2,6 @@ import type {
   ICreateTableRo,
   IFieldRo,
   IFieldVo,
-  IJsonApiSuccessResponse,
   IRecord,
   ITableVo,
   IViewRo,
@@ -16,16 +15,13 @@ import { View } from '../view';
 
 export class Table extends TableCore {
   static async createTable(tableRo?: ICreateTableRo) {
-    const response = await axios.post<IJsonApiSuccessResponse<ITableVo>>(
-      '/api/table',
-      tableRo ?? {}
-    );
-    return response.data.data;
+    const response = await axios.post<ITableVo>('/table', tableRo ?? {});
+    return response.data;
   }
 
   static async deleteTable(tableId: string) {
-    const response = await axios.delete<IJsonApiSuccessResponse<void>>(`/api/table/${tableId}`);
-    return response.data.data;
+    const response = await axios.delete<void>(`/table/${tableId}`);
+    return response.data;
   }
 
   protected doc!: Doc<ITableVo>;
@@ -50,20 +46,15 @@ export class Table extends TableCore {
   async createView(params: IViewRo & { tableId: string }) {
     const { tableId, ...viewRo } = params;
 
-    const response = await axios.post<IJsonApiSuccessResponse<IFieldVo>>(
-      `/api/table/${tableId}/view`,
-      viewRo
-    );
-    return response.data.data;
+    const response = await axios.post<IFieldVo>(`/table/${tableId}/view`, viewRo);
+    return response.data;
   }
 
   async deleteView(params: { tableId: string; viewId: string }) {
     const { tableId, viewId } = params;
 
-    const response = await axios.delete<IJsonApiSuccessResponse<void>>(
-      `/api/table/${tableId}/view/${viewId}`
-    );
-    return response.data.data;
+    const response = await axios.delete<void>(`/table/${tableId}/view/${viewId}`);
+    return response.data;
   }
 
   async createRecord(recordFields: IRecord['fields']) {

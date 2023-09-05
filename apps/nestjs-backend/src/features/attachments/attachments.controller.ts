@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { responseWrap } from '../../utils';
 import { AttachmentsService } from './attachments.service';
 
 @Controller('api/attachments')
@@ -22,8 +21,8 @@ export class AttachmentsController {
   @Post('/upload/:token')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Param('token') token: string) {
-    await this.attachmentsService.upload(file, token);
-    return responseWrap(null);
+    this.attachmentsService.upload(file, token);
+    return null;
   }
 
   @Get(':token')
@@ -39,13 +38,11 @@ export class AttachmentsController {
 
   @Post('/signature')
   async signature() {
-    const res = await this.attachmentsService.signature();
-    return responseWrap(res);
+    return await this.attachmentsService.signature();
   }
 
   @Post('/notify/:secret')
   async notify(@Param('secret') secret: string) {
-    const attachment = await this.attachmentsService.notify(secret);
-    return responseWrap(attachment);
+    return await this.attachmentsService.notify(secret);
   }
 }
