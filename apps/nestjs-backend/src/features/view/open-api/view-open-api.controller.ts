@@ -9,7 +9,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { IViewRo, IViewVo } from '@teable-group/core';
-import { viewRoSchema } from '@teable-group/core';
+import { viewRoSchema, updateViewOrderRoSchema, IUpdateViewOrderRo } from '@teable-group/core';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { IViewInstance } from '../model/factory';
@@ -71,5 +71,25 @@ export class ViewOpenApiController {
   async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
     const result = await this.viewOpenApiService.deleteView(tableId, viewId);
     return responseWrap(result);
+  }
+
+  @ApiOperation({ summary: 'Update view raw order' })
+  @ApiCreatedResponse({
+    description: 'The view order has been successfully updated.',
+    type: ApiResponse<IViewVo>,
+  })
+  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiBody({
+    type: ApiResponse<IViewRo>,
+  })
+  @Post('/:viewId/sort')
+  async updateViewRawOrder(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(updateViewOrderRoSchema))
+    updateViewOrderRo: IUpdateViewOrderRo
+  ): Promise<ApiResponse<Record<string, never>>> {
+    await this.viewOpenApiService.updateViewRawOrder(tableId, viewId, updateViewOrderRo);
+    return responseWrap({});
   }
 }

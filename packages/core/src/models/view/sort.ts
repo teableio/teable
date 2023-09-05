@@ -36,6 +36,12 @@ export type ISortItem = z.infer<typeof sortItemSchema>;
 
 export type ISort = z.infer<typeof sortSchema>;
 
+export const updateViewOrderRoSchema = z.object({
+  sortObjs: sortItemSchema.array(),
+});
+
+export type IUpdateViewOrderRo = z.infer<typeof updateViewOrderRoSchema>;
+
 export function mergeWithDefaultSort(
   defaultViewSort: string | null,
   querySort?: ISort['sortObjs']
@@ -49,14 +55,17 @@ export function mergeWithDefaultSort(
   const viewSort = parseSort.success ? parseSort.data : undefined;
 
   // should clear sort query when sort manually
-  if (!viewSort?.shouldAutoSort) {
+  if (!viewSort?.shouldAutoSort && !querySort?.length) {
     return [];
   }
 
   let mergeSort = viewSort?.sortObjs || [];
 
   if (querySort?.length) {
-    mergeSort = mergeSort.concat(querySort);
+    // merge the same fieldId item, query first
+    const map = new Map(mergeSort.map((sortItem) => [sortItem.fieldId, sortItem]));
+    querySort.forEach((sortItem) => map.set(sortItem.fieldId, sortItem));
+    mergeSort = Array.from(map.values());
   }
 
   return mergeSort;
