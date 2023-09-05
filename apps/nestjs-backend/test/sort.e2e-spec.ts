@@ -320,7 +320,7 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
   }
 });
 
-describe('OpenAPI ViewController hardSort (e2e) base cellValueType', () => {
+describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () => {
   let app: INestApplication;
   let subTable: ITableFullVo;
   let subTableId = '';
@@ -358,7 +358,7 @@ describe('OpenAPI ViewController hardSort (e2e) base cellValueType', () => {
     const currentTestInfo = typeTests[i];
     const { valueGenerateFn, type } = currentTestInfo;
     // cellValueType tests
-    it(`/api/table/{tableId}/record hardSort (Post) Test CellValueType: ${type}`, async () => {
+    it(`/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: ${type}`, async () => {
       const field = fields2.find((field) => field.cellValueType === type);
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const { id: fieldId, name } = field!;
@@ -403,7 +403,7 @@ describe('OpenAPI ViewController hardSort (e2e) base cellValueType', () => {
   }
 });
 
-describe('OpenAPI ViewController hardSort (e2e) Multiple CellValueType', () => {
+describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', () => {
   let app: INestApplication;
   let mainTable: ITableFullVo;
   let subTable: ITableFullVo;
@@ -477,7 +477,7 @@ describe('OpenAPI ViewController hardSort (e2e) Multiple CellValueType', () => {
     const currentTestInfo = typeTests[i];
     const { valueGenerateFn, type } = currentTestInfo;
     // multiple cellValueType tests
-    it(`/api/table/{tableId}/record sort (GET) Test CellValueType: ${type}:Multiple`, async () => {
+    it(`/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: ${type}:Multiple`, async () => {
       const field = fields2.find((field) => field.cellValueType === type);
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const { id: fieldId } = field!;
