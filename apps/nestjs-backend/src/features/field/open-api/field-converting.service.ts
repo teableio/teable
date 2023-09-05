@@ -825,7 +825,7 @@ export class FieldConvertingService {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     await this.submitFieldOps(connection, tableId, newField.id, ops);
     let result: IModifiedResult | undefined;
-    const linkResult = await this.fieldConvertingLinkService.supplementLink(
+    const rawOpsMapFromLink = await this.fieldConvertingLinkService.supplementLink(
       prisma,
       connection,
       tableId,
@@ -872,7 +872,7 @@ export class FieldConvertingService {
       computedRawOpsMap && this.shareDbService.publishOpsMap(computedRawOpsMap);
     }
 
-    linkResult?.forEach((rawOpsMap) => this.shareDbService.publishOpsMap(rawOpsMap));
+    rawOpsMapFromLink?.forEach((rawOpsMap) => this.shareDbService.publishOpsMap(rawOpsMap));
   }
 
   private async submitFieldOpsMap(connection: Connection, fieldOpsMap: IOpsMap) {

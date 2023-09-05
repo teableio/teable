@@ -38,7 +38,6 @@ export interface IFieldMap {
 
 interface IRecordItem {
   record: ITinyRecord;
-  calculated?: { [fieldId: string]: boolean };
   dependencies?: ITinyRecord | ITinyRecord[];
 }
 
@@ -438,7 +437,9 @@ export class ReferenceService {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.lookupOptions) {
       if (!recordItem.dependencies) {
-        throw new Error(`Dependency should not be undefined when contains a computed field`);
+        throw new Error(
+          `Dependency should not be undefined when contains a link/lookup/rollup field`
+        );
       }
       const lookupFieldId = field.lookupOptions
         ? field.lookupOptions.lookupFieldId
@@ -467,7 +468,7 @@ export class ReferenceService {
       );
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      // console.log('calculateLookup:lookupValues', lookupValues);
+      // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
 
       if (field.isLookup) {
         return this.flatOriginLookup(lookupValues);
@@ -530,7 +531,7 @@ export class ReferenceService {
     if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
       return null;
     }
-    return dependencies.fields[fieldId] || null;
+    return dependencies.fields[fieldId] ?? null;
   }
 
   private calculateRollup(
@@ -887,7 +888,11 @@ export class ReferenceService {
       }
       throw new Error('Unsupported relationship');
     });
-    return records.map((record, i) => ({ record, dependencies: dependenciesArr[i] }));
+    return records
+      .map((record, i) => ({ record, dependencies: dependenciesArr[i] }))
+      .filter((item) =>
+        Array.isArray(item.dependencies) ? item.dependencies.length : item.dependencies
+      );
   }
 
   createTopoItemWithRecords(params: {
@@ -910,7 +915,7 @@ export class ReferenceService {
     } = params;
     const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
     const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
-    return topoOrders.map((order) => {
+    return topoOrders.reduce<ITopoItemWithRecords[]>((pre, order) => {
       const field = fieldMap[order.id];
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
@@ -942,20 +947,31 @@ export class ReferenceService {
 
       // update cross table dependency (from lookup or link field)
       if (field.lookupOptions) {
+        if (
+          !affectedRecordItems?.find((item) => item.fieldId === field.lookupOptions?.linkFieldId)
+        ) {
+          return pre;
+        }
         const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
-        return appendRecordItems(foreignTableId, linkFieldId, relationship);
+        pre.push(appendRecordItems(foreignTableId, linkFieldId, relationship));
+        return pre;
       }
 
       if (field.type === FieldType.Link) {
+        if (!affectedRecordItems?.find((item) => item.fieldId === field.id)) {
+          return pre;
+        }
         const { foreignTableId, relationship } = field.options;
-        return appendRecordItems(foreignTableId, field.id, relationship);
+        pre.push(appendRecordItems(foreignTableId, field.id, relationship));
+        return pre;
       }
 
-      return {
+      pre.push({
         ...order,
         recordItems: records.map((record) => ({ record })),
-      };
-    });
+      });
+      return pre;
+    }, []);
   }
 
   formatRecordQueryResult(
