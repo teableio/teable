@@ -9,7 +9,7 @@ import {
   CellValueType,
   FieldType,
 } from '@teable-group/core';
-import request from 'supertest';
+import type request from 'supertest';
 import {
   createField,
   getField,
@@ -24,22 +24,26 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let app: INestApplication;
   let table1: ITableFullVo;
   let table2: ITableFullVo;
+  let request: request.SuperAgentTest;
 
   beforeAll(async () => {
-    app = await initApp();
-    const result1 = await request(app.getHttpServer()).post('/api/table').send({
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
+
+    const result1 = await request.post('/api/table').send({
       name: 'table1',
     });
-    table1 = result1.body.data;
-    const result2 = await request(app.getHttpServer()).post('/api/table').send({
+    table1 = result1.body;
+    const result2 = await request.post('/api/table').send({
       name: 'table2',
     });
-    table2 = result2.body.data;
+    table2 = result2.body;
   });
 
   afterAll(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`);
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`);
+    await request.delete(`/api/table/arbitrary/${table1.id}`);
+    await request.delete(`/api/table/arbitrary/${table2.id}`);
 
     await app.close();
   });
@@ -50,16 +54,16 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     newFieldRo: IFieldRo,
     values: unknown[] = []
   ) {
-    const sourceField = await createField(app, table.id, sourceFieldRo);
+    const sourceField = await createField(request, table.id, sourceFieldRo);
     for (const i in values) {
       const value = values[i];
       value != null &&
-        (await updateRecordByApi(app, table.id, table.records[i].id, sourceField.id, value));
+        (await updateRecordByApi(request, table.id, table.records[i].id, sourceField.id, value));
     }
-    await updateField(app, table.id, sourceField.id, newFieldRo);
-    const newField = await getField(app, table.id, sourceField.id);
+    await updateField(request, table.id, sourceField.id, newFieldRo);
+    const newField = await getField(request, table.id, sourceField.id);
     const records = await Promise.all(
-      values.map((_, i) => getRecord(app, table.id, table.records[i].id))
+      values.map((_, i) => getRecord(request, table.id, table.records[i].id))
     );
 
     const result = records.map((record) => record.fields[newField.id]);
@@ -224,7 +228,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key 'x' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
 
       const { newField, values } = await expectUpdate(table1, sourceField, newFieldRo, [
         'x, y',
@@ -242,7 +246,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(app, table2.id);
+      const { records } = await getRecords(request, table2.id);
       // only match 'x' in table2, because many-one link only allowed one value
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       // create a new record in table2 to match 'z' that not exist in table 2 before
@@ -260,8 +264,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key 'x' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(app, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
       const { newField, values } = await expectUpdate(table1, sourceField, newFieldRo, [
         'x, y',
@@ -280,7 +284,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(app, table2.id);
+      const { records } = await getRecords(request, table2.id);
       expect(values[0]).toEqual([
         { title: 'x', id: records[0].id },
         { title: 'y', id: records[1].id },
@@ -297,11 +301,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(app, table1.id, linkFieldRo);
+      const linkField = await createField(request, table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add a link record
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -339,12 +343,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(app, table1.id, linkFieldRo);
+      const linkField = await createField(request, table1.id, linkFieldRo);
       // set primary key 'x'/'y' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(app, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
       // add a link record
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },
@@ -388,14 +392,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(app, table1.id, linkFieldRo);
+      const linkField = await createField(request, table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add 2 link record
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
-      await updateRecordByApi(app, table1.id, table1.records[1].id, linkField.id, {
+      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -437,11 +441,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(app, table1.id, linkFieldRo);
+      const linkField = await createField(request, table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
       // add 2 link record
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },

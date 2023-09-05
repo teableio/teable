@@ -14,7 +14,6 @@
     "allowJs": false,
     "baseUrl": "./",
     "outDir": "./dist",
-    "rootDir": "src",
     "paths": {
       "src/*": ["./src/*"]
     }
@@ -25,5 +24,5 @@
     { "path": "../../packages/sdk" },
     { "path": "../../packages/openapi" }
   ],
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "exclude": ["**/node_modules", "**/.*/", "dist"]
 }
