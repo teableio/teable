@@ -17,6 +17,8 @@ import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
 import { ViewPipe } from './view.pipe';
 
+const forbiddenDescription = 'Forbidden.';
+
 @ApiBearerAuth()
 @ApiTags('view')
 @Controller('api/table/:tableId/view')
@@ -42,7 +44,7 @@ export class ViewOpenApiController {
 
   @Get()
   @ApiOperation({ summary: 'Batch fetch views' })
-  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiForbiddenResponse({ description: forbiddenDescription })
   async getViews(@Param('tableId') tableId: string): Promise<ApiResponse<IViewVo[]>> {
     const results = await this.viewService.getViews(tableId);
     return responseWrap(results);
@@ -53,7 +55,7 @@ export class ViewOpenApiController {
     description: 'The view has been successfully created.',
     type: ApiResponse<IViewVo>,
   })
-  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiForbiddenResponse({ description: forbiddenDescription })
   @ApiBody({
     type: ApiResponse<IViewRo>,
   })
@@ -78,7 +80,7 @@ export class ViewOpenApiController {
     description: 'The view raw order has been successfully updated.',
     type: ApiResponse<null>,
   })
-  @ApiForbiddenResponse({ description: 'Forbidden.' })
+  @ApiForbiddenResponse({ description: forbiddenDescription })
   @ApiBody({
     type: ApiResponse<null>,
   })
