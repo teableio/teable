@@ -5,10 +5,8 @@ import type {
   IFieldVo,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
-  IRecord,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
-import qs from 'qs';
 import type request from 'supertest';
 import { initApp } from './utils/init-app';
 

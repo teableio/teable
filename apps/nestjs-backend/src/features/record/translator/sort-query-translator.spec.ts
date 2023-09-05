@@ -3,7 +3,7 @@ import type { IFieldInstance } from '../../field/model/factory';
 import { SortQueryTranslator } from './sort-query-translator';
 
 describe('SortQueryTranslator', () => {
-  it('should return empty array [], if the fields is {}', () => {
+  it('should return empty array, if the fields is undefined', () => {
     const translatedOrderBy = SortQueryTranslator.translateToOrderQuery([], undefined);
     expect(Array.isArray(translatedOrderBy)).toBe(true);
     expect(translatedOrderBy.length).toBe(0);
