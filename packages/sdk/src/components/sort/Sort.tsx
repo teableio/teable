@@ -10,6 +10,8 @@ import {
 import { isEqual } from 'lodash';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDebounce } from 'react-use';
+import { useTableId, useViewId } from '../../hooks';
+import { View } from '../../model';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';
 import { SortFieldCommand } from './SortFieldCommand';
@@ -24,6 +26,10 @@ function Sort(props: ISortProps) {
   const { children, onChange, sorts } = props;
 
   const [innerSorts, setInnerSorts] = useState(sorts);
+
+  const tableId = useTableId();
+
+  const viewId = useViewId();
 
   const selectedFields = useMemo(
     () => innerSorts?.sortObjs?.map((sort) => sort.fieldId) || [],
@@ -123,6 +129,17 @@ function Sort(props: ISortProps) {
     }
   };
 
+  const manualSort = async () => {
+    if (innerSorts?.sortObjs?.length) {
+      const viewRo = {
+        sortObjs: innerSorts.sortObjs,
+      };
+      if (tableId && viewId) {
+        await View.updateViewRawOrder(tableId, viewId, viewRo);
+      }
+    }
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -167,7 +184,7 @@ function Sort(props: ISortProps) {
 
             {!innerSorts.shouldAutoSort && (
               <div className="flex justify-between items-center">
-                <Button size="sm" className="ml-2 text-sm" onClick={() => onChange(innerSorts)}>
+                <Button size="sm" className="ml-2 text-sm" onClick={() => manualSort()}>
                   sort
                 </Button>
               </div>

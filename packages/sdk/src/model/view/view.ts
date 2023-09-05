@@ -5,6 +5,7 @@ import type {
   IViewAggregationRo,
   IViewRowCountVo,
   IViewAggregationVo,
+  IUpdateViewOrderRo,
 } from '@teable-group/core';
 import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
@@ -33,6 +34,11 @@ export abstract class View extends ViewCore {
     return response.data;
   }
 
+  static async updateViewRawOrder(tableId: string, viewId: string, viewRo: IUpdateViewOrderRo) {
+    const response = await axios.post(`/api/table/${tableId}/view/${viewId}/sort`, viewRo);
+    return response.data;
+  }
+
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.doc.submitOp([operation], undefined, (error) => {
@@ -57,6 +63,7 @@ export abstract class View extends ViewCore {
       newFilter: validFilter,
       oldFilter: this.filter,
     });
+
     return await this.submitOperation(viewOperation);
   }
 
