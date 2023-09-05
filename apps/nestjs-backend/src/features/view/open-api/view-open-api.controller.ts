@@ -75,12 +75,12 @@ export class ViewOpenApiController {
 
   @ApiOperation({ summary: 'Update view raw order' })
   @ApiCreatedResponse({
-    description: 'The view order has been successfully updated.',
-    type: ApiResponse<IViewVo>,
+    description: 'The view raw order has been successfully updated.',
+    type: ApiResponse<null>,
   })
   @ApiForbiddenResponse({ description: 'Forbidden.' })
   @ApiBody({
-    type: ApiResponse<IViewRo>,
+    type: ApiResponse<null>,
   })
   @Post('/:viewId/sort')
   async updateViewRawOrder(
@@ -88,8 +88,8 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(updateViewOrderRoSchema))
     updateViewOrderRo: IUpdateViewOrderRo
-  ): Promise<ApiResponse<Record<string, never>>> {
+  ): Promise<ApiResponse<null>> {
     await this.viewOpenApiService.updateViewRawOrder(tableId, viewId, updateViewOrderRo);
-    return responseWrap({});
+    return responseWrap(null);
   }
 }
