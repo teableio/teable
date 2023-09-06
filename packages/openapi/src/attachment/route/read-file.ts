@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { z } from 'zod';
+import { z } from '../../zod';
 import { READ_FILE_URL } from '../path';
 
 export const ReadFileRoute: RouteConfig = {

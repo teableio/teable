@@ -1,8 +1,8 @@
 import type { RefinementCtx } from 'zod';
-import { z } from 'zod';
 import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types/ensure-keys';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { StatisticsFunc } from '../aggregation';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {

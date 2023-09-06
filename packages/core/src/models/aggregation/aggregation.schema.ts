@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { StatisticsFunc } from './statistics-func.enum';
 
 export const aggFuncSchema = z.nativeEnum(StatisticsFunc);

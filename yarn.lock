@@ -8486,7 +8486,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/backend@workspace:apps/nestjs-backend"
   dependencies:
-    "@asteasolutions/zod-to-openapi": 5.5.0
     "@babel/core": 7.19.6
     "@faker-js/faker": 8.0.2
     "@juicyllama/nestjs-redoc": 2.3.11
