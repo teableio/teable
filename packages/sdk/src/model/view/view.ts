@@ -35,7 +35,7 @@ export abstract class View extends ViewCore {
   }
 
   static async updateViewRawOrder(tableId: string, viewId: string, viewRo: IUpdateViewOrderRo) {
-    const response = await axios.post(`/api/table/${tableId}/view/${viewId}/sort`, viewRo);
+    const response = await axios.post(`/table/${tableId}/view/${viewId}/sort`, viewRo);
     return response.data;
   }
 

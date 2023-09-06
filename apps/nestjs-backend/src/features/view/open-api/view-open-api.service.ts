@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IColumnMeta, IViewVo, IUpdateViewOrderRo, IFieldVo } from '@teable-group/core';
+import type {
+  IColumnMeta,
+  IViewVo,
+  IUpdateViewOrderRo,
+  IFieldVo,
+  IOtOperation,
+} from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, OpName, ViewOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -163,6 +169,27 @@ export class ViewOpenApiService {
     });
   }
 
+  // submit ops in backend side
+  private async submitOps(
+    tableId: string,
+    viewId: string,
+    transactionKey: string,
+    ops: IOtOperation
+  ) {
+    const doc = await this.shareDbService
+      .getConnection(transactionKey)
+      .get(`${IdPrefix.View}_${tableId}`, viewId);
+
+    return new Promise((resolve, reject) => {
+      doc.fetch((error) => {
+        if (error) return reject(error);
+        doc.submitOp(ops, { transactionKey }, (error) => {
+          error ? reject(error) : resolve(doc.data);
+        });
+      });
+    });
+  }
+
   createView2Ops(viewInstance: IViewInstance, maxViewOrder: number) {
     return ViewOpBuilder.creator.build({
       ...(instanceToPlain(viewInstance, { excludePrefixes: ['_'] }) as IViewVo),
@@ -226,29 +253,14 @@ export class ViewOpenApiService {
       oldSort: defaultView.sort ? JSON.parse(defaultView.sort) : null,
     });
 
-    // submit ops in backend side
-    const submitOps = async (transactionKey: string) => {
-      const doc = await this.shareDbService
-        .getConnection(transactionKey)
-        .get(`${IdPrefix.View}_${tableId}`, viewId);
-
-      return new Promise((resolve, reject) => {
-        doc.fetch((error) => {
-          if (error) return reject(error);
-          doc.submitOp(ops, undefined, (error) => {
-            error ? reject(error) : resolve(doc.data);
-          });
-        });
-      });
-    };
-
+    // execute sql to update raw order with transaction
     await prisma.$executeRawUnsafe(dropIndexSql);
 
     await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
         await prisma.$executeRawUnsafe(updateRecordsOrderSql);
-        await submitOps(transactionKey);
+        await this.submitOps(tableId, viewId, transactionKey, ops);
       },
       {
         timeout: 5000,

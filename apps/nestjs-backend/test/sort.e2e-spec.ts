@@ -7,6 +7,9 @@ import qs from 'qs';
 import type * as supertest from 'supertest';
 import { initApp, updateRecordByApi } from './utils/init-app';
 
+let app: INestApplication;
+let request: supertest.SuperAgentTest;
+
 const randomGenerator = () => {
   return Math.round(Math.random() * 1000);
 };
@@ -90,9 +93,6 @@ const setRecordsOrder = async (tableId: string, viewId: string, orderBy: ISortIt
     })
     .expect(201);
 };
-
-let app: INestApplication;
-let request: supertest.SuperAgentTest;
 
 beforeAll(async () => {
   const appCtx = await initApp();
