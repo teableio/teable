@@ -28,7 +28,7 @@ describe('SortQueryTranslator', () => {
         dbFieldName: 'Count_fldWKxNpJ0XjK2n7Bp8',
       },
     } as unknown as { [fieldId: string]: IFieldInstance };
-    const presetRightRes = [
+    const assertRes = [
       {
         column: 'Name_fldOxH1uuemSQZmoEd0',
         order: 'asc',
@@ -39,6 +39,6 @@ describe('SortQueryTranslator', () => {
       },
     ];
     const translatedOrderBy = SortQueryTranslator.translateToOrderQuery(orderBy, presetFields);
-    expect(translatedOrderBy).toEqual(presetRightRes);
+    expect(translatedOrderBy).toEqual(assertRes);
   });
 });
