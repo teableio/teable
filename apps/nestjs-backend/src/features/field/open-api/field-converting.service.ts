@@ -17,7 +17,7 @@ import {
   Relationship,
   FieldKeyType,
   randomColor,
-  FIELD_PROPERTIES,
+  FIELD_VO_PROPERTIES,
   IdPrefix,
   RecordOpBuilder,
   FieldType,
@@ -52,6 +52,10 @@ import { FieldConvertingLinkService } from './field-converting-link.service';
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
   fieldOpsMap?: IOpsMap;
+  fieldChange?: {
+    newField: IFieldInstance;
+    oldField: IFieldInstance;
+  };
   recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
 }
 
@@ -118,6 +122,7 @@ export class FieldConvertingService {
     return FieldOpBuilder.editor.setFieldProperty.build({ key, oldValue, newValue: value });
   }
 
+  // TODO: formatting should be validate before inherit
   /**
    * 1. check if the lookup field is valid, if not mark error
    * 2. update lookup field properties
@@ -555,7 +560,7 @@ export class FieldConvertingService {
   private getOriginFieldOps(newField: IFieldInstance, oldField: IFieldInstance) {
     const ops: IOtOperation[] = [];
     const keys: IFieldPropertyKey[] = [];
-    FIELD_PROPERTIES.forEach((key) => {
+    FIELD_VO_PROPERTIES.forEach((key) => {
       if (isEqual(newField[key], oldField[key])) {
         return;
       }
@@ -584,11 +589,11 @@ export class FieldConvertingService {
         if (!context) {
           throw new Error('Invalid operation');
         }
-        changes.push({ ...context, recordId });
+        changes.push({ ...context, oldValue: null, recordId }); // old value by no means when converting
       }
     }
 
-    const derivate = await this.linkService.getDerivateByLink(prisma, tableId, changes);
+    const derivate = await this.linkService.getDerivateByLink(prisma, tableId, changes, true);
     const cellChanges = derivate?.cellChanges || [];
     const fkRecordMap = derivate?.fkRecordMap || {};
 
@@ -813,6 +818,7 @@ export class FieldConvertingService {
    * 4. re-generate new cellValue type and dbFieldType to all reference field
    * 5. re-calculate from current field
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async updateField(
     transactionKey: string,
     tableId: string,
@@ -824,8 +830,8 @@ export class FieldConvertingService {
 
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     await this.submitFieldOps(connection, tableId, newField.id, ops);
-    let result: IModifiedResult | undefined;
-    const rawOpsMapFromLink = await this.fieldConvertingLinkService.supplementLink(
+
+    const supplementResult = await this.fieldConvertingLinkService.supplementLink(
       prisma,
       connection,
       tableId,
@@ -833,14 +839,23 @@ export class FieldConvertingService {
       oldField
     );
 
+    // apply supplement(link) field change
+    if (supplementResult?.fieldChange) {
+      const { tableId, newField, oldField } = supplementResult.fieldChange;
+      const { ops } = this.getOriginFieldOps(newField, oldField);
+      await this.submitFieldOps(connection, tableId, newField.id, ops);
+    }
+
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
+    let result: IModifiedResult | undefined;
     if (keys.includes('type') || keys.includes('isComputed')) {
       result = await this.modifyType(prisma, tableId, newField, oldField);
     } else if (keys.includes('options')) {
       result = await this.modifyOptions(prisma, tableId, newField, oldField);
     }
 
+    // create and submit records
     if (result?.recordsForCreate) {
       for (const tableId in result.recordsForCreate) {
         const recordsMap = result.recordsForCreate[tableId];
@@ -853,15 +868,20 @@ export class FieldConvertingService {
       }
     }
 
-    const refFieldOpsMap = await this.updateReferencedFields(prisma, newField, oldField);
+    // update & submit referenced fields
+    const fieldOpsMaps: (IOpsMap | undefined)[] = [result?.fieldOpsMap];
+    fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
+    if (supplementResult?.fieldChange) {
+      const { newField, oldField } = supplementResult.fieldChange;
+      fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
+    }
+    const composedMap = composeMaps(fieldOpsMaps);
+    composedMap && (await this.submitFieldOpsMap(connection, composedMap));
 
-    const fieldOpsMap = composeMaps([result?.fieldOpsMap, refFieldOpsMap]);
-    fieldOpsMap && (await this.submitFieldOpsMap(connection, fieldOpsMap));
-
+    // calculate and submit records
     if (result?.recordOpsMap) {
       await this.calculateAndSaveRecords(transactionKey, tableId, newField, result.recordOpsMap);
     }
-
     if (newField.isComputed) {
       const computedRawOpsMap = await this.fieldCalculationService.calculateFields(
         prisma,
@@ -871,8 +891,9 @@ export class FieldConvertingService {
       );
       computedRawOpsMap && this.shareDbService.publishOpsMap(computedRawOpsMap);
     }
-
-    rawOpsMapFromLink?.forEach((rawOpsMap) => this.shareDbService.publishOpsMap(rawOpsMap));
+    supplementResult?.rawOpMaps?.forEach((rawOpsMap) =>
+      this.shareDbService.publishOpsMap(rawOpsMap)
+    );
   }
 
   private async submitFieldOpsMap(connection: Connection, fieldOpsMap: IOpsMap) {
@@ -937,13 +958,11 @@ export class FieldConvertingService {
     }
 
     const oldFieldInstance = createFieldInstanceByVo(fieldVo);
-    const newFieldVo = await this.fieldSupplementService.prepareUpdateField({
-      id: fieldId,
-      name: fieldVo.name,
-      dbFieldName: fieldVo.dbFieldName,
-      columnMeta: fieldVo.columnMeta,
-      ...updateFieldRo,
-    });
+    const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
+      updateFieldRo,
+      oldFieldInstance
+    );
+
     await this.updateDbFieldName(prisma, tableId, newFieldVo, fieldVo);
 
     const newFieldInstance = createFieldInstanceByVo(newFieldVo);

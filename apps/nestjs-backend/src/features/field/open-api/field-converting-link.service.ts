@@ -1,6 +1,12 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ITinyRecord } from '@teable-group/core';
-import { FieldType, generateRecordId, RecordOpBuilder } from '@teable-group/core';
+import type { ILinkCellValue, ILinkFieldOptions, ITinyRecord } from '@teable-group/core';
+import {
+  Relationship,
+  RelationshipRevert,
+  FieldType,
+  generateRecordId,
+  RecordOpBuilder,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { isEqual } from 'lodash';
@@ -9,7 +15,11 @@ import { FieldCalculationService } from '../../calculation/field-calculation.ser
 import type { IOpsMap } from '../../calculation/reference.service';
 import { FieldSupplementService } from '../field-supplement.service';
 import type { IFieldInstance } from '../model/factory';
-import { createFieldInstanceByRaw } from '../model/factory';
+import {
+  createFieldInstanceByVo,
+  createFieldInstanceByRaw,
+  rawField2FieldObj,
+} from '../model/factory';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
@@ -22,6 +32,28 @@ export class FieldConvertingLinkService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService
   ) {}
+
+  private async generateSymmetricFieldChange(
+    prisma: Prisma.TransactionClient,
+    linkField: LinkFieldDto
+  ) {
+    const fieldRaw = await prisma.field.findFirstOrThrow({
+      where: { id: linkField.options.symmetricFieldId, deletedTime: null },
+    });
+    const oldField = createFieldInstanceByRaw(fieldRaw);
+    const newFieldVo = rawField2FieldObj(fieldRaw);
+
+    const options = newFieldVo.options as ILinkFieldOptions;
+    options.relationship = RelationshipRevert[linkField.options.relationship];
+    options.dbForeignKeyName = linkField.options.dbForeignKeyName;
+    newFieldVo.isMultipleCellValue = options.relationship !== Relationship.ManyOne || undefined;
+
+    return {
+      tableId: linkField.options.foreignTableId,
+      newField: createFieldInstanceByVo(newFieldVo),
+      oldField,
+    };
+  }
 
   private async linkOptionsChange(
     prisma: Prisma.TransactionClient,
@@ -37,7 +69,7 @@ export class FieldConvertingLinkService {
       throw new Error('only support modify link foreignTableId or relationship');
     }
 
-    if (newField.options.foreignTableId === oldField.options.foreignTableId) {
+    if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
       // update current field reference
       await prisma.reference.deleteMany({
         where: {
@@ -45,7 +77,7 @@ export class FieldConvertingLinkService {
         },
       });
       await this.fieldSupplementService.createReference(prisma, newField);
-      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, newField.options);
+      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, oldField.options);
       // create new symmetric link
       await this.fieldSupplementService.createForeignKey(prisma, tableId, newField);
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
@@ -68,11 +100,13 @@ export class FieldConvertingLinkService {
         oldField.options.symmetricFieldId,
         true
       );
-      return [createResult.rawOpsMap, deleteResult.rawOpsMap].filter(Boolean) as IRawOpMap[];
+      return {
+        rawOpMaps: [createResult.rawOpsMap, deleteResult.rawOpsMap].filter(Boolean) as IRawOpMap[],
+      };
     }
 
-    if (newField.options.relationship === oldField.options.relationship) {
-      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, newField.options);
+    if (newField.options.relationship !== oldField.options.relationship) {
+      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, oldField.options);
       // create new symmetric link
       await this.fieldSupplementService.createForeignKey(prisma, tableId, newField);
       const rawOpsMap = await this.fieldDeletingService.cleanField(
@@ -81,7 +115,12 @@ export class FieldConvertingLinkService {
         newField.options.foreignTableId,
         [newField.options.symmetricFieldId]
       );
-      return rawOpsMap && [rawOpsMap];
+      const fieldChange = await this.generateSymmetricFieldChange(prisma, newField);
+
+      return {
+        rawOpMaps: rawOpsMap && [rawOpsMap],
+        fieldChange,
+      };
     }
   }
 
@@ -104,7 +143,9 @@ export class FieldConvertingLinkService {
       newField.options.foreignTableId,
       symmetricField
     );
-    return symmetricResult.rawOpsMap && [symmetricResult.rawOpsMap];
+    return {
+      rawOpMaps: symmetricResult.rawOpsMap && [symmetricResult.rawOpsMap],
+    };
   }
 
   private async linkToOther(
@@ -120,7 +161,9 @@ export class FieldConvertingLinkService {
       oldField.options.symmetricFieldId,
       true
     );
-    return deleteResult.rawOpsMap ? [deleteResult.rawOpsMap] : [];
+    return {
+      rawOpMaps: deleteResult.rawOpsMap && [deleteResult.rawOpsMap],
+    };
   }
 
   /**
@@ -134,7 +177,13 @@ export class FieldConvertingLinkService {
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
-  ): Promise<IRawOpMap[] | undefined> {
+  ): Promise<
+    | {
+        rawOpMaps?: IRawOpMap[];
+        fieldChange?: { tableId: string; newField: IFieldInstance; oldField: IFieldInstance };
+      }
+    | undefined
+  > {
     if (
       newField.type === FieldType.Link &&
       oldField.type === FieldType.Link &&
@@ -155,7 +204,7 @@ export class FieldConvertingLinkService {
   private async getRecords(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    newField: IFieldInstance
+    field: IFieldInstance
   ) {
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId },
@@ -163,12 +212,12 @@ export class FieldConvertingLinkService {
     });
 
     const result = await this.fieldCalculationService.getRecordsBatchByFields(prisma, {
-      [dbTableName]: [newField],
+      [dbTableName]: [field],
     });
     const records = result[dbTableName];
     if (!records) {
       throw new InternalServerErrorException(
-        `Can't find recordMap for tableId: ${tableId} and fieldId: ${newField.id}`
+        `Can't find recordMap for tableId: ${tableId} and fieldId: ${field.id}`
       );
     }
 

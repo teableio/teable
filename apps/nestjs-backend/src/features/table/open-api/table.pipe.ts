@@ -15,7 +15,7 @@ export class TablePipe implements PipeTransform {
   async prepareDefaultRo(tableRo: ICreateTableRo): Promise<ICreateTableRo> {
     const fieldRos = tableRo.fields ? tableRo.fields : DEFAULT_FIELDS;
     // make sure first field to be the primary field;
-    fieldRos[0].isPrimary = true;
+    (fieldRos[0] as IFieldVo).isPrimary = true;
     const fields: IFieldVo[] = [];
     const simpleFields: IFieldRo[] = [];
     const computeFields: IFieldRo[] = [];

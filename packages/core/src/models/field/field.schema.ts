@@ -170,7 +170,24 @@ export type IFieldVo = z.infer<typeof fieldVoSchema>;
 
 export type IFieldPropertyKey = keyof Omit<IFieldVo, 'id'>;
 
-export const FIELD_PROPERTIES = [
+export const FIELD_RO_PROPERTIES = [
+  'type',
+  'name',
+  'isLookup',
+  'description',
+  'columnMeta',
+  'lookupOptions',
+  'options',
+] as const;
+
+/**
+ * make sure FIELD_RO_PROPERTIES is exactly equals IFieldVo
+ * if here throw error, you should update FIELD_RO_PROPERTIES
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _validator1: IEnsureKeysMatchInterface<IUpdateFieldRo, typeof FIELD_RO_PROPERTIES> = true;
+
+export const FIELD_VO_PROPERTIES = [
   'type',
   'description',
   'options',
@@ -189,12 +206,14 @@ export const FIELD_PROPERTIES = [
   'dbFieldName',
 ] as const;
 
-// make sure FIELD_PROPERTIES is exactly equals IFieldVo
-// if here throw error, you should update FIELD_PROPERTIES
+/**
+ * make sure FIELD_VO_PROPERTIES is exactly equals IFieldVo
+ * if here throw error, you should update FIELD_VO_PROPERTIES
+ */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fieldPropertiesValid: IEnsureKeysMatchInterface<
+const _validator2: IEnsureKeysMatchInterface<
   Omit<IFieldVo, 'id'>,
-  typeof FIELD_PROPERTIES
+  typeof FIELD_VO_PROPERTIES
 > = true;
 
 export const getOptionsSchema = (type: FieldType) => {
@@ -295,15 +314,16 @@ const refineOptions = (
 };
 
 const baseFieldRoSchema = fieldVoSchema
-  .omit({
-    id: true,
-    isComputed: true,
-    cellValueType: true,
-    isMultipleCellValue: true,
-    dbFieldType: true,
-    dbFieldName: true,
-    lookupOptions: true,
-    hasError: true,
+  .partial()
+  .pick({
+    type: true,
+    name: true,
+    isLookup: true,
+    description: true,
+    columnMeta: true,
+  })
+  .required({
+    type: true,
   })
   .merge(
     z.object({
@@ -316,13 +336,7 @@ const baseFieldRoSchema = fieldVoSchema
           "The options of the field. The configuration of the field's options depend on the it's specific type.",
       }),
     })
-  )
-  .partial({
-    name: true,
-    description: true,
-    options: true,
-    columnMeta: true,
-  });
+  );
 
 export const updateFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
 export const fieldRoSchema = baseFieldRoSchema

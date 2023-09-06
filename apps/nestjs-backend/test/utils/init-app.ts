@@ -141,7 +141,7 @@ export async function updateField(
 ): Promise<IFieldVo> {
   const result = await request.put(`/api/table/${tableId}/field/${fieldId}`).send(fieldRo);
   if (result.status !== 200) {
-    console.error(result.body);
+    console.error(JSON.stringify(result.body, null, 2));
   }
   expect(result.status).toEqual(200);
   return result.body;
