@@ -7,7 +7,7 @@ export class UserService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async getUserById(id: string) {
-    return await this.prismaService.user.findUniqueOrThrow({ where: { id, deletedTime: null } });
+    return await this.prismaService.user.findUnique({ where: { id, deletedTime: null } });
   }
 
   async getUserByEmail(email: string) {

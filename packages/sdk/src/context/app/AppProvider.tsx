@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { QueryClientProvider } from 'react-query';
 import { Space } from '../../model/space';
 import { AppContext } from '../app/AppContext';
+import { SessionProvider } from '../session';
 import { useConnection } from './useConnection';
 import { useQueryClient } from './useQueryClient';
 import { useTheme } from './useTheme';
@@ -33,7 +34,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={value}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>{children}</SessionProvider>
+      </QueryClientProvider>
     </AppContext.Provider>
   );
 };
