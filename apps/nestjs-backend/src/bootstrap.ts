@@ -1,3 +1,5 @@
+import 'dayjs/plugin/timezone';
+import 'dayjs/plugin/utc';
 import fs from 'fs';
 import path from 'path';
 import type { RedocOptions } from '@juicyllama/nestjs-redoc';
@@ -9,6 +11,7 @@ import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
 import { openApiDocumentation } from '@teable-group/openapi';
+import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -16,8 +19,6 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
-import 'dayjs/plugin/timezone';
-import 'dayjs/plugin/utc';
 
 const host = 'localhost';
 
@@ -30,6 +31,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   app.use(helmet());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
+  app.use(cookieParser());
 
   const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');

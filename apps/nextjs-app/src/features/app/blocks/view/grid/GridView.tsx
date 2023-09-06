@@ -273,7 +273,6 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     copy(selection);
   };
   const onPaste = (selection: CombinedSelection) => {
-    // CopyAndPasteApi.paste(tableId, activeViewId);
     paste(selection);
   };
 

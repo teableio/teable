@@ -2,12 +2,13 @@ import path from 'path';
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { authConfig } from './auth.config';
 import { bootstrapConfigs, nextJsConfig } from './bootstrap.config';
 import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
 
-const configurations = [...bootstrapConfigs, loggerConfig, mailConfig];
+const configurations = [...bootstrapConfigs, loggerConfig, mailConfig, authConfig];
 
 @Module({})
 export class TeableConfigModule {

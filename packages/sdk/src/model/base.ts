@@ -1,4 +1,3 @@
-import type { IJsonApiSuccessResponse } from '@teable-group/core';
 import knex from 'knex';
 import { axios } from '../config/axios';
 
@@ -7,11 +6,11 @@ export class Base {
   static knex = knex({ client: 'sqlite3' });
 
   static async sqlQuery(tableId: string, viewId: string, sql: string) {
-    const response = await axios.post<IJsonApiSuccessResponse<unknown[]>>(`/api/base/sqlQuery`, {
+    const response = await axios.post<unknown[]>(`/base/sqlQuery`, {
       sql,
       tableId,
       viewId,
     });
-    return response.data.data;
+    return response.data;
   }
 }

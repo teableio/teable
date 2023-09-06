@@ -4,6 +4,7 @@ import { z } from 'zod';
 extendZodWithOpenApi(z);
 
 export * from './generate.schema';
-export { AttachmentPath, AttachmentSchema, AttachmentApi } from './attachment';
-export { RecordPath, RecordSchema, RecordApi } from './record';
-export { SelectionSchema, SelectionApi, SelectionPath } from './selection';
+export { AttachmentPath, AttachmentSchema } from './attachment';
+export { RecordPath, RecordSchema } from './record';
+export { SelectionSchema, SelectionPath } from './selection';
+export { AuthSchema, AuthPath } from './auth';

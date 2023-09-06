@@ -97,6 +97,7 @@
     "webpack": "5.74.0"
   },
   "dependencies": {
+    "@hookform/resolvers": "3.3.1",
     "@radix-ui/react-avatar": "1.0.3",
     "@radix-ui/react-checkbox": "1.0.4",
     "@radix-ui/react-dialog": "1.0.4",
@@ -117,7 +118,9 @@
     "clsx": "1.2.1",
     "cmdk": "0.2.0",
     "deepmerge": "4.3.1",
+    "react-hook-form": "7.45.4",
     "tailwind-merge": "1.13.2",
-    "tailwindcss-animate": "1.0.6"
+    "tailwindcss-animate": "1.0.6",
+    "zod": "3.21.4"
   }
 }

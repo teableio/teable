@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { ICreateRecordsRo } from '@teable-group/core';
-import request from 'supertest';
+import type request from 'supertest';
 import { initApp } from './utils/init-app';
 
 const assertData = {
@@ -92,63 +92,48 @@ const assertData = {
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
+  let request: request.SuperAgentTest;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
   });
 
   afterAll(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+    await request.delete(`/api/table/arbitrary/${tableId}`);
 
     await app.close();
   });
 
   it('/api/table/ (POST) with assertData data', async () => {
-    const result = await request(app.getHttpServer())
-      .post('/api/table')
-      .send(assertData)
-      .expect(201);
-    expect(result.body).toMatchObject({
-      success: true,
-    });
+    const result = await request.post('/api/table').send(assertData).expect(201);
 
-    tableId = result.body.data.id;
-    const recordResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
+    tableId = result.body.id;
+    const recordResult = await request.get(`/api/table/${tableId}/record`).expect(200);
 
-    expect(recordResult.body.data.records).toHaveLength(2);
+    expect(recordResult.body.records).toHaveLength(2);
   });
 
   it('/api/table/ (POST) empty', async () => {
-    const result = await request(app.getHttpServer())
-      .post('/api/table')
-      .send({ name: 'new table' })
-      .expect(201);
-    expect(result.body).toMatchObject({
-      success: true,
-    });
-    tableId = result.body.data.id;
-    const recordResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
-    expect(recordResult.body.data.records).toHaveLength(3);
+    const result = await request.post('/api/table').send({ name: 'new table' }).expect(201);
+
+    tableId = result.body.id;
+    const recordResult = await request.get(`/api/table/${tableId}/record`).expect(200);
+    expect(recordResult.body.records).toHaveLength(3);
   });
 
   it('should refresh table lastModifyTime when add a record', async () => {
-    const result = await request(app.getHttpServer())
-      .post('/api/table')
-      .send({ name: 'new table' })
-      .expect(201);
-    const prevTime = result.body.data.lastModifiedTime;
-    tableId = result.body.data.id;
+    const result = await request.post('/api/table').send({ name: 'new table' }).expect(201);
+    const prevTime = result.body.lastModifiedTime;
+    tableId = result.body.id;
 
-    await request(app.getHttpServer())
+    await request
       .post(`/api/table/${tableId}/record`)
       .send({ records: [{ fields: {} }] } as ICreateRecordsRo);
 
-    const tableResult = await request(app.getHttpServer()).get(`/api/table/${tableId}`).expect(200);
-    const currTime = tableResult.body.data.lastModifiedTime;
+    const tableResult = await request.get(`/api/table/${tableId}`).expect(200);
+    const currTime = tableResult.body.lastModifiedTime;
     console.log(currTime, prevTime);
     expect(new Date(currTime).getTime() > new Date(prevTime).getTime()).toBeTruthy();
   });
