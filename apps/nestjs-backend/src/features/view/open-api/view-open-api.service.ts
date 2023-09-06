@@ -1,11 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IColumnMeta, IViewVo } from '@teable-group/core';
+import type {
+  IColumnMeta,
+  IViewVo,
+  IUpdateViewOrderRo,
+  IFieldVo,
+  IOtOperation,
+} from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, OpName, ViewOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
+import { FieldService } from '../../field/field.service';
+import { RecordService } from '../../record/record.service';
 import type { IViewInstance } from '../model/factory';
+import { ViewService } from '../view.service';
 
 @Injectable()
 export class ViewOpenApiService {
@@ -14,7 +23,10 @@ export class ViewOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService
+    private readonly transactionService: TransactionService,
+    private readonly recordService: RecordService,
+    private readonly viewService: ViewService,
+    private readonly fieldService: FieldService
   ) {}
 
   async createView(tableId: string, viewInstance: IViewInstance, transactionKey?: string) {
@@ -157,10 +169,104 @@ export class ViewOpenApiService {
     });
   }
 
+  // submit ops in backend side
+  private async submitOps(
+    tableId: string,
+    viewId: string,
+    transactionKey: string,
+    ops: IOtOperation
+  ) {
+    const doc = await this.shareDbService
+      .getConnection(transactionKey)
+      .get(`${IdPrefix.View}_${tableId}`, viewId);
+
+    return new Promise((resolve, reject) => {
+      doc.fetch((error) => {
+        if (error) return reject(error);
+        doc.submitOp(ops, { transactionKey }, (error) => {
+          error ? reject(error) : resolve(doc.data);
+        });
+      });
+    });
+  }
+
   createView2Ops(viewInstance: IViewInstance, maxViewOrder: number) {
     return ViewOpBuilder.creator.build({
       ...(instanceToPlain(viewInstance, { excludePrefixes: ['_'] }) as IViewVo),
       order: maxViewOrder + 1,
     });
+  }
+
+  async updateViewRawOrder(tableId: string, viewId: string, viewOrderRo: IUpdateViewOrderRo) {
+    const { sortObjs } = viewOrderRo;
+    const prisma = this.prismaService;
+    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
+    const fields = await this.fieldService.getFields(tableId, { viewId });
+    const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
+    const fieldIndexName = this.viewService.getRowIndexFieldIndexName(viewId);
+
+    const defaultView = await prisma.view.findFirstOrThrow({
+      select: { id: true, sort: true },
+      where: {
+        tableId,
+        ...(viewId ? { id: viewId } : {}),
+        deletedTime: null,
+      },
+    });
+
+    const fieldMap = fields.reduce((map, field) => {
+      map[field.id] = field;
+      return map;
+    }, {} as Record<string, IFieldVo>);
+
+    const orders = sortObjs.map(({ fieldId, order }) => ({
+      column: fieldMap[fieldId].dbFieldName,
+      order: order,
+    }));
+
+    const orderSql = orders.map(({ column, order }) => `${column} ${order.toUpperCase()}`).join();
+
+    const dropIndexSql = `
+      DROP INDEX IF EXISTS ${fieldIndexName};
+    `;
+    const updateRecordsOrderSql = `
+      UPDATE ${dbTableName}
+      SET ${fieldIndexId} = new_order
+      FROM (
+        SELECT t.__id, ROW_NUMBER() OVER (ORDER BY ${orderSql}) as new_order
+        FROM ${dbTableName} AS t
+      ) AS temp_order
+      WHERE temp_order.__id = ${dbTableName}.__id;
+    `;
+    const createIndexSql = `
+      CREATE UNIQUE INDEX ${fieldIndexName}
+      ON ${dbTableName} (${fieldIndexId});
+    `;
+
+    // build ops
+    const newSort = {
+      sortObjs: sortObjs,
+      shouldAutoSort: false,
+    };
+    const ops = ViewOpBuilder.editor.setViewSort.build({
+      newSort: newSort,
+      oldSort: defaultView.sort ? JSON.parse(defaultView.sort) : null,
+    });
+
+    // execute sql to update raw order with transaction
+    await prisma.$executeRawUnsafe(dropIndexSql);
+
+    await this.transactionService.$transaction(
+      this.shareDbService,
+      async (prisma, transactionKey) => {
+        await prisma.$executeRawUnsafe(updateRecordsOrderSql);
+        await this.submitOps(tableId, viewId, transactionKey, ops);
+      },
+      {
+        timeout: 5000,
+      }
+    );
+
+    await prisma.$executeRawUnsafe(createIndexSql);
   }
 }

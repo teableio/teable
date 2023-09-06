@@ -265,16 +265,13 @@ export class RecordService implements IAdapterService {
 
     // All `where` condition-related construction work
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
-    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(
-      orderBy,
-      orderFieldName,
-      fieldMap
-    );
+    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
 
     filterQueryTranslator
       .translateToSql()
       .andWhere(where)
       .orderBy(translatedOrderby)
+      .orderBy(orderFieldName, 'asc')
       .offset(offset)
       .limit(limit);
 

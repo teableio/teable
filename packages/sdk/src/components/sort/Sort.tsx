@@ -1,4 +1,4 @@
-import type { ISort } from '@teable-group/core';
+import type { ISort, IUpdateViewOrderRo } from '@teable-group/core';
 import {
   Button,
   Popover,
@@ -6,10 +6,14 @@ import {
   PopoverTrigger,
   Label,
   Switch,
+  Spin,
 } from '@teable-group/ui-lib';
 import { isEqual } from 'lodash';
 import React, { useEffect, useState, useMemo } from 'react';
+import { useMutation } from 'react-query';
 import { useDebounce } from 'react-use';
+import { useTableId, useViewId } from '../../hooks';
+import { View } from '../../model';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';
 import { SortFieldCommand } from './SortFieldCommand';
@@ -23,12 +27,35 @@ interface ISortProps {
 function Sort(props: ISortProps) {
   const { children, onChange, sorts } = props;
 
+  const tableId = useTableId();
+
+  const viewId = useViewId();
+
+  const [isOpen, setIsOpen] = useState(false);
+
   const [innerSorts, setInnerSorts] = useState(sorts);
 
   const selectedFields = useMemo(
     () => innerSorts?.sortObjs?.map((sort) => sort.fieldId) || [],
     [innerSorts?.sortObjs]
   );
+
+  const { mutateAsync, isLoading } = useMutation({
+    mutationFn: ({
+      tableId,
+      viewId,
+      viewRo,
+    }: {
+      tableId: string;
+      viewId: string;
+      viewRo: IUpdateViewOrderRo;
+    }) => {
+      return View.updateViewRawOrder(tableId, viewId, viewRo);
+    },
+    onSuccess: () => {
+      setIsOpen(false);
+    },
+  });
 
   const sortButtonText =
     innerSorts?.shouldAutoSort && innerSorts?.sortObjs?.length
@@ -123,8 +150,23 @@ function Sort(props: ISortProps) {
     }
   };
 
+  const popoverOpenHandler = (isOpen: boolean) => {
+    setIsOpen(isOpen);
+  };
+
+  const manualSort = async () => {
+    if (innerSorts?.sortObjs?.length) {
+      const viewRo: IUpdateViewOrderRo = {
+        sortObjs: innerSorts.sortObjs,
+      };
+      if (tableId && viewId) {
+        mutateAsync({ tableId, viewId, viewRo });
+      }
+    }
+  };
+
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={popoverOpenHandler}>
       <PopoverTrigger asChild>
         {children?.(sortButtonText, sortButtonText !== 'Sort')}
       </PopoverTrigger>
@@ -167,7 +209,13 @@ function Sort(props: ISortProps) {
 
             {!innerSorts.shouldAutoSort && (
               <div className="flex justify-between items-center">
-                <Button size="sm" className="ml-2 text-sm" onClick={() => onChange(innerSorts)}>
+                <Button
+                  size="sm"
+                  disabled={isLoading}
+                  className="ml-2 text-sm"
+                  onClick={() => manualSort()}
+                >
+                  {isLoading ? <Spin className="mr-1 h-4 w-4" /> : null}
                   sort
                 </Button>
               </div>
