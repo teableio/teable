@@ -119,24 +119,24 @@ model Reference {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  name            String?
-  password        String?
-  salt            String?
-  phone           String?   @unique
-  email           String    @unique
-  avatar          String?
-  provider        String?
-  providerId      String?   @map("provider_id")
-  lastSignTime    DateTime? @map("last_sign_time")   
-  createdTime     DateTime  @default(now()) @map("created_time")
-  deletedTime     DateTime? @map("deleted_time")
-  lastModifiedBy  DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(cuid())
+  name             String?
+  password         String?
+  salt             String?
+  phone            String?   @unique
+  email            String    @unique
+  avatar           String?
+  provider         String?
+  providerId       String?   @map("provider_id")
+  lastSignTime     DateTime? @map("last_sign_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  deletedTime      DateTime? @map("deleted_time")
+  lastModifiedBy   DateTime  @updatedAt @map("updated_at")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
 
   @@unique([provider, providerId])
   @@map("users")
 }
-
 
 model Attachments {
   id             String    @id @default(cuid())
