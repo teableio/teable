@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { fieldRoSchema, fieldVoSchema } from '../field';
 import { createRecordsRoSchema, fieldKeyTypeRoSchema, recordSchema } from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';

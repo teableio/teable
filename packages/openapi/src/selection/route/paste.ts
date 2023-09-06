@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { z } from 'zod';
+import { z } from '../../zod';
 import { PASTE_URL } from '../path';
 import { pasteRoSchema, pasteVoSchema } from '../schema';
 

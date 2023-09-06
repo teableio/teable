@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { filterSchema, sortItemSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 

@@ -89,7 +89,6 @@
     "typescript-transform-paths": "3.4.4"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "5.5.0",
     "@babel/core": "7.19.6",
     "@juicyllama/nestjs-redoc": "2.3.11",
     "@nestjs/common": "10.2.2",

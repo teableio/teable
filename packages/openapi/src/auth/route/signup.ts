@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { z } from 'zod';
+import { z } from '../../zod';
 import { SING_UP } from '../path';
 import { signupSchema } from '../schema';
 

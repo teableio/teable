@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { getRecordsQuerySchema, recordsVoSchema } from '@teable-group/core';
-import { z } from 'zod';
+import { z } from '../../zod';
 import { GET_RECORDS_URL } from '../path';
 
 export const GetRecordsRoute: RouteConfig = {
