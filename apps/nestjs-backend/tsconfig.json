@@ -21,7 +21,6 @@
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/db-main-prisma" },
-    { "path": "../../packages/sdk" },
     { "path": "../../packages/openapi" }
   ],
   "exclude": ["**/node_modules", "**/.*/", "dist"]

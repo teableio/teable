@@ -19,3 +19,4 @@ export * from './use-record';
 export * from './use-aggregation';
 export * from './use-field-static-getter';
 export * from './use-is-hydrated';
+export * from './use-session';
