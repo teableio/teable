@@ -1,4 +1,6 @@
 import type { ITableVo } from '@teable-group/core';
+import { SessionProvider } from '@teable-group/sdk';
+import type { IUser } from '@teable-group/sdk';
 import { AnchorContext, AppProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
 import React from 'react';
@@ -10,24 +12,27 @@ import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
 export const SpaceLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
-}> = ({ children, tableServerData }) => {
+  user?: IUser;
+}> = ({ children, tableServerData, user }) => {
   const router = useRouter();
   const { nodeId, viewId } = router.query;
 
   return (
     <AppLayout>
       <AppProvider>
-        <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
-          <TableProvider serverData={tableServerData}>
-            <div id="portal" className="h-screen flex items-start w-full relative">
-              <ResizablePane>
-                <SideBar />
-                {children}
-                <ChatWindow />
-              </ResizablePane>
-            </div>
-          </TableProvider>
-        </AnchorContext.Provider>
+        <SessionProvider user={user}>
+          <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
+            <TableProvider serverData={tableServerData}>
+              <div id="portal" className="h-screen flex items-start w-full relative">
+                <ResizablePane>
+                  <SideBar />
+                  {children}
+                  <ChatWindow />
+                </ResizablePane>
+              </div>
+            </TableProvider>
+          </AnchorContext.Provider>
+        </SessionProvider>
       </AppProvider>
     </AppLayout>
   );

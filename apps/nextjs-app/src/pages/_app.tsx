@@ -70,7 +70,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         }}
       />
       {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-      {getLayout(<Component {...pageProps} err={err} />, pageProps)}
+      {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
     </AppProviders>
   );
 };
