@@ -96,7 +96,7 @@ export class FieldConvertingLinkService {
       const deleteResult = await this.fieldDeletingService.delateAndCleanRef(
         prisma,
         connection,
-        tableId,
+        oldField.options.foreignTableId,
         oldField.options.symmetricFieldId,
         true
       );
@@ -157,7 +157,7 @@ export class FieldConvertingLinkService {
     const deleteResult = await this.fieldDeletingService.delateAndCleanRef(
       prisma,
       connection,
-      tableId,
+      oldField.options.foreignTableId,
       oldField.options.symmetricFieldId,
       true
     );

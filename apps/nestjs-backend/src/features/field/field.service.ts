@@ -172,23 +172,13 @@ export class FieldService implements IAdapterService {
     }
   }
 
-  async getField(
-    tableId: string,
-    fieldId: string,
-    prisma?: Prisma.TransactionClient
-  ): Promise<IFieldVo> {
-    if (prisma) {
-      const field = await prisma.field.findUniqueOrThrow({
-        where: { id: fieldId },
-      });
-
-      return rawField2FieldObj(field);
-    }
-
-    const field = await this.prismaService.field.findUniqueOrThrow({
-      where: { id: fieldId },
+  async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
+    const field = await this.prismaService.field.findFirst({
+      where: { id: fieldId, tableId, deletedTime: null },
     });
-
+    if (!field) {
+      throw new NotFoundException(`field ${fieldId} in table ${tableId} not found`);
+    }
     return rawField2FieldObj(field);
   }
 

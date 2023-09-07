@@ -463,10 +463,11 @@ export class FieldCalculationService {
     const rawOpMap: IRawOpMap = {};
     for (const tableId in opsMap) {
       const dbTableName = tableId2DbTableName[tableId];
-      const raw = await this.fetchRawData(prisma, dbTableName, opsMap[tableId]);
+      const recordOpsMap = opsMap[tableId];
+      const raw = await this.fetchRawData(prisma, dbTableName, recordOpsMap);
       const versionGroup = keyBy(raw, '__id');
 
-      const opsData = this.buildOpsData(src, opsMap[tableId], versionGroup);
+      const opsData = this.buildOpsData(src, recordOpsMap, versionGroup);
       rawOpMap[tableId] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
         pre[d.recordId] = d.rawOp;
         return pre;
@@ -481,9 +482,9 @@ export class FieldCalculationService {
   private async fetchRawData(
     prisma: Prisma.TransactionClient,
     dbTableName: string,
-    ops: { [recordId: string]: IOtOperation[] }
+    recordOpsMap: { [recordId: string]: IOtOperation[] }
   ) {
-    const recordIds = Object.keys(ops);
+    const recordIds = Object.keys(recordOpsMap);
     const nativeSql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
       .select('__id', '__version')
@@ -499,26 +500,29 @@ export class FieldCalculationService {
   @Timing()
   private buildOpsData(
     src: string,
-    ops: { [recordId: string]: IOtOperation[] },
+    recordOpsMap: { [recordId: string]: IOtOperation[] },
     versionGroup: { [recordId: string]: { __version: number; __id: string } }
   ) {
     const opsData: IOpsData[] = [];
 
-    for (const recordId in ops) {
-      const updateParam = ops[recordId].reduce<{ [fieldId: string]: unknown }>((pre, op) => {
-        const opContext = RecordOpBuilder.editor.setRecord.detect(op);
-        if (!opContext) {
-          throw new Error(`illegal op ${JSON.stringify(op)} found`);
-        }
-        pre[opContext.fieldId] = opContext.newValue;
-        return pre;
-      }, {});
+    for (const recordId in recordOpsMap) {
+      const updateParam = recordOpsMap[recordId].reduce<{ [fieldId: string]: unknown }>(
+        (pre, op) => {
+          const opContext = RecordOpBuilder.editor.setRecord.detect(op);
+          if (!opContext) {
+            throw new Error(`illegal op ${JSON.stringify(op)} found`);
+          }
+          pre[opContext.fieldId] = opContext.newValue;
+          return pre;
+        },
+        {}
+      );
 
       const version = versionGroup[recordId].__version;
       const rawOp: IRawOp = {
         src,
         seq: 1,
-        op: ops[recordId],
+        op: recordOpsMap[recordId],
         v: version,
         m: {
           ts: Date.now(),

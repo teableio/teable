@@ -14,6 +14,7 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import {
+  DbFieldType,
   Relationship,
   FieldKeyType,
   randomColor,
@@ -746,9 +747,13 @@ export class FieldConvertingService {
     newField: IFieldInstance,
     oldField: IFieldInstance
   ) {
+    // simple value type change is not need to convert
     if (
       newField.cellValueType === oldField.cellValueType &&
-      newField.isMultipleCellValue === oldField.isMultipleCellValue
+      newField.isMultipleCellValue !== true &&
+      oldField.isMultipleCellValue !== true &&
+      newField.dbFieldType !== DbFieldType.Json &&
+      oldField.dbFieldType !== DbFieldType.Json
     ) {
       return;
     }
@@ -762,12 +767,12 @@ export class FieldConvertingService {
         return;
       }
 
-      if (!recordOpsMap[tableId][record.id]) {
-        recordOpsMap[tableId][record.id] = [];
-      }
       const cellStr = oldField.cellValue2String(oldCellValue);
       const newCellValue = newField.convertStringToCellValue(cellStr);
 
+      if (!recordOpsMap[tableId][record.id]) {
+        recordOpsMap[tableId][record.id] = [];
+      }
       recordOpsMap[tableId][record.id].push(
         RecordOpBuilder.editor.setRecord.build({
           fieldId,
@@ -937,11 +942,10 @@ export class FieldConvertingService {
     if (newField.dbFieldType === oldField.dbFieldType) {
       return;
     }
-
     newField.dbFieldName = newField.dbFieldName + '_';
     const dbTableName = await this.fieldService.getDbTableName(prisma, tableId);
 
-    return this.fieldService.alterVisualTable(prisma, dbTableName, [newField]);
+    await this.fieldService.alterVisualTable(prisma, dbTableName, [newField]);
   }
 
   async updateFieldById(
@@ -952,7 +956,7 @@ export class FieldConvertingService {
   ) {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
 
-    const fieldVo = await this.fieldService.getField(tableId, fieldId, prisma);
+    const fieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!fieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);
     }

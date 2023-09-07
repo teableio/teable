@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
 import {
   Relationship,
   TimeFormatting,
@@ -24,6 +24,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let app: INestApplication;
   let table1: ITableFullVo;
   let table2: ITableFullVo;
+  let table3: ITableFullVo;
   let request: request.SuperAgentTest;
 
   beforeAll(async () => {
@@ -39,11 +40,16 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       name: 'table2',
     });
     table2 = result2.body;
+    const result3 = await request.post('/api/table').send({
+      name: 'table2',
+    });
+    table3 = result3.body;
   });
 
   afterAll(async () => {
     await request.delete(`/api/table/arbitrary/${table1.id}`);
     await request.delete(`/api/table/arbitrary/${table2.id}`);
+    await request.delete(`/api/table/arbitrary/${table3.id}`);
 
     await app.close();
   });
@@ -69,6 +75,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     const result = records.map((record) => record.fields[newField.id]);
     return {
       newField,
+      sourceField,
       values: result,
     };
   }
@@ -417,7 +424,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
       const linkField = await createField(request, table1.id, linkFieldRo);
-      // set primary key 'x' in table2
+      // set primary key in table2
       await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
       // add 2 link record
       await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
@@ -513,7 +520,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      // set primary key 'x' in table2
+      // set primary key in table2
       await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
@@ -543,6 +550,88 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual([{ title: 'zz', id: records[records.length - 1].id }]);
     });
 
+    it('should convert many-one link to text', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+
+      const { newField, sourceField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [{ id: table2.records[0].id }]
+      );
+
+      // make sure symmetricField have been deleted
+      const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
+      await request
+        .get(
+          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
+        )
+        .expect(404);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.SingleLineText,
+      });
+
+      expect(values[0]).toEqual('x');
+    });
+
+    it('should convert one-many link to text', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+
+      const { newField, sourceField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [[{ id: table2.records[0].id }, { id: table2.records[1].id }]]
+      );
+
+      // make sure symmetricField have been deleted
+      const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
+      await request
+        .get(
+          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
+        )
+        .expect(404);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.SingleLineText,
+      });
+
+      expect(values[0]).toEqual('x, y');
+    });
+
     it('should convert many-one to one-many link', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
@@ -560,7 +649,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      // set primary key 'x' in table2
+      // set primary key in table2
       await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
@@ -604,7 +693,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      // set primary key 'x' in table2
+      // set primary key in table2
       await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
       await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
@@ -628,6 +717,154 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records } = await getRecords(request, table2.id);
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
+    });
+
+    it('should convert link from one table to another', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
+      // set primary key in table3
+      await updateRecordByApi(request, table3.id, table3.records[0].id, table3.fields[0].id, 'x');
+      await updateRecordByApi(request, table3.id, table3.records[1].id, table3.fields[0].id, 'y');
+      await updateRecordByApi(request, table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
+
+      const { newField, sourceField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }]
+      );
+
+      // make sure symmetricField have been deleted
+      const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
+      const newFieldOptions = newField.options as ILinkFieldOptions;
+      await request
+        .get(
+          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
+        )
+        .expect(404);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+          lookupFieldId: table3.fields[0].id,
+        },
+      });
+
+      // make sure symmetricField have been created
+      const symmetricField = await getField(request, table3.id, newFieldOptions.symmetricFieldId);
+      expect(symmetricField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          symmetricFieldId: newField.id,
+        },
+      });
+
+      const { records } = await getRecords(request, table3.id);
+      expect(values[0]).toEqual({ title: 'x', id: records[0].id });
+      expect(values[1]).toEqual({ title: 'y', id: records[1].id });
+      expect(values[2]).toEqual({ title: 'z2', id: records[records.length - 1].id });
+    });
+
+    it('should convert link from one table to another and change relationship', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table3.id,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
+      // set primary key in table3
+      await updateRecordByApi(request, table3.id, table3.records[0].id, table3.fields[0].id, 'x');
+      await updateRecordByApi(request, table3.id, table3.records[1].id, table3.fields[0].id, 'y');
+      await updateRecordByApi(request, table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
+
+      const { newField, sourceField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }]
+      );
+
+      // make sure symmetricField have been deleted
+      const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
+      const newFieldOptions = newField.options as ILinkFieldOptions;
+      await request
+        .get(
+          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
+        )
+        .expect(404);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table3.id,
+          lookupFieldId: table3.fields[0].id,
+        },
+      });
+
+      // make sure symmetricField have been created
+      const symmetricField = await getField(request, table3.id, newFieldOptions.symmetricFieldId);
+      expect(symmetricField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          symmetricFieldId: newField.id,
+        },
+      });
+
+      const { records } = await getRecords(request, table3.id);
+      expect(values[0]).toEqual([{ title: 'x', id: records[0].id }]);
+      expect(values[1]).toEqual([{ title: 'y', id: records[1].id }]);
+      expect(values[2]).toEqual([{ title: 'z2', id: records[records.length - 1].id }]);
     });
   });
 });
