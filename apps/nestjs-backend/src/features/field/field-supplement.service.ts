@@ -123,11 +123,16 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     const { relationship, foreignTableId } = newOptions;
-    let { dbForeignKeyName, symmetricFieldId } = oldOptions;
+    let { dbForeignKeyName, symmetricFieldId, lookupFieldId } = oldOptions;
     const fieldId = oldFieldVo.id;
 
-    if (oldOptions.foreignTableId !== newOptions.foreignTableId) {
+    if (oldOptions.foreignTableId !== foreignTableId) {
       symmetricFieldId = generateFieldId();
+      const lookupFieldRaw = await this.prismaService.field.findFirstOrThrow({
+        where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
+        select: { id: true },
+      });
+      lookupFieldId = lookupFieldRaw.id;
     }
 
     if (relationship === Relationship.ManyOne) {
@@ -143,7 +148,7 @@ export class FieldSupplementService implements ISupplementService {
       options: {
         relationship,
         foreignTableId,
-        lookupFieldId: oldOptions.lookupFieldId,
+        lookupFieldId,
         dbForeignKeyName,
         symmetricFieldId,
       },
@@ -661,7 +666,7 @@ export class FieldSupplementService implements ISupplementService {
       id: oldField.id,
       dbFieldName: oldField.dbFieldName,
       isPrimary: oldField.isPrimary,
-      columnMeta: fieldVo.columnMeta,
+      columnMeta: oldField.columnMeta,
     };
   }
 
