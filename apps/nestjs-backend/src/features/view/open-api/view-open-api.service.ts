@@ -261,9 +261,6 @@ export class ViewOpenApiService {
       async (prisma, transactionKey) => {
         await prisma.$executeRawUnsafe(updateRecordsOrderSql);
         await this.submitOps(tableId, viewId, transactionKey, ops);
-      },
-      {
-        timeout: 5000,
       }
     );
 
