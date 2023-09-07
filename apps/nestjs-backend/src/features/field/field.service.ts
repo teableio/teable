@@ -268,17 +268,21 @@ export class FieldService implements IAdapterService {
     const { opContext } = params;
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
     if (key === 'options') {
+      if (!newValue) {
+        throw new Error('field options is required');
+      }
       return { options: JSON.stringify(newValue) };
     }
 
     if (key === 'lookupOptions') {
       return {
-        lookupOptions: JSON.stringify(newValue),
+        lookupOptions: newValue ? JSON.stringify(newValue) : null,
         // update lookupLinkedFieldId for indexing
         lookupLinkedFieldId: (newValue as ILookupOptionsVo | null)?.linkFieldId || null,
       };
     }
-    return { [key]: newValue };
+
+    return { [key]: newValue ?? null };
   }
 
   private async handleColumnMeta(params: {

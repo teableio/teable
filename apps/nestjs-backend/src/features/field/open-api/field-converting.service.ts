@@ -829,6 +829,8 @@ export class FieldConvertingService {
     const prisma = this.transactionService.getTransactionSync(transactionKey);
 
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
+    this.logger.log('changed Keys:' + JSON.stringify(keys));
+
     await this.submitFieldOps(connection, tableId, newField.id, ops);
 
     const supplementResult = await this.fieldConvertingLinkService.supplementLink(
@@ -845,8 +847,6 @@ export class FieldConvertingService {
       const { ops } = this.getOriginFieldOps(newField, oldField);
       await this.submitFieldOps(connection, tableId, newField.id, ops);
     }
-
-    this.logger.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
     if (keys.includes('type') || keys.includes('isComputed')) {
