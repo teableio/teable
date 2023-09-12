@@ -128,3 +128,40 @@ export const getTableQuerySchema = z.object({
 });
 
 export type IGetTableQuery = z.infer<typeof getTableQuerySchema>;
+
+export const getGraphRoSchema = z.object({
+  cell: z
+    .tuple([z.number(), z.number()])
+    .openapi({ description: 'The cell coord, [colIndex, rowIndex]' }),
+  viewId: z.string().optional().openapi({ description: 'The view id' }),
+});
+
+export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
+
+export interface IGraphNode {
+  [key: string]: unknown;
+  id: string;
+  label?: string;
+  comboId?: string;
+}
+
+export interface IGraphEdge {
+  [key: string]: unknown;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface IGraphCombo {
+  [key: string]: unknown;
+  id: string;
+  label: string;
+}
+
+export type IGraphVo =
+  | {
+      nodes: IGraphNode[];
+      edges: IGraphEdge[];
+      combos: IGraphCombo[];
+    }
+  | undefined;

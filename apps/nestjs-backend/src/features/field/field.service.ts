@@ -235,6 +235,19 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
+  async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+
+    const sortedFields = sortBy(fields, (field) => {
+      return JSON.parse(field.columnMeta)[viewId]?.order;
+    });
+
+    return sortedFields[index].id;
+  }
+
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldVo) {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(prisma, tableId);

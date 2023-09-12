@@ -1,11 +1,15 @@
 import { isEqual } from 'lodash';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRafState } from 'react-use';
+import type { IGridProps } from '../Grid';
 import type { ICellItem, IMouseState, IPosition, IRange } from '../interface';
 import { RegionType, SelectionRegionType } from '../interface';
 import { CombinedSelection, type CoordinateManager } from '../managers';
 
-export const useSelection = (coordInstance: CoordinateManager) => {
+export const useSelection = (
+  coordInstance: CoordinateManager,
+  onSelectionChanged: IGridProps['onSelectionChanged']
+) => {
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
@@ -188,6 +192,10 @@ export const useSelection = (coordInstance: CoordinateManager) => {
       callback(newSelection, { x, y });
     }
   };
+
+  useEffect(() => {
+    onSelectionChanged?.(selection);
+  }, [onSelectionChanged, selection]);
 
   return {
     activeCell,

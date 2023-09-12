@@ -438,7 +438,7 @@ export class RecordService implements IAdapterService {
       this.prismaService,
       tableId,
       [recordId],
-      undefined,
+      projection,
       fieldKeyType
     );
 
@@ -447,6 +447,11 @@ export class RecordService implements IAdapterService {
     }
 
     return recordSnapshot[0].data;
+  }
+
+  async getCellValue(tableId: string, recordId: string, fieldId: string) {
+    const record = await this.getRecord(tableId, recordId, { [fieldId]: true }, FieldKeyType.Id);
+    return record.fields[fieldId];
   }
 
   async getRecordIdByIndex(tableId: string, viewId: string, index: number) {

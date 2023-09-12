@@ -133,3 +133,21 @@ export const randomColor = (exists?: string[], num = 1) => {
 
   return result;
 };
+
+// Function to generate a seed from a string
+function getSeed(str: string) {
+  let seed = 0;
+  for (let i = 0; i < str.length; i++) {
+    seed = (seed << 5) - seed + str.charCodeAt(i);
+    seed |= 0; // Convert seed to a 32-bit integer
+  }
+  return Math.abs(seed);
+}
+
+// Function to randomly (but consistently) pick a value from a map based on a string
+export const getRandomColorFromStr = (str: string) => {
+  const seed = getSeed(str);
+  const values = Object.values(Colors);
+  const value = values[seed % values.length];
+  return ColorUtils.getHexForColor(value);
+};

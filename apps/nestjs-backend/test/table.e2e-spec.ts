@@ -134,7 +134,6 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     const tableResult = await request.get(`/api/table/${tableId}`).expect(200);
     const currTime = tableResult.body.lastModifiedTime;
-    console.log(currTime, prevTime);
     expect(new Date(currTime).getTime() > new Date(prevTime).getTime()).toBeTruthy();
   });
 });

@@ -100,6 +100,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowOrdered,
     onCellEdited,
     onCellActivated,
+    onSelectionChanged,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -171,7 +172,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(coordInstance);
+  } = useSelection(coordInstance, onSelectionChanged);
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
