@@ -6,7 +6,6 @@ import type {
   ILinkCellValue,
   IFieldVo,
   ITinyRecord,
-  IMakeOptional,
 } from '@teable-group/core';
 import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';

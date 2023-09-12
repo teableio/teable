@@ -1,10 +1,14 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
+import G6 from '@antv/g6';
 import { getRandomColorFromStr } from '@teable-group/core';
+import { X } from '@teable-group/icons';
 import { TableApi, useTableId, useViewId } from '@teable-group/sdk';
+import { Button } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from 'react-query';
 import { Rnd } from 'react-rnd';
 import { useGridViewStore } from '../view/grid/store/gridView';
+import { useGraphStore } from './useGraphStore';
 
 export const Graph: React.FC = () => {
   const { selection } = useGridViewStore();
@@ -16,54 +20,49 @@ export const Graph: React.FC = () => {
   const [width, setWidth] = useState(500);
   const [height, setHeight] = useState(500);
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
+  const { closeGraph } = useGraphStore();
+
   useEffect(() => {
     if (!ref.current) {
       return;
     }
-    let destroyed = false;
     const element = ref.current;
-    import('@antv/g6').then((G6) => {
-      if (destroyed) {
-        return;
-      }
-      const graph = new G6.Graph({
-        container: element,
-        width: element.clientWidth,
-        height: element.clientHeight,
-        fitViewPadding: 20,
-        fitView: true,
-        fitCenter: true,
-        autoPaint: true,
-        layout: {
-          type: 'dagre',
-          nodesep: 20,
-          ranksep: 40,
-          align: 'UL',
+    const graph = new G6.Graph({
+      container: element,
+      width: element.clientWidth,
+      height: element.clientHeight,
+      fitViewPadding: 20,
+      fitView: true,
+      fitCenter: true,
+      autoPaint: true,
+      layout: {
+        type: 'dagre',
+        nodesep: 20,
+        ranksep: 40,
+        align: 'UL',
+      },
+      defaultEdge: {
+        labelCfg: {
+          autoRotate: true,
         },
-        defaultEdge: {
-          labelCfg: {
-            autoRotate: true,
-          },
-          style: {
-            endArrow: {
-              path: G6.Arrow.triangle(5, 5, 5),
-              d: 5,
-            },
+        style: {
+          endArrow: {
+            path: G6.Arrow.triangle(5, 5, 5),
+            d: 5,
           },
         },
-        defaultNode: {
-          type: 'ellipse',
-        },
-        modes: {
-          default: ['drag-node'],
-        },
-        animate: true,
-      });
-      graphRef.current = graph;
+      },
+      defaultNode: {
+        type: 'ellipse',
+      },
+      modes: {
+        default: ['drag-node'],
+      },
+      animate: true,
     });
+    graphRef.current = graph;
     return () => {
       graphRef.current?.destroy();
-      destroyed = true;
     };
   }, []);
 
@@ -144,6 +143,14 @@ export const Graph: React.FC = () => {
       }}
     >
       {!selection && 'Click a cell and see what happens.'}
+      <Button
+        variant={'ghost'}
+        size="xs"
+        className="absolute top-2 right-2"
+        onClick={() => closeGraph()}
+      >
+        <X className="w-4 h-4" />
+      </Button>
       <div className="absolute top-0 left-0 p-2 flex text-xs gap-2">
         {tables.map((table) => {
           return (
@@ -158,3 +165,5 @@ export const Graph: React.FC = () => {
     </Rnd>
   );
 };
+
+export type IGraphComponent = typeof Graph;
