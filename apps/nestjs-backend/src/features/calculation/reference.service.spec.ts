@@ -314,6 +314,37 @@ describe('ReferenceService', () => {
       resultData.pop();
       expect(result).toEqual(expect.arrayContaining(resultData));
     });
+
+    it('should filter full graph by fieldIds', async () => {
+      /**
+       * f1 -> f3 -> f4
+       * f2 -> f3
+       */
+      const graph = [
+        {
+          fromFieldId: 'f1',
+          toFieldId: 'f3',
+        },
+        {
+          fromFieldId: 'f2',
+          toFieldId: 'f3',
+        },
+        {
+          fromFieldId: 'f3',
+          toFieldId: 'f4',
+        },
+      ];
+      expect(service['filterDirectedGraph'](graph, ['f1'])).toEqual(expect.arrayContaining(graph));
+      expect(service['filterDirectedGraph'](graph, ['f2'])).toEqual(expect.arrayContaining(graph));
+      expect(service['filterDirectedGraph'](graph, ['f3'])).toEqual(
+        expect.arrayContaining([
+          {
+            fromFieldId: 'f3',
+            toFieldId: 'f4',
+          },
+        ])
+      );
+    });
   });
 
   describe('ReferenceService calculation', () => {

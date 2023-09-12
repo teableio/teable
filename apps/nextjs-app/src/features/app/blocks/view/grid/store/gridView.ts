@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import type { CombinedSelection } from '../../../grid/managers/selection-manager';
 import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu } from './type';
 
 interface IGridViewState {
+  selection?: CombinedSelection;
   setting?: ISetting;
   headerMenu?: IHeaderMenu;
   recordMenu?: IRecordMenu;
@@ -14,6 +16,7 @@ interface IGridViewState {
   closeRecordMenu: () => void;
   openStatisticMenu: (props: IStatisticMenu) => void;
   closeStatisticMenu: () => void;
+  setSelection: (props: CombinedSelection) => void;
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
@@ -90,6 +93,14 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
       return {
         ...state,
         statisticMenu: undefined,
+      };
+    });
+  },
+  setSelection: (props) => {
+    set((state) => {
+      return {
+        ...state,
+        selection: props,
       };
     });
   },

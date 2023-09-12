@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
+  getGraphRoSchema,
+  IGetGraphRo,
   getTableQuerySchema,
   ICreateTablePreparedRo,
   IGetTableQuery,
@@ -8,6 +10,7 @@ import {
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';
+import { GraphService } from './graph.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
@@ -15,7 +18,8 @@ import { TablePipe } from './table.pipe';
 export class TableController {
   constructor(
     private readonly tableService: TableService,
-    private readonly tableOpenApiService: TableOpenApiService
+    private readonly tableOpenApiService: TableOpenApiService,
+    private readonly graphService: GraphService
   ) {}
 
   @Get(':tableId/defaultViewId')
@@ -51,5 +55,13 @@ export class TableController {
   @Delete('arbitrary/:tableId')
   deleteTableArbitrary(@Param('tableId') tableId: string) {
     return this.tableOpenApiService.deleteTable(tableId);
+  }
+
+  @Post(':tableId/graph')
+  async getCellGraph(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell, viewId }: IGetGraphRo
+  ) {
+    return await this.graphService.getGraph(tableId, cell, viewId);
   }
 }

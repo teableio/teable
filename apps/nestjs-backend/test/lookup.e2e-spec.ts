@@ -393,7 +393,6 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const record = await getRecord(request, table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123]);
 
-    console.log('-------------------');
     // replace a link record
     await updateRecordByApi(
       request,
@@ -429,7 +428,6 @@ describe('OpenAPI Lookup field (e2e)', () => {
     const record = await getRecord(request, table1.id, table1.records[1].id);
     expect(record.fields[lookupFieldVo.id]).toEqual([123]);
 
-    console.log('-------------------');
     // add a link record
     await updateRecordByApi(
       request,
@@ -557,5 +555,30 @@ describe('OpenAPI Lookup field (e2e)', () => {
     expect(record1.fields[lookupFieldVo.id]).toEqual('A2');
     const record2 = await getRecord(request, table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual('A2');
+  });
+
+  it('should get graph of a lookup field', async () => {
+    const textField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(request, table1.id, table1.records[0].id, textField.id, 'A1');
+    await updateRecordByApi(request, table1.id, table1.records[1].id, textField.id, 'A2');
+    await updateRecordByApi(request, table1.id, table1.records[2].id, textField.id, 'A3');
+
+    const lookedUpToField = getFieldByType(table1.fields, FieldType.SingleLineText);
+
+    await updateRecordByApi(
+      request,
+      table1.id,
+      table1.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
+    );
+
+    await lookupFrom(table2, lookedUpToField.id);
+    const result = await request.post(`/api/table/${table1.id}/graph`).send({
+      cell: [0, 0],
+    });
+    expect(result.body.nodes).toBeTruthy();
+    expect(result.body.edges).toBeTruthy();
   });
 });
