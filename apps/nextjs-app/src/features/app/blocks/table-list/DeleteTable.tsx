@@ -7,13 +7,15 @@ export const DeleteTable: React.FC<{ tableId: string; className: string }> = ({
 }) => {
   const space = useSpace();
   const router = useRouter();
+  const { baseId } = router.query;
   return (
     <Trash2
       className={className}
       onClick={async () => {
         await space.deleteTable(tableId);
         router.push({
-          pathname: '/space',
+          pathname: '/base/[baseId]',
+          query: { baseId },
         });
       }}
     />

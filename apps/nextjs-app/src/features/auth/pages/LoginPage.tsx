@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { TeableNew } from '@teable-group/icons';
 import { useQueryClient } from '@teable-group/sdk';
 import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
@@ -5,7 +6,6 @@ import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useRouter } from 'next/router';
 import { useState, type FC, useCallback } from 'react';
-import { QueryClientProvider } from 'react-query';
 import { authConfig } from '@/features/auth/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';

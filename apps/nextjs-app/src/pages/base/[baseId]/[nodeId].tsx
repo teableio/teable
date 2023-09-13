@@ -2,19 +2,19 @@ import type { IHttpError } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
+import type { NextPageWithLayout } from '../../_app';
 
 const Node: NextPageWithLayout = () => {
   return <p>redirecting</p>;
 };
 
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
-  const { nodeId } = context.query;
+  const { nodeId, baseId } = context.query;
   try {
     const result = await ssrApi.getDefaultViewId(nodeId as string);
     return {
       redirect: {
-        destination: `/space/${nodeId}/${result.id}`,
+        destination: `/base/${baseId}/${nodeId}/${result.id}`,
         permanent: false,
       },
     };

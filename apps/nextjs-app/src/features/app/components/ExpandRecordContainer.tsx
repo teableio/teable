@@ -16,6 +16,7 @@ const ExpandRecordContainerBase: ForwardRefRenderFunction<
 > = (props: { recordServerData?: IRecord }, forwardRef) => {
   const { recordServerData } = props;
   const router = useRouter();
+  const baseId = router.query.baseId as string;
   const nodeId = router.query.nodeId as string;
   const viewId = router.query.viewId as string;
   const recordId = router.query.recordId as string;
@@ -28,22 +29,22 @@ const ExpandRecordContainerBase: ForwardRefRenderFunction<
   const onClose = useCallback(() => {
     router.push(
       {
-        pathname: '/space/[nodeId]/[viewId]',
-        query: { nodeId, viewId },
+        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        query: { baseId, nodeId, viewId },
       },
       undefined,
       {
         shallow: Boolean(viewId),
       }
     );
-  }, [nodeId, router, viewId]);
+  }, [baseId, nodeId, router, viewId]);
 
   const onUpdateRecordIdCallback = useCallback(
     (recordId: string) => {
       router.push(
         {
-          pathname: '/space/[nodeId]/[viewId]/[recordId]',
-          query: { nodeId, viewId, recordId },
+          pathname: '/base/[baseId]/[nodeId]/[viewId]/[recordId]',
+          query: { baseId, nodeId, viewId, recordId },
         },
         undefined,
         {
@@ -51,7 +52,7 @@ const ExpandRecordContainerBase: ForwardRefRenderFunction<
         }
       );
     },
-    [nodeId, router, viewId]
+    [baseId, nodeId, router, viewId]
   );
 
   return (

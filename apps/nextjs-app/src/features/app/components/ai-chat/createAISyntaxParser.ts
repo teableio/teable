@@ -8,10 +8,14 @@ import type { IParsedLine } from './parser/parseLine';
 import { AISyntaxParser } from './parser/parseLine';
 
 export function createAISyntaxParser() {
+  let baseId: string | undefined;
   let tableId: string | undefined;
   let viewId: string | undefined;
 
   const executeCommand = async (parsedLine: IParsedLine) => {
+    if (!baseId) {
+      baseId = router.query.baseId as string;
+    }
     if (!tableId) {
       tableId = router.query.nodeId as string;
     }
@@ -22,7 +26,7 @@ export function createAISyntaxParser() {
     switch (parsedLine.operation) {
       case 'create-table': {
         const { name, description, icon } = parsedLine.value;
-        const tableData = await Table.createTable({
+        const tableData = await Table.createTable(baseId, {
           name,
           description,
           icon: icon,
@@ -32,8 +36,8 @@ export function createAISyntaxParser() {
         const views = await View.getViews(tableId);
         viewId = views[0].id;
         router.push({
-          pathname: '/space/[nodeId]/[viewId]',
-          query: { nodeId: tableId, viewId },
+          pathname: '/base/[baseId]/[nodeId]/[viewId]',
+          query: { baseId, nodeId: tableId, viewId },
         });
         return;
       }

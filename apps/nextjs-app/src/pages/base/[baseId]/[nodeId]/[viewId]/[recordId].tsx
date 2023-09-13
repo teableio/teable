@@ -4,11 +4,11 @@ import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
-import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
+import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../_app';
+import type { NextPageWithLayout } from '../../../../_app';
 
 interface IRecordPageProps extends IViewPageProps {
   recordServerData: IRecord;
@@ -32,19 +32,23 @@ const Node: NextPageWithLayout<ITableProps> = ({
 
 export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
   withAuthSSR<IRecordPageProps>(async (context) => {
-    const { nodeId, viewId, recordId } = context.query;
+    const { baseId, nodeId, viewId, recordId } = context.query;
     try {
       const api = ssrApi;
       const recordServerData = await api.getRecord(nodeId as string, recordId as string);
       if (recordServerData) {
         return {
           redirect: {
-            destination: `/space/${nodeId}/${viewId}`,
+            destination: `/base/${baseId}/${nodeId}/${viewId}`,
             permanent: false,
           },
         };
       }
-      const viewPageServerData = await getViewPageServerData(nodeId as string, viewId as string);
+      const viewPageServerData = await getViewPageServerData(
+        baseId as string,
+        nodeId as string,
+        viewId as string
+      );
       if (viewPageServerData) {
         return {
           props: {
@@ -68,7 +72,7 @@ export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
   });
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IRecordPageProps) {
-  return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
+  return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };
 
 export default Node;

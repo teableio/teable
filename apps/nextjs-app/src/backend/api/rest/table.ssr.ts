@@ -1,5 +1,6 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, HttpError } from '@teable-group/core';
+import type { BaseSchema } from '@teable-group/openapi';
 import axios from 'axios';
 
 export class SsrApi {
@@ -20,9 +21,9 @@ export class SsrApi {
     );
   }
 
-  async getTable(tableId: string, viewId?: string) {
+  async getTable(baseId: string, tableId: string, viewId?: string) {
     return this.axios
-      .get<ITableFullVo>(`/table/${tableId}`, {
+      .get<ITableFullVo>(`/base/${baseId}/table/${tableId}`, {
         params: {
           includeContent: true,
           viewId,
@@ -32,8 +33,8 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 
-  async getTables() {
-    return this.axios.get<ITableListVo>(`/table`).then(({ data }) => data);
+  async getTables(baseId: string) {
+    return this.axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
   }
 
   async getDefaultViewId(tableId: string) {
@@ -48,6 +49,10 @@ export class SsrApi {
         params: { fieldKeyType: FieldKeyType.Id },
       })
       .then(({ data }) => data);
+  }
+
+  async getBaseById(baseId: string) {
+    return await this.axios.get<BaseSchema.IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
   }
 }
 

@@ -5,6 +5,7 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
+  generateBaseId,
   generateRecordId,
   generateTableId,
   generateViewId,
@@ -31,6 +32,7 @@ describe('Create-Record Action Test', () => {
   let fieldService: FieldService;
   let recordOpenApiService: RecordOpenApiService;
   let tableId = generateTableId();
+  const baseId = generateBaseId();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -55,7 +57,7 @@ describe('Create-Record Action Test', () => {
     fieldService = await moduleRef.resolve<FieldService>(FieldService);
     recordOpenApiService = await moduleRef.resolve<RecordOpenApiService>(RecordOpenApiService);
 
-    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((tableRo) =>
+    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
       Promise.resolve({
         name: 'table1-automation-add',
         dbTableName: 'table1-automation-add',
@@ -118,7 +120,7 @@ describe('Create-Record Action Test', () => {
   });
 
   const createTable = async (): Promise<string> => {
-    const result = await tableOpenApiService.createTable({
+    const result = await tableOpenApiService.createTable(baseId, {
       name: 'table1-automation-add',
       views: DEFAULT_VIEWS,
       fields: DEFAULT_FIELDS as IFieldVo[],

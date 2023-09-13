@@ -5,6 +5,7 @@ import { useCallback } from 'react';
 export function useAddTable() {
   const space = useSpace();
   const router = useRouter();
+  const { baseId } = router.query;
 
   return useCallback(async () => {
     const tableData = await space.createTable();
@@ -12,13 +13,13 @@ export function useAddTable() {
     const viewId = tableData.defaultViewId;
     router.push(
       {
-        pathname: '/space/[nodeId]/[viewId]',
-        query: { nodeId: tableId, viewId },
+        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        query: { baseId, nodeId: tableId, viewId },
       },
       undefined,
       {
         shallow: Boolean(router.query.viewId),
       }
     );
-  }, [router, space]);
+  }, [baseId, router, space]);
 }

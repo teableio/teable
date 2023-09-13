@@ -1,8 +1,8 @@
 import { useContext } from 'react';
-import { AppContext } from '../context';
+import { BaseContext } from '../context/base/BaseContext';
 
 export function useSpace() {
-  const { space } = useContext(AppContext);
+  const { base } = useContext(BaseContext);
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  return space!;
+  return base!;
 }

@@ -1,7 +1,7 @@
+import { QueryCache, QueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable-group/core';
 import { useToast } from '@teable-group/ui-lib';
 import { useEffect, useState } from 'react';
-import { QueryCache, QueryClient } from 'react-query';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getQueryClient = (toast: any) => {

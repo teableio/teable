@@ -2,8 +2,10 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { AttachmentRoute } from './attachment';
 import { AuthRoute } from './auth';
+import { BaseRoute } from './base';
 import { RecordRoute } from './record';
 import { SelectionRoute } from './selection';
+import { SpaceRoute } from './space';
 
 function registerAllRoute() {
   const registry = new OpenAPIRegistry();
@@ -12,6 +14,8 @@ function registerAllRoute() {
     RecordRoute,
     SelectionRoute,
     AuthRoute,
+    SpaceRoute,
+    BaseRoute,
   ];
   for (const routeObj of routeObjList) {
     for (const routeKey in routeObj) {

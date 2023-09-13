@@ -3,11 +3,11 @@ import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
-import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
+import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../_app';
+import type { NextPageWithLayout } from '../../../_app';
 
 const Node: NextPageWithLayout<ITableProps> = ({
   fieldServerData,
@@ -25,9 +25,13 @@ const Node: NextPageWithLayout<ITableProps> = ({
 
 export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSSR<IViewPageProps>(
   async (context) => {
-    const { nodeId, viewId } = context.query;
+    const { nodeId, viewId, baseId } = context.query;
     try {
-      const serverData = await getViewPageServerData(nodeId as string, viewId as string);
+      const serverData = await getViewPageServerData(
+        baseId as string,
+        nodeId as string,
+        viewId as string
+      );
       if (serverData) {
         return {
           props: serverData,
@@ -51,7 +55,7 @@ export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSS
 );
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {
-  return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
+  return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };
 
 export default Node;

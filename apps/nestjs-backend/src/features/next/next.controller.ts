@@ -21,6 +21,7 @@ export class NextController {
     'api/((?!table).)*',
     'space/?*',
     'auth/?*',
+    'base/?*',
   ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.nextService.server.getRequestHandler()(req, res);

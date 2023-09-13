@@ -15,7 +15,6 @@ model Space {
   createdBy      String      @map("created_by")
   lastModifiedBy String      @map("last_modified_by")
   baseGroup      Base[]
-  tables         TableMeta[]
 
   @@map("space")
 }
@@ -39,7 +38,6 @@ model Base {
 
 model TableMeta {
   id               String    @id
-  spaceId          String    @map("space_id")
   baseId           String    @map("base_id")
   name             String
   description      String?
@@ -52,7 +50,6 @@ model TableMeta {
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
   lastModifiedBy   String    @map("last_modified_by")
-  space            Space     @relation(fields: [spaceId], references: [id])
   base             Base      @relation(fields: [baseId], references: [id])
   fields           Field[]
   views            View[]
@@ -154,7 +151,7 @@ model Reference {
 
 model User {
   id               String    @id @default(cuid())
-  name             String?
+  name             String
   password         String?
   salt             String?
   phone            String?   @unique
