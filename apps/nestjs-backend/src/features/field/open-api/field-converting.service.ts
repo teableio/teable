@@ -52,11 +52,7 @@ import { FieldConvertingLinkService } from './field-converting-link.service';
 
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
-  fieldOpsMap?: IOpsMap;
-  fieldChange?: {
-    newField: IFieldInstance;
-    oldField: IFieldInstance;
-  };
+  fieldOps?: IOtOperation[];
   recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
 }
 
@@ -107,7 +103,7 @@ export class FieldConvertingService {
     if (lookupOptions.foreignTableId !== linkField.options.foreignTableId) {
       return false;
     }
-    return !fieldMap[lookupOptions.lookupFieldId];
+    return Boolean(fieldMap[lookupOptions.lookupFieldId]);
   }
 
   /**
@@ -684,7 +680,7 @@ export class FieldConvertingService {
     const records = await this.getRecords(prisma, tableId, oldField);
     const choices = newField.options.choices;
     const recordOpsMap: IOpsMap = { [tableId]: {} };
-    const fieldOpsMap: IOpsMap = { [tableId]: { [fieldId]: [] } };
+    const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
     records.forEach((record) => {
@@ -732,12 +728,12 @@ export class FieldConvertingService {
         ...newField.options,
         choices: newChoices,
       });
-      fieldOp && fieldOpsMap[tableId][fieldId].push(fieldOp);
+      fieldOp && fieldOps.push(fieldOp);
     }
 
     return {
       recordOpsMap,
-      fieldOpsMap,
+      fieldOps,
     };
   }
 
@@ -836,7 +832,14 @@ export class FieldConvertingService {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
-    await this.submitFieldOps(connection, tableId, newField.id, ops);
+    let result: IModifiedResult | undefined;
+    if (keys.includes('type') || keys.includes('isComputed')) {
+      result = await this.modifyType(prisma, tableId, newField, oldField);
+    } else if (keys.includes('options')) {
+      result = await this.modifyOptions(prisma, tableId, newField, oldField);
+    }
+
+    await this.submitFieldOps(connection, tableId, newField.id, ops.concat(result?.fieldOps || []));
 
     const supplementResult = await this.fieldConvertingLinkService.supplementLink(
       prisma,
@@ -853,13 +856,6 @@ export class FieldConvertingService {
       await this.submitFieldOps(connection, tableId, newField.id, ops);
     }
 
-    let result: IModifiedResult | undefined;
-    if (keys.includes('type') || keys.includes('isComputed')) {
-      result = await this.modifyType(prisma, tableId, newField, oldField);
-    } else if (keys.includes('options')) {
-      result = await this.modifyOptions(prisma, tableId, newField, oldField);
-    }
-
     // create and submit records
     if (result?.recordsForCreate) {
       for (const tableId in result.recordsForCreate) {
@@ -874,7 +870,7 @@ export class FieldConvertingService {
     }
 
     // update & submit referenced fields
-    const fieldOpsMaps: (IOpsMap | undefined)[] = [result?.fieldOpsMap];
+    const fieldOpsMaps: (IOpsMap | undefined)[] = [];
     fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
     if (supplementResult?.fieldChange) {
       const { newField, oldField } = supplementResult.fieldChange;
