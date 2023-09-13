@@ -877,9 +877,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual(['x', 'y']);
     });
 
-    it('should convert field and relational lookup field', async () => {
+    it('should convert text field to select and relational one-many lookup field', async () => {
       const sourceFieldRo: IFieldRo = {
-        name: 'TextField',
         type: FieldType.SingleLineText,
       };
       const linkFieldRo: IFieldRo = {
@@ -967,6 +966,114 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const recordResult2 = await getRecords(request, table1.id);
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
+    });
+
+    it('should convert number field to text and relational many-one lookup field and formula field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Number,
+      };
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(request, table1.id, linkFieldRo);
+      const sourceField = await createField(request, table2.id, sourceFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookup ' + sourceField.name,
+        type: sourceField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      };
+      const lookupField = await createField(request, table1.id, lookupFieldRo);
+
+      const formulaFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupField.id}}`,
+        },
+      };
+      const formulaField = await createField(request, table1.id, formulaFieldRo);
+
+      expect(lookupField).toMatchObject({
+        type: sourceField.type,
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        isLookup: true,
+        lookupOptions: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(formulaField).toMatchObject({
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+      });
+
+      // add a link record
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      // update source field record before convert
+      await updateRecordByApi(request, table2.id, table2.records[0].id, sourceField.id, 1);
+
+      const recordResult1 = await getRecords(request, table1.id);
+      expect(recordResult1.records[0].fields[lookupField.id]).toEqual(1);
+      expect(recordResult1.records[1].fields[lookupField.id]).toEqual(1);
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      const newField = await updateField(request, table2.id, sourceField.id, newFieldRo);
+      const newLookupField = await getField(request, table1.id, lookupField.id);
+      const newFormulaField = await getField(request, table1.id, formulaField.id);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.SingleLineText,
+        options: {},
+      });
+
+      expect(newLookupField).toMatchObject({
+        type: newField.type,
+        isLookup: true,
+        dbFieldType: DbFieldType.Text,
+        cellValueType: newField.cellValueType,
+        options: newField.options,
+        lookupOptions: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(newFormulaField).toMatchObject({
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Text,
+        cellValueType: newField.cellValueType,
+      });
+
+      const recordResult2 = await getRecords(request, table1.id);
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual('1.00');
+      expect(recordResult2.records[1].fields[lookupField.id]).toEqual('1.00');
     });
   });
 });
