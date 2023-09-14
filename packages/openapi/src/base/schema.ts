@@ -18,15 +18,15 @@ export const createBaseVoSchema = z.object({
 
 export type ICreateBaseVo = z.infer<typeof createBaseVoSchema>;
 
-export const updateBaseRoSchema = createBaseRoSchema;
+export const updateBaseRoSchema = createBaseRoSchema.omit({ spaceId: true });
 
-export type IUpdateBaseRo = z.infer<typeof createBaseRoSchema>;
+export type IUpdateBaseRo = z.infer<typeof updateBaseRoSchema>;
 
 export const updateBaseVoSchema = z.object({
-  spaceId: z.string().optional(),
-  name: z.string().optional(),
+  spaceId: z.string(),
+  name: z.string(),
   icon: z.string().optional(),
-  order: z.number().optional(),
+  order: z.number(),
 });
 
 export type IUpdateBaseVo = z.infer<typeof updateBaseVoSchema>;
