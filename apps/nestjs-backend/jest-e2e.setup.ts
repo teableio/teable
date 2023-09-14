@@ -11,7 +11,8 @@ interface ITestConfig {
 }
 
 declare global {
-  const testConfig: ITestConfig;
+  // eslint-disable-next-line no-var
+  var testConfig: ITestConfig;
 }
 
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
