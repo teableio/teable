@@ -8,6 +8,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/sh
 import classNames from 'classnames';
 import { useRef, useState } from 'react';
 
+const ChoiceInput: React.FC<{
+  reRef: React.Ref<HTMLInputElement>;
+  name: string;
+  onChange: (name: string) => void;
+}> = ({ name, onChange, reRef }) => {
+  const [value, setValue] = useState<string>(name);
+  return (
+    <Input
+      ref={reRef}
+      className="h-7"
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => onChange(value)}
+    />
+  );
+};
+
 export const SelectOptions = (props: {
   options: Partial<ISelectFieldOptions> | undefined;
   isLookup?: boolean;
@@ -15,21 +33,14 @@ export const SelectOptions = (props: {
 }) => {
   const { options, isLookup, onChange } = props;
   const choices = options?.choices || [];
-  const [names, setNames] = useState<string[]>(choices.map(({ name }) => name));
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const changeName = (name: string, index: number) => {
-    const namesArr = [...names];
-    namesArr[index] = name;
-    setNames(namesArr);
-  };
-
-  const updateOptionChange = (index: number, choice: Partial<ISelectFieldChoice>) => {
+  const updateOptionChange = (index: number, key: keyof ISelectFieldChoice, value: string) => {
     const newChoice = choices.map((v, i) => {
       if (i === index) {
         return {
           ...v,
-          ...choice,
+          [key]: value,
         };
       }
       return v;
@@ -37,7 +48,7 @@ export const SelectOptions = (props: {
     onChange?.({ choices: newChoice });
   };
 
-  const deleteColor = (index: number) => {
+  const deleteChoice = (index: number) => {
     onChange?.({
       choices: choices.filter((_, i) => i !== index),
     });
@@ -53,12 +64,9 @@ export const SelectOptions = (props: {
     const newChoices = [...choices, choice];
     onChange?.({ choices: newChoices });
     setTimeout(() => {
+      console.log(inputRefs.current[choices.length]);
       inputRefs.current[choices.length]?.focus();
     });
-  };
-
-  const finishUpdateName = (index: number) => {
-    updateOptionChange(index, { name: names[index] });
   };
 
   if (isLookup) {
@@ -80,24 +88,23 @@ export const SelectOptions = (props: {
                 />
               </PopoverTrigger>
               <PopoverContent className="w-auto">
-                <ColorPicker color={color} onSelect={(color) => updateOptionChange(i, { color })} />
+                <ColorPicker
+                  color={color}
+                  onSelect={(color) => updateOptionChange(i, 'color', color)}
+                />
               </PopoverContent>
             </Popover>
             <div className="flex-1 px-2">
-              <Input
-                ref={(el) => (inputRefs.current[i] = el)}
-                // eslint-disable-next-line tailwindcss/migration-from-tailwind-2
-                className="h-7"
-                type="text"
-                value={names[i] || ''}
-                onChange={(e) => changeName(e.target.value, i)}
-                onBlur={() => finishUpdateName(i)}
+              <ChoiceInput
+                reRef={(el) => (inputRefs.current[i] = el)}
+                name={name}
+                onChange={(value) => updateOptionChange(i, 'name', value)}
               />
             </div>
             <Button
               variant={'ghost'}
               className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-              onClick={() => deleteColor(i)}
+              onClick={() => deleteChoice(i)}
             >
               <CloseIcon />
             </Button>

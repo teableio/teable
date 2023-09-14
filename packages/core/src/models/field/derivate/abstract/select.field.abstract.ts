@@ -4,7 +4,7 @@ import { FieldCore } from '../../field';
 
 export const selectFieldChoiceSchema = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().nonempty(),
   color: z.nativeEnum(Colors),
 });
 
