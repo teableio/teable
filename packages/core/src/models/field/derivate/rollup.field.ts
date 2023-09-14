@@ -10,9 +10,18 @@ import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const ROLLUP_FUNCTIONS = [
   'countall({values})',
+  'counta({values})',
+  'count({values})',
   'sum({values})',
-  'concatenate({values})',
+  'max({values})',
+  'min({values})',
   'and({values})',
+  'or({values})',
+  'xor({values})',
+  'array_join({values})',
+  'array_unique({values})',
+  'array_compact({values})',
+  'concatenate({values})',
 ] as const;
 
 export const rollupFieldOptionsSchema = z
