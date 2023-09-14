@@ -10,6 +10,6 @@ export class FormulaErrorListener implements ANTLRErrorListener<Token> {
     msg: string,
     _e: RecognitionException | undefined
   ): void {
-    throw new Error(`Line ${line}:${charPositionInLine} ${msg}`);
+    throw new Error(msg.split('expecting')[0].trim());
   }
 }

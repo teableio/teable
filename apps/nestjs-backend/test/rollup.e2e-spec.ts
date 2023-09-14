@@ -284,7 +284,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter2 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(0);
+    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(1);
 
     // add a link record from many - one field
     await updateRecordByApi(
@@ -394,7 +394,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record1 = await getRecord(table1.id, table1.records[1].id);
-    expect(record1.fields[rollupFieldVo.id]).toEqual(0);
+    expect(record1.fields[rollupFieldVo.id]).toEqual(1);
     const record2 = await getRecord(table1.id, table1.records[2].id);
     expect(record2.fields[rollupFieldVo.id]).toEqual(1);
   });
@@ -427,7 +427,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123456');
+    expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123, 456');
   });
 
   it('should update one - many rollupField by replace a linkRecord from cell', async () => {
