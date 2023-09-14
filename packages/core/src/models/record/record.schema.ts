@@ -32,7 +32,7 @@ export const recordSchema = z.object({
 
 export type IRecord = z.infer<typeof recordSchema>;
 
-export type ITinyRecord = Pick<IRecord, 'id' | 'fields'>;
+export type ITinyRecord = Omit<IRecord, 'recordOrder'>;
 
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {
