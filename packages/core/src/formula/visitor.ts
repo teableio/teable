@@ -4,8 +4,10 @@ import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor
 import { CellValueType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
 import type { IRecord } from '../models/record/record.schema';
-import type { FormulaFunc, FunctionName } from './functions/common';
+import { FunctionName } from './functions/common';
+import type { FormulaFunc } from './functions/common';
 import { FUNCTIONS } from './functions/factory';
+import { FormulaBaseError } from './functions/logical';
 import type {
   BinaryOpContext,
   BooleanLiteralContext,
@@ -22,6 +24,8 @@ import type {
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 import { TypedValue } from './typed-value';
 import { TypedValueConverter } from './typed-value-converter';
+
+const formulaBaseError = new TypedValue(new FormulaBaseError(), CellValueType.String, false);
 
 export class EvalVisitor
   extends AbstractParseTreeVisitor<TypedValue>
@@ -251,9 +255,9 @@ export class EvalVisitor
       return new TypedValue('', CellValueType.String);
     }
 
-    const field = this.dependencies[fieldId];
+    const field = this.dependencies[fieldId.slice(1, -1)];
     if (!field) {
-      throw new Error(`FieldId ${fieldId} is a valid field id`);
+      throw new Error(`FieldId ${fieldId} is a invalid field id`);
     }
     return this.createTypedValueByField(field);
   }
@@ -272,18 +276,32 @@ export class EvalVisitor
       throw new TypeError(`Function name ${func} is not found`);
     }
 
-    const params = ctx.expr().map((exprCtx) => {
-      const typedValue = this.visit(exprCtx);
-      return this.transformTypedValue(typedValue, func);
-    });
+    if (fnName === FunctionName.Blank) {
+      return new TypedValue(null, CellValueType.String, false, undefined, true);
+    }
 
-    const { type, isMultiple } = func.getReturnType(params);
+    let params;
+
+    try {
+      params = ctx.expr().map((exprCtx) => {
+        const typedValue = this.visit(exprCtx);
+        return this.transformTypedValue(typedValue, func);
+      });
+    } catch (e) {
+      if (fnName !== FunctionName.IsError) throw e;
+      params = [formulaBaseError];
+    }
+
+    const { type, isMultiple } = func.getReturnType(params as TypedValue<any>[]);
 
     if (!this.record) {
       return new TypedValue(null, type, isMultiple);
     }
 
-    const value = func.eval(params, { record: this.record, dependencies: this.dependencies });
+    const value = func.eval(params as TypedValue<any>[], {
+      record: this.record,
+      dependencies: this.dependencies,
+    });
     return new TypedValue(value, type, isMultiple);
   }
 
