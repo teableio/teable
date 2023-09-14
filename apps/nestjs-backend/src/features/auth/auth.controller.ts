@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Request, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { AuthSchema } from '@teable-group/openapi';
 import { Response } from 'express';
@@ -14,6 +14,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(LocalAuthGuard)
+  @HttpCode(200)
   @Post('signin')
   async signin(@Request() req: Express.Request, @Res({ passthrough: true }) res: Response) {
     const user = req.user as Prisma.UserGetPayload<null>;
@@ -26,6 +27,7 @@ export class AuthController {
   }
 
   @Post('signout')
+  @HttpCode(200)
   async signout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie(AUTH_COOKIE);
     return null;

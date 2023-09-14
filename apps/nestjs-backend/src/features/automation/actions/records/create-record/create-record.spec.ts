@@ -12,6 +12,7 @@ import {
   generateWorkflowActionId,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { TeableConfigModule } from '../../../../../configs/config.module';
 import { TeableEventEmitterModule } from '../../../../../event-emitter/event-emitter.module';
 import { FieldModule } from '../../../../field/field.module';
@@ -47,6 +48,9 @@ describe('Create-Record Action Test', () => {
     })
       .useMocker((token) => {
         if (token === PrismaService) {
+          return jest.fn();
+        }
+        if (token === ClsService) {
           return jest.fn();
         }
       })

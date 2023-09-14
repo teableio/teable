@@ -232,10 +232,11 @@ export class TableService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _collection: string, tableId: string) {
+    const userId = this.cls.get('user.id');
     await this.attachmentService.delete(prisma, [{ tableId: tableId }]);
     await prisma.tableMeta.update({
       where: { id: tableId },
-      data: { deletedTime: new Date() },
+      data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 
@@ -246,13 +247,15 @@ export class TableService implements IAdapterService {
     tableId: string,
     opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext)[]
   ) {
+    const userId = this.cls.get('user.id');
+
     for (const opContext of opContexts) {
       switch (opContext.name) {
         case OpName.SetTableName: {
           const { newName } = opContext;
           await prisma.tableMeta.update({
             where: { id: tableId },
-            data: { name: newName, version },
+            data: { name: newName, version, lastModifiedBy: userId },
           });
           return;
         }
@@ -260,7 +263,7 @@ export class TableService implements IAdapterService {
           const { newOrder } = opContext;
           await prisma.tableMeta.update({
             where: { id: tableId },
-            data: { order: newOrder, version },
+            data: { order: newOrder, version, lastModifiedBy: userId },
           });
           return;
         }

@@ -6,11 +6,16 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import type { AttachmentSchema } from '@teable-group/openapi';
 import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { Storage } from './plugins/storage';
 
 @Injectable()
 export class AttachmentsService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly cls: ClsService<IClsStore>
+  ) {}
   /**
    * Local upload
    */

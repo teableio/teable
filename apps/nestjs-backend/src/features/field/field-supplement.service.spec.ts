@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldModule } from './field.module';
 import { createFieldInstanceByVo } from './model/factory';
@@ -15,7 +16,13 @@ describe('FieldSupplementService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [FieldModule],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (token === ClsService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<FieldSupplementService>(FieldSupplementService);
     prismaService = module.get<PrismaService>(PrismaService);

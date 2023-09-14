@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { AttachmentsTableService } from './attachments-table.service';
 
 describe('AttachmentsService', () => {
@@ -23,7 +24,15 @@ describe('AttachmentsService', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (token === ClsService) {
+          return {
+            get: jest.fn(),
+          };
+        }
+      })
+      .compile();
 
     service = module.get<AttachmentsTableService>(AttachmentsTableService);
     prismaService = module.get<PrismaService>(PrismaService);

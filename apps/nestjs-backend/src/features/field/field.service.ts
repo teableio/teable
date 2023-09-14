@@ -17,7 +17,9 @@ import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IFieldInstance } from './model/factory';
@@ -37,7 +39,8 @@ export class FieldService implements IAdapterService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService
+    private readonly attachmentService: AttachmentsTableService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   generateDbFieldName(fields: { id: string; name: string }[]): string[] {
@@ -50,6 +53,7 @@ export class FieldService implements IAdapterService {
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
+    const userId = this.cls.get('user.id');
     const {
       id,
       name,
@@ -95,8 +99,8 @@ export class FieldService implements IAdapterService {
       dbFieldType,
       cellValueType,
       isMultipleCellValue,
-      createdBy: 'admin',
-      lastModifiedBy: 'admin',
+      createdBy: userId,
+      lastModifiedBy: userId,
     };
 
     return await prisma.field.create({ data });
@@ -260,10 +264,12 @@ export class FieldService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+    const userId = this.cls.get('user.id');
+
     await this.attachmentService.delete(prisma, [{ fieldId, tableId: _tableId }]);
     await prisma.field.update({
       where: { id: fieldId },
-      data: { deletedTime: new Date() },
+      data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 
@@ -368,6 +374,7 @@ export class FieldService implements IAdapterService {
     fieldId: string,
     opContexts: IOpContexts[]
   ) {
+    const userId = this.cls.get('user.id');
     for (const opContext of opContexts) {
       const result = await this.updateStrategies(opContext, { prisma, fieldId, opContext });
 
@@ -376,6 +383,7 @@ export class FieldService implements IAdapterService {
         data: {
           version,
           ...result,
+          lastModifiedBy: userId,
         },
       });
     }
