@@ -4,7 +4,9 @@ import { RecordOpBuilder, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
@@ -34,7 +36,10 @@ export interface ITopoOrdersContext {
 
 @Injectable()
 export class FieldCalculationService {
-  constructor(private readonly referenceService: ReferenceService) {}
+  constructor(
+    private readonly referenceService: ReferenceService,
+    private readonly cls: ClsService<IClsStore>
+  ) {}
 
   protected readonly knex = knex({ client: 'sqlite3' });
 
@@ -551,6 +556,7 @@ export class FieldCalculationService {
       return;
     }
 
+    const userId = this.cls.get('user.id');
     const tempTableName = `${dbTableName}_temp`;
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
     const columnNames = fieldIds
@@ -586,7 +592,7 @@ export class FieldCalculationService {
               {}
             ),
             __last_modified_time: new Date().toISOString(),
-            __last_modified_by: 'admin',
+            __last_modified_by: userId,
             __version: d.version + 1,
           } as { [dbFieldName: string]: unknown },
         }))
@@ -623,6 +629,7 @@ export class FieldCalculationService {
     tableId: string,
     opsData: IOpsData[]
   ) {
+    const userId = this.cls.get('user.id');
     const insertSql = `
         INSERT INTO ops ("collection", "doc_id", "version", "operation", "created_by")
         VALUES
@@ -631,7 +638,7 @@ export class FieldCalculationService {
             (d) =>
               `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(
                 d.rawOp
-              )}', 'admin')`
+              )}', '${userId}')`
           )
           .join(', ')}
       `;

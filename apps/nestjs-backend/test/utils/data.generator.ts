@@ -13,13 +13,14 @@ describe('Performance test data generator', () => {
   let tableId = '';
   let fields: IFieldVo[] = [];
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    const result = await request.post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     tableId = result.body.id;

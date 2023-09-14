@@ -76,14 +76,14 @@ export class TableOpenApiService {
     );
   }
 
-  async createTable(tableRo: ICreateTablePreparedRo): Promise<ITableFullVo> {
+  async createTable(baseId: string, tableRo: ICreateTablePreparedRo): Promise<ITableFullVo> {
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {
         if (!tableRo.fields || !tableRo.views || !tableRo.records) {
           throw new Error('table fields views and rows are required.');
         }
-        const tableVo = await this.createTableMeta(prisma, transactionKey, tableRo);
+        const tableVo = await this.createTableMeta(prisma, transactionKey, baseId, tableRo);
 
         const tableId = tableVo.id;
 
@@ -109,6 +109,7 @@ export class TableOpenApiService {
   async createTableMeta(
     prisma: Prisma.TransactionClient,
     transactionKey: string,
+    baseId: string,
     tableRo: ICreateTableRo
   ) {
     const tableRaws = await prisma.tableMeta.findMany({
@@ -133,7 +134,7 @@ export class TableOpenApiService {
       lastModifiedTime: new Date().toISOString(),
     });
 
-    const collection = `${IdPrefix.Table}_node`;
+    const collection = `${IdPrefix.Table}_${baseId}`;
     const connection = this.shareDbService.getConnection(transactionKey);
     const doc = connection.get(collection, tableId);
     const tableVo = await new Promise<ITableVo>((resolve, reject) => {
@@ -158,8 +159,8 @@ export class TableOpenApiService {
     return TableOpBuilder.creator.build(tableVo);
   }
 
-  async deleteTable(tableId: string) {
-    const collection = `${IdPrefix.Table}_node`;
+  async deleteTable(baseId: string, tableId: string) {
+    const collection = `${IdPrefix.Table}_${baseId}`;
     return await this.transactionService.$transaction(
       this.shareDbService,
       async (prisma, transactionKey) => {

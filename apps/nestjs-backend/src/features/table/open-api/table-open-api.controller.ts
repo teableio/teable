@@ -14,7 +14,7 @@ import { GraphService } from './graph.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
-@Controller('api/table')
+@Controller('api/base/:baseId/table')
 export class TableController {
   constructor(
     private readonly tableService: TableService,
@@ -29,32 +29,34 @@ export class TableController {
 
   @Get(':tableId')
   async getTable(
+    @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
   ): Promise<ITableVo> {
-    return await this.tableService.getTable(tableId, query);
+    return await this.tableService.getTable(baseId, tableId, query);
   }
 
   @Get()
-  async getTables(): Promise<ITableListVo> {
-    return await this.tableService.getTables();
+  async getTables(@Param('baseId') baseId: string): Promise<ITableListVo> {
+    return await this.tableService.getTables(baseId);
   }
 
   @Post()
   async createTable(
+    @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTablePreparedRo
   ): Promise<ITableFullVo> {
-    return await this.tableOpenApiService.createTable(createTableRo);
+    return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 
   @Delete(':tableId')
-  async archiveTable(@Param('tableId') tableId: string) {
-    return await this.tableOpenApiService.deleteTable(tableId);
+  async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
   @Delete('arbitrary/:tableId')
-  deleteTableArbitrary(@Param('tableId') tableId: string) {
-    return this.tableOpenApiService.deleteTable(tableId);
+  deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
   @Post(':tableId/graph')

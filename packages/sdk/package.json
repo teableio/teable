@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@belgattitude/http-exception": "^1.4.0",
+    "@tanstack/react-query": "4.35.0",
     "@teable-group/core": "workspace:*",
     "@teable-group/icons": "workspace:*",
     "@teable-group/openapi": "workspace:*",
@@ -46,7 +47,6 @@
     "immer": "10.0.2",
     "knex": "2.5.1",
     "lodash": "4.17.21",
-    "react-query": "3.39.3",
     "react-use": "17.4.0",
     "reconnecting-websocket": "4.4.0",
     "ts-mixer": "6.0.3",

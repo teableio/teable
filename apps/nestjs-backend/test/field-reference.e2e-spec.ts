@@ -9,25 +9,26 @@ describe('OpenAPI link field reference (e2e)', () => {
   let table1Id = '';
   let table2Id = '';
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    const result1 = await request.post('/api/table').send({
+    const result1 = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     table1Id = result1.body.id;
-    const result2 = await request.post('/api/table').send({
+    const result2 = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table2',
     });
     table2Id = result2.body.id;
   });
 
   afterAll(async () => {
-    await request.delete(`/api/table/arbitrary/${table1Id}`);
-    await request.delete(`/api/table/arbitrary/${table2Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2Id}`);
 
     await app.close();
   });

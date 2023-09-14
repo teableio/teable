@@ -10,13 +10,14 @@ describe('OpenAPI Field calculation (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    const result = await request.post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     tableId = result.body.id;
@@ -25,7 +26,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
   });
 
   afterAll(async () => {
-    await request.delete(`/api/table/arbitrary/${tableId}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
 
     await app.close();
   });

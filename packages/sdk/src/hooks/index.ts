@@ -12,7 +12,7 @@ export * from './use-ssr-records';
 export * from './use-theme';
 export * from './use-tables';
 export * from './use-table';
-export * from './use-space';
+export * from './use-base';
 export * from './use-undo-manager';
 export * from './use-records';
 export * from './use-record';

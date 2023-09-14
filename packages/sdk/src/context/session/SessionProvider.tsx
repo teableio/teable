@@ -1,5 +1,5 @@
+import { useMutation } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
-import { useMutation } from 'react-query';
 import { AuthApi } from '../../api';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';

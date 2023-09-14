@@ -11,6 +11,7 @@ describe('OpenAPI formula (e2e)', () => {
   let textFieldRo: IFieldRo & { id: string; name: string };
   let formulaFieldRo: IFieldRo & { id: string; name: string };
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -51,7 +52,7 @@ describe('OpenAPI formula (e2e)', () => {
     };
 
     const result1 = await request
-      .post('/api/table')
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table1',
         fields: [numberFieldRo, textFieldRo, formulaFieldRo],
@@ -61,7 +62,7 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   afterEach(async () => {
-    await request.delete(`/api/table/arbitrary/${table1Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`);
   });
 
   it('should response calculate record after create', async () => {
@@ -150,7 +151,7 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   it('should calculate primary field when have link relationship', async () => {
-    const result2 = await request.post('/api/table').expect(201);
+    const result2 = await request.post(`/api/base/${baseId}/table`).expect(201);
     const table2: ITableFullVo = result2.body;
     const linkFieldRo: IFieldRo = {
       type: FieldType.Link,

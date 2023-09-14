@@ -1,4 +1,3 @@
-import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -44,26 +43,23 @@ export async function initApp() {
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
   await app.listen(0);
-
-  const { cookie } = await signup(app, faker.internet.email(), '12345678');
+  const { cookie } = await signin(app, globalThis.testConfig.email, globalThis.testConfig.password);
 
   console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
   console.log(`> Jest Test Ready on ${await app.getUrl()}`);
-
   const newRequest = request.agent(app.getHttpServer());
   newRequest.set('Cookie', cookie);
-
   return { app, request: newRequest };
 }
 
-export async function signup(app: INestApplication, email: string, password: string) {
+export async function signin(app: INestApplication, email: string, password: string) {
   const sessionResponse = await request(app.getHttpServer())
-    .post('/api/auth/signup')
+    .post('/api/auth/signin')
     .send({
       email,
       password,
-    } as AuthSchema.Signup)
-    .expect(201);
+    } as AuthSchema.Signin)
+    .expect(200);
   return {
     access_token: sessionResponse.body,
     cookie: sessionResponse.headers['set-cookie'],

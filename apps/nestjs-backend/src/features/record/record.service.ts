@@ -33,8 +33,10 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import knex from 'knex';
 import { keyBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
@@ -53,7 +55,8 @@ export class RecordService implements IAdapterService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService
+    private readonly attachmentService: AttachmentsTableService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   private async getRowOrderFieldNames(prisma: Prisma.TransactionClient, tableId: string) {
@@ -302,6 +305,8 @@ export class RecordService implements IAdapterService {
     recordId: string,
     contexts: { fieldId: string; newValue: unknown }[]
   ) {
+    const userId = this.cls.get('user.id');
+
     const fieldIds = Array.from(
       contexts.reduce((acc, cur) => {
         return acc.add(cur.fieldId);
@@ -335,7 +340,7 @@ export class RecordService implements IAdapterService {
     );
 
     const sqlNative = this.knex(dbTableName)
-      .update({ ...recordFieldsByDbFieldName, __version: version })
+      .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
       .where({ __id: recordId })
       .toSQL()
       .toNative();
@@ -471,6 +476,7 @@ export class RecordService implements IAdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecord) {
+    const userId = this.cls.get('user.id');
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     // TODO: get row count will causes performance issus when insert lot of records
@@ -495,7 +501,8 @@ export class RecordService implements IAdapterService {
         __id: snapshot.id,
         __row_default: rowCount,
         __created_time: new Date().toISOString(),
-        __created_by: 'admin',
+        __created_by: userId,
+        __last_modified_by: userId,
         __version: 1,
         ...orders,
       })

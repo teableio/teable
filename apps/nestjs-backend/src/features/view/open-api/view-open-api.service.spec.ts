@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { TeableEventEmitterModule } from '../../../event-emitter/event-emitter.module';
 import { ViewOpenApiModule } from './view-open-api.module';
 import { ViewOpenApiService } from './view-open-api.service';
@@ -14,6 +15,9 @@ describe('ViewOpenApiService', () => {
     })
       .useMocker((token) => {
         if (token === PrismaService) {
+          return jest.fn();
+        }
+        if (token === ClsService) {
           return jest.fn();
         }
       })

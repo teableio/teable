@@ -26,30 +26,31 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let table2: ITableFullVo;
   let table3: ITableFullVo;
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    const result1 = await request.post('/api/table').send({
+    const result1 = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     table1 = result1.body;
-    const result2 = await request.post('/api/table').send({
+    const result2 = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table2',
     });
     table2 = result2.body;
-    const result3 = await request.post('/api/table').send({
+    const result3 = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table2',
     });
     table3 = result3.body;
   });
 
   afterAll(async () => {
-    await request.delete(`/api/table/arbitrary/${table1.id}`);
-    await request.delete(`/api/table/arbitrary/${table2.id}`);
-    await request.delete(`/api/table/arbitrary/${table3.id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
 
     await app.close();
   });

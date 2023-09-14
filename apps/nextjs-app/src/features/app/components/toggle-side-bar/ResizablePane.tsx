@@ -13,12 +13,13 @@ export const ResizablePane: React.FC<{
   children: React.ReactNode[];
 }> = ({ children }) => {
   const [size, setSize] = useLocalStorage<number[]>('side-bar-size');
+  const [left, center, right] = children;
+
   const [leftVisible, setLeftVisible] = useState<boolean>(Boolean(size?.[0] && size[0] > minSize));
   const [rightVisible, setRightVisible] = useState<boolean>(
     Boolean(size?.[2] && size[2] > minSize)
   );
 
-  const [left, center, right] = children;
   const isHydrated = useIsHydrated();
   if (!isHydrated) {
     return (

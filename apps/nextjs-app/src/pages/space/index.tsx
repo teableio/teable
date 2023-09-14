@@ -1,29 +1,13 @@
-import type { ITableVo } from '@teable-group/core';
-import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
-import { DashboardPage } from '@/features/app/dashboard/Pages';
+import { SpacePage } from '@/features/app/blocks/space';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
-import withAuthSSR from '@/lib/withAuthSSR';
 import type { NextPageWithLayout } from '../_app';
 
 const Space: NextPageWithLayout = () => {
-  return <DashboardPage />;
+  return <SpacePage />;
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async () => {
-  const result = await ssrApi.getTables();
-  return {
-    props: {
-      tableServerData: result,
-    },
-  };
-});
-
-Space.getLayout = function getLayout(
-  page: ReactElement,
-  pageProps: { tableServerData: ITableVo[] }
-) {
+Space.getLayout = function getLayout(page: ReactElement, pageProps) {
   return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
 };
 

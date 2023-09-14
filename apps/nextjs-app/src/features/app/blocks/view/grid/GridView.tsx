@@ -285,15 +285,15 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   );
 
   const onRowExpand = (rowIndex: number) => {
-    const { nodeId, viewId } = router.query;
+    const { baseId, nodeId, viewId } = router.query;
     const recordId = recordMap[rowIndex]?.id;
     if (!recordId) {
       return;
     }
     router.push(
       {
-        pathname: '/space/[nodeId]/[viewId]/[recordId]',
-        query: { nodeId, viewId, recordId },
+        pathname: '/base/[baseId]/[nodeId]/[viewId]/[recordId]',
+        query: { baseId, nodeId, viewId, recordId },
       },
       undefined,
       {

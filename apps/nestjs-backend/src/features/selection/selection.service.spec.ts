@@ -10,6 +10,7 @@ import {
   nullsToUndefined,
 } from '@teable-group/core';
 import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
@@ -39,6 +40,11 @@ describe('selectionService', () => {
         attachments: {
           findMany: jest.fn(),
         },
+      })
+      .useMocker((token) => {
+        if (token === ClsService) {
+          return jest.fn();
+        }
       })
       .compile();
 

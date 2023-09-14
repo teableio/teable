@@ -11,6 +11,7 @@ import { initApp, updateRecordByApi } from './utils/init-app';
 
 let app: INestApplication;
 let request: supertest.SuperAgentTest;
+const baseId = globalThis.testConfig.baseId;
 
 // cellValueType which need to test
 const typeTests = [
@@ -91,7 +92,7 @@ const fillTable = async (tableId: string, fieldName: string, length: number) => 
 
 const createTableWithExtraRec = async (tableName: string, recordsLength = 10) => {
   const result = await request
-    .post('/api/table')
+    .post(`/api/base/${baseId}/table`)
     .send({
       name: tableName,
       fields: defaultFields.map((f) => ({ ...f, name: f.name })),
@@ -190,7 +191,7 @@ describe('OpenAPI RecordController sort (e2e) base cellValueType', () => {
 
   afterAll(async () => {
     const { id: subTableId } = subTable;
-    const result2 = await request.delete(`/api/table/arbitrary/${subTableId}`);
+    const result2 = await request.delete(`/api/base/${baseId}/table/arbitrary/${subTableId}`);
     console.log('clear subTable: ', result2.body);
   });
 
@@ -250,10 +251,10 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
     const { id: mainTableId } = mainTable;
     const { id: subTableId } = subTable;
 
-    const result1 = await request.delete(`/api/table/arbitrary/${mainTableId}`);
+    const result1 = await request.delete(`/api/base/${baseId}/table/arbitrary/${mainTableId}`);
     console.log('clear mainTable: ', result1.body);
 
-    const result2 = await request.delete(`/api/table/arbitrary/${subTableId}`);
+    const result2 = await request.delete(`/api/base/${baseId}/table/arbitrary/${subTableId}`);
     console.log('clear subTable: ', result2.body);
   });
 
@@ -329,7 +330,7 @@ describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () =>
 
   afterEach(async () => {
     const { id: subTableId } = subTable;
-    const result2 = await request.delete(`/api/table/arbitrary/${subTableId}`);
+    const result2 = await request.delete(`/api/base/${baseId}/table/arbitrary/${subTableId}`);
     console.log('clear subTable: ', result2.body);
   });
 
@@ -396,10 +397,10 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
     const { id: mainTableId } = mainTable;
     const { id: subTableId } = subTable;
 
-    const result1 = await request.delete(`/api/table/arbitrary/${mainTableId}`);
+    const result1 = await request.delete(`/api/base/${baseId}/table/arbitrary/${mainTableId}`);
     console.log('clear mainTable: ', result1.body);
 
-    const result2 = await request.delete(`/api/table/arbitrary/${subTableId}`);
+    const result2 = await request.delete(`/api/base/${baseId}/table/arbitrary/${subTableId}`);
     console.log('clear subTable: ', result2.body);
   });
 
