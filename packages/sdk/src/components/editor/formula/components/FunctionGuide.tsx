@@ -1,5 +1,8 @@
 import type { FunctionName } from '@teable-group/core/src/formula/functions/common';
+import { cn } from '@teable-group/ui-lib';
 import type { FC } from 'react';
+import { ThemeKey } from '../../../../context';
+import { useTheme } from '../../../../hooks';
 import type { IFunctionSchema } from '../interface';
 
 interface IFunctionGuideProps {
@@ -8,8 +11,11 @@ interface IFunctionGuideProps {
 
 export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
   const { data } = props;
+  const { theme } = useTheme();
 
   if (data == null) return null;
+
+  const codeBg = theme === ThemeKey.Light ? 'bg-slate-100' : 'bg-gray-900';
 
   return (
     <div className="w-full overflow-y-auto">
@@ -20,9 +26,7 @@ export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
           <>
             <h3 className="mt-4 text-sm">Syntax</h3>
             <code
-              className={
-                'flex mt-2 p-3 w-full rounded text-[13px] whitespace-pre-wrap bg-slate-100 dark:bg-gray-900'
-              }
+              className={cn('flex mt-2 p-3 w-full rounded text-[13px] whitespace-pre-wrap', codeBg)}
             >
               {data.definition}
             </code>
@@ -32,9 +36,7 @@ export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
           <>
             <h3 className="mt-4 text-sm">Example</h3>
             <code
-              className={
-                'flex mt-2 p-3 w-full rounded text-[13px] whitespace-pre-wrap bg-slate-100 dark:bg-gray-900'
-              }
+              className={cn('flex mt-2 p-3 w-full rounded text-[13px] whitespace-pre-wrap', codeBg)}
             >
               {data.example}
             </code>

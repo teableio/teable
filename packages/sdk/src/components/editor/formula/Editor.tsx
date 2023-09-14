@@ -319,16 +319,14 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
     }
   };
 
+  const codeBg = isLightTheme ? 'bg-slate-100' : 'bg-gray-900';
+
   return (
     <div className="w-[620px]">
       <div className="flex justify-between items-center pl-4 pr-2 w-full h-12 border-b-[1px]">
         <h1 className="text-base">Formula Editor</h1>
       </div>
-      <div
-        className={
-          'flex flex-col w-full border-b-[1px] caret-foreground bg-slate-100 dark:bg-gray-900'
-        }
-      >
+      <div className={cn('flex flex-col w-full border-b-[1px] caret-foreground', codeBg)}>
         <CodeEditor
           ref={editorRef}
           value={expressionByName}
@@ -370,7 +368,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                         ref={isSuggestionItem ? suggestionItemRef : null}
                         className={cn(
                           'flex items-center px-2 py-[6px] w-full cursor-pointer text-sm',
-                          isSuggestionItem ? 'bg-slate-100 dark:bg-gray-900' : 'bg-transparent'
+                          isSuggestionItem ? codeBg : 'bg-transparent'
                         )}
                         onClick={onItemClick}
                         onMouseEnter={() => setSuggestionItemIndex(index)}
@@ -404,7 +402,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                           ref={isSuggestionItem ? suggestionItemRef : null}
                           className={cn(
                             'flex items-center px-2 py-[6px] w-full cursor-pointer text-sm',
-                            isSuggestionItem ? 'bg-slate-100 dark:bg-gray-900' : 'bg-transparent'
+                            isSuggestionItem ? codeBg : 'bg-transparent'
                           )}
                           onClick={onItemClick}
                           onMouseEnter={() =>
