@@ -1,7 +1,6 @@
 import { Github, Settings, UserPlus } from '@teable-group/icons';
 import { useSession } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn';
-import Image from 'next/image';
+import { Avatar, AvatarFallback, Button } from '@teable-group/ui-lib/shadcn';
 import { SettingTrigger } from './setting/SettingTrigger';
 import { UserNav } from './user/UserNav';
 
@@ -12,14 +11,9 @@ export const SideBarFooter: React.FC = () => {
     <div className="flex flex-col mx-2 mb-1 gap-1 items-center">
       <UserNav>
         <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
-          <Image
-            width={20}
-            height={20}
-            loading={'eager'}
-            src={`/shared-assets/example/Boy1.png`}
-            alt={'tailwind-ui-logo'}
-            className="object-cover object-center border border-slate-200 rounded-full"
-          />
+          <Avatar className="w-7 h-7">
+            <AvatarFallback>{user.name.slice(0, 1)}</AvatarFallback>
+          </Avatar>
           {user.name}
           <div className="grow basis-0"></div>
           <p className="text-xs text-slate-500">Invite Users</p>
