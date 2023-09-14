@@ -10,7 +10,6 @@ const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/
 
 module.exports = {
   root: true,
-  jest: true,
   parserOptions: {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
