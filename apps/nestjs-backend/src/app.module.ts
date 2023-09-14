@@ -19,6 +19,7 @@ import { ExportImportModule } from './features/export-import/export-import.modul
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
+import { SpaceModule } from './features/space/space.module';
 import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
 import { UserModule } from './features/user/user.module';
 import { TeableLoggerModule } from './logger/logger.module';
@@ -64,6 +65,7 @@ import { WsModule } from './ws/ws.module';
       inject: [authConfig.KEY],
     }),
     AuthModule,
+    SpaceModule,
   ],
   controllers: [],
   providers: [],

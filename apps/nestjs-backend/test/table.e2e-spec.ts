@@ -93,6 +93,7 @@ describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -101,13 +102,13 @@ describe('OpenAPI FieldController (e2e)', () => {
   });
 
   afterAll(async () => {
-    await request.delete(`/api/table/arbitrary/${tableId}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
 
     await app.close();
   });
 
   it('/api/table/ (POST) with assertData data', async () => {
-    const result = await request.post('/api/table').send(assertData).expect(201);
+    const result = await request.post(`/api/base/${baseId}/table`).send(assertData).expect(201);
 
     tableId = result.body.id;
     const recordResult = await request.get(`/api/table/${tableId}/record`).expect(200);
@@ -116,7 +117,10 @@ describe('OpenAPI FieldController (e2e)', () => {
   });
 
   it('/api/table/ (POST) empty', async () => {
-    const result = await request.post('/api/table').send({ name: 'new table' }).expect(201);
+    const result = await request
+      .post(`/api/base/${baseId}/table`)
+      .send({ name: 'new table' })
+      .expect(201);
 
     tableId = result.body.id;
     const recordResult = await request.get(`/api/table/${tableId}/record`).expect(200);
@@ -124,7 +128,10 @@ describe('OpenAPI FieldController (e2e)', () => {
   });
 
   it('should refresh table lastModifyTime when add a record', async () => {
-    const result = await request.post('/api/table').send({ name: 'new table' }).expect(201);
+    const result = await request
+      .post(`/api/base/${baseId}/table`)
+      .send({ name: 'new table' })
+      .expect(201);
     const prevTime = result.body.lastModifiedTime;
     tableId = result.body.id;
 
@@ -132,7 +139,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       .post(`/api/table/${tableId}/record`)
       .send({ records: [{ fields: {} }] } as ICreateRecordsRo);
 
-    const tableResult = await request.get(`/api/table/${tableId}`).expect(200);
+    const tableResult = await request.get(`/api/base/${baseId}/table/${tableId}`).expect(200);
     const currTime = tableResult.body.lastModifiedTime;
     expect(new Date(currTime).getTime() > new Date(prevTime).getTime()).toBeTruthy();
   });

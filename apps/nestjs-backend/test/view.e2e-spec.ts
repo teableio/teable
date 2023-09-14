@@ -15,20 +15,21 @@ describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let request: supertest.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    const result = await request.post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     tableId = result.body.id;
   });
 
   afterAll(async () => {
-    const result = await request.delete(`/api/table/arbitrary/${tableId}`);
+    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
     console.log('clear table: ', result.body);
 
     await app.close();

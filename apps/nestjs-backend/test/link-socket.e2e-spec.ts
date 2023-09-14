@@ -25,6 +25,7 @@ describe('OpenAPI link (e2e)', () => {
   let table1Id = '';
   let table2Id = '';
   let shareDbService!: ShareDbService;
+  const baseId = globalThis.testConfig.baseId;
   jest.useRealTimers();
   async function wait(ms: number) {
     return new Promise((resolve) => {
@@ -46,8 +47,8 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   afterEach(async () => {
-    await request.delete(`/api/table/arbitrary/${table1Id}`);
-    await request.delete(`/api/table/arbitrary/${table2Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2Id}`);
   });
 
   describe('link field cell update', () => {
@@ -77,7 +78,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable1Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
@@ -103,7 +104,7 @@ describe('OpenAPI link (e2e)', () => {
 
       // table2 link manyOne table1
       const createTable2Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, table2LinkFieldRo],

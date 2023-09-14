@@ -22,6 +22,7 @@ import { createField, getRecord, initApp, updateRecordByApi } from './utils/init
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -38,7 +39,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     beforeAll(async () => {
       const result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
@@ -47,7 +48,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await request.delete(`/api/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
     });
 
     it('/api/table/{tableId}/field (GET)', async () => {
@@ -84,7 +85,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     beforeAll(async () => {
       const result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
@@ -92,7 +93,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       table1 = result.body;
 
       const result2 = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
         })
@@ -245,7 +246,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     beforeAll(async () => {
       const result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
@@ -253,7 +254,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       table1 = result.body;
 
       const result2 = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
         })

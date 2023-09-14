@@ -1,6 +1,5 @@
 import type { Connection, UndoManager } from '@teable/sharedb/lib/client';
 import React from 'react';
-import type { Space } from '../../model/space';
 
 export enum ThemeKey {
   Light = 'light',
@@ -11,7 +10,6 @@ export interface IAppContext {
   connection?: Connection;
   connected: boolean;
   theme: ThemeKey;
-  space?: Space;
   undoManager?: UndoManager;
   isAutoTheme: boolean;
   setTheme: (theme: ThemeKey | null) => void;

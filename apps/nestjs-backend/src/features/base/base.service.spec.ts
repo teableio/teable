@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { BaseModule } from './base.module';
 import { BaseService } from './base.service';
 
@@ -13,6 +14,9 @@ describe('BaseService', () => {
     })
       .useMocker((token) => {
         if (token === PrismaService) {
+          return jest.fn();
+        }
+        if (token === ClsService) {
           return jest.fn();
         }
       })

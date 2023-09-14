@@ -1,8 +1,9 @@
 import type { ITableVo } from '@teable-group/core';
 import { IdPrefix } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { createTableInstance } from '../../model';
+import { AnchorContext } from '../anchor';
 import { useInstances } from '../use-instances';
 import { TableContext } from './TableContext';
 
@@ -12,8 +13,9 @@ interface ITableProviderProps {
 }
 
 export const TableProvider: FC<ITableProviderProps> = ({ children, serverData }) => {
+  const { baseId } = useContext(AnchorContext);
   const tables = useInstances({
-    collection: `${IdPrefix.Table}_node`,
+    collection: `${IdPrefix.Table}_${baseId}`,
     factory: createTableInstance,
     initData: serverData,
     queryParams: {},

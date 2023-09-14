@@ -3,17 +3,20 @@ import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
 import { pick } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
 import { AuthConfig } from '../../../configs/auth.config';
 import { AUTH_COOKIE } from '../../../const';
+import type { IClsStore } from '../../../types/cls';
 import { UserService } from '../../user/user.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly cls: ClsService<IClsStore>
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -34,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
+    this.cls.set('user.id', user.id);
     return pick(user, 'id', 'name', 'avatar', 'phone', 'email');
   }
 }

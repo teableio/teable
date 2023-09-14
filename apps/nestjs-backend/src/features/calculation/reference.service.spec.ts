@@ -6,6 +6,7 @@ import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-gro
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import knex from 'knex';
+import { ClsService } from 'nestjs-cls';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
@@ -32,7 +33,13 @@ describe('ReferenceService', () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [PrismaService],
         imports: [CalculationModule],
-      }).compile();
+      })
+        .useMocker((token) => {
+          if (token === ClsService) {
+            return jest.fn();
+          }
+        })
+        .compile();
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
       db = knex({

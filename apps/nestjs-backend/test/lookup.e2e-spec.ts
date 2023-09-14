@@ -87,6 +87,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
   let table2: ITableFullVo = {} as any;
   const tables: ITableFullVo[] = [];
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   async function updateTableFields(table: ITableFullVo) {
     const tableFields = (await request.get(`/api/table/${table.id}/field`).expect(200)).body;
@@ -101,7 +102,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
     // create table1 with fundamental field
     const result1 = await request
-      .post('/api/table')
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table1',
         fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
@@ -111,7 +112,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
     // create table2 with fundamental field
     const result2 = await request
-      .post('/api/table')
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table2',
         fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table2]' })),
@@ -139,8 +140,8 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
   afterAll(async () => {
     try {
-      await request.delete(`/api/table/arbitrary/${table1.id}`).expect(200);
-      await request.delete(`/api/table/arbitrary/${table2.id}`).expect(200);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`).expect(200);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`).expect(200);
     } finally {
       await app.close();
     }
@@ -575,7 +576,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     );
 
     await lookupFrom(table2, lookedUpToField.id);
-    const result = await request.post(`/api/table/${table1.id}/graph`).send({
+    const result = await request.post(`/api/base/${baseId}/table/${table1.id}/graph`).send({
       cell: [0, 0],
     });
     expect(result.body.nodes).toBeTruthy();

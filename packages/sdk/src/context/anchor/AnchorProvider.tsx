@@ -7,6 +7,7 @@ import { ViewContext, ViewProvider } from '../view';
 import { AnchorContext } from './AnchorContext';
 
 export interface IAnchorProvider {
+  baseId?: string;
   tableId?: string;
   viewId?: string;
   fallback?: React.ReactNode;
@@ -17,11 +18,12 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
   children,
   viewId,
   tableId,
+  baseId,
   fallback,
 }) => {
   const value = useMemo(() => {
-    return { viewId, tableId };
-  }, [viewId, tableId]);
+    return { viewId, tableId, baseId };
+  }, [viewId, tableId, baseId]);
 
   return (
     <AnchorContext.Provider value={value}>

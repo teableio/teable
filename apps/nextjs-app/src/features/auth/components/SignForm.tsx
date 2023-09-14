@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query';
 import type { HttpError } from '@teable-group/core';
 import { AuthSchema } from '@teable-group/openapi';
 import { AuthApi } from '@teable-group/sdk/api';
@@ -6,7 +7,6 @@ import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { useMutation } from 'react-query';
 import { fromZodError } from 'zod-validation-error';
 
 export interface ISignForm {
@@ -58,7 +58,6 @@ export const SignForm: FC<ISignForm> = (props) => {
       await submitMutation.mutateAsync({ type, form });
       onSuccess?.();
     } catch (err) {
-      console.log('123', err);
       setError((err as HttpError).message);
       setIsLoading(false);
     }

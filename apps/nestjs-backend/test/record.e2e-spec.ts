@@ -15,6 +15,7 @@ describe('OpenAPI RecordController (e2e)', () => {
   let tableId = '';
   let fields: IFieldVo[] = [];
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -24,7 +25,7 @@ describe('OpenAPI RecordController (e2e)', () => {
 
   beforeEach(async () => {
     const result = await request
-      .post('/api/table')
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table1',
       })
@@ -36,7 +37,7 @@ describe('OpenAPI RecordController (e2e)', () => {
   });
 
   afterEach(async () => {
-    const result = await request.delete(`/api/table/arbitrary/${tableId}`);
+    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
     console.log('clear table: ', result.body);
   });
 

@@ -14,13 +14,13 @@ import { Record } from '../record/record';
 import { View } from '../view';
 
 export class Table extends TableCore {
-  static async createTable(tableRo?: ICreateTableRo) {
-    const response = await axios.post<ITableVo>('/table', tableRo ?? {});
+  static async createTable(baseId: string, tableRo?: ICreateTableRo) {
+    const response = await axios.post<ITableVo>(`/base/${baseId}/table`, tableRo ?? {});
     return response.data;
   }
 
-  static async deleteTable(tableId: string) {
-    const response = await axios.delete<void>(`/table/${tableId}`);
+  static async deleteTable(baseId: string, tableId: string) {
+    const response = await axios.delete<void>(`/base/${baseId}/table/${tableId}`);
     return response.data;
   }
 

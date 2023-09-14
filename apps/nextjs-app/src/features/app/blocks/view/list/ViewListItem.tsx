@@ -12,6 +12,7 @@ import {
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classnames from 'classnames';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { useDeleteView } from './useDeleteView';
 interface IProps {
@@ -23,6 +24,8 @@ interface IProps {
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) => {
   const [isEditing, setIsEditing] = useState(false);
   const tableId = useTableId();
+  const router = useRouter();
+  const baseId = router.query.baseId as string;
   const deleteView = useDeleteView(view.id);
 
   const ViewButton = () => {
@@ -35,8 +38,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       >
         <Link
           href={{
-            pathname: '/space/[nodeId]/[viewId]',
-            query: { nodeId: tableId, viewId: view.id },
+            pathname: '/base/[baseId]/[nodeId]/[viewId]',
+            query: { baseId, nodeId: tableId, viewId: view.id },
           }}
           title={view.name}
           onDoubleClick={() => {

@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query';
 import type { ISort, IUpdateViewOrderRo } from '@teable-group/core';
 import {
   Button,
@@ -10,7 +11,6 @@ import {
 } from '@teable-group/ui-lib';
 import { isEqual } from 'lodash';
 import React, { useEffect, useState, useMemo } from 'react';
-import { useMutation } from 'react-query';
 import { useDebounce } from 'react-use';
 import { useTableId, useViewId } from '../../hooks';
 import { View } from '../../model';
