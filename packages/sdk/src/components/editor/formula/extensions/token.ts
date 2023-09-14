@@ -18,7 +18,7 @@ enum TokenGroup {
 const FORMULA_GRAMMARS = [
   {
     group: TokenGroup.Variable,
-    type: FormulaLexer.IDENTIFIER_UNICODE_BLANK_CURLY,
+    type: FormulaLexer.IDENTIFIER_VARIABLE,
     reg: /(\{\})|(\{(\\[{}])*[\s\S]*?[^\\]\})/,
   },
   {

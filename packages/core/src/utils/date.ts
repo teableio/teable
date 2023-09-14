@@ -1,5 +1,6 @@
 import type { ManipulateType } from 'dayjs';
 import dayjs from 'dayjs';
+
 export class DateUtil {
   public static readonly NORM_YEAR_PATTERN = 'YYYY';
   public static readonly NORM_MONTH_PATTERN = 'YYYY-MM';

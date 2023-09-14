@@ -6,6 +6,7 @@ import knex from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
+import { tinyPreservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
 import type { IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
@@ -265,7 +266,7 @@ export class FieldCalculationService {
       // deduplication is needed
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat(['__id']);
+        .concat([...tinyPreservedFieldName]);
       const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
       const result = await prisma.$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
         nativeSql.sql,
