@@ -8,5 +8,14 @@
   "transform": {
     "^.+\\.ts$": "ts-jest"
   },
-  "coverageReporters": ["text"]
+  "globalSetup": "<rootDir>/jest-e2e.setup.ts",
+  "coverageReporters": ["text"],
+  "globals": {
+    "testConfig": {
+      "email": "test@e2e.com",
+      "password": "12345678",
+      "spaceId": "spcUnAq990b94",
+      "baseId": "bsexx3qWH8ycA"
+    }
+  }
 }

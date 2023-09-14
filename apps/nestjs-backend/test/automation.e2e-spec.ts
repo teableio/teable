@@ -22,6 +22,7 @@ import { initApp } from './utils/init-app';
 describe.skip('AutomationController (e2e)', () => {
   let app: INestApplication;
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -34,7 +35,7 @@ describe.skip('AutomationController (e2e)', () => {
   });
 
   const createTable = async (tableName = 'automation-table'): Promise<string> => {
-    const result = await request.post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: tableName,
     });
     return result.body.id;

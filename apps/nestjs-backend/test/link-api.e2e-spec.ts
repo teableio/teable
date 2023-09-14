@@ -21,6 +21,7 @@ describe('OpenAPI link (e2e)', () => {
   let table2Id = '';
   jest.useRealTimers();
   let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -33,8 +34,8 @@ describe('OpenAPI link (e2e)', () => {
   });
 
   afterEach(async () => {
-    table1Id && (await request.delete(`/api/table/arbitrary/${table1Id}`));
-    table2Id && (await request.delete(`/api/table/arbitrary/${table2Id}`));
+    table1Id && (await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`));
+    table2Id && (await request.delete(`/api/base/${baseId}/table/arbitrary/${table2Id}`));
   });
 
   describe('create table with link field', () => {
@@ -53,7 +54,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable1Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
@@ -77,7 +78,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable2Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, linkFieldRo],
@@ -131,7 +132,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable1Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
           fields: [numberFieldRo, textFieldRo],
@@ -149,7 +150,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable2Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
           fields: [numberFieldRo, textFieldRo, linkFieldRo],
@@ -211,7 +212,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const createTable1Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
           fields: [textFieldRo, numberFieldRo],
@@ -237,7 +238,7 @@ describe('OpenAPI link (e2e)', () => {
 
       // table2 link manyOne table1
       const createTable2Result = await request
-        .post('/api/table')
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, table2LinkFieldRo],
@@ -529,12 +530,12 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post('/api/table').send({
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table1',
       });
       table1 = result1.body;
       table1Id = table1.id;
-      const result2 = await request.post('/api/table').send({
+      const result2 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table2',
       });
       table2 = result2.body;
