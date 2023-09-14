@@ -23,7 +23,7 @@ export const SpacePage: FC = () => {
   const { mutate: createSpace, isLoading } = useMutation({
     mutationFn: SpaceApi.createSpace,
     onSuccess: async (data) => {
-      await queryClient.refetchQueries({ queryKey: ['space-list'] });
+      await queryClient.invalidateQueries({ queryKey: ['space-list'] });
       router.push({
         pathname: '/space/[spaceId]',
         query: {

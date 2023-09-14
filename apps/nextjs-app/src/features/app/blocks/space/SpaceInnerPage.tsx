@@ -8,7 +8,6 @@ export const SpaceInnerPage: FC = () => {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
-
   const { data: spaceData } = useQuery({
     queryKey: ['space', spaceId],
     queryFn: ({ queryKey }) => SpaceApi.getSpaceById(queryKey[1]),

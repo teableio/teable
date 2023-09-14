@@ -1,11 +1,10 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal } from '@teable-group/icons';
 import type { BaseSchema, SpaceSchema } from '@teable-group/openapi';
 import { BaseApi } from '@teable-group/sdk/api';
-import { Spin } from '@teable-group/ui-lib/base';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
-import { useRef, type FC } from 'react';
+import { type FC } from 'react';
 import { BaseCard } from './BaseCard';
 
 interface ISpaceCard {
@@ -14,23 +13,19 @@ interface ISpaceCard {
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { space, bases } = props;
-  const ref = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
   const router = useRouter();
+  const spaceId = router.query.spaceId as string;
 
   const { mutate: createBase, isLoading } = useMutation({
     mutationFn: BaseApi.createBase,
-    onSuccess: async (data) => {
-      router.push({
-        pathname: '/space/[spaceId]',
-        query: {
-          spaceId: data.data.id,
-        },
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: spaceId ? ['base-list', spaceId] : ['base-list'] });
     },
   });
 
   return (
-    <Card ref={ref} className="w-full">
+    <Card className="w-full">
       <CardHeader className="pt-5">
         <div className="flex justify-between items-center">
           <CardTitle>{space.name}</CardTitle>
@@ -41,7 +36,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               disabled={isLoading}
               onClick={() => createBase({ spaceId: space.id })}
             >
-              {isLoading && <Spin className="w-3 h-3" />}Create Base
+              Create Base
             </Button>
             <Button variant={'outline'} size={'xs'}>
               <MoreHorizontal />

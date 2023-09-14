@@ -58,7 +58,6 @@ export const SignForm: FC<ISignForm> = (props) => {
       await submitMutation.mutateAsync({ type, form });
       onSuccess?.();
     } catch (err) {
-      console.log('123', err);
       setError((err as HttpError).message);
       setIsLoading(false);
     }

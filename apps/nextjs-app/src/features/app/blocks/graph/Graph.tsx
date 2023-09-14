@@ -1,11 +1,11 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
+import { useMutation } from '@tanstack/react-query';
 import { getRandomColorFromStr } from '@teable-group/core';
 import { X } from '@teable-group/icons';
 import { TableApi, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMutation } from 'react-query';
 import { Rnd } from 'react-rnd';
 import { useGridViewStore } from '../view/grid/store/gridView';
 import { useGraphStore } from './useGraphStore';
