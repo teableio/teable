@@ -9,9 +9,12 @@ import type {
   ILookupOptionsRo,
   ILookupOptionsVo,
   IRollupFieldOptions,
+  ISelectFieldOptionsRo,
   IUpdateFieldRo,
 } from '@teable-group/core';
 import {
+  ColorUtils,
+  generateChoiceId,
   getFormattingSchema,
   getShowAsSchema,
   FIELD_RO_PROPERTIES,
@@ -470,13 +473,32 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
+  private prepareSelectOptions(options: ISelectFieldOptionsRo) {
+    const optionsRo = (options ?? SelectFieldCore.defaultOptions()) as ISelectFieldOptionsRo;
+    const nameSet = new Set<string>();
+    return {
+      ...optionsRo,
+      choices: optionsRo.choices.map((choice) => {
+        if (nameSet.has(choice.name)) {
+          throw new BadRequestException(`choice name ${choice.name} is duplicated`);
+        }
+        nameSet.add(choice.name);
+        return {
+          name: choice.name,
+          id: choice.id ?? generateChoiceId(),
+          color: choice.color ?? ColorUtils.randomColor()[0],
+        };
+      }),
+    };
+  }
+
   private prepareSingleSelectField(field: IFieldRo) {
     const { name, options } = field;
 
     return {
       ...field,
       name: name ?? 'Select',
-      options: options ?? SelectFieldCore.defaultOptions(),
+      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Text,
     };
@@ -488,7 +510,7 @@ export class FieldSupplementService implements ISupplementService {
     return {
       ...field,
       name: name ?? 'Tags',
-      options: options ?? SelectFieldCore.defaultOptions(),
+      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
       isMultipleCellValue: true,

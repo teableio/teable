@@ -2,20 +2,31 @@ import { z } from 'zod';
 import { Colors } from '../../colors';
 import { FieldCore } from '../../field';
 
-export const selectFieldChoice = z.object({
+export const selectFieldChoiceSchema = z.object({
+  id: z.string(),
   name: z.string(),
   color: z.nativeEnum(Colors),
 });
 
-export type ISelectFieldChoice = z.infer<typeof selectFieldChoice>;
+export const selectFieldChoiceRoSchema = selectFieldChoiceSchema.partial({ id: true, color: true });
+
+export type ISelectFieldChoice = z.infer<typeof selectFieldChoiceSchema>;
 
 export const selectFieldOptionsSchema = z
   .object({
-    choices: z.array(selectFieldChoice),
+    choices: z.array(selectFieldChoiceSchema),
+  })
+  .strict();
+
+export const selectFieldOptionsRoSchema = z
+  .object({
+    choices: z.array(selectFieldChoiceRoSchema),
   })
   .strict();
 
 export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsSchema>;
+
+export type ISelectFieldOptionsRo = z.infer<typeof selectFieldOptionsRoSchema>;
 
 export abstract class SelectFieldCore extends FieldCore {
   static defaultOptions(): ISelectFieldOptions {

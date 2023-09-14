@@ -14,10 +14,11 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import {
+  ColorUtils,
+  generateChoiceId,
   DbFieldType,
   Relationship,
   FieldKeyType,
-  randomColor,
   FIELD_VO_PROPERTIES,
   IdPrefix,
   RecordOpBuilder,
@@ -28,7 +29,7 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
-import { differenceBy, intersection, isEqual, keyBy, set } from 'lodash';
+import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -397,10 +398,10 @@ export class FieldConvertingService {
     }
   }
 
-  private async deleteOptionsFromMultiSelectField(
+  private async updateOptionsFromMultiSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: MultipleSelectFieldDto
   ) {
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
@@ -412,7 +413,7 @@ export class FieldConvertingService {
     const nativeSql = this.knex(dbTableName)
       .select('__id', field.dbFieldName)
       .where((builder) => {
-        for (const value of deletedChoices) {
+        for (const value of Object.keys(updatedChoiceMap)) {
           builder.orWhere(field.dbFieldName, 'LIKE', `%"${value}"%`);
         }
       })
@@ -426,7 +427,19 @@ export class FieldConvertingService {
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
-      const newCellValue = oldCellValue.filter((value) => !deletedChoices.includes(value));
+      const newCellValue = oldCellValue.reduce<string[]>((pre, value) => {
+        // if key not in updatedChoiceMap, we should keep it
+        if (!(value in updatedChoiceMap)) {
+          pre.push(value);
+          return pre;
+        }
+
+        const newValue = updatedChoiceMap[value];
+        if (newValue !== null) {
+          pre.push(newValue);
+        }
+        return pre;
+      }, []);
 
       opsMap[tableId][row.__id] = [
         RecordOpBuilder.editor.setRecord.build({
@@ -439,10 +452,10 @@ export class FieldConvertingService {
     return opsMap;
   }
 
-  private async deleteOptionsFromSingleSelectField(
+  private async updateOptionsFromSingleSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto
   ) {
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
@@ -454,7 +467,7 @@ export class FieldConvertingService {
     const nativeSql = this.knex(dbTableName)
       .select('__id', field.dbFieldName)
       .where((builder) => {
-        for (const value of deletedChoices) {
+        for (const value of Object.keys(updatedChoiceMap)) {
           builder.orWhere(field.dbFieldName, value);
         }
       })
@@ -467,31 +480,31 @@ export class FieldConvertingService {
     );
 
     for (const row of result) {
-      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
 
       opsMap[tableId][row.__id] = [
         RecordOpBuilder.editor.setRecord.build({
           fieldId: field.id,
           oldCellValue,
-          newCellValue: null,
+          newCellValue: updatedChoiceMap[oldCellValue],
         }),
       ];
     }
     return opsMap;
   }
 
-  private async deleteOptionsFromSelectField(
+  private async updateOptionsFromSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto | MultipleSelectFieldDto
   ): Promise<IOpsMap> {
     if (field.type === FieldType.SingleSelect) {
-      return this.deleteOptionsFromSingleSelectField(prisma, tableId, deletedChoices, field);
+      return this.updateOptionsFromSingleSelectField(prisma, tableId, updatedChoiceMap, field);
     }
 
     if (field.type === FieldType.MultipleSelect) {
-      return this.deleteOptionsFromMultiSelectField(prisma, tableId, deletedChoices, field);
+      return this.updateOptionsFromMultiSelectField(prisma, tableId, updatedChoiceMap, field);
     }
     throw new Error('Invalid field type');
   }
@@ -502,17 +515,25 @@ export class FieldConvertingService {
     newField: SingleSelectFieldDto | MultipleSelectFieldDto,
     oldField: SingleSelectFieldDto | MultipleSelectFieldDto
   ) {
-    const deletedChoices = differenceBy(
-      newField.options.choices,
-      oldField.options.choices,
-      'name'
-    ).map((item) => item.name);
+    const newChoiceMap = keyBy(newField.options.choices, 'id');
+    const updatedChoiceMap: { [old: string]: string | null } = {};
 
-    if (!deletedChoices.length) {
+    oldField.options.choices.forEach((item) => {
+      if (!newChoiceMap[item.id]) {
+        updatedChoiceMap[item.name] = null;
+        return;
+      }
+
+      if (newChoiceMap[item.id].name !== item.name) {
+        updatedChoiceMap[item.name] = newChoiceMap[item.id].name;
+      }
+    });
+
+    if (isEmpty(updatedChoiceMap)) {
       return;
     }
 
-    return await this.deleteOptionsFromSelectField(prisma, tableId, deletedChoices, newField);
+    return await this.updateOptionsFromSelectField(prisma, tableId, updatedChoiceMap, newField);
   }
 
   private async modifyOptions(
@@ -714,12 +735,13 @@ export class FieldConvertingService {
     });
 
     if (newChoicesSet.size) {
-      const colors = randomColor(
+      const colors = ColorUtils.randomColor(
         choices.map((item) => item.color),
         newChoicesSet.size
       );
       const newChoices = choices.concat(
         Array.from(newChoicesSet).map<ISelectFieldChoice>((item, i) => ({
+          id: generateChoiceId(),
           name: item,
           color: colors[i],
         }))

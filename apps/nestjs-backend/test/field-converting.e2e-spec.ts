@@ -376,6 +376,104 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     });
   });
 
+  describe('convert select field', () => {
+    it('should change choices for single select', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ id: 'choX', name: 'xx', color: Colors.Gray }],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        'y',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        options: {
+          choices: [{ name: 'xx', color: Colors.Gray }],
+        },
+        type: FieldType.SingleSelect,
+      });
+      expect(values[0]).toEqual('xx');
+      expect(values[1]).toEqual(undefined);
+    });
+
+    it('should change choices for multiple select', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ id: 'choX', name: 'xx', color: Colors.Cyan }],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        ['x'],
+        ['x', 'y'],
+        ['y'],
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        options: {
+          choices: [{ name: 'xx', color: Colors.Cyan }],
+        },
+        type: FieldType.MultipleSelect,
+      });
+      expect(values[0]).toEqual(['xx']);
+      expect(values[1]).toEqual(['xx']);
+      expect(values[2]).toEqual(undefined);
+    });
+
+    it('should not accept duplicated name choices', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'y', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+      const sourceField = await createField(request, table1.id, sourceFieldRo);
+      await request
+        .put(`/api/table/${table1.id}/field/${sourceField.id}`)
+        .send(newFieldRo)
+        .expect(400);
+    });
+  });
+
   describe('convert formula field', () => {
     const refField1Ro: IFieldRo = {
       type: FieldType.SingleLineText,

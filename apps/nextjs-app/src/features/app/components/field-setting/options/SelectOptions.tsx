@@ -1,5 +1,5 @@
 import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
-import { randomColor, ColorUtils, Colors } from '@teable-group/core';
+import { ColorUtils, Colors } from '@teable-group/core';
 import { PlusCircle } from '@teable-group/icons';
 import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
 import { Input } from '@teable-group/ui-lib/shadcn';
@@ -47,7 +47,7 @@ export const SelectOptions = (props: {
     const existColors = choices.map((v) => v.color);
     const choice = {
       name: '',
-      color: randomColor(existColors)[0],
+      color: ColorUtils.randomColor(existColors)[0],
     } as ISelectFieldChoice;
 
     const newChoices = [...choices, choice];
