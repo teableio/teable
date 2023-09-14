@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
 import {
   Relationship,
   TimeFormatting,
@@ -373,6 +373,78 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       expect(values[0]).toEqual(2);
+    });
+  });
+
+  describe('convert formula field', () => {
+    const refField1Ro: IFieldRo = {
+      type: FieldType.SingleLineText,
+    };
+
+    const refField2Ro: IFieldRo = {
+      type: FieldType.Number,
+    };
+
+    const sourceFieldRo: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: '1',
+      },
+    };
+    let refField1: IFieldVo;
+    let refField2: IFieldVo;
+
+    beforeAll(async () => {
+      refField1 = await createField(request, table1.id, refField1Ro);
+      refField2 = await createField(request, table1.id, refField2Ro);
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, refField1.id, 'x');
+      await updateRecordByApi(request, table1.id, table1.records[1].id, refField1.id, 'y');
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, refField2.id, 1);
+      await updateRecordByApi(request, table1.id, table1.records[1].id, refField2.id, 2);
+    });
+
+    it('should convert formula and modify expression', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${refField1.id}}`,
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        null,
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.Formula,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual('x');
+      expect(values[1]).toEqual('y');
+
+      const newFieldRo2: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${refField2.id}}`,
+        },
+      };
+
+      const newField2 = await updateField(request, table1.id, newField.id, newFieldRo2);
+
+      const records = await getRecords(request, table1.id);
+
+      expect(newField2).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        type: FieldType.Formula,
+        isComputed: true,
+      });
+
+      expect(records.records[0].fields[newField2.id]).toEqual(1);
+      expect(records.records[1].fields[newField2.id]).toEqual(2);
     });
   });
 
