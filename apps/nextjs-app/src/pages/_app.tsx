@@ -1,3 +1,4 @@
+import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { HttpError } from '@teable-group/core';
 import type { IUser } from '@teable-group/sdk';
 import axios from 'axios';
@@ -10,6 +11,7 @@ import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import type { ReactElement, ReactNode } from 'react';
+import { z } from 'zod';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
@@ -18,6 +20,7 @@ import { AppProviders } from '../AppProviders';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+extendZodWithOpenApi(z);
 
 /**
  * Import global styles, global css or polyfills here
