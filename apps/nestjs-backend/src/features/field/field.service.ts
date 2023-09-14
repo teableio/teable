@@ -3,44 +3,32 @@ import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
   IColumnMeta,
-  IFieldRo,
   IFieldSnapshotQuery,
   IFieldVo,
   IGetFieldsQuery,
   ISetColumnMetaOpContext,
-  ISetFieldNameOpContext,
   ISnapshotBase,
-  ISetFieldDescriptionOpContext,
-  ISetFieldTypeOpContext,
-  ISetFieldOptionsOpContext,
-  ISetFieldHasErrorOpContext,
+  ISetFieldPropertyOpContext,
+  DbFieldType,
+  ILookupOptionsVo,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
-import { PrismaService } from '../../prisma.service';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
-import { preservedFieldName } from './constant';
-import type { IFieldInstance, IPreparedRo } from './model/factory';
-import {
-  createFieldInstanceByRo,
-  createFieldInstanceByVo,
-  rawField2FieldObj,
-} from './model/factory';
+import type { IFieldInstance } from './model/factory';
+import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
 
 type IOpContexts =
-  | ISetFieldNameOpContext
-  | ISetFieldDescriptionOpContext
-  | ISetFieldHasErrorOpContext
-  | ISetFieldTypeOpContext
-  | ISetFieldOptionsOpContext
   | IAddColumnMetaOpContext
   | ISetColumnMetaOpContext
-  | IDeleteColumnMetaOpContext;
+  | IDeleteColumnMetaOpContext
+  | ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IAdapterService {
@@ -52,44 +40,20 @@ export class FieldService implements IAdapterService {
     private readonly attachmentService: AttachmentsTableService
   ) {}
 
-  async multipleGenerateValidDbFieldName(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    field: IFieldInstance[]
-  ): Promise<string[]> {
-    const validNames = field.map(
-      ({ id, name }) => `${convertNameToValidCharacter(name, 50)}_${id}`
-    );
-    let newValidNames = [...validNames];
-    let index = 1;
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const exist = await prisma.field.count({
-        where: {
-          tableId,
-          dbFieldName: { in: newValidNames },
-        },
-      });
-      if (!exist && !newValidNames.some((validName) => preservedFieldName.has(validName))) {
-        break;
-      }
-      newValidNames = validNames.map((name) => `${name}_${index++}`);
-    }
-
-    return newValidNames;
+  generateDbFieldName(fields: { id: string; name: string }[]): string[] {
+    return fields.map(({ id, name }) => `${convertNameToValidCharacter(name, 50)}_${id}`);
   }
 
   private async dbCreateField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    dbFieldName: string,
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
     const {
       id,
       name,
+      dbFieldName,
       description,
       type,
       options,
@@ -124,6 +88,7 @@ export class FieldService implements IAdapterService {
       isComputed,
       isLookup,
       hasError,
+      // add lookupLinkedFieldId for indexing
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
@@ -177,24 +142,12 @@ export class FieldService implements IAdapterService {
     fieldInstances: IFieldInstance[]
   ) {
     const multiFieldData: RawField[] = [];
-    const dbFieldNames = await this.multipleGenerateValidDbFieldName(
-      prisma,
-      tableId,
-      fieldInstances
-    );
 
     // maintain columnsMeta by view
     const columnsMeta = await this.getColumnsMeta(prisma, tableId, fieldInstances);
-
     for (let i = 0; i < fieldInstances.length; i++) {
       const fieldInstance = fieldInstances[i];
-      const fieldData = await this.dbCreateField(
-        prisma,
-        tableId,
-        dbFieldNames[i],
-        columnsMeta[i],
-        fieldInstance
-      );
+      const fieldData = await this.dbCreateField(prisma, tableId, columnsMeta[i], fieldInstance);
 
       multiFieldData.push(fieldData);
     }
@@ -203,72 +156,29 @@ export class FieldService implements IAdapterService {
 
   async alterVisualTable(
     prisma: Prisma.TransactionClient,
-    tableId: string,
-    dbFieldNames: string[],
-    fieldInstances: IFieldInstance[]
+    dbTableName: string,
+    fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
   ) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
-
-    for (let i = 0; i < dbFieldNames.length; i++) {
-      const dbFieldName = dbFieldNames[i];
+    for (let i = 0; i < fieldInstances.length; i++) {
+      const field = fieldInstances[i];
 
       const alterTableQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
-          const typeKey = dbType2knexFormat(fieldInstances[i].dbFieldType);
-          table[typeKey](dbFieldName);
+          const typeKey = dbType2knexFormat(field.dbFieldType);
+          table[typeKey](field.dbFieldName);
         })
         .toQuery();
       await prisma.$executeRawUnsafe(alterTableQuery);
     }
   }
 
-  async multipleCreateFieldsTransaction(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    fieldInstances: IFieldInstance[]
-  ) {
-    // 1. save field in db
-    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, fieldInstances);
-
-    // 2. alter table with real field in visual table
-    await this.alterVisualTable(
-      prisma,
-      tableId,
-      multiFieldData.map((field) => field.dbFieldName),
-      fieldInstances
-    );
-
-    return multiFieldData;
-  }
-
-  async createField(tableId: string, fieldInstance: IFieldInstance) {
-    return (await this.multipleCreateFields(tableId, [fieldInstance]))[0];
-  }
-
-  // we have to support multiple action, because users will do it in batch
-  async multipleCreateFields(tableId: string, fieldInstances: IFieldInstance[]) {
-    return await this.prismaService.$transaction(async (prisma) => {
-      return this.multipleCreateFieldsTransaction(prisma, tableId, fieldInstances);
+  async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
+    const field = await this.prismaService.field.findFirst({
+      where: { id: fieldId, tableId, deletedTime: null },
     });
-  }
-
-  async getField(
-    tableId: string,
-    fieldId: string,
-    prisma?: Prisma.TransactionClient
-  ): Promise<IFieldVo> {
-    if (prisma) {
-      const field = await prisma.field.findUniqueOrThrow({
-        where: { id: fieldId },
-      });
-
-      return rawField2FieldObj(field);
+    if (!field) {
+      throw new NotFoundException(`field ${fieldId} in table ${tableId} not found`);
     }
-
-    const field = await this.prismaService.field.findUniqueOrThrow({
-      where: { id: fieldId },
-    });
-
     return rawField2FieldObj(field);
   }
 
@@ -325,19 +235,28 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldRo) {
-    const fieldInstance = createFieldInstanceByRo(snapshot as IFieldRo & IPreparedRo);
+  async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+
+    const sortedFields = sortBy(fields, (field) => {
+      return JSON.parse(field.columnMeta)[viewId]?.order;
+    });
+
+    return sortedFields[index].id;
+  }
+
+  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldVo) {
+    const fieldInstance = createFieldInstanceByVo(snapshot);
+    const dbTableName = await this.getDbTableName(prisma, tableId);
 
     // 1. save field meta in db
-    const multiFieldData = await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
+    await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(
-      prisma,
-      tableId,
-      multiFieldData.map((field) => field.dbFieldName),
-      [fieldInstance]
-    );
+    await this.alterVisualTable(prisma, dbTableName, [fieldInstance]);
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
@@ -348,29 +267,25 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  private handleFieldName(params: { opContext: IOpContexts }) {
+  private handleFieldProperty(params: { opContext: IOpContexts }) {
     const { opContext } = params;
-    return { name: (opContext as ISetFieldNameOpContext).newName };
-  }
+    const { key, newValue } = opContext as ISetFieldPropertyOpContext;
+    if (key === 'options') {
+      if (!newValue) {
+        throw new Error('field options is required');
+      }
+      return { options: JSON.stringify(newValue) };
+    }
 
-  private handleFieldDescription(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { description: (opContext as ISetFieldDescriptionOpContext).newDescription };
-  }
+    if (key === 'lookupOptions') {
+      return {
+        lookupOptions: newValue ? JSON.stringify(newValue) : null,
+        // update lookupLinkedFieldId for indexing
+        lookupLinkedFieldId: (newValue as ILookupOptionsVo | null)?.linkFieldId || null,
+      };
+    }
 
-  private handleFieldType(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { type: (opContext as ISetFieldTypeOpContext).newType };
-  }
-
-  private handleFieldHasError(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { hasError: (opContext as ISetFieldHasErrorOpContext).newError };
-  }
-
-  private handleFieldOptions(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
-    return { options: JSON.stringify((opContext as ISetFieldOptionsOpContext).newOptions) };
+    return { [key]: newValue ?? null };
   }
 
   private async handleColumnMeta(params: {
@@ -431,12 +346,7 @@ export class FieldService implements IAdapterService {
     }
   ) {
     const opHandlers = {
-      [OpName.SetFieldName]: this.handleFieldName,
-      [OpName.SetFieldDescription]: this.handleFieldDescription,
-      [OpName.SetFieldType]: this.handleFieldType,
-      [OpName.SetFieldHasError]: this.handleFieldHasError,
-      [OpName.SetFieldOptions]: this.handleFieldOptions,
-
+      [OpName.SetFieldProperty]: this.handleFieldProperty,
       [OpName.AddColumnMeta]: this.handleColumnMeta,
       [OpName.SetColumnMeta]: this.handleColumnMeta,
       [OpName.DeleteColumnMeta]: this.handleColumnMeta,
@@ -459,14 +369,14 @@ export class FieldService implements IAdapterService {
     opContexts: IOpContexts[]
   ) {
     for (const opContext of opContexts) {
-      const updateData = {
-        version,
-        ...(await this.updateStrategies(opContext, { prisma, fieldId, opContext })),
-      };
+      const result = await this.updateStrategies(opContext, { prisma, fieldId, opContext });
 
       await prisma.field.update({
         where: { id: fieldId },
-        data: updateData,
+        data: {
+          version,
+          ...result,
+        },
       });
     }
   }

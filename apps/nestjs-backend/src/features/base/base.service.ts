@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IdPrefix } from '@teable-group/core';
-import { PrismaService } from '../../prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { RecordService } from '../record/record.service';
 
 @Injectable()

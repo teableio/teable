@@ -4,10 +4,11 @@ import type { IOtOperation } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import type { Doc, Error } from '@teable/sharedb';
 import ShareDBClass from '@teable/sharedb';
-import { orderBy } from 'lodash';
+import { noop, orderBy } from 'lodash';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { FieldUpdatedEvent, RecordUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import { DerivateChangeService } from './derivate-change.service';
+import type { IRawOpMap } from './interface';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import type { ITransactionMeta } from './transaction.service';
 import { TransactionService } from './transaction.service';
@@ -165,6 +166,20 @@ export class ShareDbService extends ShareDBClass {
             });
           });
         });
+      }
+    }
+  }
+
+  publishOpsMap(rawOpMap: IRawOpMap) {
+    for (const tableId in rawOpMap) {
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      const data = rawOpMap[tableId];
+      for (const recordId in data) {
+        const rawOp = data[recordId];
+        const channels = [collection, `${collection}.${recordId}`];
+        rawOp.c = collection;
+        rawOp.d = recordId;
+        this.pubsub.publish(channels, rawOp, noop);
       }
     }
   }

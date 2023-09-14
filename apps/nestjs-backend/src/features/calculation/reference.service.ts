@@ -1,21 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import type {
   IOtOperation,
-  IRecord,
   ILinkFieldOptions,
   ILookupOptionsVo,
   ILinkCellValue,
   IFieldVo,
+  ITinyRecord,
 } from '@teable-group/core';
 import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
-import { difference, groupBy, intersectionBy, uniq } from 'lodash';
-import type { IVisualTableDefaultField } from '../field/constant';
+import { difference, groupBy, intersectionBy, keyBy, uniq } from 'lodash';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
+import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import type { ICellChange } from './utils/changes';
+import { mergeDuplicateChange, formatChangesToOps } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { nameConsole } from './utils/name-console';
@@ -25,7 +27,7 @@ export interface ITopoItem {
   dependencies: string[];
 }
 
-export interface IUndirectedTopoItem {
+export interface IGraphItem {
   fromFieldId: string;
   toFieldId: string;
 }
@@ -34,10 +36,9 @@ export interface IFieldMap {
   [fieldId: string]: IFieldInstance;
 }
 
-interface IRecordItem {
-  record: IRecord;
-  calculated?: { [fieldId: string]: boolean };
-  dependencies?: IRecord | IRecord[];
+export interface IRecordItem {
+  record: ITinyRecord;
+  dependencies?: ITinyRecord | ITinyRecord[];
 }
 
 interface IRecordData {
@@ -51,17 +52,9 @@ interface IRecordDataMap {
   [tableId: string]: IRecordData[];
 }
 
-export interface ICellChange {
-  tableId: string;
-  recordId: string;
-  fieldId: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
 export interface IOpsMap {
   [tableId: string]: {
-    [recordId: string]: IOtOperation[];
+    [keyId: string]: IOtOperation[];
   };
 }
 
@@ -69,7 +62,7 @@ export interface ITopoItemWithRecords extends ITopoItem {
   recordItems: IRecordItem[];
 }
 
-export interface IFkRecordMapByDbTableName {
+export interface IFkOpMap {
   [dbTableName: string]: {
     [recordId: string]: {
       [fkField: string]: string | null;
@@ -95,7 +88,7 @@ export interface IRecordRefItem {
 
 @Injectable()
 export class ReferenceService {
-  protected readonly knex = knex({ client: 'sqlite3' });
+  private readonly knex = knex({ client: 'sqlite3' });
 
   /**
    * Strategy of calculation.
@@ -111,87 +104,103 @@ export class ReferenceService {
    * 1. calculate the delete operation
    * 2. update foreignKey
    * 3. calculate the others operation
+   *
+   * fkOpMap is a map of foreignKey update operation. linkDerivation generate fkOpMap operation,
+   * but we need it do calculation, so we have to pass origin fkOpMap it to calculateOpsMap.
    */
-  async calculateOpsMap(
-    prisma: Prisma.TransactionClient,
-    opsMap: IOpsMap,
-    fkRecordMap: IFkRecordMapByDbTableName
-  ) {
+  async calculateOpsMap(prisma: Prisma.TransactionClient, opsMap: IOpsMap, fkOpMap: IFkOpMap = {}) {
     const { recordDataMapWithDelete, recordDataMapRemains } =
       this.splitOpsMapToRecordDataMap(opsMap);
 
     // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
     // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
-    // console.log('updateForeignKey:', JSON.stringify(fkRecordMap, null, 2));
-    const cellChangesBefore = await this.calculateRecordDataMap(
+    // console.log('updateForeignKey:', JSON.stringify(fkOpMap, null, 2));
+    const resultBefore = await this.calculateRecordDataMap(
       prisma,
       recordDataMapWithDelete,
-      fkRecordMap
+      fkOpMap
     );
-    // console.log('cellChangesBefore', cellChangesBefore);
-    await this.updateForeignKey(prisma, fkRecordMap);
-    const cellChangesAfter = await this.calculateRecordDataMap(
-      prisma,
-      recordDataMapRemains,
-      fkRecordMap
+    // console.log('resultBefore', resultBefore?.cellChanges);
+    await this.updateForeignKey(prisma, fkOpMap);
+    const resultAfter = await this.calculateRecordDataMap(prisma, recordDataMapRemains, fkOpMap);
+    // console.log('resultAfter', resultAfter);
+    const changes = resultBefore.cellChanges.concat(resultAfter.cellChanges);
+    const fieldMap = Object.assign({}, resultBefore.fieldMap, resultAfter.fieldMap);
+    const tableId2DbTableName = Object.assign(
+      {},
+      resultBefore.tableId2DbTableName,
+      resultAfter.tableId2DbTableName
     );
-    // console.log('cellChangesAfter', cellChangesAfter);
-    const changes = cellChangesBefore.concat(cellChangesAfter);
-    return this.formatChangesToOps(changes);
+
+    return {
+      opsMap: formatChangesToOps(changes),
+      fieldMap,
+      tableId2DbTableName,
+    };
   }
 
-  protected getTopoOrdersByFieldId(
-    fieldIds: string[],
-    fieldMap: IFieldMap,
-    undirectedGraph: IUndirectedTopoItem[]
-  ) {
+  getTopoOrdersByFieldId(fieldIds: string[], directedGraph: IGraphItem[]) {
     return fieldIds.reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, fieldId) => {
-      const topoOrder = this.getTopologicalOrder(fieldId, undirectedGraph);
+      pre[fieldId] = this.getTopologicalOrder(fieldId, directedGraph);
+      return pre;
+    }, {});
+  }
+
+  /**
+   * link field should not be the first item in topo order when calculate.
+   */
+  removeFirstLinkItem(
+    fieldMap: IFieldMap,
+    topoOrdersByFieldId: {
+      [fieldId: string]: ITopoItem[];
+    }
+  ) {
+    return Object.entries(topoOrdersByFieldId).reduce<{
+      [fieldId: string]: ITopoItem[];
+    }>((pre, [fieldId, topoOrder]) => {
       const firstField = fieldMap[topoOrder[0].id];
       if (firstField.type === FieldType.Link) {
-        topoOrder.shift();
+        topoOrder = topoOrder.slice(1);
       }
       pre[fieldId] = topoOrder;
       return pre;
     }, {});
   }
 
-  async calculate(
+  async prepareCalculation(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    recordData: IRecordData[],
-    fkRecordMap: IFkRecordMapByDbTableName
+    recordData: IRecordData[]
   ) {
     if (!recordData.length) {
-      return [];
+      return;
     }
-    const { undirectedGraph, startFieldIds, extraRecordIdItems } = await this.getUndirectedGraph(
+    const { directedGraph, startFieldIds, extraRecordIdItems } = await this.getDirectedGraph(
       prisma,
       recordData
     );
-    if (!undirectedGraph.length) {
-      return [];
+    if (!directedGraph.length) {
+      return;
     }
 
     // get all related field by undirected graph
-    const allFieldIds = this.flatGraph(undirectedGraph);
+    const allFieldIds = this.flatGraph(directedGraph);
     // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
 
     // topological sorting
-    const topoOrdersByFieldId = this.getTopoOrdersByFieldId(
-      startFieldIds,
+    const topoOrdersByFieldId = this.removeFirstLinkItem(
       fieldMap,
-      undirectedGraph
+      this.getTopoOrdersByFieldId(startFieldIds, directedGraph)
     );
 
     // nameConsole('recordData', recordData, fieldMap);
     // nameConsole('startFieldIds', startFieldIds, fieldMap);
     // nameConsole('allFieldIds', allFieldIds, fieldMap);
-    // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
+    // nameConsole('directedGraph', directedGraph, fieldMap);
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
     // submitted changed records
@@ -244,7 +253,9 @@ export class ReferenceService {
     // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
     // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
 
-    const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
+    const orderWithRecordsByFieldId = Object.entries(topoOrdersByFieldId).reduce<{
+      [fieldId: string]: ITopoItemWithRecords[];
+    }>((pre, [fieldId, topoOrders]) => {
       const orderWithRecords = this.createTopoItemWithRecords({
         topoOrders,
         fieldMap,
@@ -254,24 +265,58 @@ export class ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
-      // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
-      return pre.concat(
-        this.collectChanges(
-          orderWithRecords,
-          fieldMap,
-          fieldId2TableId,
-          tableId2DbTableName,
-          fkRecordMap
-        )
-      );
-    }, []);
+      pre[fieldId] = orderWithRecords;
+      return pre;
+    }, {});
+    // nameConsole('orderWithRecordsByFieldId', orderWithRecordsByFieldId, fieldMap);
+
+    return {
+      fieldMap,
+      fieldId2TableId,
+      tableId2DbTableName,
+      orderWithRecordsByFieldId,
+      dbTableName2records,
+    };
+  }
+
+  async calculate(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordData: IRecordData[],
+    fkOpMap: IFkOpMap
+  ) {
+    const result = await this.prepareCalculation(prisma, tableId, recordData);
+    if (!result) {
+      return;
+    }
+
+    const { orderWithRecordsByFieldId, fieldMap, fieldId2TableId, tableId2DbTableName } = result;
+    const changes = Object.values(orderWithRecordsByFieldId).reduce<ICellChange[]>(
+      (pre, orderWithRecords) => {
+        // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
+        return pre.concat(
+          this.collectChanges(
+            orderWithRecords,
+            fieldMap,
+            fieldId2TableId,
+            tableId2DbTableName,
+            fkOpMap
+          )
+        );
+      },
+      []
+    );
     // nameConsole('changes', changes, fieldMap);
 
-    return this.mergeDuplicateChange(changes);
+    return {
+      changes: mergeDuplicateChange(changes),
+      fieldMap,
+      tableId2DbTableName,
+    };
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  protected splitOpsMapToRecordDataMap(opsMap: IOpsMap) {
+  private splitOpsMapToRecordDataMap(opsMap: IOpsMap) {
     const recordDataMapWithDelete: IRecordDataMap = {};
     const recordDataMapRemains: IRecordDataMap = {};
     for (const tableId in opsMap) {
@@ -319,7 +364,7 @@ export class ReferenceService {
     };
   }
 
-  protected async getUndirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
+  private async getDirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
     let startFieldIds = recordData.map((data) => data.fieldId);
     const linkedData = recordData.filter(
       (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
@@ -351,10 +396,10 @@ export class ReferenceService {
       });
     }
     startFieldIds = uniq(startFieldIds);
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
+    const directedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
 
     return {
-      undirectedGraph,
+      directedGraph,
       startFieldIds,
       extraRecordIdItems: foreignTableId
         ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -363,41 +408,128 @@ export class ReferenceService {
     };
   }
 
-  protected async calculateRecordDataMap(
-    prisma: Prisma.TransactionClient,
-    recordDataMap: IRecordDataMap,
-    fkRecordMap: IFkRecordMapByDbTableName
-  ) {
-    const cellChanges: ICellChange[] = [];
-    for (const tableId in recordDataMap) {
-      const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
-      const change = await this.calculate(prisma, tableId, recordData, fkRecordMap);
-      cellChanges.push(...change);
+  /**
+   * Generate a directed graph.
+   *
+   * @param undirectedGraph - The elements of the undirected graph.
+   * @param fieldIds - One or more field IDs to start the DFS from.
+   * @returns Returns all relations related to the given fieldIds.
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private filterDirectedGraph(undirectedGraph: IGraphItem[], fieldIds: string[]): IGraphItem[] {
+    const result: IGraphItem[] = [];
+    const visited: Set<string> = new Set();
+
+    // Build adjacency lists for quick look-up
+    const outgoingAdjList: Record<string, IGraphItem[]> = {};
+    const incomingAdjList: Record<string, IGraphItem[]> = {};
+
+    for (const item of undirectedGraph) {
+      // Outgoing edges
+      if (!outgoingAdjList[item.fromFieldId]) {
+        outgoingAdjList[item.fromFieldId] = [];
+      }
+      outgoingAdjList[item.fromFieldId].push(item);
+
+      // Incoming edges
+      if (!incomingAdjList[item.toFieldId]) {
+        incomingAdjList[item.toFieldId] = [];
+      }
+      incomingAdjList[item.toFieldId].push(item);
     }
-    return cellChanges;
+
+    function dfs(currentNode: string) {
+      visited.add(currentNode);
+
+      // Add incoming edges related to currentNode
+      if (incomingAdjList[currentNode]) {
+        result.push(...incomingAdjList[currentNode]);
+      }
+
+      // Process outgoing edges from currentNode
+      if (outgoingAdjList[currentNode]) {
+        for (const item of outgoingAdjList[currentNode]) {
+          if (!visited.has(item.toFieldId)) {
+            result.push(item);
+            dfs(item.toFieldId);
+          }
+        }
+      }
+    }
+
+    // Run DFS for each specified fieldId
+    for (const fieldId of fieldIds) {
+      if (!visited.has(fieldId)) {
+        dfs(fieldId);
+      }
+    }
+
+    return result;
   }
 
-  // for lookup field, cellValues should be flat
-  protected flatOriginLookup(lookupValues: unknown[] | unknown) {
+  private async calculateRecordDataMap(
+    prisma: Prisma.TransactionClient,
+    recordDataMap: IRecordDataMap,
+    fkOpMap: IFkOpMap
+  ) {
+    const cellChanges: ICellChange[] = [];
+    const allTableId2DbTableName: { [tableId: string]: string } = {};
+    const allFieldMap: IFieldMap = {};
+    for (const tableId in recordDataMap) {
+      const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
+      const calculateResult = await this.calculate(prisma, tableId, recordData, fkOpMap);
+      if (calculateResult) {
+        const { changes, fieldMap, tableId2DbTableName } = calculateResult;
+        Object.assign(allTableId2DbTableName, tableId2DbTableName);
+        Object.assign(allFieldMap, fieldMap);
+        cellChanges.push(...changes);
+      }
+    }
+
+    return {
+      cellChanges,
+      fieldMap: allFieldMap,
+      tableId2DbTableName: allTableId2DbTableName,
+    };
+  }
+
+  // for lookup field, cellValues should be flat and filter
+  private flatOriginLookup(lookupValues: unknown[] | unknown) {
     if (Array.isArray(lookupValues)) {
-      const filtered = lookupValues.flat().filter((value) => value != null);
-      return filtered.length ? filtered : null;
+      const flatten = lookupValues.flat().filter((value) => value != null);
+      return flatten.length ? flatten : null;
     }
     return lookupValues;
   }
 
-  protected calculateComputeField(
+  // for computed field, inner array cellValues should be join to string
+  private joinOriginLookup(lookupField: IFieldInstance, lookupValues: unknown[] | unknown) {
+    if (Array.isArray(lookupValues)) {
+      const flatten = lookupValues.map((value) => {
+        if (Array.isArray(value)) {
+          return lookupField.cellValue2String(value);
+        }
+        return value;
+      });
+      return flatten.length ? flatten : null;
+    }
+    return lookupValues;
+  }
+
+  private calculateComputeField(
     field: IFieldInstance,
     fieldMap: IFieldMap,
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkRecordMap: IFkOpMap
   ) {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.lookupOptions) {
       if (!recordItem.dependencies) {
-        throw new Error(`Dependency should not be undefined when contains a computed field`);
+        throw new Error(
+          `Dependency should not be undefined when contains a link/lookup/rollup field`
+        );
       }
       const lookupFieldId = field.lookupOptions
         ? field.lookupOptions.lookupFieldId
@@ -426,13 +558,19 @@ export class ReferenceService {
       );
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      // console.log('calculateLookup:lookupValues', lookupValues);
+      // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
 
       if (field.isLookup) {
         return this.flatOriginLookup(lookupValues);
       }
 
-      return this.calculateRollup(field, relationship, lookupField, record, lookupValues);
+      return this.calculateRollup(
+        field,
+        relationship,
+        lookupField,
+        record,
+        this.joinOriginLookup(lookupField, lookupValues)
+      );
     }
 
     if (field.type === FieldType.Formula) {
@@ -442,11 +580,9 @@ export class ReferenceService {
     throw new Error(`Unsupported field type ${field.type}`);
   }
 
-  protected calculateFormula(field: IFieldInstance, fieldMap: IFieldMap, recordItem: IRecordItem) {
-    if (field.type === FieldType.Formula) {
-      const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
-      return typedValue.toPlain();
-    }
+  private calculateFormula(field: FormulaFieldDto, fieldMap: IFieldMap, recordItem: IRecordItem) {
+    const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
+    return typedValue.toPlain();
   }
 
   /**
@@ -454,13 +590,13 @@ export class ReferenceService {
    * because fkField is delete after calculation.
    * checkout calculateOpsMap for detail logic.
    */
-  protected calculateLookup(
+  private calculateLookup(
     field: IFieldInstance,
     lookupField: IFieldInstance,
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordTableMap: IFkRecordMapByDbTableName
+    fkRecordTableMap: IFkOpMap
   ) {
     const fieldId = lookupField.id;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -485,14 +621,14 @@ export class ReferenceService {
     if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
       return null;
     }
-    return dependencies.fields[fieldId] || null;
+    return dependencies.fields[fieldId] ?? null;
   }
 
-  protected calculateRollup(
+  private calculateRollup(
     field: IFieldInstance,
     relationship: Relationship,
     lookupField: IFieldInstance,
-    record: IRecord,
+    record: ITinyRecord,
     lookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
@@ -536,10 +672,7 @@ export class ReferenceService {
     }
   }
 
-  protected async updateForeignKey(
-    prisma: Prisma.TransactionClient,
-    fkRecordMap: IFkRecordMapByDbTableName
-  ) {
+  private async updateForeignKey(prisma: Prisma.TransactionClient, fkRecordMap: IFkOpMap) {
     for (const dbTableName in fkRecordMap) {
       for (const recordId in fkRecordMap[dbTableName]) {
         const updateParam = fkRecordMap[dbTableName][recordId];
@@ -554,35 +687,7 @@ export class ReferenceService {
     }
   }
 
-  protected changeToOp(change: ICellChange) {
-    const { fieldId, oldValue, newValue } = change;
-    return RecordOpBuilder.editor.setRecord.build({
-      fieldId,
-      oldCellValue: oldValue,
-      newCellValue: newValue,
-    });
-  }
-
-  formatChangesToOps(changes: ICellChange[]) {
-    return changes.reduce<{
-      [tableId: string]: { [recordId: string]: IOtOperation[] };
-    }>((pre, cur) => {
-      const { tableId: curTableId, recordId: curRecordId } = cur;
-      const op = this.changeToOp(cur);
-
-      if (!pre[curTableId]) {
-        pre[curTableId] = {};
-      }
-      if (!pre[curTableId][curRecordId]) {
-        pre[curTableId][curRecordId] = [];
-      }
-      pre[curTableId][curRecordId].push(op);
-
-      return pre;
-    }, {});
-  }
-
-  protected async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
+  async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
     const fieldRaws = await prisma.field.findMany({
       where: { id: { in: allFieldIds }, deletedTime: null },
     });
@@ -642,12 +747,12 @@ export class ReferenceService {
     };
   }
 
-  protected collectChanges(
+  collectChanges(
     orders: ITopoItemWithRecords[],
     fieldMap: IFieldMap,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkRecordMapByDbTableName
+    fkRecordMap: IFkOpMap
   ) {
     // detail changes
     const changes: ICellChange[] = [];
@@ -685,9 +790,9 @@ export class ReferenceService {
     return changes;
   }
 
-  protected recordRaw2Record(
+  private recordRaw2Record(
     fields: IFieldInstance[],
-    raw: { [dbFieldName: string]: unknown } & IVisualTableDefaultField
+    raw: { [dbFieldName: string]: unknown } & { __id: string }
   ) {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
@@ -697,15 +802,11 @@ export class ReferenceService {
     return {
       fields: fieldsData,
       id: raw.__id,
-      createdTime: raw.__created_time?.toISOString(),
-      lastModifiedTime: raw.__last_modified_time?.toISOString(),
-      createdBy: raw.__created_by,
-      lastModifiedBy: raw.__last_modified_by,
       recordOrder: {},
     };
   }
 
-  protected getLinkOrderFromTopoOrders(params: {
+  getLinkOrderFromTopoOrders(params: {
     fieldId2TableId: { [fieldId: string]: string };
     tableId2DbTableName: { [tableId: string]: string };
     topoOrders: ITopoItem[];
@@ -747,7 +848,7 @@ export class ReferenceService {
     return newOrder;
   }
 
-  protected async getRecordsBatch(
+  async getRecordsBatch(
     prisma: Prisma.TransactionClient,
     params: {
       originRecordItems: {
@@ -804,18 +905,18 @@ export class ReferenceService {
     return formattedResults;
   }
 
-  protected getOneManyDependencies(params: {
+  private getOneManyDependencies(params: {
     linkFieldId: string;
-    record: IRecord;
-    foreignTableRecords: IRecord[];
+    record: ITinyRecord;
+    foreignTableRecords: ITinyRecord[];
     dependentRecordItems: IRecordRefItem[];
-  }): IRecord[] {
+  }): ITinyRecord[] {
     const { linkFieldId, dependentRecordItems, record, foreignTableRecords } = params;
-
+    const foreignTableRecordsIndexed = keyBy(foreignTableRecords, 'id');
     return dependentRecordItems
       .filter((item) => item.relationTo === record.id && item.fieldId === linkFieldId)
       .map((item) => {
-        const record = foreignTableRecords.find((r) => r.id === item.id);
+        const record = foreignTableRecordsIndexed[item.id];
         if (!record) {
           throw new Error('Can not find link record');
         }
@@ -823,11 +924,11 @@ export class ReferenceService {
       });
   }
 
-  protected getMany2OneDependency(params: {
-    record: IRecord;
-    foreignTableRecords: IRecord[];
+  private getMany2OneDependency(params: {
+    record: ITinyRecord;
+    foreignTableRecords: ITinyRecord[];
     affectedRecordItems: IRecordRefItem[];
-  }): IRecord {
+  }): ITinyRecord {
     const { record, affectedRecordItems, foreignTableRecords } = params;
     const linkRecordRef = affectedRecordItems
       .filter((item) => item.relationTo)
@@ -843,11 +944,11 @@ export class ReferenceService {
     return linkRecord;
   }
 
-  protected getDependencyRecordItems(params: {
+  private getDependencyRecordItems(params: {
     linkFieldId: string;
     relationship: Relationship;
-    records: IRecord[];
-    foreignTableRecords: IRecord[];
+    records: ITinyRecord[];
+    foreignTableRecords: ITinyRecord[];
     affectedRecordItems: IRecordRefItem[];
     dependentRecordItems: IRecordRefItem[];
   }) {
@@ -877,15 +978,19 @@ export class ReferenceService {
       }
       throw new Error('Unsupported relationship');
     });
-    return records.map((record, i) => ({ record, dependencies: dependenciesArr[i] }));
+    return records
+      .map((record, i) => ({ record, dependencies: dependenciesArr[i] }))
+      .filter((item) =>
+        Array.isArray(item.dependencies) ? item.dependencies.length : item.dependencies
+      );
   }
 
-  protected createTopoItemWithRecords(params: {
+  createTopoItemWithRecords(params: {
     topoOrders: ITopoItem[];
     tableId2DbTableName: { [tableId: string]: string };
     fieldId2TableId: { [fieldId: string]: string };
     fieldMap: IFieldMap;
-    dbTableName2records: { [tableName: string]: IRecord[] };
+    dbTableName2records: { [tableName: string]: ITinyRecord[] };
     affectedRecordItems: IRecordRefItem[];
     dependentRecordItems: IRecordRefItem[];
   }): ITopoItemWithRecords[] {
@@ -900,7 +1005,7 @@ export class ReferenceService {
     } = params;
     const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
     const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
-    return topoOrders.map((order) => {
+    return topoOrders.reduce<ITopoItemWithRecords[]>((pre, order) => {
       const field = fieldMap[order.id];
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
@@ -932,32 +1037,41 @@ export class ReferenceService {
 
       // update cross table dependency (from lookup or link field)
       if (field.lookupOptions) {
+        if (
+          !affectedRecordItems?.find((item) => item.fieldId === field.lookupOptions?.linkFieldId)
+        ) {
+          return pre;
+        }
         const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
-        return appendRecordItems(foreignTableId, linkFieldId, relationship);
+        pre.push(appendRecordItems(foreignTableId, linkFieldId, relationship));
+        return pre;
       }
 
       if (field.type === FieldType.Link) {
+        if (!affectedRecordItems?.find((item) => item.fieldId === field.id)) {
+          return pre;
+        }
         const { foreignTableId, relationship } = field.options;
-        return appendRecordItems(foreignTableId, field.id, relationship);
+        pre.push(appendRecordItems(foreignTableId, field.id, relationship));
+        return pre;
       }
 
-      return {
+      pre.push({
         ...order,
         recordItems: records.map((record) => ({ record })),
-      };
-    });
+      });
+      return pre;
+    }, []);
   }
 
-  protected formatRecordQueryResult(
+  formatRecordQueryResult(
     formattedResults: {
       [tableName: string]: { [dbFiendName: string]: unknown }[];
     },
     dbTableName2fields: { [tableId: string]: IFieldInstance[] }
-  ): {
-    [dbTableName: string]: IRecord[];
-  } {
+  ) {
     return Object.entries(formattedResults).reduce<{
-      [dbTableName: string]: IRecord[];
+      [dbTableName: string]: ITinyRecord[];
     }>((acc, e) => {
       const [dbTableName, recordMap] = e;
       const fields = dbTableName2fields[dbTableName];
@@ -970,57 +1084,71 @@ export class ReferenceService {
   }
 
   // use modified record data to cover the record data from db
-  protected coverRecordData(
+  private coverRecordData(
     newRecordData: { id: string; dbTableName: string; fieldId: string; newValue?: unknown }[],
-    allRecordByDbTableName: { [tableName: string]: IRecord[] }
+    allRecordByDbTableName: { [tableName: string]: ITinyRecord[] }
   ) {
     newRecordData.forEach((cover) => {
       const records = allRecordByDbTableName[cover.dbTableName];
       const record = records.find((r) => r.id === cover.id);
       if (!record) {
-        throw new Error('Can not find record in DB');
+        throw new Error(`Can not find record: ${cover.id} in DB`);
       }
       record.fields[cover.fieldId] = cover.newValue;
     });
   }
 
-  protected getTopologicalOrder(
+  /**
+   * Generate a topological order based on the starting node ID.
+   *
+   * @param startNodeId - The ID to start the search from.
+   * @param graph - The input graph.
+   * @returns An array of ITopoItem representing the topological order.
+   */
+  private getTopologicalOrder(
     startNodeId: string,
     graph: { toFieldId: string; fromFieldId: string }[]
   ): ITopoItem[] {
     const visitedNodes = new Set<string>();
     const sortedNodes: ITopoItem[] = [];
 
+    // Build adjacency list and reverse adjacency list
+    const adjList: Record<string, string[]> = {};
+    const reverseAdjList: Record<string, string[]> = {};
+    for (const edge of graph) {
+      if (!adjList[edge.fromFieldId]) adjList[edge.fromFieldId] = [];
+      adjList[edge.fromFieldId].push(edge.toFieldId);
+
+      if (!reverseAdjList[edge.toFieldId]) reverseAdjList[edge.toFieldId] = [];
+      reverseAdjList[edge.toFieldId].push(edge.fromFieldId);
+    }
+
     function visit(node: string) {
       if (!visitedNodes.has(node)) {
         visitedNodes.add(node);
 
-        const incomingEdges = graph.filter((edge) => edge.toFieldId === node);
-        const outgoingEdges = graph.filter((edge) => edge.fromFieldId === node);
-        const dependencies: string[] = [];
+        // Get incoming edges (dependencies)
+        const dependencies = reverseAdjList[node] || [];
 
-        for (const edge of incomingEdges) {
-          dependencies.push(edge.fromFieldId);
+        // Process outgoing edges
+        if (adjList[node]) {
+          for (const neighbor of adjList[node]) {
+            visit(neighbor);
+          }
         }
 
-        for (const edge of outgoingEdges) {
-          visit(edge.toFieldId);
-        }
-
-        sortedNodes.push({ id: node, dependencies: uniq(dependencies) });
+        sortedNodes.push({ id: node, dependencies: dependencies });
       }
     }
 
     visit(startNodeId);
-
-    // sortedNodes.pop();
     return sortedNodes.reverse();
   }
 
-  protected async getDependentNodesCTE(
+  async getDependentNodesCTE(
     prisma: Prisma.TransactionClient,
     startFieldIds: string[]
-  ): Promise<IUndirectedTopoItem[]> {
+  ): Promise<IGraphItem[]> {
     let result: { fromFieldId: string; toFieldId: string }[] = [];
     const getResult = async (startFieldId: string) => {
       const dependentNodesQuery = Prisma.sql`
@@ -1050,36 +1178,10 @@ export class ReferenceService {
       );
     }
 
-    return result;
+    return this.filterDirectedGraph(result, startFieldIds);
   }
 
-  /**
-   * when update multi field in a record, there may be duplicate change.
-   * see this case, A and B update at the same time
-   * A -> C -> E
-   * A -> D -> E
-   * B -> D -> E
-   * D will be calculated twice
-   * E will be calculated twice
-   * so we need to merge duplicate change to reduce update times
-   */
-  protected mergeDuplicateChange(changes: ICellChange[]) {
-    const indexCache: { [key: string]: number } = {};
-    const mergedChanges: ICellChange[] = [];
-
-    for (const change of changes) {
-      const key = `${change.tableId}#${change.fieldId}#${change.recordId}`;
-      if (indexCache[key] !== undefined) {
-        mergedChanges[indexCache[key]].newValue = change.newValue;
-      } else {
-        indexCache[key] = mergedChanges.length;
-        mergedChanges.push(change);
-      }
-    }
-    return mergedChanges;
-  }
-
-  protected mergeDuplicateRecordData(recordData: IRecordData[]) {
+  private mergeDuplicateRecordData(recordData: IRecordData[]) {
     const indexCache: { [key: string]: number } = {};
     const mergedChanges: IRecordData[] = [];
 
@@ -1100,7 +1202,7 @@ export class ReferenceService {
    * example: C = A + B
    * A changed, C will be affected and B is the dependent record
    */
-  protected async getDependentRecordItems(
+  async getDependentRecordItems(
     prisma: Prisma.TransactionClient,
     recordItems: IRecordRefItem[]
   ): Promise<IRecordRefItem[]> {
@@ -1134,7 +1236,7 @@ export class ReferenceService {
     return await prisma.$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  protected async getAffectedRecordItems(
+  async getAffectedRecordItems(
     prisma: Prisma.TransactionClient,
     topoOrder: ITopoLinkOrder[],
     originRecordIdItems: { dbTableName: string; id: string }[]
@@ -1208,7 +1310,7 @@ export class ReferenceService {
       }));
   }
 
-  protected flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {
+  flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {
     const allNodes = new Set<string>();
     for (const edge of graph) {
       allNodes.add(edge.fromFieldId);

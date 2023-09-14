@@ -1,6 +1,6 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import type { ICreateTableRo, IFieldRo } from '@teable-group/core';
+import type { ICreateTableRo, IFieldRo, IFieldVo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { FieldSupplementService } from '../../field/field-supplement.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../constant';
@@ -15,8 +15,8 @@ export class TablePipe implements PipeTransform {
   async prepareDefaultRo(tableRo: ICreateTableRo): Promise<ICreateTableRo> {
     const fieldRos = tableRo.fields ? tableRo.fields : DEFAULT_FIELDS;
     // make sure first field to be the primary field;
-    fieldRos[0].isPrimary = true;
-    const fields: IFieldRo[] = [];
+    (fieldRos[0] as IFieldVo).isPrimary = true;
+    const fields: IFieldVo[] = [];
     const simpleFields: IFieldRo[] = [];
     const computeFields: IFieldRo[] = [];
     fieldRos.forEach((field) => {
@@ -28,15 +28,15 @@ export class TablePipe implements PipeTransform {
     });
 
     for (const fieldRo of simpleFields) {
-      fields.push(await this.fieldSupplementService.prepareField(fieldRo));
+      fields.push(await this.fieldSupplementService.prepareCreateField(fieldRo));
     }
 
     const allFieldRos = simpleFields.concat(computeFields);
     for (const fieldRo of computeFields) {
       fields.push(
-        await this.fieldSupplementService.prepareField(
+        await this.fieldSupplementService.prepareCreateField(
           fieldRo,
-          allFieldRos.filter((ro) => ro !== fieldRo)
+          allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
         )
       );
     }

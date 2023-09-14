@@ -1,42 +1,81 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
-import { StatisticsFunc } from '../view';
+import { z } from '../../zod';
+import { StatisticsFunc } from './statistics-func.enum';
 
 export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
 
-export const aggregationsValueSchema = z.object({
+export const rawAggregationsValueSchema = z.object({
   value: z.union([z.string(), z.number()]).nullable(),
   aggFunc: aggFuncSchema,
 });
 
-export type IAggregationsValue = z.infer<typeof aggregationsValueSchema>;
+export type IRawAggregationsValue = z.infer<typeof rawAggregationsValueSchema>;
 
-export const aggregationsSchema = z.record(
-  z.string().startsWith(IdPrefix.Field),
-  z
-    .union([
-      z.object({ total: aggregationsValueSchema }).openapi({
-        description: 'Aggregations by all data in field',
-      }),
-      z.record(z.union([z.literal('total'), z.string()]), aggregationsValueSchema).openapi({
-        description: 'Aggregations by grouped data in field',
-      }),
-    ])
-    .nullable()
-);
+export const rawAggregationsSchema = z
+  .object({
+    fieldId: z.string().startsWith(IdPrefix.Field).openapi({
+      description: 'The id of the field.',
+    }),
+    total: rawAggregationsValueSchema.nullable().openapi({
+      description: 'Aggregations by all data in field',
+    }),
+    group: z.record(z.string(), rawAggregationsValueSchema).optional().nullable().openapi({
+      description: 'Aggregations by grouped data in field',
+    }),
+  })
+  .array();
 
-export type IAggregations = z.infer<typeof aggregationsSchema>;
-export const viewAggregationValueSchema = z.object({
+export type IRawAggregations = z.infer<typeof rawAggregationsSchema>;
+
+const baseRawAggregationValueSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View),
   executionTime: z.number(),
-  aggregations: aggregationsSchema,
+  aggregations: rawAggregationsSchema,
+  rowCount: z.number(),
 });
 
-export type IViewAggregationValue = z.infer<typeof viewAggregationValueSchema>;
+export const rawAggregationValueSchema = baseRawAggregationValueSchema.omit({
+  rowCount: true,
+});
 
-export const viewAggregationSchema = z.record(
+export type IRawAggregationValue = z.infer<typeof rawAggregationValueSchema>;
+
+export const rawAggregationSchema = z.record(
   z.string().startsWith(IdPrefix.View),
-  viewAggregationValueSchema
+  rawAggregationValueSchema
 );
 
+export type IRawAggregationVo = z.infer<typeof rawAggregationSchema>;
+
+export type IAggregations = z.infer<typeof rawAggregationsSchema>;
+export const viewAggregationSchema = z.object({
+  viewId: z.string().startsWith(IdPrefix.View),
+  aggregations: rawAggregationsSchema,
+});
+
 export type IViewAggregationVo = z.infer<typeof viewAggregationSchema>;
+
+export const rawRowCountValueSchema = baseRawAggregationValueSchema.omit({
+  aggregations: true,
+});
+
+export type IRawRowCountValue = z.infer<typeof rawRowCountValueSchema>;
+
+export const rawRowCountSchema = z.record(
+  z.string().startsWith(IdPrefix.View),
+  rawRowCountValueSchema
+);
+
+export type IRawRowCountVo = z.infer<typeof rawRowCountSchema>;
+
+export const viewRowCountSchema = z.object({
+  rowCount: z.number(),
+});
+
+export type IViewRowCountVo = z.infer<typeof viewRowCountSchema>;
+
+export const viewAggregationRo = z.object({
+  field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
+});
+
+export type IViewAggregationRo = z.infer<typeof viewAggregationRo>;

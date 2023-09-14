@@ -12,13 +12,7 @@ export enum OpName {
   AddColumnMeta = 'addColumnMeta',
   SetColumnMeta = 'setColumnMeta',
   DeleteColumnMeta = 'deleteColumnMeta',
-  SetFieldName = 'setFieldName',
-  SetFieldHasError = 'setFieldHasError',
-  SetFieldDescription = 'setFieldDescription',
-  SetFieldOptions = 'setFieldOptions',
-  SetFieldNotNull = 'setFieldNotNull',
-  SetFieldUnique = 'setFieldUnique',
-  SetFieldType = 'setFieldType',
+  SetFieldProperty = 'setFieldProperty',
 
   AddView = 'addView',
   SetViewName = 'setViewName',
@@ -28,13 +22,7 @@ export enum OpName {
 }
 
 export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {
-  const passIndex = matchList.findIndex((i) => i === '*');
-
-  if (passIndex > -1) {
-    if (path.length < passIndex) {
-      return null;
-    }
-  } else if (path.length !== matchList.length) {
+  if (path.length !== matchList.length) {
     return null;
   }
 

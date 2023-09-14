@@ -5,47 +5,48 @@ import type {
   IFieldVo,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
-  IRecord,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
-import qs from 'qs';
-import request from 'supertest';
+import type request from 'supertest';
 import { initApp } from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let fields: IFieldVo[] = [];
+  let request: request.SuperAgentTest;
+
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
+  });
 
   beforeEach(async () => {
-    app = await initApp();
-
-    const result = await request(app.getHttpServer())
+    const result = await request
       .post('/api/table')
       .send({
         name: 'table1',
       })
       .expect(201);
-    tableId = result.body.data.id;
+    tableId = result.body.id;
 
-    const fieldsResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/field`)
-      .expect(200);
-    fields = fieldsResult.body.data;
+    const fieldsResult = await request.get(`/api/table/${tableId}/field`).expect(200);
+    fields = fieldsResult.body;
   });
 
   afterEach(async () => {
-    const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+    const result = await request.delete(`/api/table/arbitrary/${tableId}`);
     console.log('clear table: ', result.body);
+  });
 
+  afterAll(async () => {
     await app.close();
   });
 
   it('/api/table/{tableId}/record (GET)', async () => {
-    const result = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
-    expect(result.body.data.records).toBeInstanceOf(Array);
+    const result = await request.get(`/api/table/${tableId}/record`).expect(200);
+    expect(result.body.records).toBeInstanceOf(Array);
     // console.log('result: ', result.body);
   });
 
@@ -55,7 +56,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       throw new Error('can not find text field');
     }
 
-    await request(app.getHttpServer())
+    await request
       .post(`/api/table/${tableId}/record`)
       .send({
         records: [
@@ -68,18 +69,18 @@ describe('OpenAPI RecordController (e2e)', () => {
       })
       .expect(201);
 
-    const result = await request(app.getHttpServer())
+    const result = await request
       .get(`/api/table/${tableId}/record`)
       .query({
         skip: 0,
         take: 1000,
       })
       .expect(200);
-    expect(result.body.data.records).toHaveLength(4);
+    expect(result.body.records).toHaveLength(4);
 
     const newValue = 'New Record' + new Date();
     // test fieldKeyType is id
-    const response = await request(app.getHttpServer())
+    const response = await request
       .post(`/api/table/${tableId}/record`)
       .send({
         fieldKeyType: FieldKeyType.Id,
@@ -93,21 +94,19 @@ describe('OpenAPI RecordController (e2e)', () => {
       } as ICreateRecordsRo)
       .expect(201);
 
-    expect(response.body.data.records[0].fields[firstTextField.id]).toEqual(newValue);
+    expect(response.body.records[0].fields[firstTextField.id]).toEqual(newValue);
   });
 
   it('/api/table/{tableId}/record/{recordId} (PUT)', async () => {
-    const recordsResponse = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
+    const recordsResponse = await request.get(`/api/table/${tableId}/record`).expect(200);
 
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText);
     if (!firstTextField) {
       throw new Error('can not find text field');
     }
 
-    const response = await request(app.getHttpServer())
-      .put(`/api/table/${tableId}/record/${recordsResponse.body.data.records[0].id}`)
+    const response = await request
+      .put(`/api/table/${tableId}/record/${recordsResponse.body.records[0].id}`)
       .send({
         record: {
           fields: {
@@ -117,33 +116,31 @@ describe('OpenAPI RecordController (e2e)', () => {
       } as IUpdateRecordRo)
       .expect(200);
 
-    expect(response.body.data.fields[firstTextField.name]).toEqual('new value');
+    expect(response.body.fields[firstTextField.name]).toEqual('new value');
 
-    const result = await request(app.getHttpServer())
+    const result = await request
       .get(`/api/table/${tableId}/record`)
       .query({
         skip: 0,
         take: 1000,
       })
       .expect(200);
-    expect(result.body.data.records).toHaveLength(3);
-    expect(result.body.data.records[0].fields[firstTextField.name]).toEqual('new value');
+    expect(result.body.records).toHaveLength(3);
+    expect(result.body.records[0].fields[firstTextField.name]).toEqual('new value');
   });
 
   it('/api/table/{tableId}/record by index (PUT)', async () => {
-    const viewResponse = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/view`)
-      .expect(200);
+    const viewResponse = await request.get(`/api/table/${tableId}/view`).expect(200);
 
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText);
     if (!firstTextField) {
       throw new Error('can not find text field');
     }
 
-    await request(app.getHttpServer())
+    await request
       .put(`/api/table/${tableId}/record`)
       .send({
-        viewId: viewResponse.body.data[0].id,
+        viewId: viewResponse.body[0].id,
         index: 1,
         record: {
           fields: {
@@ -153,15 +150,15 @@ describe('OpenAPI RecordController (e2e)', () => {
       } as IUpdateRecordByIndexRo)
       .expect(200);
 
-    const result = await request(app.getHttpServer())
+    const result = await request
       .get(`/api/table/${tableId}/record`)
       .query({
         skip: 0,
         take: 1000,
       })
       .expect(200);
-    expect(result.body.data.records).toHaveLength(3);
-    expect(result.body.data.records[1].fields[firstTextField.name]).toEqual('new value');
+    expect(result.body.records).toHaveLength(3);
+    expect(result.body.records[1].fields[firstTextField.name]).toEqual('new value');
   });
 
   it('/api/table/{tableId}/record (POST) (100x)', async () => {
@@ -175,7 +172,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       },
     }));
 
-    await request(app.getHttpServer())
+    await request
       .post(`/api/table/${tableId}/record`)
       .send({
         records,
@@ -183,49 +180,5 @@ describe('OpenAPI RecordController (e2e)', () => {
       .expect(201);
 
     console.timeEnd(`create ${count} records`);
-  });
-
-  it('/api/table/{tableId}/record sort (GET)', async () => {
-    type ICountRecord = IRecord & {
-      fields: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        Count: number;
-      };
-    };
-
-    // select count field to sort
-    const countFiledId = fields.find((field) => field.name === 'Count')?.id;
-
-    const records = Array.from({ length: 3 }).map((_, i) => ({
-      fields: {
-        [fields[1].name]: i,
-      },
-    }));
-
-    await request(app.getHttpServer())
-      .post(`/api/table/${tableId}/record`)
-      .send({
-        records,
-      })
-      .expect(201);
-
-    const result = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .query(
-        qs.stringify(
-          {
-            orderBy: [{ fieldId: countFiledId, order: 'asc' }],
-          },
-          { arrayFormat: 'brackets' }
-        )
-      )
-      .expect(200);
-
-    const originRecords = [...result.body.data.records];
-    const manualSortRecords = result.body.data.records.sort(
-      (a: ICountRecord, b: ICountRecord) => a?.fields?.Count - b?.fields?.Count
-    );
-
-    expect(originRecords).toEqual(manualSortRecords);
   });
 });

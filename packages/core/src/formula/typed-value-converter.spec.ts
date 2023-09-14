@@ -35,6 +35,17 @@ describe('TypedValueConverter', () => {
   });
 
   // Test convertTypedValue method
+  it('should not convert null', () => {
+    const strValue = new TypedValue(null, CellValueType.Number, true);
+    const converted = typedValueConverter.convertTypedValue(strValue, {
+      name: 'testFunc',
+      acceptValueType: new Set([CellValueType.String]),
+      acceptMultipleValue: true,
+    } as any);
+    expect(converted.type).toBe(CellValueType.String);
+    expect(converted.value).toBe(null);
+  });
+
   it('should not convert if function accepts input type', () => {
     const strValue = new TypedValue('test', CellValueType.String);
     const converted = typedValueConverter.convertTypedValue(strValue, funcAcceptString);

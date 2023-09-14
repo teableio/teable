@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { PrismaService } from '../../prisma.service';
+import { PrismaModule } from '@teable-group/db-main-prisma';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldService } from './field.service';
 
 @Module({
-  providers: [FieldService, FieldSupplementService, PrismaService, AttachmentsTableService],
-  exports: [FieldService, FieldSupplementService, PrismaService],
+  imports: [PrismaModule],
+  providers: [FieldService, FieldSupplementService, AttachmentsTableService],
+  exports: [FieldService, FieldSupplementService],
 })
 export class FieldModule {}

@@ -253,7 +253,6 @@ describe('FormulaFieldCore', () => {
               fields: {
                 fld123: 1,
               },
-              recordOrder: {},
             }
           )
           .toPlain()

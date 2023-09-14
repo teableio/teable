@@ -6,11 +6,11 @@ import { SingleSelectOptionsDto } from './single-select-field.dto';
 export const MultipleSelectOptionsDto = SingleSelectOptionsDto;
 
 export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements IFieldBase {
-  convertCellValue2DBValue(value: unknown): unknown {
-    return value == null ? value : JSON.stringify(value);
+  convertCellValue2DBValue(value: unknown): string | null {
+    return value == null ? null : JSON.stringify(value);
   }
 
-  convertDBValue2CellValue(value: string): unknown {
+  convertDBValue2CellValue(value: string): string[] {
     return value == null ? value : JSON.parse(value);
   }
 }

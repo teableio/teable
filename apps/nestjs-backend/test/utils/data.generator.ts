@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { cloneDeep } from 'lodash';
-import request from 'supertest';
+import type request from 'supertest';
 import { FIELD_MOCK_DATA } from './field-mock';
 import { initApp } from './init-app';
 
@@ -12,15 +12,22 @@ describe('Performance test data generator', () => {
   let app: INestApplication;
   let tableId = '';
   let fields: IFieldVo[] = [];
+  let request: request.SuperAgentTest;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
 
-    const result = await request(app.getHttpServer()).post('/api/table').send({
+    const result = await request.post('/api/table').send({
       name: 'table1',
     });
-    tableId = result.body.data.id;
+    tableId = result.body.id;
     console.log('createTable', result.body);
+  });
+
+  afterAll(() => {
+    app.close();
   });
 
   function addRecords(count: number) {
@@ -42,7 +49,7 @@ describe('Performance test data generator', () => {
       return { fields: value };
     });
 
-    return request(app.getHttpServer()).post(`/api/table/${tableId}/record`).send({
+    return request.post(`/api/table/${tableId}/record`).send({
       fieldKeyType: FieldKeyType.Id,
       records,
     });
@@ -57,16 +64,11 @@ describe('Performance test data generator', () => {
       const fieldRo: IFieldRo = cloneDeep(FIELD_MOCK_DATA[i % 3]);
       fieldRo.name = 'field' + i;
 
-      await request(app.getHttpServer())
-        .post(`/api/table/${tableId}/field`)
-        .send(fieldRo)
-        .expect(201);
+      await request.post(`/api/table/${tableId}/field`).send(fieldRo).expect(201);
     }
 
-    const fieldsResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/field`)
-      .expect(200);
-    fields = fieldsResult.body.data;
+    const fieldsResult = await request.get(`/api/table/${tableId}/field`).expect(200);
+    fields = fieldsResult.body;
 
     // await addRecords(1).expect(201).expect({});
 

@@ -1,7 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { SelectionSchema } from '@teable-group/openapi';
-import type { ApiResponse } from '../../utils';
-import { responseWrap } from '../../utils';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { SelectionService } from './selection.service';
 
@@ -14,9 +12,8 @@ export class SelectionController {
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Query(new ZodValidationPipe(SelectionSchema.copyRoSchema)) query: SelectionSchema.CopyRo
-  ): Promise<ApiResponse<SelectionSchema.CopyVo>> {
-    const res = await this.selectionService.copy(tableId, viewId, query);
-    return responseWrap(res);
+  ): Promise<SelectionSchema.CopyVo> {
+    return await this.selectionService.copy(tableId, viewId, query);
   }
 
   @Post('/paste')
@@ -25,9 +22,9 @@ export class SelectionController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(SelectionSchema.pasteRoSchema))
     pasteRo: SelectionSchema.PasteRo
-  ): Promise<ApiResponse<SelectionSchema.PasteVo>> {
+  ): Promise<SelectionSchema.PasteVo> {
     const ranges = await this.selectionService.paste(tableId, viewId, pasteRo);
-    return responseWrap({ ranges });
+    return { ranges };
   }
 
   @Post('/clear')
@@ -38,6 +35,6 @@ export class SelectionController {
     clearRo: SelectionSchema.ClearRo
   ) {
     await this.selectionService.clear(tableId, viewId, clearRo);
-    return responseWrap(null);
+    return null;
   }
 }

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../zod';
 
 export const uploadFileRoSchema = z.object({
   file: z.string().openapi({ format: 'binary' }),

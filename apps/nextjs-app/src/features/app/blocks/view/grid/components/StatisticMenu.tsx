@@ -1,3 +1,4 @@
+import { getValidStatisticFunc, NoneFunc, statisticFunc2NameMap } from '@teable-group/core';
 import type { StatisticsFunc } from '@teable-group/core';
 import { useField, useViewId } from '@teable-group/sdk/hooks';
 import {
@@ -12,7 +13,6 @@ import {
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { useGridViewStore } from '../store/gridView';
-import { getValidStatisticFunc } from '../utils';
 
 export const StatisticMenu = () => {
   const activeViewId = useViewId();
@@ -35,15 +35,12 @@ export const StatisticMenu = () => {
 
   if (fieldId == null) return null;
 
-  const menuItems = getValidStatisticFunc(field);
+  const menuItems = [NoneFunc.None, ...(getValidStatisticFunc(field) || [])];
 
-  const onSelect = (type: string) => {
+  const onSelect = (type: NoneFunc | StatisticsFunc) => {
     closeStatisticMenu();
     activeViewId &&
-      field?.updateColumnStatistic(
-        activeViewId,
-        type === 'None' ? undefined : (type as StatisticsFunc)
-      );
+      field?.updateColumnStatistic(activeViewId, type === NoneFunc.None ? undefined : type);
   };
 
   return (
@@ -55,14 +52,14 @@ export const StatisticMenu = () => {
         <Command ref={fieldStatisticRef} className="shadow-none border-none rounded-none">
           <CommandList>
             <CommandGroup className="p-0" aria-valuetext="name">
-              {menuItems.map(({ type, name }) => (
+              {menuItems.map((type) => (
                 <CommandItem
                   className="p-2 py-1.5 rounded-none text-[13px]"
                   key={type}
-                  value={name}
+                  value={statisticFunc2NameMap[type]}
                   onSelect={() => onSelect(type)}
                 >
-                  {name}
+                  {statisticFunc2NameMap[type]}
                 </CommandItem>
               ))}
             </CommandGroup>

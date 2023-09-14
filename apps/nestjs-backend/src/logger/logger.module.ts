@@ -3,7 +3,6 @@ import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule } from 'nestjs-pino';
-import type { Level as LogLevel } from 'pino';
 import type { ILoggerConfig } from 'src/configs/logger.config';
 import { X_REQUEST_ID } from '../const';
 
@@ -16,6 +15,7 @@ export class TeableLoggerModule {
         return {
           pinoHttp: {
             name: 'teable',
+            autoLogging: process.env.NODE_ENV === 'production',
             level: config.get<ILoggerConfig>('logger')!.level,
             quietReqLogger: true,
             genReqId: (req, res) => {

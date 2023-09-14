@@ -27,8 +27,8 @@ export const GridContent: React.FC = () => {
   return (
     <TabsContent value="overview" className="grow space-y-4 px-8 ">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {aggs.map((agg) => (
-          <Card key={agg?.func}>
+        {aggs.map((agg, index) => (
+          <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {agg?.name}({agg?.func})

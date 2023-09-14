@@ -2,14 +2,20 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord } from '@teable-group/core';
-import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  nullsToUndefined,
+} from '@teable-group/core';
+import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
 import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
-import { PrismaService } from '../../prisma.service';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRo } from '../field/model/factory';
-import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { createFieldInstanceByVo } from '../field/model/factory';
+import { FieldCreatingService } from '../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionModule } from './selection.module';
@@ -21,12 +27,12 @@ describe('selectionService', () => {
   let fieldService: FieldService;
   let prismaService: PrismaService;
   let recordOpenApiService: RecordOpenApiService;
-  let fieldOpenApiService: FieldOpenApiService;
+  let fieldCreatingService: FieldCreatingService;
   let transactionService: TransactionService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [SelectionModule, TeableEventEmitterModule.register()],
+      imports: [SelectionModule, PrismaModule, TeableEventEmitterModule.register()],
     })
       .overrideProvider(PrismaService)
       .useValue({
@@ -41,7 +47,7 @@ describe('selectionService', () => {
     recordService = module.get<RecordService>(RecordService);
     prismaService = module.get<PrismaService>(PrismaService);
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
-    fieldOpenApiService = module.get<FieldOpenApiService>(FieldOpenApiService);
+    fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
     transactionService = module.get<TransactionService>(TransactionService);
   });
 
@@ -131,7 +137,7 @@ describe('selectionService', () => {
         { id: 'record1', fields: {} },
         { id: 'record2', fields: {} },
       ] as IRecord[];
-      jest.spyOn(recordOpenApiService, 'multipleCreateRecords').mockResolvedValueOnce({
+      jest.spyOn(recordOpenApiService, 'createRecords').mockResolvedValueOnce({
         records: expectedRecords,
       });
 
@@ -143,11 +149,11 @@ describe('selectionService', () => {
       });
 
       // Verify the multipleCreateRecords call
-      expect(recordOpenApiService.multipleCreateRecords).toHaveBeenCalledTimes(1);
-      expect(recordOpenApiService.multipleCreateRecords).toHaveBeenCalledWith(
+      expect(recordOpenApiService.createRecords).toHaveBeenCalledTimes(1);
+      expect(recordOpenApiService.createRecords).toHaveBeenCalledWith(
+        transactionKey,
         tableId,
-        { records: Array.from({ length: numRowsToExpand }, () => ({ fields: {} })) },
-        transactionKey
+        Array.from({ length: numRowsToExpand }, () => ({ fields: {} }))
       );
 
       // Verify the result
@@ -166,8 +172,8 @@ describe('selectionService', () => {
       ] as IFieldVo[];
       const numColsToExpand = 2;
       const transactionKey = 'transactionKey';
-      jest.spyOn(fieldOpenApiService, 'createField').mockResolvedValueOnce(header[0]);
-      jest.spyOn(fieldOpenApiService, 'createField').mockResolvedValueOnce(header[1]);
+      jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[0]);
+      jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[1]);
 
       // Perform expanding columns
       const result = await selectionService['expandColumns']({
@@ -179,7 +185,7 @@ describe('selectionService', () => {
       });
 
       // Verify the createField calls
-      expect(fieldOpenApiService.createField).toHaveBeenCalledTimes(2);
+      expect(fieldCreatingService.createField).toHaveBeenCalledTimes(2);
 
       // Verify the result
       expect(result.length).toEqual(2);
@@ -189,7 +195,16 @@ describe('selectionService', () => {
   describe('collectionAttachment', () => {
     it('should return attachments based on tokens', async () => {
       const fields: IFieldInstance[] = [
-        createFieldInstanceByRo({ id: '1', name: 'attachments', type: FieldType.Attachment }),
+        createFieldInstanceByVo({
+          id: '1',
+          name: 'attachments',
+          type: FieldType.Attachment,
+          options: {},
+          dbFieldName: 'attachments',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Json,
+          columnMeta: {},
+        }),
       ];
       const tableData: string[][] = [
         ['file1.png (https://xxx.xxx/token1),file2.png (https://xxx.xxx/token2)'],
@@ -263,10 +278,37 @@ describe('selectionService', () => {
       ];
 
       const fields = [
-        { id: 'field1', name: 'Field 1', type: FieldType.SingleLineText },
-        { id: 'field2', name: 'Field 2', type: FieldType.SingleLineText },
-        { id: 'field3', name: 'Field 3', type: FieldType.SingleLineText },
-      ].map(createFieldInstanceByRo);
+        {
+          id: 'field1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 1',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'field2',
+          name: 'Field 2',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 2',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'field3',
+          name: 'Field 3',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 3',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+      ].map(createFieldInstanceByVo);
 
       const records = [
         { id: 'record1', recordOrder: {}, fields: {} },
@@ -323,10 +365,37 @@ describe('selectionService', () => {
 
       // Mock dependencies
       const mockFields = [
-        { id: 'fieldId1', name: 'Field 1', type: FieldType.SingleLineText },
-        { id: 'fieldId2', name: 'Field 2', type: FieldType.SingleLineText },
-        { id: 'fieldId3', name: 'Field 3', type: FieldType.SingleLineText },
-      ].map(createFieldInstanceByRo);
+        {
+          id: 'fieldId1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 1',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'fieldId2',
+          name: 'Field 2',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 2',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'fieldId3',
+          name: 'Field 3',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 3',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+      ].map(createFieldInstanceByVo);
 
       const pasteRo = {
         cell: [2, 1] as [number, number],
@@ -340,9 +409,27 @@ describe('selectionService', () => {
       ];
 
       const mockNewFields = [
-        { id: 'newFieldId1', name: 'Field 1', type: FieldType.SingleLineText },
-        { id: 'newFieldId2', name: 'Field 2', type: FieldType.SingleLineText },
-      ].map(createFieldInstanceByRo);
+        {
+          id: 'newFieldId1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 1',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'newFieldId2',
+          name: 'Field 2',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 2',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+      ].map(createFieldInstanceByVo);
 
       const mockNewRecords = [
         { id: 'newRecordId1', fields: {} },

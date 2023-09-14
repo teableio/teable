@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { fieldRoSchema, fieldVoSchema } from '../field';
 import { createRecordsRoSchema, fieldKeyTypeRoSchema, recordSchema } from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';
@@ -30,9 +30,6 @@ export const fullTableVoSchema = z
     records: recordSchema.array().openapi({
       description: 'The records of the table.',
     }),
-    total: z.number().openapi({
-      description: 'Total number of records in this query.',
-    }),
     order: z.number().openapi({
       description: 'The order is a floating number, table will sort by it in the folder.',
     }),
@@ -53,7 +50,6 @@ export const tableVoSchema = fullTableVoSchema.partial({
   fields: true,
   views: true,
   records: true,
-  total: true,
 });
 
 export type ITableVo = z.infer<typeof tableVoSchema>;
@@ -61,7 +57,6 @@ export type ITableVo = z.infer<typeof tableVoSchema>;
 export const tableRoSchema = fullTableVoSchema
   .omit({
     id: true,
-    total: true,
     dbTableName: true,
     lastModifiedTime: true,
     defaultViewId: true,
@@ -97,6 +92,14 @@ export const tableRoSchema = fullTableVoSchema
 
 export type ICreateTableRo = z.infer<typeof tableRoSchema>;
 
+export const tablePreparedRoSchema = tableRoSchema.merge(
+  z.object({
+    fields: fieldVoSchema.array().optional(),
+  })
+);
+
+export type ICreateTablePreparedRo = z.infer<typeof tablePreparedRoSchema>;
+
 export type ITableOp = Pick<
   ITableVo,
   'id' | 'name' | 'description' | 'order' | 'icon' | 'lastModifiedTime'
@@ -119,10 +122,46 @@ export const getTableQuerySchema = z.object({
     .pipe(z.boolean())
     .optional()
     .openapi({
-      description:
-        'If true return table content. including fields, views, first 50 records and total count of records.',
+      description: 'If true return table content. including fields, views, first 50 records.',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });
 
 export type IGetTableQuery = z.infer<typeof getTableQuerySchema>;
+
+export const getGraphRoSchema = z.object({
+  cell: z
+    .tuple([z.number(), z.number()])
+    .openapi({ description: 'The cell coord, [colIndex, rowIndex]' }),
+  viewId: z.string().optional().openapi({ description: 'The view id' }),
+});
+
+export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
+
+export interface IGraphNode {
+  [key: string]: unknown;
+  id: string;
+  label?: string;
+  comboId?: string;
+}
+
+export interface IGraphEdge {
+  [key: string]: unknown;
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface IGraphCombo {
+  [key: string]: unknown;
+  id: string;
+  label: string;
+}
+
+export type IGraphVo =
+  | {
+      nodes: IGraphNode[];
+      edges: IGraphEdge[];
+      combos: IGraphCombo[];
+    }
+  | undefined;

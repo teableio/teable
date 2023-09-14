@@ -2,18 +2,12 @@ import type {
   IFilter,
   ISort,
   IViewVo,
-  IJsonApiSuccessResponse,
+  IViewAggregationRo,
+  IViewRowCountVo,
   IViewAggregationVo,
-  StatisticsFunc,
-  IAggregationsValue,
+  IUpdateViewOrderRo,
 } from '@teable-group/core';
-import {
-  FieldKeyType,
-  sortSchema,
-  filterSchema,
-  ViewCore,
-  ViewOpBuilder,
-} from '@teable-group/core';
+import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import { axios } from '../../config/axios';
 
@@ -21,30 +15,28 @@ export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
   static async getViews(tableId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewVo[]>>(
-      `/api/table/${tableId}/view`
-    );
-    return response.data.data;
+    const response = await axios.get<IViewVo[]>(`/table/${tableId}/view`);
+    return response.data;
   }
 
-  static async getViewAggregation(tableId: string, viewId: string) {
-    const response = await axios.get<IJsonApiSuccessResponse<IViewAggregationVo>>(
-      `/api/table/${tableId}/aggregation/${viewId}`
+  static async getViewAggregation(tableId: string, viewId: string, query?: IViewAggregationRo) {
+    const response = await axios.get<IViewAggregationVo>(
+      `/table/${tableId}/aggregation/${viewId}`,
+      { params: query }
     );
-    return response.data.data;
+    return response.data;
   }
 
-  static async getAggregationByFunc(
-    tableId: string,
-    viewId: string,
-    fieldId: string,
-    func: StatisticsFunc
-  ) {
-    const response = await axios.get<IJsonApiSuccessResponse<IAggregationsValue>>(
-      `/api/table/${tableId}/aggregation/${viewId}/${fieldId}/${func}`,
-      { params: { fieldKeyType: FieldKeyType.Id } }
+  static async getViewRowCount(tableId: string, viewId: string) {
+    const response = await axios.get<IViewRowCountVo>(
+      `/table/${tableId}/aggregation/${viewId}/rowCount`
     );
-    return response.data.data;
+    return response.data;
+  }
+
+  static async updateViewRawOrder(tableId: string, viewId: string, viewRo: IUpdateViewOrderRo) {
+    const response = await axios.post(`/table/${tableId}/view/${viewId}/sort`, viewRo);
+    return response.data;
   }
 
   private async submitOperation(operation: unknown): Promise<void> {
@@ -71,6 +63,7 @@ export abstract class View extends ViewCore {
       newFilter: validFilter,
       oldFilter: this.filter,
     });
+
     return await this.submitOperation(viewOperation);
   }
 

@@ -1,3 +1,4 @@
+import type { IHttpError } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
@@ -5,6 +6,7 @@ import { Table } from '@/features/app/blocks/table/Table';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
+import withAuthSSR from '@/lib/withAuthSSR';
 import type { NextPageWithLayout } from '../../_app';
 
 const Node: NextPageWithLayout<ITableProps> = ({
@@ -21,18 +23,32 @@ const Node: NextPageWithLayout<ITableProps> = ({
   );
 };
 
-export const getServerSideProps: GetServerSideProps<IViewPageProps> = async (context) => {
-  const { nodeId, viewId } = context.query;
-  const serverData = await getViewPageServerData(nodeId as string, viewId as string);
-  if (serverData) {
-    return {
-      props: serverData,
-    };
+export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSSR<IViewPageProps>(
+  async (context) => {
+    const { nodeId, viewId } = context.query;
+    try {
+      const serverData = await getViewPageServerData(nodeId as string, viewId as string);
+      if (serverData) {
+        return {
+          props: serverData,
+        };
+      }
+      return {
+        err: '',
+        notFound: true,
+      };
+    } catch (e) {
+      const error = e as IHttpError;
+      if (error.status !== 401) {
+        return {
+          err: '',
+          notFound: true,
+        };
+      }
+      throw error;
+    }
   }
-  return {
-    notFound: true,
-  };
-};
+);
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {
   return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;

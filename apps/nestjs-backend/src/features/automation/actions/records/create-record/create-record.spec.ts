@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { ConsoleLogger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
 import {
@@ -11,6 +10,7 @@ import {
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { TeableConfigModule } from '../../../../../configs/config.module';
 import { TeableEventEmitterModule } from '../../../../../event-emitter/event-emitter.module';
 import { FieldModule } from '../../../../field/field.module';
@@ -25,7 +25,6 @@ import { JsonRulesEngine } from '../../../engine/json-rules-engine';
 import { ActionTypeEnums } from '../../../enums/action-type.enum';
 import type { ICreateRecordSchema } from './create-record';
 
-jest.setTimeout(100000000);
 describe('Create-Record Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
   let tableOpenApiService: TableOpenApiService;
@@ -43,9 +42,13 @@ describe('Create-Record Action Test', () => {
         FieldModule,
         TeableEventEmitterModule.register(),
       ],
-    }).compile();
-
-    moduleRef.useLogger(new ConsoleLogger());
+    })
+      .useMocker((token) => {
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
     tableOpenApiService = await moduleRef.resolve<TableOpenApiService>(TableOpenApiService);
@@ -96,7 +99,7 @@ describe('Create-Record Action Test', () => {
 
     jest
       .spyOn(recordOpenApiService, 'multipleCreateRecords')
-      .mockImplementation((_tableId, _createRecordsRo, _fieldName2IdMap) =>
+      .mockImplementation((_tableId, _createRecordsRo) =>
         Promise.resolve({
           records: [
             {
@@ -118,7 +121,7 @@ describe('Create-Record Action Test', () => {
     const result = await tableOpenApiService.createTable({
       name: 'table1-automation-add',
       views: DEFAULT_VIEWS,
-      fields: DEFAULT_FIELDS,
+      fields: DEFAULT_FIELDS as IFieldVo[],
       records: DEFAULT_RECORD_DATA,
     });
     return result.id;

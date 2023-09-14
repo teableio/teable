@@ -1,6 +1,6 @@
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import type { FieldCore } from '../models/field/field';
-import type { IRecord } from '../models/record/record.schema';
+import type { ITinyRecord } from '../models/record/record.schema';
 import { FormulaErrorListener } from './error.listener';
 import { Formula } from './parser/Formula';
 import { FormulaLexer } from './parser/FormulaLexer';
@@ -10,7 +10,7 @@ import { EvalVisitor } from './visitor';
 export const evaluate = (
   input: string,
   dependFieldMap: { [fieldId: string]: FieldCore },
-  record?: IRecord
+  record?: ITinyRecord
 ): TypedValue => {
   const inputStream = CharStreams.fromString(input);
   const lexer = new FormulaLexer(inputStream);

@@ -113,20 +113,41 @@ export const ColorUtils: IColorUtils = {
  * @returns color string array
  */
 export const randomColor = (exists?: string[], num = 1) => {
-  let colors = Object.values(Colors);
+  const allColors = Object.values(Colors);
+  let availableColors = [...allColors];
+
   if (exists) {
-    colors = colors.filter((color) => !exists.includes(color));
+    availableColors = availableColors.filter((color) => !exists.includes(color));
   }
-  if (num === 1) {
-    const randomIndex = Math.floor(Math.random() * colors.length);
-    return [colors[randomIndex]];
-  } else {
-    const result: string[] = [];
-    for (let i = 0; i < num; i++) {
-      const randomIndex = Math.floor(Math.random() * colors.length);
-      result.push(colors[randomIndex]);
-      colors.splice(randomIndex, 1);
+
+  const result: Colors[] = [];
+  for (let i = 0; i < num; i++) {
+    const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
+    const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
+    result.push(colorsToChooseFrom[randomIndex]);
+
+    if (availableColors.length > 0) {
+      availableColors.splice(randomIndex, 1);
     }
-    return result;
   }
+
+  return result;
+};
+
+// Function to generate a seed from a string
+function getSeed(str: string) {
+  let seed = 0;
+  for (let i = 0; i < str.length; i++) {
+    seed = (seed << 5) - seed + str.charCodeAt(i);
+    seed |= 0; // Convert seed to a 32-bit integer
+  }
+  return Math.abs(seed);
+}
+
+// Function to randomly (but consistently) pick a value from a map based on a string
+export const getRandomColorFromStr = (str: string) => {
+  const seed = getSeed(str);
+  const values = Object.values(Colors);
+  const value = values[seed % values.length];
+  return ColorUtils.getHexForColor(value);
 };

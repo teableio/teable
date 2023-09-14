@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../../utils';
+import { z } from '../../../zod';
 import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';
@@ -55,11 +55,11 @@ export class LinkFieldCore extends FieldCore {
 
   declare isMultipleCellValue?: boolean | undefined;
 
-  cellValue2String(cellValue?: ILinkCellValue | ILinkCellValue[]) {
+  cellValue2String(cellValue?: unknown) {
     if (Array.isArray(cellValue)) {
-      return cellValue.map((v) => v.title || '').join(', ');
+      return cellValue.map((v) => this.item2String(v)).join(', ');
     }
-    return cellValue ? cellValue.title ?? '' : '';
+    return this.item2String(cellValue);
   }
 
   convertStringToCellValue(_value: string): string[] | null {

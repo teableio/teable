@@ -21,7 +21,7 @@ export class CheckboxFieldCore extends FieldCore {
     return {};
   }
 
-  cellValue2String(cellValue: boolean | boolean[] | undefined) {
+  cellValue2String(cellValue?: unknown) {
     if (cellValue == null) {
       return '';
     }
@@ -48,6 +48,10 @@ export class CheckboxFieldCore extends FieldCore {
     }
 
     return value ? true : null;
+  }
+
+  item2String(item?: unknown) {
+    return item ? 'true' : '';
   }
 
   validateOptions() {

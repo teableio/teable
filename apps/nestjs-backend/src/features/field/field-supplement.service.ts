@@ -2,13 +2,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IFieldRo,
+  IFieldVo,
   IFormulaFieldOptions,
   ILinkFieldOptions,
+  ILinkFieldOptionsRo,
+  ILookupOptionsRo,
   ILookupOptionsVo,
-  INumberFieldOptions,
   IRollupFieldOptions,
+  IUpdateFieldRo,
 } from '@teable-group/core';
 import {
+  getFormattingSchema,
+  getShowAsSchema,
+  FIELD_RO_PROPERTIES,
   CellValueType,
   getDefaultFormatting,
   FieldType,
@@ -25,12 +31,15 @@ import {
   CheckboxFieldCore,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
 import { keyBy } from 'lodash';
-import { PrismaService } from '../../prisma.service';
+import type { z } from 'zod';
+import { fromZodError } from 'zod-validation-error';
 import type { ISupplementService } from '../../share-db/interface';
+import { FieldService } from './field.service';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByRaw, createFieldInstanceByRo } from './model/factory';
+import { createFieldInstanceByVo, createFieldInstanceByRaw } from './model/factory';
 import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 import { RollupFieldDto } from './model/field-dto/rollup-field.dto';
@@ -38,7 +47,10 @@ import { RollupFieldDto } from './model/field-dto/rollup-field.dto';
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
   private readonly knex = knex({ client: 'sqlite3' });
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly fieldService: FieldService
+  ) {}
 
   private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
     const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
@@ -64,11 +76,12 @@ export class FieldSupplementService implements ISupplementService {
   }
 
   private async prepareLinkField(field: IFieldRo) {
-    const { relationship, foreignTableId } = field.options as LinkFieldDto['options'];
+    const { relationship, foreignTableId } = field.options as ILinkFieldOptionsRo;
     const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
+
     const fieldId = field.id ?? generateFieldId();
     const symmetricFieldId = generateFieldId();
     let dbForeignKeyName = '';
@@ -78,11 +91,6 @@ export class FieldSupplementService implements ISupplementService {
     if (relationship === Relationship.OneMany) {
       dbForeignKeyName = this.getForeignKeyFieldName(symmetricFieldId);
     }
-
-    const isMultipleCellValue =
-      relationship !== Relationship.ManyOne ||
-      (field.lookupOptions &&
-        (field.lookupOptions as ILookupOptionsVo).relationship !== Relationship.ManyOne);
 
     return {
       ...field,
@@ -95,14 +103,62 @@ export class FieldSupplementService implements ISupplementService {
         dbForeignKeyName,
         symmetricFieldId,
       },
-      isMultipleCellValue,
-      isComputed: field.isLookup,
+      isMultipleCellValue: relationship !== Relationship.ManyOne || undefined,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
     };
   }
 
-  private async prepareLookupOptions(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
+  private async prepareUpdateLinkField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    const newOptions = fieldRo.options as ILinkFieldOptionsRo;
+    const oldOptions = oldFieldVo.options as ILinkFieldOptions;
+    if (
+      oldOptions.foreignTableId === newOptions.foreignTableId &&
+      oldOptions.relationship === newOptions.relationship
+    ) {
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+      };
+    }
+
+    const { relationship, foreignTableId } = newOptions;
+    let { dbForeignKeyName, symmetricFieldId, lookupFieldId } = oldOptions;
+    const fieldId = oldFieldVo.id;
+
+    if (oldOptions.foreignTableId !== foreignTableId) {
+      symmetricFieldId = generateFieldId();
+      const lookupFieldRaw = await this.prismaService.field.findFirstOrThrow({
+        where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
+        select: { id: true },
+      });
+      lookupFieldId = lookupFieldRaw.id;
+    }
+
+    if (relationship === Relationship.ManyOne) {
+      dbForeignKeyName = this.getForeignKeyFieldName(fieldId);
+    }
+    if (relationship === Relationship.OneMany) {
+      dbForeignKeyName = this.getForeignKeyFieldName(symmetricFieldId);
+    }
+
+    return {
+      ...oldFieldVo,
+      ...fieldRo,
+      options: {
+        relationship,
+        foreignTableId,
+        lookupFieldId,
+        dbForeignKeyName,
+        symmetricFieldId,
+      },
+      isMultipleCellValue: relationship !== Relationship.ManyOne || undefined,
+      dbFieldType: DbFieldType.Json,
+      cellValueType: CellValueType.String,
+    };
+  }
+
+  private async prepareLookupOptions(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new BadRequestException('lookupOptions is required');
@@ -117,7 +173,7 @@ export class FieldSupplementService implements ISupplementService {
     const optionsRaw = linkFieldRaw?.options || null;
     const linkFieldOptions: ILinkFieldOptions =
       (optionsRaw && JSON.parse(optionsRaw as string)) ||
-      batchFieldRos?.find((field) => field.id === linkFieldId);
+      batchFieldVos?.find((field) => field.id === linkFieldId)?.options;
 
     if (!linkFieldOptions || !linkFieldRaw) {
       throw new BadRequestException(`linkFieldId ${linkFieldId} is invalid`);
@@ -148,8 +204,16 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  private getDbFieldType(cellValueType: CellValueType, isMultipleCellValue?: boolean) {
+  getDbFieldType(
+    fieldType: FieldType,
+    cellValueType: CellValueType,
+    isMultipleCellValue?: boolean
+  ) {
     if (isMultipleCellValue) {
+      return DbFieldType.Json;
+    }
+
+    if (fieldType === FieldType.Link) {
       return DbFieldType.Json;
     }
 
@@ -167,55 +231,96 @@ export class FieldSupplementService implements ISupplementService {
     }
   }
 
-  private async prepareLookupField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
+  private prepareFormattingShowAs(
+    options: IFieldRo['options'] = {},
+    sourceOptions: IFieldVo['options'],
+    cellValueType: CellValueType,
+    isMultipleCellValue?: boolean
+  ) {
+    const sourceFormatting = 'formatting' in sourceOptions ? sourceOptions.formatting : undefined;
+    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
+    let sourceShowAs = 'showAs' in sourceOptions ? sourceOptions.showAs : undefined;
+
+    // if source showAs is invalid, we should ignore it
+    if (sourceShowAs && !showAsSchema.safeParse(sourceShowAs).success) {
+      sourceShowAs = undefined;
+    }
+
+    const formatting =
+      'formatting' in options
+        ? options.formatting
+        : sourceFormatting
+        ? sourceFormatting
+        : getDefaultFormatting(cellValueType);
+
+    const showAs = 'showAs' in options ? options.showAs : sourceShowAs;
+
+    return {
+      ...sourceOptions,
+      ...(formatting ? { formatting } : {}),
+      ...(showAs ? { showAs } : {}),
+    };
+  }
+
+  private async prepareLookupField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
     const { lookupOptions, lookupFieldRaw, linkFieldRaw } = await this.prepareLookupOptions(
-      field,
-      batchFieldRos
+      fieldRo,
+      batchFieldVos
     );
 
-    if (lookupFieldRaw.type !== field.type) {
+    if (lookupFieldRaw.type !== fieldRo.type) {
       throw new BadRequestException(
-        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`
+        `Current field type ${fieldRo.type} is not equal to lookup field (${lookupFieldRaw.type})`
       );
     }
 
     const isMultipleCellValue =
       linkFieldRaw.isMultipleCellValue || lookupFieldRaw.isMultipleCellValue || false;
 
-    const lookupCellValueType = lookupFieldRaw.cellValueType;
-    const lookupFieldOptions = JSON.parse(lookupFieldRaw.options as string) as object | null;
-    const formatting =
-      (field.options as INumberFieldOptions)?.formatting ??
-      getDefaultFormatting(lookupCellValueType as CellValueType);
-    const showAs = (field.options as INumberFieldOptions)?.showAs;
-    let options = lookupFieldOptions ? { ...lookupFieldOptions } : undefined;
+    const cellValueType = lookupFieldRaw.cellValueType as CellValueType;
 
-    if (options) {
-      if (formatting) {
-        options = { ...lookupFieldOptions, formatting };
-      }
-      if (showAs || lookupCellValueType === CellValueType.Number) {
-        options = { ...options, showAs };
-      }
-    }
+    const options = this.prepareFormattingShowAs(
+      fieldRo.options,
+      JSON.parse(lookupFieldRaw.options as string),
+      cellValueType,
+      isMultipleCellValue
+    );
 
     return {
-      ...field,
-      name: field.name ?? `${lookupFieldRaw.name} (from ${linkFieldRaw.name})`,
+      ...fieldRo,
+      name: fieldRo.name ?? `${lookupFieldRaw.name} (from ${linkFieldRaw.name})`,
       options,
       lookupOptions,
       isMultipleCellValue,
-      isComputed: field.isLookup,
-      cellValueType: lookupCellValueType,
-      dbFieldType: this.getDbFieldType(lookupCellValueType as CellValueType, isMultipleCellValue),
+      isComputed: true,
+      cellValueType,
+      dbFieldType: this.getDbFieldType(fieldRo.type, cellValueType, isMultipleCellValue),
     };
   }
 
-  private async prepareFormulaField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
+  private async prepareUpdateLookupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
+    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
+    if (
+      oldFieldVo.isLookup &&
+      newLookupOptions.lookupFieldId === oldLookupOptions.lookupFieldId &&
+      newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
+      newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
+    ) {
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+      };
+    }
+
+    return this.prepareLookupField(fieldRo);
+  }
+
+  private async prepareFormulaField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
     let fieldIds;
     try {
       fieldIds = FormulaFieldDto.getReferenceFieldIds(
-        (field.options as IFormulaFieldOptions).expression
+        (fieldRo.options as IFormulaFieldOptions).expression
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -227,7 +332,7 @@ export class FieldSupplementService implements ISupplementService {
     });
 
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
-    const batchFields = batchFieldRos?.map((fieldRo) => createFieldInstanceByRo(fieldRo));
+    const batchFields = batchFieldVos?.map((fieldVo) => createFieldInstanceByVo(fieldVo));
     const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
 
     if (fieldIds.find((id) => !fieldMap[id])) {
@@ -235,66 +340,110 @@ export class FieldSupplementService implements ISupplementService {
     }
 
     const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
-      (field.options as IFormulaFieldOptions).expression,
+      (fieldRo.options as IFormulaFieldOptions).expression,
       fieldMap
     );
 
-    const showAs = (field.options as IFormulaFieldOptions)?.showAs;
     const formatting =
-      (field.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
-    let options = formatting ? { ...field.options, formatting } : field.options;
-    options = showAs || cellValueType === CellValueType.Number ? { ...options, showAs } : options;
+      (fieldRo.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
 
     return {
-      ...field,
-      name: field.name ?? 'Calculation',
-      options,
+      ...fieldRo,
+      name: fieldRo.name ?? 'Calculation',
+      options: {
+        ...fieldRo.options,
+        ...(formatting ? { formatting } : {}),
+      },
       cellValueType,
       isMultipleCellValue,
       isComputed: true,
-      dbFieldType: this.getDbFieldType(cellValueType as CellValueType, isMultipleCellValue),
+      dbFieldType: this.getDbFieldType(
+        fieldRo.type,
+        cellValueType as CellValueType,
+        isMultipleCellValue
+      ),
     };
   }
 
-  private async prepareRollupField(field: IFieldRo, batchFieldRos?: IFieldRo[]) {
+  private async prepareUpdateFormulaField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    const newOptions = fieldRo.options as IFormulaFieldOptions;
+    const oldOptions = oldFieldVo.options as IFormulaFieldOptions;
+
+    if (newOptions.expression === oldOptions.expression) {
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+      };
+    }
+
+    return this.prepareFormulaField(fieldRo);
+  }
+
+  private async prepareRollupField(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
     const { lookupOptions, linkFieldRaw, lookupFieldRaw } = await this.prepareLookupOptions(
       field,
-      batchFieldRos
+      batchFieldVos
     );
     const options = field.options as IRollupFieldOptions;
-
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
     if (!options) {
       throw new BadRequestException('rollup field options is required');
     }
 
     let valueType;
     try {
-      valueType = RollupFieldDto.getParsedValueType(options.expression);
+      valueType = RollupFieldDto.getParsedValueType(
+        options.expression,
+        lookupField,
+        lookupField.isMultipleCellValue || linkFieldRaw.isMultipleCellValue || false
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(e.message);
+      throw new BadRequestException(`Parse rollUp Error: ${e.message}`);
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;
 
-    const showAs = options?.showAs;
     const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
-    let fulfilledOptions = formatting ? { ...field.options, formatting } : field.options;
-    fulfilledOptions =
-      showAs || cellValueType === CellValueType.Number
-        ? { ...fulfilledOptions, showAs }
-        : fulfilledOptions;
 
     return {
       ...field,
       name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkFieldRaw.name})`,
-      options: fulfilledOptions,
+      options: {
+        ...options,
+        ...(formatting ? { formatting } : {}),
+      },
       lookupOptions,
       cellValueType,
       isComputed: true,
       isMultipleCellValue,
-      dbFieldType: this.getDbFieldType(cellValueType as CellValueType, isMultipleCellValue),
+      dbFieldType: this.getDbFieldType(
+        field.type,
+        cellValueType as CellValueType,
+        isMultipleCellValue
+      ),
     };
+  }
+
+  private async prepareUpdateRollupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    const newOptions = fieldRo.options as IRollupFieldOptions;
+    const oldOptions = oldFieldVo.options as IRollupFieldOptions;
+
+    const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
+    const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
+    if (
+      newOptions.expression === oldOptions.expression &&
+      newLookupOptions.lookupFieldId === oldLookupOptions.lookupFieldId &&
+      newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
+      newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
+    ) {
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+      };
+    }
+
+    return this.prepareRollupField(fieldRo);
   }
 
   private prepareSingleTextField(field: IFieldRo) {
@@ -383,19 +532,19 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  async prepareField(fieldRo: IFieldRo, batchFieldRos?: IFieldRo[]): Promise<IFieldRo> {
+  private async prepareCreateFieldInner(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
     if (fieldRo.isLookup) {
-      return await this.prepareLookupField(fieldRo, batchFieldRos);
+      return this.prepareLookupField(fieldRo, batchFieldVos);
     }
 
     switch (fieldRo.type) {
       case FieldType.Link: {
-        return await this.prepareLinkField(fieldRo);
+        return this.prepareLinkField(fieldRo);
       }
       case FieldType.Rollup:
-        return await this.prepareRollupField(fieldRo, batchFieldRos);
+        return this.prepareRollupField(fieldRo, batchFieldVos);
       case FieldType.Formula:
-        return await this.prepareFormulaField(fieldRo, batchFieldRos);
+        return this.prepareFormulaField(fieldRo, batchFieldVos);
       case FieldType.SingleLineText:
         return this.prepareSingleTextField(fieldRo);
       case FieldType.Number:
@@ -411,11 +560,117 @@ export class FieldSupplementService implements ISupplementService {
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
       default:
-        return fieldRo;
+        throw new Error('invalid field type');
     }
   }
 
-  private async generateSymmetricField(
+  private async prepareUpdateFieldInner(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    if (fieldRo.type !== oldFieldVo.type) {
+      return this.prepareCreateFieldInner(fieldRo);
+    }
+
+    if (fieldRo.isLookup) {
+      return this.prepareUpdateLookupField(fieldRo, oldFieldVo);
+    }
+
+    switch (fieldRo.type) {
+      case FieldType.Link: {
+        return this.prepareUpdateLinkField(fieldRo, oldFieldVo);
+      }
+      case FieldType.Rollup:
+        return this.prepareUpdateRollupField(fieldRo, oldFieldVo);
+      case FieldType.Formula:
+        return this.prepareUpdateFormulaField(fieldRo, oldFieldVo);
+      case FieldType.SingleLineText:
+        return this.prepareSingleTextField(fieldRo);
+      case FieldType.Number:
+        return this.prepareNumberField(fieldRo);
+      case FieldType.SingleSelect:
+        return this.prepareSingleSelectField(fieldRo);
+      case FieldType.MultipleSelect:
+        return this.prepareMultipleSelectField(fieldRo);
+      case FieldType.Attachment:
+        return this.prepareAttachmentField(fieldRo);
+      case FieldType.Date:
+        return this.prepareDateField(fieldRo);
+      case FieldType.Checkbox:
+        return this.prepareCheckboxField(fieldRo);
+      default:
+        throw new Error('invalid field type');
+    }
+  }
+
+  private zodParse(schema: z.Schema, value: unknown) {
+    const result = (schema as z.Schema).safeParse(value);
+
+    if (!result.success) {
+      throw new BadRequestException(fromZodError(result.error));
+    }
+  }
+
+  private validateFormattingShowAs(field: IFieldVo) {
+    const { cellValueType, isMultipleCellValue } = field;
+    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
+
+    const showAs = 'showAs' in field.options ? field.options.showAs : undefined;
+    const formatting = 'formatting' in field.options ? field.options.formatting : undefined;
+
+    if (showAs) {
+      this.zodParse(showAsSchema, showAs);
+    }
+
+    if (formatting) {
+      const formattingSchema = getFormattingSchema(cellValueType);
+      this.zodParse(formattingSchema, formatting);
+    }
+  }
+  /**
+   * prepare properties for computed field to make sure it's valid
+   * this method do not do any db update
+   */
+  async prepareCreateField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
+    const field = await this.prepareCreateFieldInner(fieldRo, batchFieldVos);
+
+    const fieldId = field.id || generateFieldId();
+
+    const dbFieldName = this.fieldService.generateDbFieldName([
+      { id: fieldId, name: field.name },
+    ])[0];
+
+    const fieldVo = {
+      ...field,
+      id: fieldId,
+      dbFieldName,
+    } as IFieldVo;
+
+    this.validateFormattingShowAs(fieldVo);
+
+    return fieldVo;
+  }
+
+  async prepareUpdateField(fieldRo: IUpdateFieldRo, oldField: IFieldInstance) {
+    // make sure all keys in FIELD_RO_PROPERTIES are define, so we can override old value.
+    FIELD_RO_PROPERTIES.forEach(
+      (key) => !fieldRo[key] && ((fieldRo as Record<string, unknown>)[key] = undefined)
+    );
+
+    const fieldVo = (await this.prepareUpdateFieldInner(
+      { ...fieldRo, name: fieldRo.name ?? oldField.name }, // for convenience, we fallback name when it be undefined
+      oldField
+    )) as IFieldVo;
+
+    this.validateFormattingShowAs(fieldVo);
+
+    return {
+      ...fieldVo,
+      id: oldField.id,
+      dbFieldName: oldField.dbFieldName,
+      isPrimary: oldField.isPrimary,
+      columnMeta: oldField.columnMeta,
+    };
+  }
+
+  async generateSymmetricField(
     prisma: Prisma.TransactionClient,
     tableId: string,
     field: LinkFieldDto
@@ -433,10 +688,13 @@ export class FieldSupplementService implements ISupplementService {
 
     const relationship = RelationshipRevert[field.options.relationship];
     const isMultipleCellValue = relationship !== Relationship.ManyOne;
-
-    return createFieldInstanceByRo({
+    const [dbFieldName] = this.fieldService.generateDbFieldName([
+      { id: field.options.symmetricFieldId, name: tableName },
+    ]);
+    return createFieldInstanceByVo({
       id: field.options.symmetricFieldId,
       name: tableName,
+      dbFieldName,
       type: FieldType.Link,
       options: {
         relationship,
@@ -446,10 +704,20 @@ export class FieldSupplementService implements ISupplementService {
         symmetricFieldId: field.id,
       },
       isMultipleCellValue,
-      isComputed: field.isLookup,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
-    } as IFieldRo) as LinkFieldDto;
+    } as IFieldVo) as LinkFieldDto;
+  }
+
+  private async columnExists(
+    prisma: Prisma.TransactionClient,
+    tableName: string,
+    columnName: string
+  ): Promise<boolean> {
+    const result = await prisma.$queryRawUnsafe<{ name: string }[]>(
+      `PRAGMA table_info(${tableName})`
+    );
+    return result.some((row) => row.name === columnName);
   }
 
   private async createForeignKeyField(
@@ -458,6 +726,9 @@ export class FieldSupplementService implements ISupplementService {
     dbForeignKeyName: string
   ) {
     const dbTableName = await this.getDbTableName(prisma, tableId);
+    if (await this.columnExists(prisma, dbTableName, dbForeignKeyName)) {
+      return;
+    }
     const alterTableQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
         table.string(dbForeignKeyName).unique().nullable();
@@ -466,7 +737,7 @@ export class FieldSupplementService implements ISupplementService {
     await prisma.$executeRawUnsafe(alterTableQuery);
   }
 
-  private async deleteForeignKeyField(
+  private async cleanForeignKeyField(
     prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
     dbForeignKeyName: string
@@ -481,11 +752,7 @@ export class FieldSupplementService implements ISupplementService {
     await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async createSupplementation(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    field: LinkFieldDto
-  ) {
+  async createForeignKey(prisma: Prisma.TransactionClient, tableId: string, field: LinkFieldDto) {
     if (field.type !== FieldType.Link) {
       throw new Error('only link field need to create supplement field');
     }
@@ -499,11 +766,9 @@ export class FieldSupplementService implements ISupplementService {
     if (relationship === Relationship.ManyOne) {
       await this.createForeignKeyField(prisma, tableId, dbForeignKeyName);
     }
-
-    return await this.generateSymmetricField(prisma, tableId, field);
   }
 
-  async deleteForeignKey(
+  async cleanForeignKey(
     prisma: Prisma.TransactionClient,
     tableId: string,
     options: ILinkFieldOptions
@@ -511,11 +776,11 @@ export class FieldSupplementService implements ISupplementService {
     const { foreignTableId, relationship, dbForeignKeyName } = options;
 
     if (relationship === Relationship.OneMany) {
-      await this.deleteForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
     }
 
     if (relationship === Relationship.ManyOne) {
-      await this.deleteForeignKeyField(prisma, tableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(prisma, tableId, dbForeignKeyName);
     }
   }
 
@@ -553,6 +818,9 @@ export class FieldSupplementService implements ISupplementService {
     return refRaw.map((ref) => ref.toFieldId);
   }
 
+  /**
+   * the lookup field that attach to the deleted, should delete to field reference
+   */
   async deleteLookupFieldReference(
     prisma: Prisma.TransactionClient,
     linkFieldId: string

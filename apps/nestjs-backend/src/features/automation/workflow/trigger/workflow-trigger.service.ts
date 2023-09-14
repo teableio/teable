@@ -4,7 +4,7 @@ import type {
   Prisma,
   AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
 } from '@teable-group/db-main-prisma';
-import { PrismaService } from '../../../../prisma.service';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
 import type { UpdateWorkflowTriggerRo } from '../../model/update-workflow-trigger.ro';
