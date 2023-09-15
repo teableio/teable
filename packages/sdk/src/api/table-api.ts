@@ -4,17 +4,19 @@ import { axios } from '../config/axios';
 import { urlBuilder } from './utils';
 
 export const getGraph = async ({
+  baseId,
   tableId,
   viewId,
   cell,
 }: {
+  baseId: string;
   tableId: string;
   viewId?: string;
   cell: [number, number];
 }) => {
   return axios.post<IGraphVo>(
     urlBuilder(TablePath.GET_CELL_GRAPH_URL, {
-      params: { tableId },
+      params: { tableId, baseId },
     }),
     { cell, viewId }
   );
