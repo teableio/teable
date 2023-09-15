@@ -18,8 +18,8 @@ export const LoginPage: FC = () => {
   const redirect = router.query.redirect as string;
   const [signType, setSignType] = useState<ISignForm['type']>('signin');
   const onSuccess = useCallback(() => {
-    router.push(redirect ? decodeURIComponent(redirect) : '/space');
-  }, [router, redirect]);
+    window.location.href = redirect ? decodeURIComponent(redirect) : '/space';
+  }, [redirect]);
   return (
     <QueryClientProvider client={queryClient}>
       <NextSeo title={t('auth:page.title')} />
