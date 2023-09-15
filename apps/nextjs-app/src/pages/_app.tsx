@@ -88,7 +88,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   const res = appContext.ctx.res;
   const host = appContext.ctx.req?.headers.host || '';
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
-  if (!res) {
+  if (!res || !res?.writeHead) {
     return { ...appProps };
   }
   try {
