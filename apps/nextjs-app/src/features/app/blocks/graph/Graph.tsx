@@ -7,6 +7,7 @@ import { TableApi, useBase, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
+import { useMount } from 'react-use';
 import { useGridViewStore } from '../view/grid/store/gridView';
 import { useGraphStore } from './useGraphStore';
 
@@ -20,6 +21,8 @@ export const Graph: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(500);
   const [height, setHeight] = useState(500);
+  const [x, setX] = useState(0);
+  const [y, setY] = useState(30);
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
   const { closeGraph } = useGraphStore();
 
@@ -66,6 +69,13 @@ export const Graph: React.FC = () => {
       graphRef.current?.destroy();
     };
   }, []);
+
+  useMount(() => {
+    const x =
+      ((ref.current?.offsetParent as HTMLElement | undefined)?.offsetParent?.clientWidth || 0) -
+      width;
+    setX(x);
+  });
 
   const updateGraph = useCallback(async (data?: GraphData) => {
     const graph = graphRef.current;
@@ -133,13 +143,12 @@ export const Graph: React.FC = () => {
   return (
     <Rnd
       className="absolute top-20 right-10  bg-background rounded shadow border"
-      default={{
-        x: window.innerWidth - width,
-        y: 0,
-        width,
-        height,
-      }}
       size={{ width, height }}
+      position={{ x, y }}
+      onDragStop={(e, d) => {
+        setX(d.x);
+        setY(d.y);
+      }}
       onResizeStop={(e, direction, ref) => {
         setWidth(ref.clientWidth);
         setHeight(ref.clientHeight);
