@@ -378,6 +378,40 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert select field', () => {
+    it('should convert select to number', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            precision: 2,
+          },
+        },
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        options: {
+          formatting: {
+            precision: 2,
+          },
+        },
+        type: FieldType.Number,
+      });
+      expect(values[0]).toEqual(undefined);
+    });
+
     it('should change choices for single select', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.SingleSelect,

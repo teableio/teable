@@ -64,7 +64,6 @@ export const SelectOptions = (props: {
     const newChoices = [...choices, choice];
     onChange?.({ choices: newChoices });
     setTimeout(() => {
-      console.log(inputRefs.current[choices.length]);
       inputRefs.current[choices.length]?.focus();
     });
   };
