@@ -85,16 +85,16 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   const selectOptions: ISelectFieldOptions = {
     choices: [
-      { name: 'bird', color: Colors.GreenDark1 },
-      { name: 'fish', color: Colors.PurpleLight2 },
-      { name: 'lion', color: Colors.OrangeLight1 },
-      { name: 'elephant', color: Colors.CyanLight2 },
-      { name: 'tiger', color: Colors.Yellow },
-      { name: 'rabbit', color: Colors.Red },
-      { name: 'bear', color: Colors.YellowLight1 },
-      { name: 'horse', color: Colors.RedBright },
-      { name: 'snake', color: Colors.RedLight2 },
-      { name: 'monkey', color: Colors.Gray },
+      { id: 'chobird', name: 'bird', color: Colors.GreenDark1 },
+      { id: 'chofish', name: 'fish', color: Colors.PurpleLight2 },
+      { id: 'cholion', name: 'lion', color: Colors.OrangeLight1 },
+      { id: 'choelephant', name: 'elephant', color: Colors.CyanLight2 },
+      { id: 'chotiger', name: 'tiger', color: Colors.Yellow },
+      { id: 'chorabbit', name: 'rabbit', color: Colors.Red },
+      { id: 'chobear', name: 'bear', color: Colors.YellowLight1 },
+      { id: 'chohorse', name: 'horse', color: Colors.RedBright },
+      { id: 'chosnake', name: 'snake', color: Colors.RedLight2 },
+      { id: 'chomonkey', name: 'monkey', color: Colors.Gray },
     ],
   };
 

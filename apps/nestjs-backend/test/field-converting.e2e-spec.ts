@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
 import {
   Relationship,
   TimeFormatting,
@@ -374,6 +374,210 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       expect(values[0]).toEqual(2);
+    });
+  });
+
+  describe('convert select field', () => {
+    it('should convert select to number', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            precision: 2,
+          },
+        },
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        options: {
+          formatting: {
+            precision: 2,
+          },
+        },
+        type: FieldType.Number,
+      });
+      expect(values[0]).toEqual(undefined);
+    });
+
+    it('should change choices for single select', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ id: 'choX', name: 'xx', color: Colors.Gray }],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        'y',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        options: {
+          choices: [{ name: 'xx', color: Colors.Gray }],
+        },
+        type: FieldType.SingleSelect,
+      });
+      expect(values[0]).toEqual('xx');
+      expect(values[1]).toEqual(undefined);
+    });
+
+    it('should change choices for multiple select', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ id: 'choX', name: 'xx', color: Colors.Cyan }],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        ['x'],
+        ['x', 'y'],
+        ['y'],
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        options: {
+          choices: [{ name: 'xx', color: Colors.Cyan }],
+        },
+        type: FieldType.MultipleSelect,
+      });
+      expect(values[0]).toEqual(['xx']);
+      expect(values[1]).toEqual(['xx']);
+      expect(values[2]).toEqual(undefined);
+    });
+
+    it('should not accept duplicated name choices', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'x', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { id: 'choX', name: 'y', color: Colors.Cyan },
+            { id: 'choY', name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+      const sourceField = await createField(request, table1.id, sourceFieldRo);
+      await request
+        .put(`/api/table/${table1.id}/field/${sourceField.id}`)
+        .send(newFieldRo)
+        .expect(400);
+    });
+  });
+
+  describe('convert formula field', () => {
+    const refField1Ro: IFieldRo = {
+      type: FieldType.SingleLineText,
+    };
+
+    const refField2Ro: IFieldRo = {
+      type: FieldType.Number,
+    };
+
+    const sourceFieldRo: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: '1',
+      },
+    };
+    let refField1: IFieldVo;
+    let refField2: IFieldVo;
+
+    beforeAll(async () => {
+      refField1 = await createField(request, table1.id, refField1Ro);
+      refField2 = await createField(request, table1.id, refField2Ro);
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, refField1.id, 'x');
+      await updateRecordByApi(request, table1.id, table1.records[1].id, refField1.id, 'y');
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, refField2.id, 1);
+      await updateRecordByApi(request, table1.id, table1.records[1].id, refField2.id, 2);
+    });
+
+    it('should convert formula and modify expression', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${refField1.id}}`,
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        null,
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.Formula,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual('x');
+      expect(values[1]).toEqual('y');
+
+      const newFieldRo2: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${refField2.id}}`,
+        },
+      };
+
+      const newField2 = await updateField(request, table1.id, newField.id, newFieldRo2);
+
+      const records = await getRecords(request, table1.id);
+
+      expect(newField2).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        type: FieldType.Formula,
+        isComputed: true,
+      });
+
+      expect(records.records[0].fields[newField2.id]).toEqual(1);
+      expect(records.records[1].fields[newField2.id]).toEqual(2);
     });
   });
 
@@ -876,6 +1080,205 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       expect(values[0]).toEqual(['x', 'y']);
+    });
+
+    it('should convert text field to select and relational one-many lookup field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(request, table1.id, linkFieldRo);
+      const sourceField = await createField(request, table2.id, sourceFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookup ' + sourceField.name,
+        type: sourceField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      };
+      const lookupField = await createField(request, table1.id, lookupFieldRo);
+
+      expect(lookupField).toMatchObject({
+        type: sourceField.type,
+        dbFieldType: DbFieldType.Json,
+        isMultipleCellValue: true,
+        isLookup: true,
+        lookupOptions: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      // add a link record
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      // update source field record before convert
+      await updateRecordByApi(request, table2.id, table2.records[0].id, sourceField.id, 'text 1');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, sourceField.id, 'text 2');
+
+      const recordResult1 = await getRecords(request, table1.id);
+      expect(recordResult1.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+      };
+
+      const newField = await updateField(request, table2.id, sourceField.id, newFieldRo);
+      const newLookupField = await getField(request, table1.id, lookupField.id);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'text 1' }, { name: 'text 2' }],
+        },
+      });
+
+      expect(newLookupField).toMatchObject({
+        type: newField.type,
+        isLookup: true,
+        dbFieldType: DbFieldType.Json,
+        cellValueType: newField.cellValueType,
+        isMultipleCellValue: true,
+        options: newField.options,
+        lookupOptions: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const recordResult2 = await getRecords(request, table1.id);
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
+    });
+
+    it('should convert number field to text and relational many-one lookup field and formula field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Number,
+      };
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(request, table1.id, linkFieldRo);
+      const sourceField = await createField(request, table2.id, sourceFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookup ' + sourceField.name,
+        type: sourceField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      };
+      const lookupField = await createField(request, table1.id, lookupFieldRo);
+
+      const formulaFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupField.id}}`,
+        },
+      };
+      const formulaField = await createField(request, table1.id, formulaFieldRo);
+
+      expect(lookupField).toMatchObject({
+        type: sourceField.type,
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+        isLookup: true,
+        lookupOptions: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(formulaField).toMatchObject({
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        cellValueType: CellValueType.Number,
+      });
+
+      // add a link record
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      // update source field record before convert
+      await updateRecordByApi(request, table2.id, table2.records[0].id, sourceField.id, 1);
+
+      const recordResult1 = await getRecords(request, table1.id);
+      expect(recordResult1.records[0].fields[lookupField.id]).toEqual(1);
+      expect(recordResult1.records[1].fields[lookupField.id]).toEqual(1);
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      const newField = await updateField(request, table2.id, sourceField.id, newFieldRo);
+      const newLookupField = await getField(request, table1.id, lookupField.id);
+      const newFormulaField = await getField(request, table1.id, formulaField.id);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        type: FieldType.SingleLineText,
+        options: {},
+      });
+
+      expect(newLookupField).toMatchObject({
+        type: newField.type,
+        isLookup: true,
+        dbFieldType: DbFieldType.Text,
+        cellValueType: newField.cellValueType,
+        options: newField.options,
+        lookupOptions: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: sourceField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(newFormulaField).toMatchObject({
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Text,
+        cellValueType: newField.cellValueType,
+      });
+
+      const recordResult2 = await getRecords(request, table1.id);
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual('1.00');
+      expect(recordResult2.records[1].fields[lookupField.id]).toEqual('1.00');
     });
   });
 });

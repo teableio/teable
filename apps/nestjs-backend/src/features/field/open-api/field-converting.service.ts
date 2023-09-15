@@ -14,10 +14,11 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import {
+  ColorUtils,
+  generateChoiceId,
   DbFieldType,
   Relationship,
   FieldKeyType,
-  randomColor,
   FIELD_VO_PROPERTIES,
   IdPrefix,
   RecordOpBuilder,
@@ -28,7 +29,7 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
-import { differenceBy, intersection, isEqual, keyBy, set } from 'lodash';
+import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -52,11 +53,7 @@ import { FieldConvertingLinkService } from './field-converting-link.service';
 
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
-  fieldOpsMap?: IOpsMap;
-  fieldChange?: {
-    newField: IFieldInstance;
-    oldField: IFieldInstance;
-  };
+  fieldOps?: IOtOperation[];
   recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
 }
 
@@ -107,7 +104,7 @@ export class FieldConvertingService {
     if (lookupOptions.foreignTableId !== linkField.options.foreignTableId) {
       return false;
     }
-    return !fieldMap[lookupOptions.lookupFieldId];
+    return Boolean(fieldMap[lookupOptions.lookupFieldId]);
   }
 
   /**
@@ -401,22 +398,22 @@ export class FieldConvertingService {
     }
   }
 
-  private async deleteOptionsFromMultiSelectField(
+  private async updateOptionsFromMultiSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: MultipleSelectFieldDto
-  ) {
+  ): Promise<IOpsMap | undefined> {
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
 
-    const opsMap: IOpsMap = { [tableId]: {} };
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const nativeSql = this.knex(dbTableName)
       .select('__id', field.dbFieldName)
       .where((builder) => {
-        for (const value of deletedChoices) {
+        for (const value of Object.keys(updatedChoiceMap)) {
           builder.orWhere(field.dbFieldName, 'LIKE', `%"${value}"%`);
         }
       })
@@ -430,9 +427,21 @@ export class FieldConvertingService {
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
-      const newCellValue = oldCellValue.filter((value) => !deletedChoices.includes(value));
+      const newCellValue = oldCellValue.reduce<string[]>((pre, value) => {
+        // if key not in updatedChoiceMap, we should keep it
+        if (!(value in updatedChoiceMap)) {
+          pre.push(value);
+          return pre;
+        }
 
-      opsMap[tableId][row.__id] = [
+        const newValue = updatedChoiceMap[value];
+        if (newValue !== null) {
+          pre.push(newValue);
+        }
+        return pre;
+      }, []);
+
+      opsMap[row.__id] = [
         RecordOpBuilder.editor.setRecord.build({
           fieldId: field.id,
           oldCellValue,
@@ -440,25 +449,25 @@ export class FieldConvertingService {
         }),
       ];
     }
-    return opsMap;
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
   }
 
-  private async deleteOptionsFromSingleSelectField(
+  private async updateOptionsFromSingleSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto
-  ) {
+  ): Promise<IOpsMap | undefined> {
     const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
 
-    const opsMap: IOpsMap = { [tableId]: {} };
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const nativeSql = this.knex(dbTableName)
       .select('__id', field.dbFieldName)
       .where((builder) => {
-        for (const value of deletedChoices) {
+        for (const value of Object.keys(updatedChoiceMap)) {
           builder.orWhere(field.dbFieldName, value);
         }
       })
@@ -471,31 +480,31 @@ export class FieldConvertingService {
     );
 
     for (const row of result) {
-      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
 
-      opsMap[tableId][row.__id] = [
+      opsMap[row.__id] = [
         RecordOpBuilder.editor.setRecord.build({
           fieldId: field.id,
           oldCellValue,
-          newCellValue: null,
+          newCellValue: updatedChoiceMap[oldCellValue],
         }),
       ];
     }
-    return opsMap;
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
   }
 
-  private async deleteOptionsFromSelectField(
+  private async updateOptionsFromSelectField(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    deletedChoices: string[],
+    updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto | MultipleSelectFieldDto
-  ): Promise<IOpsMap> {
+  ): Promise<IOpsMap | undefined> {
     if (field.type === FieldType.SingleSelect) {
-      return this.deleteOptionsFromSingleSelectField(prisma, tableId, deletedChoices, field);
+      return this.updateOptionsFromSingleSelectField(prisma, tableId, updatedChoiceMap, field);
     }
 
     if (field.type === FieldType.MultipleSelect) {
-      return this.deleteOptionsFromMultiSelectField(prisma, tableId, deletedChoices, field);
+      return this.updateOptionsFromMultiSelectField(prisma, tableId, updatedChoiceMap, field);
     }
     throw new Error('Invalid field type');
   }
@@ -506,17 +515,25 @@ export class FieldConvertingService {
     newField: SingleSelectFieldDto | MultipleSelectFieldDto,
     oldField: SingleSelectFieldDto | MultipleSelectFieldDto
   ) {
-    const deletedChoices = differenceBy(
-      newField.options.choices,
-      oldField.options.choices,
-      'name'
-    ).map((item) => item.name);
+    const newChoiceMap = keyBy(newField.options.choices, 'id');
+    const updatedChoiceMap: { [old: string]: string | null } = {};
 
-    if (!deletedChoices.length) {
+    oldField.options.choices.forEach((item) => {
+      if (!newChoiceMap[item.id]) {
+        updatedChoiceMap[item.name] = null;
+        return;
+      }
+
+      if (newChoiceMap[item.id].name !== item.name) {
+        updatedChoiceMap[item.name] = newChoiceMap[item.id].name;
+      }
+    });
+
+    if (isEmpty(updatedChoiceMap)) {
       return;
     }
 
-    return await this.deleteOptionsFromSelectField(prisma, tableId, deletedChoices, newField);
+    return await this.updateOptionsFromSelectField(prisma, tableId, updatedChoiceMap, newField);
   }
 
   private async modifyOptions(
@@ -629,6 +646,10 @@ export class FieldConvertingService {
 
     const composedOpsMap = composeMaps([recordOpsMap, calculatedOpsMap]);
 
+    // console.log('recordOpsMap', JSON.stringify(recordOpsMap));
+    // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
+    // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
+
     if (!Object.keys(tableId2DbTableName).length) {
       const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
         where: { id: tableId, deletedTime: null },
@@ -638,8 +659,6 @@ export class FieldConvertingService {
       fieldMap[field.id] = field;
     }
 
-    // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
-    // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
     const rawOpsMap = await this.fieldCalculationService.batchSave(
       prisma,
       transactionKey,
@@ -683,8 +702,8 @@ export class FieldConvertingService {
     const fieldId = newField.id;
     const records = await this.getRecords(prisma, tableId, oldField);
     const choices = newField.options.choices;
-    const recordOpsMap: IOpsMap = { [tableId]: {} };
-    const fieldOpsMap: IOpsMap = { [tableId]: { [fieldId]: [] } };
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+    const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
     records.forEach((record) => {
@@ -693,8 +712,8 @@ export class FieldConvertingService {
         return;
       }
 
-      if (!recordOpsMap[tableId][record.id]) {
-        recordOpsMap[tableId][record.id] = [];
+      if (!opsMap[record.id]) {
+        opsMap[record.id] = [];
       }
 
       const cellStr = oldField.cellValue2String(oldCellValue);
@@ -708,7 +727,7 @@ export class FieldConvertingService {
       } else if (newCellValue && !choicesMap[newCellValue]) {
         newChoicesSet.add(newCellValue);
       }
-      recordOpsMap[tableId][record.id].push(
+      opsMap[record.id].push(
         RecordOpBuilder.editor.setRecord.build({
           fieldId,
           newCellValue,
@@ -718,12 +737,13 @@ export class FieldConvertingService {
     });
 
     if (newChoicesSet.size) {
-      const colors = randomColor(
+      const colors = ColorUtils.randomColor(
         choices.map((item) => item.color),
         newChoicesSet.size
       );
       const newChoices = choices.concat(
         Array.from(newChoicesSet).map<ISelectFieldChoice>((item, i) => ({
+          id: generateChoiceId(),
           name: item,
           color: colors[i],
         }))
@@ -732,12 +752,12 @@ export class FieldConvertingService {
         ...newField.options,
         choices: newChoices,
       });
-      fieldOp && fieldOpsMap[tableId][fieldId].push(fieldOp);
+      fieldOp && fieldOps.push(fieldOp);
     }
 
     return {
-      recordOpsMap,
-      fieldOpsMap,
+      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
+      fieldOps,
     };
   }
 
@@ -760,7 +780,7 @@ export class FieldConvertingService {
 
     const fieldId = newField.id;
     const records = await this.getRecords(prisma, tableId, oldField);
-    const recordOpsMap: IOpsMap = { [tableId]: {} };
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
     records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
@@ -770,10 +790,10 @@ export class FieldConvertingService {
       const cellStr = oldField.cellValue2String(oldCellValue);
       const newCellValue = newField.convertStringToCellValue(cellStr);
 
-      if (!recordOpsMap[tableId][record.id]) {
-        recordOpsMap[tableId][record.id] = [];
+      if (!opsMap[record.id]) {
+        opsMap[record.id] = [];
       }
-      recordOpsMap[tableId][record.id].push(
+      opsMap[record.id].push(
         RecordOpBuilder.editor.setRecord.build({
           fieldId,
           newCellValue,
@@ -783,7 +803,7 @@ export class FieldConvertingService {
     });
 
     return {
-      recordOpsMap,
+      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
     };
   }
 
@@ -836,7 +856,14 @@ export class FieldConvertingService {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
-    await this.submitFieldOps(connection, tableId, newField.id, ops);
+    let result: IModifiedResult | undefined;
+    if (keys.includes('type') || keys.includes('isComputed')) {
+      result = await this.modifyType(prisma, tableId, newField, oldField);
+    } else if (keys.includes('options')) {
+      result = await this.modifyOptions(prisma, tableId, newField, oldField);
+    }
+
+    await this.submitFieldOps(connection, tableId, newField.id, ops.concat(result?.fieldOps || []));
 
     const supplementResult = await this.fieldConvertingLinkService.supplementLink(
       prisma,
@@ -853,13 +880,6 @@ export class FieldConvertingService {
       await this.submitFieldOps(connection, tableId, newField.id, ops);
     }
 
-    let result: IModifiedResult | undefined;
-    if (keys.includes('type') || keys.includes('isComputed')) {
-      result = await this.modifyType(prisma, tableId, newField, oldField);
-    } else if (keys.includes('options')) {
-      result = await this.modifyOptions(prisma, tableId, newField, oldField);
-    }
-
     // create and submit records
     if (result?.recordsForCreate) {
       for (const tableId in result.recordsForCreate) {
@@ -874,7 +894,7 @@ export class FieldConvertingService {
     }
 
     // update & submit referenced fields
-    const fieldOpsMaps: (IOpsMap | undefined)[] = [result?.fieldOpsMap];
+    const fieldOpsMaps: (IOpsMap | undefined)[] = [];
     fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
     if (supplementResult?.fieldChange) {
       const { newField, oldField } = supplementResult.fieldChange;

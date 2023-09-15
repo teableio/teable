@@ -1,7 +1,7 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
 import { useMutation } from '@tanstack/react-query';
-import { getRandomColorFromStr } from '@teable-group/core';
+import { ColorUtils } from '@teable-group/core';
 import { X } from '@teable-group/icons';
 import { TableApi, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
@@ -101,7 +101,9 @@ export const Graph: React.FC = () => {
         updateGraph({
           nodes: nodes.map((node) => {
             const comboId = node.comboId || 'default';
-            const stroke = cache[comboId] ? cache[comboId] : getRandomColorFromStr(comboId);
+            const stroke = cache[comboId]
+              ? cache[comboId]
+              : ColorUtils.getRandomHexFromStr(comboId);
             cache[comboId] = stroke;
             return {
               ...node,

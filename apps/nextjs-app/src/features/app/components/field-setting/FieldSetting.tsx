@@ -4,7 +4,7 @@ import { useTable } from '@teable-group/sdk/hooks';
 import { useToast } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
@@ -70,10 +70,10 @@ const FieldSettingBase = (props: IFieldSetting) => {
     onCancel?.();
   };
 
-  const onFieldEditorChange = (field: IFieldRo) => {
+  const onFieldEditorChange = useCallback((field: IFieldRo) => {
     setField(field);
     setUpdateCount(1);
-  };
+  }, []);
 
   const onCancelInner = () => {
     const prompt = 'Are you sure you want to discard your changes?';

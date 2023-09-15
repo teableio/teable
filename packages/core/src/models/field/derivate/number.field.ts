@@ -8,19 +8,19 @@ import {
 } from '../formatting';
 import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 
-export const numberFieldOptionsVoSchema = z
+export const numberFieldOptionsSchema = z
   .object({
     formatting: numberFormattingSchema,
     showAs: numberShowAsSchema.optional(),
   })
   .strict();
 
-export const numberFieldOptionsRoSchema = numberFieldOptionsVoSchema.partial({
+export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({
   formatting: true,
   showAs: true,
 });
 
-export type INumberFieldOptions = z.infer<typeof numberFieldOptionsVoSchema>;
+export type INumberFieldOptions = z.infer<typeof numberFieldOptionsSchema>;
 
 export const numberCellValueSchema = z.number();
 

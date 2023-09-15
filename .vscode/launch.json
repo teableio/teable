@@ -13,7 +13,9 @@
         "--inspect-brk",
         "../../node_modules/.bin/jest",
         "${relativeFile}",
-        "--runInBand"
+        "--runInBand",
+        "--config",
+        "./jest-e2e.json"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"

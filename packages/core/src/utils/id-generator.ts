@@ -9,6 +9,7 @@ export enum IdPrefix {
   View = 'viw',
   Record = 'rec',
   Attachment = 'act',
+  Choice = 'cho',
 
   Workflow = 'wfl',
   WorkflowTrigger = 'wtr',
@@ -38,6 +39,10 @@ export function generateViewId() {
 
 export function generateRecordId() {
   return IdPrefix.Record + getRandomString(16);
+}
+
+export function generateChoiceId() {
+  return IdPrefix.Choice + getRandomString(8);
 }
 
 export function generateTransactionKey() {

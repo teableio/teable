@@ -1,18 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {
-  IFormulaFieldOptions,
-  ILookupOptionsRo,
-  INumberShowAs,
-  IUnionFormatting,
-} from '@teable-group/core';
-import { CellValueType } from '@teable-group/core';
+import type { IFormulaFieldOptions, ILookupOptionsRo } from '@teable-group/core';
+import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable-group/core';
 import { FormulaEditor } from '@teable-group/sdk/components';
 import { useFields } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { FormulaField } from '@teable-group/sdk/model';
 import { Dialog, DialogContent, DialogTrigger } from '@teable-group/ui-lib/shadcn';
-import { keyBy } from 'lodash';
-import { useMemo, useState } from 'react';
+import { isEmpty, isEqual, keyBy } from 'lodash';
+import { useEffect, useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { useIsMultipleCellValue } from '../hooks';
 import { UnionShowAs } from '../show-as/UnionShowAs';
@@ -26,7 +21,9 @@ export const FormulaOptions = (props: {
   onChange?: (options: Partial<IFormulaFieldOptions>) => void;
 }) => {
   const { options = {}, isLookup, lookupField, lookupOptions, onChange } = props;
-  const { formatting, expression } = options;
+  const { expression } = options;
+  const [formatting, setFormatting] = useState(options.formatting);
+  const [showAs, setShowAs] = useState(options.showAs);
   const fields = useFields();
   const [visible, setVisible] = useState(false);
 
@@ -60,26 +57,20 @@ export const FormulaOptions = (props: {
     setVisible(false);
   };
 
-  const onFormattingChange = (value?: IUnionFormatting) => {
-    const formatting = value;
-    if (isLookup) {
-      return onChange?.({
-        formatting,
-        expression: (lookupField?.options as IFormulaFieldOptions)?.expression ?? expression,
-      });
-    }
-    onChange?.({ formatting });
-  };
+  useEffect(() => {
+    const formattingResult = getFormattingSchema(cellValueType).safeParse(formatting);
+    const showAsResult = getShowAsSchema(cellValueType, isMultipleCellValue).safeParse(showAs);
 
-  const onShowAsChange = (value?: INumberShowAs) => {
-    if (isLookup) {
-      return onChange?.({
-        showAs: value,
-        expression: (lookupField?.options as IFormulaFieldOptions)?.expression ?? expression,
-      });
+    const formattingParsed = formattingResult.success ? formattingResult.data : undefined;
+    const showAsParsed = showAsResult.success ? showAsResult.data : undefined;
+    if (isEqual(formattingParsed, options.formatting) && isEqual(showAsParsed, options.showAs)) {
+      return;
     }
-    onChange?.({ showAs: value });
-  };
+    onChange?.({
+      formatting: isEmpty(formattingParsed) ? undefined : formatting,
+      showAs: isEmpty(showAsParsed) ? undefined : showAs,
+    });
+  }, [cellValueType, isMultipleCellValue, onChange, formatting, showAs, options]);
 
   return (
     <div className="w-full space-y-2">
@@ -106,15 +97,15 @@ export const FormulaOptions = (props: {
         <UnionFormatting
           cellValueType={cellValueType}
           formatting={formatting}
-          onChange={onFormattingChange}
+          onChange={setFormatting}
         />
       </div>
       <div className="space-y-2">
         <UnionShowAs
-          showAs={options?.showAs}
+          showAs={showAs}
           cellValueType={cellValueType}
           isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
-          onChange={onShowAsChange}
+          onChange={setShowAs}
         />
       </div>
     </div>

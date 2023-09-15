@@ -7,7 +7,7 @@ import { StatisticsFunc } from '../aggregation';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,
-  numberFieldOptionsVoSchema,
+  numberFieldOptionsSchema,
   selectFieldOptionsSchema,
   singlelineTextFieldOptionsSchema,
   formulaFieldOptionsSchema,
@@ -17,6 +17,7 @@ import {
   rollupFieldOptionsSchema,
   linkFieldOptionsRoSchema,
   numberFieldOptionsRoSchema,
+  selectFieldOptionsRoSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -67,7 +68,6 @@ export type IColumnMeta = z.infer<typeof columnMetaSchema>;
 export const unionFieldOptions = z.union([
   rollupFieldOptionsSchema,
   formulaFieldOptionsSchema,
-  selectFieldOptionsSchema,
   linkFieldOptionsSchema,
   dateFieldOptionsSchema,
   checkboxFieldOptionsSchema,
@@ -78,12 +78,14 @@ export const unionFieldOptions = z.union([
 export const unionFieldOptionsVoSchema = z.union([
   unionFieldOptions,
   linkFieldOptionsSchema,
-  numberFieldOptionsVoSchema,
+  selectFieldOptionsSchema,
+  numberFieldOptionsSchema,
 ]);
 
 export const unionFieldOptionsRoSchema = z.union([
   unionFieldOptions,
   linkFieldOptionsRoSchema,
+  selectFieldOptionsRoSchema,
   numberFieldOptionsRoSchema,
 ]);
 
@@ -229,9 +231,9 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.Checkbox:
       return checkboxFieldOptionsSchema;
     case FieldType.MultipleSelect:
-      return selectFieldOptionsSchema;
+      return selectFieldOptionsRoSchema;
     case FieldType.SingleSelect:
-      return selectFieldOptionsSchema;
+      return selectFieldOptionsRoSchema;
     case FieldType.Date:
       return dateFieldOptionsSchema;
     case FieldType.PhoneNumber:
