@@ -72,7 +72,10 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   };
 
   return (
-    <Card className={classNames('group cursor-pointer', className)} onClick={intoBase}>
+    <Card
+      className={classNames('group cursor-pointer hover:shadow-md', className)}
+      onClick={intoBase}
+    >
       <CardContent className="w-full h-full flex items-center px-4 py-6">
         <Database className="min-w-[3.5rem] w-14 h-14" />
         <div className="flex-1 h-full overflow-hidden">
