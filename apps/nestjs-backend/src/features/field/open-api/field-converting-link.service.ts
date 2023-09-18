@@ -154,15 +154,24 @@ export class FieldConvertingLinkService {
     tableId: string,
     oldField: LinkFieldDto
   ) {
-    const deleteResult = await this.fieldDeletingService.delateAndCleanRef(
+    const mainRawOpsMap = await this.fieldDeletingService.cleanRef(
+      prisma,
+      connection,
+      tableId,
+      oldField.id,
+      true
+    );
+
+    const { rawOpsMap: symRawOpsMap } = await this.fieldDeletingService.delateAndCleanRef(
       prisma,
       connection,
       oldField.options.foreignTableId,
       oldField.options.symmetricFieldId,
       true
     );
+
     return {
-      rawOpMaps: deleteResult.rawOpsMap && [deleteResult.rawOpsMap],
+      rawOpMaps: [symRawOpsMap, mainRawOpsMap].filter(Boolean) as IRawOpMap[],
     };
   }
 
