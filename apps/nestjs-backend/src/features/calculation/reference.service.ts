@@ -11,7 +11,7 @@ import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-grou
 import { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
-import { difference, groupBy, intersectionBy, keyBy, uniq } from 'lodash';
+import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
@@ -161,6 +161,10 @@ export class ReferenceService {
       [fieldId: string]: ITopoItem[];
     }>((pre, [fieldId, topoOrder]) => {
       const firstField = fieldMap[topoOrder[0].id];
+      if (!firstField) {
+        throw new Error(`field ${topoOrder[0].id} not found`);
+      }
+
       if (firstField.type === FieldType.Link) {
         topoOrder = topoOrder.slice(1);
       }
@@ -185,6 +189,16 @@ export class ReferenceService {
       return;
     }
 
+    // skip calculate when not all field in graph
+    const graphSet: Set<string> = new Set(
+      directedGraph.flatMap((item) => [item.fromFieldId, item.toFieldId])
+    );
+    for (const fieldId of startFieldIds) {
+      if (!graphSet.has(fieldId)) {
+        return;
+      }
+    }
+
     // get all related field by undirected graph
     const allFieldIds = this.flatGraph(directedGraph);
     // prepare all related data
@@ -196,6 +210,10 @@ export class ReferenceService {
       fieldMap,
       this.getTopoOrdersByFieldId(startFieldIds, directedGraph)
     );
+
+    if (isEmpty(topoOrdersByFieldId)) {
+      return;
+    }
 
     // nameConsole('recordData', recordData, fieldMap);
     // nameConsole('startFieldIds', startFieldIds, fieldMap);

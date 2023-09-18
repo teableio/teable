@@ -57,7 +57,7 @@ export class FieldDeletingService {
     return await Promise.all(promises);
   }
 
-  async delateAndCleanRef(
+  async cleanRef(
     prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
@@ -75,13 +75,18 @@ export class FieldDeletingService {
       : errorRefFieldIds;
     await this.markFieldsAsError(connection, collection, errorFieldIds);
 
-    const rawOpsMap = await this.cleanField(
-      prisma,
-      connection,
-      tableId,
-      errorFieldIds.concat(fieldId)
-    );
+    return this.cleanField(prisma, connection, tableId, errorFieldIds.concat(fieldId));
+  }
 
+  async delateAndCleanRef(
+    prisma: Prisma.TransactionClient,
+    connection: Connection,
+    tableId: string,
+    fieldId: string,
+    isLinkField?: boolean
+  ) {
+    const collection = `${IdPrefix.Field}_${tableId}`;
+    const rawOpsMap = await this.cleanRef(prisma, connection, tableId, fieldId, isLinkField);
     const snapshot = await this.deleteDoc(connection, collection, fieldId);
     return { snapshot, rawOpsMap };
   }

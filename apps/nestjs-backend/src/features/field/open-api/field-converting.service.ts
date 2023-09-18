@@ -863,8 +863,6 @@ export class FieldConvertingService {
       result = await this.modifyOptions(prisma, tableId, newField, oldField);
     }
 
-    await this.submitFieldOps(connection, tableId, newField.id, ops.concat(result?.fieldOps || []));
-
     const supplementResult = await this.fieldConvertingLinkService.supplementLink(
       prisma,
       connection,
@@ -873,6 +871,7 @@ export class FieldConvertingService {
       oldField
     );
 
+    await this.submitFieldOps(connection, tableId, newField.id, ops.concat(result?.fieldOps || []));
     // apply supplement(link) field change
     if (supplementResult?.fieldChange) {
       const { tableId, newField, oldField } = supplementResult.fieldChange;
