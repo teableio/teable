@@ -59,7 +59,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             <ChevronUp />
           </Button>
         </TooltipWrap>
-        <TooltipWrap description="Next record" disabled={disabledPrev}>
+        <TooltipWrap description="Next record" disabled={disabledNext}>
           <Button
             variant={'ghost'}
             size={'xs'}
@@ -81,15 +81,12 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
       )}
       {showOperator && (
         <div>
-          <TooltipWrap description="Copy record URL" disabled={disabledPrev}>
+          <TooltipWrap description="Copy record URL">
             <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
               <Link />
             </Button>
           </TooltipWrap>
-          <TooltipWrap
-            description={`${showActivity ? 'Hide' : 'Show'} activity`}
-            disabled={disabledPrev}
-          >
+          <TooltipWrap description={`${showActivity ? 'Hide' : 'Show'} activity`}>
             <Button
               variant={showActivity ? 'secondary' : 'ghost'}
               size={'xs'}

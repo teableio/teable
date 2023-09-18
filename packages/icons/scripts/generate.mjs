@@ -37,8 +37,7 @@ const getSvgs = async ({ fileId, canvas, group }) => {
   if (!iconsNode) {
     throw new Error(`Couldn't find page with name ${canvas}`);
   }
-  const usingIconNodes =
-    iconsNode.children.find(({ name, type }) => name === group && type === 'GROUP')?.children || [];
+  const usingIconNodes = iconsNode.children.find(({ name }) => name === group)?.children || [];
   const usingNodeId = usingIconNodes.map(({ id }) => id);
   const svgs = await figmaApi.fileImages(fileId, {
     format: 'svg',

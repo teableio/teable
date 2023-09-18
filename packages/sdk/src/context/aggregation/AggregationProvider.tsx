@@ -13,6 +13,8 @@ interface IAggregationProviderProps {
   children: ReactNode;
 }
 
+let referenceCount = 0;
+
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
@@ -22,22 +24,31 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   const [viewAggregation, setViewAggregation] = useState<IRawAggregationVo>({});
 
   useEffect(() => {
-    if (!tableId || !viewId || !connection) {
+    const canCreatePresence = tableId && viewId && connection;
+    if (!canCreatePresence) {
       return;
     }
-
+    referenceCount++;
     const channel = getAggregationChannel(tableId, viewId);
     setRemotePresence(connection.getPresence(channel));
 
-    if (!remotePresence?.subscribed) {
-      remotePresence?.subscribe((err) => err && console.error);
-      remotePresence?.on('receive', (id, viewAggregation: IRawAggregationVo) => {
-        setViewAggregation(viewAggregation);
-      });
-    }
+    remotePresence?.subscribe((err) => err && console.error);
+
+    const receiveHandler = (_id: string, viewAggregation: IRawAggregationVo) => {
+      setViewAggregation(viewAggregation);
+    };
+
+    remotePresence?.on('receive', (id, viewAggregation: IRawAggregationVo) => {
+      setViewAggregation(viewAggregation);
+    });
 
     return () => {
-      remotePresence?.destroy();
+      canCreatePresence && referenceCount--;
+      remotePresence?.removeListener('receive', receiveHandler);
+      if (referenceCount === 0) {
+        remotePresence?.unsubscribe();
+        remotePresence?.destroy();
+      }
     };
   }, [connection, remotePresence, tableId, viewId]);
 
