@@ -2,15 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import { noop } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import type { Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import type { ICellChange } from '../features/calculation/utils/changes';
+import { authMiddleware } from './auth.middleware';
 import { DerivateChangeService } from './derivate-change.service';
 import type { IRawOpMap } from './interface';
 import { SqliteDbAdapter } from './sqlite.adapter';
+import { WsAuthService } from './ws-auth.service';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -20,13 +21,15 @@ export class ShareDbService extends ShareDBClass {
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly derivateChangeService: DerivateChangeService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly cls: ClsService
+    private readonly wsAuthService: WsAuthService
   ) {
     super({
       presence: true,
       doNotForwardSendPresenceErrorsToClient: true,
       db: sqliteDbAdapter,
     });
+    // auth
+    authMiddleware(this, this.wsAuthService);
 
     // this.use('submit', this.onSubmit);
     this.use('commit', this.onCommit);

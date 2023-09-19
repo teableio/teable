@@ -7,9 +7,7 @@ export const createQueryClient = () => {
     const { code, message, status } = error as IHttpError;
     // no authentication
     if (status === 401) {
-      window.location.href = `/auth/login?redirect=${encodeURIComponent(
-        window.location.pathname + window.location.search
-      )}`;
+      window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
       return;
     }
     toast({
