@@ -78,16 +78,43 @@ export const RollupOptions = (props: {
       let name;
       switch (f) {
         case 'countall({values})':
-          name = 'Count all';
+          name = 'Count All';
+          break;
+        case 'counta({values})':
+          name = 'CountA';
+          break;
+        case 'count({values})':
+          name = 'Count';
           break;
         case 'sum({values})':
           name = 'Sum';
           break;
-        case 'concatenate({values})':
-          name = 'Concatenate';
+        case 'max({values})':
+          name = 'Max';
+          break;
+        case 'min({values})':
+          name = 'Min';
           break;
         case 'and({values})':
           name = 'And';
+          break;
+        case 'or({values})':
+          name = 'Or';
+          break;
+        case 'xor({values})':
+          name = 'Xor';
+          break;
+        case 'array_join({values})':
+          name = 'Array Join';
+          break;
+        case 'array_unique({values})':
+          name = 'Array Unique';
+          break;
+        case 'array_compact({values})':
+          name = 'Array Compact';
+          break;
+        case 'concatenate({values})':
+          name = 'Concatenate';
           break;
         default:
           assertNever(f);

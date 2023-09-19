@@ -8,7 +8,8 @@ export class TypedValue<T = any> {
     public value: T,
     public type: CellValueType,
     public isMultiple?: boolean,
-    public field?: FieldCore
+    public field?: FieldCore,
+    public isBlank?: boolean
   ) {}
 
   toPlain(): any {

@@ -1,5 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
+import { useView } from '@teable-group/sdk/hooks/use-view';
 import { isEqual } from 'lodash';
+
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useMouse } from 'react-use';
@@ -98,6 +100,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowOrdered,
     onCellEdited,
     onCellActivated,
+    onSelectionChanged,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -107,6 +110,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
   } = props;
+
+  const view = useView();
 
   useImperativeHandle(ref, () => ({
     onReset,
@@ -167,7 +172,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(coordInstance);
+  } = useSelection(coordInstance, onSelectionChanged);
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
@@ -408,7 +413,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
-    onDragChange(mouseState);
+    !view?.sort?.shouldAutoSort && onDragChange(mouseState);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '../../../zod';
 import { CellValueType } from '../constant';
 import { datetimeFormattingSchema, defaultDatetimeFormatting } from './datetime';
 import { defaultNumberFormatting, numberFormattingSchema } from './number';

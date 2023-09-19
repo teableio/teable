@@ -20,3 +20,11 @@ export const preservedFieldName = new Set([
   '__created_by',
   '__last_modified_by',
 ]);
+
+export const tinyPreservedFieldName = new Set([
+  '__id',
+  '__created_time',
+  '__last_modified_time',
+  '__created_by',
+  '__last_modified_by',
+]);

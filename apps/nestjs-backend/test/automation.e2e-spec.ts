@@ -9,7 +9,7 @@ import {
   identify,
   IdPrefix,
 } from '@teable-group/core';
-import request from 'supertest';
+import type request from 'supertest';
 import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
 import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
 import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
@@ -21,9 +21,13 @@ import { initApp } from './utils/init-app';
 
 describe.skip('AutomationController (e2e)', () => {
   let app: INestApplication;
+  let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -31,10 +35,10 @@ describe.skip('AutomationController (e2e)', () => {
   });
 
   const createTable = async (tableName = 'automation-table'): Promise<string> => {
-    const result = await request(app.getHttpServer()).post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: tableName,
     });
-    return result.body.data.id;
+    return result.body.id;
   };
 
   const createWorkflow = async () => {
@@ -42,7 +46,7 @@ describe.skip('AutomationController (e2e)', () => {
     const workflowRo: CreateWorkflowRo = {
       name: 'Automation 1',
     };
-    await request(app.getHttpServer())
+    await request
       .post(`/api/workflow/${workflowId}`)
       .send(workflowRo)
       .expect(201)
@@ -59,7 +63,7 @@ describe.skip('AutomationController (e2e)', () => {
     }
   ) => {
     const triggerId = generateWorkflowTriggerId();
-    await request(app.getHttpServer())
+    await request
       .post(`/api/workflowTrigger/${triggerId}`)
       .send(createRo)
       .expect(201)
@@ -69,7 +73,7 @@ describe.skip('AutomationController (e2e)', () => {
   };
 
   const updateWorkflowTrigger = async (triggerId: string, updateRo: UpdateWorkflowTriggerRo) => {
-    await request(app.getHttpServer())
+    await request
       .put(`/api/workflowTrigger/${triggerId}/updateConfig`)
       .send(updateRo)
       .expect(200)
@@ -87,11 +91,7 @@ describe.skip('AutomationController (e2e)', () => {
       url1 = `/api/workflowDecision/${actionId}`;
     }
 
-    await request(app.getHttpServer())
-      .post(url1)
-      .send(createRo)
-      .expect(201)
-      .expect({ success: true });
+    await request.post(url1).send(createRo).expect(201).expect({ success: true });
 
     return actionId;
   };
@@ -103,15 +103,11 @@ describe.skip('AutomationController (e2e)', () => {
       url2 = `/api/workflowDecision/${actionId}/updateConfig`;
     }
 
-    await request(app.getHttpServer())
-      .put(url2)
-      .send(updateRo)
-      .expect(200)
-      .expect({ success: true });
+    await request.put(url2).send(updateRo).expect(200).expect({ success: true });
   };
 
   // const deleteWorkflow = async (workflowId: string) => {
-  //   await request(app.getHttpServer())
+  //   await request
   //     .delete(`/api/workflow/${workflowId}/delete`)
   //     .expect(200)
   //     .expect({ success: true });
@@ -452,8 +448,8 @@ describe.skip('AutomationController (e2e)', () => {
 
     const newTableId = await createTable('automation-table-1');
 
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${newTableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body.data;
+    const fieldsResult = await request.get(`/api/table/${newTableId}/field`);
+    const fields: IFieldVo[] = fieldsResult.body;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
@@ -551,11 +547,9 @@ describe.skip('AutomationController (e2e)', () => {
     );
 
     // Verify
-    const result = await request(app.getHttpServer())
-      .get(`/api/workflow/${workflowId}`)
-      .expect(200);
+    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
 
-    expect(result.body.data).toStrictEqual(
+    expect(result.body).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         deploymentStatus: 'undeployed',
@@ -576,8 +570,8 @@ describe.skip('AutomationController (e2e)', () => {
 
   it('Simulate the creation of a `create table record` trigger with a logical group', async () => {
     const tableId = await createTable('Automation-RecordUpdated-SendMail');
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body.data;
+    const fieldsResult = await request.get(`/api/table/${tableId}/field`);
+    const fields: IFieldVo[] = fieldsResult.body;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -732,14 +726,12 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
     );
 
     // Verify
-    const result = await request(app.getHttpServer())
-      .get(`/api/workflow/${workflowId}`)
-      .expect(200);
+    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
 
     // clean data
     // await deleteWorkflow(workflowId);
 
-    expect(result.body.data).toStrictEqual(
+    expect(result.body).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         actions: expect.objectContaining({
@@ -763,8 +755,8 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
   it('Simulate the creation of `modify table record` triggers', async () => {
     const tableId = await createTable('Automation-RecordUpdated');
 
-    const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body.data;
+    const fieldsResult = await request.get(`/api/table/${tableId}/field`);
+    const fields: IFieldVo[] = fieldsResult.body;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -893,11 +885,9 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
     );
 
     // Verify
-    const result = await request(app.getHttpServer())
-      .get(`/api/workflow/${workflowId}`)
-      .expect(200);
+    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
 
-    expect(result.body.data).toStrictEqual(
+    expect(result.body).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         deploymentStatus: 'undeployed',

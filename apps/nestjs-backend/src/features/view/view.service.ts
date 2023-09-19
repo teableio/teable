@@ -14,13 +14,19 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from 'src/types/cls';
 import type { IAdapterService } from '../../share-db/interface';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw } from './model/factory';
 
 @Injectable()
 export class ViewService implements IAdapterService {
-  constructor(private readonly prisma: PrismaService, @InjectModel() private readonly knex: Knex) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   getRowIndexFieldName(viewId: string) {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
@@ -35,6 +41,7 @@ export class ViewService implements IAdapterService {
     tableId: string,
     createViewRo: IViewRo & { id?: string; name: string }
   ) {
+    const userId = this.cls.get('user.id');
     const { id, name, description, type, options, sort, filter, group } = createViewRo;
     let order = createViewRo.order;
     const viewId = id || generateViewId();
@@ -63,8 +70,8 @@ export class ViewService implements IAdapterService {
       group: group ? JSON.stringify(group) : undefined,
       version: 1,
       order,
-      createdBy: 'admin',
-      lastModifiedBy: 'admin',
+      createdBy: userId,
+      lastModifiedBy: userId,
     };
 
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
@@ -135,11 +142,13 @@ export class ViewService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {
+    const userId = this.cls.get('user.id');
+
     const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
 
     await prisma.view.update({
       where: { id: viewId },
-      data: { deletedTime: new Date() },
+      data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
 
     await prisma.$executeRawUnsafe(`
@@ -159,6 +168,8 @@ export class ViewService implements IAdapterService {
       | ISetViewSortOpContext
     )[]
   ) {
+    const userId = this.cls.get('user.id');
+
     for (const opContext of opContexts) {
       const updateData: Prisma.ViewUpdateInput = { version };
       switch (opContext.name) {
@@ -180,7 +191,10 @@ export class ViewService implements IAdapterService {
 
       await prisma.view.update({
         where: { id: viewId },
-        data: updateData,
+        data: {
+          ...updateData,
+          lastModifiedBy: userId,
+        },
       });
     }
   }

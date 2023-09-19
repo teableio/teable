@@ -1,5 +1,6 @@
 import { CellValueType } from '../../models/field/constant';
 import type { TypedValue } from '../typed-value';
+import type { IFormulaContext } from './common';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
 
 abstract class SystemFunc extends FormulaFunc {
@@ -40,5 +41,24 @@ export class TextAll extends SystemFunc {
     }
 
     return param.value || null;
+  }
+}
+
+export class RecordId extends SystemFunc {
+  name = FunctionName.RecordId;
+
+  acceptValueType = new Set([CellValueType.String]);
+
+  acceptMultipleValue = true;
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  validateParams() {}
+
+  getReturnType() {
+    return { type: CellValueType.String };
+  }
+
+  eval(_params: TypedValue<string | null>[], context: IFormulaContext): string {
+    return context.record.id;
   }
 }

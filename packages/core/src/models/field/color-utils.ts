@@ -18,21 +18,6 @@ interface IRGB {
  * @docsPath UI/utils/colorUtils
  */
 export interface IColorUtils {
-  /**
-   * Given a {@link Colors}, return the hex color value for that color, or null if the value isn't a {@link Colors}
-   *
-   * @param colorString
-   * @example
-   * ```js
-   * import {colorUtils, colors} from '@teable-group/sdk';
-   *
-   * colorUtils.getHexForColor(colors.RED);
-   * // => '#ef3061'
-   *
-   * colorUtils.getHexForColor('uncomfortable beige');
-   * // => null
-   * ```
-   */
   getHexForColor(colorString: Colors): string;
   /** */
   getHexForColor(colorString: string): null | string;
@@ -72,6 +57,20 @@ export interface IColorUtils {
    * ```
    */
   shouldUseLightTextOnColor(colorString: string): boolean;
+
+  /**
+   * Random color string.
+   * @param exists Filter existed color
+   * @param num Number of random color
+   * @returns color string array
+   */
+  randomColor(exists?: string[], num?: number): Colors[];
+
+  /**
+   * Randomly (but consistently) pick a value from a map based on a string
+   * @param str input string
+   */
+  getRandomHexFromStr(str: string): string;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -104,32 +103,43 @@ export const ColorUtils: IColorUtils = {
     const shouldUseDarkText = colorString.endsWith('Light1') || colorString.endsWith('Light2');
     return !shouldUseDarkText;
   },
-};
 
-/**
- * Random color string.
- * @param exists Filter existed color
- * @param num Number of random color
- * @returns color string array
- */
-export const randomColor = (exists?: string[], num = 1) => {
-  const allColors = Object.values(Colors);
-  let availableColors = [...allColors];
+  randomColor(exists?: string[], num = 1) {
+    const allColors = Object.values(Colors);
+    let availableColors = [...allColors];
 
-  if (exists) {
-    availableColors = availableColors.filter((color) => !exists.includes(color));
-  }
-
-  const result: Colors[] = [];
-  for (let i = 0; i < num; i++) {
-    const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
-    const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
-    result.push(colorsToChooseFrom[randomIndex]);
-
-    if (availableColors.length > 0) {
-      availableColors.splice(randomIndex, 1);
+    if (exists) {
+      availableColors = availableColors.filter((color) => !exists.includes(color));
     }
-  }
 
-  return result;
+    const result: Colors[] = [];
+    for (let i = 0; i < num; i++) {
+      const colorsToChooseFrom = availableColors.length > 0 ? availableColors : allColors;
+      const randomIndex = Math.floor(Math.random() * colorsToChooseFrom.length);
+      result.push(colorsToChooseFrom[randomIndex]);
+
+      if (availableColors.length > 0) {
+        availableColors.splice(randomIndex, 1);
+      }
+    }
+
+    return result;
+  },
+
+  getRandomHexFromStr(str: string) {
+    const seed = getSeed(str);
+    const values = Object.values(Colors);
+    const value = values[seed % values.length];
+    return ColorUtils.getHexForColor(value);
+  },
 };
+
+// Function to generate a seed from a string
+function getSeed(str: string) {
+  let seed = 0;
+  for (let i = 0; i < str.length; i++) {
+    seed = (seed << 5) - seed + str.charCodeAt(i);
+    seed |= 0; // Convert seed to a 32-bit integer
+  }
+  return Math.abs(seed);
+}

@@ -12,6 +12,7 @@ import { RowCountContext } from './RowCountContext';
 interface IRowCountProviderProps {
   children: ReactNode;
 }
+let referenceCount = 0;
 
 export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
@@ -22,22 +23,30 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const [rowCount, setRowCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!tableId || !viewId || !connection) {
+    const canCreatePresence = tableId && viewId && connection;
+    if (!canCreatePresence) {
       return;
     }
 
+    referenceCount++;
     const channel = getRowCountChannel(tableId, viewId);
     setRemotePresence(connection.getPresence(channel));
 
-    if (!remotePresence?.subscribed) {
-      remotePresence?.subscribe((err) => err && console.error);
-      remotePresence?.on('receive', (id, res: IRawRowCountVo) => {
-        setRowCount(res[viewId].rowCount ?? 0);
-      });
-    }
+    remotePresence?.subscribe((err) => err && console.error);
+
+    const receiveHandler = (_id: string, res: IRawRowCountVo) => {
+      setRowCount(res[viewId].rowCount ?? 0);
+    };
+
+    remotePresence?.on('receive', receiveHandler);
 
     return () => {
-      remotePresence?.destroy();
+      remotePresence?.removeListener('receive', receiveHandler);
+      canCreatePresence && referenceCount--;
+      if (referenceCount === 0) {
+        remotePresence?.unsubscribe();
+        remotePresence?.destroy();
+      }
     };
   }, [connection, remotePresence, tableId, viewId]);
 

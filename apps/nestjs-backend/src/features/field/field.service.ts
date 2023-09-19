@@ -10,14 +10,17 @@ import type {
   ISnapshotBase,
   ISetFieldPropertyOpContext,
   DbFieldType,
+  ILookupOptionsVo,
 } from '@teable-group/core';
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { InjectModel } from 'nest-knexjs';
 import type { IAdapterService } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IFieldInstance } from './model/factory';
@@ -37,6 +40,7 @@ export class FieldService implements IAdapterService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -50,6 +54,7 @@ export class FieldService implements IAdapterService {
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
   ) {
+    const userId = this.cls.get('user.id');
     const {
       id,
       name,
@@ -88,14 +93,15 @@ export class FieldService implements IAdapterService {
       isComputed,
       isLookup,
       hasError,
+      // add lookupLinkedFieldId for indexing
       lookupLinkedFieldId: lookupOptions?.linkFieldId,
       lookupOptions: lookupOptions && JSON.stringify(lookupOptions),
       dbFieldName,
       dbFieldType,
       cellValueType,
       isMultipleCellValue,
-      createdBy: 'admin',
-      lastModifiedBy: 'admin',
+      createdBy: userId,
+      lastModifiedBy: userId,
     };
 
     return prisma.field.create({ data });
@@ -171,23 +177,13 @@ export class FieldService implements IAdapterService {
     }
   }
 
-  async getField(
-    tableId: string,
-    fieldId: string,
-    prisma?: Prisma.TransactionClient
-  ): Promise<IFieldVo> {
-    if (prisma) {
-      const field = await prisma.field.findUniqueOrThrow({
-        where: { id: fieldId },
-      });
-
-      return rawField2FieldObj(field);
-    }
-
-    const field = await this.prismaService.field.findUniqueOrThrow({
-      where: { id: fieldId },
+  async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
+    const field = await this.prismaService.field.findFirst({
+      where: { id: fieldId, tableId, deletedTime: null },
     });
-
+    if (!field) {
+      throw new NotFoundException(`field ${fieldId} in table ${tableId} not found`);
+    }
     return rawField2FieldObj(field);
   }
 
@@ -244,6 +240,19 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
+  async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
+    const fields = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+
+    const sortedFields = sortBy(fields, (field) => {
+      return JSON.parse(field.columnMeta)[viewId]?.order;
+    });
+
+    return sortedFields[index].id;
+  }
+
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldVo) {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(prisma, tableId);
@@ -256,20 +265,34 @@ export class FieldService implements IAdapterService {
   }
 
   async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+    const userId = this.cls.get('user.id');
+
     await this.attachmentService.delete(prisma, [{ fieldId, tableId: _tableId }]);
     await prisma.field.update({
       where: { id: fieldId },
-      data: { deletedTime: new Date() },
+      data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 
   private handleFieldProperty(params: { opContext: IOpContexts }) {
     const { opContext } = params;
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
-    if (key === 'options' || key === 'lookupOptions') {
-      return { [key]: JSON.stringify(newValue) };
+    if (key === 'options') {
+      if (!newValue) {
+        throw new Error('field options is required');
+      }
+      return { options: JSON.stringify(newValue) };
     }
-    return { [key]: newValue };
+
+    if (key === 'lookupOptions') {
+      return {
+        lookupOptions: newValue ? JSON.stringify(newValue) : null,
+        // update lookupLinkedFieldId for indexing
+        lookupLinkedFieldId: (newValue as ILookupOptionsVo | null)?.linkFieldId || null,
+      };
+    }
+
+    return { [key]: newValue ?? null };
   }
 
   private async handleColumnMeta(params: {
@@ -352,6 +375,7 @@ export class FieldService implements IAdapterService {
     fieldId: string,
     opContexts: IOpContexts[]
   ) {
+    const userId = this.cls.get('user.id');
     for (const opContext of opContexts) {
       const result = await this.updateStrategies(opContext, { prisma, fieldId, opContext });
 
@@ -360,6 +384,7 @@ export class FieldService implements IAdapterService {
         data: {
           version,
           ...result,
+          lastModifiedBy: userId,
         },
       });
     }

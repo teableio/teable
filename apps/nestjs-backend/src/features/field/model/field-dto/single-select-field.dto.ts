@@ -6,6 +6,12 @@ import type { IFieldBase } from '../field-base';
 class SingleSelectOption implements ISelectFieldChoice {
   @ApiProperty({
     type: String,
+    description: 'id of the option.',
+  })
+  id!: string;
+
+  @ApiProperty({
+    type: String,
     example: 'light',
     description: 'Name of the option.',
   })

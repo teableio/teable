@@ -56,7 +56,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const { columns, onColumnResize } = useColumnResize(originalColumns);
   const { columnStatistics } = useColumnStatistics(columns);
   const { onColumnOrdered } = useColumnOrder();
-  const gridViewStore = useGridViewStore();
+  const { openRecordMenu, openHeaderMenu, openSetting, openStatisticMenu, setSelection } =
+    useGridViewStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
@@ -158,41 +159,41 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         const start = isCellSelection ? ranges[0][1] : ranges[0][0];
         const end = isCellSelection ? ranges[1][1] : ranges[0][1];
         const recordIds = extractIds(start, end, recordMap);
-        gridViewStore.openRecordMenu({ position, recordIds });
+        openRecordMenu({ position, recordIds });
       }
       if (isColumnSelection) {
         const [start, end] = ranges[0];
         const fieldIds = extractIds(start, end, columns);
-        gridViewStore.openHeaderMenu({ position, fieldIds });
+        openHeaderMenu({ position, fieldIds });
       }
     },
-    [gridViewStore, recordMap, columns]
+    [recordMap, openRecordMenu, columns, openHeaderMenu]
   );
 
   const onColumnHeaderMenuClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      gridViewStore.openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
+      openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
     },
-    [columns, gridViewStore]
+    [columns, openHeaderMenu]
   );
 
   const onColumnHeaderDblClick = useCallback(
     (colIndex: number) => {
       const fieldId = columns[colIndex].id;
-      gridViewStore.openSetting({ fieldId, operator: FieldOperator.Edit });
+      openSetting({ fieldId, operator: FieldOperator.Edit });
     },
-    [columns, gridViewStore]
+    [columns, openSetting]
   );
 
   const onColumnStatisticClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
       const fieldId = columns[colIndex].id;
-      gridViewStore.openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
+      openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
     },
-    [columns, gridViewStore]
+    [columns, openStatisticMenu]
   );
 
   const onRowAppended = () => {
@@ -200,7 +201,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   };
 
   const onColumnAppend = () => {
-    gridViewStore.openSetting({
+    openSetting({
       operator: FieldOperator.Add,
     });
   };
@@ -273,20 +274,26 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     copy(selection);
   };
   const onPaste = (selection: CombinedSelection) => {
-    // CopyAndPasteApi.paste(tableId, activeViewId);
     paste(selection);
   };
 
+  const onSelectionChanged = useCallback(
+    (selection: CombinedSelection) => {
+      setSelection(selection);
+    },
+    [setSelection]
+  );
+
   const onRowExpand = (rowIndex: number) => {
-    const { nodeId, viewId } = router.query;
+    const { baseId, nodeId, viewId } = router.query;
     const recordId = recordMap[rowIndex]?.id;
     if (!recordId) {
       return;
     }
     router.push(
       {
-        pathname: '/space/[nodeId]/[viewId]/[recordId]',
-        query: { nodeId, viewId, recordId },
+        pathname: '/base/[baseId]/[nodeId]/[viewId]/[recordId]',
+        query: { baseId, nodeId, viewId, recordId },
       },
       undefined,
       {
@@ -325,6 +332,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           onContextMenu={onContextMenu}
           onColumnStatisticClick={onColumnStatisticClick}
           onVisibleRegionChanged={onVisibleRegionChanged}
+          onSelectionChanged={onSelectionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
           onCopy={onCopy}

@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { ClsService } from 'nestjs-cls';
 import { CalculationModule } from './calculation.module';
 import { FieldCalculationService } from './field-calculation.service';
 
@@ -9,7 +10,13 @@ describe('FieldCalculationService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [CalculationModule],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (token === ClsService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<FieldCalculationService>(FieldCalculationService);
   });

@@ -5,12 +5,14 @@ import {
   CellValueType,
   DbFieldType,
   FieldType,
+  generateBaseId,
   generateRecordId,
   generateTableId,
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { TeableConfigModule } from '../../../../../configs/config.module';
 import { TeableEventEmitterModule } from '../../../../../event-emitter/event-emitter.module';
 import { FieldModule } from '../../../../field/field.module';
@@ -31,6 +33,7 @@ describe('Create-Record Action Test', () => {
   let fieldService: FieldService;
   let recordOpenApiService: RecordOpenApiService;
   let tableId = generateTableId();
+  const baseId = generateBaseId();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -47,6 +50,9 @@ describe('Create-Record Action Test', () => {
         if (token === PrismaService) {
           return jest.fn();
         }
+        if (token === ClsService) {
+          return jest.fn();
+        }
       })
       .compile();
 
@@ -55,7 +61,7 @@ describe('Create-Record Action Test', () => {
     fieldService = await moduleRef.resolve<FieldService>(FieldService);
     recordOpenApiService = await moduleRef.resolve<RecordOpenApiService>(RecordOpenApiService);
 
-    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((tableRo) =>
+    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
       Promise.resolve({
         name: 'table1-automation-add',
         dbTableName: 'table1-automation-add',
@@ -118,7 +124,7 @@ describe('Create-Record Action Test', () => {
   });
 
   const createTable = async (): Promise<string> => {
-    const result = await tableOpenApiService.createTable({
+    const result = await tableOpenApiService.createTable(baseId, {
       name: 'table1-automation-add',
       views: DEFAULT_VIEWS,
       fields: DEFAULT_FIELDS as IFieldVo[],

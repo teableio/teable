@@ -11,7 +11,7 @@ import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-grou
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, groupBy, intersectionBy, keyBy, uniq, map } from 'lodash';
+import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -28,7 +28,7 @@ export interface ITopoItem {
   dependencies: string[];
 }
 
-export interface IUndirectedTopoItem {
+export interface IGraphItem {
   fromFieldId: string;
   toFieldId: string;
 }
@@ -37,9 +37,8 @@ export interface IFieldMap {
   [fieldId: string]: IFieldInstance;
 }
 
-interface IRecordItem {
+export interface IRecordItem {
   record: ITinyRecord;
-  calculated?: { [fieldId: string]: boolean };
   dependencies?: ITinyRecord | ITinyRecord[];
 }
 
@@ -142,11 +141,11 @@ export class ReferenceService {
     };
   }
 
-  getTopoOrdersByFieldId(fieldIds: string[], undirectedGraph: IUndirectedTopoItem[]) {
+  getTopoOrdersByFieldId(fieldIds: string[], directedGraph: IGraphItem[]) {
     return fieldIds.reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, fieldId) => {
-      pre[fieldId] = this.getTopologicalOrder(fieldId, undirectedGraph);
+      pre[fieldId] = this.getTopologicalOrder(fieldId, directedGraph);
       return pre;
     }, {});
   }
@@ -164,6 +163,10 @@ export class ReferenceService {
       [fieldId: string]: ITopoItem[];
     }>((pre, [fieldId, topoOrder]) => {
       const firstField = fieldMap[topoOrder[0].id];
+      if (!firstField) {
+        throw new Error(`field ${topoOrder[0].id} not found`);
+      }
+
       if (firstField.type === FieldType.Link) {
         topoOrder = topoOrder.slice(1);
       }
@@ -172,25 +175,34 @@ export class ReferenceService {
     }, {});
   }
 
-  async calculate(
+  async prepareCalculation(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    recordData: IRecordData[],
-    fkOpMap: IFkOpMap
+    recordData: IRecordData[]
   ) {
     if (!recordData.length) {
       return;
     }
-    const { undirectedGraph, startFieldIds, extraRecordIdItems } = await this.getUndirectedGraph(
+    const { directedGraph, startFieldIds, extraRecordIdItems } = await this.getDirectedGraph(
       prisma,
       recordData
     );
-    if (!undirectedGraph.length) {
+    if (!directedGraph.length) {
       return;
     }
 
+    // skip calculate when not all field in graph
+    const graphSet: Set<string> = new Set(
+      directedGraph.flatMap((item) => [item.fromFieldId, item.toFieldId])
+    );
+    for (const fieldId of startFieldIds) {
+      if (!graphSet.has(fieldId)) {
+        return;
+      }
+    }
+
     // get all related field by undirected graph
-    const allFieldIds = this.flatGraph(undirectedGraph);
+    const allFieldIds = this.flatGraph(directedGraph);
     // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
       await this.createAuxiliaryData(prisma, allFieldIds);
@@ -198,13 +210,17 @@ export class ReferenceService {
     // topological sorting
     const topoOrdersByFieldId = this.removeFirstLinkItem(
       fieldMap,
-      this.getTopoOrdersByFieldId(startFieldIds, undirectedGraph)
+      this.getTopoOrdersByFieldId(startFieldIds, directedGraph)
     );
+
+    if (isEmpty(topoOrdersByFieldId)) {
+      return;
+    }
 
     // nameConsole('recordData', recordData, fieldMap);
     // nameConsole('startFieldIds', startFieldIds, fieldMap);
     // nameConsole('allFieldIds', allFieldIds, fieldMap);
-    // nameConsole('undirectedGraph', undirectedGraph, fieldMap);
+    // nameConsole('directedGraph', directedGraph, fieldMap);
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
     // submitted changed records
@@ -257,7 +273,9 @@ export class ReferenceService {
     // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
     // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
 
-    const changes = Object.values(topoOrdersByFieldId).reduce<ICellChange[]>((pre, topoOrders) => {
+    const orderWithRecordsByFieldId = Object.entries(topoOrdersByFieldId).reduce<{
+      [fieldId: string]: ITopoItemWithRecords[];
+    }>((pre, [fieldId, topoOrders]) => {
       const orderWithRecords = this.createTopoItemWithRecords({
         topoOrders,
         fieldMap,
@@ -267,17 +285,47 @@ export class ReferenceService {
         affectedRecordItems,
         dependentRecordItems,
       });
-      // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
-      return pre.concat(
-        this.collectChanges(
-          orderWithRecords,
-          fieldMap,
-          fieldId2TableId,
-          tableId2DbTableName,
-          fkOpMap
-        )
-      );
-    }, []);
+      pre[fieldId] = orderWithRecords;
+      return pre;
+    }, {});
+    // nameConsole('orderWithRecordsByFieldId', orderWithRecordsByFieldId, fieldMap);
+
+    return {
+      fieldMap,
+      fieldId2TableId,
+      tableId2DbTableName,
+      orderWithRecordsByFieldId,
+      dbTableName2records,
+    };
+  }
+
+  async calculate(
+    prisma: Prisma.TransactionClient,
+    tableId: string,
+    recordData: IRecordData[],
+    fkOpMap: IFkOpMap
+  ) {
+    const result = await this.prepareCalculation(prisma, tableId, recordData);
+    if (!result) {
+      return;
+    }
+
+    const { orderWithRecordsByFieldId, fieldMap, fieldId2TableId, tableId2DbTableName } = result;
+    const changes = Object.values(orderWithRecordsByFieldId).reduce<ICellChange[]>(
+      (pre, orderWithRecords) => {
+        // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
+        return pre.concat(
+          this.collectChanges(
+            orderWithRecords,
+            fieldMap,
+            fieldId2TableId,
+            tableId2DbTableName,
+            fkOpMap
+          )
+        );
+      },
+      []
+    );
     // nameConsole('changes', changes, fieldMap);
 
     return {
@@ -336,7 +384,7 @@ export class ReferenceService {
     };
   }
 
-  private async getUndirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
+  private async getDirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
     let startFieldIds = recordData.map((data) => data.fieldId);
     const linkedData = recordData.filter(
       (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
@@ -368,16 +416,75 @@ export class ReferenceService {
       });
     }
     startFieldIds = uniq(startFieldIds);
-    const undirectedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
+    const directedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
 
     return {
-      undirectedGraph,
+      directedGraph,
       startFieldIds,
       extraRecordIdItems: foreignTableId
         ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           effectedRecordIds.map((id) => ({ id, tableId: foreignTableId! }))
         : [],
     };
+  }
+
+  /**
+   * Generate a directed graph.
+   *
+   * @param undirectedGraph - The elements of the undirected graph.
+   * @param fieldIds - One or more field IDs to start the DFS from.
+   * @returns Returns all relations related to the given fieldIds.
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private filterDirectedGraph(undirectedGraph: IGraphItem[], fieldIds: string[]): IGraphItem[] {
+    const result: IGraphItem[] = [];
+    const visited: Set<string> = new Set();
+
+    // Build adjacency lists for quick look-up
+    const outgoingAdjList: Record<string, IGraphItem[]> = {};
+    const incomingAdjList: Record<string, IGraphItem[]> = {};
+
+    for (const item of undirectedGraph) {
+      // Outgoing edges
+      if (!outgoingAdjList[item.fromFieldId]) {
+        outgoingAdjList[item.fromFieldId] = [];
+      }
+      outgoingAdjList[item.fromFieldId].push(item);
+
+      // Incoming edges
+      if (!incomingAdjList[item.toFieldId]) {
+        incomingAdjList[item.toFieldId] = [];
+      }
+      incomingAdjList[item.toFieldId].push(item);
+    }
+
+    function dfs(currentNode: string) {
+      visited.add(currentNode);
+
+      // Add incoming edges related to currentNode
+      if (incomingAdjList[currentNode]) {
+        result.push(...incomingAdjList[currentNode]);
+      }
+
+      // Process outgoing edges from currentNode
+      if (outgoingAdjList[currentNode]) {
+        for (const item of outgoingAdjList[currentNode]) {
+          if (!visited.has(item.toFieldId)) {
+            result.push(item);
+            dfs(item.toFieldId);
+          }
+        }
+      }
+    }
+
+    // Run DFS for each specified fieldId
+    for (const fieldId of fieldIds) {
+      if (!visited.has(fieldId)) {
+        dfs(fieldId);
+      }
+    }
+
+    return result;
   }
 
   private async calculateRecordDataMap(
@@ -440,7 +547,9 @@ export class ReferenceService {
     const record = recordItem.record;
     if (field.type === FieldType.Link || field.lookupOptions) {
       if (!recordItem.dependencies) {
-        throw new Error(`Dependency should not be undefined when contains a computed field`);
+        throw new Error(
+          `Dependency should not be undefined when contains a link/lookup/rollup field`
+        );
       }
       const lookupFieldId = field.lookupOptions
         ? field.lookupOptions.lookupFieldId
@@ -469,7 +578,7 @@ export class ReferenceService {
       );
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
-      // console.log('calculateLookup:lookupValues', lookupValues);
+      // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
 
       if (field.isLookup) {
         return this.flatOriginLookup(lookupValues);
@@ -532,7 +641,7 @@ export class ReferenceService {
     if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
       return null;
     }
-    return dependencies.fields[fieldId] || null;
+    return dependencies.fields[fieldId] ?? null;
   }
 
   private calculateRollup(
@@ -889,7 +998,11 @@ export class ReferenceService {
       }
       throw new Error('Unsupported relationship');
     });
-    return records.map((record, i) => ({ record, dependencies: dependenciesArr[i] }));
+    return records
+      .map((record, i) => ({ record, dependencies: dependenciesArr[i] }))
+      .filter((item) =>
+        Array.isArray(item.dependencies) ? item.dependencies.length : item.dependencies
+      );
   }
 
   createTopoItemWithRecords(params: {
@@ -912,7 +1025,7 @@ export class ReferenceService {
     } = params;
     const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
     const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
-    return topoOrders.map((order) => {
+    return topoOrders.reduce<ITopoItemWithRecords[]>((pre, order) => {
       const field = fieldMap[order.id];
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
@@ -944,20 +1057,31 @@ export class ReferenceService {
 
       // update cross table dependency (from lookup or link field)
       if (field.lookupOptions) {
+        if (
+          !affectedRecordItems?.find((item) => item.fieldId === field.lookupOptions?.linkFieldId)
+        ) {
+          return pre;
+        }
         const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
-        return appendRecordItems(foreignTableId, linkFieldId, relationship);
+        pre.push(appendRecordItems(foreignTableId, linkFieldId, relationship));
+        return pre;
       }
 
       if (field.type === FieldType.Link) {
+        if (!affectedRecordItems?.find((item) => item.fieldId === field.id)) {
+          return pre;
+        }
         const { foreignTableId, relationship } = field.options;
-        return appendRecordItems(foreignTableId, field.id, relationship);
+        pre.push(appendRecordItems(foreignTableId, field.id, relationship));
+        return pre;
       }
 
-      return {
+      pre.push({
         ...order,
         recordItems: records.map((record) => ({ record })),
-      };
-    });
+      });
+      return pre;
+    }, []);
   }
 
   formatRecordQueryResult(
@@ -994,6 +1118,13 @@ export class ReferenceService {
     });
   }
 
+  /**
+   * Generate a topological order based on the starting node ID.
+   *
+   * @param startNodeId - The ID to start the search from.
+   * @param graph - The input graph.
+   * @returns An array of ITopoItem representing the topological order.
+   */
   private getTopologicalOrder(
     startNodeId: string,
     graph: { toFieldId: string; fromFieldId: string }[]
@@ -1001,36 +1132,43 @@ export class ReferenceService {
     const visitedNodes = new Set<string>();
     const sortedNodes: ITopoItem[] = [];
 
+    // Build adjacency list and reverse adjacency list
+    const adjList: Record<string, string[]> = {};
+    const reverseAdjList: Record<string, string[]> = {};
+    for (const edge of graph) {
+      if (!adjList[edge.fromFieldId]) adjList[edge.fromFieldId] = [];
+      adjList[edge.fromFieldId].push(edge.toFieldId);
+
+      if (!reverseAdjList[edge.toFieldId]) reverseAdjList[edge.toFieldId] = [];
+      reverseAdjList[edge.toFieldId].push(edge.fromFieldId);
+    }
+
     function visit(node: string) {
       if (!visitedNodes.has(node)) {
         visitedNodes.add(node);
 
-        const incomingEdges = graph.filter((edge) => edge.toFieldId === node);
-        const outgoingEdges = graph.filter((edge) => edge.fromFieldId === node);
-        const dependencies: string[] = [];
+        // Get incoming edges (dependencies)
+        const dependencies = reverseAdjList[node] || [];
 
-        for (const edge of incomingEdges) {
-          dependencies.push(edge.fromFieldId);
+        // Process outgoing edges
+        if (adjList[node]) {
+          for (const neighbor of adjList[node]) {
+            visit(neighbor);
+          }
         }
 
-        for (const edge of outgoingEdges) {
-          visit(edge.toFieldId);
-        }
-
-        sortedNodes.push({ id: node, dependencies: uniq(dependencies) });
+        sortedNodes.push({ id: node, dependencies: dependencies });
       }
     }
 
     visit(startNodeId);
-
-    // sortedNodes.pop();
     return sortedNodes.reverse();
   }
 
   async getDependentNodesCTE(
     prisma: Prisma.TransactionClient,
     startFieldIds: string[]
-  ): Promise<IUndirectedTopoItem[]> {
+  ): Promise<IGraphItem[]> {
     let result: { fromFieldId: string; toFieldId: string }[] = [];
     const getResult = async (startFieldId: string) => {
       const _knex = this.knex;
@@ -1085,7 +1223,7 @@ export class ReferenceService {
       );
     }
 
-    return result;
+    return this.filterDirectedGraph(result, startFieldIds);
   }
 
   private mergeDuplicateRecordData(recordData: IRecordData[]) {

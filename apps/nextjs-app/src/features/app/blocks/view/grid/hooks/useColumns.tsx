@@ -85,6 +85,15 @@ const createCellValue2GridDisplay =
       case FieldType.Number:
       case FieldType.Rollup:
       case FieldType.Formula: {
+        if (cellValueType === CellValueType.Boolean) {
+          return {
+            type: CellType.Boolean,
+            data: (cellValue as boolean) || false,
+            readonly: isComputed,
+            isMultiple,
+          };
+        }
+
         if (cellValueType !== CellValueType.Number) {
           return {
             type: CellType.Text,

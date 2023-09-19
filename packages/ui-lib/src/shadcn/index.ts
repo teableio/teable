@@ -21,3 +21,5 @@ export * from './ui/tabs';
 export * from './ui/card';
 export * from './ui/separator';
 export * from './ui/skeleton';
+export * from './ui/form';
+export * from './ui/scroll-area';

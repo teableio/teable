@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { filterSchema, sortItemSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
@@ -32,7 +32,7 @@ export const recordSchema = z.object({
 
 export type IRecord = z.infer<typeof recordSchema>;
 
-export type ITinyRecord = Pick<IRecord, 'id' | 'fields'>;
+export type ITinyRecord = Omit<IRecord, 'recordOrder'>;
 
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {

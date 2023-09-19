@@ -17,14 +17,18 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
-import request from 'supertest';
+import type request from 'supertest';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
+  let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -35,22 +39,22 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table1: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request(app.getHttpServer())
-        .post('/api/table')
+      const result = await request
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
         .expect(201);
-      table1 = result.body.data;
+      table1 = result.body;
     });
 
     afterAll(async () => {
-      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
     });
 
     it('/api/table/{tableId}/field (GET)', async () => {
-      const fieldsResult = await request(app.getHttpServer()).get(`/api/table/${table1.id}/field`);
-      expect(fieldsResult.body.data).toHaveLength(3);
+      const fieldsResult = await request.get(`/api/table/${table1.id}/field`);
+      expect(fieldsResult.body).toHaveLength(3);
     });
 
     it('/api/table/{tableId}/field (POST)', async () => {
@@ -61,12 +65,9 @@ describe('OpenAPI FieldController (e2e)', () => {
         options: SingleLineTextFieldCore.defaultOptions(),
       };
 
-      await request(app.getHttpServer())
-        .post(`/api/table/${table1.id}/field`)
-        .send(fieldRo)
-        .expect(201);
+      await request.post(`/api/table/${table1.id}/field`).send(fieldRo).expect(201);
 
-      const result = await request(app.getHttpServer())
+      const result = await request
         .get(`/api/table/${table1.id}/field`)
         .query({
           skip: 0,
@@ -74,7 +75,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         })
         .expect(200);
 
-      const fields: IFieldVo[] = result.body.data;
+      const fields: IFieldVo[] = result.body;
       expect(fields).toHaveLength(4);
     });
   });
@@ -84,26 +85,26 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table2: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request(app.getHttpServer())
-        .post('/api/table')
+      const result = await request
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
         .expect(201);
-      table1 = result.body.data;
+      table1 = result.body;
 
-      const result2 = await request(app.getHttpServer())
-        .post('/api/table')
+      const result2 = await request
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
         })
         .expect(201);
-      table2 = result2.body.data;
+      table2 = result2.body;
     });
 
     afterAll(async () => {
-      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`);
-      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`);
+      await request.delete(`/api/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/table/arbitrary/${table2.id}`);
     });
 
     async function createFieldByType(
@@ -115,11 +116,8 @@ describe('OpenAPI FieldController (e2e)', () => {
         options,
       };
 
-      const result = await request(app.getHttpServer())
-        .post(`/api/table/${table1.id}/field`)
-        .send(fieldRo)
-        .expect(201);
-      return result.body.data;
+      const result = await request.post(`/api/table/${table1.id}/field`).send(fieldRo).expect(201);
+      return result.body;
     }
     it('basic field', async () => {
       const textField = await createFieldByType(FieldType.SingleLineText);
@@ -195,7 +193,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     describe('relational field', () => {
       it('should generate semantic field name for link and lookup and rollup field ', async () => {
-        const linkField = await createField(app, table1.id, {
+        const linkField = await createField(request, table1.id, {
           type: FieldType.Link,
           options: {
             foreignTableId: table2.id,
@@ -204,14 +202,12 @@ describe('OpenAPI FieldController (e2e)', () => {
         });
 
         expect(linkField.name).toEqual(`${table2.name}`);
-        const fieldsResult = await request(app.getHttpServer()).get(
-          `/api/table/${table2.id}/field`
-        );
-        table2.fields = fieldsResult.body.data;
+        const fieldsResult = await request.get(`/api/table/${table2.id}/field`);
+        table2.fields = fieldsResult.body;
         const symmetricalLinkField = table2.fields.find((f) => f.type === FieldType.Link);
 
         expect(symmetricalLinkField?.name).toEqual(table1.name);
-        const lookupField = await createField(app, table1.id, {
+        const lookupField = await createField(request, table1.id, {
           type: FieldType.SingleLineText,
           lookupOptions: {
             foreignTableId: table2.id,
@@ -224,7 +220,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         expect(lookupField.name).toEqual(`${table2.fields[0].name} (from ${table2.name})`);
         expect(lookupField.options).toEqual({});
 
-        const rollupField = await createField(app, table1.id, {
+        const rollupField = await createField(request, table1.id, {
           type: FieldType.Rollup,
           options: {
             expression: 'sum({values})',
@@ -250,41 +246,36 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table2: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request(app.getHttpServer())
-        .post('/api/table')
+      const result = await request
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table1',
         })
         .expect(201);
-      table1 = result.body.data;
+      table1 = result.body;
 
-      const result2 = await request(app.getHttpServer())
-        .post('/api/table')
+      const result2 = await request
+        .post(`/api/base/${baseId}/table`)
         .send({
           name: 'table2',
         })
         .expect(201);
-      table2 = result2.body.data;
+      table2 = result2.body;
     });
 
     afterAll(async () => {
-      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`);
-      await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`);
+      await request.delete(`/api/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/table/arbitrary/${table2.id}`);
     });
 
     async function createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
-      const result = await request(app.getHttpServer())
-        .post(`/api/table/${tableId}/field`)
-        .send(fieldRo)
-        .expect(201);
-      return result.body.data;
+      const result = await request.post(`/api/table/${tableId}/field`).send(fieldRo).expect(201);
+      return result.body;
     }
 
     async function deleteField(tableId: string, fieldId: string): Promise<IFieldVo> {
-      const result = await request(app.getHttpServer())
-        .delete(`/api/table/${tableId}/field/${fieldId}`)
-        .expect(200);
-      return result.body.data;
+      const result = await request.delete(`/api/table/${tableId}/field/${fieldId}`).expect(200);
+      return result.body;
     }
     let prisma: PrismaService;
     let knex: Knex;
@@ -431,7 +422,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       const linkField = await createField(table1.id, linkFieldRo);
       const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
 
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -530,9 +521,21 @@ describe('OpenAPI FieldController (e2e)', () => {
       };
       const formulaField = await createField(table1.id, formulaFieldRo);
 
-      await updateRecordByApi(app, table2.id, table2.records[0].id, table2PrimaryField.id, 'text');
-      await updateRecordByApi(app, table1.id, table1.records[0].id, table1.fields[0].id, 'formula');
-      await updateRecordByApi(app, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(
+        request,
+        table2.id,
+        table2.records[0].id,
+        table2PrimaryField.id,
+        'text'
+      );
+      await updateRecordByApi(
+        request,
+        table1.id,
+        table1.records[0].id,
+        table1.fields[0].id,
+        'formula'
+      );
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -542,7 +545,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(referenceBefore.length).toBe(2);
 
       // lookup cell and formula cell should be updated
-      const record = await getRecord(app, table1.id, table1.records[0].id);
+      const record = await getRecord(request, table1.id, table1.records[0].id);
       expect(record.fields[lookupField.id]).toBe('text');
       expect(record.fields[formulaField.id]).toBe('textformula');
 
@@ -555,7 +558,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(referenceAfter.length).toBe(0);
 
       // lookup cell and formula cell should be clean
-      const recordAfter = await getRecord(app, table1.id, table1.records[0].id);
+      const recordAfter = await getRecord(request, table1.id, table1.records[0].id);
       expect(recordAfter.fields[lookupField.id]).toBe(undefined);
       expect(recordAfter.fields[formulaField.id]).toBe('formula');
 

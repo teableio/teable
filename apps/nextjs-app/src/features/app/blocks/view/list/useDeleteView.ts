@@ -15,9 +15,10 @@ export function useDeleteView(viewId: string) {
       tableId: table.id,
       viewId,
     });
+    const { baseId } = router.query;
     router.push({
-      pathname: '/space/[tableId]',
-      query: { tableId: table.id },
+      pathname: '/base/[baseId]/[tableId]',
+      query: { baseId, tableId: table.id },
     });
   }, [router, table, viewId]);
 }

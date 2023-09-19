@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IViewRo } from '@teable-group/core';
 import { ViewType } from '@teable-group/core';
-import request from 'supertest';
+import type supertest from 'supertest';
 import { initApp } from './utils/init-app';
 
 const defaultViews = [
@@ -14,26 +14,30 @@ const defaultViews = [
 describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
+  let request: supertest.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
 
-    const result = await request(app.getHttpServer()).post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
-    tableId = result.body.data.id;
+    tableId = result.body.id;
   });
 
   afterAll(async () => {
-    const result = await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
-    console.log('clear table: ', result.body.data);
+    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
+    console.log('clear table: ', result.body);
 
     await app.close();
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {
-    const viewsResult = await request(app.getHttpServer()).get(`/api/table/${tableId}/view`);
-    expect(viewsResult.body.data).toMatchObject(defaultViews);
+    const viewsResult = await request.get(`/api/table/${tableId}/view`);
+    expect(viewsResult.body).toMatchObject(defaultViews);
   });
 
   it('/api/table/{tableId}/view (POST)', async () => {
@@ -43,9 +47,9 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await request(app.getHttpServer()).post(`/api/table/${tableId}/view`).send(viewRo).expect(201);
+    await request.post(`/api/table/${tableId}/view`).send(viewRo).expect(201);
 
-    const result = await request(app.getHttpServer())
+    const result = await request
       .get(`/api/table/${tableId}/view`)
       .query({
         skip: 0,
@@ -53,7 +57,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       })
       .expect(200);
 
-    expect(result.body.data).toMatchObject([
+    expect(result.body).toMatchObject([
       ...defaultViews,
       {
         name: 'New view',

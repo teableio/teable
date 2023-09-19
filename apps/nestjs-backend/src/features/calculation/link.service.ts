@@ -62,13 +62,17 @@ export class LinkService {
   constructor(@InjectModel() private readonly knex: Knex) {}
 
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
-    return contexts.filter((ctx) => {
-      if (isLinkCellValue(ctx.newValue)) {
-        return true;
-      }
+    return contexts
+      .filter((ctx) => {
+        if (isLinkCellValue(ctx.newValue)) {
+          return true;
+        }
 
-      return isLinkCellValue(ctx.oldValue);
-    });
+        return isLinkCellValue(ctx.oldValue);
+      })
+      .map((ctx) => {
+        return { ...ctx, oldValue: isLinkCellValue(ctx.oldValue) ? ctx.oldValue : undefined };
+      });
   }
 
   private async getTinyFieldsByIds(prisma: Prisma.TransactionClient, fieldIds: string[]) {
@@ -236,12 +240,16 @@ export class LinkService {
       if (field.options.relationship === Relationship.OneMany) {
         if (newValue && !Array.isArray(newValue)) {
           throw new BadRequestException(
-            'ManyMany relationship newValue should have multiple records'
+            `OneMany relationship newValue should have multiple records, received: ${JSON.stringify(
+              newValue
+            )}`
           );
         }
         if (oldValue && !Array.isArray(oldValue)) {
           throw new BadRequestException(
-            'ManyMany relationship oldValue should have multiple records'
+            `OneMany relationship oldValue should have multiple records, received: ${JSON.stringify(
+              oldValue
+            )}`
           );
         }
         const paramCommon = {
@@ -283,11 +291,12 @@ export class LinkService {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async fillRecordMapByCellContexts(
+  private async fillRecordMap(
     prisma: Prisma.TransactionClient,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
-    recordMapByTableId: IRecordMapByTableId
+    recordMapByTableId: IRecordMapByTableId,
+    fromReset?: boolean
   ): Promise<IRecordMapByTableId> {
     for (const tableId in recordMapByTableId) {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
@@ -335,15 +344,20 @@ export class LinkService {
             recordLookupFieldsMap[recordId][dbFieldName] = cellValue;
             continue;
           }
-
           const field = fieldMapByTableId[tableId][fieldId];
-          // TODO: maybe lookup other type of field?
+          if (fromReset && field.type === FieldType.Link) {
+            continue;
+          }
+
           if (field.type === FieldType.Link && cellValue != null) {
             cellValue = JSON.parse(cellValue as string);
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          recordLookupFieldsMap[recordId][fieldId] = (cellValue as any) ?? undefined;
+          // warn: it is assumed that the primary field does not require a value conversion
+          if (cellValue instanceof Date) {
+            cellValue = cellValue.toISOString();
+          }
+          recordLookupFieldsMap[recordId][fieldId] = cellValue ?? undefined;
         }
       }, {});
     }
@@ -486,18 +500,20 @@ export class LinkService {
     tableId: string,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
-    linkContexts: ILinkCellContext[]
+    linkContexts: ILinkCellContext[],
+    fromReset?: boolean
   ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkOpMap }> {
     const { recordMapByTableId, updateForeignKeyParams } =
       this.getRecordMapStructAndForeignKeyParams(tableId, fieldMapByTableId, linkContexts);
 
     // console.log('recordMapByTableId:', recordMapByTableId);
     // console.log('updateForeignKeyParams:', updateForeignKeyParams);
-    const originRecordMapByTableId = await this.fillRecordMapByCellContexts(
+    const originRecordMapByTableId = await this.fillRecordMap(
       prisma,
       tableId2DbTableName,
       fieldMapByTableId,
-      recordMapByTableId
+      recordMapByTableId,
+      fromReset
     );
     // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
 
@@ -549,7 +565,8 @@ export class LinkService {
   async getDerivateByLink(
     prisma: Prisma.TransactionClient,
     tableId: string,
-    cellContexts: ICellContext[]
+    cellContexts: ICellContext[],
+    fromReset?: boolean
   ) {
     const linkContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkContexts.length) {
@@ -568,7 +585,8 @@ export class LinkService {
       tableId,
       tableId2DbTableName,
       fieldMapByTableId,
-      linkContexts
+      linkContexts,
+      fromReset
     );
   }
 }

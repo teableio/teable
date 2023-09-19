@@ -1,83 +1,69 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiForbiddenResponse,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
+  getGraphRoSchema,
+  IGetGraphRo,
   getTableQuerySchema,
   ICreateTablePreparedRo,
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
-import { ApiResponse, responseWrap } from '../../../utils/api-response';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';
+import { GraphService } from './graph.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
-@ApiTags('table')
-@Controller('api/table')
+@Controller('api/base/:baseId/table')
 export class TableController {
   constructor(
     private readonly tableService: TableService,
-    private readonly tableOpenApiService: TableOpenApiService
+    private readonly tableOpenApiService: TableOpenApiService,
+    private readonly graphService: GraphService
   ) {}
 
   @Get(':tableId/defaultViewId')
-  @ApiOkResponse({
-    description: 'default id in table',
-    type: ApiResponse<{ id: string }>,
-  })
-  async getDefaultViewId(@Param('tableId') tableId: string): Promise<ApiResponse<{ id: string }>> {
-    const snapshot = await this.tableService.getDefaultViewId(tableId);
-    return responseWrap(snapshot);
+  async getDefaultViewId(@Param('tableId') tableId: string): Promise<{ id: string }> {
+    return await this.tableService.getDefaultViewId(tableId);
   }
 
   @Get(':tableId')
   async getTable(
+    @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
-  ): Promise<ApiResponse<ITableVo>> {
-    const table = await this.tableService.getTable(tableId, query);
-    return responseWrap(table);
+  ): Promise<ITableVo> {
+    return await this.tableService.getTable(baseId, tableId, query);
   }
 
   @Get()
-  async getTables(): Promise<ApiResponse<ITableListVo>> {
-    const tables = await this.tableService.getTables();
-    return responseWrap(tables);
+  async getTables(@Param('baseId') baseId: string): Promise<ITableListVo> {
+    return await this.tableService.getTables(baseId);
   }
 
-  @ApiOperation({ summary: 'Create table' })
-  @ApiCreatedResponse({
-    status: 201,
-    description: 'The table has been successfully created.',
-    type: ApiResponse<ITableFullVo>,
-  })
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Post()
   async createTable(
+    @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTablePreparedRo
-  ): Promise<ApiResponse<ITableFullVo>> {
-    const result = await this.tableOpenApiService.createTable(createTableRo);
-    return responseWrap(result);
+  ): Promise<ITableFullVo> {
+    return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 
-  @ApiOperation({ summary: 'Delete table' })
-  @ApiOkResponse({ description: 'The table has been deleted' })
-  @ApiForbiddenResponse({ status: 403, description: 'Forbidden.' })
   @Delete(':tableId')
-  async archiveTable(@Param('tableId') tableId: string) {
-    const result = await this.tableOpenApiService.deleteTable(tableId);
-    return responseWrap(result);
+  async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
   @Delete('arbitrary/:tableId')
-  deleteTableArbitrary(@Param('tableId') tableId: string) {
-    return this.tableOpenApiService.deleteTable(tableId);
+  deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return this.tableOpenApiService.deleteTable(baseId, tableId);
+  }
+
+  @Post(':tableId/graph')
+  async getCellGraph(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell, viewId }: IGetGraphRo
+  ) {
+    return await this.graphService.getGraph(tableId, cell, viewId);
   }
 }

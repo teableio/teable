@@ -22,7 +22,7 @@ expr
     | expr op=AMP_AMP expr # BinaryOp
     | expr op=PIPE_PIPE expr # BinaryOp
     | expr op=AMP expr # BinaryOp
-    | L_CURLY field_reference_curly R_CURLY # FieldReferenceCurly
+    | field_reference_curly # FieldReferenceCurly
     // | LOOKUP OPEN_PAREN field_reference COMMA WHITESPACE? field_reference CLOSE_PAREN # LookupFieldReference
     | func_name OPEN_PAREN (expr (COMMA expr)*)? CLOSE_PAREN # FunctionCall
     ;
@@ -38,8 +38,7 @@ field_reference
     ;
 
 field_reference_curly
-    : IDENTIFIER_UNICODE
-    | IDENTIFIER_UNICODE_BLANK
+    : IDENTIFIER_VARIABLE
     ;
 
 func_name

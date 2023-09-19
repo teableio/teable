@@ -17,6 +17,7 @@ export class TeableLoggerModule {
         return {
           pinoHttp: {
             name: 'teable',
+            autoLogging: process.env.NODE_ENV === 'production',
             level: level,
             quietReqLogger: true,
             genReqId: (req, res) => {

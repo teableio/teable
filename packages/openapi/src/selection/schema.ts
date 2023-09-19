@@ -1,5 +1,5 @@
 import { fieldVoSchema } from '@teable-group/core';
-import { z } from 'zod';
+import { z } from '../zod';
 
 const cellSchema = z.tuple([z.number(), z.number()]);
 

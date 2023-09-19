@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@belgattitude/http-exception": "^1.4.0",
+    "@tanstack/react-query": "4.35.0",
     "@teable-group/core": "workspace:*",
     "@teable-group/icons": "workspace:*",
     "@teable-group/openapi": "workspace:*",

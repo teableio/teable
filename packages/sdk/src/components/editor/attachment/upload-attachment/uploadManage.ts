@@ -1,7 +1,7 @@
 import type { AttachmentSchema } from '@teable-group/openapi';
-import { AttachmentApi } from '@teable-group/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
+import { AttachmentApi } from '../../../../api';
 
 interface IUploadTask {
   file: IFile;
@@ -72,7 +72,7 @@ export class AttachmentManager {
 
     try {
       const res = await AttachmentApi.getSignature(); // Assuming you have an AttachmentApi that provides the upload URL
-      if (!res.data.success) {
+      if (!res.data) {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
         return;
       }
@@ -81,9 +81,9 @@ export class AttachmentManager {
 
       formData.append('file', uploadTask.file.instance);
 
-      const { url, secret } = res.data.data;
+      const { url, secret } = res.data;
 
-      const response = await axios.post(url, formData, {
+      await axios.post(url, formData, {
         onUploadProgress: (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 0));
           uploadTask.progress = progress;
@@ -91,16 +91,12 @@ export class AttachmentManager {
         },
       });
 
-      if (!response.data.success) {
-        uploadTask.errorCallback(uploadTask.file);
-        return;
-      }
       const notifyRes = await AttachmentApi.notify(secret);
-      if (!notifyRes.data.success) {
+      if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
         return;
       }
-      this.completeUpload(uploadTask, notifyRes.data.data);
+      this.completeUpload(uploadTask, notifyRes.data);
     } catch (error) {
       uploadTask.errorCallback(uploadTask.file);
     }

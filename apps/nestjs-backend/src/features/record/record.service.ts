@@ -32,9 +32,11 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { InjectModel } from 'nest-knexjs';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
@@ -53,6 +55,7 @@ export class RecordService implements IAdapterService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -265,16 +268,13 @@ export class RecordService implements IAdapterService {
 
     // All `where` condition-related construction work
     const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
-    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(
-      orderBy,
-      orderFieldName,
-      fieldMap
-    );
+    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
 
     filterQueryTranslator
       .translateToSql()
       .andWhere(where)
       .orderBy(translatedOrderby)
+      .orderBy(orderFieldName, 'asc')
       .offset(offset)
       .limit(limit);
 
@@ -305,6 +305,8 @@ export class RecordService implements IAdapterService {
     recordId: string,
     contexts: { fieldId: string; newValue: unknown }[]
   ) {
+    const userId = this.cls.get('user.id');
+
     const fieldIds = Array.from(
       contexts.reduce((acc, cur) => {
         return acc.add(cur.fieldId);
@@ -338,7 +340,7 @@ export class RecordService implements IAdapterService {
     );
 
     const sqlNative = this.knex(dbTableName)
-      .update({ ...recordFieldsByDbFieldName, __version: version })
+      .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
       .where({ __id: recordId })
       .toSQL()
       .toNative();
@@ -441,7 +443,7 @@ export class RecordService implements IAdapterService {
       this.prismaService,
       tableId,
       [recordId],
-      undefined,
+      projection,
       fieldKeyType
     );
 
@@ -450,6 +452,11 @@ export class RecordService implements IAdapterService {
     }
 
     return recordSnapshot[0].data;
+  }
+
+  async getCellValue(tableId: string, recordId: string, fieldId: string) {
+    const record = await this.getRecord(tableId, recordId, { [fieldId]: true }, FieldKeyType.Id);
+    return record.fields[fieldId];
   }
 
   async getRecordIdByIndex(tableId: string, viewId: string, index: number) {
@@ -469,6 +476,7 @@ export class RecordService implements IAdapterService {
   }
 
   async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecord) {
+    const userId = this.cls.get('user.id');
     const dbTableName = await this.getDbTableName(prisma, tableId);
 
     // TODO: get row count will causes performance issus when insert lot of records
@@ -492,7 +500,8 @@ export class RecordService implements IAdapterService {
       .insert({
         __id: snapshot.id,
         __row_default: rowCount,
-        __created_by: 'admin',
+        __created_by: userId,
+        __last_modified_by: userId,
         __version: 1,
         ...orders,
       })

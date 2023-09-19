@@ -2,27 +2,31 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IRecord, IFieldVo, IUpdateRecordRo, IRecordsVo, IFieldRo } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
-import request from 'supertest';
+import type request from 'supertest';
 import { initApp } from './utils/init-app';
 import { seeding } from './utils/record-mock';
 
 describe('OpenAPI Field calculation (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
+  let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
 
-    const result = await request(app.getHttpServer()).post('/api/table').send({
+    const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
-    tableId = result.body.data.id;
+    tableId = result.body.id;
 
     await seeding(tableId, 1000);
   });
 
   afterAll(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${tableId}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
 
     await app.close();
   });
@@ -34,7 +38,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
     newValues: any
   ): Promise<IRecord> {
     return (
-      await request(app.getHttpServer())
+      await request
         .put(`/api/table/${tableId}/record/${recordId}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
@@ -45,21 +49,17 @@ describe('OpenAPI Field calculation (e2e)', () => {
           },
         } as IUpdateRecordRo)
         .expect(200)
-    ).body.data;
+    ).body;
   }
 
   async function getFields(tableId: string) {
-    const fieldResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/field`)
-      .expect(200);
-    return fieldResult.body.data as IFieldVo[];
+    const fieldResult = await request.get(`/api/table/${tableId}/field`).expect(200);
+    return fieldResult.body as IFieldVo[];
   }
 
   async function getRecords(tableId: string) {
-    const recordsResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
-    return recordsResult.body.data as IRecordsVo;
+    const recordsResult = await request.get(`/api/table/${tableId}/record`).expect(200);
+    return recordsResult.body as IRecordsVo;
   }
 
   it('should calculate when add a non-reference formula field', async () => {
@@ -74,16 +74,14 @@ describe('OpenAPI Field calculation (e2e)', () => {
       },
     };
 
-    const fieldCreateResult = await request(app.getHttpServer())
+    const fieldCreateResult = await request
       .post(`/api/table/${tableId}/field`)
       .send(fieldRo)
       .expect(201);
-    const fieldVo: IFieldVo = fieldCreateResult.body.data;
+    const fieldVo: IFieldVo = fieldCreateResult.body;
 
-    const recordsResult = await request(app.getHttpServer())
-      .get(`/api/table/${tableId}/record`)
-      .expect(200);
-    const recordsVo: IRecordsVo = recordsResult.body.data;
+    const recordsResult = await request.get(`/api/table/${tableId}/record`).expect(200);
+    const recordsVo: IRecordsVo = recordsResult.body;
     const equal = recordsVo.records.every((record) => record.fields[fieldVo.name] === 2);
     expect(equal).toBeTruthy();
   });
@@ -104,11 +102,11 @@ describe('OpenAPI Field calculation (e2e)', () => {
       },
     };
 
-    const fieldCreateResult = await request(app.getHttpServer())
+    const fieldCreateResult = await request
       .post(`/api/table/${tableId}/field`)
       .send(fieldRo)
       .expect(201);
-    const fieldVo: IFieldVo = fieldCreateResult.body.data;
+    const fieldVo: IFieldVo = fieldCreateResult.body;
     const recordsVoAfter = await getRecords(tableId);
 
     expect(recordsVoAfter.records[0].fields[fieldVo.name]).toEqual('A1');

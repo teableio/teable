@@ -19,8 +19,8 @@ describe('SingleSelectFieldCore', () => {
     description: 'A test SingleSelect field',
     options: {
       choices: [
-        { name: 'Option 1', color: Colors.Blue },
-        { name: 'Option 2', color: Colors.Red },
+        { id: 'cho1', name: 'Option 1', color: Colors.Blue },
+        { id: 'cho2', name: 'Option 2', color: Colors.Red },
       ],
     },
     type: FieldType.SingleSelect,
@@ -104,8 +104,8 @@ describe('SingleSelectFieldCore', () => {
         ...json,
         options: {
           choices: [
-            { name: 'Option 1', color: Colors.Blue },
-            { name: 'Option 2', color: 'xxxxx' },
+            { id: 'cho1', name: 'Option 1', color: Colors.Blue },
+            { id: 'cho2', name: 'Option 2', color: 'xxxxx' },
           ],
         },
       });

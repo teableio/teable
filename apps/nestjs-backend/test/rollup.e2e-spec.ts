@@ -12,7 +12,7 @@ import type {
   LinkFieldCore,
 } from '@teable-group/core';
 import { FieldKeyType, Colors, FieldType, Relationship, TimeFormatting } from '@teable-group/core';
-import request from 'supertest';
+import type request from 'supertest';
 import { initApp } from './utils/init-app';
 
 // All kind of field type (except link)
@@ -84,40 +84,42 @@ describe('OpenAPI Rollup field (e2e)', () => {
   let table1: ITableFullVo = {} as any;
   let table2: ITableFullVo = {} as any;
   const tables: ITableFullVo[] = [];
+  let request: request.SuperAgentTest;
+  const baseId = globalThis.testConfig.baseId;
 
   async function updateTableFields(table: ITableFullVo) {
-    const tableFields = (
-      await request(app.getHttpServer()).get(`/api/table/${table.id}/field`).expect(200)
-    ).body.data;
+    const tableFields = (await request.get(`/api/table/${table.id}/field`).expect(200)).body;
     table.fields = tableFields;
     return tableFields;
   }
 
   beforeAll(async () => {
-    app = await initApp();
+    const appCtx = await initApp();
+    app = appCtx.app;
+    request = appCtx.request;
 
     // create table1 with fundamental field
-    const result1 = await request(app.getHttpServer())
-      .post('/api/table')
+    const result1 = await request
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table1',
         fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
       })
       .expect(201);
-    table1 = result1.body.data;
+    table1 = result1.body;
 
     // create table2 with fundamental field
-    const result2 = await request(app.getHttpServer())
-      .post('/api/table')
+    const result2 = await request
+      .post(`/api/base/${baseId}/table`)
       .send({
         name: 'table2',
         fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table2]' })),
       })
       .expect(201);
-    table2 = result2.body.data;
+    table2 = result2.body;
 
     // create link field
-    await request(app.getHttpServer())
+    await request
       .post(`/api/table/${table1.id}/field`)
       .send({
         name: 'link[table1]',
@@ -135,8 +137,8 @@ describe('OpenAPI Rollup field (e2e)', () => {
   });
 
   afterAll(async () => {
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table1.id}`).expect(200);
-    await request(app.getHttpServer()).delete(`/api/table/arbitrary/${table2.id}`).expect(200);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`).expect(200);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`).expect(200);
 
     await app.close();
   });
@@ -184,7 +186,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     newValues: any
   ): Promise<IRecord> {
     return (
-      await request(app.getHttpServer())
+      await request
         .put(`/api/table/${tableId}/record/${recordId}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
@@ -195,18 +197,18 @@ describe('OpenAPI Rollup field (e2e)', () => {
           },
         } as IUpdateRecordRo)
         .expect(200)
-    ).body.data;
+    ).body;
   }
 
   async function getRecord(tableId: string, recordId: string): Promise<IRecord> {
     return (
-      await request(app.getHttpServer())
+      await request
         .get(`/api/table/${tableId}/record/${recordId}`)
         .query({
           fieldKeyType: FieldKeyType.Id,
         })
         .expect(200)
-    ).body.data;
+    ).body;
   }
 
   async function rollupFrom(
@@ -237,10 +239,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     };
 
     // create rollup field
-    await request(app.getHttpServer())
-      .post(`/api/table/${table.id}/field`)
-      .send(rollupFieldRo)
-      .expect(201);
+    await request.post(`/api/table/${table.id}/field`).send(rollupFieldRo).expect(201);
 
     await updateTableFields(table);
     return getFieldByName(table.fields, rollupFieldRo.name!);
@@ -285,7 +284,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter2 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(0);
+    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(1);
 
     // add a link record from many - one field
     await updateRecordByApi(
@@ -395,7 +394,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record1 = await getRecord(table1.id, table1.records[1].id);
-    expect(record1.fields[rollupFieldVo.id]).toEqual(0);
+    expect(record1.fields[rollupFieldVo.id]).toEqual(1);
     const record2 = await getRecord(table1.id, table1.records[2].id);
     expect(record2.fields[rollupFieldVo.id]).toEqual(1);
   });
@@ -428,7 +427,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123456');
+    expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123, 456');
   });
 
   it('should update one - many rollupField by replace a linkRecord from cell', async () => {

@@ -4,9 +4,12 @@ import { RecordOpBuilder, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { InjectModel } from 'nest-knexjs';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
+import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
+import { tinyPreservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
 import type { IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
@@ -37,6 +40,7 @@ export interface ITopoOrdersContext {
 export class FieldCalculationService {
   constructor(
     private readonly referenceService: ReferenceService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -267,7 +271,7 @@ export class FieldCalculationService {
       // deduplication is needed
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat(['__id']);
+        .concat([...tinyPreservedFieldName]);
       const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
       const result = await prisma.$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
         nativeSql.sql,
@@ -465,10 +469,11 @@ export class FieldCalculationService {
     const rawOpMap: IRawOpMap = {};
     for (const tableId in opsMap) {
       const dbTableName = tableId2DbTableName[tableId];
-      const raw = await this.fetchRawData(prisma, dbTableName, opsMap[tableId]);
+      const recordOpsMap = opsMap[tableId];
+      const raw = await this.fetchRawData(prisma, dbTableName, recordOpsMap);
       const versionGroup = keyBy(raw, '__id');
 
-      const opsData = this.buildOpsData(src, opsMap[tableId], versionGroup);
+      const opsData = this.buildOpsData(src, recordOpsMap, versionGroup);
       rawOpMap[tableId] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
         pre[d.recordId] = d.rawOp;
         return pre;
@@ -483,9 +488,9 @@ export class FieldCalculationService {
   private async fetchRawData(
     prisma: Prisma.TransactionClient,
     dbTableName: string,
-    ops: { [recordId: string]: IOtOperation[] }
+    recordOpsMap: { [recordId: string]: IOtOperation[] }
   ) {
-    const recordIds = Object.keys(ops);
+    const recordIds = Object.keys(recordOpsMap);
     const nativeSql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
       .select('__id', '__version')
@@ -501,26 +506,29 @@ export class FieldCalculationService {
   @Timing()
   private buildOpsData(
     src: string,
-    ops: { [recordId: string]: IOtOperation[] },
+    recordOpsMap: { [recordId: string]: IOtOperation[] },
     versionGroup: { [recordId: string]: { __version: number; __id: string } }
   ) {
     const opsData: IOpsData[] = [];
 
-    for (const recordId in ops) {
-      const updateParam = ops[recordId].reduce<{ [fieldId: string]: unknown }>((pre, op) => {
-        const opContext = RecordOpBuilder.editor.setRecord.detect(op);
-        if (!opContext) {
-          throw new Error(`illegal op ${JSON.stringify(op)} found`);
-        }
-        pre[opContext.fieldId] = opContext.newValue;
-        return pre;
-      }, {});
+    for (const recordId in recordOpsMap) {
+      const updateParam = recordOpsMap[recordId].reduce<{ [fieldId: string]: unknown }>(
+        (pre, op) => {
+          const opContext = RecordOpBuilder.editor.setRecord.detect(op);
+          if (!opContext) {
+            throw new Error(`illegal op ${JSON.stringify(op)} found`);
+          }
+          pre[opContext.fieldId] = opContext.newValue;
+          return pre;
+        },
+        {}
+      );
 
       const version = versionGroup[recordId].__version;
       const rawOp: IRawOp = {
         src,
         seq: 1,
-        op: ops[recordId],
+        op: recordOpsMap[recordId],
         v: version,
         m: {
           ts: Date.now(),
@@ -549,6 +557,7 @@ export class FieldCalculationService {
       return;
     }
 
+    const userId = this.cls.get('user.id');
     const tempTableName = `${dbTableName}_temp`;
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
     const columnNames = fieldIds
@@ -579,7 +588,7 @@ export class FieldCalculationService {
         __id: data.recordId,
         __version: data.version + 1,
         __last_modified_time: new Date().toISOString(),
-        __last_modified_by: 'admin',
+        __last_modified_by: userId,
         ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
           (pre, [fieldId, value]) => {
             const field = fieldMap[fieldId];
@@ -626,13 +635,14 @@ export class FieldCalculationService {
     tableId: string,
     opsData: IOpsData[]
   ) {
+    const userId = this.cls.get('user.id');
     const insertRowsData = opsData.map((data) => {
       return {
         collection: tableId,
         doc_id: data.recordId,
         version: data.version + 1,
         operation: JSON.stringify(data.rawOp),
-        created_by: 'admin',
+        created_by: userId,
       };
     });
 
