@@ -17,15 +17,19 @@ export abstract class Field extends FieldCore {
 
   protected doc!: Doc<IFieldVo>;
 
-  private async submitOperation(operation: unknown): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.doc.submitOp([operation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
+  private async submitOperation(operation: unknown) {
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
       });
-    });
+    } catch (error) {
+      return error;
+    }
   }
 
-  async updateColumnWidth(viewId: string, width: number): Promise<void> {
+  async updateColumnWidth(viewId: string, width: number) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'width',
@@ -36,7 +40,7 @@ export abstract class Field extends FieldCore {
     return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
+  async updateColumnHidden(viewId: string, hidden: boolean) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'hidden',
@@ -47,7 +51,7 @@ export abstract class Field extends FieldCore {
     return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnOrder(viewId: string, order: number): Promise<void> {
+  async updateColumnOrder(viewId: string, order: number) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'order',
@@ -58,10 +62,7 @@ export abstract class Field extends FieldCore {
     return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnStatistic(
-    viewId: string,
-    statisticFunc?: StatisticsFunc | null
-  ): Promise<void> {
+  async updateColumnStatistic(viewId: string, statisticFunc?: StatisticsFunc | null) {
     if (statisticFunc === this.columnMeta[viewId]?.statisticFunc) {
       return;
     }
