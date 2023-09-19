@@ -31,6 +31,7 @@ export const authMiddleware = (shareDB: ShareDBClass, wsAuthService: WsAuthServi
     try {
       const user = await checkCookie(cookie, wsAuthService);
       context.agent.custom.user = user;
+      callback();
     } catch (error) {
       callback(error);
     }
