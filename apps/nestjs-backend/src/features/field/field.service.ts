@@ -14,8 +14,9 @@ import type {
 import { OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { IAdapterService } from '../../share-db/interface';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
@@ -32,15 +33,15 @@ type IOpContexts =
 @Injectable()
 export class FieldService implements IAdapterService {
   private logger = new Logger(FieldService.name);
-  private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService
+    private readonly attachmentService: AttachmentsTableService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   generateDbFieldName(fields: { id: string; name: string }[]): string[] {
-    return fields.map(({ id, name }) => `${convertNameToValidCharacter(name, 50)}_${id}`);
+    return fields.map(({ id, name }) => `${convertNameToValidCharacter(name, 12)}_${id}`);
   }
 
   private async dbCreateField(
@@ -97,7 +98,7 @@ export class FieldService implements IAdapterService {
       lastModifiedBy: 'admin',
     };
 
-    return await prisma.field.create({ data });
+    return prisma.field.create({ data });
   }
 
   private async getColumnsMeta(

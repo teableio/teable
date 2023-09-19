@@ -52,7 +52,7 @@
     "docker:nextjs-app:develop:reinstall": "cross-env DOCKER_BUILDKIT=1 docker-compose -f docker-compose.nextjs-app.yml build --progress=tty --no-cache --force-rm develop",
     "docker:nextjs-app:build": "cross-env DOCKER_BUILDKIT=1 docker-compose -f docker-compose.nextjs-app.yml build --progress=tty runner",
     "docker:nextjs-app:serve": "docker-compose -f docker-compose.nextjs-app.yml --env-file ./apps/nextjs-app/.env.local up runner",
-    "docker:up:main-db": "docker-compose up -d main-db",
+    "docker:up:db": "docker-compose up -d teable-db",
     "docker:down": "docker-compose down",
     "docker:nuke-all": "npm-run-all --sequential --continue-on-error --print-label \"docker:nuke:*\"",
     "docker:nuke:images": "docker image rm -f $(docker image ls -q)",

@@ -14,20 +14,20 @@ export class PrismaService
     const logConfig = {
       log: [
         {
-          emit: 'event',
           level: 'query',
+          emit: 'event',
         },
         {
-          emit: 'stdout',
           level: 'error',
+          emit: 'stdout',
         },
         {
-          emit: 'stdout',
           level: 'info',
+          emit: 'stdout',
         },
         {
-          emit: 'stdout',
           level: 'warn',
+          emit: 'stdout',
         },
       ],
     };
@@ -39,10 +39,10 @@ export class PrismaService
   async onModuleInit() {
     await this.$connect();
 
-    await this.$queryRaw`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;`.catch((error) => {
-      this.logger.error('Prisma Set `PRAGMA` Failed due to:', error.stack);
-      process.exit(1);
-    });
+    // await this.$queryRaw`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;`.catch((error) => {
+    //   this.logger.error('Prisma Set `PRAGMA` Failed due to:', error.stack);
+    //   process.exit(1);
+    // });
 
     if (process.env.NODE_ENV === 'production') return;
 

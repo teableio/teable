@@ -2,18 +2,19 @@ import { Injectable } from '@nestjs/common';
 import type { ILookupOptionsVo, IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
 import type { IFieldMap, IRecordRefItem, ITopoItem } from './reference.service';
-import { ReferenceService, IOpsMap } from './reference.service';
+import { IOpsMap, ReferenceService } from './reference.service';
 import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { nameConsole } from './utils/name-console';
 
 interface IOpsData {
   recordId: string;
@@ -34,9 +35,10 @@ export interface ITopoOrdersContext {
 
 @Injectable()
 export class FieldCalculationService {
-  constructor(private readonly referenceService: ReferenceService) {}
-
-  protected readonly knex = knex({ client: 'sqlite3' });
+  constructor(
+    private readonly referenceService: ReferenceService,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   private async getSelfOriginRecords(prisma: Prisma.TransactionClient, dbTableName: string) {
     const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();
@@ -490,7 +492,7 @@ export class FieldCalculationService {
       .toSQL()
       .toNative();
 
-    return await prisma.$queryRawUnsafe<{ __version: number; __id: string }[]>(
+    return prisma.$queryRawUnsafe<{ __version: number; __id: string }[]>(
       nativeSql.sql,
       ...nativeSql.bindings
     );
@@ -553,63 +555,68 @@ export class FieldCalculationService {
       .map((id) => fieldMap[id].dbFieldName)
       .concat(['__version', '__last_modified_time', '__last_modified_by']);
 
-    const createTempTableSql = `
-      CREATE TEMPORARY TABLE ${tempTableName} (
-        __id TEXT PRIMARY KEY,
-        ${fieldIds
-          .map((id) => `${fieldMap[id].dbFieldName} ${dbType2knexFormat(fieldMap[id].dbFieldType)}`)
-          .concat([`__version INTEGER`, `__last_modified_time DATETIME`, `__last_modified_by TEXT`])
-          .join(', ')}
-      )
-    `;
+    // 1.create temporary table structure
+    const createTempTableSchema = this.knex.schema.createTable(tempTableName, (table) => {
+      table.text('__id').primary();
+      fieldIds.forEach((id) => {
+        const { dbFieldName, dbFieldType } = fieldMap[id];
+        const typeKey = dbType2knexFormat(dbFieldType);
+        table[typeKey](dbFieldName);
+      });
+      table.integer('__version');
+      table.dateTime('__last_modified_time');
+      table.text('__last_modified_by');
+    });
+
+    const createTempTableSql = createTempTableSchema
+      .toQuery()
+      .replace('create table', 'create temporary table');
     await prisma.$executeRawUnsafe(createTempTableSql);
 
-    const insertTempTableSql = `
-      INSERT INTO ${tempTableName} (__id, ${columnNames.join(', ')})
-      VALUES
-      ${opsData
-        .map((d) => ({
-          ...d,
-          updateParam: {
-            ...Object.entries(d.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
-              (pre, [fieldId, value]) => {
-                const field = fieldMap[fieldId];
-                const dbFieldName = field.dbFieldName;
-                const cellValue = field.convertCellValue2DBValue(value);
-                pre[dbFieldName] = cellValue;
-                return pre;
-              },
-              {}
-            ),
-            __last_modified_time: new Date().toISOString(),
-            __last_modified_by: 'admin',
-            __version: d.version + 1,
-          } as { [dbFieldName: string]: unknown },
-        }))
-        .map(
-          (d) =>
-            `('${d.recordId}', ${columnNames
-              .map((name) => (d.updateParam[name] ? `'${d.updateParam[name]}'` : 'null'))
-              .join(', ')})`
-        )
-        .join(', ')}
-    `;
-
+    // 2.initialize temporary table data
+    const insertRowsData = opsData.map((data) => {
+      return {
+        __id: data.recordId,
+        __version: data.version + 1,
+        __last_modified_time: new Date().toISOString(),
+        __last_modified_by: 'admin',
+        ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
+          (pre, [fieldId, value]) => {
+            const field = fieldMap[fieldId];
+            const { dbFieldName } = field;
+            pre[dbFieldName] = field.convertCellValue2DBValue(value) ?? null;
+            return pre;
+          },
+          {}
+        ),
+      };
+    });
+    const insertTempTableSql = this.knex.insert(insertRowsData).into(tempTableName).toQuery();
     await prisma.$executeRawUnsafe(insertTempTableSql);
 
-    const updateSql = `
-      UPDATE ${dbTableName}
-      SET ${columnNames
-        .map(
-          (name) =>
-            `${name} = (SELECT ${name} FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)`
-        )
-        .join(', ')}
-      WHERE EXISTS (SELECT 1 FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)
-    `;
+    // 3.update data
+    const updateColumns = columnNames.reduce<{ [key: string]: unknown }>((pre, columnName) => {
+      pre[columnName] = this.knex.raw(`(select ?? from ?? where ?? = ??)`, [
+        columnName,
+        tempTableName,
+        '__id',
+        this.knex.ref(`${dbTableName}.__id`),
+      ]);
+      return pre;
+    }, {});
+    const updateSql = this.knex(dbTableName)
+      .update(updateColumns)
+      .whereExists(
+        this.knex
+          .select(this.knex.raw(1))
+          .from(tempTableName)
+          .where('__id', this.knex.ref(`${dbTableName}.__id`))
+      )
+      .toQuery();
     await prisma.$executeRawUnsafe(updateSql);
 
-    const dropTempTableSql = `DROP TABLE ${tempTableName}`;
+    // 4.delete temporary table
+    const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
     await prisma.$executeRawUnsafe(dropTempTableSql);
   }
 
@@ -619,19 +626,17 @@ export class FieldCalculationService {
     tableId: string,
     opsData: IOpsData[]
   ) {
-    const insertSql = `
-        INSERT INTO ops ("collection", "doc_id", "version", "operation", "created_by")
-        VALUES
-        ${opsData
-          .map(
-            (d) =>
-              `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(
-                d.rawOp
-              )}', 'admin')`
-          )
-          .join(', ')}
-      `;
+    const insertRowsData = opsData.map((data) => {
+      return {
+        collection: tableId,
+        doc_id: data.recordId,
+        version: data.version + 1,
+        operation: JSON.stringify(data.rawOp),
+        created_by: 'admin',
+      };
+    });
 
-    return await prisma.$executeRawUnsafe(insertSql);
+    const insertTempTableSql = this.knex.insert(insertRowsData).into('ops').toQuery();
+    return prisma.$executeRawUnsafe(insertTempTableSql);
   }
 }

@@ -114,7 +114,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   const views = await prisma.view.findMany({ where: { tableId } });
   const [{ count: rowCount }] = await prisma.$queryRawUnsafe<{ count: number }[]>(
-    `select count(*) as count from ${dbTableName}`
+    `select count(*) as count from "${dbTableName}"`
   );
 
   console.time(`Table: ${tableName}, Ready Install Data`);
@@ -138,10 +138,11 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   console.time(`Table: ${tableName}, Install Data Num: ${mockDataNum}`);
   const pages = chunk(data, 50000);
+
   const promises = pages.map((page) => {
     const sql = `
-        REPLACE INTO ${dbTableName}
-        (${Object.keys(page[0]).join(',')})
+        INSERT INTO "${dbTableName}"
+        ("${Object.keys(page[0]).join('", "')}")
         VALUES
         ${page
           .map((d) => `('${Object.values(d).join(`', '`)}')`)
@@ -150,7 +151,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
       `;
 
     const sqlOp = `
-        REPLACE INTO ops
+        INSERT INTO ops
         ("collection", "doc_id", "version", "operation", "created_by")
         VALUES
         ${page

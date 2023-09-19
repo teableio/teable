@@ -10,39 +10,40 @@ import type {
   IRollupFieldOptions,
 } from '@teable-group/core';
 import {
+  assertNever,
+  AttachmentFieldCore,
   CellValueType,
-  getDefaultFormatting,
+  CheckboxFieldCore,
+  DateFieldCore,
+  DbFieldType,
   FieldType,
   generateFieldId,
+  getDefaultFormatting,
+  NumberFieldCore,
   Relationship,
   RelationshipRevert,
-  DbFieldType,
-  assertNever,
-  SingleLineTextFieldCore,
-  NumberFieldCore,
   SelectFieldCore,
-  AttachmentFieldCore,
-  DateFieldCore,
-  CheckboxFieldCore,
+  SingleLineTextFieldCore,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { ISupplementService } from '../../share-db/interface';
 import { FieldService } from './field.service';
 import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByVo, createFieldInstanceByRaw } from './model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from './model/factory';
 import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from './model/field-dto/link-field.dto';
 import { RollupFieldDto } from './model/field-dto/rollup-field.dto';
 
 @Injectable()
 export class FieldSupplementService implements ISupplementService {
-  private readonly knex = knex({ client: 'sqlite3' });
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly fieldService: FieldService
+    private readonly fieldService: FieldService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
@@ -172,7 +173,7 @@ export class FieldSupplementService implements ISupplementService {
       case CellValueType.DateTime:
         return DbFieldType.DateTime;
       case CellValueType.Boolean:
-        return DbFieldType.Integer;
+        return DbFieldType.Boolean;
       case CellValueType.String:
         return DbFieldType.Text;
       default:
@@ -408,7 +409,7 @@ export class FieldSupplementService implements ISupplementService {
       name: name ?? 'Done',
       options: options ?? CheckboxFieldCore.defaultOptions(),
       cellValueType: CellValueType.Boolean,
-      dbFieldType: DbFieldType.Integer,
+      dbFieldType: DbFieldType.Boolean,
     };
   }
 
@@ -520,9 +521,10 @@ export class FieldSupplementService implements ISupplementService {
     tableName: string,
     columnName: string
   ): Promise<boolean> {
-    const result = await prisma.$queryRawUnsafe<{ name: string }[]>(
-      `PRAGMA table_info(${tableName})`
-    );
+    const columnListSql = this.knex.queryBuilder().columnList(tableName).toQuery();
+
+    const result = await prisma.$queryRawUnsafe<{ name: string }[]>(columnListSql);
+
     return result.some((row) => row.name === columnName);
   }
 
@@ -535,12 +537,13 @@ export class FieldSupplementService implements ISupplementService {
     if (await this.columnExists(prisma, dbTableName, dbForeignKeyName)) {
       return;
     }
-    const alterTableQuery = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.string(dbForeignKeyName).unique().nullable();
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(alterTableQuery);
+    const alterTableSchema = this.knex.schema.alterTable(dbTableName, (table) => {
+      table.string(dbForeignKeyName).index().nullable();
+    });
+
+    for (const sql of alterTableSchema.toSQL()) {
+      await prisma.$executeRawUnsafe(sql.sql);
+    }
   }
 
   private async cleanForeignKeyField(

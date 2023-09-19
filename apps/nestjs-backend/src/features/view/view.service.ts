@@ -12,13 +12,15 @@ import type {
 import { generateViewId, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import type { IAdapterService } from '../../share-db/interface';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw } from './model/factory';
 
 @Injectable()
 export class ViewService implements IAdapterService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @InjectModel() private readonly knex: Knex) {}
 
   getRowIndexFieldName(viewId: string) {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
@@ -75,28 +77,33 @@ export class ViewService implements IAdapterService {
     });
 
     const rowIndexFieldName = this.getRowIndexFieldName(viewId);
-    const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
 
     // 1. create a new view in view model
-    const viewData = await prisma.view.create({
-      data,
-    });
+    const viewData = await prisma.view.create({ data });
 
     // 2. add a field for maintain row order number
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE ${dbTableName}
-      ADD ${rowIndexFieldName} REAL;
-    `);
+    const addRowIndexColumnSql = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.double(rowIndexFieldName);
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
 
     // 3. fill initial order for every record, with auto increment integer
-    await prisma.$executeRawUnsafe(`
-      UPDATE ${dbTableName} SET ${rowIndexFieldName} = __row_default;
-    `);
+    const updateRowIndexSql = this.knex(dbTableName)
+      .update({
+        [rowIndexFieldName]: this.knex.ref('__row_default'),
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(updateRowIndexSql);
 
     // 4. create index
-    await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX ${rowIndexFieldIndexName} ON  ${dbTableName}(${rowIndexFieldName});
-    `);
+    const createRowIndexSQL = this.knex.schema
+      .table(dbTableName, (table) => {
+        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(createRowIndexSQL);
 
     // set strick not null and unique type for safety（sqlite cannot do that)
     // prisma.$executeRawUnsafe(`
@@ -136,7 +143,7 @@ export class ViewService implements IAdapterService {
     });
 
     await prisma.$executeRawUnsafe(`
-      DROP INDEX IF EXISTS ${rowIndexFieldIndexName};
+      DROP INDEX IF EXISTS "${rowIndexFieldIndexName}";
     `);
   }
 

@@ -8,6 +8,7 @@ import {
 import type {
   IAttachmentCellValue,
   ICreateRecordsRo,
+  IExtraResult,
   IGetRecordsQuery,
   IMakeRequired,
   IRecord,
@@ -16,7 +17,6 @@ import type {
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
-  IExtraResult,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -30,9 +30,9 @@ import {
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Knex } from 'knex';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
@@ -49,11 +49,11 @@ type IUserFields = { id: string; dbFieldName: string }[];
 @Injectable()
 export class RecordService implements IAdapterService {
   private logger = new Logger(RecordService.name);
-  private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService
+    private readonly attachmentService: AttachmentsTableService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   private async getRowOrderFieldNames(prisma: Prisma.TransactionClient, tableId: string) {
@@ -492,7 +492,6 @@ export class RecordService implements IAdapterService {
       .insert({
         __id: snapshot.id,
         __row_default: rowCount,
-        __created_time: new Date().toISOString(),
         __created_by: 'admin',
         __version: 1,
         ...orders,

@@ -1,9 +1,18 @@
+{{!
+    This `schema.mustache` file is a template that will be used to generate the actual `schema.prisma` file.
+
+    The final `schema.prisma` file will be generated in the "./db_client/" subdirectory.
+
+    Do not manually edit the generated `schema.prisma` file under subdirectories, because it will be overridden next time the command is run.
+
+    The template `schema.mustache` will be used to generate the final `schema.prisma` every time.
+}}
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "{{PRISMA_PROVIDER}}"
   url      = env("PRISMA_DATABASE_URL")
 }
 
@@ -258,11 +267,12 @@ model AutomationWorkflowAction {
 }
 
 model AutomationWorkflowExecutionHistory {
-  id                  String   @id @default(cuid())
-  automaionWorkflowId String   @map("automaion_workflow_id")
-  executionType       String   @map("execution_type")
-  executionResult     String   @map("execution_result")
-  createdTime         DateTime @default(now()) @map("created_time")
+  id              String   @id @default(cuid())
+  workflowId      String   @map("workflow_id")
+  executionType   String   @map("execution_type")
+  executionResult String   @map("execution_result")
+  createdTime     DateTime @default(now()) @map("created_time")
 
+  @@index([workflowId])
   @@map("automation_workflow_execution_history")
 }

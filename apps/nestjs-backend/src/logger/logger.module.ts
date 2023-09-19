@@ -12,10 +12,12 @@ export class TeableLoggerModule {
     return LoggerModule.forRootAsync({
       inject: [ClsService, ConfigService],
       useFactory: (cls: ClsService, config: ConfigService) => {
+        const { level } = config.getOrThrow<ILoggerConfig>('logger');
+
         return {
           pinoHttp: {
             name: 'teable',
-            level: config.get<ILoggerConfig>('logger')!.level,
+            level: level,
             quietReqLogger: true,
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];

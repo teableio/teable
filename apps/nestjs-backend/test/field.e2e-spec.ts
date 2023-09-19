@@ -16,6 +16,7 @@ import {
   FieldType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import type { Knex } from 'knex';
 import request from 'supertest';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
@@ -286,9 +287,11 @@ describe('OpenAPI FieldController (e2e)', () => {
       return result.body.data;
     }
     let prisma: PrismaService;
+    let knex: Knex;
 
     beforeAll(async () => {
       prisma = app.get(PrismaService);
+      knex = app.get('default');
     });
 
     it('should delete a simple field', async () => {
@@ -442,7 +445,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       const dbTableName = table1.dbTableName;
       const { dbForeignKeyName } = linkField.options as ILinkFieldOptions;
       const linkedRecords = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        `SELECT * FROM "${dbTableName}" WHERE "${dbForeignKeyName}" = "${table2.records[0].id}"`
+        knex(dbTableName).select('*').where(dbForeignKeyName, table2.records[0].id).toQuery()
       );
       expect(linkedRecords.length).toBe(1);
 

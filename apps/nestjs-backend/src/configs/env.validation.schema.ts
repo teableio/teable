@@ -9,4 +9,7 @@ export const envValidationSchema = Joi.object({
 
   // logger
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
+
+  // database_url
+  PRISMA_DATABASE_URL: Joi.string(),
 });

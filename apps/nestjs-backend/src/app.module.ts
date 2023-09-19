@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '@teable-group/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsModule } from 'nestjs-cls';
@@ -16,6 +15,7 @@ import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
+import { GlobalModule } from './global/global.module';
 import { TeableLoggerModule } from './logger/logger.module';
 import { WsModule } from './ws/ws.module';
 
@@ -35,7 +35,7 @@ import { WsModule } from './ws/ws.module';
     }),
     TeableLoggerModule.register(),
     TeableEventEmitterModule.register(),
-    PrismaModule,
+    GlobalModule,
     NextModule,
     FileTreeModule,
     ExportImportModule,

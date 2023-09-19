@@ -6,7 +6,7 @@ export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {
     if (this.isMultipleCellValue) {
       return JSON.stringify(value);
     }
-    return value ? 1 : null;
+    return value ? true : null;
   }
 
   convertDBValue2CellValue(value: unknown): unknown {
