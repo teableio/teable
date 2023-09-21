@@ -7,7 +7,7 @@ import {
   generateRecordId,
   RecordOpBuilder,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { isEqual } from 'lodash';
 import type { IRawOpMap } from '../../../share-db/interface';
@@ -27,17 +27,15 @@ import { FieldDeletingService } from './field-deleting.service';
 @Injectable()
 export class FieldConvertingLinkService {
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
-  private async generateSymmetricFieldChange(
-    prisma: Prisma.TransactionClient,
-    linkField: LinkFieldDto
-  ) {
-    const fieldRaw = await prisma.field.findFirstOrThrow({
+  private async generateSymmetricFieldChange(linkField: LinkFieldDto) {
+    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { id: linkField.options.symmetricFieldId, deletedTime: null },
     });
     const oldField = createFieldInstanceByRaw(fieldRaw);
@@ -56,7 +54,6 @@ export class FieldConvertingLinkService {
   }
 
   private async linkOptionsChange(
-    prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
     newField: LinkFieldDto,
@@ -71,30 +68,27 @@ export class FieldConvertingLinkService {
 
     if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
       // update current field reference
-      await prisma.reference.deleteMany({
+      await this.prismaService.txClient().reference.deleteMany({
         where: {
           toFieldId: newField.id,
         },
       });
-      await this.fieldSupplementService.createReference(prisma, newField);
-      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, oldField.options);
+      await this.fieldSupplementService.createReference(newField);
+      await this.fieldSupplementService.cleanForeignKey(tableId, oldField.options);
       // create new symmetric link
-      await this.fieldSupplementService.createForeignKey(prisma, tableId, newField);
+      await this.fieldSupplementService.createForeignKey(tableId, newField);
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
-        prisma,
         tableId,
         newField
       );
       const createResult = await this.fieldCreatingService.createAndCalculate(
         connection,
-        prisma,
         newField.options.foreignTableId,
         symmetricField
       );
 
       // delete old symmetric link
       const deleteResult = await this.fieldDeletingService.delateAndCleanRef(
-        prisma,
         connection,
         oldField.options.foreignTableId,
         oldField.options.symmetricFieldId,
@@ -106,16 +100,15 @@ export class FieldConvertingLinkService {
     }
 
     if (newField.options.relationship !== oldField.options.relationship) {
-      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, oldField.options);
+      await this.fieldSupplementService.cleanForeignKey(tableId, oldField.options);
       // create new symmetric link
-      await this.fieldSupplementService.createForeignKey(prisma, tableId, newField);
+      await this.fieldSupplementService.createForeignKey(tableId, newField);
       const rawOpsMap = await this.fieldDeletingService.cleanField(
-        prisma,
         connection,
         newField.options.foreignTableId,
         [newField.options.symmetricFieldId]
       );
-      const fieldChange = await this.generateSymmetricFieldChange(prisma, newField);
+      const fieldChange = await this.generateSymmetricFieldChange(newField);
 
       return {
         rawOpMaps: rawOpsMap && [rawOpsMap],
@@ -124,22 +117,15 @@ export class FieldConvertingLinkService {
     }
   }
 
-  private async otherToLink(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    tableId: string,
-    newField: LinkFieldDto
-  ) {
-    await this.fieldSupplementService.createForeignKey(prisma, tableId, newField);
+  private async otherToLink(connection: Connection, tableId: string, newField: LinkFieldDto) {
+    await this.fieldSupplementService.createForeignKey(tableId, newField);
     const symmetricField = await this.fieldSupplementService.generateSymmetricField(
-      prisma,
       tableId,
       newField
     );
-    await this.fieldSupplementService.createReference(prisma, newField);
+    await this.fieldSupplementService.createReference(newField);
     const symmetricResult = await this.fieldCreatingService.createAndCalculate(
       connection,
-      prisma,
       newField.options.foreignTableId,
       symmetricField
     );
@@ -148,14 +134,8 @@ export class FieldConvertingLinkService {
     };
   }
 
-  private async linkToOther(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    tableId: string,
-    oldField: LinkFieldDto
-  ) {
+  private async linkToOther(connection: Connection, tableId: string, oldField: LinkFieldDto) {
     const mainRawOpsMap = await this.fieldDeletingService.cleanRef(
-      prisma,
       connection,
       tableId,
       oldField.id,
@@ -163,7 +143,6 @@ export class FieldConvertingLinkService {
     );
 
     const { rawOpsMap: symRawOpsMap } = await this.fieldDeletingService.delateAndCleanRef(
-      prisma,
       connection,
       oldField.options.foreignTableId,
       oldField.options.symmetricFieldId,
@@ -181,7 +160,6 @@ export class FieldConvertingLinkService {
    * 3. link field to other field
    */
   async supplementLink(
-    prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
     newField: IFieldInstance,
@@ -198,29 +176,25 @@ export class FieldConvertingLinkService {
       oldField.type === FieldType.Link &&
       !isEqual(newField.options, oldField.options)
     ) {
-      return this.linkOptionsChange(prisma, connection, tableId, newField, oldField);
+      return this.linkOptionsChange(connection, tableId, newField, oldField);
     }
 
     if (newField.type !== FieldType.Link && oldField.type === FieldType.Link) {
-      return this.linkToOther(prisma, connection, tableId, oldField);
+      return this.linkToOther(connection, tableId, oldField);
     }
 
     if (newField.type === FieldType.Link && oldField.type !== FieldType.Link) {
-      return this.otherToLink(prisma, connection, tableId, newField);
+      return this.otherToLink(connection, tableId, newField);
     }
   }
 
-  private async getRecords(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    field: IFieldInstance
-  ) {
-    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+  private async getRecords(tableId: string, field: IFieldInstance) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
-    const result = await this.fieldCalculationService.getRecordsBatchByFields(prisma, {
+    const result = await this.fieldCalculationService.getRecordsBatchByFields({
       [dbTableName]: [field],
     });
     const records = result[dbTableName];
@@ -238,21 +212,16 @@ export class FieldConvertingLinkService {
    * convert oldCellValue to new link field cellValue
    * if oldCellValue is not in foreignTable, create new record in foreignTable
    */
-  async convertLink(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    newField: LinkFieldDto,
-    oldField: IFieldInstance
-  ) {
+  async convertLink(tableId: string, newField: LinkFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
     const foreignTableId = newField.options.foreignTableId;
-    const lookupFieldRaw = await prisma.field.findFirstOrThrow({
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { id: newField.options.lookupFieldId, deletedTime: null },
     });
     const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
 
-    const records = await this.getRecords(prisma, tableId, oldField);
-    const foreignRecords = await this.getRecords(prisma, foreignTableId, lookupField);
+    const records = await this.getRecords(tableId, oldField);
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
     const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
       const str = lookupField.cellValue2String(record.fields[lookupField.id]);

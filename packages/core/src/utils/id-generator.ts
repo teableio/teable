@@ -45,10 +45,6 @@ export function generateChoiceId() {
   return IdPrefix.Choice + getRandomString(8);
 }
 
-export function generateTransactionKey() {
-  return getRandomString(20);
-}
-
 export function generateAttachmentId() {
   return IdPrefix.Attachment + getRandomString(16);
 }

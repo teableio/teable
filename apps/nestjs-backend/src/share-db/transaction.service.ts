@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
-import { generateTransactionKey } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { map, noop } from 'lodash';
@@ -79,27 +78,27 @@ export class TransactionService {
       timeout?: number;
       isolationLevel?: Prisma.TransactionIsolationLevel;
     }
-  ): Promise<R> {
-    const transactionKey = generateTransactionKey();
-    this.logger.log(`startBackendTransaction: ${transactionKey}`);
-    const result = await this.prismaService.$transaction(async (prisma) => {
-      this.cache.set(transactionKey, {
-        isBackend: true,
-        client: prisma,
-      });
-      try {
-        return await fn(prisma, transactionKey);
-      } catch (e) {
-        // if transaction has been rollback, cancel publish
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (shareDbService as any).pendingPublish[transactionKey];
-        throw e;
-      } finally {
-        this.completeBackendTransaction(transactionKey);
-      }
-    }, options);
-    this.publishPendingOp(shareDbService, transactionKey);
-    return result;
+  ) {
+    // const transactionKey = generateTransactionKey();
+    // this.logger.log(`startBackendTransaction: ${transactionKey}`);
+    // const result = await this.prismaService.$transaction(async (prisma) => {
+    //   this.cache.set(transactionKey, {
+    //     isBackend: true,
+    //     client: prisma,
+    //   });
+    //   try {
+    //     return await fn(prisma, transactionKey);
+    //   } catch (e) {
+    //     // if transaction has been rollback, cancel publish
+    //     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    //     delete (shareDbService as any).pendingPublish[transactionKey];
+    //     throw e;
+    //   } finally {
+    //     this.completeBackendTransaction(transactionKey);
+    //   }
+    // }, options);
+    // this.publishPendingOp(shareDbService, transactionKey);
+    // return result;
   }
 
   private completeBackendTransaction(transactionKey: string) {

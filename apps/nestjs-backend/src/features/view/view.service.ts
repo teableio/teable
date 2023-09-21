@@ -21,7 +21,7 @@ import { createViewInstanceByRaw } from './model/factory';
 @Injectable()
 export class ViewService implements IAdapterService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -34,7 +34,6 @@ export class ViewService implements IAdapterService {
   }
 
   async createViewTransaction(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     createViewRo: IViewRo & { id?: string; name: string }
   ) {
@@ -42,6 +41,7 @@ export class ViewService implements IAdapterService {
     const { id, name, description, type, options, sort, filter, group } = createViewRo;
     let order = createViewRo.order;
     const viewId = id || generateViewId();
+    const prisma = this.prismaService.txClient();
 
     if (!order) {
       const viewAggregate = await prisma.view.aggregate({
@@ -114,7 +114,7 @@ export class ViewService implements IAdapterService {
   }
 
   async getViewById(viewId: string): Promise<IViewVo> {
-    const viewRaw = await this.prisma.view.findUniqueOrThrow({
+    const viewRaw = await this.prismaService.txClient().view.findUniqueOrThrow({
       where: { id: viewId },
     });
 
@@ -122,34 +122,33 @@ export class ViewService implements IAdapterService {
   }
 
   async getViews(tableId: string): Promise<IViewVo[]> {
-    const viewRaws = await this.prisma.view.findMany({
+    const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
     });
 
     return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, view: IViewVo) {
-    await this.createViewTransaction(prisma, tableId, view);
+  async create(tableId: string, view: IViewVo) {
+    await this.createViewTransaction(tableId, view);
   }
 
-  async del(prisma: Prisma.TransactionClient, _tableId: string, viewId: string) {
+  async del(_tableId: string, viewId: string) {
     const userId = this.cls.get('user.id');
 
     const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
 
-    await prisma.view.update({
+    await this.prismaService.txClient().view.update({
       where: { id: viewId },
       data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
 
-    await prisma.$executeRawUnsafe(`
+    await this.prismaService.txClient().$executeRawUnsafe(`
       DROP INDEX IF EXISTS ${rowIndexFieldIndexName};
     `);
   }
 
   async update(
-    prisma: Prisma.TransactionClient,
     version: number,
     _tableId: string,
     viewId: string,
@@ -181,7 +180,7 @@ export class ViewService implements IAdapterService {
           throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);
       }
 
-      await prisma.view.update({
+      await this.prismaService.txClient().view.update({
         where: { id: viewId },
         data: {
           ...updateData,
@@ -191,12 +190,8 @@ export class ViewService implements IAdapterService {
     }
   }
 
-  async getSnapshotBulk(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    ids: string[]
-  ): Promise<ISnapshotBase<IViewVo>[]> {
-    const views = await prisma.view.findMany({
+  async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
+    const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, id: { in: ids } },
     });
 
@@ -221,8 +216,8 @@ export class ViewService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(prisma: Prisma.TransactionClient, tableId: string, _query: unknown) {
-    const views = await prisma.view.findMany({
+  async getDocIdsByQuery(tableId: string, _query: unknown) {
+    const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
       orderBy: { order: 'asc' },

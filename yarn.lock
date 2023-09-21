@@ -9158,6 +9158,7 @@ __metadata:
     is-port-reachable: 3.1.0
     jest: 29.6.4
     keyword-extractor: 0.0.23
+    nanoid: 3.3.6
     npm-run-all: 4.1.5
     picocolors: 1.0.0
     prettier: 2.7.1
@@ -9168,6 +9169,7 @@ __metadata:
     typescript: 4.8.4
   peerDependencies:
     "@nestjs/common": ^9.3.9
+    nestjs-cls: 3.5.1
   languageName: unknown
   linkType: soft
 

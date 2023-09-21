@@ -25,13 +25,13 @@ import {
   FieldType,
   FieldOpBuilder,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Connection } from '@teable/sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
 import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
+import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
@@ -69,11 +69,12 @@ export class FieldConvertingService {
   private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly linkService: LinkService,
+    private readonly batchService: BatchService,
     private readonly referenceService: ReferenceService,
     private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
@@ -226,11 +227,7 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
-  private async updateDbFieldType(
-    prisma: Prisma.TransactionClient,
-    dbTableName: string,
-    field: IFieldInstance
-  ) {
+  private async updateDbFieldType(dbTableName: string, field: IFieldInstance) {
     const ops: IOtOperation[] = [];
     const dbFieldType = this.fieldSupplementService.getDbFieldType(
       field.type,
@@ -243,15 +240,13 @@ export class FieldConvertingService {
       const op2 = this.buildOpAndMutateField(field, 'dbFieldName', field.dbFieldName + '_');
       op1 && ops.push(op1);
       op2 && ops.push(op2);
-      await this.fieldService.alterVisualTable(prisma, dbTableName, [field]);
+      await this.fieldService.alterVisualTable(dbTableName, [field]);
     }
     return ops;
   }
 
-  private async generateReferenceFieldOps(prisma: Prisma.TransactionClient, fieldId: string) {
-    const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext(prisma, [
-      fieldId,
-    ]);
+  private async generateReferenceFieldOps(fieldId: string) {
+    const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
 
     const { fieldMap, topoOrdersByFieldId, fieldId2TableId, tableId2DbTableName } =
       topoOrdersContext;
@@ -274,7 +269,7 @@ export class FieldConvertingService {
       } else if (curField.type === FieldType.Rollup) {
         pushOpsMap(tableId, curField.id, this.updateRollupField(curField, fieldMap));
       }
-      const ops = await this.updateDbFieldType(prisma, dbTableName, curField);
+      const ops = await this.updateDbFieldType(dbTableName, curField);
       pushOpsMap(tableId, curField.id, ops);
     }
 
@@ -341,20 +336,15 @@ export class FieldConvertingService {
    * 3. options change will cause the lookup field options change
    * 4. options in link field change may cause all lookup field run in to error, should mark them as error
    */
-  private async updateReferencedFields(
-    prisma: Prisma.TransactionClient,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ) {
+  private async updateReferencedFields(newField: IFieldInstance, oldField: IFieldInstance) {
     if (!this.infectPropertyChanged(newField, oldField)) {
       return;
     }
 
-    return await this.generateReferenceFieldOps(prisma, newField.id);
+    return await this.generateReferenceFieldOps(newField.id);
   }
 
   private async modifyFormulaOptions(
-    prisma: Prisma.TransactionClient,
     newField: RollupFieldDto | FormulaFieldDto,
     oldField: RollupFieldDto | FormulaFieldDto
   ): Promise<undefined> {
@@ -362,7 +352,7 @@ export class FieldConvertingService {
       return;
     }
 
-    const oldReferenceRaw = await prisma.reference.findMany({
+    const oldReferenceRaw = await this.prismaService.txClient().reference.findMany({
       where: { toFieldId: oldField.id },
       select: { fromFieldId: true },
     });
@@ -380,7 +370,7 @@ export class FieldConvertingService {
     const removedReferenceFieldIds = differenceBy(oldReferenceFieldIds, newReferenceFieldIds);
 
     if (removedReferenceFieldIds) {
-      await prisma.reference.deleteMany({
+      await this.prismaService.txClient().reference.deleteMany({
         where: {
           fromFieldId: { in: removedReferenceFieldIds },
         },
@@ -390,7 +380,7 @@ export class FieldConvertingService {
     if (addedReferenceFieldIds) {
       await Promise.all(
         addedReferenceFieldIds.map((fromFieldId) => {
-          return prisma.reference.create({
+          return this.prismaService.txClient().reference.create({
             data: { fromFieldId, toFieldId: newField.id },
           });
         })
@@ -399,12 +389,11 @@ export class FieldConvertingService {
   }
 
   private async updateOptionsFromMultiSelectField(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     updatedChoiceMap: { [old: string]: string | null },
     field: MultipleSelectFieldDto
   ): Promise<IOpsMap | undefined> {
-    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
@@ -420,10 +409,12 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await prisma.$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-      nativeSql.sql,
-      ...nativeSql.bindings
-    );
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
+      );
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -453,12 +444,11 @@ export class FieldConvertingService {
   }
 
   private async updateOptionsFromSingleSelectField(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto
   ): Promise<IOpsMap | undefined> {
-    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
@@ -474,10 +464,12 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await prisma.$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-      nativeSql.sql,
-      ...nativeSql.bindings
-    );
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
+      );
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -494,23 +486,21 @@ export class FieldConvertingService {
   }
 
   private async updateOptionsFromSelectField(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     updatedChoiceMap: { [old: string]: string | null },
     field: SingleSelectFieldDto | MultipleSelectFieldDto
   ): Promise<IOpsMap | undefined> {
     if (field.type === FieldType.SingleSelect) {
-      return this.updateOptionsFromSingleSelectField(prisma, tableId, updatedChoiceMap, field);
+      return this.updateOptionsFromSingleSelectField(tableId, updatedChoiceMap, field);
     }
 
     if (field.type === FieldType.MultipleSelect) {
-      return this.updateOptionsFromMultiSelectField(prisma, tableId, updatedChoiceMap, field);
+      return this.updateOptionsFromMultiSelectField(tableId, updatedChoiceMap, field);
     }
     throw new Error('Invalid field type');
   }
 
   private async modifySelectOptions(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     newField: SingleSelectFieldDto | MultipleSelectFieldDto,
     oldField: SingleSelectFieldDto | MultipleSelectFieldDto
@@ -533,11 +523,10 @@ export class FieldConvertingService {
       return;
     }
 
-    return await this.updateOptionsFromSelectField(prisma, tableId, updatedChoiceMap, newField);
+    return await this.updateOptionsFromSelectField(tableId, updatedChoiceMap, newField);
   }
 
   private async modifyOptions(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
@@ -545,27 +534,17 @@ export class FieldConvertingService {
     switch (newField.type) {
       case FieldType.Link:
         return this.fieldConvertingLinkService.convertLink(
-          prisma,
           tableId,
           newField as LinkFieldDto,
           oldField as LinkFieldDto
         );
       case FieldType.Rollup:
-        return this.modifyFormulaOptions(
-          prisma,
-          newField as RollupFieldDto,
-          oldField as RollupFieldDto
-        );
+        return this.modifyFormulaOptions(newField as RollupFieldDto, oldField as RollupFieldDto);
       case FieldType.Formula:
-        return this.modifyFormulaOptions(
-          prisma,
-          newField as FormulaFieldDto,
-          oldField as FormulaFieldDto
-        );
+        return this.modifyFormulaOptions(newField as FormulaFieldDto, oldField as FormulaFieldDto);
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect: {
         const rawOpsMap = await this.modifySelectOptions(
-          prisma,
           tableId,
           newField as SingleSelectFieldDto,
           oldField as SingleSelectFieldDto
@@ -595,11 +574,7 @@ export class FieldConvertingService {
     return { ops, keys };
   }
 
-  private async getDerivateByLink(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    innerOpsMap: IOpsMap['key']
-  ) {
+  private async getDerivateByLink(tableId: string, innerOpsMap: IOpsMap['key']) {
     const changes: ICellContext[] = [];
     for (const recordId in innerOpsMap) {
       for (const op of innerOpsMap[recordId]) {
@@ -611,7 +586,7 @@ export class FieldConvertingService {
       }
     }
 
-    const derivate = await this.linkService.getDerivateByLink(prisma, tableId, changes, true);
+    const derivate = await this.linkService.getDerivateByLink(tableId, changes, true);
     const cellChanges = derivate?.cellChanges || [];
     const fkRecordMap = derivate?.fkRecordMap || {};
 
@@ -624,15 +599,13 @@ export class FieldConvertingService {
   }
 
   private async calculateAndSaveRecords(
-    transactionKey: string,
     tableId: string,
     field: IFieldInstance,
     recordOpsMap: IOpsMap
   ) {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
     let fkRecordMap: IFkOpMap = {};
     if (field.type === FieldType.Link && !field.isLookup) {
-      const result = await this.getDerivateByLink(prisma, tableId, recordOpsMap[tableId]);
+      const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
       // console.log('getDerivateByLink:result', JSON.stringify(result, null, 2));
       fkRecordMap = result.fkRecordMap;
       recordOpsMap = composeMaps([recordOpsMap, result.opsMapByLink]);
@@ -642,7 +615,7 @@ export class FieldConvertingService {
       opsMap: calculatedOpsMap,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(prisma, recordOpsMap, fkRecordMap);
+    } = await this.referenceService.calculateOpsMap(recordOpsMap, fkRecordMap);
 
     const composedOpsMap = composeMaps([recordOpsMap, calculatedOpsMap]);
 
@@ -650,18 +623,8 @@ export class FieldConvertingService {
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
     // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
 
-    if (!Object.keys(tableId2DbTableName).length) {
-      const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
-        where: { id: tableId, deletedTime: null },
-        select: { dbTableName: true },
-      });
-      tableId2DbTableName[tableId] = dbTableName;
-      fieldMap[field.id] = field;
-    }
-
-    const rawOpsMap = await this.fieldCalculationService.batchSave(
-      prisma,
-      transactionKey,
+    const rawOpsMap = await this.batchService.save(
+      'calculated',
       composedOpsMap,
       fieldMap,
       tableId2DbTableName
@@ -670,17 +633,13 @@ export class FieldConvertingService {
     this.shareDbService.publishOpsMap(rawOpsMap);
   }
 
-  private async getRecords(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    newField: IFieldInstance
-  ) {
-    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+  private async getRecords(tableId: string, newField: IFieldInstance) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
-    const result = await this.fieldCalculationService.getRecordsBatchByFields(prisma, {
+    const result = await this.fieldCalculationService.getRecordsBatchByFields({
       [dbTableName]: [newField],
     });
     const records = result[dbTableName];
@@ -694,13 +653,12 @@ export class FieldConvertingService {
   }
 
   private async convert2Select(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     newField: SingleSelectFieldDto | MultipleSelectFieldDto,
     oldField: IFieldInstance
   ) {
     const fieldId = newField.id;
-    const records = await this.getRecords(prisma, tableId, oldField);
+    const records = await this.getRecords(tableId, oldField);
     const choices = newField.options.choices;
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const fieldOps: IOtOperation[] = [];
@@ -761,12 +719,7 @@ export class FieldConvertingService {
     };
   }
 
-  private async basalConvert(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ) {
+  private async basalConvert(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     // simple value type change is not need to convert
     if (
       newField.cellValueType === oldField.cellValueType &&
@@ -779,7 +732,7 @@ export class FieldConvertingService {
     }
 
     const fieldId = newField.id;
-    const records = await this.getRecords(prisma, tableId, oldField);
+    const records = await this.getRecords(tableId, oldField);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
@@ -807,32 +760,27 @@ export class FieldConvertingService {
     };
   }
 
-  private async modifyType(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ) {
+  private async modifyType(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     if (oldField.isComputed) {
-      await prisma.reference.deleteMany({
+      await this.prismaService.txClient().reference.deleteMany({
         where: { toFieldId: oldField.id },
       });
     }
 
     if (newField.isComputed) {
-      await this.fieldSupplementService.createReference(prisma, newField);
+      await this.fieldSupplementService.createReference(newField);
       return;
     }
 
     if (newField.type === FieldType.SingleSelect || newField.type === FieldType.MultipleSelect) {
-      return this.convert2Select(prisma, tableId, newField, oldField);
+      return this.convert2Select(tableId, newField, oldField);
     }
 
     if (newField.type === FieldType.Link) {
-      return this.fieldConvertingLinkService.convertLink(prisma, tableId, newField, oldField);
+      return this.fieldConvertingLinkService.convertLink(tableId, newField, oldField);
     }
 
-    return this.basalConvert(prisma, tableId, newField, oldField);
+    return this.basalConvert(tableId, newField, oldField);
   }
 
   /**
@@ -844,27 +792,20 @@ export class FieldConvertingService {
    * 5. re-calculate from current field
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async updateField(
-    transactionKey: string,
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ) {
-    const connection = this.shareDbService.getConnection(transactionKey);
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
+  private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+    const connection = this.shareDbService.getConnection();
 
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
     if (keys.includes('type') || keys.includes('isComputed')) {
-      result = await this.modifyType(prisma, tableId, newField, oldField);
+      result = await this.modifyType(tableId, newField, oldField);
     } else if (keys.includes('options')) {
-      result = await this.modifyOptions(prisma, tableId, newField, oldField);
+      result = await this.modifyOptions(tableId, newField, oldField);
     }
 
     const supplementResult = await this.fieldConvertingLinkService.supplementLink(
-      prisma,
       connection,
       tableId,
       newField,
@@ -884,7 +825,6 @@ export class FieldConvertingService {
       for (const tableId in result.recordsForCreate) {
         const recordsMap = result.recordsForCreate[tableId];
         await this.recordOpenApiService.createRecords(
-          transactionKey,
           tableId,
           Object.values(recordsMap),
           FieldKeyType.Id
@@ -894,22 +834,21 @@ export class FieldConvertingService {
 
     // update & submit referenced fields
     const fieldOpsMaps: (IOpsMap | undefined)[] = [];
-    fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
+    fieldOpsMaps.push(await this.updateReferencedFields(newField, oldField));
     if (supplementResult?.fieldChange) {
       const { newField, oldField } = supplementResult.fieldChange;
-      fieldOpsMaps.push(await this.updateReferencedFields(prisma, newField, oldField));
+      fieldOpsMaps.push(await this.updateReferencedFields(newField, oldField));
     }
     const composedMap = composeMaps(fieldOpsMaps);
     composedMap && (await this.submitFieldOpsMap(connection, composedMap));
 
     // calculate and submit records
     if (result?.recordOpsMap) {
-      await this.calculateAndSaveRecords(transactionKey, tableId, newField, result.recordOpsMap);
+      await this.calculateAndSaveRecords(tableId, newField, result.recordOpsMap);
     }
     if (newField.isComputed) {
       const computedRawOpsMap = await this.fieldCalculationService.calculateFields(
-        prisma,
-        transactionKey,
+        'calculated',
         tableId,
         [newField.id]
       );
@@ -952,29 +891,17 @@ export class FieldConvertingService {
 
   // we should create a new field in visual db, because we can not modify a field in sqlite.
   // so we should generate a new dbFieldName for the modified field.
-  private async updateDbFieldName(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    newField: IFieldVo,
-    oldField: IFieldVo
-  ) {
+  private async updateDbFieldName(tableId: string, newField: IFieldVo, oldField: IFieldVo) {
     if (newField.dbFieldType === oldField.dbFieldType) {
       return;
     }
     newField.dbFieldName = newField.dbFieldName + '_';
-    const dbTableName = await this.fieldService.getDbTableName(prisma, tableId);
+    const dbTableName = await this.fieldService.getDbTableName(tableId);
 
-    await this.fieldService.alterVisualTable(prisma, dbTableName, [newField]);
+    await this.fieldService.alterVisualTable(dbTableName, [newField]);
   }
 
-  async updateFieldById(
-    transactionKey: string,
-    tableId: string,
-    fieldId: string,
-    updateFieldRo: IUpdateFieldRo
-  ) {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
-
+  async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
     const fieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!fieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);
@@ -986,11 +913,11 @@ export class FieldConvertingService {
       oldFieldInstance
     );
 
-    await this.updateDbFieldName(prisma, tableId, newFieldVo, fieldVo);
+    await this.updateDbFieldName(tableId, newFieldVo, fieldVo);
 
     const newFieldInstance = createFieldInstanceByVo(newFieldVo);
 
-    await this.updateField(transactionKey, tableId, newFieldInstance, oldFieldInstance);
+    await this.updateField(tableId, newFieldInstance, oldFieldInstance);
 
     return instanceToPlain(newFieldInstance, { excludePrefixes: ['_'] }) as IFieldVo;
   }

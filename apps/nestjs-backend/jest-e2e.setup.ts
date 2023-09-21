@@ -1,6 +1,6 @@
 import type { Config } from '@jest/types';
 import { generateUserId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaClient } from '@teable-group/db-main-prisma';
 import * as bcrypt from 'bcrypt';
 
 interface ITestConfig {
@@ -18,8 +18,7 @@ declare global {
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
   const { email, password, spaceId, baseId } = projectConfig.globals.testConfig as ITestConfig;
 
-  const prismaService = new PrismaService();
-  await prismaService.onModuleInit();
+  const prismaService = new PrismaClient();
 
   const userId = generateUserId();
   const salt = await bcrypt.genSalt(10);

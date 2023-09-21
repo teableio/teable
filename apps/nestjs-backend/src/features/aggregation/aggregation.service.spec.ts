@@ -14,10 +14,7 @@ describe('AggregateService', () => {
       imports: [AggregationModule, TeableEventEmitterModule.register()],
     })
       .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
+        if (token === ClsService || token === PrismaService) {
           return jest.fn();
         }
       })

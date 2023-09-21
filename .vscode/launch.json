@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Jest nest backend",
+      "name": "Jest e2e nest backend",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/nestjs-backend",
@@ -16,6 +16,22 @@
         "--runInBand",
         "--config",
         "./jest-e2e.json"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Jest nest backend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/nestjs-backend",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "../../node_modules/.bin/jest",
+        "${relativeFile}",
+        "--runInBand",
+        "--config",
+        "./jest.config.js"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"

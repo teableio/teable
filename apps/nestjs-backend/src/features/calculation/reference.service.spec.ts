@@ -3,10 +3,10 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IRecord } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import knex from 'knex';
-import { ClsService } from 'nestjs-cls';
+import { ClsModule } from 'nestjs-cls';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
@@ -31,15 +31,14 @@ describe('ReferenceService', () => {
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        providers: [PrismaService],
-        imports: [CalculationModule],
-      })
-        .useMocker((token) => {
-          if (token === ClsService) {
-            return jest.fn();
-          }
-        })
-        .compile();
+        imports: [
+          ClsModule.forRoot({
+            global: true,
+          }),
+          PrismaModule,
+          CalculationModule,
+        ],
+      }).compile();
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
       db = knex({
@@ -203,7 +202,7 @@ describe('ReferenceService', () => {
         },
       ];
 
-      const records = await service['getAffectedRecordItems'](prisma, topoOrder, [
+      const records = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idA1', dbTableName: 'A' },
       ]);
 
@@ -216,7 +215,7 @@ describe('ReferenceService', () => {
         { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB2' },
       ]);
 
-      const recordsWithMultiInput = await service['getAffectedRecordItems'](prisma, topoOrder, [
+      const recordsWithMultiInput = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idA1', dbTableName: 'A' },
         { id: 'idA2', dbTableName: 'A' },
       ]);
@@ -292,7 +291,7 @@ describe('ReferenceService', () => {
         },
       ];
 
-      const records = await service['getAffectedRecordItems'](prisma, topoOrder, [
+      const records = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idC1', dbTableName: 'C' },
       ]);
 
@@ -305,7 +304,7 @@ describe('ReferenceService', () => {
         { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
       ]);
 
-      const extraRecords = await service['getDependentRecordItems'](prisma, records);
+      const extraRecords = await service['getDependentRecordItems'](records);
 
       expect(extraRecords).toEqual([
         { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
@@ -316,7 +315,7 @@ describe('ReferenceService', () => {
     });
 
     it('getDependentNodesCTE should return all dependent nodes', async () => {
-      const result = await service['getDependentNodesCTE'](prisma, ['f2']);
+      const result = await service['getDependentNodesCTE'](['f2']);
       const resultData = [...initialReferences];
       resultData.pop();
       expect(result).toEqual(expect.arrayContaining(resultData));
