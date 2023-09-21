@@ -8,6 +8,7 @@ import {
   Colors,
   CellValueType,
   FieldType,
+  NumberFormattingType,
 } from '@teable-group/core';
 import type request from 'supertest';
 import {
@@ -393,6 +394,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Number,
         options: {
           formatting: {
+            type: NumberFormattingType.Decimal,
             precision: 2,
           },
         },
@@ -404,6 +406,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         dbFieldType: DbFieldType.Real,
         options: {
           formatting: {
+            type: NumberFormattingType.Decimal,
             precision: 2,
           },
         },

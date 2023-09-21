@@ -2,7 +2,13 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IRecord } from '@teable-group/core';
-import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldType,
+  NumberFormattingType,
+  Relationship,
+} from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import knex from 'knex';
@@ -755,7 +761,7 @@ describe('ReferenceService', () => {
           name: 'fieldA',
           type: FieldType.Number,
           options: {
-            formatting: { precision: 1 },
+            formatting: { type: NumberFormattingType.Decimal, precision: 1 },
           },
           cellValueType: CellValueType.Number,
           dbFieldType: DbFieldType.Real,

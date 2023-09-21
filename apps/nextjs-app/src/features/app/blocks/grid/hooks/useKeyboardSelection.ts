@@ -133,10 +133,11 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       }
     );
 
-    Mousetrap.bind('enter', () => {
+    Mousetrap.bind(['enter', 'shift+enter'], (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell) return;
       const { isColumnSelection, ranges: selectionRanges } = selection;
       const cellRenderer = getCellRenderer(cell.type);
+      const isShiftEnter = combo === 'shift+enter';
       if (cellRenderer.onClick) return;
       if (isEditing) {
         let range = selectionRanges[0];
@@ -144,10 +145,10 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
           range = [range[0], 0];
         }
         const [columnIndex, rowIndex] = range;
-        const nextRowIndex = rowIndex + 1;
+        const nextRowIndex = isShiftEnter ? rowIndex + 1 : Math.min(rowIndex + 1, pureRowCount - 1);
         const newRange = [columnIndex, nextRowIndex] as IRange;
         editorRef.current?.saveValue?.();
-        nextRowIndex > pureRowCount - 1 && onRowAppend?.();
+        isShiftEnter && onRowAppend?.();
         setTimeout(() => {
           if (isColumnSelection) {
             setSelection(selection.set(SelectionRegionType.Cells, [newRange, newRange]));

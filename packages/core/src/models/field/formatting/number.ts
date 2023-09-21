@@ -1,10 +1,48 @@
 import { z } from 'zod';
 
-export const numberFormattingSchema = z.object({
+export enum NumberFormattingType {
+  Decimal = 'decimal',
+  Percent = 'percent',
+  Currency = 'currency',
+}
+
+const baseFormatting = z.object({
   precision: z.number().max(5).min(0),
 });
 
+export const decimalFormattingSchema = baseFormatting.extend({
+  type: z.literal(NumberFormattingType.Decimal),
+});
+
+export const percentFormattingSchema = baseFormatting.extend({
+  type: z.literal(NumberFormattingType.Percent),
+});
+
+export const currencyFormattingSchema = baseFormatting.extend({
+  type: z.literal(NumberFormattingType.Currency),
+  symbol: z.string(),
+});
+
+export const numberFormattingSchema = z.union([
+  decimalFormattingSchema,
+  percentFormattingSchema,
+  currencyFormattingSchema,
+]);
+
+export type IDecimalFormatting = z.infer<typeof decimalFormattingSchema>;
+
+export type IPercentFormatting = z.infer<typeof percentFormattingSchema>;
+
+export type ICurrencyFormatting = z.infer<typeof currencyFormattingSchema>;
+
 export type INumberFormatting = z.infer<typeof numberFormattingSchema>;
+
+export const defaultNumberFormatting: INumberFormatting = {
+  type: NumberFormattingType.Decimal,
+  precision: 2,
+};
+
+export const DEFAULT_CURRENCY_SYMBOL = '$';
 
 export const formatNumberToString = (
   cellValue: number | undefined,
@@ -14,15 +52,31 @@ export const formatNumberToString = (
     return '';
   }
 
-  const { precision } = formatting;
+  const { type, precision } = formatting;
+
+  if (type === NumberFormattingType.Currency) {
+    const symbol = formatting.symbol ?? DEFAULT_CURRENCY_SYMBOL;
+    const sign = cellValue < 0 ? '-' : '';
+    const options =
+      precision != null
+        ? {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision,
+          }
+        : undefined;
+
+    const formattedValue = Math.abs(cellValue).toLocaleString('en-US', options);
+    return sign + symbol + formattedValue;
+  }
+
+  if (type === NumberFormattingType.Percent) {
+    const formattedNumber = (cellValue * 100).toFixed(precision);
+    return `${formattedNumber}%`;
+  }
 
   if (precision != null) {
     return cellValue.toFixed(precision);
   }
 
   return String(cellValue);
-};
-
-export const defaultNumberFormatting: INumberFormatting = {
-  precision: 2,
 };

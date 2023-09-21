@@ -4,7 +4,7 @@ import { isEqual } from 'lodash';
 
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
-import { useMouse } from 'react-use';
+import { useClickAway, useMouse } from 'react-use';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
@@ -141,6 +141,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   }));
 
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const mousePosition = useMouse(stageRef);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
@@ -471,15 +472,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     true
   );
 
+  useClickAway(containerRef, () => {
+    editorContainerRef.current?.saveValue?.();
+    setEditing(false);
+  });
+
   return (
-    <>
+    <div
+      ref={containerRef}
+      style={{
+        width,
+        height,
+        cursor,
+      }}
+    >
       <div
         ref={stageRef}
-        style={{
-          width,
-          height,
-          cursor,
-        }}
+        className="w-full h-full"
         onClick={onSmartClick}
         onMouseUp={onMouseUp}
         onMouseDown={onMouseDown}
@@ -536,7 +545,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onDelete={onDelete}
         onRowAppend={onRowAppend}
       />
-    </>
+    </div>
   );
 };
 

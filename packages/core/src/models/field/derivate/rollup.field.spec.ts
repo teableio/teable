@@ -2,7 +2,7 @@
 import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
-import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
 import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { NumberFieldCore } from './number.field';
 import { RollupFieldCore } from './rollup.field';
@@ -28,7 +28,7 @@ describe('RollupFieldCore', () => {
     dbFieldType: DbFieldType.Real,
     options: {
       expression: 'countall({values})',
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -41,7 +41,7 @@ describe('RollupFieldCore', () => {
     description: 'A test number field',
     type: FieldType.Number,
     options: {
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
     },
     cellValueType: CellValueType.Number,
     isMultipleCellValue: true,
@@ -71,7 +71,7 @@ describe('RollupFieldCore', () => {
     ...numberRollupJson,
     options: {
       ...numberRollupJson.options,
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       showAs: multiNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -263,6 +263,7 @@ describe('RollupFieldCore', () => {
           options: {
             expression: '',
             formatting: {
+              type: NumberFormattingType.Decimal,
               precision: 2,
             },
           },
@@ -277,6 +278,7 @@ describe('RollupFieldCore', () => {
           options: {
             expression: '',
             formatting: {
+              type: NumberFormattingType.Decimal,
               precision: 2,
             },
           },
@@ -294,6 +296,7 @@ describe('RollupFieldCore', () => {
       expect(RollupFieldCore.defaultOptions(CellValueType.Number)).toEqual({
         expression: 'countall({values})',
         formatting: {
+          type: NumberFormattingType.Decimal,
           precision: 2,
         },
       });

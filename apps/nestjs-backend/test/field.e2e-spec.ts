@@ -14,6 +14,7 @@ import {
   TimeFormatting,
   SingleLineTextFieldCore,
   FieldType,
+  NumberFormattingType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type request from 'supertest';
@@ -125,7 +126,9 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       const numberField = await createFieldByType(FieldType.Number);
       expect(numberField.name).toEqual('Number');
-      expect(numberField.options).toEqual({ formatting: { precision: 2 } });
+      expect(numberField.options).toEqual({
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      });
 
       const selectField = await createFieldByType(FieldType.SingleSelect);
       expect(selectField.name).toEqual('Select');
@@ -166,7 +169,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       });
       expect(numberFormulaField.options).toEqual({
         expression: '1 + 1',
-        formatting: { precision: 2 },
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       });
 
       const booleanFormulaField = await createFieldByType(FieldType.Formula, {
@@ -234,7 +237,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         expect(rollupField.name).toEqual(`${table2.fields[0].name} Rollup (from ${table2.name})`);
         expect(rollupField.options).toEqual({
           expression: 'sum({values})',
-          formatting: { precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         });
       });
     });

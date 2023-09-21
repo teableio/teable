@@ -1,5 +1,5 @@
-import { CellValueType, ColorUtils, FieldType, formatNumberToString } from '@teable-group/core';
-import type { IAttachmentCellValue, INumberFormatting } from '@teable-group/core';
+import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
+import type { IAttachmentCellValue } from '@teable-group/core';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
@@ -103,7 +103,7 @@ const createCellValue2GridDisplay =
           };
         }
 
-        const { showAs: optionShowAs, formatting } = field.options;
+        const { showAs: optionShowAs } = field.options;
         const showAs =
           optionShowAs == null
             ? undefined
@@ -116,9 +116,7 @@ const createCellValue2GridDisplay =
           return {
             type: CellType.Chart,
             data: cellValue as number[],
-            displayData: cellValue.map((v) =>
-              formatNumberToString(v, formatting as INumberFormatting)
-            ),
+            displayData: cellValue.map((v) => field.item2String(v)),
             readonly: isComputed,
             chartType: showAs.type as unknown as ChartType,
             color: showAs.color,

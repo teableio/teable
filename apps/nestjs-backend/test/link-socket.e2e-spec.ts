@@ -13,6 +13,7 @@ import {
   IdPrefix,
   FieldType,
   Relationship,
+  NumberFormattingType,
 } from '@teable-group/core';
 import type { Doc } from '@teable/sharedb/lib/client';
 import type request from 'supertest';
@@ -68,7 +69,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 1 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
         },
       };
 

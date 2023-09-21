@@ -4,6 +4,7 @@ import { Colors } from '../colors';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import { updateFieldRoSchema } from '../field.schema';
+import { NumberFormattingType } from '../formatting';
 import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { NumberFieldCore } from './number.field';
 
@@ -30,7 +31,7 @@ describe('NumberFieldCore', () => {
     type: FieldType.Number,
     dbFieldType: DbFieldType.Real,
     options: {
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -117,7 +118,17 @@ describe('NumberFieldCore', () => {
           ...json,
           options: {
             ...json.options,
-            formatting: { precision: -1 }, // invalid precision value
+            formatting: { type: NumberFormattingType.Decimal, precision: -1 }, // invalid precision value
+          },
+        }).validateOptions().success
+      ).toBe(false);
+
+      expect(
+        plainToInstance(NumberFieldCore, {
+          ...json,
+          options: {
+            ...json.options,
+            formatting: { type: 'ABC', precision: 2 }, // invalid type value
           },
         }).validateOptions().success
       ).toBe(false);

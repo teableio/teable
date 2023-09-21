@@ -174,7 +174,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
+      openHeaderMenu({ fieldIds: [fieldId], position: { x, y: height } });
     },
     [columns, openHeaderMenu]
   );
@@ -191,7 +191,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
       const fieldId = columns[colIndex].id;
-      openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
+      openStatisticMenu({ fieldId, position: { x, y, width, height } });
     },
     [columns, openStatisticMenu]
   );

@@ -2,14 +2,23 @@ import { ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger
 import { NumberFieldCore } from '@teable-group/core';
 import type { INumberFieldOptions } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
-import { NumberFormattingDto } from '../formatting.dto';
+import {
+  CurrencyFormattingDto,
+  DecimalFormattingDto,
+  PercentFormattingDto,
+} from '../formatting.dto';
 import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
 
 export class NumberOptionsDto implements INumberFieldOptions {
   @ApiProperty({
-    type: NumberFormattingDto,
+    description: 'perform different formatting processes according to different formatting types',
+    oneOf: [
+      { $ref: getSchemaPath(DecimalFormattingDto) },
+      { $ref: getSchemaPath(PercentFormattingDto) },
+      { $ref: getSchemaPath(CurrencyFormattingDto) },
+    ],
   })
-  formatting!: NumberFormattingDto;
+  formatting!: DecimalFormattingDto;
 
   @ApiPropertyOptional({
     description: 'show as options for the result of the number',
