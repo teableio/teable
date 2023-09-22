@@ -66,8 +66,8 @@
     "check:install": "yarn dlx @yarnpkg/doctor@3.1.4 .",
     "check:renovate:config": "docker run -v renovate.json5:/usr/src/app/renovate.json5 -it renovate/renovate renovate-config-validator",
     "install:playwright": "playwright install",
-    "postinstall": "node ./sh/postinstall.js",
-    "generate-openapi-types": "node ./sh/generate-openapi-types.mjs"
+    "postinstall": "node scripts/postinstall.js",
+    "generate-openapi-types": "node scripts/generate-openapi-types.mjs"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",

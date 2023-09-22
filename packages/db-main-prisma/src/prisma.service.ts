@@ -2,6 +2,7 @@ import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
+import type { ClsService } from 'nestjs-cls';
 
 @Injectable()
 export class PrismaService
@@ -10,7 +11,7 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
 
-  constructor() {
+  constructor(private readonly cls: ClsService) {
     const logConfig = {
       log: [
         {
@@ -32,7 +33,6 @@ export class PrismaService
       ],
     };
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
-
     super(initialConfig);
   }
 

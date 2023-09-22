@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: CI
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x]
+        database-type: [postgres, sqlite3]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v3.7.0
+        with:
+          always-auth: false
+          node-version: ${{ matrix.node-version }}
+
+      - name: Start Database(s)
+        run: |
+          docker-compose \
+            --file "scripts/docker-compose.yml" \
+            up \
+              --detach \
+              --build \
+              "${{ matrix.database-type }}"
+        if: matrix.database-type != 'sqlite3'
+
+      - name: Run yarn install
+        run: yarn install
+
+      - name: Initialize Database(s)
+        run: |
+          docker-compose \
+            --file "scripts/docker-compose.yml" \
+            up \
+              "wait${{ matrix.database-type }}"
+        if: matrix.database-type != 'sqlite3'
+
+      - name: Run build
+        run: |
+          yarn g:build
+
+      - name: Run Tests
+        run: npm run test:db
+        if: matrix.database-type != 'oracledb'
+        env:
+          CI: true
+          DB: ${{ matrix.database-type }}
+          KNEX_TEST_TIMEOUT: 60000
+
+      # This allows for oracle tests to run and fail as part of PR #4889.
+      # This is a short term fix to allow a merge of CI functionality with
+      # full test coverage to follow soon after. With full test fix please
+      # delete this step and remove `if: matrix.database-type != 'oracledb'
+      # from the step above. -- Ferris (@code-ape)
+      - name: Run Tests (oracle, allow failing temporarily)
+        run: npm run test:db || true
+        if: matrix.database-type == 'oracledb'
+        env:
+          CI: true
+          DB: ${{ matrix.database-type }}
+          KNEX_TEST_TIMEOUT: 60000
+
+      - name: Stop Database(s)
+        run: |
+          docker-compose \
+            --file "scripts/docker-compose.yml" \
+            down
+        if: matrix.database-type != 'sqlite3'

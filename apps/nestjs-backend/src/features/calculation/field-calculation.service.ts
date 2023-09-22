@@ -4,8 +4,8 @@ import { RecordOpBuilder, Relationship } from '@teable-group/core';
 import { Prisma } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy, uniq, uniqBy } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
@@ -593,7 +593,7 @@ export class FieldCalculationService {
           (pre, [fieldId, value]) => {
             const field = fieldMap[fieldId];
             const { dbFieldName } = field;
-            pre[dbFieldName] = field.convertCellValue2DBValue(value) ?? null;
+            pre[dbFieldName] = field.convertCellValue2DBValue(value);
             return pre;
           },
           {}

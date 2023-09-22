@@ -1,7 +1,9 @@
+import path from 'path';
 import type { Config } from '@jest/types';
+import { PrismaClient } from '@prisma/client';
 import { generateUserId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
 import * as bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
 
 interface ITestConfig {
   email: string;
@@ -16,21 +18,23 @@ declare global {
 }
 
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
+  const testEnvFilePath = path.join(process.cwd(), '../nextjs-app', '.env.development');
+  dotenv.config({ path: testEnvFilePath });
+
   const { email, password, spaceId, baseId } = projectConfig.globals.testConfig as ITestConfig;
 
-  const prismaService = new PrismaService();
-  await prismaService.onModuleInit();
+  const prismaClient = new PrismaClient();
 
   const userId = generateUserId();
   const salt = await bcrypt.genSalt(10);
   const hashPassword = await bcrypt.hash(password, salt);
 
   // init data exists
-  const existsEmail = await prismaService.user.count({ where: { email } });
-  const existsSpace = await prismaService.space.count({ where: { id: spaceId } });
-  const existsBase = await prismaService.base.count({ where: { id: baseId } });
+  const existsEmail = await prismaClient.user.count({ where: { email } });
+  const existsSpace = await prismaClient.space.count({ where: { id: spaceId } });
+  const existsBase = await prismaClient.base.count({ where: { id: baseId } });
 
-  await prismaService.$transaction(async (prisma) => {
+  await prismaClient.$transaction(async (prisma) => {
     if (!existsEmail) {
       await prisma.user.create({
         data: {

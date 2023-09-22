@@ -1,0 +1,62 @@
+name: Unit Tests
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'package.json'
+      - '*.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.base.json'
+      - '.prettier*'
+      - '.github/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v3.7.0
+        with:
+          always-auth: false
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run yarn install
+        run: yarn install
+
+      - name: Run build
+        run: |
+          yarn g:build
+
+      - name: Run Tests
+        run: yarn g:test-unit

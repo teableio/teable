@@ -11,7 +11,7 @@ import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-grou
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq, map } from 'lodash';
+import { difference, groupBy, intersectionBy, isEmpty, keyBy, map, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -90,6 +90,7 @@ export interface IRecordRefItem {
 @Injectable()
 export class ReferenceService {
   private readonly logger = new Logger(ReferenceService.name);
+
   constructor(@InjectModel() private readonly knex: Knex) {}
 
   /**

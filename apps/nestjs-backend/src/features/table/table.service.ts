@@ -14,9 +14,9 @@ import type {
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
 import { Prisma, PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';

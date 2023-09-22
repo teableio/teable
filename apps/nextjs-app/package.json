@@ -89,7 +89,7 @@
     "eslint-config-next": "13.0.0",
     "get-tsconfig": "4.2.0",
     "happy-dom": "7.6.6",
-    "jest": "29.6.4",
+    "jest": "29.7.0",
     "jest-css-modules-transform": "4.4.2",
     "npm-run-all": "4.1.5",
     "postcss": "8.4.18",
@@ -179,7 +179,7 @@
     "type-fest": "3.1.0",
     "zod": "3.22.2",
     "zod-validation-error": "1.5.0",
-    "zustand": "4.3.7"
+    "zustand": "4.4.1"
   },
   "build": {
     "electronVersion": "20.3.6",

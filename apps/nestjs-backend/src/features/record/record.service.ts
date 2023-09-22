@@ -32,8 +32,8 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -294,7 +294,7 @@ export class RecordService implements IAdapterService {
       .where({ __id: recordId })
       .toSQL()
       .toNative();
-    return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+    return prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
   async setRecord(
@@ -339,12 +339,11 @@ export class RecordService implements IAdapterService {
       {}
     );
 
-    const sqlNative = this.knex(dbTableName)
+    const updateRecordSql = this.knex(dbTableName)
       .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
       .where({ __id: recordId })
-      .toSQL()
-      .toNative();
-    return await prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+      .toQuery();
+    return prisma.$executeRawUnsafe(updateRecordSql);
   }
 
   getCreateAttachments(

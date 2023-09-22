@@ -9,9 +9,8 @@ import {
   FieldType,
   nullsToUndefined,
 } from '@teable-group/core';
-import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { GlobalModule } from '../../global/global.module';
 import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -33,18 +32,13 @@ describe('selectionService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [SelectionModule, PrismaModule, TeableEventEmitterModule.register()],
+      imports: [GlobalModule, SelectionModule],
     })
       .overrideProvider(PrismaService)
       .useValue({
         attachments: {
           findMany: jest.fn(),
         },
-      })
-      .useMocker((token) => {
-        if (token === ClsService) {
-          return jest.fn();
-        }
       })
       .compile();
 

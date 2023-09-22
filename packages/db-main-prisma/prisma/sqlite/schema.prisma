@@ -8,12 +8,12 @@ datasource db {
 }
 
 model Space {
-  id             String      @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
-  deletedTime    DateTime?   @map("deleted_time")
-  createdTime    DateTime    @default(now()) @map("created_time")
-  createdBy      String      @map("created_by")
-  lastModifiedBy String      @map("last_modified_by")
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
   baseGroup      Base[]
 
   @@map("space")

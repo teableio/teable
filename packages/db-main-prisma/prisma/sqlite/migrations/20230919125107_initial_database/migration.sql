@@ -1,24 +1,48 @@
 -- CreateTable
+CREATE TABLE "space" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "deleted_time" DATETIME,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT NOT NULL,
+    "last_modified_by" TEXT NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "base" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "space_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "order" REAL NOT NULL,
+    "icon" TEXT,
+    "deleted_time" DATETIME,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT NOT NULL,
+    "last_modified_by" TEXT NOT NULL,
+    CONSTRAINT "base_space_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "table_meta" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "base_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "icon" TEXT,
     "db_table_name" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
-    "order" DOUBLE PRECISION NOT NULL,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "order" REAL NOT NULL,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
     "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "table_meta_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "table_meta_base_id_fkey" FOREIGN KEY ("base_id") REFERENCES "base" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "field" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "options" TEXT,
@@ -38,18 +62,17 @@ CREATE TABLE "field" (
     "table_id" TEXT NOT NULL,
     "column_meta" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
     "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "field_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "field_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "view" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "table_id" TEXT NOT NULL,
@@ -58,15 +81,14 @@ CREATE TABLE "view" (
     "filter" TEXT,
     "group" TEXT,
     "options" TEXT,
-    "order" DOUBLE PRECISION NOT NULL,
+    "order" REAL NOT NULL,
     "version" INTEGER NOT NULL,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
     "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "view_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "view_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -75,7 +97,7 @@ CREATE TABLE "ops" (
     "doc_id" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
     "operation" TEXT NOT NULL,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL
 );
 
@@ -90,16 +112,32 @@ CREATE TABLE "snapshots" (
 
 -- CreateTable
 CREATE TABLE "reference" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "from_field_id" TEXT NOT NULL,
-    "to_field_id" TEXT NOT NULL,
+    "to_field_id" TEXT NOT NULL
+);
 
-    CONSTRAINT "reference_pkey" PRIMARY KEY ("id")
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "password" TEXT,
+    "salt" TEXT,
+    "phone" TEXT,
+    "email" TEXT NOT NULL,
+    "avatar" TEXT,
+    "provider" TEXT,
+    "provider_id" TEXT,
+    "last_sign_time" DATETIME,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_time" DATETIME,
+    "updated_at" DATETIME NOT NULL,
+    "last_modified_time" DATETIME NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "attachments" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "token" TEXT NOT NULL,
     "hash" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
@@ -108,67 +146,59 @@ CREATE TABLE "attachments" (
     "url" TEXT NOT NULL,
     "width" INTEGER,
     "height" INTEGER,
-    "deleted_time" TIMESTAMP(3),
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_time" DATETIME,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "attachments_pkey" PRIMARY KEY ("id")
+    "last_modified_by" TEXT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "attachments_table" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "attachment_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "table_id" TEXT NOT NULL,
     "record_id" TEXT NOT NULL,
     "field_id" TEXT NOT NULL,
-    "deleted_time" TIMESTAMP(3),
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_time" DATETIME,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "attachments_table_pkey" PRIMARY KEY ("id")
+    "last_modified_by" TEXT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "automation_workflow" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "workflow_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
     "deployment_status" TEXT NOT NULL DEFAULT 'undeployed',
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "automation_workflow_pkey" PRIMARY KEY ("id")
+    "last_modified_by" TEXT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "automation_workflow_trigger" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "trigger_id" TEXT NOT NULL,
     "workflow_id" TEXT NOT NULL,
     "description" TEXT,
     "trigger_type" TEXT,
     "input_expressions" TEXT,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "automation_workflow_trigger_pkey" PRIMARY KEY ("id")
+    "last_modified_by" TEXT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "automation_workflow_action" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "action_id" TEXT NOT NULL,
     "workflow_id" TEXT NOT NULL,
     "description" TEXT,
@@ -176,25 +206,24 @@ CREATE TABLE "automation_workflow_action" (
     "input_expressions" TEXT,
     "next_node_id" TEXT,
     "parent_node_id" TEXT,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
-    "deleted_time" TIMESTAMP(3),
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME NOT NULL,
+    "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
-
-    CONSTRAINT "automation_workflow_action_pkey" PRIMARY KEY ("id")
+    "last_modified_by" TEXT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "automation_workflow_execution_history" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL PRIMARY KEY,
     "workflow_id" TEXT NOT NULL,
     "execution_type" TEXT NOT NULL,
     "execution_result" TEXT NOT NULL,
-    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "automation_workflow_execution_history_pkey" PRIMARY KEY ("id")
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- CreateIndex
+CREATE INDEX "base_order_idx" ON "base"("order");
 
 -- CreateIndex
 CREATE INDEX "table_meta_order_idx" ON "table_meta"("order");
@@ -224,6 +253,15 @@ CREATE INDEX "reference_to_field_id_idx" ON "reference"("to_field_id");
 CREATE INDEX "reference_to_field_id_from_field_id_idx" ON "reference"("to_field_id", "from_field_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_provider_provider_id_key" ON "users"("provider", "provider_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "attachments_token_key" ON "attachments"("token");
 
 -- CreateIndex
@@ -243,9 +281,3 @@ CREATE INDEX "automation_workflow_action_workflow_id_idx" ON "automation_workflo
 
 -- CreateIndex
 CREATE INDEX "automation_workflow_execution_history_workflow_id_idx" ON "automation_workflow_execution_history"("workflow_id");
-
--- AddForeignKey
-ALTER TABLE "field" ADD CONSTRAINT "field_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "view" ADD CONSTRAINT "view_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
