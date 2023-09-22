@@ -15,7 +15,7 @@ import {
   FieldType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection, Doc } from '@teable/sharedb/lib/client';
+import type { Connection, Doc } from 'sharedb/lib/client';
 import { isEmpty, keyBy } from 'lodash';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { BatchService } from '../../calculation/batch.service';

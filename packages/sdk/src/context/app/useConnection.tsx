@@ -1,7 +1,7 @@
-import { Connection } from '@teable/sharedb/lib/client';
-import type { Socket } from '@teable/sharedb/lib/sharedb';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
+import { Connection } from 'sharedb/lib/client';
+import type { Socket } from 'sharedb/lib/sharedb';
 
 function getWsPath() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

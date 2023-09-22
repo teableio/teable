@@ -8,7 +8,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
 import { RecordOpBuilder, IdPrefix, FieldType, Relationship } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import { ShareDbService } from '../src/share-db/share-db.service';

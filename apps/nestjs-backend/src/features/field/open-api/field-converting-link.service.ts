@@ -8,7 +8,7 @@ import {
   RecordOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection } from '@teable/sharedb/lib/client';
+import type { Connection } from 'sharedb/lib/client';
 import { isEqual } from 'lodash';
 import type { IRawOpMap } from '../../../share-db/interface';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';

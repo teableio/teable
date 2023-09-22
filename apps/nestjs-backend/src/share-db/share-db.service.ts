@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
-import type { Error } from '@teable/sharedb';
-import ShareDBClass from '@teable/sharedb';
+import type { Error } from 'sharedb';
+import ShareDBClass from 'sharedb';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';

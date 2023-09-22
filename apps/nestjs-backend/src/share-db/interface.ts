@@ -1,5 +1,5 @@
 import type { IOtOperation, ISnapshotBase } from '@teable-group/core';
-import type { DB } from '@teable/sharedb';
+import type { DB } from 'sharedb';
 export interface IAdapterService {
   create(collectionId: string, snapshot: unknown): Promise<void>;
 

@@ -26,7 +26,7 @@ import {
   FieldOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection } from '@teable/sharedb/lib/client';
+import type { Connection } from 'sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
 import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';

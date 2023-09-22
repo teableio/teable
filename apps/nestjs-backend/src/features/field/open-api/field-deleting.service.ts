@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IFieldVo, ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection } from '@teable/sharedb/lib/client';
+import type { Connection } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { FieldSupplementService } from '../field-supplement.service';

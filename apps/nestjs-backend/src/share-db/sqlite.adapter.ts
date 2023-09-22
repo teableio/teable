@@ -8,9 +8,9 @@ import {
   IdPrefix,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { CreateOp, DeleteOp, EditOp } from '@teable/sharedb';
-import ShareDb from '@teable/sharedb';
-import type { SnapshotMeta } from '@teable/sharedb/lib/sharedb';
+import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
+import ShareDb from 'sharedb';
+import type { SnapshotMeta } from 'sharedb/lib/sharedb';
 import { groupBy } from 'lodash';
 import { FieldService } from '../features/field/field.service';
 import { RecordService } from '../features/record/record.service';
