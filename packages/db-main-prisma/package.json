@@ -34,11 +34,13 @@
     "postinstall": "yarn prisma generate"
   },
   "peerDependencies": {
-    "@nestjs/common": "^9.3.9"
+    "@nestjs/common": "^9.3.9",
+    "nestjs-cls": "3.5.1"
   },
   "dependencies": {
     "@prisma/client": "5.2.0",
     "dotenv-flow-cli": "1.0.0",
+    "nanoid": "3.3.6",
     "prisma": "5.2.0"
   },
   "devDependencies": {

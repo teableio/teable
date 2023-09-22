@@ -10,7 +10,6 @@ import { FieldOpBuilder, IdPrefix, OpName, ViewOpBuilder } from '@teable-group/c
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
 import type { IViewInstance } from '../model/factory';
@@ -23,62 +22,45 @@ export class ViewOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService,
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService
   ) {}
 
-  async createView(tableId: string, viewInstance: IViewInstance, transactionKey?: string) {
-    if (transactionKey) {
-      return await this.createViewWithOrder(transactionKey, tableId, viewInstance);
-    }
-
-    return await this.transactionService.$transaction(
-      this.shareDbService,
-      async (_, transactionKey) => {
-        return await this.createViewWithOrder(transactionKey, tableId, viewInstance);
-      }
-    );
+  async createView(tableId: string, viewInstance: IViewInstance) {
+    return await this.prismaService.$tx(async () => {
+      return await this.createViewWithOrder(tableId, viewInstance);
+    });
   }
 
-  async deleteView(tableId: string, viewId: string, transactionKey?: string) {
-    if (transactionKey) {
-      return await this.deleteViewAndColumnMeta(transactionKey, tableId, viewId);
-    }
-
-    return await this.transactionService.$transaction(
-      this.shareDbService,
-      async (_, transactionKey) => {
-        return await this.deleteViewAndColumnMeta(transactionKey, tableId, viewId);
-      }
-    );
+  async deleteView(tableId: string, viewId: string) {
+    return await this.prismaService.$tx(async () => {
+      return await this.deleteViewAndColumnMeta(tableId, viewId);
+    });
   }
 
   private async createViewWithOrder(
-    transactionKey: string,
     tableId: string,
     viewInstance: IViewInstance
   ): Promise<IViewVo> {
-    const maxViewOrder = await this.getMaxViewOrder(transactionKey, tableId);
+    const maxViewOrder = await this.getMaxViewOrder(tableId);
     const view = this.createView2Ops(viewInstance, maxViewOrder);
     const viewId = view.id;
     const collection = `${IdPrefix.View}_${tableId}`;
 
-    await this.createDoc(transactionKey, collection, viewId, view);
-    await this.updateColumnMetaForFields(transactionKey, viewId, tableId, OpName.AddColumnMeta);
+    await this.createDoc(collection, viewId, view);
+    await this.updateColumnMetaForFields(viewId, tableId, OpName.AddColumnMeta);
     return view;
   }
 
-  private async deleteViewAndColumnMeta(transactionKey: string, tableId: string, viewId: string) {
+  private async deleteViewAndColumnMeta(tableId: string, viewId: string) {
     const collection = `${IdPrefix.View}_${tableId}`;
-    await this.updateColumnMetaForFields(transactionKey, viewId, tableId, OpName.DeleteColumnMeta);
-    return await this.deleteDoc(transactionKey, collection, viewId);
+    await this.updateColumnMetaForFields(viewId, tableId, OpName.DeleteColumnMeta);
+    return await this.deleteDoc(collection, viewId);
   }
 
-  private async getMaxViewOrder(transactionKey: string, tableId: string): Promise<number> {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
-    const viewAggregate = await prisma.view.aggregate({
+  private async getMaxViewOrder(tableId: string): Promise<number> {
+    const viewAggregate = await this.prismaService.txClient().view.aggregate({
       where: { tableId, deletedTime: null },
       _max: { order: true },
     });
@@ -86,13 +68,11 @@ export class ViewOpenApiService {
   }
 
   private async updateColumnMetaForFields(
-    transactionKey: string,
     viewId: string,
     tableId: string,
     opName: OpName.AddColumnMeta | OpName.DeleteColumnMeta
   ) {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
-    const fields = await prisma.field.findMany({
+    const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
@@ -100,7 +80,7 @@ export class ViewOpenApiService {
     for (let index = 0; index < fields.length; index++) {
       const field = fields[index];
       const collection = `${IdPrefix.Field}_${tableId}`;
-      const doc = this.shareDbService.getConnection(transactionKey).get(collection, field.id);
+      const doc = this.shareDbService.getConnection().get(collection, field.id);
 
       let data: unknown;
       if (opName === OpName.AddColumnMeta) {
@@ -121,12 +101,11 @@ export class ViewOpenApiService {
   }
 
   private async createDoc(
-    transactionKey: string,
     collection: string,
     viewId: string,
     createSnapshot: IViewVo
   ): Promise<IViewVo> {
-    const doc = this.shareDbService.getConnection(transactionKey).get(collection, viewId);
+    const doc = this.shareDbService.getConnection().get(collection, viewId);
 
     return new Promise<IViewVo>((resolve, reject) => {
       doc.create(createSnapshot, (error) => {
@@ -137,12 +116,8 @@ export class ViewOpenApiService {
     });
   }
 
-  private async deleteDoc(
-    transactionKey: string,
-    collection: string,
-    viewId: string
-  ): Promise<IViewVo> {
-    const doc = this.shareDbService.getConnection(transactionKey).get(collection, viewId);
+  private async deleteDoc(collection: string, viewId: string): Promise<IViewVo> {
+    const doc = this.shareDbService.getConnection().get(collection, viewId);
 
     return new Promise<IViewVo>((resolve, reject) => {
       doc.fetch(() => {
@@ -170,20 +145,13 @@ export class ViewOpenApiService {
   }
 
   // submit ops in backend side
-  private async submitOps(
-    tableId: string,
-    viewId: string,
-    transactionKey: string,
-    ops: IOtOperation
-  ) {
-    const doc = await this.shareDbService
-      .getConnection(transactionKey)
-      .get(`${IdPrefix.View}_${tableId}`, viewId);
+  private async submitOps(tableId: string, viewId: string, ops: IOtOperation) {
+    const doc = this.shareDbService.getConnection().get(`${IdPrefix.View}_${tableId}`, viewId);
 
     return new Promise((resolve, reject) => {
       doc.fetch((error) => {
         if (error) return reject(error);
-        doc.submitOp(ops, { transactionKey }, (error) => {
+        doc.submitOp(ops, undefined, (error) => {
           error ? reject(error) : resolve(doc.data);
         });
       });
@@ -199,13 +167,12 @@ export class ViewOpenApiService {
 
   async updateViewRawOrder(tableId: string, viewId: string, viewOrderRo: IUpdateViewOrderRo) {
     const { sortObjs } = viewOrderRo;
-    const prisma = this.prismaService;
-    const dbTableName = await this.recordService.getDbTableName(prisma, tableId);
+    const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
     const fieldIndexName = this.viewService.getRowIndexFieldIndexName(viewId);
 
-    const defaultView = await prisma.view.findFirstOrThrow({
+    const defaultView = await this.prismaService.view.findFirstOrThrow({
       select: { id: true, sort: true },
       where: {
         tableId,
@@ -254,16 +221,13 @@ export class ViewOpenApiService {
     });
 
     // execute sql to update raw order with transaction
-    await prisma.$executeRawUnsafe(dropIndexSql);
+    await this.prismaService.$executeRawUnsafe(dropIndexSql);
 
-    await this.transactionService.$transaction(
-      this.shareDbService,
-      async (prisma, transactionKey) => {
-        await prisma.$executeRawUnsafe(updateRecordsOrderSql);
-        await this.submitOps(tableId, viewId, transactionKey, ops);
-      }
-    );
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.$executeRawUnsafe(updateRecordsOrderSql);
+      await this.submitOps(tableId, viewId, ops);
+    });
 
-    await prisma.$executeRawUnsafe(createIndexSql);
+    await this.prismaService.$executeRawUnsafe(createIndexSql);
   }
 }

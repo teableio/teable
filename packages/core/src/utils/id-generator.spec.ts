@@ -4,7 +4,6 @@ import {
   generateFieldId,
   generateViewId,
   generateRecordId,
-  generateTransactionKey,
   generateAttachmentId,
   generateWorkflowId,
   generateWorkflowTriggerId,
@@ -42,11 +41,6 @@ describe('ID Generators', () => {
     const recordId = generateRecordId();
     expect(recordId.startsWith(IdPrefix.Record)).toBe(true);
     expect(recordId.length).toBe(IdPrefix.Record.length + 16);
-  });
-
-  it('generates a transaction ID with correct prefix and length', () => {
-    const transactionId = generateTransactionKey();
-    expect(transactionId.length).toBe(20);
   });
 
   it('generates a attachment ID with correct prefix and length', () => {

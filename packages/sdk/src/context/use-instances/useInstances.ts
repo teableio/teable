@@ -1,6 +1,6 @@
-import type { Doc, Query } from '@teable/sharedb/lib/client';
 import { isEqual } from 'lodash';
 import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import type { Doc, Query } from 'sharedb/lib/client';
 import { AppContext } from '../app/AppContext';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction } from './reducer';

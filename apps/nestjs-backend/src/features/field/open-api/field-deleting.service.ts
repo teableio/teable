@@ -1,10 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IFieldVo, ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, FieldType } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import type { Connection } from '@teable/sharedb/lib/client';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import type { Connection } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { FieldSupplementService } from '../field-supplement.service';
 
@@ -14,7 +13,7 @@ export class FieldDeletingService {
 
   constructor(
     private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService,
+    private readonly prismaService: PrismaService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldBatchCalculationService: FieldCalculationService
   ) {}
@@ -57,63 +56,44 @@ export class FieldDeletingService {
     return await Promise.all(promises);
   }
 
-  async cleanRef(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    tableId: string,
-    fieldId: string,
-    isLinkField?: boolean
-  ) {
+  async cleanRef(connection: Connection, tableId: string, fieldId: string, isLinkField?: boolean) {
     const collection = `${IdPrefix.Field}_${tableId}`;
-    const errorRefFieldIds = await this.fieldSupplementService.deleteReference(prisma, fieldId);
+    const errorRefFieldIds = await this.fieldSupplementService.deleteReference(fieldId);
     const errorLookupFieldIds =
-      isLinkField &&
-      (await this.fieldSupplementService.deleteLookupFieldReference(prisma, fieldId));
+      isLinkField && (await this.fieldSupplementService.deleteLookupFieldReference(fieldId));
 
     const errorFieldIds = errorLookupFieldIds
       ? errorRefFieldIds.concat(errorLookupFieldIds)
       : errorRefFieldIds;
     await this.markFieldsAsError(connection, collection, errorFieldIds);
 
-    return this.cleanField(prisma, connection, tableId, errorFieldIds.concat(fieldId));
+    return this.cleanField(connection, tableId, errorFieldIds.concat(fieldId));
   }
 
   async delateAndCleanRef(
-    prisma: Prisma.TransactionClient,
     connection: Connection,
     tableId: string,
     fieldId: string,
     isLinkField?: boolean
   ) {
     const collection = `${IdPrefix.Field}_${tableId}`;
-    const rawOpsMap = await this.cleanRef(prisma, connection, tableId, fieldId, isLinkField);
+    const rawOpsMap = await this.cleanRef(connection, tableId, fieldId, isLinkField);
     const snapshot = await this.deleteDoc(connection, collection, fieldId);
     return { snapshot, rawOpsMap };
   }
 
-  async cleanField(
-    prisma: Prisma.TransactionClient,
-    connection: Connection,
-    tableId: string,
-    fieldIds: string[]
-  ) {
+  async cleanField(connection: Connection, tableId: string, fieldIds: string[]) {
     // src is a unique id for the client used by sharedb
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const src = (connection.agent as any).clientId;
-    return await this.fieldBatchCalculationService.calculateFields(
-      prisma,
-      src,
-      tableId,
-      fieldIds,
-      true
-    );
+    return await this.fieldBatchCalculationService.calculateFields(src, tableId, fieldIds, true);
   }
 
-  async deleteField(transactionKey: string, tableId: string, fieldId: string): Promise<IFieldVo> {
-    const prisma = this.transactionService.getTransactionSync(transactionKey);
-    const connection = this.shareDbService.getConnection(transactionKey);
-    const { type, isLookup, options } = await prisma.field
-      .findUniqueOrThrow({
+  async deleteField(tableId: string, fieldId: string): Promise<IFieldVo> {
+    const connection = this.shareDbService.getConnection();
+    const { type, isLookup, options } = await this.prismaService
+      .txClient()
+      .field.findUniqueOrThrow({
         where: { id: fieldId },
         select: { type: true, isLookup: true, options: true },
       })
@@ -124,10 +104,9 @@ export class FieldDeletingService {
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
-      await this.fieldSupplementService.cleanForeignKey(prisma, tableId, linkFieldOptions);
-      const result1 = await this.delateAndCleanRef(prisma, connection, tableId, fieldId, true);
+      await this.fieldSupplementService.cleanForeignKey(tableId, linkFieldOptions);
+      const result1 = await this.delateAndCleanRef(connection, tableId, fieldId, true);
       const result2 = await this.delateAndCleanRef(
-        prisma,
         connection,
         foreignTableId,
         symmetricFieldId,
@@ -137,7 +116,7 @@ export class FieldDeletingService {
       result2.rawOpsMap && this.shareDbService.publishOpsMap(result2.rawOpsMap);
       return result1.snapshot;
     }
-    const result = await this.delateAndCleanRef(prisma, connection, tableId, fieldId);
+    const result = await this.delateAndCleanRef(connection, tableId, fieldId);
     result.rawOpsMap && this.shareDbService.publishOpsMap(result.rawOpsMap);
     return result.snapshot;
   }

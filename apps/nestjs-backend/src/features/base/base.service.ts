@@ -18,7 +18,7 @@ export class BaseService {
 
   async sqlQuery(tableId: string, viewId: string, sql: string) {
     this.logger.log('sqlQuery:sql: ' + sql);
-    const { queryBuilder } = await this.recordService.buildQuery(this.prismaService, tableId, {
+    const { queryBuilder } = await this.recordService.buildQuery(tableId, {
       type: IdPrefix.Record,
       viewId,
       limit: -1,

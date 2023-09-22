@@ -1,4 +1,4 @@
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 
 export type IInstanceAction<T> =
   | { type: 'update'; doc: Doc<T> }

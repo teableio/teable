@@ -1,7 +1,7 @@
 import type { IViewVo } from '@teable-group/core';
 import { assertNever, ViewType } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import type { Doc } from 'sharedb/lib/client';
 import { GridView } from './grid.view';
 import { KanbanView } from './kanban.view';
 

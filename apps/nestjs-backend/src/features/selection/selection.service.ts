@@ -4,8 +4,6 @@ import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { SelectionSchema } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
-import { ShareDbService } from '../../share-db/share-db.service';
-import { TransactionService } from '../../share-db/transaction.service';
 import { FieldSupplementService } from '../field/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -23,9 +21,7 @@ export class SelectionService {
     private prismaService: PrismaService,
     private recordOpenApiService: RecordOpenApiService,
     private fieldCreatingService: FieldCreatingService,
-    private fieldSupplementService: FieldSupplementService,
-    private transactionService: TransactionService,
-    private shareDbService: ShareDbService
+    private fieldSupplementService: FieldSupplementService
   ) {}
 
   private async columnsSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
@@ -100,18 +96,12 @@ export class SelectionService {
   private async expandRows({
     tableId,
     numRowsToExpand,
-    transactionKey,
   }: {
     tableId: string;
     numRowsToExpand: number;
-    transactionKey: string;
   }) {
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    const createdRecords = await this.recordOpenApiService.createRecords(
-      transactionKey,
-      tableId,
-      records
-    );
+    const createdRecords = await this.recordOpenApiService.createRecords(tableId, records);
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
 
@@ -119,13 +109,10 @@ export class SelectionService {
     tableId,
     header,
     numColsToExpand,
-    transactionKey,
   }: {
     tableId: string;
-    viewId: string;
     header: IFieldVo[];
     numColsToExpand: number;
-    transactionKey: string;
   }) {
     const colLen = header.length;
     const res: IFieldVo[] = [];
@@ -137,11 +124,7 @@ export class SelectionService {
           };
       const fieldVo = await this.fieldSupplementService.prepareCreateField(field);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
-      const newField = await this.fieldCreatingService.createField(
-        transactionKey,
-        tableId,
-        fieldInstance
-      );
+      const newField = await this.fieldCreatingService.createField(tableId, fieldInstance);
       res.push(newField);
     }
     return res;
@@ -280,11 +263,7 @@ export class SelectionService {
     const tableColCount = tableData[0].length;
     const tableRowCount = tableData.length;
 
-    const rowCountInView = await this.recordService.getRowCount(
-      this.prismaService,
-      tableId,
-      viewId
-    );
+    const rowCountInView = await this.recordService.getRowCount(tableId, viewId);
 
     const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
@@ -303,35 +282,30 @@ export class SelectionService {
 
     const updateRange: SelectionSchema.PasteVo['ranges'] = [cell, cell];
 
-    await this.transactionService.$transaction(
-      this.shareDbService,
-      async (_prisma, transactionKey) => {
-        // Expansion col
-        const expandColumns = await this.expandColumns({
-          tableId,
-          viewId,
-          header,
-          numColsToExpand,
-          transactionKey,
-        });
+    await this.prismaService.$tx(async () => {
+      // Expansion col
+      const expandColumns = await this.expandColumns({
+        tableId,
+        header,
+        numColsToExpand,
+      });
 
-        // Expansion row
-        const expandRows = await this.expandRows({ tableId, numRowsToExpand, transactionKey });
+      // Expansion row
+      const expandRows = await this.expandRows({ tableId, numRowsToExpand });
 
-        const updateFields = effectFields.concat(expandColumns.map(createFieldInstanceByVo));
-        const updateRecords = records.concat(expandRows);
+      const updateFields = effectFields.concat(expandColumns.map(createFieldInstanceByVo));
+      const updateRecords = records.concat(expandRows);
 
-        // Fill cells
-        const updateRecordsRo = await this.fillCells({
-          tableData,
-          fields: updateFields,
-          records: updateRecords,
-        });
+      // Fill cells
+      const updateRecordsRo = await this.fillCells({
+        tableData,
+        fields: updateFields,
+        records: updateRecords,
+      });
 
-        updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
-        await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, transactionKey);
-      }
-    );
+      updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
+      await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+    });
 
     return updateRange;
   }

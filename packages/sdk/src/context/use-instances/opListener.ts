@@ -1,4 +1,4 @@
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 
 export class OpListenersManager<T> {
   private opListeners: Map<string, () => void> = new Map();

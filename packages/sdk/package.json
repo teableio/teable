@@ -39,7 +39,6 @@
     "@teable-group/icons": "workspace:*",
     "@teable-group/openapi": "workspace:*",
     "@teable-group/ui-lib": "workspace:*",
-    "@teable/sharedb": "3.3.11",
     "class-transformer": "0.5.1",
     "classnames": "2.3.2",
     "dayjs": "1.11.9",
@@ -49,6 +48,7 @@
     "lodash": "4.17.21",
     "react-use": "17.4.0",
     "reconnecting-websocket": "4.4.0",
+    "sharedb": "4.0.2",
     "ts-mixer": "6.0.3",
     "zustand": "4.3.7"
   },
@@ -63,6 +63,7 @@
     "@types/node": "18.11.7",
     "@types/react": "18.0.24",
     "@types/react-dom": "18.0.8",
+    "@types/sharedb": "3.3.2",
     "cross-env": "7.0.3",
     "eslint": "8.26.0",
     "jest": "29.6.4",
