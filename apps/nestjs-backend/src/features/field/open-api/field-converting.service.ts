@@ -26,10 +26,10 @@ import {
   FieldOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection } from 'sharedb/lib/client';
 import { instanceToPlain } from 'class-transformer';
 import knex from 'knex';
 import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import type { Connection } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';

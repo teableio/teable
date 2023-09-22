@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
 import type { RecordCreatedEvent } from '../../../../../event-emitter/model';
-import { EventEnums } from '../../../../../event-emitter/model';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema } from '../../action-core';
 import { TriggerCore } from '../trigger-core';

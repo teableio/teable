@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 import type { MockFunctionMetadata } from 'jest-mock';
 import { ModuleMocker } from 'jest-mock';
 import { BaseController } from './base.controller';
-import { BaseService } from './base.service';
 
 const moduleMocker = new ModuleMocker(global);
 

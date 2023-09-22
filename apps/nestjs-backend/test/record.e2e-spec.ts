@@ -1,11 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  ICreateRecordsRo,
-  ITableFullVo,
-  IUpdateRecordByIndexRo,
-  IUpdateRecordRo,
-} from '@teable-group/core';
+import type { ICreateRecordsRo, ITableFullVo, IUpdateRecordByIndexRo } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import type request from 'supertest';
 import { initApp, updateRecordByApi } from './utils/init-app';

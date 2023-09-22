@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
-import type { Error } from 'sharedb';
-import ShareDBClass from 'sharedb';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import type { Error } from 'sharedb';
+import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import type { ICellChange } from '../features/calculation/utils/changes';
@@ -98,7 +98,7 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
-  private async rollback(context: ShareDBClass.middleware.SubmitContext) {
+  private async rollback(_context: ShareDBClass.middleware.SubmitContext) {
     //
   }
 
