@@ -1,26 +1,26 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { EventEmitterService } from '../event-emitter/event-emitter.service';
-import { LinkService } from '../features/calculation/link.service';
-import { ReferenceService } from '../features/calculation/reference.service';
+import { ClsService } from 'nestjs-cls';
 import { DerivateChangeService } from './derivate-change.service';
-import { TransactionService } from './transaction.service';
+import { ShareDbModule } from './share-db.module';
 
 describe('DerivateChangeService', () => {
   let service: DerivateChangeService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DerivateChangeService,
-        LinkService,
-        ReferenceService,
-        TransactionService,
-        PrismaService,
-        { provide: EventEmitterService, useValue: { ops2Event: jest.fn() } },
-      ],
-    }).compile();
+      imports: [ShareDbModule],
+    })
+      .useMocker((token) => {
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+        if (token === ClsService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<DerivateChangeService>(DerivateChangeService);
   });

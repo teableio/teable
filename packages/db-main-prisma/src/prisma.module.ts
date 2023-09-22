@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Provider } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { PrismaService } from './prisma.service';
 
-const PrismaProvider: Provider = {
+export const PrismaProvider: Provider = {
   provide: PrismaService,
-  inject: [ClsService],
-  useFactory: async (cls: ClsService) => {
+  useFactory: async (cls: ClsService<any>) => {
     return new PrismaService(cls);
   },
+  inject: [ClsService],
 };
 
 @Global()

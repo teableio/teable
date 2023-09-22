@@ -1,12 +1,13 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { AttachmentsTableService } from './attachments-table.service';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsTableService;
-  let prismaService: PrismaService;
+  let prismaService: Prisma.TransactionClient;
   const updateManyError = 'updateMany error';
 
   beforeEach(async () => {
@@ -16,6 +17,9 @@ describe('AttachmentsService', () => {
         {
           provide: PrismaService,
           useValue: {
+            txClient: function () {
+              return this;
+            },
             attachmentsTable: {
               findMany: jest.fn(),
               create: jest.fn(),
@@ -35,7 +39,7 @@ describe('AttachmentsService', () => {
       .compile();
 
     service = module.get<AttachmentsTableService>(AttachmentsTableService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    prismaService = module.get<PrismaService>(PrismaService).txClient();
   });
 
   it('should create unique key', () => {
@@ -56,7 +60,7 @@ describe('AttachmentsService', () => {
 
     it('should update by record if no existing records', async () => {
       (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce([]);
-      await service.updateByRecord(prismaService, tableId, recordId, attachments);
+      await service.updateByRecord(tableId, recordId, attachments);
       expect(prismaService.attachmentsTable.create).toHaveBeenCalledTimes(attachments.length);
       expect(prismaService.attachmentsTable.updateMany).not.toBeCalled();
     });
@@ -71,7 +75,7 @@ describe('AttachmentsService', () => {
         },
       ];
       (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce(exists);
-      await service.updateByRecord(prismaService, tableId, recordId, attachments);
+      await service.updateByRecord(tableId, recordId, attachments);
       expect(prismaService.attachmentsTable.create).toHaveBeenCalledTimes(attachments.length);
       expect(prismaService.attachmentsTable.updateMany).toBeCalledTimes(exists.length);
     });
@@ -80,9 +84,9 @@ describe('AttachmentsService', () => {
       (prismaService.attachmentsTable.findMany as jest.Mock).mockRejectedValueOnce(
         new Error('findMany error')
       );
-      await expect(
-        service.updateByRecord(prismaService, tableId, recordId, attachments)
-      ).rejects.toThrow('findMany error');
+      await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
+        'findMany error'
+      );
       expect(prismaService.attachmentsTable.create).not.toBeCalled();
       expect(prismaService.attachmentsTable.updateMany).not.toBeCalled();
     });
@@ -92,9 +96,9 @@ describe('AttachmentsService', () => {
       (prismaService.attachmentsTable.create as jest.Mock).mockRejectedValueOnce(
         new Error('create error')
       );
-      await expect(
-        service.updateByRecord(prismaService, tableId, recordId, attachments)
-      ).rejects.toThrow('create error');
+      await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
+        'create error'
+      );
       expect(prismaService.attachmentsTable.create).toBeCalled();
       expect(prismaService.attachmentsTable.updateMany).not.toBeCalled();
     });
@@ -112,9 +116,9 @@ describe('AttachmentsService', () => {
       (prismaService.attachmentsTable.updateMany as jest.Mock).mockRejectedValueOnce(
         new Error(updateManyError)
       );
-      await expect(
-        service.updateByRecord(prismaService, tableId, recordId, attachments)
-      ).rejects.toThrow(updateManyError);
+      await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
+        updateManyError
+      );
       expect(prismaService.attachmentsTable.create).toBeCalled();
       expect(prismaService.attachmentsTable.updateMany).toBeCalled();
     });
@@ -131,7 +135,7 @@ describe('AttachmentsService', () => {
     ];
 
     it('should delete records', async () => {
-      await service.delete(prismaService, queries);
+      await service.delete(queries);
       expect(prismaService.attachmentsTable.updateMany).toBeCalledTimes(queries.length);
     });
 
@@ -139,7 +143,7 @@ describe('AttachmentsService', () => {
       (prismaService.attachmentsTable.updateMany as jest.Mock).mockRejectedValueOnce(
         new Error(updateManyError)
       );
-      await expect(service.delete(prismaService, queries)).rejects.toThrow(updateManyError);
+      await expect(service.delete(queries)).rejects.toThrow(updateManyError);
       expect(prismaService.attachmentsTable.updateMany).toBeCalled();
     });
   });

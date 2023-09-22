@@ -11,7 +11,6 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { GlobalModule } from '../../global/global.module';
-import { TransactionService } from '../../share-db/transaction.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
@@ -25,10 +24,9 @@ describe('selectionService', () => {
   let selectionService: SelectionService;
   let recordService: RecordService;
   let fieldService: FieldService;
-  let prismaService: PrismaService;
+  let prismaService: Prisma.TransactionClient;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
-  let transactionService: TransactionService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -36,6 +34,9 @@ describe('selectionService', () => {
     })
       .overrideProvider(PrismaService)
       .useValue({
+        txClient: function () {
+          return this;
+        },
         attachments: {
           findMany: jest.fn(),
         },
@@ -45,10 +46,10 @@ describe('selectionService', () => {
     selectionService = module.get<SelectionService>(SelectionService);
     fieldService = module.get<FieldService>(FieldService);
     recordService = module.get<RecordService>(RecordService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    prismaService = module.get<PrismaService>(PrismaService).txClient();
+    prismaService.attachments.findMany = jest.fn();
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
-    transactionService = module.get<TransactionService>(TransactionService);
   });
 
   const tableId = 'table1';
@@ -132,7 +133,6 @@ describe('selectionService', () => {
       // Mock dependencies
       const tableId = 'table1';
       const numRowsToExpand = 3;
-      const transactionKey = 'transactionKey';
       const expectedRecords = [
         { id: 'record1', fields: {} },
         { id: 'record2', fields: {} },
@@ -145,13 +145,11 @@ describe('selectionService', () => {
       const result = await selectionService['expandRows']({
         tableId,
         numRowsToExpand,
-        transactionKey,
       });
 
       // Verify the multipleCreateRecords call
       expect(recordOpenApiService.createRecords).toHaveBeenCalledTimes(1);
       expect(recordOpenApiService.createRecords).toHaveBeenCalledWith(
-        transactionKey,
         tableId,
         Array.from({ length: numRowsToExpand }, () => ({ fields: {} }))
       );
@@ -165,23 +163,20 @@ describe('selectionService', () => {
     it('should expand the columns and create new fields', async () => {
       // Mock dependencies
       const tableId = 'table1';
-      const viewId = 'view1';
+      // const viewId = 'view1';
       const header = [
         { id: '3', name: 'Email', type: FieldType.SingleLineText },
         { id: '4', name: 'Phone', type: FieldType.SingleLineText },
       ] as IFieldVo[];
       const numColsToExpand = 2;
-      const transactionKey = 'transactionKey';
       jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[0]);
       jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[1]);
 
       // Perform expanding columns
       const result = await selectionService['expandColumns']({
         tableId,
-        viewId,
         header,
         numColsToExpand,
-        transactionKey,
       });
 
       // Verify the createField calls
@@ -356,7 +351,6 @@ describe('selectionService', () => {
       ['A2', 'B2', 'C2'],
       ['A3', 'B3', 'C3'],
     ];
-    const testTransactionKey = 'testTransactionKey';
 
     it('should paste table data and update records', async () => {
       // Mock input parameters
@@ -449,9 +443,6 @@ describe('selectionService', () => {
         records: mockNewRecords,
       });
       jest.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
-      jest.spyOn(transactionService, '$transaction').mockImplementation(async (_, callback) => {
-        await callback(prismaService, testTransactionKey);
-      });
 
       jest.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
@@ -460,7 +451,7 @@ describe('selectionService', () => {
 
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);
-      expect(recordService.getRowCount).toHaveBeenCalledWith(prismaService, tableId, viewId);
+      expect(recordService.getRowCount).toHaveBeenCalledWith(tableId, viewId);
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
@@ -472,16 +463,13 @@ describe('selectionService', () => {
 
       expect(selectionService['expandColumns']).toHaveBeenCalledWith({
         tableId,
-        viewId,
         header: mockFields,
         numColsToExpand: 2,
-        transactionKey: testTransactionKey,
       });
 
       expect(selectionService['expandRows']).toHaveBeenCalledWith({
         tableId,
         numRowsToExpand: 2,
-        transactionKey: testTransactionKey,
       });
 
       expect(result).toEqual([

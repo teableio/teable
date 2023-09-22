@@ -25,6 +25,7 @@ describe('JsonVisitor', () => {
     const filterSet: any[] = [];
 
     value.forEach((value1) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       for (const [_, v] of Object.entries(value1)) {
         filterSet.push(mockFilterData(v, operator));
       }

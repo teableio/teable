@@ -6,7 +6,7 @@ import type {
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
 import { RecordOpBuilder, RecordCore } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 import { axios } from '../../config/axios';
 import type { IFieldInstance } from '../field/factory';
 

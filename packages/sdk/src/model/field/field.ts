@@ -1,6 +1,6 @@
 import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 import { axios } from '../../config/axios';
 
 export abstract class Field extends FieldCore {

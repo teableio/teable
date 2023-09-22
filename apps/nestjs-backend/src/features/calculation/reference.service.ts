@@ -8,7 +8,7 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Prisma, PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { difference, groupBy, intersectionBy, isEmpty, keyBy, map, uniq } from 'lodash';
@@ -93,6 +93,8 @@ export class ReferenceService {
 
   constructor(@InjectModel() private readonly knex: Knex) {}
 
+  constructor(private readonly prismaService: PrismaService) {}
+
   /**
    * Strategy of calculation.
    * update link field in a record is a special operation for calculation.
@@ -111,21 +113,17 @@ export class ReferenceService {
    * fkOpMap is a map of foreignKey update operation. linkDerivation generate fkOpMap operation,
    * but we need it do calculation, so we have to pass origin fkOpMap it to calculateOpsMap.
    */
-  async calculateOpsMap(prisma: Prisma.TransactionClient, opsMap: IOpsMap, fkOpMap: IFkOpMap = {}) {
+  async calculateOpsMap(opsMap: IOpsMap, fkOpMap: IFkOpMap = {}) {
     const { recordDataMapWithDelete, recordDataMapRemains } =
       this.splitOpsMapToRecordDataMap(opsMap);
 
     // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
     // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
     // console.log('updateForeignKey:', JSON.stringify(fkOpMap, null, 2));
-    const resultBefore = await this.calculateRecordDataMap(
-      prisma,
-      recordDataMapWithDelete,
-      fkOpMap
-    );
+    const resultBefore = await this.calculateRecordDataMap(recordDataMapWithDelete, fkOpMap);
     // console.log('resultBefore', resultBefore?.cellChanges);
-    await this.updateForeignKey(prisma, fkOpMap);
-    const resultAfter = await this.calculateRecordDataMap(prisma, recordDataMapRemains, fkOpMap);
+    await this.updateForeignKey(fkOpMap);
+    const resultAfter = await this.calculateRecordDataMap(recordDataMapRemains, fkOpMap);
     // console.log('resultAfter', resultAfter);
     const changes = resultBefore.cellChanges.concat(resultAfter.cellChanges);
     const fieldMap = Object.assign({}, resultBefore.fieldMap, resultAfter.fieldMap);
@@ -176,16 +174,11 @@ export class ReferenceService {
     }, {});
   }
 
-  async prepareCalculation(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    recordData: IRecordData[]
-  ) {
+  async prepareCalculation(tableId: string, recordData: IRecordData[]) {
     if (!recordData.length) {
       return;
     }
     const { directedGraph, startFieldIds, extraRecordIdItems } = await this.getDirectedGraph(
-      prisma,
       recordData
     );
     if (!directedGraph.length) {
@@ -206,7 +199,7 @@ export class ReferenceService {
     const allFieldIds = this.flatGraph(directedGraph);
     // prepare all related data
     const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
-      await this.createAuxiliaryData(prisma, allFieldIds);
+      await this.createAuxiliaryData(allFieldIds);
 
     // topological sorting
     const topoOrdersByFieldId = this.removeFirstLinkItem(
@@ -254,18 +247,18 @@ export class ReferenceService {
         .concat(originRecordItems);
       // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
       // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
-      const items = await this.getAffectedRecordItems(prisma, linkOrders, originRecordIdItems);
+      const items = await this.getAffectedRecordItems(linkOrders, originRecordIdItems);
       // nameConsole('fieldId:', { fieldId }, fieldMap);
       // nameConsole('affectedRecordItems:', items, fieldMap);
       affectedRecordItems = affectedRecordItems.concat(items);
     }
     // console.log('affectedRecordItems', JSON.stringify(affectedRecordItems, null, 2));
 
-    const dependentRecordItems = await this.getDependentRecordItems(prisma, affectedRecordItems);
+    const dependentRecordItems = await this.getDependentRecordItems(affectedRecordItems);
     // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);
 
     // record data source
-    const dbTableName2records = await this.getRecordsBatch(prisma, {
+    const dbTableName2records = await this.getRecordsBatch({
       originRecordItems,
       affectedRecordItems,
       dependentRecordItems,
@@ -300,13 +293,8 @@ export class ReferenceService {
     };
   }
 
-  async calculate(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    recordData: IRecordData[],
-    fkOpMap: IFkOpMap
-  ) {
-    const result = await this.prepareCalculation(prisma, tableId, recordData);
+  async calculate(tableId: string, recordData: IRecordData[], fkOpMap: IFkOpMap) {
+    const result = await this.prepareCalculation(tableId, recordData);
     if (!result) {
       return;
     }
@@ -385,7 +373,7 @@ export class ReferenceService {
     };
   }
 
-  private async getDirectedGraph(prisma: Prisma.TransactionClient, recordData: IRecordData[]) {
+  private async getDirectedGraph(recordData: IRecordData[]) {
     let startFieldIds = recordData.map((data) => data.fieldId);
     const linkedData = recordData.filter(
       (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
@@ -406,7 +394,7 @@ export class ReferenceService {
 
     // when link cell change, we need to get all lookup field
     if (linkFieldIds.length) {
-      const lookupFieldRaw = await prisma.field.findMany({
+      const lookupFieldRaw = await this.prismaService.txClient().field.findMany({
         where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
         select: { id: true, lookupOptions: true },
       });
@@ -417,7 +405,7 @@ export class ReferenceService {
       });
     }
     startFieldIds = uniq(startFieldIds);
-    const directedGraph = await this.getDependentNodesCTE(prisma, startFieldIds);
+    const directedGraph = await this.getDependentNodesCTE(startFieldIds);
 
     return {
       directedGraph,
@@ -488,17 +476,13 @@ export class ReferenceService {
     return result;
   }
 
-  private async calculateRecordDataMap(
-    prisma: Prisma.TransactionClient,
-    recordDataMap: IRecordDataMap,
-    fkOpMap: IFkOpMap
-  ) {
+  private async calculateRecordDataMap(recordDataMap: IRecordDataMap, fkOpMap: IFkOpMap) {
     const cellChanges: ICellChange[] = [];
     const allTableId2DbTableName: { [tableId: string]: string } = {};
     const allFieldMap: IFieldMap = {};
     for (const tableId in recordDataMap) {
       const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
-      const calculateResult = await this.calculate(prisma, tableId, recordData, fkOpMap);
+      const calculateResult = await this.calculate(tableId, recordData, fkOpMap);
       if (calculateResult) {
         const { changes, fieldMap, tableId2DbTableName } = calculateResult;
         Object.assign(allTableId2DbTableName, tableId2DbTableName);
@@ -693,7 +677,7 @@ export class ReferenceService {
     }
   }
 
-  private async updateForeignKey(prisma: Prisma.TransactionClient, fkRecordMap: IFkOpMap) {
+  private async updateForeignKey(fkRecordMap: IFkOpMap) {
     for (const dbTableName in fkRecordMap) {
       for (const recordId in fkRecordMap[dbTableName]) {
         const updateParam = fkRecordMap[dbTableName][recordId];
@@ -703,12 +687,13 @@ export class ReferenceService {
           .toSQL()
           .toNative();
 
-        await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+        await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
       }
     }
   }
 
-  async createAuxiliaryData(prisma: Prisma.TransactionClient, allFieldIds: string[]) {
+  async createAuxiliaryData(allFieldIds: string[]) {
+    const prisma = this.prismaService.txClient();
     const fieldRaws = await prisma.field.findMany({
       where: { id: { in: allFieldIds }, deletedTime: null },
     });
@@ -869,20 +854,17 @@ export class ReferenceService {
     return newOrder;
   }
 
-  async getRecordsBatch(
-    prisma: Prisma.TransactionClient,
-    params: {
-      originRecordItems: {
-        dbTableName: string;
-        id: string;
-        fieldId?: string;
-        newValue?: unknown;
-      }[];
-      dbTableName2fields: { [tableId: string]: IFieldInstance[] };
-      affectedRecordItems: IRecordRefItem[];
-      dependentRecordItems: IRecordRefItem[];
-    }
-  ) {
+  async getRecordsBatch(params: {
+    originRecordItems: {
+      dbTableName: string;
+      id: string;
+      fieldId?: string;
+      newValue?: unknown;
+    }[];
+    dbTableName2fields: { [tableId: string]: IFieldInstance[] };
+    affectedRecordItems: IRecordRefItem[];
+    dependentRecordItems: IRecordRefItem[];
+  }) {
     const { originRecordItems, affectedRecordItems, dependentRecordItems, dbTableName2fields } =
       params;
     const recordIdsByTableName = groupBy(
@@ -904,10 +886,12 @@ export class ReferenceService {
         .whereIn('__id', recordIds)
         .toSQL()
         .toNative();
-      const result = await prisma.$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      const result = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
+          nativeSql.sql,
+          ...nativeSql.bindings
+        );
       results[dbTableName] = result;
     }
 
@@ -1166,10 +1150,7 @@ export class ReferenceService {
     return sortedNodes.reverse();
   }
 
-  async getDependentNodesCTE(
-    prisma: Prisma.TransactionClient,
-    startFieldIds: string[]
-  ): Promise<IGraphItem[]> {
+  async getDependentNodesCTE(startFieldIds: string[]): Promise<IGraphItem[]> {
     let result: { fromFieldId: string; toFieldId: string }[] = [];
     const getResult = async (startFieldId: string) => {
       const _knex = this.knex;
@@ -1211,10 +1192,12 @@ export class ReferenceService {
 
       const sqlNative = finalQuery.toSQL().toNative();
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      return prisma.$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
-      );
+      return this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
+          sqlNative.sql,
+          ...sqlNative.bindings
+        );
     };
 
     for (const fieldId of startFieldIds) {
@@ -1248,10 +1231,7 @@ export class ReferenceService {
    * example: C = A + B
    * A changed, C will be affected and B is the dependent record
    */
-  async getDependentRecordItems(
-    prisma: Prisma.TransactionClient,
-    recordItems: IRecordRefItem[]
-  ): Promise<IRecordRefItem[]> {
+  async getDependentRecordItems(recordItems: IRecordRefItem[]): Promise<IRecordRefItem[]> {
     if (!recordItems.length) {
       return [];
     }
@@ -1279,11 +1259,12 @@ export class ReferenceService {
     const [firstQuery, ...restQueries] = queries;
     const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
 
-    return prisma.$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
   }
 
   async getAffectedRecordItems(
-    prisma: Prisma.TransactionClient,
     topoOrder: ITopoLinkOrder[],
     originRecordIdItems: { dbTableName: string; id: string }[]
   ): Promise<IRecordRefItem[]> {
@@ -1366,7 +1347,7 @@ export class ReferenceService {
     // this.logger.log('affectedRecordItemsSql：%s', finalQuery.toQuery());
 
     const sqlNative = finalQuery.toSQL().toNative();
-    const results = await prisma.$queryRawUnsafe<
+    const results = await this.prismaService.txClient().$queryRawUnsafe<
       {
         __id: string;
         dbTableName: string;

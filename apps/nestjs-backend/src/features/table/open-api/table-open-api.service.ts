@@ -17,9 +17,8 @@ import {
   IdPrefix,
   TableOpBuilder,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { ShareDbService } from '../../../share-db/share-db.service';
-import { TransactionService } from '../../../share-db/transaction.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -31,88 +30,66 @@ export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
     private readonly shareDbService: ShareDbService,
-    private readonly transactionService: TransactionService,
+    private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService
   ) {}
 
-  private async createView(transactionKey: string, tableId: string, viewRos: IViewRo[]) {
+  private async createView(tableId: string, viewRos: IViewRo[]) {
     const viewCreationPromises = viewRos.map(async (fieldRo) => {
       const viewInstance = createViewInstanceByRo(fieldRo);
-      return this.viewOpenApiService.createView(tableId, viewInstance, transactionKey);
+      return this.viewOpenApiService.createView(tableId, viewInstance);
     });
     return await Promise.all(viewCreationPromises);
   }
 
-  private async createField(
-    transactionKey: string,
-    tableId: string,
-    viewVos: IViewVo[],
-    fieldVos: IFieldVo[]
-  ) {
+  private async createField(tableId: string, viewVos: IViewVo[], fieldVos: IFieldVo[]) {
     const fieldSnapshots: IFieldVo[] = [];
     for (const fieldVo of fieldVos) {
       viewVos.forEach((view, index) => {
         fieldVo['columnMeta'] = { ...fieldVo.columnMeta, [view.id]: { order: index } };
       });
       const fieldInstance = createFieldInstanceByVo(fieldVo);
-      const fieldSnapshot = await this.fieldCreatingService.createField(
-        transactionKey,
-        tableId,
-        fieldInstance
-      );
+      const fieldSnapshot = await this.fieldCreatingService.createField(tableId, fieldInstance);
       fieldSnapshots.push(fieldSnapshot);
     }
     return fieldSnapshots;
   }
 
-  private async createRecords(transactionKey: string, tableId: string, data: ICreateRecordsRo) {
-    return this.recordOpenApiService.createRecords(
-      transactionKey,
-      tableId,
-      data.records,
-      data.fieldKeyType
-    );
+  private async createRecords(tableId: string, data: ICreateRecordsRo) {
+    return this.recordOpenApiService.createRecords(tableId, data.records, data.fieldKeyType);
   }
 
   async createTable(baseId: string, tableRo: ICreateTablePreparedRo): Promise<ITableFullVo> {
-    return await this.transactionService.$transaction(
-      this.shareDbService,
-      async (prisma, transactionKey) => {
-        if (!tableRo.fields || !tableRo.views || !tableRo.records) {
-          throw new Error('table fields views and rows are required.');
-        }
-        const tableVo = await this.createTableMeta(prisma, transactionKey, baseId, tableRo);
-
-        const tableId = tableVo.id;
-
-        const viewVos = await this.createView(transactionKey, tableId, tableRo.views);
-        const fieldVos = await this.createField(transactionKey, tableId, viewVos, tableRo.fields);
-        const { records } = await this.createRecords(transactionKey, tableId, {
-          records: tableRo.records,
-          fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
-        });
-
-        return {
-          ...tableVo,
-          total: tableRo.records.length,
-          fields: fieldVos,
-          views: viewVos,
-          defaultViewId: viewVos[0].id,
-          records,
-        };
+    return await this.prismaService.$tx(async () => {
+      if (!tableRo.fields || !tableRo.views || !tableRo.records) {
+        throw new Error('table fields views and rows are required.');
       }
-    );
+      const tableVo = await this.createTableMeta(baseId, tableRo);
+
+      const tableId = tableVo.id;
+
+      const viewVos = await this.createView(tableId, tableRo.views);
+      const fieldVos = await this.createField(tableId, viewVos, tableRo.fields);
+      const { records } = await this.createRecords(tableId, {
+        records: tableRo.records,
+        fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
+      });
+
+      return {
+        ...tableVo,
+        total: tableRo.records.length,
+        fields: fieldVos,
+        views: viewVos,
+        defaultViewId: viewVos[0].id,
+        records,
+      };
+    });
   }
 
-  async createTableMeta(
-    prisma: Prisma.TransactionClient,
-    transactionKey: string,
-    baseId: string,
-    tableRo: ICreateTableRo
-  ) {
-    const tableRaws = await prisma.tableMeta.findMany({
+  async createTableMeta(baseId: string, tableRo: ICreateTableRo) {
+    const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
       where: { deletedTime: null },
       select: { name: true, order: true },
     });
@@ -135,7 +112,7 @@ export class TableOpenApiService {
     });
 
     const collection = `${IdPrefix.Table}_${baseId}`;
-    const connection = this.shareDbService.getConnection(transactionKey);
+    const connection = this.shareDbService.getConnection();
     const doc = connection.get(collection, tableId);
     const tableVo = await new Promise<ITableVo>((resolve, reject) => {
       doc.create(snapshot, (error) => {
@@ -144,7 +121,7 @@ export class TableOpenApiService {
       });
     });
 
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
@@ -161,10 +138,9 @@ export class TableOpenApiService {
 
   async deleteTable(baseId: string, tableId: string) {
     const collection = `${IdPrefix.Table}_${baseId}`;
-    return await this.transactionService.$transaction(
-      this.shareDbService,
-      async (prisma, transactionKey) => {
-        const doc = this.shareDbService.getConnection(transactionKey).get(collection, tableId);
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const doc = this.shareDbService.getConnection().get(collection, tableId);
         // delete field for table
         await new Promise((resolve, reject) => {
           doc.fetch((error) => {

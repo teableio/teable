@@ -4,11 +4,10 @@ import { TableModule } from '../features/table/table.module';
 import { DerivateChangeService } from './derivate-change.service';
 import { ShareDbService } from './share-db.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
-import { TransactionService } from './transaction.service';
 
 @Module({
   imports: [TableModule, CalculationModule],
-  providers: [ShareDbService, SqliteDbAdapter, TransactionService, DerivateChangeService],
-  exports: [ShareDbService, TransactionService],
+  providers: [ShareDbService, SqliteDbAdapter, DerivateChangeService],
+  exports: [ShareDbService],
 })
 export class ShareDbModule {}

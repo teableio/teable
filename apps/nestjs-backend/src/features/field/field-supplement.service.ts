@@ -33,7 +33,6 @@ import {
   DateFieldCore,
   CheckboxFieldCore,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
@@ -56,8 +55,8 @@ export class FieldSupplementService implements ISupplementService {
     @InjectModel() private readonly knex: Knex
   ) {}
 
-  private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
-    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+  private async getDbTableName(tableId: string) {
+    const tableMeta = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
@@ -693,11 +692,8 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
-  async generateSymmetricField(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    field: LinkFieldDto
-  ) {
+  async generateSymmetricField(tableId: string, field: LinkFieldDto) {
+    const prisma = this.prismaService.txClient();
     const { name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { name: true },
@@ -732,25 +728,21 @@ export class FieldSupplementService implements ISupplementService {
     } as IFieldVo) as LinkFieldDto;
   }
 
-  private async columnExists(
-    prisma: Prisma.TransactionClient,
-    tableName: string,
-    columnName: string
-  ): Promise<boolean> {
+  private async columnExists(tableName: string, columnName: string): Promise<boolean> {
     const columnListSql = this.knex.queryBuilder().columnList(tableName).toQuery();
 
-    const result = await prisma.$queryRawUnsafe<{ name: string }[]>(columnListSql);
-
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(columnListSql);
     return result.some((row) => row.name === columnName);
   }
 
   private async createForeignKeyField(
-    prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
     dbForeignKeyName: string
   ) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
-    if (await this.columnExists(prisma, dbTableName, dbForeignKeyName)) {
+    const dbTableName = await this.getDbTableName(tableId);
+    if (await this.columnExists(dbTableName, dbForeignKeyName)) {
       return;
     }
     const alterTableSchema = this.knex.schema.alterTable(dbTableName, (table) => {
@@ -758,26 +750,25 @@ export class FieldSupplementService implements ISupplementService {
     });
 
     for (const sql of alterTableSchema.toSQL()) {
-      await prisma.$executeRawUnsafe(sql.sql);
+      await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
     }
   }
 
   private async cleanForeignKeyField(
-    prisma: Prisma.TransactionClient,
     tableId: string, // tableId for current field belongs to
     dbForeignKeyName: string
   ) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
     // sqlite cannot drop column, so we just set it to null
     const nativeSql = this.knex(dbTableName)
       .update({ [dbForeignKeyName]: null })
       .toSQL()
       .toNative();
 
-    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async createForeignKey(prisma: Prisma.TransactionClient, tableId: string, field: LinkFieldDto) {
+  async createForeignKey(tableId: string, field: LinkFieldDto) {
     if (field.type !== FieldType.Link) {
       throw new Error('only link field need to create supplement field');
     }
@@ -785,49 +776,46 @@ export class FieldSupplementService implements ISupplementService {
     const { foreignTableId, dbForeignKeyName, relationship } = field.options;
 
     if (relationship === Relationship.OneMany) {
-      await this.createForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
+      await this.createForeignKeyField(foreignTableId, dbForeignKeyName);
     }
 
     if (relationship === Relationship.ManyOne) {
-      await this.createForeignKeyField(prisma, tableId, dbForeignKeyName);
+      await this.createForeignKeyField(tableId, dbForeignKeyName);
     }
   }
 
-  async cleanForeignKey(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    options: ILinkFieldOptions
-  ) {
+  async cleanForeignKey(tableId: string, options: ILinkFieldOptions) {
     const { foreignTableId, relationship, dbForeignKeyName } = options;
 
     if (relationship === Relationship.OneMany) {
-      await this.cleanForeignKeyField(prisma, foreignTableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(foreignTableId, dbForeignKeyName);
     }
 
     if (relationship === Relationship.ManyOne) {
-      await this.cleanForeignKeyField(prisma, tableId, dbForeignKeyName);
+      await this.cleanForeignKeyField(tableId, dbForeignKeyName);
     }
   }
 
-  async createReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
+  async createReference(field: IFieldInstance) {
     if (field.isLookup) {
-      return await this.createLookupReference(prisma, field);
+      return await this.createLookupReference(field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return await this.createFormulaReference(prisma, field);
+        return await this.createFormulaReference(field);
       case FieldType.Rollup:
         // rollup use same reference logic as lookup
-        return await this.createLookupReference(prisma, field);
+        return await this.createLookupReference(field);
       case FieldType.Link:
-        return await this.createLinkReference(prisma, field);
+        return await this.createLinkReference(field);
       default:
         break;
     }
   }
 
-  async deleteReference(prisma: Prisma.TransactionClient, fieldId: string): Promise<string[]> {
+  async deleteReference(fieldId: string): Promise<string[]> {
+    const prisma = this.prismaService.txClient();
     const refRaw = await prisma.reference.findMany({
       where: {
         fromFieldId: fieldId,
@@ -846,10 +834,8 @@ export class FieldSupplementService implements ISupplementService {
   /**
    * the lookup field that attach to the deleted, should delete to field reference
    */
-  async deleteLookupFieldReference(
-    prisma: Prisma.TransactionClient,
-    linkFieldId: string
-  ): Promise<string[]> {
+  async deleteLookupFieldReference(linkFieldId: string): Promise<string[]> {
+    const prisma = this.prismaService.txClient();
     const fieldsRaw = await prisma.field.findMany({
       where: { lookupLinkedFieldId: linkFieldId, deletedTime: null },
       select: { id: true },
@@ -865,14 +851,14 @@ export class FieldSupplementService implements ISupplementService {
     return lookupFieldIds;
   }
 
-  private async createLookupReference(prisma: Prisma.TransactionClient, field: IFieldInstance) {
+  private async createLookupReference(field: IFieldInstance) {
     const toFieldId = field.id;
     if (!field.lookupOptions) {
       throw new Error('lookupOptions is required');
     }
     const { lookupFieldId } = field.lookupOptions;
 
-    await prisma.reference.create({
+    await this.prismaService.txClient().reference.create({
       data: {
         fromFieldId: lookupFieldId,
         toFieldId,
@@ -880,11 +866,11 @@ export class FieldSupplementService implements ISupplementService {
     });
   }
 
-  private async createLinkReference(prisma: Prisma.TransactionClient, field: LinkFieldDto) {
+  private async createLinkReference(field: LinkFieldDto) {
     const toFieldId = field.id;
     const fromFieldId = field.options.lookupFieldId;
 
-    await prisma.reference.create({
+    await this.prismaService.txClient().reference.create({
       data: {
         fromFieldId,
         toFieldId,
@@ -892,12 +878,12 @@ export class FieldSupplementService implements ISupplementService {
     });
   }
 
-  private async createFormulaReference(prisma: Prisma.TransactionClient, field: FormulaFieldDto) {
+  private async createFormulaReference(field: FormulaFieldDto) {
     const fieldIds = field.getReferenceFieldIds();
     const toFieldId = field.id;
 
     for (const fromFieldId of fieldIds) {
-      await prisma.reference.create({
+      await this.prismaService.txClient().reference.create({
         data: {
           fromFieldId,
           toFieldId,

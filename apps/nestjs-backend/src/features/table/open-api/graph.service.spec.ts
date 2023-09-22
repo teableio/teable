@@ -1,5 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { GraphService } from './graph.service';
 import { TableOpenApiModule } from './table-open-api.module';
@@ -13,6 +14,9 @@ describe('GraphServiceService', () => {
     })
       .useMocker((token) => {
         if (token === ClsService) {
+          return jest.fn();
+        }
+        if (token === PrismaService) {
           return jest.fn();
         }
       })

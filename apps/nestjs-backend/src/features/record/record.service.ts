@@ -59,9 +59,9 @@ export class RecordService implements IAdapterService {
     @InjectModel() private readonly knex: Knex
   ) {}
 
-  private async getRowOrderFieldNames(prisma: Prisma.TransactionClient, tableId: string) {
+  private async getRowOrderFieldNames(tableId: string) {
     // get rowIndexFieldName by select all views, combine field prefix and ids;
-    const views = await prisma.view.findMany({
+    const views = await this.prismaService.txClient().view.findMany({
       where: {
         tableId,
         deletedTime: null,
@@ -75,11 +75,7 @@ export class RecordService implements IAdapterService {
   }
 
   // get fields create by users
-  private async getUserFields(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    createRecordsRo: ICreateRecordsRo
-  ) {
+  private async getUserFields(tableId: string, createRecordsRo: ICreateRecordsRo) {
     const fieldIdSet = createRecordsRo.records.reduce<Set<string>>((acc, record) => {
       const fieldIds = Object.keys(record.fields);
       fieldIds.forEach((fieldId) => acc.add(fieldId));
@@ -88,7 +84,7 @@ export class RecordService implements IAdapterService {
 
     const userFieldIds = Array.from(fieldIdSet);
 
-    const userFields = await prisma.field.findMany({
+    const userFields = await this.prismaService.txClient().field.findMany({
       where: {
         tableId,
         id: { in: userFieldIds },
@@ -124,24 +120,22 @@ export class RecordService implements IAdapterService {
     }, {});
   }
 
-  async getAllRecordCount(prisma: Prisma.TransactionClient, dbTableName: string) {
+  async getAllRecordCount(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
-    const queryResult = await prisma.$queryRawUnsafe<{ count?: number }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
+    const queryResult = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
     return Number(queryResult[0]?.count ?? 0);
   }
 
   async getDbValueMatrix(
-    prisma: Prisma.TransactionClient,
     dbTableName: string,
     userFields: IUserFields,
     rowIndexFieldNames: string[],
     createRecordsRo: ICreateRecordsRo
   ) {
-    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
+    const rowCount = await this.getAllRecordCount(dbTableName);
     const dbValueMatrix: unknown[][] = [];
     for (let i = 0; i < createRecordsRo.records.length; i++) {
       const recordData = createRecordsRo.records[i].fields;
@@ -165,12 +159,8 @@ export class RecordService implements IAdapterService {
     return dbValueMatrix;
   }
 
-  async multipleCreateRecordTransaction(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    createRecordsRo: ICreateRecordsRo
-  ) {
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
+  async multipleCreateRecordTransaction(tableId: string, createRecordsRo: ICreateRecordsRo) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: {
         id: tableId,
       },
@@ -179,8 +169,8 @@ export class RecordService implements IAdapterService {
       },
     });
 
-    const userFields = await this.getUserFields(prisma, tableId, createRecordsRo);
-    const rowOrderFieldNames = await this.getRowOrderFieldNames(prisma, tableId);
+    const userFields = await this.getUserFields(tableId, createRecordsRo);
+    const rowOrderFieldNames = await this.getRowOrderFieldNames(tableId);
 
     const allDbFieldNames = [
       ...userFields.map((field) => field.dbFieldName),
@@ -189,7 +179,6 @@ export class RecordService implements IAdapterService {
     ];
 
     const dbValueMatrix = await this.getDbValueMatrix(
-      prisma,
       dbTableName,
       userFields,
       rowOrderFieldNames,
@@ -201,7 +190,7 @@ export class RecordService implements IAdapterService {
       .map((dbValues) => `(${dbValues.map((value) => JSON.stringify(value)).join(', ')})`)
       .join(',\n');
 
-    return await prisma.$executeRawUnsafe(`
+    return await this.prismaService.txClient().$executeRawUnsafe(`
       INSERT INTO ${dbTableName} (${dbFieldSQL})
       VALUES 
         ${dbValuesSQL};
@@ -210,13 +199,13 @@ export class RecordService implements IAdapterService {
 
   // we have to support multiple action, because users will do it in batch
   async multipleCreateRecords(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    return await this.prismaService.$transaction(async (prisma) => {
-      return this.multipleCreateRecordTransaction(prisma, tableId, createRecordsRo);
+    return await this.prismaService.$tx(async () => {
+      return this.multipleCreateRecordTransaction(tableId, createRecordsRo);
     });
   }
 
-  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
-    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+  async getDbTableName(tableId: string) {
+    const tableMeta = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
@@ -224,7 +213,6 @@ export class RecordService implements IAdapterService {
   }
 
   async buildQuery(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery & {
       select?: string | string[];
@@ -241,7 +229,7 @@ export class RecordService implements IAdapterService {
       where = {},
     } = query;
 
-    const view = await prisma.view.findFirstOrThrow({
+    const view = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true, filter: true, sort: true },
       where: { tableId, id: viewId, deletedTime: null },
       orderBy: { order: 'asc' },
@@ -250,7 +238,7 @@ export class RecordService implements IAdapterService {
     const filter = mergeWithDefaultFilter(view.filter, extraFilter);
     const orderBy = mergeWithDefaultSort(view.sort, extraOrderBy);
 
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
     const orderFieldName = getViewOrderFieldName(viewId);
 
     const queryBuilder = select ? this.knex(dbTableName).select(select) : this.knex(dbTableName);
@@ -258,7 +246,7 @@ export class RecordService implements IAdapterService {
     let fieldMap;
     if (filter || orderBy.length) {
       // The field Meta is needed to construct the filter if it exists
-      const fields = await this.getFieldsByProjection(prisma, tableId);
+      const fields = await this.getFieldsByProjection(tableId);
       fieldMap = fields.reduce((map, field) => {
         map[field.id] = field;
         map[field.name] = field;
@@ -282,7 +270,6 @@ export class RecordService implements IAdapterService {
   }
 
   async setRecordOrder(
-    prisma: Prisma.TransactionClient,
     version: number,
     recordId: string,
     dbTableName: string,
@@ -294,11 +281,10 @@ export class RecordService implements IAdapterService {
       .where({ __id: recordId })
       .toSQL()
       .toNative();
-    return prisma.$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+    return this.prismaService.txClient().$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
   async setRecord(
-    prisma: Prisma.TransactionClient,
     version: number,
     tableId: string,
     dbTableName: string,
@@ -313,7 +299,7 @@ export class RecordService implements IAdapterService {
       }, new Set<string>())
     );
 
-    const fieldRaws = await prisma.field.findMany({
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { tableId, id: { in: fieldIds } },
     });
     const fieldInstances = fieldRaws.map((field) => createFieldInstanceByRaw(field));
@@ -322,12 +308,7 @@ export class RecordService implements IAdapterService {
     const createAttachmentsTable = this.getCreateAttachments(fieldInstanceMap, contexts);
 
     if (createAttachmentsTable.length) {
-      await this.attachmentService.updateByRecord(
-        prisma,
-        tableId,
-        recordId,
-        createAttachmentsTable
-      );
+      await this.attachmentService.updateByRecord(tableId, recordId, createAttachmentsTable);
     }
 
     const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
@@ -343,7 +324,7 @@ export class RecordService implements IAdapterService {
       .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
       .where({ __id: recordId })
       .toQuery();
-    return prisma.$executeRawUnsafe(updateRecordSql);
+    return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
   }
 
   getCreateAttachments(
@@ -372,7 +353,6 @@ export class RecordService implements IAdapterService {
   }
 
   async getRowCount(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     _viewId: string,
     filterQueryBuilder?: Knex.QueryBuilder
@@ -388,19 +368,18 @@ export class RecordService implements IAdapterService {
         .clear('offset');
       const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
 
-      const result = await prisma.$queryRawUnsafe<{ count?: number }[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
-      );
+      const result = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
       return Number(result[0]?.count ?? 0);
     }
 
-    const dbTableName = await this.getDbTableName(prisma, tableId);
-    return await this.getAllRecordCount(prisma, dbTableName);
+    const dbTableName = await this.getDbTableName(tableId);
+    return await this.getAllRecordCount(dbTableName);
   }
 
   async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
-    const defaultView = await this.prismaService.view.findFirstOrThrow({
+    const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true, filter: true, sort: true },
       where: {
         tableId,
@@ -411,7 +390,7 @@ export class RecordService implements IAdapterService {
     });
     const viewId = defaultView.id;
 
-    const queryResult = await this.getDocIdsByQuery(this.prismaService, tableId, {
+    const queryResult = await this.getDocIdsByQuery(tableId, {
       type: IdPrefix.Record,
       viewId,
       offset: query.skip,
@@ -421,7 +400,6 @@ export class RecordService implements IAdapterService {
     });
 
     const recordSnapshot = await this.getSnapshotBulk(
-      this.prismaService,
       tableId,
       queryResult.ids,
       undefined,
@@ -439,7 +417,6 @@ export class RecordService implements IAdapterService {
     fieldKeyType = FieldKeyType.Name
   ): Promise<IRecord> {
     const recordSnapshot = await this.getSnapshotBulk(
-      this.prismaService,
       tableId,
       [recordId],
       projection,
@@ -459,7 +436,7 @@ export class RecordService implements IAdapterService {
   }
 
   async getRecordIdByIndex(tableId: string, viewId: string, index: number) {
-    const dbTableName = await this.getDbTableName(this.prismaService, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
     const sqlNative = this.knex(dbTableName)
       .select('__id')
       .orderBy(getViewOrderFieldName(viewId), 'asc')
@@ -467,20 +444,19 @@ export class RecordService implements IAdapterService {
       .limit(1)
       .toSQL()
       .toNative();
-    const result = await this.prismaService.$queryRawUnsafe<{ __id: string }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
     return result[0].__id;
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IRecord) {
+  async create(tableId: string, snapshot: IRecord) {
     const userId = this.cls.get('user.id');
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
 
     // TODO: get row count will causes performance issus when insert lot of records
-    const rowCount = await this.getAllRecordCount(prisma, dbTableName);
-    const views = await prisma.view.findMany({
+    const rowCount = await this.getAllRecordCount(dbTableName);
+    const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
     });
@@ -507,19 +483,18 @@ export class RecordService implements IAdapterService {
       .toSQL()
       .toNative();
 
-    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async del(prisma: Prisma.TransactionClient, tableId: string, recordId: string) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
-    const fields = await prisma.field.findMany({
+  async del(tableId: string, recordId: string) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId },
       select: { id: true, type: true },
     });
     const attachmentFields = fields.filter((field) => field.type === FieldType.Attachment);
 
     await this.attachmentService.delete(
-      prisma,
       attachmentFields.map(({ id }) => ({ tableId, recordId, fieldId: id }))
     );
 
@@ -531,20 +506,18 @@ export class RecordService implements IAdapterService {
       .toSQL()
       .toNative();
 
-    await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
   async update(
-    prisma: Prisma.TransactionClient,
     version: number,
     tableId: string,
     recordId: string,
     opContexts: (ISetRecordOrderOpContext | ISetRecordOpContext)[]
   ) {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
     if (opContexts[0].name === OpName.SetRecord) {
       await this.setRecord(
-        prisma,
         version,
         tableId,
         dbTableName,
@@ -557,13 +530,12 @@ export class RecordService implements IAdapterService {
     if (opContexts[0].name === OpName.SetRecordOrder) {
       for (const opContext of opContexts as ISetRecordOrderOpContext[]) {
         const { viewId, newOrder } = opContext;
-        await this.setRecordOrder(prisma, version, recordId, dbTableName, viewId, newOrder);
+        await this.setRecordOrder(version, recordId, dbTableName, viewId, newOrder);
       }
     }
   }
 
   private async getFieldsByProjection(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id
@@ -579,7 +551,7 @@ export class RecordService implements IAdapterService {
       }
     }
 
-    const fields = await prisma.field.findMany({
+    const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, ...whereParams, deletedTime: null },
     });
 
@@ -587,21 +559,20 @@ export class RecordService implements IAdapterService {
   }
 
   async getSnapshotBulk(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     recordIds: string[],
     projection?: { [fieldNameOrId: string]: boolean },
     fieldKeyType: FieldKeyType = FieldKeyType.Id // for convince of collaboration, getSnapshotBulk use id as field key by default.
   ): Promise<ISnapshotBase<IRecord>[]> {
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
 
-    const allViews = await prisma.view.findMany({
+    const allViews = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
     });
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
-    const fields = await this.getFieldsByProjection(prisma, tableId, projection, fieldKeyType);
+    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
     const fieldNames = fields
       .map((f) => f.dbFieldName)
@@ -612,9 +583,12 @@ export class RecordService implements IAdapterService {
       .whereIn('__id', recordIds)
       .toSQL()
       .toNative();
-    const result = await prisma.$queryRawUnsafe<
-      ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
-    >(sqlNative.sql, ...sqlNative.bindings);
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
+        sqlNative.sql,
+        ...sqlNative.bindings
+      );
 
     const recordIdsMap = recordIds.reduce((acc, recordId, currentIndex) => {
       acc[recordId] = currentIndex;
@@ -652,11 +626,10 @@ export class RecordService implements IAdapterService {
   }
 
   async getDocIdsByQuery(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     query: IRecordSnapshotQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const { id: viewId } = await prisma.view.findFirstOrThrow({
+    const { id: viewId } = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true },
       where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
       orderBy: { order: 'asc' },
@@ -673,7 +646,7 @@ export class RecordService implements IAdapterService {
 
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    const { queryBuilder } = await this.buildQuery(prisma, tableId, {
+    const { queryBuilder } = await this.buildQuery(tableId, {
       ...query,
       select: '__id',
       viewId,
@@ -681,10 +654,9 @@ export class RecordService implements IAdapterService {
 
     const sqlNative = queryBuilder.toSQL().toNative();
 
-    const result = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
     const ids = result.map((r) => r.__id);
     return { ids };
   }
@@ -696,14 +668,14 @@ export class RecordService implements IAdapterService {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
-    const prisma = this.prismaService;
+
     const { skip, take, filter, orderBy, fieldKeyType, projection, viewId } = query;
 
-    const fields = await this.getFieldsByProjection(prisma, tableId, projection, fieldKeyType);
+    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
     const fieldNames = fields.map((f) => f.dbFieldName);
 
-    const { queryBuilder } = await this.buildQuery(prisma, tableId, {
+    const { queryBuilder } = await this.buildQuery(tableId, {
       type: IdPrefix.Record,
       viewId: viewId,
       offset: skip,
@@ -713,9 +685,12 @@ export class RecordService implements IAdapterService {
       select: fieldNames.concat('__id'),
     });
     const sqlNative = queryBuilder.toSQL().toNative();
-    const result = await prisma.$queryRawUnsafe<
-      (Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
-    >(sqlNative.sql, ...sqlNative.bindings);
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<(Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
+        sqlNative.sql,
+        ...sqlNative.bindings
+      );
 
     return result.map((record) => {
       return {

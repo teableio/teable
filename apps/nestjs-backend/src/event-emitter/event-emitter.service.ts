@@ -2,9 +2,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
-import type ShareDBClass from '@teable/sharedb';
 import { plainToInstance } from 'class-transformer';
 import { groupBy } from 'lodash';
+import type ShareDBClass from 'sharedb';
 import type { EventAbstract } from './abstract/event.abstract';
 import type { IEventBase } from './interfaces/event-base.interface';
 import {

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { cloneDeep, isEqual, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -59,7 +59,10 @@ interface IUpdateForeignKeyParam {
 
 @Injectable()
 export class LinkService {
-  constructor(@InjectModel() private readonly knex: Knex) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
     return contexts
@@ -75,8 +78,8 @@ export class LinkService {
       });
   }
 
-  private async getTinyFieldsByIds(prisma: Prisma.TransactionClient, fieldIds: string[]) {
-    const fieldRaws = await prisma.field.findMany({
+  private async getTinyFieldsByIds(fieldIds: string[]) {
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds } },
       select: { id: true, type: true, options: true, tableId: true, dbFieldName: true },
     });
@@ -89,19 +92,14 @@ export class LinkService {
     }));
   }
 
-  private async getTinyFieldMapByTableId(
-    prisma: Prisma.TransactionClient,
-    fieldIds: string[]
-  ): Promise<ITinyFieldMapByTableId> {
-    const fields = await this.getTinyFieldsByIds(prisma, fieldIds);
+  private async getTinyFieldMapByTableId(fieldIds: string[]): Promise<ITinyFieldMapByTableId> {
+    const fields = await this.getTinyFieldsByIds(fieldIds);
 
     const symmetricFields = await this.getTinyFieldsByIds(
-      prisma,
       fields.map((field) => field.options.symmetricFieldId)
     );
 
     const relatedFields = await this.getTinyFieldsByIds(
-      prisma,
       fields
         .map((field) => field.options.lookupFieldId)
         .concat(symmetricFields.map((field) => field.options.lookupFieldId))
@@ -165,10 +163,15 @@ export class LinkService {
           | undefined;
         const title = mainRecord[mainTableLookupFieldId] as string | undefined;
         if (newFRecordFLink) {
-          newFRecordFLink.push({
-            id: recordId,
-            title,
-          });
+          const index = newFRecordFLink.findIndex((record) => record.id === recordId);
+          if (index === -1) {
+            newFRecordFLink.push({
+              id: recordId,
+              title,
+            });
+          } else {
+            newFRecordFLink[index] = { id: recordId, title };
+          }
         } else {
           newFRecord[foreignLinkFieldId] = [{ id: recordId, title }];
         }
@@ -292,7 +295,6 @@ export class LinkService {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async fillRecordMap(
-    prisma: Prisma.TransactionClient,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     recordMapByTableId: IRecordMapByTableId,
@@ -327,10 +329,12 @@ export class LinkService {
         .toSQL()
         .toNative();
 
-      const recordRaw = await prisma.$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      const recordRaw = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(
+          nativeSql.sql,
+          ...nativeSql.bindings
+        );
 
       recordRaw.forEach((record) => {
         const recordId = record.__id as string;
@@ -388,8 +392,8 @@ export class LinkService {
     return fkRecordMap;
   }
 
-  private async getTableId2DbTableName(prisma: Prisma.TransactionClient, tableIds: string[]) {
-    const tableRaws = await prisma.tableMeta.findMany({
+  private async getTableId2DbTableName(tableIds: string[]) {
+    const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
       where: {
         id: {
           in: tableIds,
@@ -496,7 +500,6 @@ export class LinkService {
   }
 
   private async getDerivateByCellContexts(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
@@ -509,7 +512,6 @@ export class LinkService {
     // console.log('recordMapByTableId:', recordMapByTableId);
     // console.log('updateForeignKeyParams:', updateForeignKeyParams);
     const originRecordMapByTableId = await this.fillRecordMap(
-      prisma,
       tableId2DbTableName,
       fieldMapByTableId,
       recordMapByTableId,
@@ -562,26 +564,17 @@ export class LinkService {
    * 2. generate new changes from merged changes
    * 3. update foreign key by changes
    */
-  async getDerivateByLink(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    cellContexts: ICellContext[],
-    fromReset?: boolean
-  ) {
+  async getDerivateByLink(tableId: string, cellContexts: ICellContext[], fromReset?: boolean) {
     const linkContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkContexts.length) {
       return null;
     }
 
     const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
-    const fieldMapByTableId = await this.getTinyFieldMapByTableId(prisma, fieldIds);
-    const tableId2DbTableName = await this.getTableId2DbTableName(
-      prisma,
-      Object.keys(fieldMapByTableId)
-    );
+    const fieldMapByTableId = await this.getTinyFieldMapByTableId(fieldIds);
+    const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
 
     return await this.getDerivateByCellContexts(
-      prisma,
       tableId,
       tableId2DbTableName,
       fieldMapByTableId,
