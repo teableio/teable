@@ -32,6 +32,7 @@ import {
   AttachmentFieldCore,
   DateFieldCore,
   CheckboxFieldCore,
+  RatingFieldCore,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -473,6 +474,18 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
+  private prepareRatingField(field: IFieldRo) {
+    const { name, options } = field;
+
+    return {
+      ...field,
+      name: name ?? 'Rating',
+      options: options ?? RatingFieldCore.defaultOptions(),
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Integer,
+    };
+  }
+
   private prepareSelectOptions(options: ISelectFieldOptionsRo) {
     const optionsRo = (options ?? SelectFieldCore.defaultOptions()) as ISelectFieldOptionsRo;
     const nameSet = new Set<string>();
@@ -571,6 +584,8 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareSingleTextField(fieldRo);
       case FieldType.Number:
         return this.prepareNumberField(fieldRo);
+      case FieldType.Rating:
+        return this.prepareRatingField(fieldRo);
       case FieldType.SingleSelect:
         return this.prepareSingleSelectField(fieldRo);
       case FieldType.MultipleSelect:
@@ -607,6 +622,8 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareSingleTextField(fieldRo);
       case FieldType.Number:
         return this.prepareNumberField(fieldRo);
+      case FieldType.Rating:
+        return this.prepareRatingField(fieldRo);
       case FieldType.SingleSelect:
         return this.prepareSingleSelectField(fieldRo);
       case FieldType.MultipleSelect:

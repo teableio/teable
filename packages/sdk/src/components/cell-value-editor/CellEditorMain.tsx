@@ -6,6 +6,7 @@ import type {
   ILinkFieldOptions,
   IMultipleSelectCellValue,
   INumberCellValue,
+  IRatingFieldOptions,
   ISelectFieldOptions,
   ISingleLineTextCellValue,
   ISingleSelectCellValue,
@@ -19,6 +20,7 @@ import {
   NumberEditor,
   SelectEditor,
   TextEditor,
+  RatingEditor,
 } from '../editor';
 import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
@@ -61,6 +63,17 @@ export const CellEditorMain = (props: ICellValueEditor) => {
           <NumberEditor
             ref={editorRef}
             className="h-8"
+            value={cellValue as INumberCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        );
+      }
+      case FieldType.Rating: {
+        return (
+          <RatingEditor
+            className="h-8"
+            options={options as IRatingFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
             disabled={disabled}

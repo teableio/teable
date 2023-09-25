@@ -42,6 +42,24 @@ export interface IColorUtils {
   getRgbForColor(colorString: string): IRGB | null;
 
   /**
+   * Given a {@link Colors} and alpha, return an string representing it, or null if the value isn't a {@link Colors}
+   *
+   * @param colorString
+   * @param alpha
+   * @example
+   * ```js
+   * import {colorUtils, colors} from '@teable-group/sdk';
+   *
+   * colorUtils.getRgbForColor(colors.PURPLE_DARK_1, 0.5);
+   * // => rgba(107, 28, 176, 0.5)
+   *
+   * colorUtils.getRgbForColor('disgruntled pink');
+   * // => null
+   * ```
+   */
+  getRgbaStringForColor(colorString: string, alpha?: number): string | null;
+
+  /**
    * Given a {@link Colors}, returns true or false to indicate whether that color should have light text on top of it when used as a background color.
    *
    * @param colorString
@@ -94,6 +112,12 @@ export const ColorUtils: IColorUtils = {
     const rgbTuple = rgbTuplesByColor[color];
     return { r: rgbTuple[0], g: rgbTuple[1], b: rgbTuple[2] };
   }) as IColorUtils['getRgbForColor'],
+
+  getRgbaStringForColor: ((colorString: string, alpha = 1): string | null => {
+    const { r, g, b } = ColorUtils.getRgbForColor(colorString) || {};
+    if (r == null || g == null || b == null) return null;
+    return `rgba(${+r},${+g},${+b},${alpha})`;
+  }) as IColorUtils['getRgbaStringForColor'],
 
   shouldUseLightTextOnColor: (colorString: string): boolean => {
     if (!has(rgbTuplesByColor, colorString)) {

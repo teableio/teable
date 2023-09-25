@@ -49,7 +49,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
       });
     }
   },
-  checkWithinBound: (props: ICellClickProps) => {
+  checkWithinBound: (_cell: IBooleanCell, props: ICellClickProps) => {
     const { hoverCellPosition, width, height, theme } = props;
     const [x, y] = hoverCellPosition;
     const { iconSizeSM } = theme;
@@ -62,6 +62,6 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
   },
   onClick: (cell: IBooleanCell, props: ICellClickProps) => {
     const { data } = cell;
-    return booleanCellRenderer.checkWithinBound?.(props) ? !data : undefined;
+    return booleanCellRenderer.checkWithinBound?.(cell, props) ? !data : undefined;
   },
 };

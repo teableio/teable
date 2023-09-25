@@ -184,6 +184,27 @@ const createCellValue2GridDisplay =
           isMultiple,
         };
       }
+      case FieldType.Rating: {
+        const { icon, color, max } = field.options;
+
+        if (isMultiple) {
+          return {
+            type: CellType.Number,
+            data: cellValue as number,
+            displayData: field.cellValue2String(cellValue),
+            readonly: isComputed,
+          };
+        }
+
+        return {
+          type: CellType.Rating,
+          data: (cellValue as number) || 0,
+          readonly: isComputed,
+          icon,
+          color: ColorUtils.getHexForColor(color),
+          max,
+        };
+      }
       default: {
         return { type: CellType.Loading };
       }

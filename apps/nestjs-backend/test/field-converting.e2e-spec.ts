@@ -9,6 +9,7 @@ import {
   CellValueType,
   FieldType,
   NumberFormattingType,
+  RatingIcon,
 } from '@teable-group/core';
 import type request from 'supertest';
 import {
@@ -509,6 +510,38 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         .put(`/api/table/${table1.id}/field/${sourceField.id}`)
         .send(newFieldRo)
         .expect(400);
+    });
+  });
+
+  describe('convert rating field', () => {
+    it('should change max for rating', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          max: 10,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          max: 5,
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [2, 8]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Integer,
+        options: {
+          icon: RatingIcon.Star,
+          max: 5,
+        },
+        type: FieldType.Rating,
+      });
+      expect(values[0]).toEqual(2);
+      expect(values[1]).toEqual(5);
     });
   });
 

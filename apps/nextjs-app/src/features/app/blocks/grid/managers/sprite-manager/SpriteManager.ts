@@ -13,13 +13,14 @@ interface ISpriteDrawerProps {
   sprite: ISpriteIcon | string;
   size: number;
   theme: IGridTheme;
+  colors?: [fgColor: string, bgColor: string];
   variant?: ISpriteVariant;
   alpha?: number;
 }
 
 const getColors = (variant: ISpriteVariant, theme: IGridTheme): [string, string] => {
   const { iconBgCommon, iconBgSelected, iconFgCommon, iconFgSelected } = theme;
-  return variant === 'selected' ? [iconBgSelected, iconFgSelected] : [iconBgCommon, iconFgCommon];
+  return variant === 'selected' ? [iconFgSelected, iconBgSelected] : [iconFgCommon, iconBgCommon];
 };
 
 export class SpriteManager {
@@ -34,9 +35,10 @@ export class SpriteManager {
     };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   public drawSprite(ctx: CanvasRenderingContext2D, props: ISpriteDrawerProps) {
-    const { sprite, variant = 'normal', x, y, size, alpha = 1, theme } = props;
-    const [bgColor, fgColor] = getColors(variant, theme);
+    const { sprite, variant = 'normal', x, y, size, alpha = 1, theme, colors } = props;
+    const [fgColor, bgColor] = colors ?? getColors(variant, theme);
     const rSize = size * Math.ceil(window.devicePixelRatio);
     const key = `${bgColor}_${fgColor}_${rSize}_${sprite}`;
 

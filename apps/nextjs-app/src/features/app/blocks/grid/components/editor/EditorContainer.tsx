@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/no-static-element-interactions, @typescript-eslint/naming-convention */
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
@@ -11,6 +11,7 @@ import type { ICell, IInnerCell } from '../../renderers';
 import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
 import { BooleanEditor } from './BooleanEditor';
+import { RatingEditor } from './RatingEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
@@ -55,6 +56,8 @@ export interface IEditorContainerRef {
   focus?: () => void;
   saveValue?: () => void;
 }
+
+const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
 
 export const EditorContainerBase: ForwardRefRenderFunction<
   IEditorContainerRef,
@@ -180,6 +183,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
+    if (NO_EDITING_CELL_TYPES.has(cellType)) return;
     setEditing(true);
     editorRef.current?.setValue?.('');
   };
@@ -206,6 +210,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       }
       case CellType.Boolean:
         return <BooleanEditor ref={editorRef} cell={cellContent} onChange={onChangeInner} />;
+      case CellType.Rating:
+        return <RatingEditor ref={editorRef} cell={cellContent} onChange={onChangeInner} />;
       case CellType.Select:
         return (
           <SelectEditor

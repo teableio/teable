@@ -9,6 +9,7 @@ import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
+import { RatingField } from './rating.field';
 import { RollupField } from './rollup.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
@@ -36,6 +37,8 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(CheckboxField, field);
       case FieldType.Rollup:
         return plainToInstance(RollupField, field);
+      case FieldType.Rating:
+        return plainToInstance(RatingField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -49,7 +52,6 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
       case FieldType.CreatedTime:
       case FieldType.Duration:
       case FieldType.LastModifiedTime:
-      case FieldType.Rating:
       case FieldType.Currency:
       case FieldType.Percent:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

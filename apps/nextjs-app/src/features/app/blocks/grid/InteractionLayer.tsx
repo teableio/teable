@@ -393,7 +393,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const cellRenderer = getCellRenderer(cell.type);
     if (cell.readonly) return;
     if (cellRenderer.needsHover && hoverCellPosition) {
-      const isBound = cellRenderer.checkWithinBound?.({
+      const isBound = cellRenderer.checkWithinBound?.(cell as never, {
         width: coordInstance.getColumnWidth(columnIndex),
         height: coordInstance.getRowHeight(rowIndex),
         hoverCellPosition,

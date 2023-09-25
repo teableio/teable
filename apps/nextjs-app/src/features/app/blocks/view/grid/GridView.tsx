@@ -1,8 +1,9 @@
-import type { GridViewOptions } from '@teable-group/core';
+import type { GridViewOptions, RatingIcon } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
 import type { Record } from '@teable-group/sdk';
 import {
+  RATING_ICON_MAP,
   useFieldStaticGetter,
   useRowCount,
   useSSRRecords,
@@ -236,9 +237,16 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         IconComponent: Check,
       },
     ]);
+    const ratingIcons = getSpriteMap(
+      (Object.keys(RATING_ICON_MAP) as RatingIcon[]).map((iconKey) => ({
+        type: iconKey,
+        IconComponent: RATING_ICON_MAP[iconKey],
+      }))
+    );
     return {
       ...columnHeaderIcons,
       ...rowHeaderIcons,
+      ...ratingIcons,
     };
   }, [getFieldStatic]);
 
