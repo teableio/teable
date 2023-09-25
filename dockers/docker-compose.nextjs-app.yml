@@ -12,8 +12,8 @@ services:
         published: 3000
         protocol: tcp
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ../Dockerfile
       target: develop
     volumes:
       # Share the source code to allow development
@@ -32,8 +32,8 @@ services:
       - donotstart
     stdin_open: true
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ../Dockerfile
       target: deps
 
   # Convenience production "builder" stage service for debugging
@@ -44,8 +44,8 @@ services:
       - donotstart
     stdin_open: true
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ../Dockerfile
       target: builder
 
   # Convenience production "runner" stage service for debugging
@@ -61,8 +61,8 @@ services:
         published: 3000
         protocol: tcp
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ../Dockerfile
       target: runner
     environment:
       - PRISMA_DATABASE_URL

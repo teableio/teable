@@ -1,22 +1,20 @@
 version: '3.9'
 
 services:
-  teable-db:
-    container_name: teable-db
+  teable-postgres:
+    container_name: teable-postgres
     image: postgres:15.4
     ports:
-      - target: 5432
-        published: 5432
-        protocol: tcp
+      - '5432:5432'
     environment:
       - POSTGRES_DB=teable
       - POSTGRES_USER=teable
       - POSTGRES_PASSWORD=teable
     volumes:
-      - teable_data:/var/lib/postgresql/data:rw
+      - db_data:/var/lib/postgresql/data:rw
       # you may use a bind-mounted host directory instead,
       # so that it is harder to accidentally remove the volume and lose all your data!
       # - ./docker/db/data:/var/lib/postgresql/data:rw
 
 volumes:
-  teable_data:
+  db_data:

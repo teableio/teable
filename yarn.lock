@@ -9207,7 +9207,6 @@ __metadata:
     vite: 3.2.1
     vite-plugin-svgr: 2.2.2
     vite-tsconfig-paths: 3.5.2
-    vitest: 0.24.3
     zod: 3.22.2
     zod-validation-error: 1.5.0
     zustand: 4.4.1
