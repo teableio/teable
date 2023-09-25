@@ -3,10 +3,9 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IRecord } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
-import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
-import knex from 'knex';
-import { ClsModule } from 'nestjs-cls';
+import { GlobalModule } from '../../global/global.module';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
@@ -26,24 +25,16 @@ describe('ReferenceService', () => {
       fromFieldId: string;
       toFieldId: string;
     }[];
-    let db: ReturnType<typeof knex>;
+    let db: Knex;
     const s = JSON.stringify;
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        imports: [
-          ClsModule.forRoot({
-            global: true,
-          }),
-          PrismaModule,
-          CalculationModule,
-        ],
+        imports: [GlobalModule, CalculationModule],
       }).compile();
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
-      db = knex({
-        client: 'sqlite3',
-      });
+      db = module.get('default');
     });
 
     afterAll(async () => {
@@ -363,7 +354,7 @@ describe('ReferenceService', () => {
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        providers: [ReferenceService, PrismaService],
+        imports: [GlobalModule, CalculationModule],
       }).compile();
 
       service = module.get<ReferenceService>(ReferenceService);
@@ -741,7 +732,7 @@ describe('ReferenceService', () => {
 
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
-        providers: [ReferenceService, PrismaService],
+        imports: [GlobalModule, CalculationModule],
       }).compile();
 
       service = module.get<ReferenceService>(ReferenceService);

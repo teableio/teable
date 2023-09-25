@@ -47,9 +47,8 @@
     "share-static-hardlink": "rimraf ./public/shared-assets && syncdir ../../static/assets ./public/shared-assets --copy",
     "check-dist": "es-check -v",
     "check-size": "size-limit --highlight-less",
-    "test": "run-s test-unit test-unit-jest",
-    "test-unit": "vitest run",
-    "test-unit-jest": "jest --config ./jest.config.js --colors --logHeapUsage",
+    "test": "run-s test-unit",
+    "test-unit": "jest --config ./jest.config.js --colors --logHeapUsage",
     "test-unit-watch": "vitest watch --ui",
     "test-e2e": "cross-env E2E_WEBSERVER_MODE=START playwright test",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
@@ -108,8 +107,7 @@
     "typescript": "4.8.4",
     "vite": "3.2.1",
     "vite-plugin-svgr": "2.2.2",
-    "vite-tsconfig-paths": "3.5.2",
-    "vitest": "0.24.3"
+    "vite-tsconfig-paths": "3.5.2"
   },
   "dependencies": {
     "@antv/g6": "4.8.22",

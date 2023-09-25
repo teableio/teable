@@ -1,9 +1,7 @@
-import path from 'path';
 import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
 import { generateUserId } from '@teable-group/core';
 import * as bcrypt from 'bcrypt';
-import dotenv from 'dotenv';
 
 interface ITestConfig {
   email: string;
@@ -18,9 +16,6 @@ declare global {
 }
 
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
-  const testEnvFilePath = path.join(process.cwd(), '../nextjs-app', '.env.development');
-  dotenv.config({ path: testEnvFilePath });
-
   const { email, password, spaceId, baseId } = projectConfig.globals.testConfig as ITestConfig;
 
   const prismaClient = new PrismaClient();

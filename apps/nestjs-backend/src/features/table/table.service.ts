@@ -5,15 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  ITableFullVo,
+  IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
+  ITableFullVo,
   ITableVo,
-  IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import { Prisma, PrismaService } from '@teable-group/db-main-prisma';
+import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -76,13 +77,13 @@ export class TableService implements IAdapterService {
     });
 
     const createTableSchema = this.knex.schema.createTable(dbTableName, (table) => {
-      table.text('__id').unique().notNullable();
+      table.string('__id').unique().notNullable();
       table.increments('__auto_number').primary();
       table.double('__row_default').notNullable();
       table.dateTime('__created_time').defaultTo(this.knex.fn.now()).notNullable();
       table.dateTime('__last_modified_time');
-      table.text('__created_by').notNullable();
-      table.text('__last_modified_by');
+      table.string('__created_by').notNullable();
+      table.string('__last_modified_by');
       table.integer('__version').notNullable();
     });
 

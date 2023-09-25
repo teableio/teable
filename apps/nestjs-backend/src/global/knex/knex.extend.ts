@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/naming-convention */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Knex } from 'knex';
 import knex from 'knex';
 import { DriverClient } from '../../utils/constants';
 

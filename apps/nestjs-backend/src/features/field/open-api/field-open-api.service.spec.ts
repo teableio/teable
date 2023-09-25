@@ -1,9 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import { TeableEventEmitterModule } from '../../../event-emitter/event-emitter.module';
+import { GlobalModule } from '../../../global/global.module';
 import { FieldOpenApiModule } from './field-open-api.module';
 import { FieldOpenApiService } from './field-open-api.service';
 
@@ -12,17 +10,8 @@ describe('FieldOpenApiService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [FieldOpenApiModule, TeableEventEmitterModule.register()],
-    })
-      .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+      imports: [GlobalModule, FieldOpenApiModule],
+    }).compile();
 
     service = module.get<FieldOpenApiService>(FieldOpenApiService);
   });

@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { groupBy, keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -24,10 +25,10 @@ interface IOpsData {
 
 @Injectable()
 export class BatchService {
-  protected readonly knex = knex({ client: 'sqlite3' });
   constructor(
     private readonly cls: ClsService<IClsStore>,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   private async completeMissingCtx(
@@ -123,7 +124,7 @@ export class BatchService {
       .toSQL()
       .toNative();
 
-    return await this.prismaService
+    return this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __version: number; __id: string }[]>(nativeSql.sql, ...nativeSql.bindings);
   }
@@ -204,82 +205,85 @@ export class BatchService {
       .map((id) => fieldMap[id].dbFieldName)
       .concat(['__version', '__last_modified_time', '__last_modified_by']);
 
-    const createTempTableSql = `
-      CREATE TEMPORARY TABLE ${tempTableName} (
-        __id TEXT PRIMARY KEY,
-        ${fieldIds
-          .map((id) => `${fieldMap[id].dbFieldName} ${dbType2knexFormat(fieldMap[id].dbFieldType)}`)
-          .concat([`__version INTEGER`, `__last_modified_time DATETIME`, `__last_modified_by TEXT`])
-          .join(', ')}
-      )
-    `;
+    // 1.create temporary table structure
+    const createTempTableSchema = this.knex.schema.createTable(tempTableName, (table) => {
+      table.string('__id').primary();
+      fieldIds.forEach((id) => {
+        const { dbFieldName, dbFieldType } = fieldMap[id];
+        const typeKey = dbType2knexFormat(dbFieldType);
+        table[typeKey](dbFieldName);
+      });
+      table.integer('__version');
+      table.dateTime('__last_modified_time');
+      table.string('__last_modified_by');
+    });
+
+    const createTempTableSql = createTempTableSchema
+      .toQuery()
+      .replace('create table', 'create temporary table');
     await prisma.$executeRawUnsafe(createTempTableSql);
 
-    const insertTempTableSql = `
-      INSERT INTO ${tempTableName} (__id, ${columnNames.join(', ')})
-      VALUES
-      ${opsData
-        .map((d) => ({
-          ...d,
-          updateParam: {
-            ...Object.entries(d.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
-              (pre, [fieldId, value]) => {
-                const field = fieldMap[fieldId];
-                const dbFieldName = field.dbFieldName;
-                const cellValue = field.convertCellValue2DBValue(value);
-                pre[dbFieldName] = cellValue;
-                return pre;
-              },
-              {}
-            ),
-            __last_modified_time: new Date().toISOString(),
-            __last_modified_by: userId,
-            __version: d.version + 1,
-          } as { [dbFieldName: string]: unknown },
-        }))
-        .map(
-          (d) =>
-            `('${d.recordId}', ${columnNames
-              .map((name) => (d.updateParam[name] == null ? 'null' : `'${d.updateParam[name]}'`))
-              .join(', ')})`
-        )
-        .join(', ')}
-    `;
-
+    // 2.initialize temporary table data
+    const insertRowsData = opsData.map((data) => {
+      return {
+        __id: data.recordId,
+        __version: data.version + 1,
+        __last_modified_time: new Date().toISOString(),
+        __last_modified_by: userId,
+        ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
+          (pre, [fieldId, value]) => {
+            const field = fieldMap[fieldId];
+            const { dbFieldName } = field;
+            pre[dbFieldName] = field.convertCellValue2DBValue(value);
+            return pre;
+          },
+          {}
+        ),
+      };
+    });
+    const insertTempTableSql = this.knex.insert(insertRowsData).into(tempTableName).toQuery();
     await prisma.$executeRawUnsafe(insertTempTableSql);
 
-    const updateSql = `
-      UPDATE ${dbTableName}
-      SET ${columnNames
-        .map(
-          (name) =>
-            `${name} = (SELECT ${name} FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)`
-        )
-        .join(', ')}
-      WHERE EXISTS (SELECT 1 FROM ${tempTableName} WHERE __id = ${dbTableName}.__id)
-    `;
-
+    // 3.update data
+    const updateColumns = columnNames.reduce<{ [key: string]: unknown }>((pre, columnName) => {
+      pre[columnName] = this.knex.raw(`(select ?? from ?? where ?? = ??)`, [
+        columnName,
+        tempTableName,
+        '__id',
+        this.knex.ref(`${dbTableName}.__id`),
+      ]);
+      return pre;
+    }, {});
+    const updateSql = this.knex(dbTableName)
+      .update(updateColumns)
+      .whereExists(
+        this.knex
+          .select(this.knex.raw(1))
+          .from(tempTableName)
+          .where('__id', this.knex.ref(`${dbTableName}.__id`))
+      )
+      .toQuery();
     await prisma.$executeRawUnsafe(updateSql);
-    const dropTempTableSql = `DROP TABLE ${tempTableName}`;
+
+    // 4.delete temporary table
+    const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
     await prisma.$executeRawUnsafe(dropTempTableSql);
   }
 
   @Timing()
   private async executeInsertOps(tableId: string, opsData: IOpsData[]) {
     const userId = this.cls.get('user.id');
-    const insertSql = `
-        INSERT INTO ops ("collection", "doc_id", "version", "operation", "created_by")
-        VALUES
-        ${opsData
-          .map(
-            (d) =>
-              `('${tableId}', '${d.recordId}', ${d.version + 1}, '${JSON.stringify(
-                d.rawOp
-              )}', '${userId}')`
-          )
-          .join(', ')}
-      `;
+    const insertRowsData = opsData.map((data) => {
+      return {
+        collection: tableId,
+        doc_id: data.recordId,
+        version: data.version + 1,
+        operation: JSON.stringify(data.rawOp),
+        created_by: userId,
+      };
+    });
 
-    return await this.prismaService.txClient().$executeRawUnsafe(insertSql);
+    const insertTempTableSql = this.knex.insert(insertRowsData).into('ops').toQuery();
+    return this.prismaService.txClient().$executeRawUnsafe(insertTempTableSql);
   }
 }

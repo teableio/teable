@@ -1,0 +1,22 @@
+version: '3.9'
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:15.4
+    ports:
+      - '25432:5432'
+    environment:
+      - POSTGRES_DB=teable_test
+      - POSTGRES_USER=testUser
+      - POSTGRES_PASSWORD=testPassword
+  waitpostgres:
+    image: postgres:15.4
+    links:
+      - postgres
+    depends_on:
+      - postgres
+    entrypoint:
+      - bash
+      - -c
+      - 'until /usr/local/bin/psql postgres://testUser:testPassword@postgres/teable_test?schema=public -c "SELECT 1"; do sleep 5; done'

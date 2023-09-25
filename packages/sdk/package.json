@@ -28,8 +28,8 @@
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/sdk.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test": "run-s test-unit-jest",
-    "test-unit-jest": "jest --config jest.config.js --colors --logHeapUsage",
+    "test": "run-s test-unit",
+    "test-unit": "jest --config jest.config.js --colors --logHeapUsage",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {

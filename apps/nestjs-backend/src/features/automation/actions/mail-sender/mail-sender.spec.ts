@@ -1,9 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { generateWorkflowActionId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import { TeableConfigModule } from '../../../../configs/config.module';
-import { TeableEventEmitterModule } from '../../../../event-emitter/event-emitter.module';
+import { GlobalModule } from '../../../../global/global.module';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
@@ -16,21 +13,8 @@ describe('Mail-Sender Action Test', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [
-        TeableConfigModule.register(),
-        AutomationModule,
-        TeableEventEmitterModule.register(),
-      ],
-    })
-      .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+      imports: [GlobalModule, AutomationModule],
+    }).compile();
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
     mailSenderService = await moduleRef.resolve<MailSenderService>(MailSenderService);

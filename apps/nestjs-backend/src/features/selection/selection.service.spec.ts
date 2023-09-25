@@ -24,30 +24,19 @@ describe('selectionService', () => {
   let selectionService: SelectionService;
   let recordService: RecordService;
   let fieldService: FieldService;
-  let prismaService: Prisma.TransactionClient;
+  let prismaService: PrismaService;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, SelectionModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue({
-        txClient: function () {
-          return this;
-        },
-        attachments: {
-          findMany: jest.fn(),
-        },
-      })
-      .compile();
+    }).compile();
 
     selectionService = module.get<SelectionService>(SelectionService);
     fieldService = module.get<FieldService>(FieldService);
     recordService = module.get<RecordService>(RecordService);
-    prismaService = module.get<PrismaService>(PrismaService).txClient();
-    prismaService.attachments.findMany = jest.fn();
+    prismaService = module.get<PrismaService>(PrismaService);
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
   });
@@ -206,15 +195,15 @@ describe('selectionService', () => {
         ['file3.png (https://xxx.xxx/token3)'],
       ];
 
-      const mockAttachment = [
+      const mockAttachment: any[] = [
         {
           token: 'token1',
           path: '',
           url: '',
           size: 1,
           mimetype: 'image/png',
-          width: undefined,
-          height: undefined,
+          width: null,
+          height: null,
         },
         {
           token: 'token2',
@@ -236,7 +225,7 @@ describe('selectionService', () => {
         },
       ];
 
-      (prismaService.attachments.findMany as jest.Mock).mockResolvedValue(mockAttachment);
+      jest.spyOn(prismaService.attachments, 'findMany').mockResolvedValue(mockAttachment);
       const result = await selectionService['collectionAttachment']({
         tableData,
         fields,

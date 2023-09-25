@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   IFieldVo,
   ILinkCellValue,
@@ -8,11 +8,12 @@ import type {
   ITinyRecord,
 } from '@teable-group/core';
 import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-group/core';
-import type { Prisma, PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, groupBy, intersectionBy, isEmpty, keyBy, map, uniq } from 'lodash';
+import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';
@@ -91,9 +92,11 @@ export interface IRecordRefItem {
 export class ReferenceService {
   private readonly logger = new Logger(ReferenceService.name);
 
-  constructor(@InjectModel() private readonly knex: Knex) {}
-
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex,
+    @Inject('DbProvider') private dbProvider: IDbProvider
+  ) {}
 
   /**
    * Strategy of calculation.
@@ -1191,13 +1194,15 @@ export class ReferenceService {
       // this.logger.log('getDependentNodesCTE Sql: %s', finalQuery.toQuery());
 
       const sqlNative = finalQuery.toSQL().toNative();
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      return this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
-          sqlNative.sql,
-          ...sqlNative.bindings
-        );
+      return (
+        this.prismaService
+          .txClient()
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
+            sqlNative.sql,
+            ...sqlNative.bindings
+          )
+      );
     };
 
     for (const fieldId of startFieldIds) {
@@ -1272,81 +1277,11 @@ export class ReferenceService {
       return originRecordIdItems;
     }
 
-    // Initialize the base case for the recursive CTE
-    const initTableName = topoOrder[0].linkedTable;
-    const initQuery = this.knex
-      .select({
-        __id: '__id',
-        dbTableName: this.knex.raw('?', initTableName),
-        selectIn: this.knex.raw('?', null),
-        relationTo: this.knex.raw('?', null),
-        fieldId: this.knex.raw('?', null),
-      })
-      .from(initTableName)
-      .whereIn('__id', map(originRecordIdItems, 'id'));
+    const affectedRecordItemsQuerySql = this.dbProvider.affectedRecordItemsQuerySql(
+      topoOrder,
+      originRecordIdItems
+    );
 
-    let finalQuery = this.knex.queryBuilder();
-    // Iterate over the nodes in topological order
-    for (let i = 0; i < topoOrder.length; i++) {
-      const currentOrder = topoOrder[i];
-      const { fieldId, foreignKeyField, dbTableName, linkedTable } = currentOrder;
-      const affectedRecordsTable = `affected_records_${i}`;
-
-      // Append the current node to the recursive CTE
-      if (currentOrder.relationship === Relationship.OneMany) {
-        const oneManyQuery = this.knex
-          .select({
-            __id: this.knex.ref(`${linkedTable}.${foreignKeyField}`),
-            dbTableName: this.knex.raw('?', dbTableName),
-            selectIn: this.knex.raw('?', `${linkedTable}.${foreignKeyField}`),
-            relationTo: this.knex.raw('?', null),
-            fieldId: this.knex.raw('?', fieldId),
-          })
-          .from(linkedTable)
-          .join(affectedRecordsTable, `${linkedTable}.__id`, '=', `${affectedRecordsTable}.__id`)
-          .where(`${affectedRecordsTable}.dbTableName`, linkedTable);
-
-        const recursiveQuery =
-          i < 1 ? initQuery : this.knex.select('*').from(`affected_records_${i - 1}`);
-
-        finalQuery = finalQuery.withRecursive(
-          affectedRecordsTable,
-          recursiveQuery.union(oneManyQuery)
-        );
-      } else {
-        const manyOneQuery = this.knex
-          .select({
-            __id: this.knex.ref(`${dbTableName}.__id`),
-            dbTableName: this.knex.raw('?', dbTableName),
-            selectIn: this.knex.raw('?', null),
-            relationTo: this.knex.ref(`${affectedRecordsTable}.__id`),
-            fieldId: this.knex.raw('?', fieldId),
-          })
-          .from(dbTableName)
-          .join(
-            affectedRecordsTable,
-            `${dbTableName}.${foreignKeyField}`,
-            '=',
-            `${affectedRecordsTable}.__id`
-          )
-          .where(`${affectedRecordsTable}.dbTableName`, linkedTable);
-
-        const recursiveQuery =
-          i < 1 ? initQuery : this.knex.select('*').from(`affected_records_${i - 1}`);
-
-        finalQuery = finalQuery.withRecursive(
-          affectedRecordsTable,
-          recursiveQuery.union(manyOneQuery)
-        );
-      }
-    }
-
-    // Construct the final query using the recursive CTE
-    finalQuery = finalQuery.select('*').from(`affected_records_${topoOrder.length - 1}`);
-
-    // this.logger.log('affectedRecordItemsSql：%s', finalQuery.toQuery());
-
-    const sqlNative = finalQuery.toSQL().toNative();
     const results = await this.prismaService.txClient().$queryRawUnsafe<
       {
         __id: string;
@@ -1355,7 +1290,7 @@ export class ReferenceService {
         fieldId?: string;
         relationTo?: string;
       }[]
-    >(sqlNative.sql, ...sqlNative.bindings);
+    >(affectedRecordItemsQuerySql);
 
     // this.logger.log({ affectedRecordItemsResult: results });
 
