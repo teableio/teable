@@ -8,13 +8,14 @@ datasource db {
 }
 
 model Space {
-  id             String      @id @default(cuid())
-  name           String
-  deletedTime    DateTime?   @map("deleted_time")
-  createdTime    DateTime    @default(now()) @map("created_time")
-  createdBy      String      @map("created_by")
-  lastModifiedBy String      @map("last_modified_by")
-  baseGroup      Base[]
+  id                String              @id @default(cuid())
+  name              String
+  deletedTime       DateTime?           @map("deleted_time")
+  createdTime       DateTime            @default(now()) @map("created_time")
+  createdBy         String              @map("created_by")
+  lastModifiedBy    String              @map("last_modified_by")
+  baseGroup         Base[]
+  spaceCollaborator SpaceCollaborator[]
 
   @@map("space")
 }
@@ -262,4 +263,14 @@ model AutomationWorkflowExecutionHistory {
   createdTime         DateTime @default(now()) @map("created_time")
 
   @@map("automation_workflow_execution_history")
+}
+
+model SpaceCollaborator {
+  id       String @id @default(cuid())
+  roleName String @map("role_name")
+  spaceId  String @map("space_id")
+  userId   String @map("user_id")
+  space    Space  @relation(fields: [spaceId], references: [id])
+
+  @@map("space_collaborator")
 }
