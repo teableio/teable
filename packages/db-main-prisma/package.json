@@ -26,6 +26,7 @@
     "test-unit": "echo \"No unit tests yet\"",
     "test-e2e": "echo \"No e2e tests yet\"",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
+    "postinstall": "prisma generate --schema=./prisma/sqlite/schema.prisma",
     "prisma-generate": "yarn prisma generate",
     "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
