@@ -27,15 +27,12 @@
     "test-e2e": "jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "debug-test-e2e": "cross-env DEBUG=testcontainers jest --config e2e/jest.config.js --maxWorkers=50% --color $@",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
-    "postinstall": "yarn db:sqlite:generate",
-    "db:sqlite:schema": "cd ./prisma/sqlite && echo '{ \"PRISMA_PROVIDER\": \"sqlite\" }' | mustache - ../schema.mustache > schema.prisma",
-    "db:sqlite:generate": "yarn db:sqlite:schema && cd ./prisma/sqlite && yarn prisma generate",
-    "db:sqlite:push": "yarn db:sqlite:schema && cd ./prisma/sqlite && dotenv-flow -- yarn prisma db push",
-    "db:sqlite:migrate": "yarn db:sqlite:schema && cd ./prisma/sqlite && dotenv-flow -- yarn prisma migrate",
-    "db:postgres:schema": "cd ./prisma/postgres && echo '{ \"PRISMA_PROVIDER\": \"postgresql\" }' | mustache - ../schema.mustache > schema.prisma",
-    "db:postgres:generate": "yarn db:postgres:schema && cd ./prisma/postgres && yarn prisma generate",
-    "db:postgres:push": "yarn db:postgres:schema && cd ./prisma/postgres && dotenv-flow -- yarn prisma db push",
-    "db:postgres:migrate": "yarn db:postgres:schema && cd ./prisma/postgres && dotenv-flow -- yarn prisma migrate"
+    "postinstall": "yarn prisma generate",
+    "prisma-generate": "yarn prisma generate",
+    "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
+    "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
+    "prisma-db-push": "dotenv-flow -- yarn prisma db push",
+    "prisma-studio": "dotenv-flow -- yarn prisma studio"
   },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",

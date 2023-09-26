@@ -19,4 +19,4 @@ services:
     entrypoint:
       - bash
       - -c
-      - 'until /usr/local/bin/psql postgres://testUser:testPassword@postgres/teable_test?schema=public -c "SELECT 1"; do sleep 5; done'
+      - 'until /usr/bin/psql postgres://testUser:testPassword@postgres/teable_test?schema=public -c "SELECT 1"; do sleep 5; done'

@@ -31,31 +31,17 @@ jobs:
           always-auth: false
           node-version: ${{ matrix.node-version }}
 
-      - name: Start Database(s)
+      - name: Initialize Database(s)
         run: |
-          docker-compose \
-            --file "dockers/docker-compose.integration-test.yml" \
-            up \
-              --detach \
-              --build \
-              "${{ matrix.database-type }}"
+          make db-${{ matrix.database-type }}
         if: matrix.database-type != 'sqlite'
 
       - name: Run yarn install
         run: yarn install
 
-      - name: Initialize Database(s)
-        run: |
-          docker-compose \
-            --file "dockers/docker-compose.integration-test.yml" \
-            up \
-              "wait${{ matrix.database-type }}"
-        if: matrix.database-type != 'sqlite'
-
       - name: Run build
         run: |
           yarn g:build
-          yarn workspace @teable-group/db-main-prisma db:${{ matrix.database-type }}:push
 
       - name: Run Tests
         run: |
@@ -63,7 +49,5 @@ jobs:
 
       - name: Stop Database(s)
         run: |
-          docker-compose \
-            --file "dockers/docker-compose.integration-test.yml" \
-            down
+          make docker.down
         if: matrix.database-type != 'sqlite'
