@@ -47,6 +47,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     onPaste,
     onDelete,
     onRowAppend,
+    onRowExpand,
     editorRef,
   } = props;
   const { pureRowCount, columnCount } = coordInstance;
@@ -167,6 +168,12 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     Mousetrap.bind('esc', () => {
       if (!activeCell) return;
       setEditing(false);
+    });
+
+    Mousetrap.bind('space', () => {
+      if (!activeCell) return;
+      const [, rowIndex] = activeCell;
+      onRowExpand?.(rowIndex);
     });
 
     return () => {

@@ -544,6 +544,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onPaste={onPaste}
         onDelete={onDelete}
         onRowAppend={onRowAppend}
+        onRowExpand={onRowExpand}
       />
     </div>
   );
