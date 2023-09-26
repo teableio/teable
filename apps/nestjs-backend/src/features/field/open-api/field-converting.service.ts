@@ -528,11 +528,10 @@ export class FieldConvertingService {
   }
 
   private async updateOptionsFromRatingField(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     field: RatingFieldDto
   ): Promise<IOpsMap | undefined> {
-    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
     });
@@ -546,10 +545,12 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await prisma.$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-      nativeSql.sql,
-      ...nativeSql.bindings
-    );
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
+      );
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;
@@ -567,7 +568,6 @@ export class FieldConvertingService {
   }
 
   private async modifyRatingOptions(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     newField: RatingFieldDto,
     oldField: RatingFieldDto
@@ -577,7 +577,7 @@ export class FieldConvertingService {
 
     if (newMax >= oldMax) return;
 
-    return await this.updateOptionsFromRatingField(prisma, tableId, newField);
+    return await this.updateOptionsFromRatingField(tableId, newField);
   }
 
   private async modifyOptions(
@@ -607,7 +607,6 @@ export class FieldConvertingService {
       }
       case FieldType.Rating: {
         const rawOpsMap = await this.modifyRatingOptions(
-          prisma,
           tableId,
           newField as RatingFieldDto,
           oldField as RatingFieldDto
@@ -789,7 +788,8 @@ export class FieldConvertingService {
       newField.isMultipleCellValue !== true &&
       oldField.isMultipleCellValue !== true &&
       newField.dbFieldType !== DbFieldType.Json &&
-      oldField.dbFieldType !== DbFieldType.Json
+      oldField.dbFieldType !== DbFieldType.Json &&
+      newField.dbFieldType === oldField.dbFieldType
     ) {
       return;
     }

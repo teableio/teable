@@ -514,11 +514,86 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert rating field', () => {
+    it('should correctly update and format values when transitioning from a Number field to a Rating field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          color: Colors.YellowBright,
+          max: 5,
+        },
+      };
+      const { newField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [1.23, 8.88]
+      );
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Integer,
+        options: {
+          icon: RatingIcon.Star,
+          max: 5,
+        },
+        type: FieldType.Rating,
+      });
+      expect(values[0]).toEqual(1);
+      expect(values[1]).toEqual(5);
+    });
+
+    it('should correctly update and maintain values when transitioning from a Rating field to a Number field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Rating,
+        options: {
+          icon: RatingIcon.Star,
+          color: Colors.YellowBright,
+          max: 5,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [1, 2]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
+        type: FieldType.Number,
+      });
+      expect(values[0]).toEqual(1);
+      expect(values[1]).toEqual(2);
+    });
+
     it('should change max for rating', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Rating,
         options: {
           icon: RatingIcon.Star,
+          color: Colors.YellowBright,
           max: 10,
         },
       };
@@ -527,6 +602,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Rating,
         options: {
           icon: RatingIcon.Star,
+          color: Colors.YellowBright,
           max: 5,
         },
       };
