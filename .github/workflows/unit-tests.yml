@@ -29,8 +29,16 @@ jobs:
           always-auth: false
           node-version: ${{ matrix.node-version }}
 
-      - name: Run yarn install
-        run: yarn install
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/yarn-nm-install
+
+      - name: ♻️ Restore packages cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/.cache
+            ${{ github.workspace }}/**/tsconfig.tsbuildinfo
+          key: packages-cache-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
       - name: Run build
         run: |
