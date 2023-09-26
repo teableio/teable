@@ -1,16 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { generateSpaceId, getUniqName } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { SpaceSchema } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { SpaceCollaboratorService } from '../collaborator/space-collaborator/space-collaborator.service';
 
 @Injectable()
 export class SpaceService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly spaceCollaboratorService: SpaceCollaboratorService
   ) {}
 
   async getSpaceById(spaceId: string) {
@@ -48,14 +49,11 @@ export class SpaceService {
     });
   }
 
-  async createSpaceBySignup(
-    prisma: Prisma.TransactionClient,
-    createSpaceRo: SpaceSchema.ICreateSpaceRo,
-    userId: string
-  ) {
+  async createSpaceBySignup(createSpaceRo: SpaceSchema.ICreateSpaceRo) {
+    const userId = this.cls.get('user.id');
     const uniqName = createSpaceRo.name ?? 'Workspace';
 
-    return await prisma.space.create({
+    const space = await this.prismaService.txClient().space.create({
       select: {
         id: true,
         name: true,
@@ -67,6 +65,8 @@ export class SpaceService {
         lastModifiedBy: userId,
       },
     });
+    await this.spaceCollaboratorService.registerSpaceOwner(space.id);
+    return space;
   }
 
   async createSpace(createSpaceRo: SpaceSchema.ICreateSpaceRo) {

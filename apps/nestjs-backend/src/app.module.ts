@@ -15,6 +15,7 @@ import { AuthModule } from './features/auth/auth.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
+import { SpaceCollaboratorModule } from './features/collaborator/space-collaborator/space-collaborator.module';
 import { ExportImportModule } from './features/export-import/export-import.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { NextModule } from './features/next/next.module';
@@ -66,6 +67,7 @@ import { WsModule } from './ws/ws.module';
     }),
     AuthModule,
     SpaceModule,
+    SpaceCollaboratorModule,
   ],
   controllers: [],
   providers: [],
