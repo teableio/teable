@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptionsRo, ITableFullVo } from '@teable-group/core';
-import { Relationship, FieldType, generateFieldId } from '@teable-group/core';
+import { Relationship, FieldType, generateFieldId, NumberFormattingType } from '@teable-group/core';
 import type request from 'supertest';
 import { initApp, createField } from './utils/init-app';
 
@@ -30,7 +30,7 @@ describe('OpenAPI formula (e2e)', () => {
       description: 'the number field',
       type: FieldType.Number,
       options: {
-        formatting: { precision: 1 },
+        formatting: { type: NumberFormattingType.Decimal, precision: 1 },
       },
     };
 

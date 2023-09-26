@@ -7,7 +7,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
-import { RecordOpBuilder, IdPrefix, FieldType, Relationship } from '@teable-group/core';
+import {
+  RecordOpBuilder,
+  IdPrefix,
+  FieldType,
+  Relationship,
+  NumberFormattingType,
+} from '@teable-group/core';
 import type { Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
@@ -57,7 +63,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 1 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
         },
       };
 

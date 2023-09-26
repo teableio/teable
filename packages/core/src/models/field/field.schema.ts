@@ -18,6 +18,7 @@ import {
   linkFieldOptionsRoSchema,
   numberFieldOptionsRoSchema,
   selectFieldOptionsRoSchema,
+  ratingFieldOptionsSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -73,6 +74,7 @@ export const unionFieldOptions = z.union([
   checkboxFieldOptionsSchema,
   attachmentFieldOptionsSchema,
   singlelineTextFieldOptionsSchema,
+  ratingFieldOptionsSchema,
 ]);
 
 export const unionFieldOptionsVoSchema = z.union([
@@ -251,7 +253,7 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.Duration:
       return false;
     case FieldType.Rating:
-      return false;
+      return ratingFieldOptionsSchema;
     case FieldType.Formula:
       return formulaFieldOptionsSchema;
     case FieldType.Rollup:

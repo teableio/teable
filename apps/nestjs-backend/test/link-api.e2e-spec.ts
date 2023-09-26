@@ -10,7 +10,7 @@ import type {
   ITableFullVo,
   IUpdateRecordRo,
 } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
+import { FieldType, Relationship, NumberFormattingType } from '@teable-group/core';
 import type request from 'supertest';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import { initApp, updateRecordByApi, createField, getRecords } from './utils/init-app';
@@ -49,7 +49,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 1 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
         },
       };
 
@@ -122,7 +122,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 1 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
         },
       };
 
@@ -202,7 +202,7 @@ describe('OpenAPI link (e2e)', () => {
         name: 'Number field',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 1 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
         },
       };
 

@@ -2,11 +2,18 @@ import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from 
 import { RollupFieldCore } from '@teable-group/core';
 import type { IRollupFieldOptions } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
-import { DatetimeFormattingDto, NumberFormattingDto } from '../formatting.dto';
+import {
+  CurrencyFormattingDto,
+  DatetimeFormattingDto,
+  DecimalFormattingDto,
+  PercentFormattingDto,
+} from '../formatting.dto';
 import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
 
 @ApiExtraModels(DatetimeFormattingDto)
-@ApiExtraModels(NumberFormattingDto)
+@ApiExtraModels(DecimalFormattingDto)
+@ApiExtraModels(PercentFormattingDto)
+@ApiExtraModels(CurrencyFormattingDto)
 export class RollupOptionsDto implements IRollupFieldOptions {
   @ApiProperty({
     description: 'formula expression string',
@@ -14,13 +21,14 @@ export class RollupOptionsDto implements IRollupFieldOptions {
   expression!: IRollupFieldOptions['expression'];
 
   @ApiPropertyOptional({
-    description: 'formatting options for the result of the rollup',
+    description: 'perform different formatting processes according to different formatting types',
     oneOf: [
-      { $ref: getSchemaPath(NumberFormattingDto) },
-      { $ref: getSchemaPath(DatetimeFormattingDto) },
+      { $ref: getSchemaPath(DecimalFormattingDto) },
+      { $ref: getSchemaPath(PercentFormattingDto) },
+      { $ref: getSchemaPath(CurrencyFormattingDto) },
     ],
   })
-  formatting?: NumberFormattingDto;
+  formatting?: DecimalFormattingDto;
 
   @ApiPropertyOptional({
     description: 'show as options for the result of the rollup',

@@ -2,7 +2,7 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
 import type { ICellPosition, IRectangle } from '../../interface';
-import type { ImageManager } from '../../managers';
+import type { ImageManager, SpriteManager } from '../../managers';
 
 export enum CellType {
   Text = 'Text',
@@ -10,6 +10,7 @@ export enum CellType {
   Select = 'Select',
   Image = 'Image',
   Chart = 'Chart',
+  Rating = 'Rating',
   Boolean = 'Boolean',
   Loading = 'Loading',
 }
@@ -90,6 +91,14 @@ export interface IBooleanCell extends IEditableCell {
   isMultiple?: boolean;
 }
 
+export interface IRatingCell extends IEditableCell {
+  type: CellType.Rating;
+  data: number;
+  icon: string;
+  color: string;
+  max: number;
+}
+
 export interface ISelectChoice {
   id?: string;
   name: string;
@@ -121,6 +130,7 @@ export type IInnerCell =
   | INumberCell
   | ISelectCell
   | IImageCell
+  | IRatingCell
   | IBooleanCell
   | IChartCell;
 
@@ -133,6 +143,7 @@ export type ICellRenderProps = {
   rowIndex: number;
   columnIndex: number;
   imageManager: ImageManager;
+  spriteManager: SpriteManager;
   hoverCellPosition: ICellPosition | null;
   isActive?: boolean;
 };
@@ -159,7 +170,7 @@ export interface IBaseCellRenderer<T extends ICell> {
   measure?: (cell: T, props: ICellMeasureProps) => number | null;
 
   // Interaction
-  checkWithinBound?: (props: ICellClickProps) => boolean;
+  checkWithinBound?: (cell: T, props: ICellClickProps) => boolean;
   onClick?: (cell: T, props: ICellClickProps) => void;
 
   // Editing

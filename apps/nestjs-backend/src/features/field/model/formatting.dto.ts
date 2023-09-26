@@ -1,8 +1,22 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { IDatetimeFormatting, INumberFormatting } from '@teable-group/core';
-import { DateFormattingPreset, TimeFormatting } from '@teable-group/core';
+import type {
+  ICurrencyFormatting,
+  IDatetimeFormatting,
+  IDecimalFormatting,
+  IPercentFormatting,
+} from '@teable-group/core';
+import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '@teable-group/core';
 
-export class NumberFormattingDto implements INumberFormatting {
+export class DecimalFormattingDto implements IDecimalFormatting {
+  @ApiProperty({
+    enum: NumberFormattingType,
+    example: NumberFormattingType.Decimal,
+    description:
+      'the formatting type of the number, caveat: the formatting type is just a formatter, it dose not effect the storing value of the record',
+  })
+  type!: NumberFormattingType.Decimal;
+
   @ApiProperty({
     type: Number,
     example: 2,
@@ -10,6 +24,50 @@ export class NumberFormattingDto implements INumberFormatting {
       'the display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
   })
   precision!: number;
+}
+
+export class PercentFormattingDto implements IPercentFormatting {
+  @ApiProperty({
+    enum: NumberFormattingType,
+    example: NumberFormattingType.Percent,
+    description:
+      'the formatting type of the number, caveat: the formatting type is just a formatter, it dose not effect the storing value of the record',
+  })
+  type!: NumberFormattingType.Percent;
+
+  @ApiProperty({
+    type: Number,
+    example: 2,
+    description:
+      'the display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
+  })
+  precision!: number;
+}
+
+export class CurrencyFormattingDto implements ICurrencyFormatting {
+  @ApiProperty({
+    enum: NumberFormattingType,
+    example: NumberFormattingType.Currency,
+    description:
+      'the formatting type of the number, caveat: the formatting type is just a formatter, it dose not effect the storing value of the record',
+  })
+  type!: NumberFormattingType.Currency;
+
+  @ApiProperty({
+    type: Number,
+    example: 2,
+    description:
+      'the display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
+  })
+  precision!: number;
+
+  @ApiProperty({
+    type: String,
+    example: '$',
+    description:
+      'the display precision of the number, caveat: the precision is just a formatter, it dose not effect the storing value of the record',
+  })
+  symbol!: string;
 }
 
 export class DatetimeFormattingDto implements IDatetimeFormatting {

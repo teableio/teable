@@ -12,6 +12,7 @@ export interface ICellDrawerProps extends IRectangle {
   rowIndex: number;
   columnIndex: number;
   imageManager: ImageManager;
+  spriteManager: SpriteManager;
   hoverCellPosition: ICellPosition | null;
 }
 
