@@ -20,26 +20,30 @@ jobs:
         database-type: [postgres, sqlite]
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup Node ${{ matrix.node-version }}
-        uses: actions/setup-node@v3.7.0
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
         with:
-          always-auth: false
           node-version: ${{ matrix.node-version }}
 
-      - name: Run yarn install
-        run: yarn install
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/yarn-nm-install
+
+      - name: ♻️ Restore packages cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/.cache
+            ${{ github.workspace }}/**/tsconfig.tsbuildinfo
+          key: packages-cache-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
       - name: Initialize Database(s)
         run: |
           make db-${{ matrix.database-type }}
         if: matrix.database-type != 'sqlite'
 
-      - name: Run build
+      - name: 🏗 Run build
         run: |
           yarn g:build
 
