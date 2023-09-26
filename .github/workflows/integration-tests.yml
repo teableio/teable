@@ -31,13 +31,13 @@ jobs:
           always-auth: false
           node-version: ${{ matrix.node-version }}
 
+      - name: Run yarn install
+        run: yarn install
+
       - name: Initialize Database(s)
         run: |
           make db-${{ matrix.database-type }}
         if: matrix.database-type != 'sqlite'
-
-      - name: Run yarn install
-        run: yarn install
 
       - name: Run build
         run: |
