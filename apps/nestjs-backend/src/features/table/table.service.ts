@@ -45,7 +45,6 @@ export class TableService implements IAdapterService {
   }
 
   private async createDBTable(
-    prisma: Prisma.TransactionClient,
     baseId: string,
     snapshot: Pick<ITableVo, 'id' | 'name' | 'description' | 'order' | 'icon'>
   ) {
@@ -69,20 +68,20 @@ export class TableService implements IAdapterService {
       lastModifiedBy: userId,
       version: 1,
     };
-    const tableMeta = await prisma.tableMeta.create({
+    const tableMeta = await this.prismaService.txClient().tableMeta.create({
       data,
     });
 
     // create a real db table
-    await prisma.$executeRawUnsafe(visualTableSql(dbTableName));
+    await this.prismaService.txClient().$executeRawUnsafe(visualTableSql(dbTableName));
     return tableMeta;
   }
 
   @Timing()
-  private async getTableLastModifiedTime(prisma: Prisma.TransactionClient, tableIds: string[]) {
+  private async getTableLastModifiedTime(tableIds: string[]) {
     if (!tableIds.length) return [];
 
-    const results = await prisma.$queryRaw<
+    const results = await this.prismaService.txClient().$queryRaw<
       {
         tableId: string;
         lastModifiedTime: Date;
@@ -107,10 +106,10 @@ export class TableService implements IAdapterService {
     });
   }
 
-  private async getTableDefaultViewId(prisma: Prisma.TransactionClient, tableIds: string[]) {
+  private async getTableDefaultViewId(tableIds: string[]) {
     if (!tableIds.length) return [];
 
-    const results = await prisma.$queryRaw<
+    const results = await this.prismaService.txClient().$queryRaw<
       {
         tableId: string;
         viewId: string;
@@ -136,13 +135,13 @@ export class TableService implements IAdapterService {
   }
 
   async getTables(baseId: string): Promise<ITableVo[]> {
-    const tablesMeta = await this.prismaService.tableMeta.findMany({
+    const tablesMeta = await this.prismaService.txClient().tableMeta.findMany({
       orderBy: { order: 'asc' },
       where: { baseId, deletedTime: null },
     });
     const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
-    const tableTime = await this.getTableLastModifiedTime(this.prismaService, tableIds);
-    const tableDefaultViewIds = await this.getTableDefaultViewId(this.prismaService, tableIds);
+    const tableTime = await this.getTableLastModifiedTime(tableIds);
+    const tableDefaultViewIds = await this.getTableDefaultViewId(tableIds);
     return tablesMeta.map((tableMeta, i) => {
       const time = tableTime[i];
       const defaultViewId = tableDefaultViewIds[i];
@@ -160,7 +159,7 @@ export class TableService implements IAdapterService {
   }
 
   async getTableMeta(baseId: string, tableId: string): Promise<ITableVo> {
-    const tableMeta = await this.prismaService.tableMeta.findFirst({
+    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
       where: { id: tableId, baseId, deletedTime: null },
     });
 
@@ -168,8 +167,8 @@ export class TableService implements IAdapterService {
       throw new NotFoundException();
     }
 
-    const tableTime = await this.getTableLastModifiedTime(this.prismaService, [tableId]);
-    const tableDefaultViewIds = await this.getTableDefaultViewId(this.prismaService, [tableId]);
+    const tableTime = await this.getTableLastModifiedTime([tableId]);
+    const tableDefaultViewIds = await this.getTableDefaultViewId([tableId]);
     if (!tableDefaultViewIds[0]) {
       throw new Error('defaultViewId is not found');
     }
@@ -227,21 +226,20 @@ export class TableService implements IAdapterService {
     return viewRaw;
   }
 
-  async create(prisma: Prisma.TransactionClient, collection: string, snapshot: ITableVo) {
-    await this.createDBTable(prisma, collection, snapshot);
+  async create(collection: string, snapshot: ITableVo) {
+    await this.createDBTable(collection, snapshot);
   }
 
-  async del(prisma: Prisma.TransactionClient, _collection: string, tableId: string) {
+  async del(_collection: string, tableId: string) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.delete(prisma, [{ tableId: tableId }]);
-    await prisma.tableMeta.update({
+    await this.attachmentService.delete([{ tableId: tableId }]);
+    await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId },
       data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 
   async update(
-    prisma: Prisma.TransactionClient,
     version: number,
     _collection: string,
     tableId: string,
@@ -253,7 +251,7 @@ export class TableService implements IAdapterService {
       switch (opContext.name) {
         case OpName.SetTableName: {
           const { newName } = opContext;
-          await prisma.tableMeta.update({
+          await this.prismaService.txClient().tableMeta.update({
             where: { id: tableId },
             data: { name: newName, version, lastModifiedBy: userId },
           });
@@ -261,7 +259,7 @@ export class TableService implements IAdapterService {
         }
         case OpName.SetTableOrder: {
           const { newOrder } = opContext;
-          await prisma.tableMeta.update({
+          await this.prismaService.txClient().tableMeta.update({
             where: { id: tableId },
             data: { order: newOrder, version, lastModifiedBy: userId },
           });
@@ -272,16 +270,12 @@ export class TableService implements IAdapterService {
     }
   }
 
-  async getSnapshotBulk(
-    prisma: Prisma.TransactionClient,
-    _collection: string,
-    ids: string[]
-  ): Promise<ISnapshotBase<ITableVo>[]> {
-    const tables = await prisma.tableMeta.findMany({
+  async getSnapshotBulk(_collection: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { id: { in: ids }, deletedTime: null },
     });
-    const tableTime = await this.getTableLastModifiedTime(prisma, ids);
-    const tableDefaultViewIds = await this.getTableDefaultViewId(prisma, ids);
+    const tableTime = await this.getTableLastModifiedTime(ids);
+    const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
     return tables
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
       .map((table, i) => {
@@ -301,8 +295,8 @@ export class TableService implements IAdapterService {
       });
   }
 
-  async getDocIdsByQuery(prisma: Prisma.TransactionClient, collection: string, _query: unknown) {
-    const tables = await prisma.tableMeta.findMany({
+  async getDocIdsByQuery(collection: string, _query: unknown) {
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { deletedTime: null, baseId: collection },
       select: { id: true },
       orderBy: { order: 'asc' },

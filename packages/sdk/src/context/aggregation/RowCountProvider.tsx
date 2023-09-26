@@ -1,8 +1,8 @@
 import type { IRawRowCountVo } from '@teable-group/core';
 import { getRowCountChannel } from '@teable-group/core/dist/models/channel';
-import type { Presence } from '@teable/sharedb/lib/client';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
+import type { Presence } from 'sharedb/lib/client';
 import { useIsHydrated } from '../../hooks';
 import { View } from '../../model';
 import { AnchorContext } from '../anchor';

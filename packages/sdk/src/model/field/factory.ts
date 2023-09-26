@@ -1,7 +1,7 @@
 import type { IFieldVo } from '@teable-group/core';
 import { assertNever, FieldType } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
 import { plainToInstance } from 'class-transformer';
+import type { Doc } from 'sharedb/lib/client';
 import { AttachmentField } from './attachment.field';
 import { CheckboxField } from './checkbox.field';
 import { DateField } from './date.field';

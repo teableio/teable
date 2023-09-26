@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Query } from '@teable/sharedb/lib/client';
 import { act, renderHook } from '@testing-library/react';
+import type { Query } from 'sharedb/lib/client';
 import { createAppContext } from '../__test__/createAppContext';
 import type { IUseInstancesProps } from './useInstances';
 import { useInstances } from './useInstances';

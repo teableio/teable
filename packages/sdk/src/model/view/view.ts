@@ -8,7 +8,7 @@ import type {
   IUpdateViewOrderRo,
 } from '@teable-group/core';
 import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 import { axios } from '../../config/axios';
 
 export abstract class View extends ViewCore {

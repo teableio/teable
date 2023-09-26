@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -6,7 +7,10 @@ import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class AttachmentsTableService {
-  constructor(private readonly cls: ClsService<IClsStore>) {}
+  constructor(
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService
+  ) {}
 
   private createUniqueKey(
     tableId: string,
@@ -18,7 +22,6 @@ export class AttachmentsTableService {
   }
 
   async updateByRecord(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     recordId: string,
     _attachments: {
@@ -30,7 +33,7 @@ export class AttachmentsTableService {
   ) {
     const userId = this.cls.get('user.id');
 
-    const exists = await prisma.attachmentsTable.findMany({
+    const exists = await this.prismaService.txClient().attachmentsTable.findMany({
       where: {
         tableId,
         recordId,
@@ -86,17 +89,15 @@ export class AttachmentsTableService {
     const needCreateKey = difference(attachmentsKeys, existsKeys);
 
     for (let i = 0; i < needCreateKey.length; i++) {
-      await prisma.attachmentsTable.create({ data: attachmentsMap[needCreateKey[i]] });
+      await this.prismaService.txClient().attachmentsTable.create({
+        data: attachmentsMap[needCreateKey[i]],
+      });
     }
 
-    await this.delete(
-      prisma,
-      needDeleteKey.map((key) => existsMap[key])
-    );
+    await this.delete(needDeleteKey.map((key) => existsMap[key]));
   }
 
   async delete(
-    prisma: Prisma.TransactionClient,
     query: {
       tableId: string;
       recordId?: string;
@@ -107,7 +108,7 @@ export class AttachmentsTableService {
     const userId = this.cls.get('user.id');
 
     for (let i = 0; i < query.length; i++) {
-      await prisma.attachmentsTable.updateMany({
+      await this.prismaService.txClient().attachmentsTable.updateMany({
         where: query[i],
         data: {
           deletedTime: new Date(),

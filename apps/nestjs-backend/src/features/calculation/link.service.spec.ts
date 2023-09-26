@@ -3,6 +3,8 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType, Relationship } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import type { ILinkCellContext, ITinyFieldMapByTableId } from './link.service';
 import { LinkService } from './link.service';
 import { ReferenceService } from './reference.service';
@@ -13,7 +15,16 @@ describe('LinkService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [LinkService, ReferenceService],
-    }).compile();
+    })
+      .useMocker((token) => {
+        if (token === ClsService) {
+          return jest.fn();
+        }
+        if (token === PrismaService) {
+          return jest.fn();
+        }
+      })
+      .compile();
 
     service = module.get<LinkService>(LinkService);
   });

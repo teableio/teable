@@ -328,15 +328,18 @@ describe('OpenAPI Lookup field (e2e)', () => {
     expect(record1.fields[lookupFieldVo.id]).toEqual(123);
     const record2 = await getRecord(request, table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual(123);
-
     // remove a link record
-    await updateRecordByApi(
+    const updatedRecord = await updateRecordByApi(
       request,
       table1.id,
       table1.records[1].id,
       getFieldByType(table1.fields, FieldType.Link).id,
       [{ id: table2.records[1].id }]
     );
+
+    expect(updatedRecord.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
+      { id: table2.records[1].id },
+    ]);
 
     const record3 = await getRecord(request, table2.id, table2.records[1].id);
     expect(record3.fields[lookupFieldVo.id]).toEqual(123);

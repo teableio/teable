@@ -13,7 +13,6 @@ export * from './use-theme';
 export * from './use-tables';
 export * from './use-table';
 export * from './use-base';
-export * from './use-undo-manager';
 export * from './use-records';
 export * from './use-record';
 export * from './use-aggregation';

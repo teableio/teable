@@ -8,14 +8,13 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
 import {
-  generateTransactionKey,
   RecordOpBuilder,
   IdPrefix,
   FieldType,
   Relationship,
   NumberFormattingType,
 } from '@teable-group/core';
-import type { Doc } from '@teable/sharedb/lib/client';
+import type { Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import { ShareDbService } from '../src/share-db/share-db.service';
@@ -28,11 +27,6 @@ describe('OpenAPI link (e2e)', () => {
   let shareDbService!: ShareDbService;
   const baseId = globalThis.testConfig.baseId;
   jest.useRealTimers();
-  async function wait(ms: number) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }
   let request: request.SuperAgentTest;
 
   beforeAll(async () => {
@@ -147,7 +141,7 @@ describe('OpenAPI link (e2e)', () => {
     ) {
       const connection = shareDbService.connect();
       const collection = `${IdPrefix.Record}_${tableId}`;
-      const data = await new Promise<IRecord>((resolve, reject) => {
+      return await new Promise<IRecord>((resolve, reject) => {
         const doc: Doc<IRecord> = connection.get(collection, recordId);
         doc.fetch((err) => {
           if (err) {
@@ -159,7 +153,7 @@ describe('OpenAPI link (e2e)', () => {
             newCellValue: newValues,
           });
 
-          doc.submitOp(op, { transactionKey: generateTransactionKey(), opCount: 1 }, (err) => {
+          doc.submitOp(op, undefined, (err) => {
             if (err) {
               return reject(err);
             }
@@ -167,9 +161,6 @@ describe('OpenAPI link (e2e)', () => {
           });
         });
       });
-      // wait for calculation
-      await wait(100);
-      return data;
     }
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -361,7 +352,6 @@ describe('OpenAPI link (e2e)', () => {
         id: ctx.table1Records[1].id,
       });
 
-      console.log('-------------------hr------------------');
       // table2 record2 link from A2 to A1
       await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[2].id, {
         title: 'A1',

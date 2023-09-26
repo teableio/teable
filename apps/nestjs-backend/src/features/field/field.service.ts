@@ -48,7 +48,6 @@ export class FieldService implements IAdapterService {
   }
 
   private async dbCreateField(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     columnMeta: IColumnMeta,
     fieldInstance: IFieldInstance
@@ -103,20 +102,19 @@ export class FieldService implements IAdapterService {
       lastModifiedBy: userId,
     };
 
-    return await prisma.field.create({ data });
+    return await this.prismaService.txClient().field.create({ data });
   }
 
   private async getColumnsMeta(
-    prisma: Prisma.TransactionClient,
     tableId: string,
     fieldInstances: IFieldInstance[]
   ): Promise<IColumnMeta[]> {
-    const views = await prisma.view.findMany({
+    const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
     });
 
-    const fieldsData = await prisma.field.findMany({
+    const fieldsData = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
@@ -140,18 +138,14 @@ export class FieldService implements IAdapterService {
     });
   }
 
-  async dbCreateMultipleField(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    fieldInstances: IFieldInstance[]
-  ) {
+  async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
     const multiFieldData: RawField[] = [];
 
     // maintain columnsMeta by view
-    const columnsMeta = await this.getColumnsMeta(prisma, tableId, fieldInstances);
+    const columnsMeta = await this.getColumnsMeta(tableId, fieldInstances);
     for (let i = 0; i < fieldInstances.length; i++) {
       const fieldInstance = fieldInstances[i];
-      const fieldData = await this.dbCreateField(prisma, tableId, columnsMeta[i], fieldInstance);
+      const fieldData = await this.dbCreateField(tableId, columnsMeta[i], fieldInstance);
 
       multiFieldData.push(fieldData);
     }
@@ -159,7 +153,6 @@ export class FieldService implements IAdapterService {
   }
 
   async alterVisualTable(
-    prisma: Prisma.TransactionClient,
     dbTableName: string,
     fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
   ) {
@@ -172,12 +165,12 @@ export class FieldService implements IAdapterService {
           table[typeKey](field.dbFieldName);
         })
         .toQuery();
-      await prisma.$executeRawUnsafe(alterTableQuery);
+      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
     }
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
-    const field = await this.prismaService.field.findFirst({
+    const field = await this.prismaService.txClient().field.findFirst({
       where: { id: fieldId, tableId, deletedTime: null },
     });
     if (!field) {
@@ -189,7 +182,7 @@ export class FieldService implements IAdapterService {
   async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
     let viewId = query.viewId;
     if (viewId) {
-      const view = await this.prismaService.view.findFirst({
+      const view = await this.prismaService.txClient().view.findFirst({
         where: { id: viewId, deletedTime: null },
         select: { id: true },
       });
@@ -199,7 +192,7 @@ export class FieldService implements IAdapterService {
     }
 
     if (!viewId) {
-      const view = await this.prismaService.view.findFirst({
+      const view = await this.prismaService.txClient().view.findFirst({
         where: { tableId, deletedTime: null },
         select: { id: true },
       });
@@ -209,7 +202,7 @@ export class FieldService implements IAdapterService {
       viewId = view.id;
     }
 
-    const fieldsPlain = await this.prismaService.field.findMany({
+    const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
     });
 
@@ -231,8 +224,8 @@ export class FieldService implements IAdapterService {
     return fields.map((field) => createFieldInstanceByVo(field));
   }
 
-  async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
-    const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+  async getDbTableName(tableId: string) {
+    const tableMeta = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
@@ -240,7 +233,7 @@ export class FieldService implements IAdapterService {
   }
 
   async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
-    const fields = await this.prismaService.field.findMany({
+    const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });
@@ -252,22 +245,22 @@ export class FieldService implements IAdapterService {
     return sortedFields[index].id;
   }
 
-  async create(prisma: Prisma.TransactionClient, tableId: string, snapshot: IFieldVo) {
+  async create(tableId: string, snapshot: IFieldVo) {
     const fieldInstance = createFieldInstanceByVo(snapshot);
-    const dbTableName = await this.getDbTableName(prisma, tableId);
+    const dbTableName = await this.getDbTableName(tableId);
 
     // 1. save field meta in db
-    await this.dbCreateMultipleField(prisma, tableId, [fieldInstance]);
+    await this.dbCreateMultipleField(tableId, [fieldInstance]);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(prisma, dbTableName, [fieldInstance]);
+    await this.alterVisualTable(dbTableName, [fieldInstance]);
   }
 
-  async del(prisma: Prisma.TransactionClient, _tableId: string, fieldId: string) {
+  async del(_tableId: string, fieldId: string) {
     const userId = this.cls.get('user.id');
 
-    await this.attachmentService.delete(prisma, [{ fieldId, tableId: _tableId }]);
-    await prisma.field.update({
+    await this.attachmentService.delete([{ fieldId, tableId: _tableId }]);
+    await this.prismaService.txClient().field.update({
       where: { id: fieldId },
       data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
@@ -294,14 +287,10 @@ export class FieldService implements IAdapterService {
     return { [key]: newValue ?? null };
   }
 
-  private async handleColumnMeta(params: {
-    prisma: Prisma.TransactionClient;
-    fieldId: string;
-    opContext: IOpContexts;
-  }) {
-    const { prisma, fieldId, opContext } = params;
+  private handleColumnMeta = async (params: { fieldId: string; opContext: IOpContexts }) => {
+    const { fieldId, opContext } = params;
 
-    const fieldData = await prisma.field.findUniqueOrThrow({
+    const fieldData = await this.prismaService.txClient().field.findUniqueOrThrow({
       where: { id: fieldId },
       select: { columnMeta: true },
     });
@@ -341,12 +330,11 @@ export class FieldService implements IAdapterService {
     }
 
     return { columnMeta: JSON.stringify(newColumnMeta) };
-  }
+  };
 
   private async updateStrategies(
     opContext: IOpContexts,
     params: {
-      prisma: Prisma.TransactionClient;
       fieldId: string;
       opContext: IOpContexts;
     }
@@ -367,19 +355,13 @@ export class FieldService implements IAdapterService {
     return handler.constructor.name === 'AsyncFunction' ? await handler(params) : handler(params);
   }
 
-  async update(
-    prisma: Prisma.TransactionClient,
-    version: number,
-    tableId: string,
-    fieldId: string,
-    opContexts: IOpContexts[]
-  ) {
+  async update(version: number, tableId: string, fieldId: string, opContexts: IOpContexts[]) {
     const userId = this.cls.get('user.id');
     for (const opContext of opContexts) {
-      const result = await this.updateStrategies(opContext, { prisma, fieldId, opContext });
+      const result = await this.updateStrategies(opContext, { fieldId, opContext });
 
-      await prisma.field.update({
-        where: { id: fieldId },
+      await this.prismaService.txClient().field.update({
+        where: { id: fieldId, tableId },
         data: {
           version,
           ...result,
@@ -389,12 +371,8 @@ export class FieldService implements IAdapterService {
     }
   }
 
-  async getSnapshotBulk(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    ids: string[]
-  ): Promise<ISnapshotBase<IFieldVo>[]> {
-    const fieldRaws = await prisma.field.findMany({
+  async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]> {
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { tableId, id: { in: ids } },
     });
     const fields = fieldRaws.map((field) => rawField2FieldObj(field));
@@ -411,21 +389,17 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(
-    prisma: Prisma.TransactionClient,
-    tableId: string,
-    query: IFieldSnapshotQuery
-  ) {
+  async getDocIdsByQuery(tableId: string, query: IFieldSnapshotQuery) {
     let viewId = query.viewId;
     if (!viewId) {
-      const view = await prisma.view.findFirstOrThrow({
+      const view = await this.prismaService.txClient().view.findFirstOrThrow({
         where: { tableId, deletedTime: null },
         select: { id: true },
       });
       viewId = view.id;
     }
 
-    const fieldsPlain = await prisma.field.findMany({
+    const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true, columnMeta: true },
     });

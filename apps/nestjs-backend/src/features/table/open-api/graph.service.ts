@@ -130,7 +130,7 @@ export class GraphService {
 
   async getGraph(tableId: string, cell: [number, number], viewId?: string): Promise<IGraphVo> {
     const { recordId, fieldId, cellValue } = await this.getCellInfo(tableId, cell, viewId);
-    const prepared = await this.referenceService.prepareCalculation(this.prismaService, tableId, [
+    const prepared = await this.referenceService.prepareCalculation(tableId, [
       { id: recordId, fieldId: fieldId, newValue: cellValue },
     ]);
     if (!prepared) {
