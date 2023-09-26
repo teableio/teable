@@ -13,6 +13,7 @@ import {
   Link as LinkIcon,
   ListChecks as MenuIcon,
   Search as SearchIcon,
+  Star as RatingIcon,
 } from '@teable-group/icons';
 
 import { useCallback } from 'react';
@@ -23,6 +24,7 @@ import {
   LinkField,
   MultipleSelectField,
   NumberField,
+  RatingField,
   SingleLineTextField,
   SingleSelectField,
 } from '../model';
@@ -114,11 +116,11 @@ export const useFieldStaticGetter = () => {
             defaultOptions: {},
             Icon: UnknownIcon,
           };
-        case FieldType.Currency:
+        case FieldType.Rating:
           return {
-            title: 'Currency',
-            defaultOptions: {},
-            Icon: UnknownIcon,
+            title: 'Rating',
+            defaultOptions: RatingField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : RatingIcon,
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

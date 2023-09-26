@@ -1,8 +1,9 @@
-import type { GridViewOptions } from '@teable-group/core';
+import type { GridViewOptions, RatingIcon } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
 import type { Record } from '@teable-group/sdk';
 import {
+  RATING_ICON_MAP,
   useFieldStaticGetter,
   useRowCount,
   useSSRRecords,
@@ -174,7 +175,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      openHeaderMenu({ fieldIds: [fieldId], position: { x: x + 8, y: height } });
+      openHeaderMenu({ fieldIds: [fieldId], position: { x, y: height } });
     },
     [columns, openHeaderMenu]
   );
@@ -191,7 +192,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
       const fieldId = columns[colIndex].id;
-      openStatisticMenu({ fieldId, position: { x: x + 8, y, width, height } });
+      openStatisticMenu({ fieldId, position: { x, y, width, height } });
     },
     [columns, openStatisticMenu]
   );
@@ -236,9 +237,16 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         IconComponent: Check,
       },
     ]);
+    const ratingIcons = getSpriteMap(
+      (Object.keys(RATING_ICON_MAP) as RatingIcon[]).map((iconKey) => ({
+        type: iconKey,
+        IconComponent: RATING_ICON_MAP[iconKey],
+      }))
+    );
     return {
       ...columnHeaderIcons,
       ...rowHeaderIcons,
+      ...ratingIcons,
     };
   }, [getFieldStatic]);
 

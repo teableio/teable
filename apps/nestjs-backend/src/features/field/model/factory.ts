@@ -9,6 +9,7 @@ import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
+import { RatingFieldDto } from './field-dto/rating-field.dto';
 import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
@@ -62,6 +63,8 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(CheckboxFieldDto, field);
     case FieldType.Rollup:
       return plainToInstance(RollupFieldDto, field);
+    case FieldType.Rating:
+      return plainToInstance(RatingFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.Email:
@@ -75,7 +78,6 @@ export function createFieldInstanceByVo(field: IFieldVo) {
     case FieldType.CreatedTime:
     case FieldType.Duration:
     case FieldType.LastModifiedTime:
-    case FieldType.Rating:
     case FieldType.Currency:
     case FieldType.Percent:
       throw new Error('did not implement yet');

@@ -6,6 +6,8 @@ export interface IGridTheme {
   staticBlack: string;
   iconBgCommon: string;
   iconFgCommon: string;
+  iconFgHighlight: string;
+  iconBgHighlight: string;
   iconBgSelected: string;
   iconFgSelected: string;
   iconSizeXS: number;
@@ -43,10 +45,12 @@ export const gridTheme: IGridTheme = {
   // Common
   staticWhite: '#FFFFFF',
   staticBlack: '#000000',
-  iconBgCommon: colors.gray[500],
   iconFgCommon: colors.gray[500],
-  iconBgSelected: colors.black,
+  iconBgCommon: 'transparent',
+  iconFgHighlight: colors.yellow[400],
+  iconBgHighlight: colors.yellow[400],
   iconFgSelected: colors.blue[50],
+  iconBgSelected: colors.black,
   iconSizeXS: 16,
   iconSizeSM: 20,
   iconSizeMD: 24,

@@ -3,7 +3,7 @@ import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 
 import type { ITableFullVo, IFieldRo, ISortItem } from '@teable-group/core';
-import { FieldType, CellValueType, TimeFormatting } from '@teable-group/core';
+import { FieldType, CellValueType, TimeFormatting, NumberFormattingType } from '@teable-group/core';
 import { orderBy, isEmpty } from 'lodash';
 import qs from 'qs';
 import type * as supertest from 'supertest';
@@ -45,6 +45,7 @@ const defaultFields: IFieldRo[] = [
     type: FieldType.Number,
     options: {
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     },

@@ -10,7 +10,13 @@ import type {
   ITableFullVo,
   INumberFieldOptions,
 } from '@teable-group/core';
-import { Colors, FieldType, Relationship, TimeFormatting } from '@teable-group/core';
+import {
+  Colors,
+  FieldType,
+  NumberFormattingType,
+  Relationship,
+  TimeFormatting,
+} from '@teable-group/core';
 import type request from 'supertest';
 import { updateRecordByApi, getRecord, initApp } from './utils/init-app';
 
@@ -26,6 +32,7 @@ const defaultFields: IFieldRo[] = [
     type: FieldType.Number,
     options: {
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     },
@@ -75,6 +82,7 @@ const defaultFields: IFieldRo[] = [
     options: {
       expression: '1 + 1',
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     },

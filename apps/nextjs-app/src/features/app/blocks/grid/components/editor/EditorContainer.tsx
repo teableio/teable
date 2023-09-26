@@ -1,7 +1,8 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/no-static-element-interactions, @typescript-eslint/naming-convention */
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
+import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
@@ -11,6 +12,7 @@ import type { ICell, IInnerCell } from '../../renderers';
 import { CellType, EditorPosition } from '../../renderers';
 import { isPrintableKey } from '../../utils';
 import { BooleanEditor } from './BooleanEditor';
+import { RatingEditor } from './RatingEditor';
 import { SelectEditor } from './SelectEditor';
 import { TextEditor } from './TextEditor';
 
@@ -25,6 +27,7 @@ export interface IEditorContainerProps
     | 'onPaste'
     | 'onDelete'
     | 'onRowAppend'
+    | 'onRowExpand'
     | 'onCellActivated'
   > {
   isEditing?: boolean;
@@ -56,6 +59,20 @@ export interface IEditorContainerRef {
   saveValue?: () => void;
 }
 
+const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
+
+const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
+
+const getNumberStyle = (height: number, theme: IGridTheme): CSSProperties => {
+  return {
+    border: `2px solid ${theme.cellLineColorActived}`,
+    boxShadow: 'none',
+    textAlign: 'right',
+    paddingRight: 8,
+    paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
+  };
+};
+
 export const EditorContainerBase: ForwardRefRenderFunction<
   IEditorContainerRef,
   IEditorContainerProps
@@ -73,6 +90,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onChange,
     onDelete,
     onRowAppend,
+    onRowExpand,
     setEditing,
     setActiveCell,
     setSelection,
@@ -163,6 +181,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     onPaste,
     onDelete,
     onRowAppend,
+    onRowExpand,
     setEditing,
     setActiveCell,
     setSelection,
@@ -180,8 +199,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
+    if (NO_EDITING_CELL_TYPES.has(cellType)) return;
     setEditing(true);
-    editorRef.current?.setValue?.('');
+    editorRef.current?.setValue?.(null);
   };
 
   function Editor() {
@@ -189,16 +209,13 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     switch (cellType) {
       case CellType.Text:
       case CellType.Number: {
-        const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
         return (
           <TextEditor
             ref={editorRef}
             cell={cellContent}
             style={{
               ...editorStyle,
-              borderColor: theme.cellLineColorActived,
-              textAlign: cellType === CellType.Number ? 'right' : 'left',
-              paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
+              ...getNumberStyle(height, theme),
             }}
             onChange={onChangeInner}
           />
@@ -206,6 +223,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       }
       case CellType.Boolean:
         return <BooleanEditor ref={editorRef} cell={cellContent} onChange={onChangeInner} />;
+      case CellType.Rating:
+        return <RatingEditor ref={editorRef} cell={cellContent} onChange={onChangeInner} />;
       case CellType.Select:
         return (
           <SelectEditor
@@ -224,18 +243,28 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   return (
     <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
       <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
-        {customEditor
-          ? customEditor(
-              {
-                style: editorStyle,
-                cell: cellContent as IInnerCell,
-                isEditing,
-                setEditing,
-                onChange: onChangeInner,
-              },
-              editorRef
-            )
-          : Editor()}
+        {!readonly && (
+          <>
+            {customEditor
+              ? customEditor(
+                  {
+                    style:
+                      cellType === CellType.Number
+                        ? {
+                            ...editorStyle,
+                            ...getNumberStyle(height, theme),
+                          }
+                        : editorStyle,
+                    cell: cellContent as IInnerCell,
+                    isEditing,
+                    setEditing,
+                    onChange: onChangeInner,
+                  },
+                  editorRef
+                )
+              : Editor()}
+          </>
+        )}
       </div>
     </div>
   );

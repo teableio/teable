@@ -1,5 +1,5 @@
 import type { IFieldRo, INumberFieldOptions, ISelectFieldOptions } from '@teable-group/core';
-import { Colors, FieldType } from '@teable-group/core';
+import { Colors, FieldType, NumberFormattingType } from '@teable-group/core';
 
 export const FIELD_MOCK_DATA: IFieldRo[] = [
   {
@@ -31,7 +31,7 @@ export const FIELD_MOCK_DATA: IFieldRo[] = [
     name: 'count',
     type: FieldType.Number,
     options: {
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
     } as INumberFieldOptions,
   },
 ];

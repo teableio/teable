@@ -48,6 +48,7 @@ import { createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
+import type { RatingFieldDto } from '../model/field-dto/rating-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
 import { FieldConvertingLinkService } from './field-converting-link.service';
@@ -526,6 +527,59 @@ export class FieldConvertingService {
     return await this.updateOptionsFromSelectField(tableId, updatedChoiceMap, newField);
   }
 
+  private async updateOptionsFromRatingField(
+    tableId: string,
+    field: RatingFieldDto
+  ): Promise<IOpsMap | undefined> {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+    const newMax = field.options.max;
+
+    const nativeSql = this.knex(dbTableName)
+      .select('__id', field.dbFieldName)
+      .where(field.dbFieldName, '>', newMax)
+      .toSQL()
+      .toNative();
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
+      );
+
+    for (const row of result) {
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;
+
+      opsMap[row.__id] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: field.id,
+          oldCellValue,
+          newCellValue: newMax,
+        }),
+      ];
+    }
+
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
+  }
+
+  private async modifyRatingOptions(
+    tableId: string,
+    newField: RatingFieldDto,
+    oldField: RatingFieldDto
+  ) {
+    const newMax = newField.options.max;
+    const oldMax = oldField.options.max;
+
+    if (newMax >= oldMax) return;
+
+    return await this.updateOptionsFromRatingField(tableId, newField);
+  }
+
   private async modifyOptions(
     tableId: string,
     newField: IFieldInstance,
@@ -548,6 +602,14 @@ export class FieldConvertingService {
           tableId,
           newField as SingleSelectFieldDto,
           oldField as SingleSelectFieldDto
+        );
+        return { recordOpsMap: rawOpsMap };
+      }
+      case FieldType.Rating: {
+        const rawOpsMap = await this.modifyRatingOptions(
+          tableId,
+          newField as RatingFieldDto,
+          oldField as RatingFieldDto
         );
         return { recordOpsMap: rawOpsMap };
       }
@@ -726,7 +788,8 @@ export class FieldConvertingService {
       newField.isMultipleCellValue !== true &&
       oldField.isMultipleCellValue !== true &&
       newField.dbFieldType !== DbFieldType.Json &&
-      oldField.dbFieldType !== DbFieldType.Json
+      oldField.dbFieldType !== DbFieldType.Json &&
+      newField.dbFieldType === oldField.dbFieldType
     ) {
       return;
     }

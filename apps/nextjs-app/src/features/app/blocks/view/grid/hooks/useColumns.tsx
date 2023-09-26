@@ -1,5 +1,6 @@
-import { CellValueType, ColorUtils, FieldType, formatNumberToString } from '@teable-group/core';
-import type { IAttachmentCellValue, INumberFormatting } from '@teable-group/core';
+import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
+import type { IAttachmentCellValue, INumberFieldOptions } from '@teable-group/core';
+import { NumberEditor } from '@teable-group/sdk/components';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
@@ -103,7 +104,7 @@ const createCellValue2GridDisplay =
           };
         }
 
-        const { showAs: optionShowAs, formatting } = field.options;
+        const { showAs: optionShowAs } = field.options;
         const showAs =
           optionShowAs == null
             ? undefined
@@ -116,14 +117,16 @@ const createCellValue2GridDisplay =
           return {
             type: CellType.Chart,
             data: cellValue as number[],
-            displayData: cellValue.map((v) =>
-              formatNumberToString(v, formatting as INumberFormatting)
-            ),
+            displayData: cellValue.map((v) => field.item2String(v)),
             readonly: isComputed,
             chartType: showAs.type as unknown as ChartType,
             color: showAs.color,
           };
         }
+
+        const onChange = (value: unknown) => {
+          record.updateCell(field.id, value ?? null);
+        };
 
         return {
           type: CellType.Number,
@@ -131,6 +134,15 @@ const createCellValue2GridDisplay =
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
           showAs: showAs as unknown as INumberShowAs,
+          customEditor: (props, editorRef) => (
+            <NumberEditor
+              ref={editorRef}
+              value={cellValue as number}
+              options={field.options as INumberFieldOptions}
+              onChange={onChange}
+              {...props}
+            />
+          ),
         };
       }
       case FieldType.MultipleSelect:
@@ -184,6 +196,27 @@ const createCellValue2GridDisplay =
           data: (cellValue as boolean) || false,
           readonly: isComputed,
           isMultiple,
+        };
+      }
+      case FieldType.Rating: {
+        const { icon, color, max } = field.options;
+
+        if (isMultiple) {
+          return {
+            type: CellType.Number,
+            data: cellValue as number,
+            displayData: field.cellValue2String(cellValue),
+            readonly: isComputed,
+          };
+        }
+
+        return {
+          type: CellType.Rating,
+          data: (cellValue as number) || 0,
+          readonly: isComputed,
+          icon,
+          color: ColorUtils.getHexForColor(color),
+          max,
         };
       }
       default: {

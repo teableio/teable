@@ -19,3 +19,10 @@ export const isPrintableKey = (event: KeyboardEvent) => {
     ((keyCode === 229 || keyCode === 0) && event.key !== Key.Shift)
   );
 };
+
+export const isNumberKey = (keyCode: number) => {
+  return (
+    (keyCode >= KeyCode.ClosedParen && keyCode <= KeyCode.OpenParen) ||
+    (keyCode >= KeyCode.Numpad0 && keyCode <= KeyCode.Numpad9)
+  );
+};

@@ -4,7 +4,7 @@ import { isEqual } from 'lodash';
 
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
-import { useMouse } from 'react-use';
+import { useClickAway, useMouse } from 'react-use';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
@@ -141,6 +141,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   }));
 
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const mousePosition = useMouse(stageRef);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
@@ -392,7 +393,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const cellRenderer = getCellRenderer(cell.type);
     if (cell.readonly) return;
     if (cellRenderer.needsHover && hoverCellPosition) {
-      const isBound = cellRenderer.checkWithinBound?.({
+      const isBound = cellRenderer.checkWithinBound?.(cell as never, {
         width: coordInstance.getColumnWidth(columnIndex),
         height: coordInstance.getRowHeight(rowIndex),
         hoverCellPosition,
@@ -471,15 +472,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     true
   );
 
+  useClickAway(containerRef, () => {
+    editorContainerRef.current?.saveValue?.();
+    setEditing(false);
+  });
+
   return (
-    <>
+    <div
+      ref={containerRef}
+      style={{
+        width,
+        height,
+        cursor,
+      }}
+    >
       <div
         ref={stageRef}
-        style={{
-          width,
-          height,
-          cursor,
-        }}
+        className="w-full h-full"
         onClick={onSmartClick}
         onMouseUp={onMouseUp}
         onMouseDown={onMouseDown}
@@ -535,8 +544,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onPaste={onPaste}
         onDelete={onDelete}
         onRowAppend={onRowAppend}
+        onRowExpand={onRowExpand}
       />
-    </>
+    </div>
   );
 };
 
