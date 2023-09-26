@@ -6,6 +6,7 @@ import type {
   ILinkFieldOptions,
   IMultipleSelectCellValue,
   INumberCellValue,
+  INumberFieldOptions,
   IRatingFieldOptions,
   ISelectFieldOptions,
   ISingleLineTextCellValue,
@@ -63,6 +64,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
           <NumberEditor
             ref={editorRef}
             className="h-8"
+            options={options as INumberFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
             disabled={disabled}

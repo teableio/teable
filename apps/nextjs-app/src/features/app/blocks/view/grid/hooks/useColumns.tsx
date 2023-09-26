@@ -1,5 +1,6 @@
 import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
-import type { IAttachmentCellValue } from '@teable-group/core';
+import type { IAttachmentCellValue, INumberFieldOptions } from '@teable-group/core';
+import { NumberEditor } from '@teable-group/sdk/components';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
@@ -123,12 +124,25 @@ const createCellValue2GridDisplay =
           };
         }
 
+        const onChange = (value: unknown) => {
+          record.updateCell(field.id, value ?? null);
+        };
+
         return {
           type: CellType.Number,
           data: cellValue as number,
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
           showAs: showAs as unknown as INumberShowAs,
+          customEditor: (props, editorRef) => (
+            <NumberEditor
+              ref={editorRef}
+              value={cellValue as number}
+              options={field.options as INumberFieldOptions}
+              onChange={onChange}
+              {...props}
+            />
+          ),
         };
       }
       case FieldType.MultipleSelect:

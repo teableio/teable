@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Colors } from '../colors';
 import type { CellValueType, FieldType } from '../constant';
 import { FieldCore } from '../field';
+import { parseStringToNumber } from '../formatting';
 
 export enum RatingIcon {
   Star = 'star',
@@ -73,11 +74,8 @@ export class RatingFieldCore extends FieldCore {
       return null;
     }
 
-    const num = Number(value);
-    if (Number.isNaN(num)) {
-      return null;
-    }
-    return Math.min(Math.round(num), this.options.max);
+    const num = parseStringToNumber(value);
+    return num == null ? null : Math.min(Math.round(num), this.options.max);
   }
 
   repair(value: unknown) {

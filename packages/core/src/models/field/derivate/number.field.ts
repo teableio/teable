@@ -2,10 +2,10 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import {
-  NumberFormattingType,
   defaultNumberFormatting,
   formatNumberToString,
   numberFormattingSchema,
+  parseStringToNumber,
 } from '../formatting';
 import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 
@@ -61,25 +61,7 @@ export class NumberFieldCore extends FieldCore {
       return null;
     }
 
-    const { type } = this.options.formatting;
-    const numberReg = /[^\d.+-]/g;
-    const symbolReg = /([+\-.])+/g;
-    let num: number;
-
-    if (type === NumberFormattingType.Currency) {
-      const numStr = String(value).replace(numberReg, '').replace(symbolReg, '$1');
-      num = parseFloat(numStr);
-    } else if (type === NumberFormattingType.Percent) {
-      const numStr = String(value).replace(numberReg, '');
-      num = parseFloat(numStr);
-    } else {
-      num = Number(value);
-    }
-
-    if (Number.isNaN(num)) {
-      return null;
-    }
-    return num;
+    return parseStringToNumber(value);
   }
 
   repair(value: unknown) {
