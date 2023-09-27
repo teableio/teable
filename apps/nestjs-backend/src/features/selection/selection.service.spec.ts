@@ -10,6 +10,8 @@ import {
   nullsToUndefined,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import type { DeepMockProxy } from 'jest-mock-extended';
+import { mockDeep, mockReset } from 'jest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -24,21 +26,28 @@ describe('selectionService', () => {
   let selectionService: SelectionService;
   let recordService: RecordService;
   let fieldService: FieldService;
-  let prismaService: PrismaService;
+  let prismaService: DeepMockProxy<PrismaService>;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, SelectionModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue(mockDeep<PrismaService>())
+      .compile();
 
     selectionService = module.get<SelectionService>(SelectionService);
     fieldService = module.get<FieldService>(FieldService);
     recordService = module.get<RecordService>(RecordService);
-    prismaService = module.get<PrismaService>(PrismaService);
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
+
+    prismaService = module.get<PrismaService>(
+      PrismaService
+    ) as unknown as DeepMockProxy<PrismaService>;
+    mockReset(prismaService);
   });
 
   const tableId = 'table1';
@@ -225,7 +234,8 @@ describe('selectionService', () => {
         },
       ];
 
-      jest.spyOn(prismaService.attachments, 'findMany').mockResolvedValue(mockAttachment);
+      prismaService.attachments.findMany.mockResolvedValue(mockAttachment);
+
       const result = await selectionService['collectionAttachment']({
         tableData,
         fields,
@@ -434,6 +444,10 @@ describe('selectionService', () => {
       jest.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
       jest.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
+
+      prismaService.$tx.mockImplementation(async (fn, _options) => {
+        await fn(prismaService);
+      });
 
       // Call the method
       const result = await selectionService.paste(tableId, viewId, pasteRo);

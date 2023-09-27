@@ -40,5 +40,5 @@ jobs:
         run: |
           yarn g:build
 
-      - name: Run Tests
+      - name: 🧪 Run Tests
         run: yarn g:test-unit
