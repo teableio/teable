@@ -38,8 +38,8 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          yarn workspaces foreach -ptv --include '@teable-group/*' --exclude '@teable-group/(app|backend)' run build
+          yarn workspaces foreach -tv --include '@teable-group/*' --exclude '@teable-group/(app|backend)' run build
 
       - name: 🧪 Run Tests
         run: |
-          yarn workspaces foreach -ptv --include '@teable-group/*' run test-unit
+          yarn workspaces foreach -tv --include '@teable-group/*' run test-unit
