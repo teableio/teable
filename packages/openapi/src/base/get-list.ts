@@ -16,7 +16,7 @@ export type IGetBasesListRo = z.infer<typeof getBaseListRoSchema>;
 export const GetBaseListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_LIST,
-  description: 'Get base station list by query',
+  description: 'Get base list by query',
   request: {
     query: getBaseListRoSchema,
   },
@@ -34,7 +34,7 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseList = async (query?: IGetBasesListRo) => {
-  return await axios.get<IGetBaseVo[]>(
+  return axios.get<IGetBaseVo[]>(
     urlBuilder(GET_BASE_LIST, {
       query,
     })

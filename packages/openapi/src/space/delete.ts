@@ -8,7 +8,7 @@ export const DELETE_SPACE = '/space/{spaceId}';
 export const DeleteSpaceRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_SPACE,
-  description: 'Delete a space station by spaceId',
+  description: 'Delete a space by spaceId',
   request: {
     params: z.object({
       spaceId: z.string(),

@@ -15,7 +15,7 @@ export type IGetSpaceVo = z.infer<typeof getSpaceVoSchema>;
 export const GetSpaceRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_SPACE,
-  description: 'Get a space station by spaceId',
+  description: 'Get a space by spaceId',
   request: {
     params: z.object({
       spaceId: z.string(),

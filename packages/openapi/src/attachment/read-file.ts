@@ -7,8 +7,7 @@ export const READ_FILE_URL = '/attachments/{token}';
 export const ReadFileRoute: RouteConfig = registerRoute({
   method: 'get',
   path: READ_FILE_URL,
-  description: 'upload attachment',
-  summary: 'Get file stream',
+  description: 'Upload attachment',
   request: {
     params: z.object({
       token: z.string(),

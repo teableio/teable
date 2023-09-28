@@ -3,15 +3,16 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DELETE_BASE = '/base/{baseId}';
+export const DELETE_TABLE = '/space/{spaceId}/table/{tableId}';
 
-export const DeleteBaseRoute: RouteConfig = registerRoute({
+export const DeleteTableRoute: RouteConfig = registerRoute({
   method: 'delete',
-  path: DELETE_BASE,
-  description: 'Delete a base by baseId',
+  path: DELETE_TABLE,
+  description: 'Delete a table',
   request: {
     params: z.object({
-      baseId: z.string(),
+      spaceId: z.string(),
+      tableId: z.string(),
     }),
   },
   responses: {
@@ -19,14 +20,15 @@ export const DeleteBaseRoute: RouteConfig = registerRoute({
       description: 'Deleted successfully',
     },
   },
-  tags: ['base'],
+  tags: ['table'],
 });
 
-export const deleteBase = async (baseId: string) => {
+export const deleteTable = async (spaceId: string, tableId: string) => {
   return axios.delete<null>(
-    urlBuilder(DELETE_BASE, {
+    urlBuilder(DELETE_TABLE, {
       params: {
-        baseId,
+        spaceId,
+        tableId,
       },
     })
   );

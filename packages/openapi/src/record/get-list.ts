@@ -10,7 +10,7 @@ export const GET_RECORDS_URL = '/table/{tableId}/record';
 export const GetRecordsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORDS_URL,
-  description: 'list of records',
+  description: 'List of records',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -19,7 +19,7 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'list of records',
+      description: 'List of records',
       content: {
         'application/json': {
           schema: recordsVoSchema,
@@ -31,7 +31,7 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
 });
 
 export const getRecords = async (tableId: string, query: IGetRecordsQuery) => {
-  return axios.post<IRecordsVo>(
+  return axios.get<IRecordsVo>(
     urlBuilder(GET_RECORDS_URL, {
       params: { tableId },
       query,

@@ -29,6 +29,7 @@ export const userMeRoute: RouteConfig = registerRoute({
       },
     },
   },
+  tags: ['auth'],
 });
 
 export const userMe = async () => {

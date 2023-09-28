@@ -22,7 +22,7 @@ export type IUpdateBaseVo = z.infer<typeof updateBaseVoSchema>;
 export const UpdateBaseRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_BASE,
-  description: 'Update a base station info',
+  description: 'Update a base info',
   request: {
     params: z.object({
       baseId: z.string(),

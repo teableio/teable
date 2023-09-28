@@ -10,7 +10,7 @@ export const GET_CELL_GRAPH_URL = '/base/:baseId/table/{tableId}/graph';
 export const GetCellGraphRoute: RouteConfig = registerRoute({
   method: 'post',
   path: GET_CELL_GRAPH_URL,
-  description: 'get cell references graph',
+  description: 'Get cell references graph',
   request: {
     params: z.object({
       tableId: z.string(),

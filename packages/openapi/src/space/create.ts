@@ -21,7 +21,7 @@ export type ICreateSpaceVo = z.infer<typeof createSpaceVoSchema>;
 export const CreateSpaceRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_SPACE,
-  description: 'Create a space station',
+  description: 'Create a space',
   request: {
     body: {
       content: {

@@ -26,7 +26,7 @@ export type ICreateBaseVo = z.infer<typeof createBaseVoSchema>;
 export const CreateBaseRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_BASE,
-  description: 'Create a base station',
+  description: 'Create a base',
   request: {
     body: {
       content: {

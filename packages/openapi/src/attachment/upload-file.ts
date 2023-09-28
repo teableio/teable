@@ -13,7 +13,7 @@ export type UploadFileRo = z.infer<typeof uploadFileRoSchema>;
 export const UploadFileRoute: RouteConfig = registerRoute({
   method: 'post',
   path: UPLOAD_FILE_URL,
-  description: 'upload attachment',
+  description: 'Upload attachment',
   request: {
     body: {
       content: {

@@ -18,7 +18,7 @@ export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;
 export const GetBaseRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE,
-  description: 'Get a base station by baseId',
+  description: 'Get a base by baseId',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -38,7 +38,7 @@ export const GetBaseRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseById = async (baseId: string) => {
-  return await axios.get<IGetBaseVo>(
+  return axios.get<IGetBaseVo>(
     urlBuilder(GET_BASE, {
       params: {
         baseId,

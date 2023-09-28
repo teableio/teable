@@ -17,7 +17,7 @@ export type IUpdateSpaceVo = z.infer<typeof updateSpaceVoSchema>;
 export const UpdateSpaceRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_SPACE,
-  description: 'Update a space station info',
+  description: 'Update a space info',
   request: {
     params: z.object({
       spaceId: z.string(),
