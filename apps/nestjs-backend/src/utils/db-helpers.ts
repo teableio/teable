@@ -1,6 +1,6 @@
 import type { Knex } from 'knex';
 import { get } from 'lodash';
-import { DriverClient } from 'src/utils/constants';
+import { DriverClient } from './constants';
 
 export function getDriverName(knex: Knex) {
   return get(knex, 'client.driverName', '');

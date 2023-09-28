@@ -38,12 +38,13 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          yarn g:build
+          yarn workspaces foreach -ptv --include '@teable-group/*' --exclude '@teable-group/(app|backend)' run build
 
       - name: 🕵️ Typecheck
         run: |
-          yarn g:typecheck
+          yarn workspaces foreach -ptv --from '@teable-group/*' run typecheck
 
       - name: 🔬 Linter
         run: |
-          yarn g:lint:everything
+          yarn workspaces foreach -ptv --include '@teable-group/*' run lint
+          yarn workspaces foreach -ptv --include '@teable-group/*' run lint-styles

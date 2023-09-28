@@ -158,12 +158,12 @@ docker.postgres.await:
 
 db-sqlite: ## db-sqlite
 	cd ./packages/db-main-prisma; \
-	echo '{ "PRISMA_PROVIDER": "sqlite" }' | mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma; \
+	echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma; \
 	yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
 db-postgres: docker.postgres.start docker.postgres.await ## db-postgres
 	cd ./packages/db-main-prisma; \
-	echo '{ "PRISMA_PROVIDER": "postgres" }' | mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma; \
+	echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma; \
 	yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
 db-run:		## db-run

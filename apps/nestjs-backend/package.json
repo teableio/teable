@@ -44,7 +44,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./jest-e2e.json --colors --logHeapUsage --verbose --silent --detectOpenHandles",
-    "test:sqlite:db": "PRISMA_DATABASE_URL=file:../../db/test.db && yarn workspace @teable-group/db-main-prisma db:sqlite:push && yarn test:e2e",
+    "test:sqlite:db": "PRISMA_DATABASE_URL=file:../../db/main.db && yarn test:e2e",
     "test:postgres:db": "PRISMA_DATABASE_URL=\"postgresql://testUser:testPassword@127.0.0.1:25432/teable_test?schema=public\" && yarn workspace @teable-group/db-main-prisma db:postgres:push && yarn test:e2e",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx,.graphql --cache --cache-location ../../.cache/eslint/nextjs-app.eslintcache",

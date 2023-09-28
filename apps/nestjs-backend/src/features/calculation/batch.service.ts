@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -6,6 +6,7 @@ import { Knex } from 'knex';
 import { groupBy, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
@@ -14,7 +15,7 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import { dbType2knexFormat } from '../field/util';
 import { IOpsMap } from './reference.service';
 
-interface IOpsData {
+export interface IOpsData {
   recordId: string;
   updateParam: {
     [dbFieldName: string]: unknown;
@@ -28,7 +29,8 @@ export class BatchService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel() private readonly knex: Knex,
+    @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
   private async completeMissingCtx(
@@ -223,47 +225,20 @@ export class BatchService {
       .replace('create table', 'create temporary table');
     await prisma.$executeRawUnsafe(createTempTableSql);
 
-    // 2.initialize temporary table data
-    const insertRowsData = opsData.map((data) => {
-      return {
-        __id: data.recordId,
-        __version: data.version + 1,
-        __last_modified_time: new Date().toISOString(),
-        __last_modified_by: userId,
-        ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
-          (pre, [fieldId, value]) => {
-            const field = fieldMap[fieldId];
-            const { dbFieldName } = field;
-            pre[dbFieldName] = field.convertCellValue2DBValue(value);
-            return pre;
-          },
-          {}
-        ),
-      };
+    const { insertTempTableSql, updateRecordSql } = this.dbProvider.executeUpdateRecordsSqlList({
+      dbTableName,
+      fieldMap,
+      opsData,
+      tempTableName,
+      columnNames,
+      userId,
     });
-    const insertTempTableSql = this.knex.insert(insertRowsData).into(tempTableName).toQuery();
+
+    // 2.initialize temporary table data
     await prisma.$executeRawUnsafe(insertTempTableSql);
 
     // 3.update data
-    const updateColumns = columnNames.reduce<{ [key: string]: unknown }>((pre, columnName) => {
-      pre[columnName] = this.knex.raw(`(select ?? from ?? where ?? = ??)`, [
-        columnName,
-        tempTableName,
-        '__id',
-        this.knex.ref(`${dbTableName}.__id`),
-      ]);
-      return pre;
-    }, {});
-    const updateSql = this.knex(dbTableName)
-      .update(updateColumns)
-      .whereExists(
-        this.knex
-          .select(this.knex.raw(1))
-          .from(tempTableName)
-          .where('__id', this.knex.ref(`${dbTableName}.__id`))
-      )
-      .toQuery();
-    await prisma.$executeRawUnsafe(updateSql);
+    await prisma.$executeRawUnsafe(updateRecordSql);
 
     // 4.delete temporary table
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
@@ -283,7 +258,7 @@ export class BatchService {
       };
     });
 
-    const insertTempTableSql = this.knex.insert(insertRowsData).into('ops').toQuery();
-    return this.prismaService.txClient().$executeRawUnsafe(insertTempTableSql);
+    const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
+    return this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
   }
 }

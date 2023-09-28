@@ -33,7 +33,6 @@ jobs:
       - name: 🏁 Initialize Database(s)
         run: |
           make db-${{ matrix.database-type }}
-        if: matrix.database-type != 'sqlite'
 
       - name: 🏗 Run build
         run: |
@@ -41,9 +40,9 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          yarn workspace @teable-group/nestjs-backend test:${{ matrix.database-type }}:db
+          yarn workspace @teable-group/backend test:${{ matrix.database-type }}:db
 
-      - name: Stop Database(s)
+      - name: ⛔ Stop Database(s)
         run: |
           make docker.down
         if: matrix.database-type != 'sqlite'

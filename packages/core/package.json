@@ -26,7 +26,7 @@
     "check-dist": "es-check -v",
     "check-size": "size-limit",
     "test": "run test-unit",
-    "test-unit": "jest --config ./jest.config.js --colors --logHeapUsage",
+    "test-unit": "jest --config ./jest.config.js --colors --logHeapUsage --silent",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {

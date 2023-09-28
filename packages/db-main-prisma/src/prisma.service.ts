@@ -65,11 +65,14 @@ export class PrismaService
     }
 
     await this.cls.runWith(this.cls.get(), async () => {
-      result = await super.$transaction<R>(async (prisma) => {
-        this.cls.set('tx.client', prisma);
-        this.cls.set('tx.id', nanoid());
-        return await fn(prisma);
-      }, options);
+      result = await super.$transaction<R>(
+        async (prisma) => {
+          this.cls.set('tx.client', prisma);
+          this.cls.set('tx.id', nanoid());
+          return await fn(prisma);
+        },
+        { maxWait: 60000, timeout: 600000 }
+      );
     });
     return result;
   }
