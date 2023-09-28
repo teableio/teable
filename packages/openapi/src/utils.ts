@@ -1,3 +1,5 @@
+import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+
 export const urlBuilder = (
   url: string,
   opt?: {
@@ -17,4 +19,15 @@ export const urlBuilder = (
     .join('&');
 
   return `${url}?${queryString}`;
+};
+
+const routes: RouteConfig[] = [];
+
+export const registerRoute = (route: RouteConfig) => {
+  routes.push(route);
+  return route;
+};
+
+export const getRoutes = () => {
+  return routes;
 };

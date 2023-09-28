@@ -5,7 +5,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldRo, IFieldVo, IRecord, IRecordsVo, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
-import type { AuthSchema } from '@teable-group/openapi';
+import type { ISignin } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import isCI from 'is-ci';
@@ -58,7 +58,7 @@ export async function signin(app: INestApplication, email: string, password: str
     .send({
       email,
       password,
-    } as AuthSchema.Signin)
+    } as ISignin)
     .expect(200);
   return {
     access_token: sessionResponse.body,

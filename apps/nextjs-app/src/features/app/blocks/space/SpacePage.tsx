@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BaseApi, SpaceApi } from '@teable-group/sdk/api';
+import { createSpace, getBaseList, getSpaceList } from '@teable-group/openapi';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -13,15 +13,15 @@ export const SpacePage: FC = () => {
 
   const { data: spaceList } = useQuery({
     queryKey: ['space-list'],
-    queryFn: SpaceApi.getSpaceList,
+    queryFn: getSpaceList,
   });
   const { data: baseList } = useQuery({
     queryKey: ['base-list'],
-    queryFn: () => BaseApi.getBaseList(),
+    queryFn: () => getBaseList(),
   });
 
-  const { mutate: createSpace, isLoading } = useMutation({
-    mutationFn: SpaceApi.createSpace,
+  const { mutate: createSpaceMutator, isLoading } = useMutation({
+    mutationFn: createSpace,
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['space-list'] });
       router.push({
@@ -37,7 +37,7 @@ export const SpacePage: FC = () => {
     <div ref={ref} className="w-full h-screen flex flex-col py-8">
       <div className="flex px-12 justify-between items-center">
         <h4>All Workspaces</h4>
-        <Button size={'sm'} disabled={isLoading} onClick={() => createSpace({})}>
+        <Button size={'sm'} disabled={isLoading} onClick={() => createSpaceMutator({})}>
           {isLoading && <Spin className="w-3 h-3" />}Create a workspace
         </Button>
       </div>

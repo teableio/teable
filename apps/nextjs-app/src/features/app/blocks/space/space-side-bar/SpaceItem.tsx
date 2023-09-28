@@ -1,5 +1,5 @@
 import { Component } from '@teable-group/icons';
-import type { SpaceSchema } from '@teable-group/openapi';
+import type { IGetSpaceVo } from '@teable-group/openapi';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import Link from 'next/link';
@@ -7,7 +7,7 @@ import { useRef } from 'react';
 import { useMount } from 'react-use';
 
 interface IProps {
-  space: SpaceSchema.IGetSpaceVo;
+  space: IGetSpaceVo;
   isActive: boolean;
 }
 

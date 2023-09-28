@@ -1,6 +1,6 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, HttpError } from '@teable-group/core';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable-group/openapi';
 import axios from 'axios';
 
 export class SsrApi {
@@ -52,7 +52,7 @@ export class SsrApi {
   }
 
   async getBaseById(baseId: string) {
-    return await this.axios.get<BaseSchema.IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
+    return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
   }
 }
 

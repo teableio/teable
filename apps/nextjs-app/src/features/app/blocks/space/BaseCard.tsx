@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Database, MoreHorizontal } from '@teable-group/icons';
-import type { BaseSchema } from '@teable-group/openapi';
-import { BaseApi } from '@teable-group/sdk/api';
+import type { IGetBaseVo } from '@teable-group/openapi';
+import { deleteBase, updateBase } from '@teable-group/openapi';
 import { Button, Card, CardContent, Input } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
@@ -9,7 +9,7 @@ import { useState, type FC, useRef } from 'react';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 
 interface IBaseCard {
-  base: BaseSchema.IGetBaseVo;
+  base: IGetBaseVo;
   className?: string;
 }
 
@@ -22,8 +22,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [baseName, setBaseName] = useState<string>(base.name);
 
-  const { mutateAsync: updateBase } = useMutation({
-    mutationFn: BaseApi.updateBase,
+  const { mutateAsync: updateBaseMutator } = useMutation({
+    mutationFn: updateBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-list'],
@@ -31,8 +31,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     },
   });
 
-  const { mutate: deleteBase } = useMutation({
-    mutationFn: BaseApi.deleteBase,
+  const { mutate: deleteBaseMutator } = useMutation({
+    mutationFn: deleteBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-list'],
@@ -46,7 +46,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       setRenaming(false);
       return;
     }
-    await updateBase({
+    await updateBaseMutator({
       baseId: base.id,
       updateBaseRo: { name },
     });
@@ -95,7 +95,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               </h3>
             )}
             <div className="shrink-0">
-              <BaseActionTrigger onDelete={() => deleteBase(base.id)} onRename={onRename}>
+              <BaseActionTrigger onDelete={() => deleteBaseMutator(base.id)} onRename={onRename}>
                 <Button className="opacity-0 group-hover:opacity-100" variant={'ghost'} size={'sm'}>
                   <MoreHorizontal />
                 </Button>

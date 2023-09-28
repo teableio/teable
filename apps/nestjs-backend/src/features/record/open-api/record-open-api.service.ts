@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
-  IOtOperation,
   IRecord,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
@@ -25,14 +24,7 @@ import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
-import { createFieldInstanceByRaw } from '../../field/model/factory';
-import type { IFieldInstance } from '../../field/model/factory';
 import { RecordService } from '../record.service';
-
-interface ICreateRecordOpMeta {
-  snapshot: IRecord;
-  ops?: IOtOperation[];
-}
 
 @Injectable()
 export class RecordOpenApiService {
@@ -195,18 +187,6 @@ export class RecordOpenApiService {
     return this.getRecordSnapshotsAfterSubmit(tableId, records);
   }
 
-  private async prepareDoc(doc: Doc) {
-    if (doc.data) {
-      return doc;
-    }
-    return new Promise<Doc>((resolve, reject) => {
-      doc.fetch((err) => {
-        if (err) return reject(err);
-        resolve(doc);
-      });
-    });
-  }
-
   private async appendDefaultValue(
     tableId: string,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
@@ -242,19 +222,6 @@ export class RecordOpenApiService {
     }
     return defaultValue;
   }
-
-  private async submitOps<T>(doc: Doc<T>, ops: IOtOperation[]): Promise<T> {
-    await this.prepareDoc(doc);
-    return await new Promise((resolve, reject) => {
-      doc.submitOp(ops, undefined, (error) => {
-        if (error) {
-          return reject(error);
-        }
-        resolve(doc.data);
-      });
-    });
-  }
-
   async createRecords(
     tableId: string,
     recordsRo: { id?: string; fields: Record<string, unknown> }[],
@@ -307,103 +274,6 @@ export class RecordOpenApiService {
         }
         return snapshot;
       }),
-    };
-  }
-
-  private async getFieldInstanceMap(tableId: string, fieldKeyType: FieldKeyType | undefined) {
-    const allFields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-    });
-
-    return allFields.reduce<{ [name: string]: IFieldInstance }>((pre, cur) => {
-      const field = createFieldInstanceByRaw(cur);
-      if (fieldKeyType !== FieldKeyType.Id) {
-        pre[cur.name] = field;
-      } else {
-        pre[cur.id] = field;
-      }
-      return pre;
-    }, {});
-  }
-
-  multipleCreateRecords2Ops(
-    fieldName2IdMap: { [fieldIdOrName: string]: IFieldInstance },
-    createRecordsDto: ICreateRecordsRo
-  ): ICreateRecordOpMeta[] {
-    return createRecordsDto.records.map<ICreateRecordOpMeta>((record) => {
-      const recordId = generateRecordId();
-      const snapshot = RecordOpBuilder.creator.build({
-        id: recordId,
-        fields: {},
-        recordOrder: {},
-      });
-
-      const setRecordOps = Object.entries(record.fields).map(([fieldNameOrId, value]) => {
-        const field = fieldName2IdMap[fieldNameOrId];
-        const newCellValue = field.repair(value);
-
-        return RecordOpBuilder.editor.setRecord.build({
-          fieldId: field.id,
-          oldCellValue: null,
-          newCellValue,
-        });
-      });
-
-      return {
-        snapshot,
-        ops: setRecordOps.length ? setRecordOps : undefined,
-      };
-    }, []);
-  }
-
-  async multipleUpdateRecords2Ops(
-    tableId: string,
-    updateRecordByIdsRo: (IUpdateRecordRo & { recordId: string })[]
-  ) {
-    const { fieldKeyType = FieldKeyType.Name } = updateRecordByIdsRo[0];
-    const dbFieldNameSet = new Set<string>();
-
-    const fieldMap = await this.getFieldInstanceMap(tableId, fieldKeyType);
-
-    updateRecordByIdsRo.forEach((updateRecordByIdRo) => {
-      Object.keys(updateRecordByIdRo.record.fields).forEach((k) => dbFieldNameSet.add(k));
-    });
-    const projection = Array.from(dbFieldNameSet).reduce<Record<string, boolean>>((pre, cur) => {
-      pre[cur] = true;
-      return pre;
-    }, {});
-
-    const recordIds = updateRecordByIdsRo.map((updateRecordByIdRo) => updateRecordByIdRo.recordId);
-
-    // get old record value from db
-    const snapshots = await this.recordService.getSnapshotBulk(
-      tableId,
-      recordIds,
-      projection,
-      fieldKeyType
-    );
-
-    return {
-      opMeta: updateRecordByIdsRo.map((updateRecordByIdRo, index) => {
-        const snapshot = snapshots[index].data;
-        const {
-          record: { fields },
-        } = updateRecordByIdRo;
-
-        const setRecordOps = Object.entries(fields).map(([fieldNameOrId, value]) => {
-          const field = fieldMap[fieldNameOrId];
-          const oldCellValue = snapshot.fields[fieldNameOrId];
-          const newCellValue = field.repair(value);
-          return RecordOpBuilder.editor.setRecord.build({
-            fieldId: field.id,
-            oldCellValue,
-            newCellValue,
-          });
-        });
-
-        return setRecordOps.length ? setRecordOps : undefined;
-      }, []),
-      fieldMap,
     };
   }
 

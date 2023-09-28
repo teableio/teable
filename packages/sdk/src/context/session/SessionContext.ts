@@ -1,7 +1,7 @@
-import type { AuthSchema } from '@teable-group/openapi';
+import type { IUserMeVo } from '@teable-group/openapi';
 import React from 'react';
 
-export type IUser = AuthSchema.UserMeVo;
+export type IUser = IUserMeVo;
 
 export type ISession = {
   user?: IUser;

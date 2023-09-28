@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BaseApi, SpaceApi } from '@teable-group/sdk/api';
+import { getSpaceById, getBaseList } from '@teable-group/openapi';
 import { useRouter } from 'next/router';
 import { useRef, type FC } from 'react';
 import { SpaceCard } from './SpaceCard';
@@ -10,12 +10,12 @@ export const SpaceInnerPage: FC = () => {
   const spaceId = router.query.spaceId as string;
   const { data: spaceData } = useQuery({
     queryKey: ['space', spaceId],
-    queryFn: ({ queryKey }) => SpaceApi.getSpaceById(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
   });
 
   const { data: baseList } = useQuery({
     queryKey: ['base-list', spaceId],
-    queryFn: ({ queryKey }) => BaseApi.getBaseList({ spaceId: queryKey[1] }),
+    queryFn: ({ queryKey }) => getBaseList({ spaceId: queryKey[1] }),
   });
 
   const space = spaceData?.data;

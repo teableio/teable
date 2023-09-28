@@ -1,7 +1,7 @@
-import type { AttachmentSchema } from '@teable-group/openapi';
+import type { INotifyVo } from '@teable-group/openapi';
+import { getSignature, notify } from '@teable-group/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
-import { AttachmentApi } from '../../../../api';
 
 interface IUploadTask {
   file: IFile;
@@ -17,7 +17,7 @@ export interface IFile {
   instance: File;
 }
 
-type ISuccessCallback = (file: IFile, attachment: AttachmentSchema.NotifyVo) => void;
+type ISuccessCallback = (file: IFile, attachment: INotifyVo) => void;
 
 type IErrorCallback = (file: IFile, error?: string) => void;
 
@@ -71,7 +71,7 @@ export class AttachmentManager {
     uploadTask.status = Status.Uploading;
 
     try {
-      const res = await AttachmentApi.getSignature(); // Assuming you have an AttachmentApi that provides the upload URL
+      const res = await getSignature(); // Assuming you have an AttachmentApi that provides the upload URL
       if (!res.data) {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
         return;
@@ -91,7 +91,7 @@ export class AttachmentManager {
         },
       });
 
-      const notifyRes = await AttachmentApi.notify(secret);
+      const notifyRes = await notify(secret);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
         return;
@@ -102,7 +102,7 @@ export class AttachmentManager {
     }
   }
 
-  completeUpload(uploadTask: IUploadTask, attachment: AttachmentSchema.NotifyVo) {
+  completeUpload(uploadTask: IUploadTask, attachment: INotifyVo) {
     uploadTask.status = Status.Completed;
     uploadTask.successCallback(uploadTask.file, attachment);
 

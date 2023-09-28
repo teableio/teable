@@ -1,3 +1,5 @@
-export * as SpaceSchema from './schema';
-export * as SpacePath from './path';
-export * as SpaceRoute from './route';
+export * from './create';
+export * from './delete';
+export * from './get-list';
+export * from './get';
+export * from './update';
