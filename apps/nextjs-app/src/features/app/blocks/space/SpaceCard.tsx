@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal } from '@teable-group/icons';
-import type { BaseSchema, SpaceSchema } from '@teable-group/openapi';
-import { BaseApi, SpaceApi } from '@teable-group/sdk/api';
+import type { IGetSpaceVo, IGetBaseVo } from '@teable-group/openapi';
+import { createBase, deleteSpace, updateSpace } from '@teable-group/openapi';
 import {
   Button,
   Card,
@@ -16,8 +16,8 @@ import { BaseCard } from './BaseCard';
 import { SpaceActionTrigger } from './component/SpaceActionTrigger';
 
 interface ISpaceCard {
-  space: SpaceSchema.IGetSpaceVo;
-  bases?: BaseSchema.IGetBaseVo[];
+  space: IGetSpaceVo;
+  bases?: IGetBaseVo[];
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { space, bases } = props;
@@ -28,22 +28,22 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   const [spaceName, setSpaceName] = useState<string>(space.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { mutate: createBase, isLoading: createBaseLoading } = useMutation({
-    mutationFn: BaseApi.createBase,
+  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+    mutationFn: createBase,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: spaceId ? ['base-list', spaceId] : ['base-list'] });
     },
   });
 
-  const { mutate: deleteSpace } = useMutation({
-    mutationFn: SpaceApi.deleteSpace,
+  const { mutate: deleteSpaceMutator } = useMutation({
+    mutationFn: deleteSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['space-list'] });
     },
   });
 
-  const { mutateAsync: updateSpace } = useMutation({
-    mutationFn: SpaceApi.updateSpace,
+  const { mutateAsync: updateSpaceMutator } = useMutation({
+    mutationFn: updateSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['space-list'] });
     },
@@ -65,7 +65,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
       setRenaming(false);
       return;
     }
-    await updateSpace({
+    await updateSpaceMutator({
       spaceId: space.id,
       updateSpaceRo: { name },
     });
@@ -95,12 +95,12 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               variant={'outline'}
               size={'xs'}
               disabled={createBaseLoading}
-              onClick={() => createBase({ spaceId: space.id })}
+              onClick={() => createBaseMutator({ spaceId: space.id })}
             >
               Create Base
             </Button>
             <SpaceActionTrigger
-              onDelete={() => deleteSpace(space.id)}
+              onDelete={() => deleteSpaceMutator(space.id)}
               onRename={() => setRenaming(true)}
             >
               <Button variant={'outline'} size={'xs'}>

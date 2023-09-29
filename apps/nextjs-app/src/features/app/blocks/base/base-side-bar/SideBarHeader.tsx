@@ -2,7 +2,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useQuery } from '@tanstack/react-query';
 import { ChevronsLeft, TeableNew } from '@teable-group/icons';
-import { BaseApi, useIsHydrated } from '@teable-group/sdk';
+import { getBaseById } from '@teable-group/openapi';
+import { useIsHydrated } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { ThemePicker } from '../../../components/ThemePicker';
 
@@ -12,7 +13,7 @@ export const SideBarHeader: React.FC = () => {
   const baseId = router.query.baseId as string;
   const { data } = useQuery({
     queryKey: ['base', baseId],
-    queryFn: ({ queryKey }) => BaseApi.getBaseById(queryKey[1]),
+    queryFn: ({ queryKey }) => getBaseById(queryKey[1]),
   });
 
   const backSpace = () => {

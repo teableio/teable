@@ -1,13 +1,13 @@
-import { SelectionSchema } from '@teable-group/openapi';
-import { SelectionApi, useTableId, useViewId } from '@teable-group/sdk';
+import { clear, copy, paste, RangeType } from '@teable-group/openapi';
+import { useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
 import { SelectionRegionType } from '../../../grid';
 import type { CombinedSelection } from '../../../grid/managers';
 
 const rangeTypes = {
-  [SelectionRegionType.Columns]: SelectionSchema.RangeType.Columns,
-  [SelectionRegionType.Rows]: SelectionSchema.RangeType.Rows,
+  [SelectionRegionType.Columns]: RangeType.Columns,
+  [SelectionRegionType.Rows]: RangeType.Rows,
   [SelectionRegionType.Cells]: undefined,
   [SelectionRegionType.None]: undefined,
 };
@@ -19,7 +19,7 @@ export const useSelectionOperation = () => {
 
   const copyHeaderKey = 'teable_copy_header';
 
-  const copy = useCallback(
+  const doCopy = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
@@ -31,7 +31,7 @@ export const useSelectionOperation = () => {
 
       const type = rangeTypes[selection.type];
 
-      const { data } = await SelectionApi.copy(tableId, viewId, {
+      const { data } = await copy(tableId, viewId, {
         ranges,
         ...(type ? { type } : {}),
       });
@@ -43,7 +43,7 @@ export const useSelectionOperation = () => {
     [tableId, toast, viewId]
   );
 
-  const paste = useCallback(
+  const doPaste = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
@@ -55,7 +55,7 @@ export const useSelectionOperation = () => {
       const header = headerStr ? JSON.parse(headerStr) : undefined;
       const ranges = selection.ranges;
       const content = await navigator.clipboard.readText();
-      await SelectionApi.paste(tableId, viewId, {
+      await paste(tableId, viewId, {
         content,
         cell: ranges[0],
         header,
@@ -65,7 +65,7 @@ export const useSelectionOperation = () => {
     [tableId, toast, viewId]
   );
 
-  const clear = useCallback(
+  const doClear = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
         return;
@@ -76,7 +76,7 @@ export const useSelectionOperation = () => {
 
       const type = rangeTypes[selection.type];
 
-      await SelectionApi.clear(tableId, viewId, {
+      await clear(tableId, viewId, {
         ranges: selection.ranges,
         ...(type ? { type } : {}),
       });
@@ -86,5 +86,5 @@ export const useSelectionOperation = () => {
     [tableId, toast, viewId]
   );
 
-  return { copy, paste, clear };
+  return { copy: doCopy, paste: doPaste, clear: doClear };
 };

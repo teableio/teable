@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { IdPrefix, generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from 'src/types/cls';
 import { RecordService } from '../record/record.service';
@@ -78,7 +78,7 @@ export class BaseService {
     });
   }
 
-  async createBase(createBaseRo: BaseSchema.ICreateBaseRo) {
+  async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
     const { name, spaceId } = createBaseRo;
 
@@ -110,7 +110,7 @@ export class BaseService {
     });
   }
 
-  async updateBase(baseId: string, updateBaseRo: BaseSchema.IUpdateBaseRo) {
+  async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
     const userId = this.cls.get('user.id');
 
     return await this.prismaService.base.update({

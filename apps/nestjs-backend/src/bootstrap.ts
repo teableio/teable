@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
-import { openApiDocumentation } from '@teable-group/openapi';
+import { getOpenApiDocumentation } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
@@ -35,27 +35,28 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 
   const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
+  const openApiDocumentation = getOpenApiDocumentation();
 
-  if (swaggerConfig?.enabled) {
+  if (!swaggerConfig?.disabled) {
     const jsonString = JSON.stringify(openApiDocumentation);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     SwaggerModule.setup('/docs', app, openApiDocumentation as any);
+
+    // Instead of using SwaggerModule.setup() you call this module
+    const redocOptions: RedocOptions = {
+      logo: {
+        backgroundColor: '#F0F0F0',
+        altText: 'Teable logo',
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
   }
 
   if (securityWebConfig?.cors.enabled) {
     app.enableCors();
   }
-
-  const redocOptions: RedocOptions = {
-    logo: {
-      backgroundColor: '#F0F0F0',
-      altText: 'Teable logo',
-    },
-  };
-  // Instead of using SwaggerModule.setup() you call this module
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
 }
 
 export async function bootstrap() {

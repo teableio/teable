@@ -1,3 +1,5 @@
-export * as BaseSchema from './schema';
-export * as BasePath from './path';
-export * as BaseRoute from './route';
+export * from './create';
+export * from './delete';
+export * from './get';
+export * from './get-list';
+export * from './update';

@@ -1,5 +1,5 @@
 import type { ITableVo } from '@teable-group/core';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable-group/openapi';
 import { SessionProvider } from '@teable-group/sdk';
 import type { IUser } from '@teable-group/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable-group/sdk/context';
@@ -13,7 +13,7 @@ import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
 export const BaseLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
-  baseServerData: BaseSchema.IGetBaseVo;
+  baseServerData: IGetBaseVo;
   user?: IUser;
 }> = ({ children, tableServerData, baseServerData, user }) => {
   const router = useRouter();

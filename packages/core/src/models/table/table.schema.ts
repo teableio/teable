@@ -4,7 +4,7 @@ import { fieldRoSchema, fieldVoSchema } from '../field';
 import { createRecordsRoSchema, fieldKeyTypeRoSchema, recordSchema } from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';
 
-export const fullTableVoSchema = z
+export const tableFullVoSchema = z
   .object({
     id: z.string().startsWith(IdPrefix.Table).openapi({
       description: 'The id of table.',
@@ -44,9 +44,9 @@ export const fullTableVoSchema = z
     description: 'Complete table structure data and initial record data.',
   });
 
-export type ITableFullVo = z.infer<typeof fullTableVoSchema>;
+export type ITableFullVo = z.infer<typeof tableFullVoSchema>;
 
-export const tableVoSchema = fullTableVoSchema.partial({
+export const tableVoSchema = tableFullVoSchema.partial({
   fields: true,
   views: true,
   records: true,
@@ -54,7 +54,7 @@ export const tableVoSchema = fullTableVoSchema.partial({
 
 export type ITableVo = z.infer<typeof tableVoSchema>;
 
-export const tableRoSchema = fullTableVoSchema
+export const tableRoSchema = tableFullVoSchema
   .omit({
     id: true,
     dbTableName: true,
@@ -113,7 +113,7 @@ export type ITableListVo = z.infer<typeof tableListVoSchema>;
 
 export const getTableQuerySchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
-    description: 'The id of view.',
+    description: 'Which view to get the data from.',
   }),
   includeContent: z
     .string()

@@ -1,5 +1,5 @@
 import type { ITableVo } from '@teable-group/core';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable-group/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
@@ -24,7 +24,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
 
 Node.getLayout = function getLayout(
   page: ReactElement,
-  pageProps: { tableServerData: ITableVo[]; baseServerData: BaseSchema.IGetBaseVo }
+  pageProps: { tableServerData: ITableVo[]; baseServerData: IGetBaseVo }
 ) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { generateSpaceId, getUniqName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { SpaceSchema } from '@teable-group/openapi';
+import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 
@@ -50,7 +50,7 @@ export class SpaceService {
 
   async createSpaceBySignup(
     prisma: Prisma.TransactionClient,
-    createSpaceRo: SpaceSchema.ICreateSpaceRo,
+    createSpaceRo: ICreateSpaceRo,
     userId: string
   ) {
     const uniqName = createSpaceRo.name ?? 'Workspace';
@@ -69,7 +69,7 @@ export class SpaceService {
     });
   }
 
-  async createSpace(createSpaceRo: SpaceSchema.ICreateSpaceRo) {
+  async createSpace(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
 
     const spaceList = await this.prismaService.space.findMany({
@@ -93,7 +93,7 @@ export class SpaceService {
     });
   }
 
-  async updateSpace(spaceId: string, updateSpaceRo: SpaceSchema.IUpdateSpaceRo) {
+  async updateSpace(spaceId: string, updateSpaceRo: IUpdateSpaceRo) {
     const userId = this.cls.get('user.id');
 
     return await this.prismaService.space.update({

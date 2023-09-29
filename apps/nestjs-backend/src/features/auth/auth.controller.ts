@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import { AuthSchema } from '@teable-group/openapi';
+import { ISignup, signupSchema } from '@teable-group/openapi';
 import { Response } from 'express';
 import { AUTH_COOKIE } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -36,7 +36,7 @@ export class AuthController {
   @Public()
   @Post('signup')
   async signup(
-    @Body(new ZodValidationPipe(AuthSchema.signupSchema)) body: AuthSchema.Signup,
+    @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
     @Res({ passthrough: true }) res: Response
   ) {
     // eslint-disable-next-line @typescript-eslint/naming-convention

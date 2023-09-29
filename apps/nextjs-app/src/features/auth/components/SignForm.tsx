@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import type { HttpError } from '@teable-group/core';
-import { AuthSchema } from '@teable-group/openapi';
-import { AuthApi } from '@teable-group/sdk/api';
+import type { ISignin } from '@teable-group/openapi';
+import { signup, signin, signinSchema, signupSchema } from '@teable-group/openapi';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
@@ -19,20 +19,26 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const submitMutation = useMutation({
-    mutationFn: ({ type, form }: { type: 'signin' | 'signup'; form: AuthSchema.Signin }) => {
-      return AuthApi[type](form);
+    mutationFn: ({ type, form }: { type: 'signin' | 'signup'; form: ISignin }) => {
+      if (type === 'signin') {
+        return signin(form);
+      }
+      if (type === 'signup') {
+        return signup(form);
+      }
+      throw new Error('Invalid type');
     },
   });
 
   const validation = useCallback(
-    (form: AuthSchema.Signin) => {
+    (form: ISignin) => {
       if (type === 'signin') {
-        const res = AuthSchema.signinSchema.safeParse(form);
+        const res = signinSchema.safeParse(form);
         if (!res.success) {
           return { error: fromZodError(res.error).message };
         }
       }
-      const res = AuthSchema.signupSchema.safeParse(form);
+      const res = signupSchema.safeParse(form);
       if (!res.success) {
         return { error: fromZodError(res.error).message };
       }

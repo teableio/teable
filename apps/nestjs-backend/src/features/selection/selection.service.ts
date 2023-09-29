@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { SelectionSchema } from '@teable-group/openapi';
+import type { CopyRo, PasteRo, PasteVo, ClearRo } from '@teable-group/openapi';
+import { RangeType } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
 import { FieldSupplementService } from '../field/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -79,13 +80,13 @@ export class SelectionService {
     tableId: string,
     viewId: string,
     ranges: number[][],
-    type?: SelectionSchema.RangeType
+    type?: RangeType
   ) {
     switch (type) {
-      case SelectionSchema.RangeType.Columns: {
+      case RangeType.Columns: {
         return await this.columnsSelectionCtx(tableId, viewId, ranges);
       }
-      case SelectionSchema.RangeType.Rows: {
+      case RangeType.Rows: {
         return await this.rowsSelectionCtx(tableId, viewId, ranges);
       }
       default:
@@ -235,7 +236,7 @@ export class SelectionService {
     return updateRecordsRo;
   }
 
-  async copy(tableId: string, viewId: string, query: SelectionSchema.CopyRo) {
+  async copy(tableId: string, viewId: string, query: CopyRo) {
     const { ranges, type } = query;
     const rangesArray = JSON.parse(ranges) as number[][];
     const { fields, records } = await this.getSelectionCtxByRange(
@@ -256,7 +257,7 @@ export class SelectionService {
     };
   }
 
-  async paste(tableId: string, viewId: string, pasteRo: SelectionSchema.PasteRo) {
+  async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
     const { cell, content, header } = pasteRo;
     const [col, row] = cell;
     const tableData = this.parseCopyContent(content);
@@ -280,7 +281,7 @@ export class SelectionService {
       tableRowCount,
     ]);
 
-    const updateRange: SelectionSchema.PasteVo['ranges'] = [cell, cell];
+    const updateRange: PasteVo['ranges'] = [cell, cell];
 
     await this.prismaService.$tx(async () => {
       // Expansion col
@@ -310,7 +311,7 @@ export class SelectionService {
     return updateRange;
   }
 
-  async clear(tableId: string, viewId: string, clearRo: SelectionSchema.ClearRo) {
+  async clear(tableId: string, viewId: string, clearRo: ClearRo) {
     const { ranges, type } = clearRo;
     const { fields, records } = await this.getSelectionCtxByRange(tableId, viewId, ranges, type);
     const fieldInstances = fields.map(createFieldInstanceByVo);
