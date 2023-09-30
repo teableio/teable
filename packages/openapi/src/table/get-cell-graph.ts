@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_CELL_GRAPH_URL = '/base/:baseId/table/{tableId}/graph';
+export const GET_CELL_GRAPH_URL = '/base/{baseId}/table/{tableId}/graph';
 
 export const GetCellGraphRoute: RouteConfig = registerRoute({
   method: 'post',
