@@ -26,10 +26,8 @@ export const DeleteFieldRoute: RouteConfig = registerRoute({
 export const deleteField = async (tableId: string, fieldId: string) => {
   return axios.delete<null>(
     urlBuilder(DELETE_FIELD, {
-      params: {
-        tableId,
-        fieldId,
-      },
+      tableId,
+      fieldId,
     })
   );
 };

@@ -37,9 +37,7 @@ export const GetSpaceRoute: RouteConfig = registerRoute({
 export const getSpaceById = async (spaceId: string) => {
   return await axios.get<IGetSpaceVo>(
     urlBuilder(GET_SPACE, {
-      params: {
-        spaceId,
-      },
+      spaceId,
     })
   );
 };

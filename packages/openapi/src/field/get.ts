@@ -33,10 +33,8 @@ export const GetFieldRoute: RouteConfig = registerRoute({
 export const getFieldById = async (tableId: string, fieldId: string) => {
   return axios.get<IFieldVo>(
     urlBuilder(GET_FIELD, {
-      params: {
-        tableId,
-        fieldId,
-      },
+      tableId,
+      fieldId,
     })
   );
 };

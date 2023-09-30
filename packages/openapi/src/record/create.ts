@@ -37,5 +37,5 @@ export const CreateRecordRoute: RouteConfig = registerRoute({
 });
 
 export const createRecords = async (tableId: string, recordsRo: ICreateRecordsRo) => {
-  return axios.post<ICreateRecordsVo>(urlBuilder(CREATE_RECORD, { query: { tableId } }), recordsRo);
+  return axios.post<ICreateRecordsVo>(urlBuilder(CREATE_RECORD, { tableId }), recordsRo);
 };

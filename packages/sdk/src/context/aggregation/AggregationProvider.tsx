@@ -55,10 +55,10 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   useEffect(() => {
     if (tableId == null || viewId == null || !isHydrated) return;
 
-    View.getViewAggregation(tableId, viewId).then((res) => {
+    View.getViewAggregations(tableId, viewId).then((res) => {
       setViewAggregation({
         [viewId]: {
-          ...res,
+          ...res.data,
           executionTime: new Date().getTime(),
         },
       });

@@ -44,10 +44,8 @@ export const updateRecord = async (
 ) => {
   return axios.put<IRecord>(
     urlBuilder(UPDATE_RECORD, {
-      params: {
-        tableId,
-        recordId,
-      },
+      tableId,
+      recordId,
     }),
     recordRo
   );

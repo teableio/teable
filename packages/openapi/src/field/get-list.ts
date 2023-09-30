@@ -28,5 +28,5 @@ export const GetFieldListRoute: RouteConfig = registerRoute({
 });
 
 export const getFieldList = async (tableId: string, query: IGetFieldsQuery) => {
-  return axios.get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { params: { tableId }, query }));
+  return axios.get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query });
 };

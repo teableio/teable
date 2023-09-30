@@ -33,8 +33,8 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
 export const getRecords = async (tableId: string, query: IGetRecordsQuery) => {
   return axios.get<IRecordsVo>(
     urlBuilder(GET_RECORDS_URL, {
-      params: { tableId },
-      query,
-    })
+      tableId,
+    }),
+    { params: query }
   );
 };

@@ -1,3 +1,4 @@
+export * from './axios';
 export * from './generate.schema';
 export * from './attachment';
 export * from './record';
@@ -7,3 +8,5 @@ export * from './auth';
 export * from './space';
 export * from './base';
 export * from './field';
+export * from './view';
+export * from './aggregation';

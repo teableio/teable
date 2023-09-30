@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DELETE_TABLE = '/space/{spaceId}/table/{tableId}';
+export const DELETE_TABLE = '/base/{baseId}/table/{tableId}';
 
 export const DeleteTableRoute: RouteConfig = registerRoute({
   method: 'delete',
@@ -11,7 +11,7 @@ export const DeleteTableRoute: RouteConfig = registerRoute({
   description: 'Delete a table',
   request: {
     params: z.object({
-      spaceId: z.string(),
+      baseId: z.string(),
       tableId: z.string(),
     }),
   },
@@ -23,13 +23,11 @@ export const DeleteTableRoute: RouteConfig = registerRoute({
   tags: ['table'],
 });
 
-export const deleteTable = async (spaceId: string, tableId: string) => {
+export const deleteTable = async (baseId: string, tableId: string) => {
   return axios.delete<null>(
     urlBuilder(DELETE_TABLE, {
-      params: {
-        spaceId,
-        tableId,
-      },
+      baseId,
+      tableId,
     })
   );
 };

@@ -5,7 +5,7 @@ export async function tableContext2Prompt(tableId: string | undefined, viewId: s
     return '';
   }
 
-  const fields = await Field.getFields(tableId, viewId);
+  const fields = (await Field.getFields(tableId, { viewId })).data;
   const fieldDefine = fields
     .map((field) => {
       return `${field.name}|${field.type}|${JSON.stringify(field.options)};`;

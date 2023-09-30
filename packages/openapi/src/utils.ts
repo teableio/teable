@@ -1,24 +1,14 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 
-export const urlBuilder = (
-  url: string,
-  opt?: {
-    query?: Record<string, unknown>;
-    params?: Record<string, unknown>;
+export const urlBuilder = (url: string, params?: Record<string, unknown>) => {
+  if (!params) {
+    return url;
   }
-) => {
-  const { query = {}, params = {} } = opt || {};
+
   Object.entries(params).forEach(([key, value]) => {
     url = url.replace(`{${key}}`, encodeURIComponent(String(value)));
   });
-
-  const queryString = Object.entries(query)
-    .map(([key, value]) => {
-      return `${key}=${value}`;
-    })
-    .join('&');
-
-  return `${url}?${queryString}`;
+  return url;
 };
 
 const routes: RouteConfig[] = [];

@@ -52,9 +52,7 @@ export const updateBase = async (params: { baseId: string; updateBaseRo: IUpdate
   const { baseId, updateBaseRo } = params;
   return axios.patch<IUpdateBaseVo>(
     urlBuilder(UPDATE_BASE, {
-      params: {
-        baseId,
-      },
+      baseId,
     }),
     updateBaseRo
   );

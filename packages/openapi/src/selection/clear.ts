@@ -48,7 +48,8 @@ export const ClearRoute: RouteConfig = registerRoute({
 export const clear = async (tableId: string, viewId: string, clearRo: ClearRo) => {
   return axios.post<null>(
     urlBuilder(CLEAR_URL, {
-      params: { tableId, viewId },
+      tableId,
+      viewId,
     }),
     clearRo
   );

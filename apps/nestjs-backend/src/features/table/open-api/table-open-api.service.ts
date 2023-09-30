@@ -22,6 +22,7 @@ import { ShareDbService } from '../../../share-db/share-db.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { RecordService } from '../../record/record.service';
 import { createViewInstanceByRo } from '../../view/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 
@@ -33,6 +34,7 @@ export class TableOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly recordService: RecordService,
     private readonly fieldCreatingService: FieldCreatingService
   ) {}
 
@@ -184,5 +186,27 @@ export class TableOpenApiService {
         timeout: 100000,
       }
     );
+  }
+
+  async sqlQuery(tableId: string, viewId: string, sql: string) {
+    this.logger.log('sqlQuery:sql: ' + sql);
+    const { queryBuilder } = await this.recordService.buildQuery(tableId, {
+      type: IdPrefix.Record,
+      viewId,
+      limit: -1,
+    });
+    const baseQuery = queryBuilder.toString();
+    const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const combinedQuery = `
+      WITH base AS (${baseQuery})
+      ${sql.replace(dbTableName, 'base')};
+    `;
+    this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
+
+    return this.prismaService.$queryRawUnsafe(combinedQuery);
   }
 }

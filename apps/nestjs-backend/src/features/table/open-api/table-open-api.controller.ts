@@ -8,6 +8,7 @@ import {
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
+import { ISqlQuerySchema, sqlQuerySchema } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { TableService } from '../table.service';
 import { GraphService } from './graph.service';
@@ -65,5 +66,13 @@ export class TableController {
     @Body(new ZodValidationPipe(getGraphRoSchema)) { cell, viewId }: IGetGraphRo
   ) {
     return await this.graphService.getGraph(tableId, cell, viewId);
+  }
+
+  @Post(':tableId/sqlQuery')
+  async sqlQuery(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(sqlQuerySchema)) query: ISqlQuerySchema
+  ) {
+    return await this.tableOpenApiService.sqlQuery(tableId, query.viewId, query.sql);
   }
 }

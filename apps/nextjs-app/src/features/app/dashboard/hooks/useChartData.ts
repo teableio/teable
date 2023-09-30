@@ -1,6 +1,6 @@
 import type { ISelectFieldOptions } from '@teable-group/core';
 import { Colors, ColorUtils, CellValueType, FieldType } from '@teable-group/core';
-import { useFields, useTable, useView } from '@teable-group/sdk/hooks';
+import { useBase, useFields, useTable, useView } from '@teable-group/sdk/hooks';
 import { Base } from '@teable-group/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -14,6 +14,7 @@ export function useChartData() {
   const fields = useFields();
   const table = useTable();
   const view = useView();
+  const base = useBase();
   const [data, setData] = useState<IData[]>([]);
   const groupingField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
@@ -27,7 +28,7 @@ export function useChartData() {
     [fields]
   );
   useEffect(() => {
-    if (!table || !groupingField || !numberField || !view) {
+    if (!base || !table || !groupingField || !numberField || !view) {
       return;
     }
     if (table.id !== groupingField.tableId) {
@@ -42,10 +43,10 @@ export function useChartData() {
       .toString();
 
     console.log('sqlQuery:', nativeSql);
-    Base.sqlQuery(table.id, view.id, nativeSql).then((result) => {
+    base.sqlQuery(table.id, view.id, nativeSql).then((result) => {
       console.log('sqlQuery:', result);
       setData(
-        (result as IData[]).map(({ total, name }) => ({
+        (result.data as IData[]).map(({ total, name }) => ({
           name: name || 'Untitled',
           total: total || 0,
           color: ColorUtils.getHexForColor(
@@ -55,6 +56,6 @@ export function useChartData() {
         }))
       );
     });
-  }, [fields, groupingField, numberField, table, view]);
+  }, [base, fields, groupingField, numberField, table, view]);
   return data;
 }

@@ -63,7 +63,8 @@ export const PasteRoute: RouteConfig = registerRoute({
 export const paste = async (tableId: string, viewId: string, pasteRo: PasteRo) => {
   return axios.post<null>(
     urlBuilder(PASTE_URL, {
-      params: { tableId, viewId },
+      tableId,
+      viewId,
     }),
     pasteRo
   );

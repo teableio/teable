@@ -47,9 +47,7 @@ export const updateSpace = async (params: { spaceId: string; updateSpaceRo: IUpd
   const { spaceId, updateSpaceRo } = params;
   return axios.patch<IUpdateSpaceVo>(
     urlBuilder(UPDATE_SPACE, {
-      params: {
-        spaceId,
-      },
+      spaceId,
     }),
     updateSpaceRo
   );

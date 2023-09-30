@@ -1,4 +1,4 @@
-import { axios } from '@teable-group/sdk';
+import { axios } from '@teable-group/openapi';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useState } from 'react';
@@ -16,7 +16,7 @@ export const System: React.FC = () => {
     }
     setLoading(true);
     try {
-      await axios.post('/api/export-import/import', { url });
+      await axios.post('/export-import/import', { url });
     } catch (e) {
       toast({
         variant: 'destructive',

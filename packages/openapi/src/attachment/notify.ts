@@ -42,9 +42,5 @@ export const NotifyRoute: RouteConfig = registerRoute({
 });
 
 export const notify = async (secret: string) => {
-  return axios.post<INotifyVo>(
-    urlBuilder(NOTIFY_URL, {
-      params: { secret },
-    })
-  );
+  return axios.post<INotifyVo>(urlBuilder(NOTIFY_URL, { secret }));
 };

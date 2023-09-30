@@ -1,7 +1,6 @@
 import type { ICreateTableRo } from '@teable-group/core';
 import type { IGetBaseVo } from '@teable-group/openapi';
 import knex from 'knex';
-import { axios } from '../config';
 import { Table } from './table/table';
 
 export class Base implements IGetBaseVo {
@@ -23,13 +22,8 @@ export class Base implements IGetBaseVo {
     this.icon = icon;
   }
 
-  static async sqlQuery(tableId: string, viewId: string, sql: string) {
-    const response = await axios.post<unknown[]>(`/base/sqlQuery`, {
-      sql,
-      tableId,
-      viewId,
-    });
-    return response.data;
+  async sqlQuery(tableId: string, viewId: string, sql: string) {
+    return Table.sqlQuery(this.id, tableId, { viewId, sql });
   }
 
   async createTable(tableRo?: ICreateTableRo) {

@@ -14,11 +14,12 @@ export function useAddView() {
       return;
     }
 
-    const viewDoc = await table.createView({
-      name: viewName,
-      type: ViewType.Grid,
-      tableId: table.id,
-    });
+    const viewDoc = (
+      await table.createView({
+        name: viewName,
+        type: ViewType.Grid,
+      })
+    ).data;
     const viewId = viewDoc.id;
     const { baseId } = router.query;
     router.push(

@@ -66,8 +66,9 @@ export const CopyRoute: RouteConfig = registerRoute({
 export const copy = async (tableId: string, viewId: string, copyRo: CopyRo) => {
   return axios.get<CopyVo>(
     urlBuilder(COPY_URL, {
-      params: { tableId, viewId },
-      query: copyRo,
-    })
+      tableId,
+      viewId,
+    }),
+    { params: copyRo }
   );
 };

@@ -1,10 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { IdPrefix, generateBaseId } from '@teable-group/core';
+import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from 'src/types/cls';
-import { RecordService } from '../record/record.service';
 
 @Injectable()
 export class BaseService {
@@ -12,31 +11,8 @@ export class BaseService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly recordService: RecordService,
     private readonly cls: ClsService<IClsStore>
   ) {}
-
-  async sqlQuery(tableId: string, viewId: string, sql: string) {
-    this.logger.log('sqlQuery:sql: ' + sql);
-    const { queryBuilder } = await this.recordService.buildQuery(tableId, {
-      type: IdPrefix.Record,
-      viewId,
-      limit: -1,
-    });
-    const baseQuery = queryBuilder.toString();
-    const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
-      where: { id: tableId, deletedTime: null },
-      select: { dbTableName: true },
-    });
-
-    const combinedQuery = `
-      WITH base AS (${baseQuery})
-      ${sql.replace(dbTableName, 'base')};
-    `;
-    this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
-
-    return this.prismaService.$queryRawUnsafe(combinedQuery);
-  }
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
