@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const UPDATE_FIELD = '/tableId/{tableId}/field/{fieldId}';
+export const UPDATE_FIELD = '/table/{tableId}/field/{fieldId}';
 
 export const UpdateFieldRoute: RouteConfig = registerRoute({
   method: 'put',

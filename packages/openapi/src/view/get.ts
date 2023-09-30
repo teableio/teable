@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_VIEW = '/tableId/{tableId}/view/{viewId}';
+export const GET_VIEW = '/table/{tableId}/view/{viewId}';
 
 export const GetViewRoute: RouteConfig = registerRoute({
   method: 'get',
