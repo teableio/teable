@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_MANUAL_SORT = '/tableId/{tableId}/view/{viewId}/sort';
+export const VIEW_MANUAL_SORT = '/table/{tableId}/view/{viewId}/sort';
 
 export const ManualSortViewRoute: RouteConfig = registerRoute({
   method: 'put',

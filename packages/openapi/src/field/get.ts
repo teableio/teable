@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_FIELD = '/tableId/{tableId}/field/{fieldId}';
+export const GET_FIELD = '/table/{tableId}/field/{fieldId}';
 
 export const GetFieldRoute: RouteConfig = registerRoute({
   method: 'get',

@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const UPDATE_RECORD = '/tableId/{tableId}/record/{recordId}';
+export const UPDATE_RECORD = '/table/{tableId}/record/{recordId}';
 
 export const UpdateRecordRoute: RouteConfig = registerRoute({
   method: 'put',
