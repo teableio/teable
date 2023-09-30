@@ -23,6 +23,8 @@ import { GlobalExceptionFilter } from './filter/global-exception.filter';
 const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
+  // TODO: only enable cors when using bearer token
+  app.enableCors();
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalPipes(
