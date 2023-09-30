@@ -26,14 +26,16 @@ export function createAISyntaxParser() {
     switch (parsedLine.operation) {
       case 'create-table': {
         const { name, description, icon } = parsedLine.value;
-        const tableData = await Table.createTable(baseId, {
-          name,
-          description,
-          icon: icon,
-          fields: [],
-        });
+        const tableData = (
+          await Table.createTable(baseId, {
+            name,
+            description,
+            icon: icon,
+            fields: [],
+          })
+        ).data;
         tableId = tableData.id;
-        const views = await View.getViews(tableId);
+        const views = (await View.getViews(tableId)).data;
         viewId = views[0].id;
         router.push({
           pathname: '/base/[baseId]/[nodeId]/[viewId]',
@@ -63,27 +65,17 @@ export function createAISyntaxParser() {
         if (!viewId) {
           throw new Error("Can't find viewId");
         }
-        const index = parsedLine.index;
-        const cell = parsedLine.value;
-        try {
-          await Record.updateRecordByIndex(tableId, {
-            viewId,
-            index,
-            record: { fields: { [cell.name]: cell.value } },
-          });
-        } catch (e) {
-          console.error(e);
-          console.log(parsedLine);
-        }
         return;
       }
       case 'generate-chart': {
         const chartTypeArray = Object.values(ChartType);
         const { nodeId, viewId } = router.query;
-        const result = await Record.getRecords(nodeId as string, {
-          viewId: viewId as string,
-          fieldKeyType: FieldKeyType.Name,
-        });
+        const result = (
+          await Record.getRecords(nodeId as string, {
+            viewId: viewId as string,
+            fieldKeyType: FieldKeyType.Name,
+          })
+        ).data;
         const chartInstance = createChart(chartTypeArray[parsedLine.index], {
           options: parsedLine.value,
           data: result.records.map((v) => v.fields),

@@ -40,10 +40,8 @@ export const UpdateFieldRoute: RouteConfig = registerRoute({
 export const updateField = async (tableId: string, fieldId: string, fieldRo: IUpdateFieldRo) => {
   return axios.put<IFieldVo>(
     urlBuilder(UPDATE_FIELD, {
-      params: {
-        tableId,
-        fieldId,
-      },
+      tableId,
+      fieldId,
     }),
     fieldRo
   );

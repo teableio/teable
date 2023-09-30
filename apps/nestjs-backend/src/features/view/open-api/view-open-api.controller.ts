@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import type { IViewVo } from '@teable-group/core';
-import { viewRoSchema, updateViewOrderRoSchema, IUpdateViewOrderRo } from '@teable-group/core';
+import { viewRoSchema, manualSortRoSchema, IManualSortRo } from '@teable-group/core';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { IViewInstance } from '../model/factory';
 import { ViewService } from '../view.service';
@@ -41,12 +41,12 @@ export class ViewOpenApiController {
   }
 
   @Post('/:viewId/sort')
-  async updateViewRawOrder(
+  async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(updateViewOrderRoSchema))
-    updateViewOrderRo: IUpdateViewOrderRo
+    @Body(new ZodValidationPipe(manualSortRoSchema))
+    updateViewOrderRo: IManualSortRo
   ) {
-    return await this.viewOpenApiService.updateViewRawOrder(tableId, viewId, updateViewOrderRo);
+    return await this.viewOpenApiService.manualSort(tableId, viewId, updateViewOrderRo);
   }
 }

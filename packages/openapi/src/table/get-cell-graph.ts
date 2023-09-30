@@ -44,7 +44,8 @@ export const getGraph = async ({
 }) => {
   return axios.post<IGraphVo>(
     urlBuilder(GET_CELL_GRAPH_URL, {
-      params: { tableId, baseId },
+      tableId,
+      baseId,
     }),
     { cell, viewId }
   );

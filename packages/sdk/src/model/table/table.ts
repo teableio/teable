@@ -1,28 +1,18 @@
-import type {
-  ICreateTableRo,
-  IFieldRo,
-  IFieldVo,
-  IRecord,
-  ITableVo,
-  IViewRo,
-} from '@teable-group/core';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { IFieldRo, IRecord, ITableVo, IViewRo } from '@teable-group/core';
 import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
+import { createTable, deleteTable, tableSqlQuery } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
-import { axios } from '../../config/axios';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
 import { View } from '../view';
 
 export class Table extends TableCore {
-  static async createTable(baseId: string, tableRo?: ICreateTableRo) {
-    const response = await axios.post<ITableVo>(`/base/${baseId}/table`, tableRo ?? {});
-    return response.data;
-  }
+  static createTable = createTable;
 
-  static async deleteTable(baseId: string, tableId: string) {
-    const response = await axios.delete<void>(`/base/${baseId}/table/${tableId}`);
-    return response.data;
-  }
+  static deleteTable = deleteTable;
+
+  static sqlQuery = tableSqlQuery;
 
   protected doc!: Doc<ITableVo>;
 
@@ -43,22 +33,16 @@ export class Table extends TableCore {
     });
   }
 
-  async createView(params: IViewRo & { tableId: string }) {
-    const { tableId, ...viewRo } = params;
-
-    const response = await axios.post<IFieldVo>(`/table/${tableId}/view`, viewRo);
-    return response.data;
+  async createView(viewRo: IViewRo) {
+    return View.createView(this.id, viewRo);
   }
 
-  async deleteView(params: { tableId: string; viewId: string }) {
-    const { tableId, viewId } = params;
-
-    const response = await axios.delete<void>(`/table/${tableId}/view/${viewId}`);
-    return response.data;
+  async deleteView(viewId: string) {
+    return View.deleteView(this.id, viewId);
   }
 
   async createRecord(recordFields: IRecord['fields']) {
-    return await Record.createRecords(this.id, {
+    return Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {

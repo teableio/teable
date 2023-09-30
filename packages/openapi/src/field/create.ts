@@ -37,5 +37,5 @@ export const CreateFieldRoute: RouteConfig = registerRoute({
 });
 
 export const createField = async (tableId: string, fieldRo: IFieldRo) => {
-  return axios.post<IFieldVo>(urlBuilder(CREATE_FIELD, { query: { tableId } }), fieldRo);
+  return axios.post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId }), fieldRo);
 };

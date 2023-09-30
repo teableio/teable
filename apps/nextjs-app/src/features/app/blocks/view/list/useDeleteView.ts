@@ -11,10 +11,7 @@ export function useDeleteView(viewId: string) {
       return;
     }
 
-    await table.deleteView({
-      tableId: table.id,
-      viewId,
-    });
+    await table.deleteView(viewId);
     const { baseId } = router.query;
     router.push({
       pathname: '/base/[baseId]/[tableId]',

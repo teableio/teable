@@ -25,9 +25,7 @@ export const DeleteSpaceRoute: RouteConfig = registerRoute({
 export const deleteSpace = async (spaceId: string) => {
   return await axios.delete<null>(
     urlBuilder(DELETE_SPACE, {
-      params: {
-        spaceId,
-      },
+      spaceId,
     })
   );
 };

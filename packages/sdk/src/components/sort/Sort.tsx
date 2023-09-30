@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { ISort, IUpdateViewOrderRo } from '@teable-group/core';
+import type { ISort, IManualSortRo } from '@teable-group/core';
 import {
   Button,
   Popover,
@@ -41,16 +41,16 @@ function Sort(props: ISortProps) {
   );
 
   const { mutateAsync, isLoading } = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       tableId,
       viewId,
       viewRo,
     }: {
       tableId: string;
       viewId: string;
-      viewRo: IUpdateViewOrderRo;
+      viewRo: IManualSortRo;
     }) => {
-      return View.updateViewRawOrder(tableId, viewId, viewRo);
+      return (await View.manualSort(tableId, viewId, viewRo)).data;
     },
     onSuccess: () => {
       setIsOpen(false);
@@ -156,7 +156,7 @@ function Sort(props: ISortProps) {
 
   const manualSort = async () => {
     if (innerSorts?.sortObjs?.length) {
-      const viewRo: IUpdateViewOrderRo = {
+      const viewRo: IManualSortRo = {
         sortObjs: innerSorts.sortObjs,
       };
       if (tableId && viewId) {

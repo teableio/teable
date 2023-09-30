@@ -30,5 +30,5 @@ export const GetTableListRoute: RouteConfig = registerRoute({
 });
 
 export const getTableList = async (baseId: string) => {
-  return axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { query: { baseId } }));
+  return axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }));
 };

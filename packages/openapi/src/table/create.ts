@@ -37,5 +37,5 @@ export const CreateTableRoute: RouteConfig = registerRoute({
 });
 
 export const createTable = async (baseId: string, tableRo: ICreateTableRo = {}) => {
-  return axios.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { query: { baseId } }), tableRo);
+  return axios.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), tableRo);
 };

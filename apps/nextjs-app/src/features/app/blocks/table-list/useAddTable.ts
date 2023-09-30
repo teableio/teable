@@ -8,7 +8,7 @@ export function useAddTable() {
   const { baseId } = router.query;
 
   return useCallback(async () => {
-    const tableData = await space.createTable();
+    const tableData = (await space.createTable()).data;
     const tableId = tableData.id;
     const viewId = tableData.defaultViewId;
     router.push(
