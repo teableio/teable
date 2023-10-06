@@ -13,7 +13,7 @@ export const securityWebConfig = registerAs('security.web', () => ({
 }));
 
 export const swaggerConfig = registerAs('swagger', () => ({
-  enabled: process.env.SWAGGER_ENABLED === 'true',
+  disabled: process.env.SWAGGER_DISABLED === 'true',
 }));
 
 export type INextJsConfig = ConfigType<typeof nextJsConfig>;

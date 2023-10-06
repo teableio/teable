@@ -1,3 +1,4 @@
-export * as RecordRoute from './route';
-export * as RecordPath from './path';
-export * as RecordSchema from './schema';
+export * from './get';
+export * from './get-list';
+export * from './create';
+export * from './update';

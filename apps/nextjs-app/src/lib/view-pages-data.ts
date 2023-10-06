@@ -1,9 +1,9 @@
 import type { IFieldVo, IRecord, ITableVo, IViewVo } from '@teable-group/core';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable-group/openapi';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IViewPageProps {
-  baseServerData: BaseSchema.IGetBaseVo;
+  baseServerData: IGetBaseVo;
   tableServerData: ITableVo[];
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];

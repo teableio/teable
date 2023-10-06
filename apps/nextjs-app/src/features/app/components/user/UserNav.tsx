@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { AuthApi } from '@teable-group/sdk';
+import { signout } from '@teable-group/openapi';
 import { useSession } from '@teable-group/sdk/hooks';
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const router = useRouter();
   const { user } = useSession();
   const { mutateAsync: loginOut, isLoading } = useMutation({
-    mutationFn: AuthApi.signout,
+    mutationFn: signout,
   });
 
   const loginOutClick = async () => {

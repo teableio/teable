@@ -1,43 +1,30 @@
-import type {
-  IFilter,
-  ISort,
-  IViewVo,
-  IViewAggregationRo,
-  IViewRowCountVo,
-  IViewAggregationVo,
-  IUpdateViewOrderRo,
-} from '@teable-group/core';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { IFilter, ISort, IViewVo } from '@teable-group/core';
 import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
+import {
+  createView,
+  deleteView,
+  getViewAggregations,
+  getViewList,
+  getViewRowCount,
+  manualSortView,
+} from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
-import { axios } from '../../config/axios';
 
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
-  static async getViews(tableId: string) {
-    const response = await axios.get<IViewVo[]>(`/table/${tableId}/view`);
-    return response.data;
-  }
+  static getViews = getViewList;
 
-  static async getViewAggregation(tableId: string, viewId: string, query?: IViewAggregationRo) {
-    const response = await axios.get<IViewAggregationVo>(
-      `/table/${tableId}/aggregation/${viewId}`,
-      { params: query }
-    );
-    return response.data;
-  }
+  static createView = createView;
 
-  static async getViewRowCount(tableId: string, viewId: string) {
-    const response = await axios.get<IViewRowCountVo>(
-      `/table/${tableId}/aggregation/${viewId}/rowCount`
-    );
-    return response.data;
-  }
+  static deleteView = deleteView;
 
-  static async updateViewRawOrder(tableId: string, viewId: string, viewRo: IUpdateViewOrderRo) {
-    const response = await axios.post(`/table/${tableId}/view/${viewId}/sort`, viewRo);
-    return response.data;
-  }
+  static getViewAggregations = getViewAggregations;
+
+  static getViewRowCount = getViewRowCount;
+
+  static manualSort = manualSortView;
 
   private async submitOperation(operation: unknown): Promise<void> {
     return new Promise<void>((resolve, reject) => {

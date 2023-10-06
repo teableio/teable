@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type {
   IColumnMeta,
   IViewVo,
-  IUpdateViewOrderRo,
+  IManualSortRo,
   IFieldVo,
   IOtOperation,
 } from '@teable-group/core';
@@ -165,7 +165,7 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateViewRawOrder(tableId: string, viewId: string, viewOrderRo: IUpdateViewOrderRo) {
+  async manualSort(tableId: string, viewId: string, viewOrderRo: IManualSortRo) {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });

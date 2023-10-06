@@ -3,7 +3,8 @@ import G6 from '@antv/g6';
 import { useMutation } from '@tanstack/react-query';
 import { ColorUtils } from '@teable-group/core';
 import { X } from '@teable-group/icons';
-import { TableApi, useBase, useTableId, useViewId } from '@teable-group/sdk';
+import { getGraph } from '@teable-group/openapi';
+import { useBase, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
@@ -13,7 +14,7 @@ import { useGraphStore } from './useGraphStore';
 
 export const Graph: React.FC = () => {
   const { selection } = useGridViewStore();
-  const { mutateAsync: getGraph } = useMutation({ mutationFn: TableApi.getGraph });
+  const { mutateAsync: getGraphMutator } = useMutation({ mutationFn: getGraph });
   const tableId = useTableId();
   const base = useBase();
   const viewId = useViewId();
@@ -105,7 +106,7 @@ export const Graph: React.FC = () => {
     if (!cell || !isCell || !tableId || !viewId || !base.id) {
       return;
     }
-    getGraph({ baseId: base.id, tableId, viewId, cell: cell }).then((res) => {
+    getGraphMutator({ baseId: base.id, tableId, viewId, cell: cell }).then((res) => {
       if (res.data) {
         const { nodes, edges, combos } = res.data;
         const cache: Record<string, string> = {};
@@ -138,7 +139,7 @@ export const Graph: React.FC = () => {
         setTables([]);
       }
     });
-  }, [base.id, getGraph, selection, tableId, updateGraph, viewId]);
+  }, [base.id, getGraphMutator, selection, tableId, updateGraph, viewId]);
 
   return (
     <Rnd

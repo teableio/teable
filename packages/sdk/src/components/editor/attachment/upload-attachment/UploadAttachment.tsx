@@ -1,7 +1,7 @@
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
 import { X, Download } from '@teable-group/icons';
-import type { AttachmentSchema } from '@teable-group/openapi';
+import type { INotifyVo } from '@teable-group/openapi';
 import { Button, Progress } from '@teable-group/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -38,7 +38,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   };
 
   const handleSuccess = useCallback(
-    (file: IFile, attachment: AttachmentSchema.NotifyVo) => {
+    (file: IFile, attachment: INotifyVo) => {
       const { id, instance } = file;
 
       const newAttachment: IAttachmentItem = {
