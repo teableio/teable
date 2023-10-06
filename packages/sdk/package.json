@@ -41,7 +41,7 @@
     "@teable-group/ui-lib": "workspace:*",
     "class-transformer": "0.5.1",
     "classnames": "2.3.2",
-    "dayjs": "1.11.9",
+    "dayjs": "1.11.10",
     "dequal": "^2.0.3",
     "immer": "10.0.2",
     "knex": "2.5.1",
@@ -50,7 +50,7 @@
     "reconnecting-websocket": "4.4.0",
     "sharedb": "4.0.2",
     "ts-mixer": "6.0.3",
-    "zustand": "4.4.1"
+    "zustand": "4.4.3"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -59,7 +59,7 @@
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/react": "13.4.0",
-    "@types/jest": "29.5.4",
+    "@types/jest": "29.5.5",
     "@types/node": "18.11.7",
     "@types/react": "18.0.24",
     "@types/react-dom": "18.0.8",

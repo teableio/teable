@@ -38,16 +38,15 @@
     "nestjs-cls": "^3.5.1"
   },
   "dependencies": {
-    "@prisma/client": "5.3.1",
+    "@prisma/client": "5.4.1",
     "dotenv-flow-cli": "1.0.0",
     "nanoid": "3.3.6",
-    "prisma": "5.3.1"
+    "prisma": "5.4.1"
   },
   "devDependencies": {
     "@faker-js/faker": "8.0.2",
-    "@soluble/dsn-parser": "1.6.0",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.4",
+    "@types/jest": "29.5.5",
     "@types/node": "18.11.7",
     "camelcase": "7.0.0",
     "cross-env": "7.0.3",

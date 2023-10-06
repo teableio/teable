@@ -103,7 +103,7 @@
     }
   },
   "devDependencies": {
-    "@types/jest": "29.5.4",
+    "@types/jest": "29.5.5",
     "@types/node": "18.11.7",
     "@types/prettier": "2.7.1",
     "@types/react": "18.0.24",

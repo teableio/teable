@@ -491,14 +491,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asteasolutions/zod-to-openapi@npm:5.5.0":
-  version: 5.5.0
-  resolution: "@asteasolutions/zod-to-openapi@npm:5.5.0"
+"@asteasolutions/zod-to-openapi@npm:6.1.0":
+  version: 6.1.0
+  resolution: "@asteasolutions/zod-to-openapi@npm:6.1.0"
   dependencies:
     openapi3-ts: ^4.1.2
   peerDependencies:
     zod: ^3.20.2
-  checksum: dfff401060c3ada0271d036984c78db41ea5e865fd1fea3b5605e90cf2e23ceec0697dc7736426d11f9687dbd90aa78e6713080bfda76b6c1a5fade32f15f091
+  checksum: e435740543b10702f4b98ae6988e8916b49a457e136f400d178bf0773fe8a8e73fe69b22b24ec177ba836a20932bcd7d6bd6e0f556ba7e4d409169a9d97e9012
   languageName: node
   linkType: hard
 
@@ -5799,31 +5799,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@prisma/client@npm:5.3.1":
-  version: 5.3.1
-  resolution: "@prisma/client@npm:5.3.1"
+"@prisma/client@npm:5.4.1":
+  version: 5.4.1
+  resolution: "@prisma/client@npm:5.4.1"
   dependencies:
-    "@prisma/engines-version": 5.3.1-2.61e140623197a131c2a6189271ffee05a7aa9a59
+    "@prisma/engines-version": 5.4.1-1.2f302df92bd8945e20ad4595a73def5b96afa54f
   peerDependencies:
     prisma: "*"
   peerDependenciesMeta:
     prisma:
       optional: true
-  checksum: 8017b721a231ab7b2b0f932507b02bf075aae2c6f6e630a69d7089ff33bab44fa50b50dd8a81655b7202092ffc19717d484ae5f183fc4f2a1822b0d228991a7c
+  checksum: 4341c1ae488ae77794b319d6f27297aff31c33ef02cad0f6848f37717048169daacd8686c1911c420d1a2b78e239e00eec76abef3e38eb4278ee082431ec20ee
   languageName: node
   linkType: hard
 
-"@prisma/engines-version@npm:5.3.1-2.61e140623197a131c2a6189271ffee05a7aa9a59":
-  version: 5.3.1-2.61e140623197a131c2a6189271ffee05a7aa9a59
-  resolution: "@prisma/engines-version@npm:5.3.1-2.61e140623197a131c2a6189271ffee05a7aa9a59"
-  checksum: c1adf540c9330a54a000c3005a4621c5d8355f2e3b159121587d33f82bf5992f567ac453f0ce76dd48fac427ec4dbc55942228fcee10d522b0d2c03bddbe422a
+"@prisma/engines-version@npm:5.4.1-1.2f302df92bd8945e20ad4595a73def5b96afa54f":
+  version: 5.4.1-1.2f302df92bd8945e20ad4595a73def5b96afa54f
+  resolution: "@prisma/engines-version@npm:5.4.1-1.2f302df92bd8945e20ad4595a73def5b96afa54f"
+  checksum: 9b4454681df60d48a5984a4e6dde08498c8ff1cacbefc5266926cb74a818a3f3a987d1e55b82d84cd1965f625cc09f7f86f5777ff4e942e961a9bdd773ead2d8
   languageName: node
   linkType: hard
 
-"@prisma/engines@npm:5.3.1":
-  version: 5.3.1
-  resolution: "@prisma/engines@npm:5.3.1"
-  checksum: a231adad60ac42569b560ea9782bc181818d8ad15e65283d1317bda5d7aa754e5b536a3f9365ce1eda8961e1eff4eca5978c456fa9764a867fe4339d123e7371
+"@prisma/engines@npm:5.4.1":
+  version: 5.4.1
+  resolution: "@prisma/engines@npm:5.4.1"
+  checksum: 9c0b736ed7265979ffa919099eed86feecca1e0ee867ffd2b38cd30e469f4a341ac484ce793d6cddde9c9d0793ca291a6f9198432396db933b82133cebf1799d
   languageName: node
   linkType: hard
 
@@ -7419,13 +7419,6 @@ __metadata:
   peerDependencies:
     size-limit: 8.1.0
   checksum: f693b9a0e1533d54aa23125a8ceb65dfda0bc1aa60874490f2fa7ea6bc230954ab0e9ef1e06c1f9d70b1d2c813f7cf99beecc08d72607373611fb41af4b2cbd7
-  languageName: node
-  linkType: hard
-
-"@soluble/dsn-parser@npm:1.6.0":
-  version: 1.6.0
-  resolution: "@soluble/dsn-parser@npm:1.6.0"
-  checksum: cb34c487d613d40a606235c9026445e511f622d788fce363ff03c8aaaee99f3b278ab6d205c73c29c033a283d0bcfa0ac3326cefd183fa0c344110e239063c63
   languageName: node
   linkType: hard
 
@@ -9091,7 +9084,7 @@ __metadata:
   resolution: "@teable-group/app@workspace:apps/nextjs-app"
   dependencies:
     "@antv/g6": 4.8.22
-    "@asteasolutions/zod-to-openapi": 5.5.0
+    "@asteasolutions/zod-to-openapi": 6.1.0
     "@babel/core": 7.19.6
     "@belgattitude/http-exception": 1.4.0
     "@fontsource/inter": 4.5.14
@@ -9117,7 +9110,7 @@ __metadata:
     "@testing-library/user-event": 14.4.3
     "@types/cors": 2.8.12
     "@types/express": 4.17.17
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/mousetrap": 1.6.11
     "@types/node": 18.11.7
     "@types/react": 18.0.24
@@ -9132,13 +9125,13 @@ __metadata:
     "@vitest/ui": 0.24.3
     allotment: 1.19.2
     autoprefixer: 10.4.13
-    axios: 1.5.0
+    axios: 1.5.1
     class-variance-authority: 0.6.1
     classnames: 2.3.2
     codemirror: 6.0.1
     cross-env: 7.0.3
     date-fns: 2.30.0
-    dayjs: 1.11.9
+    dayjs: 1.11.10
     dotenv-flow: 3.3.0
     dotenv-flow-cli: 1.0.0
     echarts: 5.4.2
@@ -9207,9 +9200,9 @@ __metadata:
     vite: 3.2.1
     vite-plugin-svgr: 2.2.2
     vite-tsconfig-paths: 3.5.2
-    zod: 3.22.2
+    zod: 3.22.4
     zod-validation-error: 1.5.0
-    zustand: 4.4.1
+    zustand: 4.4.3
   languageName: unknown
   linkType: soft
 
@@ -9244,7 +9237,7 @@ __metadata:
     "@types/cookie-parser": 1.4.3
     "@types/cors": 2.8.12
     "@types/express": 4.17.17
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/markdown-it": 13.0.1
     "@types/mime-types": 2.1.1
     "@types/multer": 1.4.7
@@ -9254,16 +9247,16 @@ __metadata:
     "@types/passport-local": 1.0.35
     "@types/sharedb": 3.3.2
     "@types/supertest": 2.0.12
-    "@types/ws": 8.5.5
+    "@types/ws": 8.5.6
     ajv: 8.12.0
-    axios: 1.5.0
+    axios: 1.5.1
     bcrypt: 5.1.1
     class-transformer: 0.5.1
     class-validator: 0.14.0
     cookie-parser: 1.4.6
     cors: 2.8.5
     cross-env: 7.0.3
-    dayjs: 1.11.9
+    dayjs: 1.11.10
     dotenv-flow: 3.3.0
     dotenv-flow-cli: 1.0.0
     es-check: 7.0.1
@@ -9287,7 +9280,7 @@ __metadata:
     nanoid: 3.3.6
     nest-knexjs: 0.0.18
     nestjs-cls: 3.5.1
-    nestjs-pino: 3.4.0
+    nestjs-pino: 3.5.0
     next: 13.0.2
     nodemailer: 6.9.5
     npm-run-all: 4.1.5
@@ -9295,7 +9288,7 @@ __metadata:
     passport-jwt: 4.0.1
     passport-local: 1.0.0
     pino-http: 8.5.0
-    pino-pretty: 10.2.0
+    pino-pretty: 10.2.3
     prettier: 2.7.1
     reflect-metadata: 0.1.13
     rimraf: 5.0.1
@@ -9311,8 +9304,8 @@ __metadata:
     ts-patch: 2.0.2
     typescript: 4.8.4
     typescript-transform-paths: 3.4.4
-    ws: 8.14.1
-    zod: 3.22.2
+    ws: 8.14.2
+    zod: 3.22.4
     zod-validation-error: 1.5.0
   languageName: unknown
   linkType: soft
@@ -9322,7 +9315,7 @@ __metadata:
   resolution: "@teable-group/common-i18n@workspace:packages/common-i18n"
   dependencies:
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     cross-env: 7.0.3
     eslint: 8.26.0
@@ -9336,16 +9329,16 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/core@workspace:packages/core"
   dependencies:
-    "@asteasolutions/zod-to-openapi": 5.5.0
+    "@asteasolutions/zod-to-openapi": 6.1.0
     "@size-limit/file": 8.1.0
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     antlr4ts: 0.5.0-alpha.4
     antlr4ts-cli: 0.5.0-alpha.4
     class-transformer: 0.5.1
     cross-env: 7.0.3
-    dayjs: 1.11.9
+    dayjs: 1.11.10
     es-check: 7.0.1
     eslint: 8.26.0
     get-tsconfig: 4.2.0
@@ -9358,7 +9351,7 @@ __metadata:
     ts-jest: 29.1.1
     tslib: 2.4.0
     typescript: 4.8.4
-    zod: 3.22.2
+    zod: 3.22.4
   languageName: unknown
   linkType: soft
 
@@ -9367,10 +9360,9 @@ __metadata:
   resolution: "@teable-group/db-main-prisma@workspace:packages/db-main-prisma"
   dependencies:
     "@faker-js/faker": 8.0.2
-    "@prisma/client": 5.3.1
-    "@soluble/dsn-parser": 1.6.0
+    "@prisma/client": 5.4.1
     "@teable-group/eslint-config-bases": "workspace:^"
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     camelcase: 7.0.0
     cross-env: 7.0.3
@@ -9386,7 +9378,7 @@ __metadata:
     npm-run-all: 4.1.5
     picocolors: 1.0.0
     prettier: 2.7.1
-    prisma: 5.3.1
+    prisma: 5.4.1
     rimraf: 5.0.1
     ts-jest: 29.1.1
     tsx: 3.11.0
@@ -9404,7 +9396,7 @@ __metadata:
     "@rushstack/eslint-patch": ^1.2.0
     "@testing-library/jest-dom": ^5.16.5
     "@testing-library/react": ^13.4.0
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     "@types/prettier": 2.7.1
     "@types/react": 18.0.24
@@ -9458,7 +9450,7 @@ __metadata:
     "@types/fs-extra": 11.0.1
     "@types/node": 18.11.7
     "@types/react": 18.0.24
-    axios: 1.5.0
+    axios: 1.5.1
     chalk: 5.3.0
     dotenv: 16.3.1
     eslint: 8.26.0
@@ -9477,14 +9469,14 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@teable-group/openapi@workspace:packages/openapi"
   dependencies:
-    "@asteasolutions/zod-to-openapi": 5.5.0
+    "@asteasolutions/zod-to-openapi": 6.1.0
     "@teable-group/core": "workspace:*"
     "@teable-group/eslint-config-bases": "workspace:^"
-    axios: 1.5.0
+    axios: 1.5.1
     eslint: 8.26.0
     rimraf: 5.0.1
     typescript: 4.8.4
-    zod: 3.22.2
+    zod: 3.22.4
   languageName: unknown
   linkType: soft
 
@@ -9500,7 +9492,7 @@ __metadata:
     "@teable-group/openapi": "workspace:*"
     "@teable-group/ui-lib": "workspace:*"
     "@testing-library/react": 13.4.0
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     "@types/react": 18.0.24
     "@types/react-dom": 18.0.8
@@ -9508,7 +9500,7 @@ __metadata:
     class-transformer: 0.5.1
     classnames: 2.3.2
     cross-env: 7.0.3
-    dayjs: 1.11.9
+    dayjs: 1.11.10
     dequal: ^2.0.3
     eslint: 8.26.0
     immer: 10.0.2
@@ -9528,7 +9520,7 @@ __metadata:
     ts-jest: 29.1.1
     ts-mixer: 6.0.3
     typescript: 4.8.4
-    zustand: 4.4.1
+    zustand: 4.4.3
   peerDependencies:
     react: ^18.0.0
     react-dom: ^18.0.0
@@ -9598,7 +9590,7 @@ __metadata:
     "@teable-group/icons": "workspace:^"
     "@testing-library/jest-dom": 5.16.5
     "@testing-library/react": 13.4.0
-    "@types/jest": 29.5.4
+    "@types/jest": 29.5.5
     "@types/node": 18.11.7
     "@types/react": 18.0.24
     "@types/react-dom": 18.0.8
@@ -9635,7 +9627,7 @@ __metadata:
     tsconfig-paths-webpack-plugin: 4.0.0
     typescript: 4.8.4
     webpack: 5.74.0
-    zod: 3.22.2
+    zod: 3.22.4
   peerDependencies:
     "@types/react": ^18.0.0
     "@types/react-dom": ^18.0.0
@@ -10209,7 +10201,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jest@npm:29.5.4, @types/jest@npm:^29.5.4":
+"@types/jest@npm:29.5.5":
+  version: 29.5.5
+  resolution: "@types/jest@npm:29.5.5"
+  dependencies:
+    expect: ^29.0.0
+    pretty-format: ^29.0.0
+  checksum: 56e55cde9949bcc0ee2fa34ce5b7c32c2bfb20e53424aa4ff3a210859eeaaa3fdf6f42f81a3f655238039cdaaaf108b054b7a8602f394e6c52b903659338d8c6
+  languageName: node
+  linkType: hard
+
+"@types/jest@npm:^29.5.4":
   version: 29.5.4
   resolution: "@types/jest@npm:29.5.4"
   dependencies:
@@ -10821,12 +10823,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:8.5.5":
-  version: 8.5.5
-  resolution: "@types/ws@npm:8.5.5"
+"@types/ws@npm:8.5.6":
+  version: 8.5.6
+  resolution: "@types/ws@npm:8.5.6"
   dependencies:
     "@types/node": "*"
-  checksum: d00bf8070e6938e3ccf933010921c6ce78ac3606696ce37a393b27a9a603f7bd93ea64f3c5fa295a2f743575ba9c9a9fdb904af0f5fe2229bf2adf0630386e4a
+  checksum: 7addb0c5fa4e7713d5209afb8a90f1852b12c02cb537395adf7a05fbaf21205dc5f7c110fd5ad6f3dbf147112cbff33fb11d8633059cb344f0c14f595b1ea1fb
   languageName: node
   linkType: hard
 
@@ -12941,14 +12943,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:1.5.0, axios@npm:latest":
-  version: 1.5.0
-  resolution: "axios@npm:1.5.0"
+"axios@npm:1.5.1":
+  version: 1.5.1
+  resolution: "axios@npm:1.5.1"
   dependencies:
     follow-redirects: ^1.15.0
     form-data: ^4.0.0
     proxy-from-env: ^1.1.0
-  checksum: e7405a5dbbea97760d0e6cd58fecba311b0401ddb4a8efbc4108f5537da9b3f278bde566deb777935a960beec4fa18e7b8353881f2f465e4f2c0e949fead35be
+  checksum: 4444f06601f4ede154183767863d2b8e472b4a6bfc5253597ed6d21899887e1fd0ee2b3de792ac4f8459fe2e359d2aa07c216e45fd8b9e4e0688a6ebf48a5a8d
   languageName: node
   linkType: hard
 
@@ -12958,6 +12960,17 @@ __metadata:
   dependencies:
     follow-redirects: "npm:^1.14.0"
   checksum: 44245f24ac971e7458f3120c92f9d66d1fc695e8b97019139de5b0cc65d9b8104647db01e5f46917728edfc0cfd88eb30fc4c55e6053eef4ace76768ce95ff3c
+  languageName: node
+  linkType: hard
+
+"axios@npm:latest":
+  version: 1.5.0
+  resolution: "axios@npm:1.5.0"
+  dependencies:
+    follow-redirects: ^1.15.0
+    form-data: ^4.0.0
+    proxy-from-env: ^1.1.0
+  checksum: e7405a5dbbea97760d0e6cd58fecba311b0401ddb4a8efbc4108f5537da9b3f278bde566deb777935a960beec4fa18e7b8353881f2f465e4f2c0e949fead35be
   languageName: node
   linkType: hard
 
@@ -16223,7 +16236,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dayjs@npm:1.11.9, dayjs@npm:^1.11.9":
+"dayjs@npm:1.11.10":
+  version: 1.11.10
+  resolution: "dayjs@npm:1.11.10"
+  checksum: a6b5a3813b8884f5cd557e2e6b7fa569f4c5d0c97aca9558e38534af4f2d60daafd3ff8c2000fed3435cfcec9e805bcebd99f90130c6d1c5ef524084ced588c4
+  languageName: node
+  linkType: hard
+
+"dayjs@npm:^1.11.9":
   version: 1.11.9
   resolution: "dayjs@npm:1.11.9"
   checksum: a4844d83dc87f921348bb9b1b93af851c51e6f71fa259604809cfe1b49d1230e6b0212dab44d1cb01994c096ad3a77ea1cf18fa55154da6efcc9d3610526ac38
@@ -26952,13 +26972,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nestjs-pino@npm:3.4.0":
-  version: 3.4.0
-  resolution: "nestjs-pino@npm:3.4.0"
+"nestjs-pino@npm:3.5.0":
+  version: 3.5.0
+  resolution: "nestjs-pino@npm:3.5.0"
   peerDependencies:
     "@nestjs/common": ^8.0.0 || ^9.0.0 || ^10.0.0
     pino-http: ^6.4.0 || ^7.0.0 || ^8.0.0
-  checksum: 6d1ed087d5aaed56faa8bcc54249bd0638a40a6f19f313153711d6dfbc052724acada11a5ea39a756d70c8b64d1f2ed1ba09cdd5b80807a31142393c8395c051
+  checksum: 22f3747887178d7c55ad7ac45e1813b51feba78d326213024a8374a5d0a12512480be56774db610863fa9821ba3d26c427da577b69cbc4e45d55f53cfed24cd4
   languageName: node
   linkType: hard
 
@@ -29142,9 +29162,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pino-pretty@npm:10.2.0":
-  version: 10.2.0
-  resolution: "pino-pretty@npm:10.2.0"
+"pino-pretty@npm:10.2.3":
+  version: 10.2.3
+  resolution: "pino-pretty@npm:10.2.3"
   dependencies:
     colorette: ^2.0.7
     dateformat: ^4.6.3
@@ -29162,7 +29182,7 @@ __metadata:
     strip-json-comments: ^3.1.1
   bin:
     pino-pretty: bin.js
-  checksum: 8e8220ab647d11e05349adde37aac116dab1a96ce479297820475b7e2246ea5e56e3764b625c5877821ae66dcea62bdda563cc49eccbd4628c80952998068f48
+  checksum: 9182886855515000df2ef381762c69fc29dbdd9014a76839cc3d8a7a94ac96d4ce17423adb9ddd61eae78986bb0ff3a1d9e6e7aa55476c096a3dd4a0c89440e8
   languageName: node
   linkType: hard
 
@@ -30455,14 +30475,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prisma@npm:5.3.1":
-  version: 5.3.1
-  resolution: "prisma@npm:5.3.1"
+"prisma@npm:5.4.1":
+  version: 5.4.1
+  resolution: "prisma@npm:5.4.1"
   dependencies:
-    "@prisma/engines": 5.3.1
+    "@prisma/engines": 5.4.1
   bin:
     prisma: build/index.js
-  checksum: e825adbcb4eec81de276de5507fb7e5486db7788c8c9de36ba6ed73f9e87d9f56b64d0e183a31dc6b80f6737ae1fbcdb110aac44ab89299af646aeb966655bef
+  checksum: 0d8c3af6815fc65b5d2b79329efaa84b3fea41a05f80898cc680404a28fb3d7fa55bb3cb3b69d9108a35e85c23f4f8b708d70c7e4cf42de93142872090f95ed4
   languageName: node
   linkType: hard
 
@@ -37973,9 +37993,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:8.14.1":
-  version: 8.14.1
-  resolution: "ws@npm:8.14.1"
+"ws@npm:8.14.2":
+  version: 8.14.2
+  resolution: "ws@npm:8.14.2"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -37984,7 +38004,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 9e310be2b0ff69e1f87d8c6d093ecd17a1ed4c37f281d17c35e8c30e2bd116401775b3d503249651374e6e0e1e9905db62fff096b694371c77561aee06bc3466
+  checksum: 3ca0dad26e8cc6515ff392b622a1467430814c463b3368b0258e33696b1d4bed7510bc7030f7b72838b9fdeb8dbd8839cbf808367d6aae2e1d668ce741d4308b
   languageName: node
   linkType: hard
 
@@ -38227,10 +38247,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:3.22.2":
-  version: 3.22.2
-  resolution: "zod@npm:3.22.2"
-  checksum: 231e2180c8eabb56e88680d80baff5cf6cbe6d64df3c44c50ebe52f73081ecd0229b1c7215b9552537f537a36d9e36afac2737ddd86dc14e3519bdbc777e82b9
+"zod@npm:3.22.4":
+  version: 3.22.4
+  resolution: "zod@npm:3.22.4"
+  checksum: 80bfd7f8039b24fddeb0718a2ec7c02aa9856e4838d6aa4864335a047b6b37a3273b191ef335bf0b2002e5c514ef261ffcda5a589fb084a48c336ffc4cdbab7f
   languageName: node
   linkType: hard
 
@@ -38250,9 +38270,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zustand@npm:4.4.1":
-  version: 4.4.1
-  resolution: "zustand@npm:4.4.1"
+"zustand@npm:4.4.3":
+  version: 4.4.3
+  resolution: "zustand@npm:4.4.3"
   dependencies:
     use-sync-external-store: 1.2.0
   peerDependencies:
@@ -38266,7 +38286,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 80acd0fbf633782996642802c8692bbb80ae5c80a8dff4c501b88250acd5ccd468fbc6398bdce198475a25e3839c91385b81da921274f33ffb5c2d08c3eab400
+  checksum: 3ed16457a3a4b9fe6523f52d397af37db8fab5687dd21a23ede25f657346b25df374490baea27f10d416faae5e96acf7b4065c86044746d775881d266d1500f0
   languageName: node
   linkType: hard
 
