@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
 import {
   createRecordsRoSchema,
@@ -13,6 +13,7 @@ import {
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
 } from '@teable-group/core';
+import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
@@ -71,5 +72,21 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
     return await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsRo);
+  }
+
+  @Delete(':recordId')
+  async deleteRecord(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string
+  ): Promise<void> {
+    return await this.recordOpenApiService.deleteRecord(tableId, recordId);
+  }
+
+  @Delete()
+  async deleteRecords(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery
+  ): Promise<void> {
+    return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds);
   }
 }

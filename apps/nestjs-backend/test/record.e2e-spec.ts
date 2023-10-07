@@ -1,6 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { ICreateRecordsRo, ITableFullVo, IUpdateRecordByIndexRo } from '@teable-group/core';
+import type {
+  ICreateRecordsRo,
+  IRecordsVo,
+  ITableFullVo,
+  IUpdateRecordByIndexRo,
+} from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import type request from 'supertest';
 import { initApp, updateRecordByApi } from './utils/init-app';
@@ -159,5 +164,67 @@ describe('OpenAPI RecordController (e2e)', () => {
       .expect(201);
 
     console.timeEnd(`create ${count} records`);
+  });
+
+  it('/api/table/{tableId}/record/{recordId} (delete)', async () => {
+    const value1 = 'New Record' + new Date();
+    const addRecordRes = await request
+      .post(`/api/table/${table.id}/record`)
+      .send({
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      })
+      .expect(201);
+
+    await request
+      .get(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
+      .expect(200);
+
+    await request
+      .delete(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
+      .expect(200);
+
+    await request
+      .get(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
+      .expect(404);
+  });
+
+  it('/api/table/{tableId}/record (delete)', async () => {
+    const value1 = 'New Record' + new Date();
+    const addRecordsRes = await request
+      .post(`/api/table/${table.id}/record`)
+      .send({
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      })
+      .expect(201);
+    const records = (addRecordsRes.body as IRecordsVo).records;
+    await request.get(`/api/table/${table.id}/record/${records[0].id}`).expect(200);
+    await request.get(`/api/table/${table.id}/record/${records[1].id}`).expect(200);
+
+    await request
+      .delete(`/api/table/${table.id}/record`)
+      .query({
+        recordIds: records.map((record) => record.id),
+      })
+      .expect(200);
+
+    await request.get(`/api/table/${table.id}/record/${records[0].id}`).expect(404);
+    await request.get(`/api/table/${table.id}/record/${records[1].id}`).expect(404);
   });
 });

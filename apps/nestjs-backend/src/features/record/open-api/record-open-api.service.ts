@@ -17,6 +17,7 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, keyBy } from 'lodash';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
+import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
@@ -325,6 +326,7 @@ export class RecordOpenApiService {
       if (records.length !== 1) {
         throw new Error('update record failed');
       }
+
       const fields = await prisma.field.findMany({
         where: { id: { in: Object.keys(records[0].fields) }, deletedTime: null },
         select: { id: true, name: true },
@@ -338,5 +340,63 @@ export class RecordOpenApiService {
     const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
 
     return await this.updateRecordById(tableId, recordId, updateRecordRo);
+  }
+
+  @Timing()
+  private async deleteDocs(collection: string, recordIds: string[]) {
+    const connection = this.shareDbService.getConnection();
+
+    const promises = recordIds.map((recordId) => {
+      const doc = connection.get(collection, recordId);
+      return new Promise<void>((resolve, reject) => {
+        doc.fetch((error) => {
+          if (error) return reject(error);
+          doc.del({}, (error) => {
+            if (error) return reject(error);
+            resolve(undefined);
+          });
+        });
+      });
+    });
+
+    await Promise.all(promises);
+  }
+
+  async deleteRecord(tableId: string, recordId: string) {
+    return this.deleteRecords(tableId, [recordId]);
+  }
+
+  async deleteRecords(tableId: string, recordIds: string[]) {
+    return await this.prismaService.$tx(async (prisma) => {
+      const fieldRaws = await prisma.field.findMany({
+        where: {
+          tableId,
+          isComputed: {
+            not: {
+              equals: true,
+            },
+          },
+          deletedTime: null,
+        },
+        select: { id: true },
+      });
+
+      const recordFields = fieldRaws.reduce<{ [fieldId: string]: null }>((pre, cur) => {
+        pre[cur.id] = null;
+        return pre;
+      }, {});
+
+      await this.calculateAndSubmitOp(
+        tableId,
+        FieldKeyType.Id,
+        recordIds.map((id) => ({
+          id,
+          fields: recordFields,
+        }))
+      );
+
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      await this.deleteDocs(collection, recordIds);
+    });
   }
 }
