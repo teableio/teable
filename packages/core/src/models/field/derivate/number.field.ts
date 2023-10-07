@@ -61,7 +61,7 @@ export class NumberFieldCore extends FieldCore {
       return null;
     }
 
-    return parseStringToNumber(value);
+    return parseStringToNumber(value, this.options.formatting);
   }
 
   repair(value: unknown) {
