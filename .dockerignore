@@ -1,6 +1,7 @@
 # All node_modules directories
 node_modules
 **/node_modules
+dist
 
 # All secrets
 **/.env.local
@@ -47,6 +48,8 @@ tmp
 *.tmp
 
 # IDE related
-
 .idea
 .vscode
+
+# other
+.DS_Store

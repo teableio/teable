@@ -133,7 +133,7 @@ export class PostgresProvider implements IDbProvider {
     const updateRecordSql = this.knex(dbTableName)
       .update(updateColumns)
       .updateFrom(tempTableName)
-      .where('__id', this.knex.ref(`${tempTableName}.__id`))
+      .where(`${dbTableName}.__id`, this.knex.ref(`${tempTableName}.__id`))
       .toQuery();
 
     return { insertTempTableSql, updateRecordSql };

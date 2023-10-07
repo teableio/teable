@@ -38,11 +38,11 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' --exclude '@teable-group/(app|backend)' run build
+          yarn workspaces foreach -tv --exclude '@teable-group/(app|backend)' run build
 
       - name: 🕵️ Typecheck
         run: |
-          yarn workspaces foreach -tv --from '@teable-group/*' run typecheck
+          yarn workspaces foreach -tv --include '@teable-group/*' run typecheck
 
       - name: 🔬 Linter
         run: |

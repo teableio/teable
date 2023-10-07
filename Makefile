@@ -7,6 +7,7 @@ COMPOSE_FILES := $(wildcard ./dockers/*.yml)
 COMPOSE_FILE_ARGS := --env-file $(DOCKER_COMPOSE_ENV_FILE) $(foreach yml,$(COMPOSE_FILES),-f $(yml))
 
 NETWORK_MODE ?= teablenet
+CI_JOB_ID ?= 0
 
 # Timeout used to await services to become healthy
 TIMEOUT ?= 300
@@ -24,7 +25,7 @@ else ifeq (docker.restart,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.up,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
-else ifeq (build,$(firstword $(MAKECMDGOALS)))
+else ifeq (docker.build,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (build-nocache,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
@@ -32,7 +33,7 @@ else ifeq (docker.await,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.run,$(firstword $(MAKECMDGOALS)))
     RUN_TARGET = true
-else ifeq (integration,$(firstword $(MAKECMDGOALS)))
+else ifeq (docker.integration,$(firstword $(MAKECMDGOALS)))
     INTEGRATION_TARGET = true
 endif
 
@@ -44,10 +45,7 @@ ifdef SERVICE_TARGET
 else ifdef RUN_TARGET
     # Isolate second argument as service, the rest is arguments for run command
     SERVICE := $(wordlist 2, 2, $(MAKECMDGOALS))
-    # ...and turn them into do-nothing targets
-    $(eval $(SERVICE):;@:)
     SERVICE_ARGS := $(wordlist 3, $(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-    $(eval $(SERVICE_ARGS):;@:)
 else ifdef INTEGRATION_TARGET
     # Isolate second argument as integration module, the rest as arguments
     INTEGRATION_MODULE := $(wordlist 2, 2, $(MAKECMDGOALS))
@@ -64,8 +62,6 @@ endif
 #
 ifneq ($(CI_JOB_ID),)
     NETWORK_MODE := teablenet-$(CI_JOB_ID)
-else
-    $(info Network mode cannot be host for the archiver! It won't work unless you set the env var CI_JOB_ID=local)
 endif
 
 
@@ -90,7 +86,7 @@ define print_db_options
 @echo -e "\tpostges(pg)		Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support\n"
 endef
 
-.PHONY: db-sqlite db-postgres db-run
+.PHONY: db-mode sqlite-mode postgres-mode
 .DEFAULT_GOAL := help
 
 docker.create.network:
@@ -103,7 +99,10 @@ ifneq ($(NETWORK_MODE),host)
 	docker network inspect $(NETWORK_MODE) &> /dev/null && ([ $$? -eq 0 ] && docker network rm $(NETWORK_MODE)) || true
 endif
 
-docker.run:
+docker.build:
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) build --parallel --progress=plain $(SERVICE)
+
+docker.run: docker.create.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm $(SERVICE) $(SERVICE_ARGS)
 
 docker.up: docker.create.network
@@ -146,6 +145,11 @@ docker.await: ## max timeout of 300
 		echo "Service $${i} is healthy"; \
 	done
 
+docker.status:
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) ps
+
+docker.images:
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
 
 docker.postgres.start:
 	make docker.up teable-postgres
@@ -156,21 +160,40 @@ docker.postgres.stop:
 docker.postgres.await:
 	make docker.await teable-postgres
 
-db-sqlite: ## db-sqlite
+sqlite.integration.test:
+	make docker.build integration-test
+	make docker.run integration-test bash -c 'make sqlite-mode && yarn workspace @teable-group/backend test:e2e'
+
+postgres.integration.test:
+	make docker.build integration-test
+	docker rm -fv teable-postgres-$(CI_JOB_ID)
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -d -T --no-deps --rm --name teable-postgres-$(CI_JOB_ID) teable-postgres
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
+		-e PRISMA_DATABASE_URL=postgresql://teable:teable@teable-postgres:5432/teable?schema=public \
+		integration-test bash -c \
+			'chmod +x ./scripts/wait-for-it.sh && ./scripts/wait-for-it.sh teable-postgres:5432 --timeout=30 -- \
+				make postgres-mode && \
+				yarn workspace @teable-group/backend test:e2e'
+
+sqlite-mode:		## sqlite-mode
 	cd ./packages/db-main-prisma; \
 	echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma; \
+	yarn prisma-generate --schema ./prisma/sqlite/schema.prisma; \
 	yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
-db-postgres: docker.postgres.start docker.postgres.await ## db-postgres
+postgres-mode:		## postgres-mode
 	cd ./packages/db-main-prisma; \
 	echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma; \
+	yarn prisma-generate --schema ./prisma/postgres/schema.prisma; \
 	yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
-db-run:		## db-run
+db-mode:		## db-mode
 	$(print_db_options)
 	@read -p "Enter a command: " command; \
-    if [ "$$command" = "sqlite" ]; then make db-sqlite; \
-    elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then make db-postgres; \
+    if [ "$$command" = "sqlite" ]; then make sqlite-mode; \
+    elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then make docker.postgres.start; \
+    	make docker.postgres.await; \
+    	make postgres-mode; \
     else echo "Unknown command.";  fi
 
 help:   ## show this help.

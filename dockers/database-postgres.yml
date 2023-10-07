@@ -4,6 +4,7 @@ services:
   teable-postgres:
     container_name: teable-postgres
     image: postgres:15.4
+    hostname: teable-postgres
     ports:
       - '5432:5432'
     networks:

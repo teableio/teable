@@ -18,31 +18,13 @@ ARG NODE_VERSION=18
 ARG ALPINE_VERSION=3.18
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
-RUN apk add --no-cache rsync
 
 WORKDIR /workspace-install
 
-COPY yarn.lock .yarnrc.yml ./
-COPY .yarn/ ./.yarn/
+COPY --link yarn.lock .yarnrc.yml ./
+COPY --link .yarn/ ./.yarn/
 
-# Specific to monerepo's as docker COPY command is pretty limited
-# we use buidkit to prepare all files that are necessary for install
-# and that will be used to invalidate docker cache.
-#
-# Files are copied with rsync:
-#
-#   - All package.json present in the host (root, apps/*, packages/*)
-#   - All schema.prisma (cause prisma will generate a schema on postinstall)
-#
-COPY . /workspace-install
-RUN rsync -amv --delete \
-          --exclude='node_modules' \
-          --exclude='*/node_modules' \
-          --include='package.json' \
-          --include='schema.prisma' \
-          --include='.env' \
-          --include='*/' --exclude='*' \
-          /workspace-install/ /workspace-install/
+COPY --link . .
 
 # @see https://www.prisma.io/docs/reference/api-reference/environment-variables-reference#cli-binary-targets
 # ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
@@ -76,15 +58,14 @@ ENV NEXTJS_IGNORE_TYPECHECK=0
 WORKDIR /app
 
 COPY . .
-COPY --from=deps /workspace-install ./
+COPY --from=deps /workspace-install/node_modules ./node_modules
+
+RUN apk add --no-cache make bash
 
 # Optional: if the app depends on global /static shared assets like images, locales...
-RUN yarn workspace @teable-group/app share-static-hardlink && yarn g:build
-RUN yarn workspace @teable-group/db-main-prisma prisma-generate
-# Does not play well with buildkit on CI
-# https://github.com/moby/buildkit/issues/1673
-RUN SKIP_POSTINSTALL=1 \
-    yarn workspaces focus --production -A
+RUN yarn workspace @teable-group/app share-static-hardlink; \
+    yarn g:build; \
+    yarn workspace @teable-group/db-main-prisma prisma-generate
 
 ###################################################################
 # Stage 3: Extract a minimal image from the build                 #

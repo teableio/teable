@@ -22,25 +22,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: 📥 Monorepo install
-        uses: ./.github/actions/yarn-nm-install
-
-      - name: 🏁 Initialize Database(s)
-        run: |
-          make db-${{ matrix.database-type }}
-
-      - name: 🏗 Run build
-        run: |
-          yarn g:build
+      #      - name: Use Node.js ${{ matrix.node-version }}
+      #        uses: actions/setup-node@v3
+      #        with:
+      #          node-version: ${{ matrix.node-version }}
+      #
+      #      - name: 📥 Monorepo install
+      #        uses: ./.github/actions/yarn-nm-install
+      #
+      #      - name: 🏁 Initialize Database(s)
+      #        run: |
+      #          make db-${{ matrix.database-type }}
+      #
+      #      - name: 🏗 Run build
+      #        run: |
+      #          yarn g:build
 
       - name: 🧪 Run Tests
         run: |
-          yarn workspace @teable-group/backend test:${{ matrix.database-type }}:db
+          make ${{ matrix.database-type }}.integration.test
 
       - name: ⛔ Stop Database(s)
         run: |
