@@ -81,11 +81,11 @@ export const formatNumberToString = (
   return String(cellValue);
 };
 
-export const parseStringToNumber = (value: string | null) => {
+export const parseStringToNumber = (value: string | null, formatting?: INumberFormatting) => {
   if (value == null) return null;
 
   const originStr = String(value);
-  const isPercent = originStr.includes('%');
+  const isPercent = formatting?.type === NumberFormattingType.Percent || originStr.includes('%');
   const numberReg = /[^\d.+-]/g;
   const symbolReg = /([+\-.])+/g;
   const numStr = originStr.replace(numberReg, '').replace(symbolReg, '$1');
