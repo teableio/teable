@@ -162,9 +162,13 @@ docker.postgres.await:
 
 sqlite.integration.test:
 	make docker.build integration-test
-	make docker.run integration-test bash -c 'make sqlite-mode && yarn workspace @teable-group/backend test:e2e'
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
+		-e PRISMA_DATABASE_URL=file:../../db/main.db \
+		integration-test bash -c \
+			'make sqlite-mode && \
+				yarn workspace @teable-group/backend test:e2e'
 
-postgres.integration.test:
+postgres.integration.test: docker.create.network
 	make docker.build integration-test
 	docker rm -fv teable-postgres-$(CI_JOB_ID)
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -d -T --no-deps --rm --name teable-postgres-$(CI_JOB_ID) teable-postgres
