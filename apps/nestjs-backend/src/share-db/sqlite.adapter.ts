@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IOtOperation, IRecord } from '@teable-group/core';
 import {
   FieldOpBuilder,
   RecordOpBuilder,
@@ -120,7 +120,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     _collection: string,
     _id: string,
     op: CreateOp | DeleteOp | EditOp,
-    _query: IRecordSnapshotQuery
+    _query: unknown
   ): boolean {
     // ShareDB is in charge of doing the validation of ops, so at this point we
     // should be able to assume that the op is structured validly

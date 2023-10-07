@@ -3,7 +3,6 @@ import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
   IColumnMeta,
-  IFieldSnapshotQuery,
   IFieldVo,
   IGetFieldsQuery,
   ISetColumnMetaOpContext,
@@ -390,7 +389,7 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(tableId: string, query: IFieldSnapshotQuery) {
+  async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await this.prismaService.txClient().view.findFirstOrThrow({
@@ -405,12 +404,16 @@ export class FieldService implements IAdapterService {
       select: { id: true, columnMeta: true },
     });
 
-    const fields = fieldsPlain.map((field) => {
+    let fields = fieldsPlain.map((field) => {
       return {
         ...field,
         columnMeta: JSON.parse(field.columnMeta),
       };
     });
+
+    if (query.filterHidden) {
+      fields = fields.filter((field) => !field.columnMeta[viewId as string].hidden);
+    }
 
     return {
       ids: sortBy(fields, (field) => {

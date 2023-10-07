@@ -1,9 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { CopyRo, PasteRo, PasteVo, ClearRo } from '@teable-group/openapi';
-import { RangeType } from '@teable-group/openapi';
+import type {
+  ICopyRo,
+  PasteRo,
+  PasteVo,
+  ClearRo,
+  IRangesToIdRo,
+  IRangesToIdVo,
+} from '@teable-group/openapi';
+import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, omit } from 'lodash';
 import { FieldSupplementService } from '../field/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -25,7 +32,102 @@ export class SelectionService {
     private fieldSupplementService: FieldSupplementService
   ) {}
 
-  private async columnsSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
+  async getIdsFromRanges(
+    tableId: string,
+    viewId: string,
+    query: IRangesToIdRo
+  ): Promise<IRangesToIdVo> {
+    const ranges = JSON.parse(query.ranges) as [number, number][];
+    const { returnType, type } = query;
+    if (returnType === IdReturnType.RecordId) {
+      return {
+        recordIds: await this.rowSelectionToIds(tableId, viewId, ranges, type),
+      };
+    }
+
+    if (returnType === IdReturnType.FieldId) {
+      return {
+        fieldIds: await this.columnSelectionToIds(tableId, viewId, ranges, type),
+      };
+    }
+
+    if (returnType === IdReturnType.All) {
+      return {
+        fieldIds: await this.columnSelectionToIds(tableId, viewId, ranges, type),
+        recordIds: await this.rowSelectionToIds(tableId, viewId, ranges, type),
+      };
+    }
+
+    throw new BadRequestException('Invalid return type');
+  }
+
+  private async columnSelectionToIds(
+    tableId: string,
+    viewId: string,
+    ranges: [number, number][],
+    type: RangeType | undefined
+  ): Promise<string[]> {
+    const result = await this.fieldService.getDocIdsByQuery(tableId, {
+      viewId,
+      filterHidden: true,
+    });
+
+    if (type === RangeType.Rows) {
+      return result.ids;
+    }
+
+    if (type === RangeType.Columns) {
+      return ranges.reduce<string[]>((acc, range) => {
+        return acc.concat(result.ids.slice(range[0], range[1] + 1));
+      }, []);
+    }
+
+    const [start, end] = ranges;
+    return result.ids.slice(start[0], end[0] + 1);
+  }
+
+  private async rowSelectionToIds(
+    tableId: string,
+    viewId: string,
+    ranges: [number, number][],
+    type: RangeType | undefined
+  ): Promise<string[]> {
+    if (type === RangeType.Columns) {
+      const result = await this.recordService.getDocIdsByQuery(tableId, {
+        viewId,
+        skip: 0,
+        take: -1,
+      });
+      return result.ids;
+    }
+
+    if (type === RangeType.Rows) {
+      let recordIds: string[] = [];
+      for (const [start, end] of ranges) {
+        const result = await this.recordService.getDocIdsByQuery(tableId, {
+          viewId,
+          skip: start,
+          take: end + 1 - start,
+        });
+        recordIds = recordIds.concat(result.ids);
+      }
+
+      return ranges.reduce<string[]>((acc, range) => {
+        return acc.concat(recordIds.slice(range[0], range[1] + 1));
+      }, []);
+    }
+
+    const [start, end] = ranges;
+    const result = await this.recordService.getDocIdsByQuery(tableId, {
+      viewId,
+      skip: start[1],
+      take: end[1] + 1 - start[1],
+    });
+
+    return result.ids;
+  }
+
+  private async columnsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
     const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: 0,
@@ -42,7 +144,7 @@ export class SelectionService {
     };
   }
 
-  private async rowsSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
+  private async rowsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
     const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
     let records: Pick<IRecord, 'id' | 'fields'>[] = [];
     for (const [start, end] of ranges) {
@@ -61,7 +163,7 @@ export class SelectionService {
     };
   }
 
-  private async defaultSelectionCtx(tableId: string, viewId: string, ranges: number[][]) {
+  private async defaultSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
     const [start, end] = ranges;
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
@@ -79,7 +181,7 @@ export class SelectionService {
   private async getSelectionCtxByRange(
     tableId: string,
     viewId: string,
-    ranges: number[][],
+    ranges: [number, number][],
     type?: RangeType
   ) {
     switch (type) {
@@ -236,9 +338,9 @@ export class SelectionService {
     return updateRecordsRo;
   }
 
-  async copy(tableId: string, viewId: string, query: CopyRo) {
+  async copy(tableId: string, viewId: string, query: ICopyRo) {
     const { ranges, type } = query;
-    const rangesArray = JSON.parse(ranges) as number[][];
+    const rangesArray = JSON.parse(ranges) as [number, number][];
     const { fields, records } = await this.getSelectionCtxByRange(
       tableId,
       viewId,

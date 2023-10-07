@@ -12,7 +12,6 @@ import type {
   IGetRecordsQuery,
   IMakeRequired,
   IRecord,
-  IRecordSnapshotQuery,
   IRecordsVo,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
@@ -214,7 +213,7 @@ export class RecordService implements IAdapterService {
 
   async buildQuery(
     tableId: string,
-    query: IRecordSnapshotQuery & {
+    query: IGetRecordsQuery & {
       select?: string | string[];
       viewId: string;
     }
@@ -222,11 +221,10 @@ export class RecordService implements IAdapterService {
     const {
       viewId,
       orderBy: extraOrderBy,
-      offset = 0,
-      limit = 10,
+      skip = 0,
+      take = 10,
       select,
       filter: extraFilter,
-      where = {},
     } = query;
 
     const view = await this.prismaService.txClient().view.findFirstOrThrow({
@@ -260,11 +258,10 @@ export class RecordService implements IAdapterService {
 
     filterQueryTranslator
       .translateToSql()
-      .andWhere(where)
       .orderBy(translatedOrderby)
       .orderBy(orderFieldName, 'asc')
-      .offset(offset)
-      .limit(limit);
+      .offset(skip)
+      .limit(take);
 
     return { queryBuilder };
   }
@@ -391,10 +388,9 @@ export class RecordService implements IAdapterService {
     const viewId = defaultView.id;
 
     const queryResult = await this.getDocIdsByQuery(tableId, {
-      type: IdPrefix.Record,
       viewId,
-      offset: query.skip,
-      limit: query.take,
+      skip: query.skip,
+      take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
     });
@@ -627,7 +623,7 @@ export class RecordService implements IAdapterService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IRecordSnapshotQuery
+    query: IGetRecordsQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const { id: viewId } = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true },
@@ -635,13 +631,13 @@ export class RecordService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    const { limit = 100 } = query;
+    const { take = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
 
-    if (limit > 1000) {
-      throw new BadRequestException(`limit can't be greater than ${limit}`);
+    if (take > 1000) {
+      throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
     // If you return `queryBuilder` directly and use `await` to receive it,
@@ -676,10 +672,9 @@ export class RecordService implements IAdapterService {
     const fieldNames = fields.map((f) => f.dbFieldName);
 
     const { queryBuilder } = await this.buildQuery(tableId, {
-      type: IdPrefix.Record,
       viewId: viewId,
-      offset: skip,
-      limit: take,
+      skip,
+      take,
       filter,
       orderBy,
       select: fieldNames.concat('__id'),

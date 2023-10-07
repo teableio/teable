@@ -24,15 +24,7 @@ const LinkEditorInner: FC<IEditorProps & IWrapperEditorProps> = (props) => {
 
   // many <> one relation ship only allow select record that has not been selected
   const isMultiple = field.options.relationship !== Relationship.ManyOne;
-  const records = useRecords(
-    field.options.relationship === Relationship.OneMany
-      ? {
-          where: {
-            [field.options.dbForeignKeyName]: null,
-          },
-        }
-      : undefined
-  );
+  const records = useRecords();
   const choices = records.map(({ id, name }) => ({
     label: name,
     value: id,
