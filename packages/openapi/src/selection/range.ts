@@ -17,7 +17,7 @@ export type ICell = z.infer<typeof cellSchema>;
 export const rangesSchema = z.object({
   ranges: z
     .string()
-    .refine((value) => z.array(cellSchema).safeParse(JSON.parse(value)).success, {
+    .refine((value) => z.array(cellSchema).min(1).safeParse(JSON.parse(value)).success, {
       message: 'The range parameter must be a valid 2D array with even length.',
     })
     .openapi({

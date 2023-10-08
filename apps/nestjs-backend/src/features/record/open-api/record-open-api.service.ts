@@ -368,10 +368,11 @@ export class RecordOpenApiService {
 
   async deleteRecords(tableId: string, recordIds: string[]) {
     return await this.prismaService.$tx(async (prisma) => {
-      const fieldRaws = await prisma.field.findMany({
+      const linkFieldRaws = await prisma.field.findMany({
         where: {
           tableId,
-          isComputed: {
+          type: FieldType.Link,
+          isLookup: {
             not: {
               equals: true,
             },
@@ -381,7 +382,8 @@ export class RecordOpenApiService {
         select: { id: true },
       });
 
-      const recordFields = fieldRaws.reduce<{ [fieldId: string]: null }>((pre, cur) => {
+      // reset link fields to null to clean relational data
+      const recordFields = linkFieldRaws.reduce<{ [fieldId: string]: null }>((pre, cur) => {
         pre[cur.id] = null;
         return pre;
       }, {});

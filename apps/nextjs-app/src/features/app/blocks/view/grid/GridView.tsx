@@ -1,9 +1,9 @@
 import type { GridViewOptions, RatingIcon } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
-import type { Record } from '@teable-group/sdk';
 import {
   RATING_ICON_MAP,
+  useFields,
   useFieldStaticGetter,
   useRowCount,
   useSSRRecords,
@@ -13,7 +13,7 @@ import {
   useViewId,
 } from '@teable-group/sdk';
 import { Skeleton } from '@teable-group/ui-lib/shadcn';
-import { isEqual } from 'lodash';
+import { isEqual, keyBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount } from 'react-use';
@@ -21,7 +21,7 @@ import type { IExpandRecordContainerRef } from '@/features/app/components/Expand
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
 import { Grid, CellType, RowControlType, SelectionRegionType } from '../../grid';
-import type { IRectangle, IPosition, IGridColumn, IGridRef } from '../../grid';
+import type { IRectangle, IPosition, IGridRef } from '../../grid';
 import { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
@@ -33,7 +33,6 @@ import {
   useColumns,
   useGridTheme,
 } from './hooks';
-import type { IRecordIndexMap } from './hooks/useAsyncData';
 import { useSelectionOperation } from './hooks/useSelectionOperation';
 import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
@@ -53,6 +52,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
   const theme = useGridTheme();
+  const fields = useFields();
   const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
   const { columns, onColumnResize } = useColumnResize(originalColumns);
   const { columnStatistics } = useColumnStatistics(columns);
@@ -143,41 +143,44 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
-      const extractIds = (
-        start: number,
-        end: number,
-        source: (Record | IGridColumn)[] | IRecordIndexMap
-      ) => {
+      function extract<T>(start: number, end: number, source: T[] | { [key: number]: T }): T[] {
         return Array.from({ length: end - start + 1 })
           .map((_, index) => {
-            const item = source[start + index];
-            return item?.id;
+            return source[start + index];
           })
-          .filter(Boolean) as string[];
-      };
+          .filter(Boolean);
+      }
 
       if (isCellSelection || isRowSelection) {
-        const start = isCellSelection ? ranges[0][1] : ranges[0][0];
-        const end = isCellSelection ? ranges[1][1] : ranges[0][1];
-        const recordIds = extractIds(start, end, recordMap);
-        openRecordMenu({ position, recordIds });
+        const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
+        const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
+        const colStart = isCellSelection ? ranges[0][0] : 0;
+        const colEnd = isCellSelection ? ranges[1][0] : columns.length - 1;
+        const records = extract(rowStart, rowEnd, recordMap);
+        const selectColumns = extract(colStart, colEnd, columns);
+        const indexedColumns = keyBy(selectColumns, 'id');
+        const selectFields = fields.filter((field) => indexedColumns[field.id]);
+        openRecordMenu({ position, records, fields: selectFields });
       }
       if (isColumnSelection) {
         const [start, end] = ranges[0];
-        const fieldIds = extractIds(start, end, columns);
-        openHeaderMenu({ position, fieldIds });
+        const selectColumns = extract(start, end, columns);
+        const indexedColumns = keyBy(selectColumns, 'id');
+        const selectFields = fields.filter((field) => indexedColumns[field.id]);
+        openHeaderMenu({ position, fields: selectFields });
       }
     },
-    [recordMap, openRecordMenu, columns, openHeaderMenu]
+    [columns, recordMap, fields, openRecordMenu, openHeaderMenu]
   );
 
   const onColumnHeaderMenuClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
-      openHeaderMenu({ fieldIds: [fieldId], position: { x, y: height } });
+      const selectedFields = fields.filter((field) => field.id === fieldId);
+      openHeaderMenu({ fields: selectedFields, position: { x, y: height } });
     },
-    [columns, openHeaderMenu]
+    [columns, fields, openHeaderMenu]
   );
 
   const onColumnHeaderDblClick = useCallback(

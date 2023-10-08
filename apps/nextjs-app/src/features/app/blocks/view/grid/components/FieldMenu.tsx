@@ -28,7 +28,7 @@ export const FieldMenu = () => {
 
   const fields = useFields();
   const activeViewId = useViewId();
-  const fieldIds = headerMenu?.fieldIds;
+  const fieldIds = headerMenu?.fields.map((f) => f.id);
   const fieldSettingRef = useRef<HTMLDivElement>(null);
 
   useClickAway(fieldSettingRef, () => {
