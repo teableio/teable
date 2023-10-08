@@ -24,6 +24,7 @@ WORKDIR /workspace-install
 
 COPY yarn.lock .yarnrc.yml ./
 COPY .yarn/ ./.yarn/
+COPY scripts/ ./scripts/
 
 # Specific to monerepo's as docker COPY command is pretty limited
 # we use buidkit to prepare all files that are necessary for install
