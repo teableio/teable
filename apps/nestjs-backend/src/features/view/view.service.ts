@@ -106,18 +106,13 @@ export class ViewService implements IAdapterService {
 
     // 4. create index
     const createRowIndexSQL = this.knex.schema
-      .table(dbTableName, (table) => {
-        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
+      .alterTable(dbTableName, (table) => {
+        table.unique(rowIndexFieldName, {
+          indexName: this.getRowIndexFieldIndexName(viewId),
+        });
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);
-
-    // set strick not null and unique type for safety（sqlite cannot do that)
-    // prisma.$executeRawUnsafe(`
-    //   ALTER TABLE ${dbTableName}
-    //   CONSTRAINT COLUMN ${rowIndexFieldName} NOT NULL UNIQUE;
-    // `),
-
     return viewData;
   }
 

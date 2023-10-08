@@ -254,7 +254,8 @@ export class BatchService {
         doc_id: data.recordId,
         version: data.version + 1,
         operation: JSON.stringify(data.rawOp),
-        created_by: userId,
+        // TODO: fixme with socket auth
+        created_by: userId || 'errorUserId',
       };
     });
 

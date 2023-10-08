@@ -121,7 +121,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
   const data: { [dbFieldName: string]: unknown }[] = [];
   for (let i = 0; i <= mockDataNum; i++) {
     const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
-    const viewRowIndex = await generateViewRowIndex({ views, rowCount, i });
+    const viewRowIndex = await generateViewRowIndex({ views, rowCount, i: i + 1 });
 
     data.push({
       __id: generateRecordId(),
