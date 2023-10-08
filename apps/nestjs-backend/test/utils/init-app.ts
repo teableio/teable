@@ -71,7 +71,7 @@ export async function updateRecordByApi(
   tableId: string,
   recordId: string,
   fieldId: string,
-  newValues: unknown
+  newValue: unknown
 ): Promise<IRecord> {
   return (
     await request
@@ -80,7 +80,7 @@ export async function updateRecordByApi(
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {
-            [fieldId]: newValues,
+            [fieldId]: newValue,
           },
         },
       } as IUpdateRecordRo)
