@@ -28,8 +28,8 @@
     "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/sdk.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test": "run-s test-unit-jest",
-    "test-unit-jest": "jest --config jest.config.js --colors --logHeapUsage",
+    "test": "run-s test-unit",
+    "test-unit": "jest --config jest.config.js --colors --logHeapUsage --silent",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {
@@ -41,7 +41,7 @@
     "@teable-group/ui-lib": "workspace:*",
     "class-transformer": "0.5.1",
     "classnames": "2.3.2",
-    "dayjs": "1.11.9",
+    "dayjs": "1.11.10",
     "dequal": "^2.0.3",
     "immer": "10.0.2",
     "knex": "2.5.1",
@@ -50,7 +50,7 @@
     "reconnecting-websocket": "4.4.0",
     "sharedb": "4.0.2",
     "ts-mixer": "6.0.3",
-    "zustand": "4.3.7"
+    "zustand": "4.4.3"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -59,14 +59,14 @@
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/react": "13.4.0",
-    "@types/jest": "29.5.4",
+    "@types/jest": "29.5.5",
     "@types/node": "18.11.7",
     "@types/react": "18.0.24",
     "@types/react-dom": "18.0.8",
     "@types/sharedb": "3.3.2",
     "cross-env": "7.0.3",
     "eslint": "8.26.0",
-    "jest": "29.6.4",
+    "jest": "29.7.0",
     "jest-environment-jsdom": "29.6.4",
     "microbundle": "0.15.1",
     "npm-run-all": "4.1.5",

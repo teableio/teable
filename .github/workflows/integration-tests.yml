@@ -1,0 +1,40 @@
+name: Integration Tests
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x]
+        database-type: [postgres, sqlite]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ♻️ Restore docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          key: ${{ runner.os }}-docker-cache-${{ hashFiles('packages/**.[jt]sx?', 'apps/**.[jt]sx?') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-cache-
+
+      - name: 🧪 Run Tests
+        run: |
+          make ${{ matrix.database-type }}.integration.test
+
+      - name: ⛔ Stop Database(s)
+        run: |
+          make docker.down
+        if: matrix.database-type != 'sqlite'

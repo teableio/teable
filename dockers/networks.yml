@@ -1,0 +1,6 @@
+version: '3.9'
+
+networks:
+  teable-net:
+    name: ${NETWORK_MODE}
+    external: true

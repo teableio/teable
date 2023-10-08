@@ -1,7 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
+import { GlobalModule } from '../../global/global.module';
+import { SpaceModule } from './space.module';
 import { SpaceService } from './space.service';
 
 describe('SpaceService', () => {
@@ -9,17 +9,8 @@ describe('SpaceService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SpaceService],
-    })
-      .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+      imports: [GlobalModule, SpaceModule],
+    }).compile();
 
     service = module.get<SpaceService>(SpaceService);
   });

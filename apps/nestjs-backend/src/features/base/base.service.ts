@@ -39,7 +39,7 @@ export class BaseService {
 
   async getBaseList() {
     const userId = this.cls.get('user.id');
-    return await this.prismaService.base.findMany({
+    return this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -67,7 +67,7 @@ export class BaseService {
       order = (spaceAggregate._max.order || 0) + 1;
     }
 
-    return await this.prismaService.base.create({
+    return this.prismaService.base.create({
       data: {
         id: generateBaseId(),
         name: name || 'Untitled Base',
@@ -89,7 +89,7 @@ export class BaseService {
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
     const userId = this.cls.get('user.id');
 
-    return await this.prismaService.base.update({
+    return this.prismaService.base.update({
       data: {
         ...updateBaseRo,
         lastModifiedBy: userId,

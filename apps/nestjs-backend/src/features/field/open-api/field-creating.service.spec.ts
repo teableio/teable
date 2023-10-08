@@ -1,7 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
+import { GlobalModule } from '../../../global/global.module';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldOpenApiModule } from './field-open-api.module';
 
@@ -10,14 +9,8 @@ describe('FieldCreatingService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [FieldOpenApiModule],
-    })
-      .useMocker((token) => {
-        if (token === ClsService || token === PrismaService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+      imports: [GlobalModule, FieldOpenApiModule],
+    }).compile();
 
     service = module.get<FieldCreatingService>(FieldCreatingService);
   });

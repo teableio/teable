@@ -1,26 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
-  IOtOperation,
+  IFieldVo,
+  ILinkCellValue,
   ILinkFieldOptions,
   ILookupOptionsVo,
-  ILinkCellValue,
-  IFieldVo,
+  IOtOperation,
   ITinyRecord,
 } from '@teable-group/core';
-import { RecordOpBuilder, Relationship, FieldType, evaluate } from '@teable-group/core';
-import { Prisma, PrismaService } from '@teable-group/db-main-prisma';
+import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByVo, createFieldInstanceByRaw } from '../field/model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import type { ICellChange } from './utils/changes';
-import { mergeDuplicateChange, formatChangesToOps } from './utils/changes';
+import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { nameConsole } from './utils/name-console';
 
 export interface ITopoItem {
   id: string;
@@ -88,9 +90,13 @@ export interface IRecordRefItem {
 
 @Injectable()
 export class ReferenceService {
-  private readonly knex = knex({ client: 'sqlite3' });
+  private readonly logger = new Logger(ReferenceService.name);
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex,
+    @Inject('DbProvider') private dbProvider: IDbProvider
+  ) {}
 
   /**
    * Strategy of calculation.
@@ -1150,24 +1156,53 @@ export class ReferenceService {
   async getDependentNodesCTE(startFieldIds: string[]): Promise<IGraphItem[]> {
     let result: { fromFieldId: string; toFieldId: string }[] = [];
     const getResult = async (startFieldId: string) => {
-      const dependentNodesQuery = Prisma.sql`
-        WITH RECURSIVE connected_reference(from_field_id, to_field_id) AS (
-          SELECT from_field_id, to_field_id FROM reference WHERE from_field_id = ${startFieldId} OR to_field_id = ${startFieldId}
-          UNION
-          SELECT deps.from_field_id, deps.to_field_id
-          FROM reference deps
-          JOIN connected_reference cd
-            ON (deps.from_field_id = cd.from_field_id AND deps.to_field_id != cd.to_field_id) 
-            OR (deps.from_field_id = cd.to_field_id AND deps.to_field_id != cd.from_field_id) 
-            OR (deps.to_field_id = cd.from_field_id AND deps.from_field_id != cd.to_field_id) 
-            OR (deps.to_field_id = cd.to_field_id AND deps.from_field_id != cd.from_field_id)
-        )
-        SELECT DISTINCT from_field_id, to_field_id FROM connected_reference;
-      `;
-      return await this.prismaService.txClient().$queryRaw<
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        { from_field_id: string; to_field_id: string }[]
-      >(dependentNodesQuery);
+      const _knex = this.knex;
+
+      const nonRecursiveQuery = _knex
+        .select('from_field_id', 'to_field_id')
+        .from('reference')
+        .where({ from_field_id: startFieldId })
+        .orWhere({ to_field_id: startFieldId });
+      const recursiveQuery = _knex
+        .select('deps.from_field_id', 'deps.to_field_id')
+        .from('reference as deps')
+        .join('connected_reference as cd', function () {
+          const sql = '?? = ?? AND ?? != ??';
+          const depsFromField = 'deps.from_field_id';
+          const depsToField = 'deps.to_field_id';
+          const cdFromField = 'cd.from_field_id';
+          const cdToField = 'cd.to_field_id';
+          this.on(
+            _knex.raw(sql, [depsFromField, cdFromField, depsToField, cdToField]).wrap('(', ')')
+          );
+          this.orOn(
+            _knex.raw(sql, [depsFromField, cdToField, depsToField, cdFromField]).wrap('(', ')')
+          );
+          this.orOn(
+            _knex.raw(sql, [depsToField, cdFromField, depsFromField, cdToField]).wrap('(', ')')
+          );
+          this.orOn(
+            _knex.raw(sql, [depsToField, cdToField, depsFromField, cdFromField]).wrap('(', ')')
+          );
+        });
+      const cteQuery = nonRecursiveQuery.union(recursiveQuery);
+      const finalQuery = this.knex
+        .withRecursive('connected_reference', ['from_field_id', 'to_field_id'], cteQuery)
+        .distinct('from_field_id', 'to_field_id')
+        .from('connected_reference');
+
+      // this.logger.log('getDependentNodesCTE Sql: %s', finalQuery.toQuery());
+
+      const sqlNative = finalQuery.toSQL().toNative();
+      return (
+        this.prismaService
+          .txClient()
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
+            sqlNative.sql,
+            ...sqlNative.bindings
+          )
+      );
     };
 
     for (const fieldId of startFieldIds) {
@@ -1213,12 +1248,12 @@ export class ReferenceService {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const [dbTableName, selectField] = selectIn!.split('.');
         return this.knex
-          .select([
-            `${dbTableName}.__id as id`,
-            `${dbTableName}.${selectField} as relationTo`,
-            this.knex.raw(`'${dbTableName}' as dbTableName`),
-            this.knex.raw(`'${fieldId}' as fieldId`),
-          ])
+          .select({
+            id: '__id',
+            relationTo: selectField,
+            dbTableName: this.knex.raw('?', dbTableName),
+            fieldId: this.knex.raw('?', fieldId ?? null),
+          })
           .from(dbTableName)
           .where(selectField, id);
       });
@@ -1229,7 +1264,7 @@ export class ReferenceService {
     const [firstQuery, ...restQueries] = queries;
     const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
 
-    return await this.prismaService
+    return this.prismaService
       .txClient()
       .$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
   }
@@ -1241,43 +1276,11 @@ export class ReferenceService {
     if (!topoOrder.length) {
       return originRecordIdItems;
     }
-    // Initialize the base case for the recursive CTE)
-    const initTableName = topoOrder[0].linkedTable;
-    let cteQuery = `
-    SELECT __id, '${initTableName}' as dbTableName, null as selectIn, null as relationTo, null as fieldId
-    FROM ${initTableName} WHERE __id IN (${originRecordIdItems.map((r) => `'${r.id}'`).join(',')})`;
 
-    // Iterate over the nodes in topological order
-    for (let i = 0; i < topoOrder.length; i++) {
-      const currentOrder = topoOrder[i];
-      const { fieldId, foreignKeyField, dbTableName, linkedTable } = currentOrder;
-
-      // Append the current node to the recursive CTE
-      if (currentOrder.relationship === Relationship.OneMany) {
-        cteQuery += `
-        UNION
-        SELECT ${linkedTable}.${foreignKeyField} as __id, '${dbTableName}' as dbTableName, '${linkedTable}.${foreignKeyField}' as selectIn , null as relationTo, '${fieldId}' as fieldId
-        FROM ${linkedTable}
-        JOIN affected_records
-        ON ${linkedTable}.__id = affected_records.__id
-        WHERE affected_records.dbTableName = '${linkedTable}'`;
-      } else {
-        cteQuery += `
-        UNION
-        SELECT ${dbTableName}.__id, '${dbTableName}' as dbTableName, null as selectIn, affected_records.__id as relationTo, '${fieldId}' as fieldId
-        FROM ${dbTableName}
-        JOIN affected_records
-        ON ${dbTableName}.${foreignKeyField} = affected_records.__id
-        WHERE affected_records.dbTableName = '${linkedTable}'`;
-      }
-    }
-
-    // Construct the final query using the recursive CTE
-    const finalQuery = `
-    WITH affected_records AS (${cteQuery})
-    SELECT * FROM affected_records`;
-
-    // console.log('getAffectedRecordItems:', finalQuery);
+    const affectedRecordItemsQuerySql = this.dbProvider.affectedRecordItemsQuerySql(
+      topoOrder,
+      originRecordIdItems
+    );
 
     const results = await this.prismaService.txClient().$queryRawUnsafe<
       {
@@ -1287,9 +1290,9 @@ export class ReferenceService {
         fieldId?: string;
         relationTo?: string;
       }[]
-    >(finalQuery);
+    >(affectedRecordItemsQuerySql);
 
-    // console.log('getAffectedRecordItems:result:', results);
+    // this.logger.log({ affectedRecordItemsResult: results });
 
     if (!results.length) {
       return originRecordIdItems;

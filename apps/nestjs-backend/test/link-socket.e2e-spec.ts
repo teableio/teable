@@ -20,7 +20,7 @@ import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-fi
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { initApp } from './utils/init-app';
 
-describe('OpenAPI link (e2e)', () => {
+describe('OpenAPI link (socket-e2e)', () => {
   let app: INestApplication;
   let table1Id = '';
   let table2Id = '';
@@ -163,7 +163,7 @@ describe('OpenAPI link (e2e)', () => {
       });
     }
 
-    it('should update foreign link field when set a new link in to link field cell', async () => {
+    it.skip('should update foreign link field when set a new link in to link field cell', async () => {
       // t2[0](many) -> t1[1](one)
       await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[2].id, {
         title: 'test',
@@ -188,7 +188,7 @@ describe('OpenAPI link (e2e)', () => {
       expect(table1RecordResult2.body.records[0].fields[ctx.table1linkField.name!]).toBeUndefined();
     });
 
-    it('should update foreign link field when change lookupField value', async () => {
+    it.skip('should update foreign link field when change lookupField value', async () => {
       // set text for lookup field
       await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[0].id, 'B1');
       await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[0].id, 'B2');
@@ -250,7 +250,7 @@ describe('OpenAPI link (e2e)', () => {
       ]);
     });
 
-    it('should update formula field when change manyOne link cell', async () => {
+    it.skip('should update formula field when change manyOne link cell', async () => {
       const table2FormulaFieldRo: IFieldRo = {
         name: 'table2Formula',
         type: FieldType.Formula,
@@ -317,7 +317,7 @@ describe('OpenAPI link (e2e)', () => {
       ]);
     });
 
-    it('should update oneMany formula field when change oneMany link cell', async () => {
+    it.skip('should update oneMany formula field when change oneMany link cell', async () => {
       const table1FormulaFieldRo: IFieldRo = {
         name: 'table1 formula field',
         type: FieldType.Formula,

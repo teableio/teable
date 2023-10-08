@@ -1,0 +1,275 @@
+{{!
+    This `schema.mustache` file is a template that will be used to generate the actual `schema.prisma` file.
+
+    The final `schema.prisma` file will be generated in the "./db_client/" subdirectory.
+
+    Do not manually edit the generated `schema.prisma` file under subdirectories, because it will be overridden next time the command is run.
+
+    The template `schema.mustache` will be used to generate the final `schema.prisma` every time.
+}}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "{{PRISMA_PROVIDER}}"
+  url      = env("PRISMA_DATABASE_URL")
+}
+
+model Space {
+  id             String    @id @default(cuid())
+  name           String
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+  baseGroup      Base[]
+
+  @@map("space")
+}
+
+model Base {
+  id             String      @id @default(cuid())
+  spaceId        String      @map("space_id")
+  name           String
+  order          Float
+  icon           String?
+  deletedTime    DateTime?   @map("deleted_time")
+  createdTime    DateTime    @default(now()) @map("created_time")
+  createdBy      String      @map("created_by")
+  lastModifiedBy String      @map("last_modified_by")
+  space          Space       @relation(fields: [spaceId], references: [id])
+  tables         TableMeta[]
+
+  @@index([order])
+  @@map("base")
+}
+
+model TableMeta {
+  id               String    @id
+  baseId           String    @map("base_id")
+  name             String
+  description      String?
+  icon             String?
+  dbTableName      String    @map("db_table_name")
+  version          Int
+  order            Float
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+  base             Base      @relation(fields: [baseId], references: [id])
+  fields           Field[]
+  views            View[]
+
+  @@index([order])
+  @@map("table_meta")
+}
+
+model Field {
+  id                  String    @id
+  name                String
+  description         String?
+  options             String?
+  type                String
+  cellValueType       String    @map("cell_value_type")
+  isMultipleCellValue Boolean?  @map("is_multiple_cell_value")
+  dbFieldType         String    @map("db_field_type")
+  dbFieldName         String    @map("db_field_name")
+  notNull             Boolean?  @map("not_null")
+  unique              Boolean?
+  isPrimary           Boolean?  @map("is_primary")
+  isComputed          Boolean?  @map("is_computed")
+  isLookup            Boolean?  @map("is_lookup")
+  hasError            Boolean?  @map("has_error")
+  // the link field id that a lookup field is linked to
+  lookupLinkedFieldId String?   @map("lookup_linked_field_id")
+  lookupOptions       String?   @map("lookup_options")
+  tableId             String    @map("table_id")
+  columnMeta          String    @map("column_meta")
+  version             Int
+  createdTime         DateTime  @default(now()) @map("created_time")
+  lastModifiedTime    DateTime  @updatedAt @map("last_modified_time")
+  deletedTime         DateTime? @map("deleted_time")
+  createdBy           String    @map("created_by")
+  lastModifiedBy      String    @map("last_modified_by")
+  table               TableMeta @relation(fields: [tableId], references: [id])
+
+  @@index([lookupLinkedFieldId])
+  @@map("field")
+}
+
+model View {
+  id               String    @id
+  name             String
+  description      String?
+  tableId          String    @map("table_id")
+  type             String
+  sort             String?
+  filter           String?
+  group            String?
+  options          String?
+  order            Float
+  version          Int
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+  table            TableMeta @relation(fields: [tableId], references: [id])
+
+  @@index([order])
+  @@map("view")
+}
+
+model Ops {
+  collection  String
+  docId       String   @map("doc_id")
+  version     Int
+  operation   String
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@unique([collection, docId, version])
+  @@index([collection, createdTime])
+  @@map("ops")
+}
+
+model Snapshots {
+  collection String
+  docId      String @map("doc_id")
+  docType    String @map("doc_type")
+  version    Int
+  data       String
+
+  @@unique([collection, docId])
+  @@map("snapshots")
+}
+
+model Reference {
+  id          String @id @default(cuid())
+  fromFieldId String @map("from_field_id")
+  toFieldId   String @map("to_field_id")
+
+  @@index([fromFieldId])
+  @@index([toFieldId])
+  @@index([toFieldId, fromFieldId])
+  @@map("reference")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  name             String
+  password         String?
+  salt             String?
+  phone            String?   @unique
+  email            String    @unique
+  avatar           String?
+  provider         String?
+  providerId       String?   @map("provider_id")
+  lastSignTime     DateTime? @map("last_sign_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  deletedTime      DateTime? @map("deleted_time")
+  lastModifiedBy   DateTime  @updatedAt @map("updated_at")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+
+  @@unique([provider, providerId])
+  @@map("users")
+}
+
+model Attachments {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  hash           String
+  size           Int
+  mimetype       String
+  path           String
+  url            String
+  width          Int?
+  height         Int?
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+
+  @@map("attachments")
+}
+
+model AttachmentsTable {
+  id             String    @id @default(cuid())
+  attachmentId   String    @map("attachment_id")
+  name           String
+  token          String
+  tableId        String    @map("table_id")
+  recordId       String    @map("record_id")
+  fieldId        String    @map("field_id")
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+
+  @@map("attachments_table")
+}
+
+model AutomationWorkflow {
+  id               String    @id @default(cuid())
+  workflowId       String    @unique @map("workflow_id")
+  name             String    @map("name")
+  description      String?   @map("description")
+  deploymentStatus String    @default("undeployed") @map("deployment_status")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@map("automation_workflow")
+}
+
+model AutomationWorkflowTrigger {
+  id               String    @id @default(cuid())
+  triggerId        String    @unique @map("trigger_id")
+  workflowId       String    @map("workflow_id")
+  description      String?   @map("description")
+  triggerType      String?   @map("trigger_type")
+  inputExpressions String?   @map("input_expressions")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@index([workflowId])
+  @@map("automation_workflow_trigger")
+}
+
+model AutomationWorkflowAction {
+  id               String    @id @default(cuid())
+  actionId         String    @unique @map("action_id")
+  workflowId       String    @map("workflow_id")
+  description      String?   @map("description")
+  actionType       String?   @map("action_type")
+  inputExpressions String?   @map("input_expressions")
+  nextNodeId       String?   @map("next_node_id")
+  parentNodeId     String?   @map("parent_node_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@index([workflowId])
+  @@map("automation_workflow_action")
+}
+
+model AutomationWorkflowExecutionHistory {
+  id              String   @id @default(cuid())
+  workflowId      String   @map("workflow_id")
+  executionType   String   @map("execution_type")
+  executionResult String   @map("execution_result")
+  createdTime     DateTime @default(now()) @map("created_time")
+
+  @@index([workflowId])
+  @@map("automation_workflow_execution_history")
+}

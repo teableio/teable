@@ -25,7 +25,7 @@ runs:
   using: 'composite'
 
   steps:
-    - name: Expose yarn config as "$GITHUB_OUTPUT"
+    - name: ⚙️ Expose yarn config as "$GITHUB_OUTPUT"
       id: yarn-config
       shell: bash
       run: |
@@ -33,7 +33,7 @@ runs:
 
     # Yarn rotates the downloaded cache archives, @see https://github.com/actions/setup-node/issues/325
     # Yarn cache is also reusable between arch and os.
-    - name: Restore yarn cache
+    - name: ♻️ Restore yarn cache
       uses: actions/cache@v3
       id: yarn-download-cache
       with:
@@ -43,14 +43,14 @@ runs:
           yarn-download-cache-
 
     # Save install_state (invalidated on yarn.lock changes)
-    - name: Restore yarn install state
+    - name: ♻️ Restore yarn install state
       id: yarn-install-state-cache
       uses: actions/cache@v3
       with:
         path: .yarn/ci-cache/
         key: ${{ runner.os }}-yarn-install-state-cache-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
 
-    - name: Install dependencies
+    - name: 📥 Install dependencies
       shell: bash
       run: |
         yarn install --immutable --inline-builds

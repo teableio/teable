@@ -5,15 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  ITableFullVo,
+  IGetTableQuery,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
+  ITableFullVo,
   ITableVo,
-  IGetTableQuery,
 } from '@teable-group/core';
 import { FieldKeyType, OpName } from '@teable-group/core';
-import { Prisma, visualTableSql, PrismaService } from '@teable-group/db-main-prisma';
+import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -36,7 +39,8 @@ export class TableService implements IAdapterService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   generateValidDbTableName(name: string) {
@@ -72,8 +76,20 @@ export class TableService implements IAdapterService {
       data,
     });
 
-    // create a real db table
-    await this.prismaService.txClient().$executeRawUnsafe(visualTableSql(dbTableName));
+    const createTableSchema = this.knex.schema.createTable(dbTableName, (table) => {
+      table.string('__id').unique().notNullable();
+      table.increments('__auto_number').primary();
+      table.double('__row_default').notNullable();
+      table.dateTime('__created_time').defaultTo(this.knex.fn.now()).notNullable();
+      table.dateTime('__last_modified_time');
+      table.string('__created_by').notNullable();
+      table.string('__last_modified_by');
+      table.integer('__version').notNullable();
+    });
+
+    for (const sql of createTableSchema.toSQL()) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
+    }
     return tableMeta;
   }
 
@@ -81,24 +97,27 @@ export class TableService implements IAdapterService {
   private async getTableLastModifiedTime(tableIds: string[]) {
     if (!tableIds.length) return [];
 
-    const results = await this.prismaService.txClient().$queryRaw<
-      {
-        tableId: string;
-        lastModifiedTime: Date;
-      }[]
-    >`
-      SELECT 
-        id as tableId,
-        (
-          SELECT created_time
-          FROM ops
-          WHERE ops.collection = table_meta.id
-          ORDER BY created_time DESC
-          LIMIT 1
-        ) as lastModifiedTime
-      FROM table_meta
-      WHERE id IN (${Prisma.join(tableIds)})
-    `;
+    const nativeSql = this.knex
+      .select({
+        tableId: 'id',
+        lastModifiedTime: this.knex
+          .select('created_time')
+          .from('ops')
+          .whereRaw('ops.collection = table_meta.id')
+          .orderBy('created_time', 'desc')
+          .limit(1),
+      })
+      .from('table_meta')
+      .whereIn('id', tableIds)
+      .toSQL()
+      .toNative();
+
+    const results = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ tableId: string; lastModifiedTime: Date }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
+      );
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);
@@ -109,24 +128,24 @@ export class TableService implements IAdapterService {
   private async getTableDefaultViewId(tableIds: string[]) {
     if (!tableIds.length) return [];
 
-    const results = await this.prismaService.txClient().$queryRaw<
-      {
-        tableId: string;
-        viewId: string;
-      }[]
-    >`
-      SELECT 
-        id as tableId,
-        (
-          SELECT id
-          FROM view
-          WHERE view.table_id = table_meta.id
-          ORDER BY 'order' ASC
-          LIMIT 1
-        ) as viewId
-      FROM table_meta
-      WHERE id IN (${Prisma.join(tableIds)})
-    `;
+    const nativeSql = this.knex
+      .select({
+        tableId: 'id',
+        viewId: this.knex
+          .select('id')
+          .from('view')
+          .whereRaw('view.table_id = table_meta.id')
+          .orderBy('order')
+          .limit(1),
+      })
+      .from('table_meta')
+      .whereIn('id', tableIds)
+      .toSQL()
+      .toNative();
+
+    const results = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ tableId: string; viewId: string }[]>(nativeSql.sql, ...nativeSql.bindings);
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);

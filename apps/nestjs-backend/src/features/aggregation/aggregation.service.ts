@@ -11,9 +11,9 @@ import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import dayjs from 'dayjs';
-import type { Knex } from 'knex';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { difference, groupBy, isEmpty, sortBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { Observable } from 'rxjs';
 import { catchError, firstValueFrom, from, mergeMap, of, Subject, tap, toArray } from 'rxjs';
 import type { IFieldInstance } from '../field/model/factory';
@@ -58,9 +58,8 @@ export type IAggregationCalcCallback = (
 @Injectable()
 export class AggregationService {
   private logger = new Logger(AggregationService.name);
-  private readonly knex = knex({ client: 'sqlite3' });
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, @InjectModel() private readonly knex: Knex) {}
 
   /**
    * This method calculates the aggregations for a specified view.

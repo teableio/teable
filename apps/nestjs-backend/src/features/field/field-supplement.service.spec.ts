@@ -3,8 +3,8 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
-import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
-import { ClsModule } from 'nestjs-cls';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { GlobalModule } from '../../global/global.module';
 import { FieldSupplementService } from './field-supplement.service';
 import { FieldModule } from './field.module';
 import { createFieldInstanceByVo } from './model/factory';
@@ -15,13 +15,7 @@ describe('FieldSupplementService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ClsModule.forRoot({
-          global: true,
-        }),
-        PrismaModule,
-        FieldModule,
-      ],
+      imports: [GlobalModule, FieldModule],
     }).compile();
 
     service = module.get<FieldSupplementService>(FieldSupplementService);
