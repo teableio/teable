@@ -22,21 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      #      - name: Use Node.js ${{ matrix.node-version }}
-      #        uses: actions/setup-node@v3
-      #        with:
-      #          node-version: ${{ matrix.node-version }}
-      #
-      #      - name: 📥 Monorepo install
-      #        uses: ./.github/actions/yarn-nm-install
-      #
-      #      - name: 🏁 Initialize Database(s)
-      #        run: |
-      #          make db-${{ matrix.database-type }}
-      #
-      #      - name: 🏗 Run build
-      #        run: |
-      #          yarn g:build
+      - name: ♻️ Restore docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          key: ${{ runner.os }}-docker-cache-${{ hashFiles('packages/**.[jt]sx?', 'apps/**.[jt]sx?') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-cache-
 
       - name: 🧪 Run Tests
         run: |

@@ -160,7 +160,7 @@ docker.postgres.stop:
 docker.postgres.await:
 	make docker.await teable-postgres
 
-sqlite.integration.test:
+sqlite.integration.test: docker.create.network
 	make docker.build integration-test
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
 		-e PRISMA_DATABASE_URL=file:../../db/main.db \

@@ -18,13 +18,23 @@ ARG NODE_VERSION=18
 ARG ALPINE_VERSION=3.18
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
+RUN apk add --no-cache rsync
 
 WORKDIR /workspace-install
 
 COPY --link yarn.lock .yarnrc.yml ./
 COPY --link .yarn/ ./.yarn/
 
-COPY --link . .
+RUN --mount=type=bind,target=/docker-context \
+    rsync -amv --delete \
+          --exclude='node_modules' \
+          --exclude='*/node_modules' \
+          --include='package.json' \
+          --include='schema.prisma' \
+          --include='.meshrc.yaml' \
+          --include='scripts/*' \
+          --include='*/' --exclude='*' \
+          /docker-context/ /workspace-install/;
 
 # @see https://www.prisma.io/docs/reference/api-reference/environment-variables-reference#cli-binary-targets
 # ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
@@ -43,7 +53,9 @@ COPY --link . .
 # Does not play well with buildkit on CI
 # https://github.com/moby/buildkit/issues/1673
 
-RUN yarn install --immutable --inline-builds
+RUN --mount=type=cache,target=/root/.yarn3-cache,id=yarn3-cache \
+    YARN_CACHE_FOLDER=/root/.yarn3-cache \
+    yarn install --immutable --inline-builds
 
 
 ###################################################################
@@ -58,14 +70,13 @@ ENV NEXTJS_IGNORE_TYPECHECK=0
 WORKDIR /app
 
 COPY . .
-COPY --from=deps /workspace-install/node_modules ./node_modules
+COPY --from=deps /workspace-install ./
 
 RUN apk add --no-cache make bash
 
 # Optional: if the app depends on global /static shared assets like images, locales...
 RUN yarn workspace @teable-group/app share-static-hardlink; \
-    yarn g:build; \
-    yarn workspace @teable-group/db-main-prisma prisma-generate
+    yarn g:build
 
 ###################################################################
 # Stage 3: Extract a minimal image from the build                 #
