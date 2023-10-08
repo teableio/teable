@@ -117,6 +117,29 @@ export async function getRecord(
   ).body;
 }
 
+export async function deleteRecords(
+  request: request.SuperAgentTest,
+  tableId: string,
+  recordIds: string[]
+): Promise<IRecordsVo> {
+  return (
+    await request
+      .delete(`/api/table/${tableId}/record`)
+      .query({
+        recordIds,
+      })
+      .expect(200)
+  ).body;
+}
+
+export async function deleteRecord(
+  request: request.SuperAgentTest,
+  tableId: string,
+  recordId: string
+): Promise<IRecord> {
+  return (await request.delete(`/api/table/${tableId}/record/${recordId}`).expect(200)).body;
+}
+
 export async function createField(
   request: request.SuperAgentTest,
   tableId: string,

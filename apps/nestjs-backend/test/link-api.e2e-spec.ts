@@ -3,10 +3,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ITableFullVo, IUpdateRecordRo } from '@teable-group/core';
+import type {
+  IFieldRo,
+  ILinkFieldOptions,
+  ITableFullVo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldType, Relationship, NumberFormattingType } from '@teable-group/core';
 import type request from 'supertest';
-import { initApp, updateRecordByApi, createField, getRecords } from './utils/init-app';
+import {
+  initApp,
+  updateRecordByApi,
+  createField,
+  getRecords,
+  getField,
+  deleteRecord,
+  getRecord,
+} from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
@@ -570,6 +583,143 @@ describe('OpenAPI link (e2e)', () => {
       expect(table1Records[0].fields[rollupOneManyField.id]).toEqual(1);
       expect(table1Records[0].fields[lookupManyOneField.id]).toEqual(undefined);
       expect(table1Records[0].fields[rollupManyOneField.id]).toEqual(undefined);
+    });
+  });
+
+  describe('update link when delete record', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table1',
+      });
+      table1 = result1.body;
+      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table2',
+      });
+      table2 = result2.body;
+    });
+
+    afterEach(async () => {
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+    });
+
+    it('should clean single link record when delete a record', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      // set primary key 'x' in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // get get a oneManyField involved
+      const manyOneField = await createField(request, table1.id, manyOneFieldRo);
+      const symManyOneField = await getField(
+        request,
+        table2.id,
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+      );
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+
+      await deleteRecord(request, table1.id, table1.records[0].id);
+
+      const table2Record = await getRecord(request, table2.id, table2.records[0].id);
+      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
+    });
+
+    it('should update single link record when delete a record', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, table1.fields[0].id, 'x1');
+      await updateRecordByApi(request, table1.id, table1.records[1].id, table1.fields[0].id, 'x2');
+
+      // get get a oneManyField involved
+      const manyOneField = await createField(request, table1.id, manyOneFieldRo);
+      const symManyOneField = await getField(
+        request,
+        table2.id,
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+      );
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(request, table1.id, table1.records[1].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+
+      await deleteRecord(request, table1.id, table1.records[0].id);
+
+      const table2Record = await getRecord(request, table2.id, table2.records[0].id);
+      expect(table2Record.fields[symManyOneField.id]).toEqual([
+        {
+          title: 'x2',
+          id: table1.records[1].id,
+        },
+      ]);
+    });
+
+    it('should clean multi link record when delete a record', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const oneManyFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      // set primary key 'x' in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // get get a oneManyField involved
+      const manyOneField = await createField(request, table1.id, manyOneFieldRo);
+      const oneManyField = await createField(request, table1.id, oneManyFieldRo);
+
+      const symManyOneField = await getField(
+        request,
+        table2.id,
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+      );
+      const symOneManyField = await getField(
+        request,
+        table2.id,
+        (oneManyField.options as ILinkFieldOptions).symmetricFieldId
+      );
+
+      await updateRecordByApi(request, table2.id, table2.records[0].id, symOneManyField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(request, table2.id, table2.records[0].id, symManyOneField.id, [
+        {
+          id: table1.records[0].id,
+        },
+      ]);
+
+      await deleteRecord(request, table1.id, table1.records[0].id);
+
+      const table2Record = await getRecord(request, table2.id, table2.records[0].id);
+      expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
+      expect(table2Record.fields[symOneManyField.id]).toBeUndefined();
     });
   });
 });

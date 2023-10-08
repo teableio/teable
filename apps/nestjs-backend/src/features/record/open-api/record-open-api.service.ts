@@ -372,12 +372,8 @@ export class RecordOpenApiService {
         where: {
           tableId,
           type: FieldType.Link,
-          isLookup: {
-            not: {
-              equals: true,
-            },
-          },
           deletedTime: null,
+          isLookup: null,
         },
         select: { id: true },
       });
