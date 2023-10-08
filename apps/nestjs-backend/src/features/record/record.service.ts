@@ -446,12 +446,22 @@ export class RecordService implements IAdapterService {
     return result[0].__id;
   }
 
+  async getMaxRecordOrder(dbTableName: string) {
+    const sqlNative = this.knex(dbTableName).max('__row_default', { as: 'max' }).toSQL().toNative();
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ max?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+
+    return (result[0]?.max ?? 0) + 1;
+  }
+
   async create(tableId: string, snapshot: IRecord) {
     const userId = this.cls.get('user.id');
     const dbTableName = await this.getDbTableName(tableId);
 
-    // TODO: get row count will causes performance issus when insert lot of records
-    const rowCount = await this.getAllRecordCount(dbTableName);
+    const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
+
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
@@ -462,7 +472,7 @@ export class RecordService implements IAdapterService {
       if (snapshot.recordOrder[cur.id] !== undefined) {
         pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
       } else {
-        pre[viewOrderFieldName] = rowCount;
+        pre[viewOrderFieldName] = maxRecordOrder;
       }
       return pre;
     }, {});
@@ -470,7 +480,7 @@ export class RecordService implements IAdapterService {
     const nativeSql = this.knex(dbTableName)
       .insert({
         __id: snapshot.id,
-        __row_default: rowCount,
+        __row_default: maxRecordOrder,
         __created_by: userId,
         __last_modified_by: userId,
         __version: 1,

@@ -41,13 +41,13 @@ describe('OpenAPI RecordController (e2e)', () => {
     await app.close();
   });
 
-  it('/api/table/{tableId}/record (GET)', async () => {
+  it('should get records', async () => {
     const result = await request.get(`/api/table/${table.id}/record`).expect(200);
     expect(result.body.records).toBeInstanceOf(Array);
     // console.log('result: ', result.body);
   });
 
-  it('/api/table/{tableId}/record (POST)', async () => {
+  it('should create a record', async () => {
     const value1 = 'New Record' + new Date();
     const res1 = await request
       .post(`/api/table/${table.id}/record`)
@@ -91,7 +91,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     expect(res2.body.records[0].fields[table.fields[0].id]).toEqual(value2);
   });
 
-  it('/api/table/{tableId}/record/{recordId} (PUT)', async () => {
+  it('should update record', async () => {
     const record = await updateRecordByApi(
       request,
       table.id,
@@ -113,7 +113,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     expect(result.body.records[0].fields[table.fields[0].name]).toEqual('new value');
   });
 
-  it('/api/table/{tableId}/record by index (PUT)', async () => {
+  it('should update record by index', async () => {
     const viewResponse = await request.get(`/api/table/${table.id}/view`).expect(200);
 
     const firstTextField = table.fields.find((field) => field.type === FieldType.SingleLineText);
@@ -145,7 +145,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     expect(result.body.records[1].fields[firstTextField.name]).toEqual('new value');
   });
 
-  it('/api/table/{tableId}/record (POST) (100x)', async () => {
+  it('should batch create records', async () => {
     const count = 100;
     console.time(`create ${count} records`);
     const records = Array.from({ length: count }).map((_, i) => ({
@@ -166,7 +166,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     console.timeEnd(`create ${count} records`);
   });
 
-  it('/api/table/{tableId}/record/{recordId} (delete)', async () => {
+  it('should delete a record', async () => {
     const value1 = 'New Record' + new Date();
     const addRecordRes = await request
       .post(`/api/table/${table.id}/record`)
@@ -194,7 +194,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       .expect(404);
   });
 
-  it('/api/table/{tableId}/record (delete)', async () => {
+  it('should batch delete records', async () => {
     const value1 = 'New Record' + new Date();
     const addRecordsRes = await request
       .post(`/api/table/${table.id}/record`)
@@ -226,5 +226,23 @@ describe('OpenAPI RecordController (e2e)', () => {
 
     await request.get(`/api/table/${table.id}/record/${records[0].id}`).expect(404);
     await request.get(`/api/table/${table.id}/record/${records[1].id}`).expect(404);
+  });
+
+  it('should create a record after delete a record', async () => {
+    const value1 = 'New Record' + new Date();
+    await request.delete(`/api/table/${table.id}/record/${table.records[0].id}`).expect(200);
+
+    await request
+      .post(`/api/table/${table.id}/record`)
+      .send({
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      })
+      .expect(201);
   });
 });
