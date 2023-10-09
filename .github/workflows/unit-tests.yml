@@ -34,14 +34,12 @@ jobs:
           path: |
             ${{ github.workspace }}/.cache
             ${{ github.workspace }}/**/tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('packages/**.[jt]sx?', 'packages/**.json') }}
-          restore-keys: |
-            ${{ runner.os }}-packages-cache-${{ hashFiles('**/yarn.lock') }}-
+          key: packages-cache-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
       - name: 🏗 Run build
         run: |
-          yarn workspaces foreach -tv --exclude '@teable-group/(app|backend)' run build
+          yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build
 
       - name: 🧪 Run Tests
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' run test-unit
+          yarn workspaces foreach -A -tv --include '@teable-group/*' run test-unit
