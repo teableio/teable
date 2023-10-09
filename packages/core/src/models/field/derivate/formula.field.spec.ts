@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
-import { DateFormattingPreset, TimeFormatting } from '../formatting';
+import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
 import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { FormulaFieldCore } from './formula.field';
 import { NumberFieldCore } from './number.field';
@@ -34,7 +34,7 @@ describe('FormulaFieldCore', () => {
     dbFieldType: DbFieldType.Real,
     options: {
       expression: '{fld123} + 2',
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -57,7 +57,7 @@ describe('FormulaFieldCore', () => {
     type: FieldType.Number,
     dbFieldType: DbFieldType.Real,
     options: {
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
     },
     cellValueType: CellValueType.Number,
     isComputed: false,
@@ -99,7 +99,7 @@ describe('FormulaFieldCore', () => {
     ...numberFormulaJson,
     options: {
       ...numberFormulaJson.options,
-      formatting: { precision: 2 },
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       showAs: multiNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -303,6 +303,7 @@ describe('FormulaFieldCore', () => {
           options: {
             expression: '',
             formatting: {
+              type: NumberFormattingType.Decimal,
               precision: 2,
             },
           },
@@ -317,6 +318,7 @@ describe('FormulaFieldCore', () => {
           options: {
             expression: '',
             formatting: {
+              type: NumberFormattingType.Decimal,
               precision: 2,
             },
           },
@@ -334,6 +336,7 @@ describe('FormulaFieldCore', () => {
       expect(FormulaFieldCore.defaultOptions(CellValueType.Number)).toEqual({
         expression: '',
         formatting: {
+          type: NumberFormattingType.Decimal,
           precision: 2,
         },
       });

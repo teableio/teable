@@ -9,10 +9,10 @@ import {
   FieldType,
   nullsToUndefined,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaModule, PrismaService } from '@teable-group/db-main-prisma';
-import { ClsModule } from 'nestjs-cls';
-import { TeableEventEmitterModule } from '../../event-emitter/event-emitter.module';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import type { DeepMockProxy } from 'jest-mock-extended';
+import { mockDeep, mockReset } from 'jest-mock-extended';
+import { GlobalModule } from '../../global/global.module';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
@@ -26,42 +26,28 @@ describe('selectionService', () => {
   let selectionService: SelectionService;
   let recordService: RecordService;
   let fieldService: FieldService;
-  let prismaService: Prisma.TransactionClient;
+  let prismaService: DeepMockProxy<PrismaService>;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ClsModule.forRoot({
-          global: true,
-        }),
-        PrismaModule,
-        SelectionModule,
-        TeableEventEmitterModule.register(),
-      ],
-      providers: [
-        {
-          provide: PrismaService,
-          useValue: {
-            txClient: function () {
-              return this;
-            },
-            attachments: {
-              findMany: jest.fn(),
-            },
-          },
-        },
-      ],
-    }).compile();
+      imports: [GlobalModule, SelectionModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue(mockDeep<PrismaService>())
+      .compile();
 
     selectionService = module.get<SelectionService>(SelectionService);
     fieldService = module.get<FieldService>(FieldService);
     recordService = module.get<RecordService>(RecordService);
-    prismaService = module.get<PrismaService>(PrismaService).txClient();
-    prismaService.attachments.findMany = jest.fn();
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
+
+    prismaService = module.get<PrismaService>(
+      PrismaService
+    ) as unknown as DeepMockProxy<PrismaService>;
+    mockReset(prismaService);
   });
 
   const tableId = 'table1';
@@ -218,15 +204,15 @@ describe('selectionService', () => {
         ['file3.png (https://xxx.xxx/token3)'],
       ];
 
-      const mockAttachment = [
+      const mockAttachment: any[] = [
         {
           token: 'token1',
           path: '',
           url: '',
           size: 1,
           mimetype: 'image/png',
-          width: undefined,
-          height: undefined,
+          width: null,
+          height: null,
         },
         {
           token: 'token2',
@@ -248,7 +234,8 @@ describe('selectionService', () => {
         },
       ];
 
-      (prismaService.attachments.findMany as jest.Mock).mockResolvedValue(mockAttachment);
+      prismaService.attachments.findMany.mockResolvedValue(mockAttachment);
+
       const result = await selectionService['collectionAttachment']({
         tableData,
         fields,
@@ -457,6 +444,10 @@ describe('selectionService', () => {
       jest.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
       jest.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
+
+      prismaService.$tx.mockImplementation(async (fn, _options) => {
+        await fn(prismaService);
+      });
 
       // Call the method
       const result = await selectionService.paste(tableId, viewId, pasteRo);

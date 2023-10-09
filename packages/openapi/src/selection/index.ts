@@ -1,3 +1,3 @@
-export * as SelectionSchema from './schema';
-export * as SelectionPath from './path';
-export * as SelectionRoute from './route';
+export * from './clear';
+export * from './copy';
+export * from './paste';

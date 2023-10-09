@@ -7,6 +7,7 @@ import type {
   CellValueType,
   IRollupFieldOptions,
   ILookupOptionsRo,
+  IRatingFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -14,6 +15,7 @@ import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
 import { LinkOptions } from './options/LinkOptions';
 import { NumberOptions } from './options/NumberOptions';
+import { RatingOptions } from './options/RatingOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
 
@@ -23,7 +25,7 @@ export interface IFieldOptionsProps {
   isLookup: boolean | undefined;
   lookupField?: IFieldInstance;
   lookupOptions: ILookupOptionsRo | undefined;
-  cellValueType?: CellValueType; // for formula field with lookup only
+  cellValueType?: CellValueType;
   updateFieldOptions: (options: Partial<IFieldInstance['options']>) => void;
 }
 
@@ -77,6 +79,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
       return (
         <DateOptions
           options={options as IDateFieldOptions}
+          isLookup={isLookup}
+          onChange={updateFieldOptions}
+        />
+      );
+    case FieldType.Rating:
+      return (
+        <RatingOptions
+          options={options as IRatingFieldOptions}
           isLookup={isLookup}
           onChange={updateFieldOptions}
         />

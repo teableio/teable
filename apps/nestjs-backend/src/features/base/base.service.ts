@@ -1,10 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { IdPrefix, generateBaseId } from '@teable-group/core';
+import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from 'src/types/cls';
-import { RecordService } from '../record/record.service';
 
 @Injectable()
 export class BaseService {
@@ -12,31 +11,8 @@ export class BaseService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly recordService: RecordService,
     private readonly cls: ClsService<IClsStore>
   ) {}
-
-  async sqlQuery(tableId: string, viewId: string, sql: string) {
-    this.logger.log('sqlQuery:sql: ' + sql);
-    const { queryBuilder } = await this.recordService.buildQuery(tableId, {
-      type: IdPrefix.Record,
-      viewId,
-      limit: -1,
-    });
-    const baseQuery = queryBuilder.toString();
-    const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
-      where: { id: tableId, deletedTime: null },
-      select: { dbTableName: true },
-    });
-
-    const combinedQuery = `
-      WITH base AS (${baseQuery})
-      ${sql.replace(dbTableName, 'base')};
-    `;
-    this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
-
-    return this.prismaService.$queryRawUnsafe(combinedQuery);
-  }
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
@@ -63,7 +39,7 @@ export class BaseService {
 
   async getBaseList() {
     const userId = this.cls.get('user.id');
-    return await this.prismaService.base.findMany({
+    return this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -78,7 +54,7 @@ export class BaseService {
     });
   }
 
-  async createBase(createBaseRo: BaseSchema.ICreateBaseRo) {
+  async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
     const { name, spaceId } = createBaseRo;
 
@@ -91,7 +67,7 @@ export class BaseService {
       order = (spaceAggregate._max.order || 0) + 1;
     }
 
-    return await this.prismaService.base.create({
+    return this.prismaService.base.create({
       data: {
         id: generateBaseId(),
         name: name || 'Untitled Base',
@@ -110,10 +86,10 @@ export class BaseService {
     });
   }
 
-  async updateBase(baseId: string, updateBaseRo: BaseSchema.IUpdateBaseRo) {
+  async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
     const userId = this.cls.get('user.id');
 
-    return await this.prismaService.base.update({
+    return this.prismaService.base.update({
       data: {
         ...updateBaseRo,
         lastModifiedBy: userId,

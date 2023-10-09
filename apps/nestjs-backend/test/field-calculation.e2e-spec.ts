@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IRecord, IFieldVo, IUpdateRecordRo, IRecordsVo, IFieldRo } from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
+import { FieldKeyType, FieldType, NumberFormattingType } from '@teable-group/core';
 import type request from 'supertest';
 import { initApp } from './utils/init-app';
 import { seeding } from './utils/record-mock';
@@ -69,6 +69,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
       options: {
         expression: '1 + 1',
         formatting: {
+          type: NumberFormattingType.Decimal,
           precision: 2,
         },
       },

@@ -34,6 +34,7 @@ export enum DbFieldType {
   Real = 'REAL',
   Blob = 'BLOB',
   Json = 'JSON',
+  Boolean = 'BOOLEAN',
 }
 
 export enum CellValueType {

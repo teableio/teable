@@ -8,6 +8,7 @@ import {
 import type {
   IAttachmentCellValue,
   ICreateRecordsRo,
+  IExtraResult,
   IGetRecordsQuery,
   IMakeRequired,
   IRecord,
@@ -16,7 +17,6 @@ import type {
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
   ISnapshotBase,
-  IExtraResult,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -30,9 +30,9 @@ import {
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Knex } from 'knex';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
@@ -51,12 +51,12 @@ type IUserFields = { id: string; dbFieldName: string }[];
 @Injectable()
 export class RecordService implements IAdapterService {
   private logger = new Logger(RecordService.name);
-  private readonly knex = knex({ client: 'sqlite3' });
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   private async getRowOrderFieldNames(tableId: string) {
@@ -281,9 +281,7 @@ export class RecordService implements IAdapterService {
       .where({ __id: recordId })
       .toSQL()
       .toNative();
-    return await this.prismaService
-      .txClient()
-      .$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+    return this.prismaService.txClient().$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
   async setRecord(
@@ -322,14 +320,11 @@ export class RecordService implements IAdapterService {
       {}
     );
 
-    const sqlNative = this.knex(dbTableName)
+    const updateRecordSql = this.knex(dbTableName)
       .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
       .where({ __id: recordId })
-      .toSQL()
-      .toNative();
-    return await this.prismaService
-      .txClient()
-      .$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+      .toQuery();
+    return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
   }
 
   getCreateAttachments(
@@ -480,7 +475,6 @@ export class RecordService implements IAdapterService {
       .insert({
         __id: snapshot.id,
         __row_default: rowCount,
-        __created_time: new Date().toISOString(),
         __created_by: userId,
         __last_modified_by: userId,
         __version: 1,

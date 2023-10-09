@@ -1,36 +1,22 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
-import { AttachmentRoute } from './attachment';
-import { AuthRoute } from './auth';
-import { BaseRoute } from './base';
-import { RecordRoute } from './record';
-import { SelectionRoute } from './selection';
-import { SpaceRoute } from './space';
+import { getRoutes } from './utils';
 
 function registerAllRoute() {
   const registry = new OpenAPIRegistry();
-  const routeObjList: Record<string, RouteConfig>[] = [
-    AttachmentRoute,
-    RecordRoute,
-    SelectionRoute,
-    AuthRoute,
-    SpaceRoute,
-    BaseRoute,
-  ];
+  const routeObjList: RouteConfig[] = getRoutes();
   for (const routeObj of routeObjList) {
-    for (const routeKey in routeObj) {
-      const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-      });
-      registry.registerPath({ ...routeObj[routeKey], security: [{ [bearerAuth.name]: [] }] });
-    }
+    const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+    });
+    registry.registerPath({ ...routeObj, security: [{ [bearerAuth.name]: [] }] });
   }
   return registry;
 }
 
-function getOpenApiDocumentation() {
+export function getOpenApiDocumentation() {
   const registry = registerAllRoute();
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
@@ -46,5 +32,3 @@ function getOpenApiDocumentation() {
 
   return generated;
 }
-
-export const openApiDocumentation = getOpenApiDocumentation();

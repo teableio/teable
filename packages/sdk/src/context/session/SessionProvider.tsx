@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
+import { userMe } from '@teable-group/openapi';
 import { useCallback, useMemo, useState } from 'react';
-import { AuthApi } from '../../api';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';
 
@@ -26,7 +26,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     return undefined;
   });
 
-  const { mutateAsync: getUser } = useMutation({ mutationFn: AuthApi.userMe });
+  const { mutateAsync: getUser } = useMutation({ mutationFn: userMe });
 
   const refresh = useCallback(async () => {
     const { data } = await getUser();

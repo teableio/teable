@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import type { IViewAggregationVo, IViewRowCountVo } from '@teable-group/core';
-import { IViewAggregationRo, viewAggregationRo } from '@teable-group/core';
+import { IViewAggregationRo, viewAggregationRoSchema } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
@@ -12,7 +12,7 @@ export class AggregationOpenApiController {
   async getViewAggregations(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Query(new ZodValidationPipe(viewAggregationRo)) query?: IViewAggregationRo
+    @Query(new ZodValidationPipe(viewAggregationRoSchema)) query?: IViewAggregationRo
   ): Promise<IViewAggregationVo> {
     return await this.aggregationOpenApiService.getViewAggregations(tableId, viewId, query);
   }

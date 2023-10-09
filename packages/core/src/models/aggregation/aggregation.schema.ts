@@ -74,8 +74,8 @@ export const viewRowCountSchema = z.object({
 
 export type IViewRowCountVo = z.infer<typeof viewRowCountSchema>;
 
-export const viewAggregationRo = z.object({
+export const viewAggregationRoSchema = z.object({
   field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
 });
 
-export type IViewAggregationRo = z.infer<typeof viewAggregationRo>;
+export type IViewAggregationRo = z.infer<typeof viewAggregationRoSchema>;

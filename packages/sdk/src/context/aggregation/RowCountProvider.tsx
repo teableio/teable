@@ -54,7 +54,7 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
     if (tableId == null || viewId == null || !isHydrated) return;
 
     View.getViewRowCount(tableId, viewId).then((res) => {
-      setRowCount(res.rowCount);
+      setRowCount(res.data.rowCount);
     });
   }, [tableId, viewId, connection, isHydrated]);
 

@@ -2,12 +2,14 @@ import { CellValueType, FieldType } from './constant';
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { NumberFieldCore } from './derivate/number.field';
 import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
+import { NumberFormattingType } from './formatting';
 
 describe('field Schema Test', () => {
   it('should return true when options validate', () => {
     const options = {
       expression: '1 + 1',
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     };

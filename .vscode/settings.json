@@ -12,6 +12,8 @@
     "openapi",
     "shadcn",
     "sharedb",
+    "signin",
+    "signout",
     "sonarjs",
     "teable",
     "topo",

@@ -1,45 +1,35 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
+import { createField, deleteField, getFieldList, updateField } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
-import { axios } from '../../config/axios';
 
 export abstract class Field extends FieldCore {
   tableId!: string;
 
-  static async getFields(tableId: string, viewId?: string) {
-    const params = viewId ? { viewId } : {};
-    const response = await axios.get<IFieldVo[]>(`/table/${tableId}/field`, {
-      params,
-    });
-    return response.data;
-  }
+  static getFields = getFieldList;
 
-  static async createField(tableId: string, fieldRo: IFieldRo) {
-    const response = await axios.post<IFieldVo>(`/table/${tableId}/field`, fieldRo);
-    return response.data;
-  }
+  static createField = createField;
 
-  static async updateField(tableId: string, fieldId: string, fieldRo: IFieldRo): Promise<void> {
-    const response = await axios.put<void>(`/table/${tableId}/field/${fieldId}`, fieldRo);
-    return response.data;
-  }
+  static updateField = updateField;
 
-  static async deleteField(tableId: string, fieldId: string): Promise<void> {
-    const response = await axios.delete<void>(`/table/${tableId}/field/${fieldId}`);
-    return response.data;
-  }
+  static deleteField = deleteField;
 
   protected doc!: Doc<IFieldVo>;
 
-  private async submitOperation(operation: unknown): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.doc.submitOp([operation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
+  private async submitOperation(operation: unknown) {
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
       });
-    });
+    } catch (error) {
+      return error;
+    }
   }
 
-  async updateColumnWidth(viewId: string, width: number): Promise<void> {
+  async updateColumnWidth(viewId: string, width: number) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'width',
@@ -47,10 +37,10 @@ export abstract class Field extends FieldCore {
       oldMetaValue: this.columnMeta[viewId]?.width,
     });
 
-    return await this.submitOperation(fieldOperation);
+    return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnHidden(viewId: string, hidden: boolean): Promise<void> {
+  async updateColumnHidden(viewId: string, hidden: boolean) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'hidden',
@@ -58,10 +48,10 @@ export abstract class Field extends FieldCore {
       oldMetaValue: this.columnMeta[viewId]?.hidden,
     });
 
-    return await this.submitOperation(fieldOperation);
+    return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnOrder(viewId: string, order: number): Promise<void> {
+  async updateColumnOrder(viewId: string, order: number) {
     const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
       viewId,
       metaKey: 'order',
@@ -69,13 +59,10 @@ export abstract class Field extends FieldCore {
       oldMetaValue: this.columnMeta[viewId].order,
     });
 
-    return await this.submitOperation(fieldOperation);
+    return this.submitOperation(fieldOperation);
   }
 
-  async updateColumnStatistic(
-    viewId: string,
-    statisticFunc?: StatisticsFunc | null
-  ): Promise<void> {
+  async updateColumnStatistic(viewId: string, statisticFunc?: StatisticsFunc | null) {
     if (statisticFunc === this.columnMeta[viewId]?.statisticFunc) {
       return;
     }
@@ -85,14 +72,14 @@ export abstract class Field extends FieldCore {
       newMetaValue: statisticFunc,
       oldMetaValue: this.columnMeta[viewId]?.statisticFunc,
     });
-    return await this.submitOperation(fieldOperation);
+    return this.submitOperation(fieldOperation);
   }
 
   async update(fieldRo: IFieldRo) {
-    return await Field.updateField(this.tableId, this.id, fieldRo);
+    return Field.updateField(this.tableId, this.id, fieldRo);
   }
 
-  async delete(): Promise<void> {
-    return await Field.deleteField(this.tableId, this.id);
+  async delete() {
+    return Field.deleteField(this.tableId, this.id);
   }
 }

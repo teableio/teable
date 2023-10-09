@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Plus } from '@teable-group/icons';
-import { SpaceApi } from '@teable-group/sdk';
+import { createSpace, getSpaceList } from '@teable-group/openapi';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -13,11 +13,11 @@ export const SpaceList: FC = () => {
 
   const { data: spaceList } = useQuery({
     queryKey: ['space-list', spaceId],
-    queryFn: SpaceApi.getSpaceList,
+    queryFn: getSpaceList,
   });
 
   const { mutate: addSpace, isLoading } = useMutation({
-    mutationFn: SpaceApi.createSpace,
+    mutationFn: createSpace,
     onSuccess: async (data) => {
       router.push({
         pathname: '/space/[spaceId]',

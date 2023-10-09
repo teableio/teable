@@ -1,53 +1,44 @@
-import type {
-  IFilter,
-  ISort,
-  IViewVo,
-  IViewAggregationRo,
-  IViewRowCountVo,
-  IViewAggregationVo,
-  IUpdateViewOrderRo,
-} from '@teable-group/core';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { IFilter, ISort, IViewVo } from '@teable-group/core';
 import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
+import {
+  createView,
+  deleteView,
+  getViewAggregations,
+  getViewList,
+  getViewRowCount,
+  manualSortView,
+} from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
-import { axios } from '../../config/axios';
 
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
-  static async getViews(tableId: string) {
-    const response = await axios.get<IViewVo[]>(`/table/${tableId}/view`);
-    return response.data;
-  }
+  static getViews = getViewList;
 
-  static async getViewAggregation(tableId: string, viewId: string, query?: IViewAggregationRo) {
-    const response = await axios.get<IViewAggregationVo>(
-      `/table/${tableId}/aggregation/${viewId}`,
-      { params: query }
-    );
-    return response.data;
-  }
+  static createView = createView;
 
-  static async getViewRowCount(tableId: string, viewId: string) {
-    const response = await axios.get<IViewRowCountVo>(
-      `/table/${tableId}/aggregation/${viewId}/rowCount`
-    );
-    return response.data;
-  }
+  static deleteView = deleteView;
 
-  static async updateViewRawOrder(tableId: string, viewId: string, viewRo: IUpdateViewOrderRo) {
-    const response = await axios.post(`/table/${tableId}/view/${viewId}/sort`, viewRo);
-    return response.data;
-  }
+  static getViewAggregations = getViewAggregations;
 
-  private async submitOperation(operation: unknown): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.doc.submitOp([operation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
+  static getViewRowCount = getViewRowCount;
+
+  static manualSort = manualSortView;
+
+  private async submitOperation(operation: unknown) {
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
       });
-    });
+    } catch (error) {
+      return error;
+    }
   }
 
-  async updateName(name: string): Promise<void> {
+  async updateName(name: string) {
     const viewOperation = ViewOpBuilder.editor.setViewName.build({
       newName: name,
       oldName: this.name,
@@ -56,7 +47,7 @@ export abstract class View extends ViewCore {
     return await this.submitOperation(viewOperation);
   }
 
-  async setFilter(newFilter?: IFilter | null): Promise<void> {
+  async setFilter(newFilter?: IFilter | null) {
     const validFilter = newFilter && (await filterSchema.parseAsync(newFilter));
 
     const viewOperation = ViewOpBuilder.editor.setViewFilter.build({
@@ -67,7 +58,7 @@ export abstract class View extends ViewCore {
     return await this.submitOperation(viewOperation);
   }
 
-  async setSort(newSort?: ISort | null): Promise<void> {
+  async setSort(newSort?: ISort | null) {
     const validSort = newSort && (await sortSchema.parseAsync(newSort));
 
     const viewOperation = ViewOpBuilder.editor.setViewSort.build({

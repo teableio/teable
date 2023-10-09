@@ -36,11 +36,11 @@ export type ISortItem = z.infer<typeof sortItemSchema>;
 
 export type ISort = z.infer<typeof sortSchema>;
 
-export const updateViewOrderRoSchema = z.object({
+export const manualSortRoSchema = z.object({
   sortObjs: sortItemSchema.array(),
 });
 
-export type IUpdateViewOrderRo = z.infer<typeof updateViewOrderRoSchema>;
+export type IManualSortRo = z.infer<typeof manualSortRoSchema>;
 
 export function mergeWithDefaultSort(
   defaultViewSort: string | null,

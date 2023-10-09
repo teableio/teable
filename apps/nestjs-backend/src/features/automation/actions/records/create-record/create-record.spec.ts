@@ -11,10 +11,7 @@ import {
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import { TeableConfigModule } from '../../../../../configs/config.module';
-import { TeableEventEmitterModule } from '../../../../../event-emitter/event-emitter.module';
+import { GlobalModule } from '../../../../../global/global.module';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
 import { RecordOpenApiModule } from '../../../../record/open-api/record-open-api.module';
@@ -38,23 +35,13 @@ describe('Create-Record Action Test', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
-        TeableConfigModule.register(),
+        GlobalModule,
         AutomationModule,
         TableOpenApiModule,
         RecordOpenApiModule,
         FieldModule,
-        TeableEventEmitterModule.register(),
       ],
-    })
-      .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+    }).compile();
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
     tableOpenApiService = await moduleRef.resolve<TableOpenApiService>(TableOpenApiService);

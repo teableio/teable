@@ -14,8 +14,10 @@ import {
   TimeFormatting,
   SingleLineTextFieldCore,
   FieldType,
+  NumberFormattingType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import type { Knex } from 'knex';
 import type request from 'supertest';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
@@ -125,7 +127,9 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       const numberField = await createFieldByType(FieldType.Number);
       expect(numberField.name).toEqual('Number');
-      expect(numberField.options).toEqual({ formatting: { precision: 2 } });
+      expect(numberField.options).toEqual({
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      });
 
       const selectField = await createFieldByType(FieldType.SingleSelect);
       expect(selectField.name).toEqual('Select');
@@ -166,7 +170,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       });
       expect(numberFormulaField.options).toEqual({
         expression: '1 + 1',
-        formatting: { precision: 2 },
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       });
 
       const booleanFormulaField = await createFieldByType(FieldType.Formula, {
@@ -234,7 +238,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         expect(rollupField.name).toEqual(`${table2.fields[0].name} Rollup (from ${table2.name})`);
         expect(rollupField.options).toEqual({
           expression: 'sum({values})',
-          formatting: { precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         });
       });
     });
@@ -277,9 +281,11 @@ describe('OpenAPI FieldController (e2e)', () => {
       return result.body;
     }
     let prisma: PrismaService;
+    let knex: Knex;
 
     beforeAll(async () => {
       prisma = app.get(PrismaService);
+      knex = app.get('default');
     });
 
     it('should delete a simple field', async () => {
@@ -433,7 +439,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       const dbTableName = table1.dbTableName;
       const { dbForeignKeyName } = linkField.options as ILinkFieldOptions;
       const linkedRecords = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        `SELECT * FROM "${dbTableName}" WHERE "${dbForeignKeyName}" = "${table2.records[0].id}"`
+        knex(dbTableName).select('*').where(dbForeignKeyName, table2.records[0].id).toQuery()
       );
       expect(linkedRecords.length).toBe(1);
 

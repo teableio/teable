@@ -9,4 +9,5 @@ export interface ICellEditor<T> {
 export interface IEditorRef<T> {
   focus?: () => void;
   setValue?: (value?: T) => void;
+  saveValue?: () => void;
 }

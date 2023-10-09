@@ -19,6 +19,7 @@ import { LocalStrategy } from './strategies/local.strategy';
       useClass: AuthGuard,
     },
   ],
+  exports: [AuthService],
   controllers: [AuthController],
 })
 export class AuthModule {}

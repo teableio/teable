@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { TeableConfigModule } from '../../configs/config.module';
+import { GlobalModule } from '../../global/global.module';
 import { MailSenderModule } from './mail-sender.module';
 import { MailSenderService } from './mail-sender.service';
 
@@ -9,7 +9,7 @@ describe('MailSenderService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [TeableConfigModule.register(), MailSenderModule],
+      imports: [GlobalModule, MailSenderModule],
     }).compile();
 
     service = module.get<MailSenderService>(MailSenderService);

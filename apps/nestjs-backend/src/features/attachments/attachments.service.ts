@@ -3,7 +3,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { AttachmentSchema } from '@teable-group/openapi';
+import type { SignatureVo } from '@teable-group/openapi';
 import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
 import { ClsService } from 'nestjs-cls';
@@ -92,7 +92,7 @@ export class AttachmentsService {
     });
   }
 
-  async signature(): Promise<AttachmentSchema.SignatureVo> {
+  async signature(): Promise<SignatureVo> {
     const localStorage = Storage.adapter();
     const token = getRandomString(12);
     return {

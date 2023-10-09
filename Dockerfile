@@ -24,7 +24,7 @@ WORKDIR /workspace-install
 
 COPY yarn.lock .yarnrc.yml ./
 COPY .yarn/ ./.yarn/
-COPY sh/ ./sh/
+COPY scripts/ ./scripts/
 
 # Specific to monerepo's as docker COPY command is pretty limited
 # we use buidkit to prepare all files that are necessary for install
@@ -81,7 +81,7 @@ COPY --from=deps /workspace-install ./
 
 # Optional: if the app depends on global /static shared assets like images, locales...
 RUN yarn workspace @teable-group/app share-static-hardlink && yarn g:build
-RUN yarn workspace @teable-group/db-main-prisma prisma-db-push
+RUN yarn workspace @teable-group/db-main-prisma prisma-generate
 # Does not play well with buildkit on CI
 # https://github.com/moby/buildkit/issues/1673
 RUN SKIP_POSTINSTALL=1 \

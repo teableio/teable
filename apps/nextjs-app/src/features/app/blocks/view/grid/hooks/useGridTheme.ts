@@ -7,7 +7,6 @@ const lightTheme = {};
 const darkTheme = {
   // Common
   iconFgCommon: colors.slate[50],
-  iconBgCommon: colors.slate[50],
 
   // Cell
   cellBg: '#030712',

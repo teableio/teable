@@ -10,8 +10,8 @@ export const getSpriteMap = (
   const map: ISpriteMap = {};
   iconItems.forEach(({ type, IconComponent }) => {
     map[type] = (props: ISpriteProps) => {
-      const { bgColor } = props;
-      return renderToString(<IconComponent style={{ color: bgColor }} />);
+      const { bgColor, fgColor } = props;
+      return renderToString(<IconComponent style={{ color: fgColor, fill: bgColor }} />);
     };
   });
   return map;

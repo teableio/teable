@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -8,6 +8,14 @@ import { UserService } from '../user/user.service';
 @Injectable()
 export class AuthService {
   constructor(private readonly userService: UserService, private readonly jwtService: JwtService) {}
+
+  async validateJwtToken(token: string) {
+    try {
+      return await this.jwtService.verifyAsync<{ id: string }>(token);
+    } catch {
+      throw new UnauthorizedException();
+    }
+  }
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);

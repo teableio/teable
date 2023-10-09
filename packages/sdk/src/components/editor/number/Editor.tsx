@@ -1,38 +1,53 @@
+import { formatNumberToString, parseStringToNumber } from '@teable-group/core';
+import type { INumberFieldOptions } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
 
-type INumberEditor = ICellEditor<number>;
+interface INumberEditor extends ICellEditor<number | null> {
+  options: INumberFieldOptions;
+}
 
 export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INumberEditor> = (
   props,
   ref
 ) => {
-  const { value, onChange, className, disabled, style } = props;
-
-  const [number, setNumber] = useState<number | undefined>(value);
+  const { value, options, onChange, className, disabled, style } = props;
+  const { formatting } = options;
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [formatStr, setFormatStr] = useState<string | null>(
+    formatNumberToString(value as number, formatting)
+  );
 
   useImperativeHandle(ref, () => ({
-    setValue: setNumber,
+    focus: () => inputRef.current?.focus(),
+    setValue,
+    saveValue,
   }));
 
-  const onBlur = () => {
-    onChange?.(number);
+  const setValue = (value?: number) => {
+    setFormatStr(formatNumberToString(value, formatting));
+  };
+
+  const saveValue = () => {
+    const currentValue = parseStringToNumber(formatStr, formatting);
+    onChange?.(currentValue);
+    setFormatStr(formatNumberToString(currentValue as number, formatting));
   };
 
   const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const numberValue = Number(e.target.value);
-    setNumber(isNaN(numberValue) ? undefined : numberValue);
+    setFormatStr(e.target.value);
   };
 
   return (
     <Input
+      ref={inputRef}
       style={style}
       className={className}
-      value={number || ''}
+      value={formatStr || ''}
       onChange={onChangeInner}
-      onBlur={onBlur}
+      onBlur={saveValue}
       disabled={disabled}
     />
   );

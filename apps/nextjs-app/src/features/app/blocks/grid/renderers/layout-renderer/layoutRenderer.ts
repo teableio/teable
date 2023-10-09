@@ -52,6 +52,7 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     columnIndex,
     hoverCellPosition,
     imageManager,
+    spriteManager,
     isActive,
     getCellContent,
   } = props;
@@ -71,6 +72,7 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     rowIndex,
     columnIndex,
     imageManager,
+    spriteManager,
     hoverCellPosition,
     isActive,
   });
@@ -177,6 +179,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         hoverCellPosition: isColumnHovered && isRowHovered ? hoverCellPosition : null,
         getCellContent,
         imageManager,
+        spriteManager,
         theme,
         fill: isCellActive ? cellBg : fill,
       });
@@ -318,6 +321,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     hoverCellPosition,
     getCellContent,
     imageManager,
+    spriteManager,
     theme,
   } = props;
   const { scrollTop, scrollLeft } = scrollState;
@@ -368,6 +372,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     getCellContent,
     isActive: true,
     imageManager,
+    spriteManager,
     theme,
   });
 
@@ -511,7 +516,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
   const {
     cellLineColor,
     columnHeaderBg,
-    iconBgCommon,
+    iconFgCommon,
     columnHeaderNameColor,
     fontSizeSM,
     iconSizeXS,
@@ -557,7 +562,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
         },
       ],
       radiusAll: 1,
-      fill: iconBgCommon,
+      fill: iconFgCommon,
     });
   }
   drawSingleLineText(ctx, {

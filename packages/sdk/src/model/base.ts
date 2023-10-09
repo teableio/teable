@@ -1,10 +1,9 @@
 import type { ICreateTableRo } from '@teable-group/core';
-import type { BaseSchema } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable-group/openapi';
 import knex from 'knex';
-import { axios } from '../config';
 import { Table } from './table/table';
 
-export class Base implements BaseSchema.IGetBaseVo {
+export class Base implements IGetBaseVo {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static knex = knex({ client: 'sqlite3' });
 
@@ -14,7 +13,7 @@ export class Base implements BaseSchema.IGetBaseVo {
   order: number;
   icon: string | null;
 
-  constructor(base: BaseSchema.IGetBaseVo) {
+  constructor(base: IGetBaseVo) {
     const { id, name, order, spaceId, icon } = base;
     this.id = id;
     this.name = name;
@@ -23,13 +22,8 @@ export class Base implements BaseSchema.IGetBaseVo {
     this.icon = icon;
   }
 
-  static async sqlQuery(tableId: string, viewId: string, sql: string) {
-    const response = await axios.post<unknown[]>(`/base/sqlQuery`, {
-      sql,
-      tableId,
-      viewId,
-    });
-    return response.data;
+  async sqlQuery(tableId: string, viewId: string, sql: string) {
+    return Table.sqlQuery(this.id, tableId, { viewId, sql });
   }
 
   async createTable(tableRo?: ICreateTableRo) {

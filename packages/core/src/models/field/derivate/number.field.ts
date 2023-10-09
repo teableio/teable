@@ -5,6 +5,7 @@ import {
   defaultNumberFormatting,
   formatNumberToString,
   numberFormattingSchema,
+  parseStringToNumber,
 } from '../formatting';
 import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 
@@ -60,11 +61,7 @@ export class NumberFieldCore extends FieldCore {
       return null;
     }
 
-    const num = Number(value);
-    if (Number.isNaN(num)) {
-      return null;
-    }
-    return num;
+    return parseStringToNumber(value, this.options.formatting);
   }
 
   repair(value: unknown) {

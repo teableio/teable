@@ -11,7 +11,14 @@ import type {
   IUpdateRecordRo,
   LinkFieldCore,
 } from '@teable-group/core';
-import { FieldKeyType, Colors, FieldType, Relationship, TimeFormatting } from '@teable-group/core';
+import {
+  FieldKeyType,
+  Colors,
+  FieldType,
+  Relationship,
+  TimeFormatting,
+  NumberFormattingType,
+} from '@teable-group/core';
 import type request from 'supertest';
 import { initApp } from './utils/init-app';
 
@@ -26,6 +33,7 @@ const defaultFields: IFieldRo[] = [
     type: FieldType.Number,
     options: {
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     },
@@ -73,6 +81,7 @@ const defaultFields: IFieldRo[] = [
     options: {
       expression: '1 + 1',
       formatting: {
+        type: NumberFormattingType.Decimal,
         precision: 2,
       },
     },
@@ -227,6 +236,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
         formatting:
           expression.startsWith('count') || expression.startsWith('sum')
             ? {
+                type: NumberFormattingType.Decimal,
                 precision: 0,
               }
             : undefined,
