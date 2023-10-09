@@ -24,24 +24,32 @@ export class Record extends RecordCore {
       oldCellValue: this.fields[fieldId],
     });
 
-    return new Promise((resolve, reject) => {
-      this.doc.submitOp([operation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
       });
-    });
+    } catch (error) {
+      return error;
+    }
   }
 
-  async updateRecordOrder(viewId: string, order: number): Promise<void> {
+  async updateRecordOrder(viewId: string, order: number) {
     const operation = RecordOpBuilder.editor.setRecordOrder.build({
       viewId,
       newOrder: order,
       oldOrder: this.recordOrder[viewId],
     });
 
-    return new Promise((resolve, reject) => {
-      this.doc.submitOp([operation], undefined, (error) => {
-        error ? reject(error) : resolve(undefined);
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
       });
-    });
+    } catch (error) {
+      return error;
+    }
   }
 }
