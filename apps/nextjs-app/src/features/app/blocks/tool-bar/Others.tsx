@@ -1,5 +1,6 @@
 import { ArrowUpRight, Code2, Component, Share2 } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
+import Link from 'next/link';
 import { useGraphStore } from '../graph/useGraphStore';
 
 export const Others: React.FC = () => {
@@ -32,9 +33,11 @@ export const Others: React.FC = () => {
           </div>
         </PopoverContent>
       </Popover>
-      <Button variant={'ghost'} size={'xs'} className="font-normal">
-        <Code2 className="w-4 h-4" />
-        API
+      <Button variant={'ghost'} size={'xs'} className="font-normal" asChild>
+        <Link href="/docs" target="_blank">
+          <Code2 className="w-4 h-4" />
+          API
+        </Link>
       </Button>
     </div>
   );

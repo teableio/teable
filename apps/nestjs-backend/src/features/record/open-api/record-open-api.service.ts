@@ -19,6 +19,7 @@ import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
+import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
@@ -35,7 +36,8 @@ export class RecordOpenApiService {
     private readonly shareDbService: ShareDbService,
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
-    private readonly referenceService: ReferenceService
+    private readonly referenceService: ReferenceService,
+    private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
   async multipleCreateRecords(
@@ -94,19 +96,16 @@ export class RecordOpenApiService {
     return cellContexts;
   }
 
-  private async getRecordSnapshotsAfterSubmit(
-    tableId: string,
-    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
-  ): Promise<IRecord[]> {
+  private async getRecordSnapshots(tableId: string, recordIds: string[]): Promise<IRecord[]> {
     const collection = `${IdPrefix.Record}_${tableId}`;
     const connection = this.shareDbService.getConnection();
     return await Promise.all(
-      records.map((record) => {
-        const doc: Doc<IRecord> = connection.get(collection, record.id);
+      recordIds.map((recordId) => {
+        const doc: Doc<IRecord> = connection.get(collection, recordId);
         return new Promise<IRecord>((resolve, reject) => {
           doc.fetch((err) => {
             if (err) return reject(err);
-            if (!doc.data) return reject(new Error(`record ${record.id} not found`));
+            if (!doc.data) return reject(new Error(`record ${recordId} not found`));
             return resolve(doc.data);
           });
         });
@@ -114,7 +113,7 @@ export class RecordOpenApiService {
     );
   }
 
-  private async getOpsMapByDerivation(
+  private async getRecordUpdateDerivation(
     tableId: string,
     opsMapOrigin: IOpsMap,
     opContexts: ICellContext[]
@@ -142,11 +141,40 @@ export class RecordOpenApiService {
     };
   }
 
-  private async calculateAndSubmitOp(
+  private async calculateComputedFields(tableId: string, recordIds: string[]) {
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { OR: [{ tableId, isComputed: true, deletedTime: null }] },
+      select: { id: true },
+    });
+
+    const computedFieldIds = fieldRaws.map((fieldRaw) => fieldRaw.id);
+
+    // calculate by origin ops and link derivation
+    const result = await this.fieldCalculationService.getChangedOpsMap(
+      tableId,
+      computedFieldIds,
+      recordIds
+    );
+
+    if (result) {
+      const { opsMap, fieldMap, tableId2DbTableName } = result;
+
+      const rawOpMap = await this.batchService.save(
+        'calculated',
+        opsMap,
+        fieldMap,
+        tableId2DbTableName
+      );
+
+      this.shareDbService.publishOpsMap(rawOpMap);
+    }
+  }
+
+  private async calculateUpdatedRecord(
     tableId: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
-  ): Promise<IRecord[]> {
+  ) {
     const connection = this.shareDbService.getConnection();
 
     // 1. generate Op by origin submit
@@ -165,7 +193,7 @@ export class RecordOpenApiService {
     );
 
     // 2. get cell changes by derivation
-    const { opsMap, fieldMap, tableId2DbTableName } = await this.getOpsMapByDerivation(
+    const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
       tableId,
       opsMapOrigin,
       opsContexts
@@ -183,9 +211,6 @@ export class RecordOpenApiService {
       // 4. send all ops
       this.shareDbService.publishOpsMap(rawOpMap);
     }
-
-    // return record result
-    return this.getRecordSnapshotsAfterSubmit(tableId, records);
   }
 
   private async appendDefaultValue(
@@ -223,6 +248,7 @@ export class RecordOpenApiService {
     }
     return defaultValue;
   }
+
   async createRecords(
     tableId: string,
     recordsRo: { id?: string; fields: Record<string, unknown> }[],
@@ -254,7 +280,13 @@ export class RecordOpenApiService {
       fieldKeyType
     );
 
-    const records = await this.calculateAndSubmitOp(tableId, fieldKeyType, plainRecords);
+    const recordIds = plainRecords.map((r) => r.id);
+
+    await this.calculateUpdatedRecord(tableId, fieldKeyType, plainRecords);
+
+    await this.calculateComputedFields(tableId, recordIds);
+
+    const records = await this.getRecordSnapshots(tableId, recordIds);
 
     const fieldIds = Array.from(
       records.reduce<Set<string>>((pre, cur) => {
@@ -316,12 +348,15 @@ export class RecordOpenApiService {
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.prismaService.$tx(async (prisma) => {
-      const records = await this.calculateAndSubmitOp(
+      await this.calculateUpdatedRecord(
         tableId,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         updateRecordRo.fieldKeyType!,
         [{ id: recordId, fields: updateRecordRo.record.fields }]
       );
+
+      // return record result
+      const records = await this.getRecordSnapshots(tableId, [recordId]);
 
       if (records.length !== 1) {
         throw new Error('update record failed');
@@ -384,7 +419,7 @@ export class RecordOpenApiService {
         return pre;
       }, {});
 
-      await this.calculateAndSubmitOp(
+      await this.calculateUpdatedRecord(
         tableId,
         FieldKeyType.Id,
         recordIds.map((id) => ({

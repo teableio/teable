@@ -3,7 +3,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldRo, IFieldVo, IRecord, IRecordsVo, IUpdateRecordRo } from '@teable-group/core';
+import type {
+  ICreateRecordsRo,
+  ICreateRecordsVo,
+  IFieldRo,
+  IFieldVo,
+  IRecord,
+  IRecordsVo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
@@ -130,6 +138,22 @@ export async function deleteRecords(
         recordIds,
       })
       .expect(200)
+  ).body;
+}
+
+export async function createRecords(
+  request: request.SuperAgentTest,
+  tableId: string,
+  records: ICreateRecordsRo['records']
+): Promise<ICreateRecordsVo> {
+  return (
+    await request
+      .post(`/api/table/${tableId}/record`)
+      .send({
+        records,
+        fieldKeyType: FieldKeyType.Id,
+      })
+      .expect(201)
   ).body;
 }
 

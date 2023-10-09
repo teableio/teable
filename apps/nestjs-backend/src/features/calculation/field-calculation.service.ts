@@ -123,7 +123,8 @@ export class FieldCalculationService {
   private async getOriginComputedRecords(
     tableId: string,
     tableId2DbTableName: Record<string, string>,
-    field: IFieldInstance
+    field: IFieldInstance,
+    originRecordIds?: string[]
   ): Promise<{ dbTableName: string; id: string }[]> {
     let records: { dbTableName: string; id: string }[] = [];
     if (field.lookupOptions) {
@@ -138,9 +139,12 @@ export class FieldCalculationService {
     }
 
     const dbTableName = tableId2DbTableName[tableId];
-    records = records.concat(await this.getSelfOriginRecords(dbTableName));
 
-    return records;
+    if (originRecordIds) {
+      return records.concat(originRecordIds.map((id) => ({ dbTableName, id })));
+    }
+
+    return records.concat(await this.getSelfOriginRecords(dbTableName));
   }
 
   @Timing()
@@ -193,9 +197,18 @@ export class FieldCalculationService {
     tableId2DbTableName: { [tableId: string]: string };
     topoOrdersByFieldId: { [fieldId: string]: ITopoItem[] };
     fieldMap: IFieldMap;
+    originRecordIds?: string[];
   }) {
-    const { tableId, fieldId2TableId, tableId2DbTableName, topoOrdersByFieldId, fieldMap } = params;
+    const {
+      tableId,
+      fieldId2TableId,
+      tableId2DbTableName,
+      topoOrdersByFieldId,
+      fieldMap,
+      originRecordIds,
+    } = params;
     // the origin change will lead to affected record changes
+    // TODO: dedupe items
     let affectedRecordItems: IRecordRefItem[] = [];
     let originRecordIdItems: { dbTableName: string; id: string }[] = [];
     for (const fieldId in topoOrdersByFieldId) {
@@ -214,7 +227,8 @@ export class FieldCalculationService {
       const originItems = await this.getOriginComputedRecords(
         tableId,
         tableId2DbTableName,
-        fieldMap[fieldId]
+        fieldMap[fieldId],
+        originRecordIds
       );
 
       if (!originItems.length) {
@@ -335,14 +349,14 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async getChangedOpsMap(tableId: string, fieldIds: string[]) {
+  async getChangedOpsMap(tableId: string, fieldIds: string[], recordIds?: string[]) {
     if (!fieldIds.length) {
       return undefined;
     }
 
     const context = await this.getTopoOrdersContext(fieldIds);
     const { fieldMap, tableId2DbTableName } = context;
-    const changes = await this.calculateChanges(tableId, context);
+    const changes = await this.calculateChanges(tableId, context, undefined, recordIds);
     if (!changes.length) {
       return;
     }
@@ -354,7 +368,8 @@ export class FieldCalculationService {
   private async calculateChanges(
     tableId: string,
     context: ITopoOrdersContext,
-    resetFieldIds?: string[]
+    resetFieldIds?: string[],
+    recordIds?: string[]
   ) {
     const {
       fieldMap,
@@ -369,6 +384,7 @@ export class FieldCalculationService {
       tableId2DbTableName,
       topoOrdersByFieldId,
       fieldMap,
+      originRecordIds: recordIds,
     });
 
     const dependentRecordItems = await this.referenceService.getDependentRecordItems(
@@ -376,6 +392,7 @@ export class FieldCalculationService {
     );
 
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
+    // nameConsole('recordIds', recordIds, fieldMap);
     // nameConsole('originRecordIdItems', originRecordIdItems, fieldMap);
     // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
     // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);

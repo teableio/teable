@@ -2,13 +2,14 @@
 import type { INestApplication } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
+  IFieldRo,
   IRecordsVo,
   ITableFullVo,
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import type request from 'supertest';
-import { initApp, updateRecordByApi } from './utils/init-app';
+import { createField, createRecords, initApp, updateRecordByApi } from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
@@ -244,5 +245,35 @@ describe('OpenAPI RecordController (e2e)', () => {
         ],
       })
       .expect(201);
+  });
+
+  it('should create a record and auto calculate computed field', async () => {
+    const formulaFieldRo1: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: `1 + 1`,
+      },
+    };
+
+    const formulaFieldRo2: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: `{${table.fields[0].id}} + 1`,
+      },
+    };
+
+    const formulaField1 = await createField(request, table.id, formulaFieldRo1);
+    const formulaField2 = await createField(request, table.id, formulaFieldRo2);
+
+    const { records } = await createRecords(request, table.id, [
+      {
+        fields: {
+          [table.fields[0].id]: 'text value',
+        },
+      },
+    ]);
+
+    expect(records[0].fields[formulaField1.id]).toEqual(2);
+    expect(records[0].fields[formulaField2.id]).toEqual('text value1');
   });
 });
