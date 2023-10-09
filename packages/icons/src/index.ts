@@ -50,6 +50,7 @@ export { default as Network } from './components/Network';
 export { default as PackageCheck } from './components/PackageCheck';
 export { default as PaintBucket } from './components/PaintBucket';
 export { default as Pencil } from './components/Pencil';
+export { default as Phone } from './components/Phone';
 export { default as Play } from './components/Play';
 export { default as Plus } from './components/Plus';
 export { default as PlusCircle } from './components/PlusCircle';
