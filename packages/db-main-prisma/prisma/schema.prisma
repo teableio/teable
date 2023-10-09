@@ -16,6 +16,7 @@ model Space {
   lastModifiedBy    String              @map("last_modified_by")
   baseGroup         Base[]
   spaceCollaborator SpaceCollaborator[]
+  invitation        Invitation[]
 
   @@map("space")
 }
@@ -273,4 +274,28 @@ model SpaceCollaborator {
   space    Space  @relation(fields: [spaceId], references: [id])
 
   @@map("space_collaborator")
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  type           String    @map("type")
+  role           String
+  invitationCode String?   @map("invitation_code")
+  expiredTime    DateTime? @map("deleted_time")
+  createdBy      String    @map("create_by")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  spaceId        String    @map("space_id")
+  space          Space     @relation(fields: [spaceId], references: [id])
+
+  @@map("invitation")
+}
+
+model InvitationRecord {
+  id       String @id @default(cuid())
+  type     String @map("type")
+  inviter  String @map("inviter")
+  accepter String @map("accepter")
+  createdTime    DateTime  @default(now()) @map("created_time")
+
+  @@map("invitation_record")
 }
