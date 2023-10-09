@@ -14,8 +14,8 @@ import { composeMaps } from '../features/calculation/utils/compose-maps';
 import type { IFieldInstance } from '../features/field/model/factory';
 
 @Injectable()
-export class DerivateChangeService {
-  private logger = new Logger(DerivateChangeService.name);
+export class WsDerivateService {
+  private logger = new Logger(WsDerivateService.name);
 
   constructor(
     private readonly linkService: LinkService,

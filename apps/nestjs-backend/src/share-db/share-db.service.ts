@@ -7,10 +7,11 @@ import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import { authMiddleware } from './auth.middleware';
-import { DerivateChangeService } from './derivate-change.service';
+import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import { WsAuthService } from './ws-auth.service';
+import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -18,9 +19,9 @@ export class ShareDbService extends ShareDBClass {
 
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
-    private readonly derivateChangeService: DerivateChangeService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly wsAuthService: WsAuthService
+    private readonly wsAuthService: WsAuthService,
+    private readonly wsDerivateService: WsDerivateService
   ) {
     super({
       presence: true,
@@ -29,11 +30,9 @@ export class ShareDbService extends ShareDBClass {
     });
     // auth
     authMiddleware(this, this.wsAuthService);
+    derivateMiddleware(this, this.wsDerivateService);
 
-    // this.use('submit', this.onSubmit);
     this.use('commit', this.onCommit);
-    this.use('apply', this.onApply);
-    this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
 
@@ -43,25 +42,6 @@ export class ShareDbService extends ShareDBClass {
     connection.agent!.custom.isBackend = true;
     return connection;
   }
-
-  // private onSubmit = async (
-  //   context: ShareDBClass.middleware.SubmitContext,
-  //   next: (err?: unknown) => void
-  // ) => {
-  //   next();
-  // };
-
-  /**
-   * Goal:
-   * 1. we need all effect to be done when get API response
-   * 2. all effect should be done in one transaction
-   */
-  private onApply = async (
-    context: ShareDBClass.middleware.ApplyContext,
-    next: (err?: unknown) => void
-  ) => {
-    await this.derivateChangeService.onRecordApply(context, next);
-  };
 
   publishOpsMap(rawOpMap: IRawOpMap) {
     for (const tableId in rawOpMap) {
@@ -91,24 +71,6 @@ export class ShareDbService extends ShareDBClass {
 
       if (action) {
         context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
-      }
-    }
-
-    next();
-  };
-
-  private onAfterWrite = async (
-    context: ShareDBClass.middleware.SubmitContext,
-    next: (err?: unknown) => void
-  ) => {
-    const saveContext = context.agent.custom?.saveContext;
-    if (saveContext) {
-      try {
-        const opsRaw = await this.derivateChangeService.save(context.agent.src, saveContext);
-        this.publishOpsMap(opsRaw);
-      } catch (e) {
-        // TODO: rollback
-        return next(e);
       }
     }
 

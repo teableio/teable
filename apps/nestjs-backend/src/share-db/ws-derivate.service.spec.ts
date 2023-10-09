@@ -1,18 +1,18 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { GlobalModule } from '../global/global.module';
-import { DerivateChangeService } from './derivate-change.service';
 import { ShareDbModule } from './share-db.module';
+import { WsDerivateService } from './ws-derivate.service';
 
-describe('DerivateChangeService', () => {
-  let service: DerivateChangeService;
+describe('WsDerivateService', () => {
+  let service: WsDerivateService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, ShareDbModule],
     }).compile();
 
-    service = module.get<DerivateChangeService>(DerivateChangeService);
+    service = module.get<WsDerivateService>(WsDerivateService);
   });
 
   it('should be defined', () => {
