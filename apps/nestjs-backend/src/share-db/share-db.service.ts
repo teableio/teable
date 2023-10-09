@@ -107,6 +107,7 @@ export class ShareDbService extends ShareDBClass {
         const opsRaw = await this.derivateChangeService.save(context.agent.src, saveContext);
         this.publishOpsMap(opsRaw);
       } catch (e) {
+        // TODO: rollback
         return next(e);
       }
     }

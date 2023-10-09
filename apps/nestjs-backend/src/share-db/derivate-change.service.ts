@@ -73,7 +73,9 @@ export class DerivateChangeService {
     }
   ) {
     const { opsMap, fieldMap, tableId2DbTableName } = saveContext;
-    return this.batchService.save(src, opsMap, fieldMap, tableId2DbTableName);
+    return this.prismaService.$tx(async () => {
+      return await this.batchService.save(src, opsMap, fieldMap, tableId2DbTableName);
+    });
   }
 
   private op2Changes(tableId: string, recordId: string, ops: IOtOperation[]) {
