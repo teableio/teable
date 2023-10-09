@@ -18,12 +18,11 @@ ARG NODE_VERSION=18
 ARG ALPINE_VERSION=3.18
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
-RUN apk add --no-cache rsync
+RUN apk add --no-cache rsync && corepack enable
 
 WORKDIR /workspace-install
 
 COPY --link yarn.lock .yarnrc.yml ./
-COPY --link .yarn/ ./.yarn/
 
 RUN --mount=type=bind,target=/docker-context \
     rsync -amv --delete \
@@ -38,6 +37,10 @@ RUN --mount=type=bind,target=/docker-context \
 
 # @see https://www.prisma.io/docs/reference/api-reference/environment-variables-reference#cli-binary-targets
 # ENV PRISMA_CLI_BINARY_TARGETS=linux-musl
+
+# Disabling some well-known postinstall scripts
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV HUSKY=0
 
 #
 # To speed up installations, we override the default yarn cache folder
@@ -55,7 +58,7 @@ RUN --mount=type=bind,target=/docker-context \
 
 RUN --mount=type=cache,target=/root/.yarn3-cache,id=yarn3-cache \
     YARN_CACHE_FOLDER=/root/.yarn3-cache \
-    yarn install --immutable --inline-builds
+    yarn install --inline-builds
 
 
 ###################################################################
@@ -63,7 +66,8 @@ RUN --mount=type=cache,target=/root/.yarn3-cache,id=yarn3-cache \
 ###################################################################
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
-ENV NODE_ENV=production
+RUN apk add --no-cache make bash && corepack enable
+
 ENV NEXTJS_IGNORE_ESLINT=1
 ENV NEXTJS_IGNORE_TYPECHECK=0
 
@@ -72,9 +76,8 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /workspace-install ./
 
-RUN apk add --no-cache make bash
-
 # Optional: if the app depends on global /static shared assets like images, locales...
+RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 RUN yarn workspace @teable-group/app share-static-hardlink; \
     yarn g:build
 
@@ -83,6 +86,7 @@ RUN yarn workspace @teable-group/app share-static-hardlink; \
 ###################################################################
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runner
+RUN apk add --no-cache bash && corepack enable
 
 WORKDIR /app
 

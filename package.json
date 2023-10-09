@@ -21,38 +21,27 @@
     "!apps/electron"
   ],
   "scripts": {
-    "g:clean": "yarn clean:global-cache && yarn workspaces foreach -ptv run clean",
-    "g:build": "yarn workspaces foreach -p --topological-dev -v run build",
+    "clean:global-cache": "rimraf ./.cache",
+    "deps:check": "npx npm-check-updates@latest --configFileName ncurc.yml --workspaces --root --mergeConfig",
+    "deps:update": "npx npm-check-updates@latest --configFileName ncurc.yml -u --workspaces --root --mergeConfig",
+    "g:build": "yarn workspaces foreach -A -p --topological-dev -v run build",
     "g:build-changed": "yarn workspaces foreach --topological-dev --no-private -v --since=origin/main run build",
-    "g:test": "yarn workspaces foreach -ptv run test",
-    "g:test-unit": "yarn workspaces foreach -ptv run test-unit",
-    "g:test-e2e": "yarn workspaces foreach -tv run test-e2e",
-    "g:lint": "yarn workspaces foreach -ptv run lint --color",
-    "g:lint-styles": "yarn workspaces foreach -ptv run lint-styles --color",
-    "g:typecheck": "yarn workspaces foreach -ptv run typecheck",
-    "g:lint-staged-files": "lint-staged --allow-empty",
-    "g:fix-all-files": "yarn workspaces foreach -ptv run fix-all-files",
     "g:changeset": "changeset",
-    "g:check-dist": "yarn workspaces foreach -ptv run check-dist",
+    "g:check-dist": "yarn workspaces foreach -A -ptv run check-dist",
+    "g:clean": "yarn clean:global-cache && rimraf ./out && yarn workspaces foreach -A -ptv run clean",
+    "g:fix-all-files": "yarn workspaces foreach -A -ptv run fix-all-files",
+    "g:lint": "yarn workspaces foreach -A -tv run lint --color",
+    "g:lint-staged-files": "lint-staged --allow-empty",
+    "g:lint-styles": "yarn workspaces foreach -A -ptv run lint-styles --color",
     "g:release": "yarn g:build && changeset publish",
-    "g:share-static-symlink": "yarn workspaces foreach -pv --include '*-app' run share-static-symlink",
-    "g:share-static-hardlink": "yarn workspaces foreach -pv --include '*-app' run share-static-hardlink",
-    "clean:global-cache": "rimraf --no-glob ./.cache",
-    "apps:build": "yarn workspaces foreach -ptv --include '*-app' run build",
-    "apps:clean": "yarn workspaces foreach -ptv --include '*-app' run clean",
-    "packages:build": "yarn workspaces foreach -ptv --include '@teable-group/*' run build",
-    "packages:test:unit": "yarn workspaces foreach -ptv --include '@teable-group/*' run test-unit",
-    "packages:lint": "yarn workspaces foreach -ptv --include '@teable-group/*' run lint",
-    "packages:typecheck": "yarn workspaces foreach -ptv --include '@teable-group/*' run typecheck",
-    "packages:clean": "yarn workspaces foreach -ptv --include '@teable-group/*' run clean",
-    "nuke:node_modules": "rimraf '**/node_modules'",
-    "deps:check": "yarn dlx npm-check-updates@latest --configFileName ncurc.yml --deep --mergeConfig",
-    "deps:update": "yarn dlx npm-check-updates@latest --configFileName ncurc.yml -u --deep --mergeConfig",
-    "check:install": "yarn dlx @yarnpkg/doctor@3.1.4 .",
-    "check:renovate:config": "docker run -v renovate.json5:/usr/src/app/renovate.json5 -it renovate/renovate renovate-config-validator",
+    "g:test-e2e": "yarn workspaces foreach -A -tv run test-e2e",
+    "g:test-unit": "yarn workspaces foreach -A -tv run test-unit",
+    "g:test-unit-jest": "yarn workspaces foreach -A -tv run test-unit-jest",
+    "g:typecheck": "yarn workspaces foreach -A -tv run typecheck",
+    "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
-    "postinstall": "node scripts/postinstall.js",
-    "generate-openapi-types": "node scripts/generate-openapi-types.mjs"
+    "nuke:node_modules": "rimraf --glob '**/node_modules'",
+    "postinstall": "is-ci || yarn husky install"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",
@@ -86,8 +75,9 @@
     "typescript": "4.8.4"
   },
   "engines": {
-    "node": ">=16.13",
-    "yarn": ">=1.22.0"
+    "node": ">=18.15.0",
+    "yarn": ">=1.22.0",
+    "npm": "please-use-yarn"
   },
-  "packageManager": "yarn@4.0.0-rc.42"
+  "packageManager": "yarn@4.0.0-rc.53"
 }
