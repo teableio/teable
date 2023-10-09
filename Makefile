@@ -106,7 +106,7 @@ docker.run: docker.create.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm $(SERVICE) $(SERVICE_ARGS)
 
 docker.up: docker.create.network
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) up --no-start --no-recreate $(SERVICE)
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) up --no-recreate -d $(SERVICE)
 
 docker.down: docker.rm.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) down
@@ -123,7 +123,7 @@ docker.restart:
 
 TIME := 0
 docker.await: ## max timeout of 300
-	time=$(TIME); \
+	@time=$(TIME); \
 	for i in $(SERVICE); do \
 		current_service=$$($(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) ps -q $${i}); \
 		if [ -z "$${current_service}" ]; then \
@@ -151,15 +151,6 @@ docker.status:
 docker.images:
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
 
-docker.postgres.start:
-	make docker.up teable-postgres
-
-docker.postgres.stop:
-	make docker.stop teable-postgres
-
-docker.postgres.await:
-	make docker.await teable-postgres
-
 sqlite.integration.test: docker.create.network
 	make docker.build integration-test
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
@@ -179,26 +170,42 @@ postgres.integration.test: docker.create.network
 				make postgres-mode && \
 				yarn workspace @teable-group/backend test:e2e'
 
+gen-sqlite-prisma-schema:		## Generate the 'sqlite' version of the 'schema.prisma' file（alias 'gspc'）
+	@cd ./packages/db-main-prisma; \
+		echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma
+	@echo 'generate【 prisma/sqlite/schema.prisma 】success.'
+
+gen-postgres-prisma-schema:		## Generate the 'postgres' version of the 'schema.prisma' file（alias 'gpps'）
+	@cd ./packages/db-main-prisma; \
+		echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma
+	@echo 'generate【 prisma/postgres/schema.prisma 】success.'
+
+gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema ## Generate 'schema.prisma' files for all versions of the system
+gspc: gen-sqlite-prisma-schema
+gpps: gen-postgres-prisma-schema
+
+
 sqlite-mode:		## sqlite-mode
-	cd ./packages/db-main-prisma; \
-	echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma; \
-	yarn prisma-generate --schema ./prisma/sqlite/schema.prisma; \
-	yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
+	@make gen-sqlite-prisma-schema
+	@cd ./packages/db-main-prisma; \
+		yarn prisma-generate --schema ./prisma/sqlite/schema.prisma; \
+		yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
 postgres-mode:		## postgres-mode
-	cd ./packages/db-main-prisma; \
-	echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma; \
-	yarn prisma-generate --schema ./prisma/postgres/schema.prisma; \
-	yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+	@make gen-postgres-prisma-schema
+	@cd ./packages/db-main-prisma; \
+		yarn prisma-generate --schema ./prisma/postgres/schema.prisma; \
+		yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
 db-mode:		## db-mode
 	$(print_db_options)
 	@read -p "Enter a command: " command; \
     if [ "$$command" = "sqlite" ]; then make sqlite-mode; \
-    elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then make docker.postgres.start; \
-    	make docker.postgres.await; \
+    elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
+		make docker.up teable-postgres; \
+    	make docker.await teable-postgres; \
     	make postgres-mode; \
     else echo "Unknown command.";  fi
 
-help:   ## show this help.
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+help:   ## show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
