@@ -440,6 +440,37 @@ describe('OpenAPI link (e2e)', () => {
         'table2_2',
       ]);
     });
+
+    it('should throw error when add a duplicate record in oneMany link field', async () => {
+      // set text for lookup field
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+
+      // first update
+      await updateRecordByApi(request, table1.id, table1.records[0].id, table1.fields[2].id, [
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
+      ]);
+
+      // update a duplicated link record in other record
+      await updateRecordByApi(
+        request,
+        table1.id,
+        table1.records[1].id,
+        table1.fields[2].id,
+        [{ title: 'B1', id: table2.records[0].id }],
+        400
+      );
+
+      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+
+      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
+      ]);
+
+      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toBeUndefined();
+    });
   });
 
   describe('multi link with depends same field', () => {

@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldRo, IRecord, ITableFullVo } from '@teable-group/core';
 import {
   RecordOpBuilder,
   IdPrefix,
@@ -16,14 +16,13 @@ import {
 } from '@teable-group/core';
 import type { Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
-import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { initApp } from './utils/init-app';
 
 describe('OpenAPI link (socket-e2e)', () => {
   let app: INestApplication;
-  let table1Id = '';
-  let table2Id = '';
+  let table1: ITableFullVo;
+  let table2: ITableFullVo;
   let shareDbService!: ShareDbService;
   const baseId = globalThis.testConfig.baseId;
   jest.useRealTimers();
@@ -42,22 +41,11 @@ describe('OpenAPI link (socket-e2e)', () => {
   });
 
   afterEach(async () => {
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`);
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2Id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
   });
 
   describe('link field cell update', () => {
-    let ctx: {
-      numberFieldRo: IFieldRo;
-      textFieldRo: IFieldRo;
-      table1Records: IRecord[];
-      table1Fields: IFieldVo[];
-      table1linkField: LinkFieldDto;
-      table2LinkFieldRo: IFieldRo;
-      table2Id: string;
-      table2Records: IRecord[];
-      table2Fields: IFieldVo[];
-    } = {} as any;
     beforeEach(async () => {
       const numberFieldRo: IFieldRo = {
         name: 'Number field',
@@ -85,15 +73,14 @@ describe('OpenAPI link (socket-e2e)', () => {
         })
         .expect(201);
 
-      table1Id = createTable1Result.body.id;
-      const table1Records = createTable1Result.body.records;
+      table1 = createTable1Result.body;
 
       const table2LinkFieldRo: IFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
-          foreignTableId: table1Id,
+          foreignTableId: table1.id,
         },
       };
 
@@ -110,27 +97,11 @@ describe('OpenAPI link (socket-e2e)', () => {
           ],
         })
         .expect(201);
-      table2Id = createTable2Result.body.id;
+      table2 = createTable2Result.body;
 
-      const getFields1Result = await request.get(`/api/table/${table1Id}/field`).expect(200);
+      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
 
-      const table1linkField = getFields1Result.body[2];
-      const table1Fields = getFields1Result.body;
-
-      const table2Records = createTable2Result.body.records;
-      const table2Fields = createTable2Result.body.fields;
-
-      ctx = {
-        numberFieldRo,
-        textFieldRo,
-        table2LinkFieldRo,
-        table1linkField,
-        table1Records,
-        table1Fields,
-        table2Id,
-        table2Records,
-        table2Fields,
-      };
+      table1.fields = getFields1Result.body;
     });
 
     async function updateRecordViaShareDb(
@@ -141,7 +112,7 @@ describe('OpenAPI link (socket-e2e)', () => {
     ) {
       const connection = shareDbService.connect();
       const collection = `${IdPrefix.Record}_${tableId}`;
-      return await new Promise<IRecord>((resolve, reject) => {
+      return new Promise<IRecord>((resolve, reject) => {
         const doc: Doc<IRecord> = connection.get(collection, recordId);
         doc.fetch((err) => {
           if (err) {
@@ -165,87 +136,87 @@ describe('OpenAPI link (socket-e2e)', () => {
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
       // t2[0](many) -> t1[1](one)
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'test',
-        id: ctx.table1Records[1].id,
+        id: table1.records[1].id,
       });
 
-      const table2RecordResult = await request.get(`/api/table/${table2Id}/record`).expect(200);
+      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
 
-      expect(table2RecordResult.body.records[0].fields[ctx.table2Fields[2].name]).toEqual({
+      expect(table2RecordResult.body.records[0].fields[table2.fields[2].name]).toEqual({
         title: 'A2',
-        id: ctx.table1Records[1].id,
+        id: table1.records[1].id,
       });
-      const table1RecordResult2 = await request.get(`/api/table/${table1Id}/record`).expect(200);
+      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
       // t1[0](one) should be undefined;
-      expect(table1RecordResult2.body.records[1].fields[ctx.table1linkField.name!]).toEqual([
+      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name!]).toEqual([
         {
           title: 'B1',
-          id: ctx.table2Records[0].id,
+          id: table2.records[0].id,
         },
       ]);
-      expect(table1RecordResult2.body.records[0].fields[ctx.table1linkField.name!]).toBeUndefined();
+      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name!]).toBeUndefined();
     });
 
     it('should update foreign link field when change lookupField value', async () => {
       // set text for lookup field
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[0].id, 'B1');
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[0].id, 'B2');
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
 
       // add an extra link for table1 record1
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'A1',
-        id: ctx.table1Records[0].id,
+        id: table1.records[0].id,
       });
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[2].id, {
         title: 'A1',
-        id: ctx.table1Records[0].id,
+        id: table1.records[0].id,
       });
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1Id}/record`).expect(200);
+      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
-      expect(table1RecordResult2.body.records[0].fields[ctx.table1linkField.name!]).toEqual([
+      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name!]).toEqual([
         {
           title: 'B1',
-          id: ctx.table2Records[0].id,
+          id: table2.records[0].id,
         },
         {
           title: 'B2',
-          id: ctx.table2Records[1].id,
+          id: table2.records[1].id,
         },
       ]);
 
-      await updateRecordViaShareDb(table1Id, ctx.table1Records[0].id, ctx.table1Fields[0].id, 'AX');
+      await updateRecordViaShareDb(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
-      const table2RecordResult2 = await request.get(`/api/table/${table2Id}/record`).expect(200);
+      const table2RecordResult2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
 
-      expect(table2RecordResult2.body.records[0].fields[ctx.table2LinkFieldRo.name!]).toEqual({
+      expect(table2RecordResult2.body.records[0].fields[table2.fields[2].name!]).toEqual({
         title: 'AX',
-        id: ctx.table1Records[0].id,
+        id: table1.records[0].id,
       });
     });
 
     it('should update self foreign link with correct title', async () => {
       // set text for lookup field
 
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[0].id, 'B1');
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[0].id, 'B2');
-      await updateRecordViaShareDb(table1Id, ctx.table1Records[0].id, ctx.table1linkField.id, [
-        { title: 'B1', id: ctx.table2Records[0].id },
-        { title: 'B2', id: ctx.table2Records[1].id },
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+      await updateRecordViaShareDb(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
       ]);
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1Id}/record`).expect(200);
+      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
-      expect(table1RecordResult2.body.records[0].fields[ctx.table1linkField.name!]).toEqual([
+      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name!]).toEqual([
         {
           title: 'B1',
-          id: ctx.table2Records[0].id,
+          id: table2.records[0].id,
         },
         {
           title: 'B2',
-          id: ctx.table2Records[1].id,
+          id: table2.records[1].id,
         },
       ]);
     });
@@ -255,30 +226,30 @@ describe('OpenAPI link (socket-e2e)', () => {
         name: 'table2Formula',
         type: FieldType.Formula,
         options: {
-          expression: `{${ctx.table2Fields[2].id}}`,
+          expression: `{${table2.fields[2].id}}`,
         },
       };
 
       await request
-        .post(`/api/table/${table2Id}/field`)
+        .post(`/api/table/${table2.id}/field`)
         .send(table2FormulaFieldRo as IFieldRo)
         .expect(201);
 
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'test1',
-        id: ctx.table1Records[1].id,
+        id: table1.records[1].id,
       });
 
-      const table1RecordResult = await request.get(`/api/table/${table1Id}/record`).expect(200);
+      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
-      const table2RecordResult = await request.get(`/api/table/${table2Id}/record`).expect(200);
+      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
 
-      expect(table1RecordResult.body.records[0].fields[ctx.table1linkField.name!]).toBeUndefined();
+      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name!]).toBeUndefined();
 
-      expect(table1RecordResult.body.records[1].fields[ctx.table1linkField.name!]).toEqual([
+      expect(table1RecordResult.body.records[1].fields[table1.fields[2].name!]).toEqual([
         {
           title: 'B1',
-          id: ctx.table2Records[0].id,
+          id: table2.records[0].id,
         },
       ]);
 
@@ -290,25 +261,25 @@ describe('OpenAPI link (socket-e2e)', () => {
         name: 'table1 formula field',
         type: FieldType.Formula,
         options: {
-          expression: `{${ctx.table1linkField.id}}`,
+          expression: `{${table1.fields[2].id}}`,
         },
       };
 
       await request
-        .post(`/api/table/${table1Id}/field`)
+        .post(`/api/table/${table1.id}/field`)
         .send(table1FormulaFieldRo as IFieldRo)
         .expect(201);
 
-      await updateRecordViaShareDb(table1Id, ctx.table1Records[0].id, ctx.table1linkField.id, [
-        { title: 'test1', id: ctx.table2Records[0].id },
-        { title: 'test2', id: ctx.table2Records[1].id },
+      await updateRecordViaShareDb(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { title: 'test1', id: table2.records[0].id },
+        { title: 'test2', id: table2.records[1].id },
       ]);
 
-      const table1RecordResult = await request.get(`/api/table/${table1Id}/record`).expect(200);
+      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
-      expect(table1RecordResult.body.records[0].fields[ctx.table1linkField.name]).toEqual([
-        { title: 'B1', id: ctx.table2Records[0].id },
-        { title: 'B2', id: ctx.table2Records[1].id },
+      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toEqual([
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
       ]);
 
       expect(table1RecordResult.body.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
@@ -322,11 +293,11 @@ describe('OpenAPI link (socket-e2e)', () => {
         name: 'table1 formula field',
         type: FieldType.Formula,
         options: {
-          expression: `{${ctx.table1linkField.id}}`,
+          expression: `{${table1.fields[2].id}}`,
         },
       };
       await request
-        .post(`/api/table/${table1Id}/field`)
+        .post(`/api/table/${table1.id}/field`)
         .send(table1FormulaFieldRo as IFieldRo)
         .expect(201);
 
@@ -334,39 +305,71 @@ describe('OpenAPI link (socket-e2e)', () => {
         name: 'table2 formula field',
         type: FieldType.Formula,
         options: {
-          expression: `{${ctx.table2Fields[2].id}}`,
+          expression: `{${table2.fields[2].id}}`,
         },
       };
       await request
-        .post(`/api/table/${table2Id}/field`)
+        .post(`/api/table/${table2.id}/field`)
         .send(table2FormulaFieldRo as IFieldRo)
         .expect(201);
 
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[0].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'A1',
-        id: ctx.table1Records[0].id,
+        id: table1.records[0].id,
       });
 
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[2].id, {
         title: 'A2',
-        id: ctx.table1Records[1].id,
+        id: table1.records[1].id,
       });
 
       // table2 record2 link from A2 to A1
-      await updateRecordViaShareDb(table2Id, ctx.table2Records[1].id, ctx.table2Fields[2].id, {
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[2].id, {
         title: 'A1',
-        id: ctx.table1Records[0].id,
+        id: table1.records[0].id,
       });
 
-      const table1RecordResult = (await request.get(`/api/table/${table1Id}/record`).expect(200))
+      const table1RecordResult = (await request.get(`/api/table/${table1.id}/record`).expect(200))
         .body.records;
-      const table2RecordResult = (await request.get(`/api/table/${table2Id}/record`).expect(200))
+      const table2RecordResult = (await request.get(`/api/table/${table2.id}/record`).expect(200))
         .body.records;
 
       expect(table1RecordResult[0].fields[table1FormulaFieldRo.name!]).toEqual(['B1', 'B2']);
       expect(table1RecordResult[1].fields[table1FormulaFieldRo.name!]).toEqual(undefined);
       expect(table2RecordResult[0].fields[table2FormulaFieldRo.name!]).toEqual('A1');
       expect(table2RecordResult[1].fields[table2FormulaFieldRo.name!]).toEqual('A1');
+    });
+
+    it('should throw error when add a duplicate record in oneMany link field', async () => {
+      // set text for lookup field
+      await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordViaShareDb(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+
+      // first update
+      await updateRecordViaShareDb(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
+      ]);
+
+      // // update a duplicated link record in other record
+      await expect(
+        updateRecordViaShareDb(table1.id, table1.records[1].id, table1.fields[2].id, [
+          { title: 'B1', id: table2.records[0].id },
+        ])
+      ).rejects.toThrow();
+
+      // function wait(ms: number) {
+      //   return new Promise((resolve) => setTimeout(resolve, ms));
+      // }
+      // await wait(1000);
+      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+
+      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+        { title: 'B1', id: table2.records[0].id },
+        { title: 'B2', id: table2.records[1].id },
+      ]);
+
+      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
   });
 });

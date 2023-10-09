@@ -6,7 +6,6 @@ import type { Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
-import type { ICellChange } from '../features/calculation/utils/changes';
 import { authMiddleware } from './auth.middleware';
 import { DerivateChangeService } from './derivate-change.service';
 import type { IRawOpMap } from './interface';
@@ -33,7 +32,7 @@ export class ShareDbService extends ShareDBClass {
 
     // this.use('submit', this.onSubmit);
     this.use('commit', this.onCommit);
-    // this.use('apply', this.onApply);
+    this.use('apply', this.onApply);
     this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
   }
@@ -57,53 +56,12 @@ export class ShareDbService extends ShareDBClass {
    * 1. we need all effect to be done when get API response
    * 2. all effect should be done in one transaction
    */
-  // private onApply = async (
-  //   context: ShareDBClass.middleware.ApplyContext,
-  //   next: (err?: unknown) => void
-  // ) => {
-  //   next();
-  //   await this.onRecordApply(context);
-  // };
-
-  private async onRecordApply(context: ShareDBClass.middleware.SubmitContext) {
-    const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
-    const recordId = context.id;
-    if (docType !== IdPrefix.Record || !context.op.op) {
-      return;
-    }
-
-    console.log('onRecordApply', context.op.op);
-    const changes = context.op.op.reduce<ICellChange[]>((pre, cur) => {
-      const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
-      if (ctx) {
-        pre.push({
-          tableId: tableId,
-          recordId: recordId,
-          ...ctx,
-        });
-      }
-      return pre;
-    }, []);
-
-    if (!changes.length) {
-      return;
-    }
-
-    try {
-      const rawOpsMap = await this.derivateChangeService.derivateAndCalculateLink(
-        context.op.src,
-        changes
-      );
-      rawOpsMap && this.publishOpsMap(rawOpsMap);
-    } catch (e) {
-      console.error('calculationError', e);
-      await this.rollback(context);
-    }
-  }
-
-  private async rollback(_context: ShareDBClass.middleware.SubmitContext) {
-    //
-  }
+  private onApply = async (
+    context: ShareDBClass.middleware.ApplyContext,
+    next: (err?: unknown) => void
+  ) => {
+    await this.derivateChangeService.onRecordApply(context, next);
+  };
 
   publishOpsMap(rawOpMap: IRawOpMap) {
     for (const tableId in rawOpMap) {
@@ -143,7 +101,16 @@ export class ShareDbService extends ShareDBClass {
     context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {
-    await this.onRecordApply(context);
+    const saveContext = context.agent.custom?.saveContext;
+    if (saveContext) {
+      try {
+        const opsRaw = await this.derivateChangeService.save(context.agent.src, saveContext);
+        this.publishOpsMap(opsRaw);
+      } catch (e) {
+        return next(e);
+      }
+    }
+
     next();
   };
 

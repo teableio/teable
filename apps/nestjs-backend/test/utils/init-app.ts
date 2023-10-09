@@ -71,7 +71,8 @@ export async function updateRecordByApi(
   tableId: string,
   recordId: string,
   fieldId: string,
-  newValue: unknown
+  newValue: unknown,
+  expect = 200
 ): Promise<IRecord> {
   return (
     await request
@@ -84,7 +85,7 @@ export async function updateRecordByApi(
           },
         },
       } as IUpdateRecordRo)
-      .expect(200)
+      .expect(expect)
   ).body;
 }
 
