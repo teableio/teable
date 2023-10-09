@@ -1,21 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { ShareDbService } from '../share-db/share-db.service';
+import { GlobalModule } from '../global/global.module';
+import { ShareDbModule } from '../share-db/share-db.module';
 import { WsGateway } from './ws.gateway';
 
 describe('WSGateway', () => {
   let service: WsGateway;
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      imports: [GlobalModule, ShareDbModule],
       providers: [WsGateway],
-    })
-      .useMocker((token) => {
-        if (token === ShareDbService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+    }).compile();
 
     service = module.get<WsGateway>(WsGateway);
   });
