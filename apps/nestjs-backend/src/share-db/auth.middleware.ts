@@ -1,5 +1,5 @@
 import { HttpErrorCode } from '@teable-group/core';
-import type ShareDBClass from '@teable/sharedb';
+import type ShareDBClass from 'sharedb';
 import type { WsAuthService } from './ws-auth.service';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
