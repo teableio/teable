@@ -63,11 +63,11 @@ const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
 
 const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
 
-const getNumberStyle = (height: number, theme: IGridTheme): CSSProperties => {
+const getInputStyle = (cellType: CellType, height: number, theme: IGridTheme): CSSProperties => {
   return {
     border: `2px solid ${theme.cellLineColorActived}`,
     boxShadow: 'none',
-    textAlign: 'right',
+    textAlign: cellType === CellType.Number ? 'right' : 'left',
     paddingRight: 8,
     paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
   };
@@ -208,6 +208,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (readonly) return;
     switch (cellType) {
       case CellType.Text:
+      case CellType.Link:
       case CellType.Number: {
         return (
           <TextEditor
@@ -215,7 +216,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
             cell={cellContent}
             style={{
               ...editorStyle,
-              ...getNumberStyle(height, theme),
+              ...getInputStyle(cellType, height, theme),
             }}
             onChange={onChangeInner}
           />
@@ -252,7 +253,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
                       cellType === CellType.Number
                         ? {
                             ...editorStyle,
-                            ...getNumberStyle(height, theme),
+                            ...getInputStyle(cellType, height, theme),
                           }
                         : editorStyle,
                     cell: cellContent as IInnerCell,

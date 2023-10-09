@@ -1,13 +1,13 @@
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import type { ChangeEvent, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import type { INumberCell, ITextCell } from '../../renderers';
+import type { ILinkCell, INumberCell, ITextCell } from '../../renderers';
 import { CellType } from '../../renderers';
 import type { IEditorRef, IEditorProps } from './EditorContainer';
 
 const TextEditorBase: ForwardRefRenderFunction<
   IEditorRef<ITextCell | INumberCell>,
-  IEditorProps<ITextCell | INumberCell>
+  IEditorProps<ITextCell | INumberCell | ILinkCell>
 > = (props, ref) => {
   const { cell, onChange, style } = props;
   const { displayData, type } = cell;

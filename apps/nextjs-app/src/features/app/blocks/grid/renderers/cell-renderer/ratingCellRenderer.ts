@@ -64,7 +64,8 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     ctx.restore();
   },
   checkWithinBound: (cell: IRatingCell, props: ICellClickProps) => {
-    const { max } = cell;
+    const { max, readonly } = cell;
+    if (readonly) return false;
     const { hoverCellPosition, height, theme } = props;
     const { cellHorizontalPadding } = GRID_DEFAULT;
     const [x, y] = hoverCellPosition;
@@ -79,7 +80,8 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
   onClick: (cell: IRatingCell, props: ICellClickProps) => {
     if (!ratingCellRenderer.checkWithinBound?.(cell, props)) return undefined;
 
-    const { data } = cell;
+    const { data, readonly } = cell;
+    if (readonly) return false;
     const { hoverCellPosition, theme } = props;
     const { cellHorizontalPadding } = GRID_DEFAULT;
     const [x] = hoverCellPosition;

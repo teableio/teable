@@ -10,6 +10,7 @@ import type {
   IRatingFieldOptions,
   ISelectFieldOptions,
   ISingleLineTextCellValue,
+  ISingleLineTextFieldOptions,
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
@@ -54,9 +55,10 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             ref={editorRef}
             className="h-8"
             value={cellValue as ISingleLineTextCellValue}
+            options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
             disabled={disabled}
-          ></TextEditor>
+          />
         );
       }
       case FieldType.Number: {

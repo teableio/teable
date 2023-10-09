@@ -3,7 +3,11 @@ import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
-import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
+import {
+  MultiNumberDisplayType,
+  SingleLineTextDisplayType,
+  SingleNumberDisplayType,
+} from '../show-as';
 import { NumberFieldCore } from './number.field';
 import { RollupFieldCore } from './rollup.field';
 
@@ -53,6 +57,9 @@ describe('RollupFieldCore', () => {
     ...numberRollupJson,
     options: {
       expression: 'concatenate({values})',
+      showAs: {
+        type: SingleLineTextDisplayType.Url,
+      },
     },
     cellValueType: CellValueType.String,
   });
@@ -102,8 +109,19 @@ describe('RollupFieldCore', () => {
     {
       ...numberRollupJson,
       options: {
-        ...numberRollupJson.options,
+        expression: 'array_join({values})',
         showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberRollupJson,
+      options: {
+        expression: '"abc"',
+        showAs: {
+          type: 'test',
+        },
       },
       cellValueType: CellValueType.String,
       isMultipleCellValue: false,

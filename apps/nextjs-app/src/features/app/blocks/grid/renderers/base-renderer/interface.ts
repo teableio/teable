@@ -74,12 +74,13 @@ export interface ISingleLineTextProps extends ITextBaseProps {
 }
 
 export interface IMultiLineTextProps extends ITextBaseProps {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   maxWidth: number;
   maxLines: number;
   fill?: string;
   lineHeight?: number;
+  needRender?: boolean;
 }
 
 export interface IRingProps {
@@ -111,3 +112,8 @@ export interface IChartLineProps extends IRectangle {
 }
 
 export type IChartBarProps = Omit<IChartLineProps, 'hoverAmount'>;
+
+export interface ITextInfo {
+  text: string;
+  width: number;
+}

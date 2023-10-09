@@ -2,6 +2,7 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import { SingleLineTextDisplayType } from '../show-as';
 import { SingleLineTextFieldCore } from './single-line-text.field';
 
 describe('SingleLineTextFieldCore', () => {
@@ -14,7 +15,11 @@ describe('SingleLineTextFieldCore', () => {
     description: 'A test Single Line Text field',
     type: FieldType.SingleLineText,
     dbFieldType: DbFieldType.Text,
-    options: {},
+    options: {
+      showAs: {
+        type: SingleLineTextDisplayType.Email,
+      },
+    },
     cellValueType: CellValueType.String,
     isComputed: false,
   };
@@ -63,9 +68,29 @@ describe('SingleLineTextFieldCore', () => {
   });
 
   describe('validateOptions', () => {
-    it('should return success if options are valid', () => {
+    it('should return success if options has valid showAs', () => {
       const result = field.validateOptions();
       expect(result.success).toBe(true);
+    });
+
+    it('should return success if options are plain object', () => {
+      const field = plainToInstance(SingleLineTextFieldCore, {
+        ...json,
+        options: {},
+      });
+      const result = field.validateOptions();
+      expect(result.success).toBe(true);
+    });
+
+    it('should return failure if options has invalid showAs', () => {
+      const field = plainToInstance(SingleLineTextFieldCore, {
+        ...json,
+        options: {
+          showAs: { type: 'test' },
+        },
+      });
+      const result = field.validateOptions();
+      expect(result.success).toBe(false);
     });
 
     it('should return failure if options are invalid', () => {

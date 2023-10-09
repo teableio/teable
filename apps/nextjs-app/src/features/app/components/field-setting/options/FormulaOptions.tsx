@@ -100,14 +100,16 @@ export const FormulaOptions = (props: {
           onChange={setFormatting}
         />
       </div>
-      <div className="space-y-2">
-        <UnionShowAs
-          showAs={showAs}
-          cellValueType={cellValueType}
-          isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
-          onChange={setShowAs}
-        />
-      </div>
+      {Boolean(expression) && (
+        <div className="space-y-2">
+          <UnionShowAs
+            showAs={showAs}
+            cellValueType={cellValueType}
+            isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
+            onChange={setShowAs}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,12 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Colors, SingleNumberDisplayType, MultiNumberDisplayType } from '@teable-group/core';
-import type { IMultiNumberShowAs, ISingleNumberShowAs } from '@teable-group/core';
+import {
+  Colors,
+  SingleNumberDisplayType,
+  MultiNumberDisplayType,
+  SingleLineTextDisplayType,
+} from '@teable-group/core';
+import type {
+  IMultiNumberShowAs,
+  ISingleLineTextShowAs,
+  ISingleNumberShowAs,
+} from '@teable-group/core';
 
 export class SingleNumberShowAsDto implements ISingleNumberShowAs {
   @ApiProperty({
     enum: SingleNumberDisplayType,
     example: SingleNumberDisplayType.Bar,
-    description: 'the display type of the number.',
+    description: 'The display type of the number.',
   })
   type!: SingleNumberDisplayType;
 
@@ -36,7 +45,7 @@ export class MultiNumberShowAsDto implements IMultiNumberShowAs {
   @ApiProperty({
     enum: MultiNumberDisplayType,
     example: MultiNumberDisplayType.Line,
-    description: 'the display type of the numbers.',
+    description: 'The display type of the numbers.',
   })
   type!: MultiNumberDisplayType;
 
@@ -46,4 +55,12 @@ export class MultiNumberShowAsDto implements IMultiNumberShowAs {
     description: 'The color of the rendering graph.',
   })
   color!: Colors;
+}
+
+export class SingleLineTextShowAsDto implements ISingleLineTextShowAs {
+  @ApiProperty({
+    enum: SingleLineTextDisplayType,
+    description: 'The display type of the text.',
+  })
+  type!: SingleLineTextDisplayType;
 }
