@@ -120,33 +120,6 @@ export class FieldCalculationService {
     throw new Error('Invalid relationship');
   }
 
-  private async getOriginComputedRecords(
-    tableId: string,
-    tableId2DbTableName: Record<string, string>,
-    field: IFieldInstance,
-    originRecordIds?: string[]
-  ): Promise<{ dbTableName: string; id: string }[]> {
-    let records: { dbTableName: string; id: string }[] = [];
-    if (field.lookupOptions) {
-      records = records.concat(
-        await this.getOriginLookupRecords(tableId, tableId2DbTableName, field)
-      );
-
-      // if nothing to lookup, we don't have to calculate this field
-      if (!records.length) {
-        return records;
-      }
-    }
-
-    const dbTableName = tableId2DbTableName[tableId];
-
-    if (originRecordIds) {
-      return records.concat(originRecordIds.map((id) => ({ dbTableName, id })));
-    }
-
-    return records.concat(await this.getSelfOriginRecords(dbTableName));
-  }
-
   @Timing()
   async calculateFields(
     src: string,
@@ -208,10 +181,19 @@ export class FieldCalculationService {
       originRecordIds,
     } = params;
     // the origin change will lead to affected record changes
-    // TODO: dedupe items
     let affectedRecordItems: IRecordRefItem[] = [];
     let originRecordIdItems: { dbTableName: string; id: string }[] = [];
+
+    const dbTableName = tableId2DbTableName[tableId];
+
+    if (originRecordIds) {
+      originRecordIdItems = originRecordIds.map((id) => ({ dbTableName, id }));
+    } else {
+      originRecordIdItems = await this.getSelfOriginRecords(dbTableName);
+    }
+
     for (const fieldId in topoOrdersByFieldId) {
+      const field = fieldMap[fieldId];
       const topoOrders = topoOrdersByFieldId[fieldId];
       const linkOrders = this.referenceService.getLinkOrderFromTopoOrders({
         tableId2DbTableName,
@@ -223,25 +205,26 @@ export class FieldCalculationService {
       if (!fieldMap[fieldId].isComputed) {
         continue;
       }
+      let itemsToCalculate = originRecordIdItems;
 
-      const originItems = await this.getOriginComputedRecords(
-        tableId,
-        tableId2DbTableName,
-        fieldMap[fieldId],
-        originRecordIds
-      );
+      if (field.lookupOptions) {
+        itemsToCalculate = await this.getOriginLookupRecords(tableId, tableId2DbTableName, field);
+        originRecordIdItems = originRecordIdItems.concat(itemsToCalculate);
+      }
 
-      if (!originItems.length) {
+      if (!itemsToCalculate.length) {
         continue;
       }
 
       // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
       // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
-      const items = await this.referenceService.getAffectedRecordItems(linkOrders, originItems);
+      const items = await this.referenceService.getAffectedRecordItems(
+        linkOrders,
+        itemsToCalculate
+      );
       // nameConsole('fieldId:', { fieldId }, fieldMap);
       // nameConsole('affectedRecordItems:', items, fieldMap);
       affectedRecordItems = affectedRecordItems.concat(items);
-      originRecordIdItems = originRecordIdItems.concat(originItems);
     }
     return { affectedRecordItems, originRecordIdItems };
   }
