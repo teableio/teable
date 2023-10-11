@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp, Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import type { IClsStore } from '../types/cls';
@@ -22,6 +24,8 @@ export class ShareDbService extends ShareDBClass {
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly eventEmitter: EventEmitter2,
+    private readonly eventService: EventEmitterService,
+    private readonly prismaService: PrismaService,
     private readonly clsService: ClsService<IClsStore>,
     private readonly wsAuthService: WsAuthService,
     private readonly wsDerivateService: WsDerivateService
@@ -37,6 +41,12 @@ export class ShareDbService extends ShareDBClass {
 
     this.use('commit', this.onCommit);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
+
+    // broadcast raw op events to client
+    this.prismaService.bindAfterTransaction(() => {
+      const rawOpMap = this.clsService.get('tx.rawOpMap');
+      rawOpMap && this.publishOpsMap(rawOpMap);
+    });
   }
 
   getConnection() {
@@ -47,6 +57,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
+    const rawOps: (EditOp | CreateOp | DeleteOp)[] = [];
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
@@ -55,8 +66,11 @@ export class ShareDbService extends ShareDBClass {
         rawOp.c = collection;
         rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
+
+        rawOps.push(rawOp);
       }
     }
+    this.eventService.ops2Event(rawOps);
   }
 
   private onCommit = (

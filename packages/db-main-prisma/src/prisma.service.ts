@@ -17,6 +17,8 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
 
+  private afterTxCb?: () => void;
+
   constructor(private readonly cls: ClsService<{ tx: ITx }>) {
     const logConfig = {
       log: [
@@ -41,6 +43,10 @@ export class PrismaService
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
 
     super(initialConfig);
+  }
+
+  bindAfterTransaction(fn: () => void) {
+    this.afterTxCb = fn;
   }
 
   /**
@@ -74,7 +80,9 @@ export class PrismaService
         this.cls.set('tx.id', undefined);
         return res;
       }, options);
+      this.afterTxCb?.();
     });
+
     return result;
   }
 
