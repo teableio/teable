@@ -46,7 +46,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     const port = this.configService.get<number>('SOCKET_PORT');
 
     this.server = new Server({ port, path: '/socket' });
-    this.logger.log('DevWsGateway afterInit');
+    this.logger.log(`DevWsGateway afterInit, Port:${port}`);
 
     this.server.on('connection', this.handleConnection);
 

@@ -4,6 +4,7 @@
   "entryFile": "index",
   "flat": true,
   "compilerOptions": {
-    "tsConfigPath": "./tsconfig.json"
+    "builder": "swc",
+    "typeCheck": true
   }
 }

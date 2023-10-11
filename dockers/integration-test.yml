@@ -7,6 +7,8 @@ services:
       context: ../
       dockerfile: ./dockers/teable/Dockerfile
       target: builder
+      args:
+        INTEGRATION_TEST: 1
     hostname: integration-test
     networks:
       - teable-net

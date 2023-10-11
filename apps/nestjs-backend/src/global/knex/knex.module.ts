@@ -1,8 +1,8 @@
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { parseDsn } from '@teable-group/core';
 import { KnexModule } from 'nest-knexjs';
-import { parseDsn } from '../../utils/parse-dsn';
 
 @Module({})
 export class TeableKnexModule {
