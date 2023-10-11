@@ -34,6 +34,8 @@ RUN yarn install --immutable --inline-builds
 
 FROM deps AS builder
 
+ARG INTEGRATION_TEST
+
 ENV NEXT_BUILD_ENV_TYPECHECK=false
 ENV NEXT_BUILD_ENV_LINT=false
 ENV NEXT_BUILD_ENV_OUTPUT=standalone
@@ -56,14 +58,15 @@ COPY --from=deps --link /workspace-install ./
 
 # Optional: if the app depends on global /static shared assets like images, locales...
 RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
-RUN yarn workspace @teable-group/app share-static-hardlink; \
-      yarn g:build
 
-# Does not play well with buildkit on CI
-# https://github.com/moby/buildkit/issues/1673
-RUN SKIP_POSTINSTALL=1 \
-    yarn workspaces focus --production @teable-group/core @teable-group/openapi @teable-group/db-main-prisma \
-      @teable-group/backend @teable-group/app
+# integration_test
+RUN if [ -n "$INTEGRATION_TEST" ];  \
+    then yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build;  \
+    else yarn workspace @teable-group/app share-static-hardlink &&  \
+          yarn g:build &&  \
+          SKIP_POSTINSTALL=1 yarn workspaces focus --production @teable-group/core @teable-group/openapi @teable-group/db-main-prisma  \
+                                @teable-group/backend @teable-group/app; \
+    fi
 
 ##################################################################
 # Stage 3: Extract a minimal image from the build                #

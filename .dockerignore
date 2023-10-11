@@ -1,7 +1,7 @@
 # All node_modules directories
 node_modules
 **/node_modules
-dist
+**/dist
 **/.next
 
 # All secrets
@@ -53,4 +53,5 @@ tmp
 .vscode
 
 # other
+**/.assets
 .DS_Store
