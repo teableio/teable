@@ -82,7 +82,6 @@ export class FieldConvertingLinkService {
         newField
       );
       const createResult = await this.fieldCreatingService.createAndCalculate(
-        connection,
         newField.options.foreignTableId,
         symmetricField
       );
@@ -104,7 +103,6 @@ export class FieldConvertingLinkService {
       // create new symmetric link
       await this.fieldSupplementService.createForeignKey(tableId, newField);
       const rawOpsMap = await this.fieldDeletingService.cleanField(
-        connection,
         newField.options.foreignTableId,
         [newField.options.symmetricFieldId]
       );
@@ -125,7 +123,6 @@ export class FieldConvertingLinkService {
     );
     await this.fieldSupplementService.createReference(newField);
     const symmetricResult = await this.fieldCreatingService.createAndCalculate(
-      connection,
       newField.options.foreignTableId,
       symmetricField
     );

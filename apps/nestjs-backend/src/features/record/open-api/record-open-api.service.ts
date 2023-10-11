@@ -159,12 +159,7 @@ export class RecordOpenApiService {
     if (result) {
       const { opsMap, fieldMap, tableId2DbTableName } = result;
 
-      const rawOpMap = await this.batchService.save(
-        'calculated',
-        opsMap,
-        fieldMap,
-        tableId2DbTableName
-      );
+      const rawOpMap = await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
 
       this.shareDbService.publishOpsMap(rawOpMap);
     }
@@ -201,12 +196,7 @@ export class RecordOpenApiService {
 
     // 3. save all ops
     if (!isEmpty(opsMap)) {
-      const rawOpMap = await this.batchService.save(
-        'calculated',
-        opsMap,
-        fieldMap,
-        tableId2DbTableName
-      );
+      const rawOpMap = await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
 
       // 4. send all ops
       this.shareDbService.publishOpsMap(rawOpMap);

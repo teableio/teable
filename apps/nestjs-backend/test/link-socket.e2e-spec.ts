@@ -27,11 +27,13 @@ describe('OpenAPI link (socket-e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   jest.useRealTimers();
   let request: request.SuperAgentTest;
+  let cookie: string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
+    cookie = appCtx.cookie;
 
     shareDbService = app.get(ShareDbService);
   });
@@ -110,7 +112,11 @@ describe('OpenAPI link (socket-e2e)', () => {
       fieldId: string,
       newValues: any
     ) {
-      const connection = shareDbService.connect();
+      const connection = shareDbService.connect(undefined, {
+        headers: {
+          cookie: cookie,
+        },
+      });
       const collection = `${IdPrefix.Record}_${tableId}`;
       return new Promise<IRecord>((resolve, reject) => {
         const doc: Doc<IRecord> = connection.get(collection, recordId);

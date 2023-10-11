@@ -67,7 +67,7 @@ export class FieldDeletingService {
       : errorRefFieldIds;
     await this.markFieldsAsError(connection, collection, errorFieldIds);
 
-    return this.cleanField(connection, tableId, errorFieldIds.concat(fieldId));
+    return this.cleanField(tableId, errorFieldIds.concat(fieldId));
   }
 
   async delateAndCleanRef(
@@ -82,11 +82,8 @@ export class FieldDeletingService {
     return { snapshot, rawOpsMap };
   }
 
-  async cleanField(connection: Connection, tableId: string, fieldIds: string[]) {
-    // src is a unique id for the client used by sharedb
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const src = (connection.agent as any).clientId;
-    return await this.fieldBatchCalculationService.calculateFields(src, tableId, fieldIds, true);
+  async cleanField(tableId: string, fieldIds: string[]) {
+    return await this.fieldBatchCalculationService.calculateFields(tableId, fieldIds, true);
   }
 
   async deleteField(tableId: string, fieldId: string): Promise<IFieldVo> {

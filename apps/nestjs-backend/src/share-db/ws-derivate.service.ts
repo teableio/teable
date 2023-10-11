@@ -64,17 +64,14 @@ export class WsDerivateService {
     };
   }
 
-  async save(
-    src: string,
-    saveContext: {
-      opsMap: IOpsMap;
-      fieldMap: Record<string, IFieldInstance>;
-      tableId2DbTableName: Record<string, string>;
-    }
-  ) {
+  async save(saveContext: {
+    opsMap: IOpsMap;
+    fieldMap: Record<string, IFieldInstance>;
+    tableId2DbTableName: Record<string, string>;
+  }) {
     const { opsMap, fieldMap, tableId2DbTableName } = saveContext;
     return this.prismaService.$tx(async () => {
-      return await this.batchService.save(src, opsMap, fieldMap, tableId2DbTableName);
+      return await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     });
   }
 

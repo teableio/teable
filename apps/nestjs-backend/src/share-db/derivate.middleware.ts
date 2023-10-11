@@ -19,7 +19,7 @@ export const derivateMiddleware = (
       const saveContext = context.agent.custom?.saveContext;
       if (saveContext) {
         try {
-          const opsRaw = await wsDerivateService.save(context.agent.src, saveContext);
+          const opsRaw = await wsDerivateService.save(saveContext);
           shareDB.publishOpsMap(opsRaw);
         } catch (e) {
           // TODO: rollback

@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
 import { noop } from 'lodash';
-import type { Error } from 'sharedb';
+import { ClsService } from 'nestjs-cls';
+import type { CreateOp, DeleteOp, EditOp, Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
@@ -20,6 +21,7 @@ export class ShareDbService extends ShareDBClass {
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly eventEmitter: EventEmitter2,
+    private readonly clsService: ClsService,
     private readonly wsAuthService: WsAuthService,
     private readonly wsDerivateService: WsDerivateService
   ) {
@@ -29,7 +31,7 @@ export class ShareDbService extends ShareDBClass {
       db: sqliteDbAdapter,
     });
     // auth
-    authMiddleware(this, this.wsAuthService);
+    authMiddleware(this, this.wsAuthService, this.clsService);
     derivateMiddleware(this, this.wsDerivateService);
 
     this.use('commit', this.onCommit);
@@ -44,14 +46,13 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
-    for (const tableId in rawOpMap) {
-      const collection = `${IdPrefix.Record}_${tableId}`;
-      const data = rawOpMap[tableId];
-      for (const recordId in data) {
-        const rawOp = data[recordId];
-        const channels = [collection, `${collection}.${recordId}`];
+    for (const collection in rawOpMap) {
+      const data = rawOpMap[collection];
+      for (const docId in data) {
+        const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
+        const channels = [collection, `${collection}.${docId}`];
         rawOp.c = collection;
-        rawOp.d = recordId;
+        rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
       }
     }

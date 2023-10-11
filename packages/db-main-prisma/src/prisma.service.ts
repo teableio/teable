@@ -68,7 +68,10 @@ export class PrismaService
       result = await super.$transaction<R>(async (prisma) => {
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
-        return await fn(prisma);
+        const res = await fn(prisma);
+        this.cls.set('tx.client', undefined);
+        this.cls.set('tx.id', undefined);
+        return res;
       }, options);
     });
     return result;

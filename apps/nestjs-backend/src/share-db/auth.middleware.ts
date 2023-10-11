@@ -1,4 +1,5 @@
 import { HttpErrorCode } from '@teable-group/core';
+import type { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import type { WsAuthService } from './ws-auth.service';
 
@@ -22,19 +23,26 @@ type IAuthMiddleContext =
   | ShareDBClass.middleware.ApplyContext
   | ShareDBClass.middleware.ReadSnapshotsContext;
 
-export const authMiddleware = (shareDB: ShareDBClass, wsAuthService: WsAuthService) => {
+export const authMiddleware = (
+  shareDB: ShareDBClass,
+  wsAuthService: WsAuthService,
+  clsService: ClsService
+) => {
   const checkAuth = async (context: IAuthMiddleContext, callback: (err?: unknown) => void) => {
     const { isBackend, cookie } = context.agent.custom;
-    if (isBackend) {
-      return callback();
-    }
-    try {
-      const user = await checkCookie(cookie, wsAuthService);
-      context.agent.custom.user = user;
-      callback();
-    } catch (error) {
-      callback(error);
-    }
+    clsService.runWith(clsService.get(), async () => {
+      if (isBackend) {
+        return callback();
+      }
+      try {
+        const user = await checkCookie(cookie, wsAuthService);
+        context.agent.custom.user = user;
+        clsService.set('user', user);
+        callback();
+      } catch (error) {
+        callback(error);
+      }
+    });
   };
 
   shareDB.use('connect', async (context, callback) => {

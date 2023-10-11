@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import type { ISelectFieldOptions } from '@teable-group/core';
-import { Colors, FieldType, generateRecordId } from '@teable-group/core';
+import { IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
 import { chunk, flatten, groupBy } from 'lodash';
 
 const prisma = new PrismaClient();
@@ -152,16 +152,17 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
     const sqlOp = `
         INSERT INTO ops
-        ("collection", "doc_id", "version", "operation", "created_by")
+        ("collection", "doc_id", "doc_type", "version", "operation", "created_by")
         VALUES
         ${page
           .map((d) => {
             return {
               collection: tableId,
               doc_id: d.__id,
+              doc_type: IdPrefix.Record,
               version: 1,
               operation: '{}',
-              created_by: 'admin',
+              created_by: 'mock',
             };
           })
           .map((d) => `('${Object.values(d).join(`', '`)}')`)

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
@@ -11,16 +11,19 @@ import type {
   DbFieldType,
   ILookupOptionsVo,
 } from '@teable-group/core';
-import { OpName } from '@teable-group/core';
+import { IdPrefix, OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { forEach, isEqual, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import type { IAdapterService } from '../../share-db/interface';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import type { IAdapterService, ICreateOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
+import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
@@ -40,7 +43,8 @@ export class FieldService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel() private readonly knex: Knex,
+    @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
   generateDbFieldName(fields: { id: string; name: string }[]): string[] {
@@ -243,6 +247,63 @@ export class FieldService implements IAdapterService {
     });
 
     return sortedFields[index].id;
+  }
+
+  @Timing()
+  async batchCreateFields(tableId: string, dbTableName: string, fields: IFieldInstance[]) {
+    const collection = `${IdPrefix.Field}_${tableId}`;
+    const rawOpMap: IRawOpMap = { [collection]: {} };
+    const rawOps: { rawOp: ICreateOp; fieldId: string }[] = [];
+
+    fields.forEach((field) => {
+      const snapshot = instanceToPlain(field, { excludePrefixes: ['_'] }) as IFieldVo;
+      const fieldId = snapshot.id;
+      const rawOp: ICreateOp = {
+        src: this.cls.get('tx.id'),
+        seq: 1,
+        create: {
+          type: 'http://sharejs.org/types/JSONv0',
+          data: snapshot,
+        },
+        v: 1,
+        m: {
+          ts: Date.now(),
+        },
+      };
+
+      rawOpMap[collection][fieldId] = rawOp;
+      rawOps.push({ rawOp, fieldId });
+    });
+
+    // 1. save field meta in db
+    await this.dbCreateMultipleField(tableId, fields);
+
+    // 2. alter table with real field in visual table
+    await this.alterVisualTable(dbTableName, fields);
+
+    await this.executeInsertOps(tableId, rawOps);
+    return rawOpMap;
+  }
+
+  @Timing()
+  private async executeInsertOps(
+    collectionId: string,
+    rawOps: { rawOp: ICreateOp; fieldId: string }[]
+  ) {
+    const userId = this.cls.get('user.id');
+    const insertRowsData = rawOps.map(({ rawOp, fieldId }) => {
+      return {
+        collection: collectionId,
+        doc_type: IdPrefix.Field,
+        doc_id: fieldId,
+        version: 1,
+        operation: JSON.stringify(rawOp),
+        created_by: userId,
+      };
+    });
+
+    const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
+    return this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
   }
 
   async create(tableId: string, snapshot: IFieldVo) {

@@ -685,8 +685,7 @@ export class FieldConvertingService {
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
     // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
 
-    const rawOpsMap = await this.batchService.save(
-      'calculated',
+    const rawOpsMap = await this.batchService.updateRecords(
       composedOpsMap,
       fieldMap,
       tableId2DbTableName
@@ -910,11 +909,9 @@ export class FieldConvertingService {
       await this.calculateAndSaveRecords(tableId, newField, result.recordOpsMap);
     }
     if (newField.isComputed) {
-      const computedRawOpsMap = await this.fieldCalculationService.calculateFields(
-        'calculated',
-        tableId,
-        [newField.id]
-      );
+      const computedRawOpsMap = await this.fieldCalculationService.calculateFields(tableId, [
+        newField.id,
+      ]);
       computedRawOpsMap && this.shareDbService.publishOpsMap(computedRawOpsMap);
     }
     supplementResult?.rawOpMaps?.forEach((rawOpsMap) =>

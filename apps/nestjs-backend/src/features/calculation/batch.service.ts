@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
-import { RecordOpBuilder } from '@teable-group/core';
+import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
-import type { IRawOp, IRawOpMap } from '../../share-db/interface';
+import type { IEditOp, IRawOp, IRawOpMap } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
@@ -86,8 +86,7 @@ export class BatchService {
   }
 
   @Timing()
-  async save(
-    src: string,
+  async updateRecords(
     opsMap: IOpsMap,
     fieldMap: { [fieldId: string]: IFieldInstance },
     tableId2DbTableName: { [tableId: string]: string }
@@ -98,18 +97,19 @@ export class BatchService {
     tableId2DbTableName = result.tableId2DbTableName;
 
     for (const tableId in opsMap) {
+      const collection = `${IdPrefix.Record}_${tableId}`;
       const dbTableName = tableId2DbTableName[tableId];
       const recordOpsMap = opsMap[tableId];
       const raw = await this.fetchRawData(dbTableName, recordOpsMap);
       const versionGroup = keyBy(raw, '__id');
 
-      const opsData = this.buildOpsData(src, recordOpsMap, versionGroup);
-      rawOpMap[tableId] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
+      const opsData = this.buildRecordOpsData(recordOpsMap, versionGroup);
+      rawOpMap[collection] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
         pre[d.recordId] = d.rawOp;
         return pre;
       }, {});
       await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
-      await this.executeInsertOps(tableId, opsData);
+      await this.executeInsertOps(tableId, IdPrefix.Record, opsData);
     }
     return rawOpMap;
   }
@@ -132,8 +132,7 @@ export class BatchService {
   }
 
   @Timing()
-  private buildOpsData(
-    src: string,
+  private buildRecordOpsData(
     recordOpsMap: { [recordId: string]: IOtOperation[] },
     versionGroup: { [recordId: string]: { __version: number; __id: string } }
   ) {
@@ -153,8 +152,8 @@ export class BatchService {
       );
 
       const version = versionGroup[recordId].__version;
-      const rawOp: IRawOp = {
-        src,
+      const rawOp: IEditOp = {
+        src: this.cls.get('tx.id'),
         seq: 1,
         op: recordOpsMap[recordId],
         v: version,
@@ -246,16 +245,16 @@ export class BatchService {
   }
 
   @Timing()
-  private async executeInsertOps(tableId: string, opsData: IOpsData[]) {
+  private async executeInsertOps(collectionId: string, docType: IdPrefix, opsData: IOpsData[]) {
     const userId = this.cls.get('user.id');
     const insertRowsData = opsData.map((data) => {
       return {
-        collection: tableId,
+        collection: collectionId,
+        doc_type: docType,
         doc_id: data.recordId,
         version: data.version + 1,
         operation: JSON.stringify(data.rawOp),
-        // TODO: fixme with socket auth
-        created_by: userId || 'errorUserId',
+        created_by: userId,
       };
     });
 

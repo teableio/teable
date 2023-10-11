@@ -57,7 +57,7 @@ export async function initApp() {
   console.log(`> Jest Test Ready on ${await app.getUrl()}`);
   const newRequest = request.agent(app.getHttpServer());
   newRequest.set('Cookie', cookie);
-  return { app, request: newRequest };
+  return { app, request: newRequest, cookie: cookie.join(';') };
 }
 
 export async function signin(app: INestApplication, email: string, password: string) {

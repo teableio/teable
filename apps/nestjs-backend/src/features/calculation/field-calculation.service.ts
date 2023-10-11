@@ -122,7 +122,6 @@ export class FieldCalculationService {
 
   @Timing()
   async calculateFields(
-    src: string,
     tableId: string,
     fieldIds: string[],
     reset?: boolean
@@ -135,7 +134,7 @@ export class FieldCalculationService {
       return;
     }
     const { opsMap, fieldMap, tableId2DbTableName } = result;
-    return await this.batchService.save(src, opsMap, fieldMap, tableId2DbTableName);
+    return await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
   async getTopoOrdersContext(fieldIds: string[]): Promise<ITopoOrdersContext> {
