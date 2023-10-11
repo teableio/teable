@@ -208,13 +208,11 @@ db-push:		## connects to your database and adds Prisma models to your Prisma sch
     else echo "Unknown command.";  fi
 
 sqlite-mode:		## sqlite-mode
-	@make gen-sqlite-prisma-schema
 	@cd ./packages/db-main-prisma; \
 		yarn prisma-generate --schema ./prisma/sqlite/schema.prisma; \
 		yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
 postgres-mode:		## postgres-mode
-	@make gen-postgres-prisma-schema
 	@cd ./packages/db-main-prisma; \
 		yarn prisma-generate --schema ./prisma/postgres/schema.prisma; \
 		yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
