@@ -125,7 +125,6 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
     data.push({
       __id: generateRecordId(),
-      __row_default: Number(rowCount) + i,
       __created_time: new Date().toISOString(),
       __created_by: 'admin',
       __last_modified_by: 'admin',
@@ -160,7 +159,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
               collection: tableId,
               doc_id: d.__id,
               doc_type: IdPrefix.Record,
-              version: 1,
+              version: 0,
               operation: '{}',
               created_by: 'mock',
             };

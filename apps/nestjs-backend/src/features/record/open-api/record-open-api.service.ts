@@ -6,18 +6,9 @@ import type {
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
 } from '@teable-group/core';
-import {
-  FieldKeyType,
-  IdPrefix,
-  generateRecordId,
-  RecordOpBuilder,
-  FieldType,
-} from '@teable-group/core';
+import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, keyBy } from 'lodash';
-import type { Connection, Doc } from 'sharedb/lib/client';
-import { ShareDbService } from '../../../share-db/share-db.service';
-import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
@@ -33,7 +24,6 @@ export class RecordOpenApiService {
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly shareDbService: ShareDbService,
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
@@ -54,10 +44,10 @@ export class RecordOpenApiService {
   }
 
   private async generateCellContexts(
-    connection: Connection,
     tableId: string,
     fieldKeyType: FieldKeyType,
-    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+    isNewRecord?: boolean
   ) {
     const fieldKeys = Array.from(
       records.reduce<Set<string>>((acc, record) => {
@@ -73,18 +63,22 @@ export class RecordOpenApiService {
     const fieldIdMap = keyBy(fieldRaws, fieldKeyType);
 
     const cellContexts: ICellContext[] = [];
+
+    let oldRecordsMap: Record<string, IRecord> = {};
+    if (!isNewRecord) {
+      const oldRecords = (
+        await this.recordService.getSnapshotBulk(
+          tableId,
+          records.map((r) => r.id)
+        )
+      ).map((s) => s.data);
+      oldRecordsMap = keyBy(oldRecords, 'id');
+    }
+
     for (const record of records) {
-      const collection = `${IdPrefix.Record}_${tableId}`;
-      const doc = connection.get(collection, record.id);
-      const snapshot = await new Promise<IRecord>((resolve, reject) => {
-        doc.fetch((err) => {
-          if (err) return reject(err);
-          resolve(doc.data);
-        });
-      });
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
         const fieldId = fieldIdMap[fieldNameOrId].id;
-        const oldCellValue = snapshot.fields[fieldId];
+        const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id].fields[fieldId];
         cellContexts.push({
           recordId: record.id,
           fieldId,
@@ -94,23 +88,6 @@ export class RecordOpenApiService {
       });
     }
     return cellContexts;
-  }
-
-  private async getRecordSnapshots(tableId: string, recordIds: string[]): Promise<IRecord[]> {
-    const collection = `${IdPrefix.Record}_${tableId}`;
-    const connection = this.shareDbService.getConnection();
-    return await Promise.all(
-      recordIds.map((recordId) => {
-        const doc: Doc<IRecord> = connection.get(collection, recordId);
-        return new Promise<IRecord>((resolve, reject) => {
-          doc.fetch((err) => {
-            if (err) return reject(err);
-            if (!doc.data) return reject(new Error(`record ${recordId} not found`));
-            return resolve(doc.data);
-          });
-        });
-      })
-    );
   }
 
   private async getRecordUpdateDerivation(
@@ -159,21 +136,23 @@ export class RecordOpenApiService {
     if (result) {
       const { opsMap, fieldMap, tableId2DbTableName } = result;
 
-      const rawOpMap = await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
-
-      this.shareDbService.publishOpsMap(rawOpMap);
+      await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     }
   }
 
   private async calculateUpdatedRecord(
     tableId: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[]
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+    isNewRecord?: boolean
   ) {
-    const connection = this.shareDbService.getConnection();
-
     // 1. generate Op by origin submit
-    const opsContexts = await this.generateCellContexts(connection, tableId, fieldKeyType, records);
+    const opsContexts = await this.generateCellContexts(
+      tableId,
+      fieldKeyType,
+      records,
+      isNewRecord
+    );
 
     const opsMapOrigin = formatChangesToOps(
       opsContexts.map((data) => {
@@ -196,10 +175,7 @@ export class RecordOpenApiService {
 
     // 3. save all ops
     if (!isEmpty(opsMap)) {
-      const rawOpMap = await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
-
-      // 4. send all ops
-      this.shareDbService.publishOpsMap(rawOpMap);
+      await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     }
   }
 
@@ -244,81 +220,36 @@ export class RecordOpenApiService {
     recordsRo: { id?: string; fields: Record<string, unknown> }[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
-    const snapshots = recordsRo.map((record) => {
+    const emptyRecords = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
       return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });
     });
 
-    const connection = this.shareDbService.getConnection();
-
-    for (const snapshot of snapshots) {
-      const collection = `${IdPrefix.Record}_${tableId}`;
-      const docId = snapshot.id;
-      const doc = connection.get(collection, docId);
-      await new Promise<void>((resolve, reject) => {
-        doc.create(snapshot, (error) => {
-          if (error) return reject(error);
-          resolve(undefined);
-        });
-      });
-    }
+    await this.recordService.batchCreateRecords(tableId, emptyRecords);
 
     // submit auto fill changes
     const plainRecords = await this.appendDefaultValue(
       tableId,
-      recordsRo.map((s, i) => ({ id: snapshots[i].id, fields: s.fields })),
+      recordsRo.map((s, i) => ({ id: emptyRecords[i].id, fields: s.fields })),
       fieldKeyType
     );
 
     const recordIds = plainRecords.map((r) => r.id);
 
-    await this.calculateUpdatedRecord(tableId, fieldKeyType, plainRecords);
+    await this.calculateUpdatedRecord(tableId, fieldKeyType, plainRecords, true);
 
     await this.calculateComputedFields(tableId, recordIds);
 
-    const records = await this.getRecordSnapshots(tableId, recordIds);
-
-    const fieldIds = Array.from(
-      records.reduce<Set<string>>((pre, cur) => {
-        Object.keys(cur.fields).forEach((fieldId) => pre.add(fieldId));
-        return pre;
-      }, new Set())
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      recordIds,
+      undefined,
+      fieldKeyType
     );
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldIds }, deletedTime: null },
-      select: { id: true, name: true },
-    });
 
     return {
-      records: snapshots.map((snapshot) => {
-        const record = records.find((record) => record.id === snapshot.id);
-        if (record) {
-          return this.convertFieldKeyInRecord(record, fields, fieldKeyType);
-        }
-        return snapshot;
-      }),
+      records: snapshots.map((snapshot) => snapshot.data),
     };
-  }
-
-  private convertFieldKeyInRecord(
-    record: IRecord,
-    fields: { id: string; name: string }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
-  ) {
-    if (fieldKeyType !== FieldKeyType.Id) {
-      const recordFields: { [fieldName: string]: unknown } = {};
-      fields.forEach((field) => {
-        if (record.fields[field.id] !== undefined) {
-          recordFields[field.name] = record.fields[field.id];
-        }
-      });
-
-      return {
-        ...record,
-        fields: recordFields,
-      };
-    }
-    return record;
   }
 
   async updateRecords(
@@ -337,26 +268,25 @@ export class RecordOpenApiService {
     recordId: string,
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
-    return await this.prismaService.$tx(async (prisma) => {
-      await this.calculateUpdatedRecord(
-        tableId,
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        updateRecordRo.fieldKeyType!,
-        [{ id: recordId, fields: updateRecordRo.record.fields }]
-      );
+    return await this.prismaService.$tx(async () => {
+      const { fieldKeyType = FieldKeyType.Name, record } = updateRecordRo;
+
+      await this.calculateUpdatedRecord(tableId, fieldKeyType, [
+        { id: recordId, fields: record.fields },
+      ]);
 
       // return record result
-      const records = await this.getRecordSnapshots(tableId, [recordId]);
+      const snapshots = await this.recordService.getSnapshotBulk(
+        tableId,
+        [recordId],
+        undefined,
+        fieldKeyType
+      );
 
-      if (records.length !== 1) {
+      if (snapshots.length !== 1) {
         throw new Error('update record failed');
       }
-
-      const fields = await prisma.field.findMany({
-        where: { id: { in: Object.keys(records[0].fields) }, deletedTime: null },
-        select: { id: true, name: true },
-      });
-      return this.convertFieldKeyInRecord(records[0], fields, updateRecordRo.fieldKeyType);
+      return snapshots[0].data;
     });
   }
 
@@ -365,26 +295,6 @@ export class RecordOpenApiService {
     const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
 
     return await this.updateRecordById(tableId, recordId, updateRecordRo);
-  }
-
-  @Timing()
-  private async deleteDocs(collection: string, recordIds: string[]) {
-    const connection = this.shareDbService.getConnection();
-
-    const promises = recordIds.map((recordId) => {
-      const doc = connection.get(collection, recordId);
-      return new Promise<void>((resolve, reject) => {
-        doc.fetch((error) => {
-          if (error) return reject(error);
-          doc.del({}, (error) => {
-            if (error) return reject(error);
-            resolve(undefined);
-          });
-        });
-      });
-    });
-
-    await Promise.all(promises);
   }
 
   async deleteRecord(tableId: string, recordId: string) {
@@ -418,8 +328,7 @@ export class RecordOpenApiService {
         }))
       );
 
-      const collection = `${IdPrefix.Record}_${tableId}`;
-      await this.deleteDocs(collection, recordIds);
+      await this.recordService.batchDeleteRecords(tableId, recordIds);
     });
   }
 }

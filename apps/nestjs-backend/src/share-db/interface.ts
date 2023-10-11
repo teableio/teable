@@ -33,6 +33,12 @@ export interface IShareDbConfig {
   db: DB;
 }
 
+export enum RawOpType {
+  Create = 'create',
+  Del = 'del',
+  Edit = 'edit',
+}
+
 export type IEditOp = Omit<EditOp, 'c' | 'd' | 'create' | 'del'>;
 export type IDeleteOp = Omit<DeleteOp, 'c' | 'd' | 'create' | 'op'>;
 export type ICreateOp = Omit<CreateOp, 'c' | 'd' | 'op' | 'del'>;

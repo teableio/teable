@@ -1,6 +1,7 @@
 import { HttpErrorCode } from '@teable-group/core';
 import type { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
+import type { IClsStore } from '../types/cls';
 import type { WsAuthService } from './ws-auth.service';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -26,7 +27,7 @@ type IAuthMiddleContext =
 export const authMiddleware = (
   shareDB: ShareDBClass,
   wsAuthService: WsAuthService,
-  clsService: ClsService
+  clsService: ClsService<IClsStore>
 ) => {
   const checkAuth = async (context: IAuthMiddleContext, callback: (err?: unknown) => void) => {
     const { isBackend, cookie } = context.agent.custom;

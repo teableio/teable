@@ -5,7 +5,6 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import type { IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
 import { tinyPreservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -121,11 +120,7 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async calculateFields(
-    tableId: string,
-    fieldIds: string[],
-    reset?: boolean
-  ): Promise<IRawOpMap | undefined> {
+  async calculateFields(tableId: string, fieldIds: string[], reset?: boolean) {
     const result = reset
       ? await this.getChangedOpsMapByReset(tableId, fieldIds)
       : await this.getChangedOpsMap(tableId, fieldIds);
@@ -134,7 +129,7 @@ export class FieldCalculationService {
       return;
     }
     const { opsMap, fieldMap, tableId2DbTableName } = result;
-    return await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
+    await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
   async getTopoOrdersContext(fieldIds: string[]): Promise<ITopoOrdersContext> {

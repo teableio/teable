@@ -79,7 +79,6 @@ export class TableService implements IAdapterService {
     const createTableSchema = this.knex.schema.createTable(dbTableName, (table) => {
       table.string('__id').unique().notNullable();
       table.increments('__auto_number').primary();
-      table.double('__row_default').notNullable();
       table.dateTime('__created_time').defaultTo(this.knex.fn.now()).notNullable();
       table.dateTime('__last_modified_time');
       table.string('__created_by').notNullable();
@@ -251,7 +250,7 @@ export class TableService implements IAdapterService {
 
   async del(version: number, _collection: string, tableId: string) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.delete([{ tableId: tableId }]);
+    await this.attachmentService.deleteTable(tableId);
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId },
       data: { version, deletedTime: new Date(), lastModifiedBy: userId },

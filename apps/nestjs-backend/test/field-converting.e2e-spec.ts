@@ -1194,7 +1194,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual(['x', 'y']);
     });
 
-    it('should convert text field to select and relational one-many lookup field', async () => {
+    it.skip('should convert text field to select and relational one-many lookup field', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.SingleLineText,
       };

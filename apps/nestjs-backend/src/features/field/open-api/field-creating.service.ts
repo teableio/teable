@@ -3,8 +3,6 @@ import type { IFieldVo } from '@teable-group/core';
 import { FieldOpBuilder, getUniqName, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import { merge } from 'lodash';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
@@ -15,7 +13,6 @@ export class FieldCreatingService {
   private logger = new Logger(FieldCreatingService.name);
 
   constructor(
-    private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -50,17 +47,13 @@ export class FieldCreatingService {
       select: { dbTableName: true },
     });
 
-    const rawOpsMap = await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
+    await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
 
     if (field.isComputed) {
-      const rowRawOpsMap = await this.fieldCalculationService.calculateFields(tableId, [fieldId]);
-      merge(rawOpsMap, rowRawOpsMap);
+      await this.fieldCalculationService.calculateFields(tableId, [fieldId]);
     }
 
-    return {
-      snapshot: this.createField2Ops(field),
-      rawOpsMap,
-    };
+    return this.createField2Ops(field);
   }
 
   async createField(tableId: string, field: IFieldInstance): Promise<IFieldVo> {
@@ -71,17 +64,11 @@ export class FieldCreatingService {
         field
       );
 
-      const result1 = await this.createAndCalculate(tableId, field);
-      const result2 = await this.createAndCalculate(field.options.foreignTableId, symmetricField);
-      result1.rawOpsMap && this.shareDbService.publishOpsMap(result1.rawOpsMap);
-      result2.rawOpsMap && this.shareDbService.publishOpsMap(result2.rawOpsMap);
-      return result1.snapshot;
+      await this.createAndCalculate(field.options.foreignTableId, symmetricField);
+      return this.createAndCalculate(tableId, field);
     }
-    const result = await this.createAndCalculate(tableId, field);
-    result.rawOpsMap && this.shareDbService.publishOpsMap(result.rawOpsMap);
-    console.log('publish:', JSON.stringify(result.rawOpsMap, null, 2));
-    console.log(`create document ${tableId}.${field.id} succeed!`);
-    return result.snapshot;
+
+    return this.createAndCalculate(tableId, field);
   }
 
   createField2Ops(fieldInstance: IFieldInstance) {

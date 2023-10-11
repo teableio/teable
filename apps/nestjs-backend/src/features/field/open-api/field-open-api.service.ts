@@ -27,8 +27,8 @@ export class FieldOpenApiService {
   }
 
   async deleteField(tableId: string, fieldId: string) {
-    return await this.prismaService.$tx(async () => {
-      return await this.fieldDeletingService.deleteField(tableId, fieldId);
+    await this.prismaService.$tx(async () => {
+      await this.fieldDeletingService.deleteField(tableId, fieldId);
     });
   }
 

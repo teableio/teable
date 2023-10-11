@@ -99,7 +99,7 @@ export class ViewService implements IAdapterService {
     // 3. fill initial order for every record, with auto increment integer
     const updateRowIndexSql = this.knex(dbTableName)
       .update({
-        [rowIndexFieldName]: this.knex.ref('__row_default'),
+        [rowIndexFieldName]: this.knex.ref('__auto_number'),
       })
       .toQuery();
     await prisma.$executeRawUnsafe(updateRowIndexSql);

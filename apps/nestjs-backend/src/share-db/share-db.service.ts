@@ -7,6 +7,7 @@ import type { CreateOp, DeleteOp, EditOp, Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
+import type { IClsStore } from '../types/cls';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
@@ -21,7 +22,7 @@ export class ShareDbService extends ShareDBClass {
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly eventEmitter: EventEmitter2,
-    private readonly clsService: ClsService,
+    private readonly clsService: ClsService<IClsStore>,
     private readonly wsAuthService: WsAuthService,
     private readonly wsDerivateService: WsDerivateService
   ) {

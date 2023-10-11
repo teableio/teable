@@ -8,6 +8,7 @@ import type { ClsService } from 'nestjs-cls';
 interface ITx {
   client?: Prisma.TransactionClient;
   id?: string;
+  rawOpMap?: unknown;
 }
 @Injectable()
 export class PrismaService

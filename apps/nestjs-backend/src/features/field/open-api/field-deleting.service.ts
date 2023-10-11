@@ -1,63 +1,37 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { IFieldVo, ILinkFieldOptions } from '@teable-group/core';
-import { FieldOpBuilder, IdPrefix, FieldType } from '@teable-group/core';
+import type { ILinkFieldOptions } from '@teable-group/core';
+import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Connection } from 'sharedb/lib/client';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { FieldSupplementService } from '../field-supplement.service';
+import { FieldService } from '../field.service';
 
 @Injectable()
 export class FieldDeletingService {
   private logger = new Logger(FieldDeletingService.name);
 
   constructor(
-    private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
+    private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldBatchCalculationService: FieldCalculationService
   ) {}
 
-  private async deleteDoc(
-    connection: Connection,
-    collection: string,
-    id: string
-  ): Promise<IFieldVo> {
-    const doc = connection.get(collection, id);
-    return new Promise<IFieldVo>((resolve, reject) => {
-      doc.fetch((error) => {
-        if (error) return reject(error);
-        doc.del({}, (error) => {
-          if (error) return reject(error);
-          this.logger.log(`delete document ${collection}.${id} succeed!`);
-          resolve(doc.data);
-        });
-      });
-    });
+  private async markFieldsAsError(tableId: string, fieldIds: string[]) {
+    const opData = fieldIds.map((fieldId) => ({
+      fieldId,
+      ops: [
+        FieldOpBuilder.editor.setFieldProperty.build({
+          key: 'hasError',
+          oldValue: undefined,
+          newValue: true,
+        }),
+      ],
+    }));
+    await this.fieldService.batchUpdateFields(tableId, opData);
   }
 
-  private async markFieldsAsError(connection: Connection, collection: string, fieldIds: string[]) {
-    const promises = fieldIds.map((fieldId) => {
-      const op = FieldOpBuilder.editor.setFieldProperty.build({
-        key: 'hasError',
-        oldValue: undefined,
-        newValue: true,
-      });
-      const doc = connection.get(collection, fieldId);
-      return new Promise<IFieldVo>((resolve, reject) => {
-        doc.fetch((error) => {
-          if (error) return reject(error);
-          doc.submitOp([op], undefined, (error) => {
-            error ? reject(error) : resolve(doc.data);
-          });
-        });
-      });
-    });
-    return await Promise.all(promises);
-  }
-
-  async cleanRef(connection: Connection, tableId: string, fieldId: string, isLinkField?: boolean) {
-    const collection = `${IdPrefix.Field}_${tableId}`;
+  async cleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
     const errorRefFieldIds = await this.fieldSupplementService.deleteReference(fieldId);
     const errorLookupFieldIds =
       isLinkField && (await this.fieldSupplementService.deleteLookupFieldReference(fieldId));
@@ -65,29 +39,21 @@ export class FieldDeletingService {
     const errorFieldIds = errorLookupFieldIds
       ? errorRefFieldIds.concat(errorLookupFieldIds)
       : errorRefFieldIds;
-    await this.markFieldsAsError(connection, collection, errorFieldIds);
+    await this.markFieldsAsError(tableId, errorFieldIds);
 
-    return this.cleanField(tableId, errorFieldIds.concat(fieldId));
+    await this.cleanField(tableId, errorFieldIds.concat(fieldId));
   }
 
-  async delateAndCleanRef(
-    connection: Connection,
-    tableId: string,
-    fieldId: string,
-    isLinkField?: boolean
-  ) {
-    const collection = `${IdPrefix.Field}_${tableId}`;
-    const rawOpsMap = await this.cleanRef(connection, tableId, fieldId, isLinkField);
-    const snapshot = await this.deleteDoc(connection, collection, fieldId);
-    return { snapshot, rawOpsMap };
+  async delateAndCleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
+    await this.cleanRef(tableId, fieldId, isLinkField);
+    await this.fieldService.batchDeleteFields(tableId, [fieldId]);
   }
 
   async cleanField(tableId: string, fieldIds: string[]) {
-    return await this.fieldBatchCalculationService.calculateFields(tableId, fieldIds, true);
+    await this.fieldBatchCalculationService.calculateFields(tableId, fieldIds, true);
   }
 
-  async deleteField(tableId: string, fieldId: string): Promise<IFieldVo> {
-    const connection = this.shareDbService.getConnection();
+  async deleteField(tableId: string, fieldId: string) {
     const { type, isLookup, options } = await this.prismaService
       .txClient()
       .field.findUniqueOrThrow({
@@ -102,19 +68,10 @@ export class FieldDeletingService {
       const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
       await this.fieldSupplementService.cleanForeignKey(tableId, linkFieldOptions);
-      const result1 = await this.delateAndCleanRef(connection, tableId, fieldId, true);
-      const result2 = await this.delateAndCleanRef(
-        connection,
-        foreignTableId,
-        symmetricFieldId,
-        true
-      );
-      result1.rawOpsMap && this.shareDbService.publishOpsMap(result1.rawOpsMap);
-      result2.rawOpsMap && this.shareDbService.publishOpsMap(result2.rawOpsMap);
-      return result1.snapshot;
+      await this.delateAndCleanRef(tableId, fieldId, true);
+      await this.delateAndCleanRef(foreignTableId, symmetricFieldId, true);
+      return;
     }
-    const result = await this.delateAndCleanRef(connection, tableId, fieldId);
-    result.rawOpsMap && this.shareDbService.publishOpsMap(result.rawOpsMap);
-    return result.snapshot;
+    await this.delateAndCleanRef(tableId, fieldId);
   }
 }

@@ -70,7 +70,7 @@ export class WsDerivateService {
     tableId2DbTableName: Record<string, string>;
   }) {
     const { opsMap, fieldMap, tableId2DbTableName } = saveContext;
-    return this.prismaService.$tx(async () => {
+    await this.prismaService.$tx(async () => {
       return await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     });
   }

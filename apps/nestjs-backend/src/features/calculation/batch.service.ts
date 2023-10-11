@@ -3,11 +3,12 @@ import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { groupBy, keyBy } from 'lodash';
+import { groupBy, keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
-import type { IEditOp, IRawOp, IRawOpMap } from '../../share-db/interface';
+import type { IRawOp, IRawOpMap } from '../../share-db/interface';
+import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
@@ -21,7 +22,6 @@ export interface IOpsData {
     [dbFieldName: string]: unknown;
   };
   version: number;
-  rawOp: IRawOp;
 }
 
 @Injectable()
@@ -91,27 +91,24 @@ export class BatchService {
     fieldMap: { [fieldId: string]: IFieldInstance },
     tableId2DbTableName: { [tableId: string]: string }
   ) {
-    const rawOpMap: IRawOpMap = {};
     const result = await this.completeMissingCtx(opsMap, fieldMap, tableId2DbTableName);
     fieldMap = result.fieldMap;
     tableId2DbTableName = result.tableId2DbTableName;
 
     for (const tableId in opsMap) {
-      const collection = `${IdPrefix.Record}_${tableId}`;
       const dbTableName = tableId2DbTableName[tableId];
       const recordOpsMap = opsMap[tableId];
       const raw = await this.fetchRawData(dbTableName, recordOpsMap);
       const versionGroup = keyBy(raw, '__id');
 
       const opsData = this.buildRecordOpsData(recordOpsMap, versionGroup);
-      rawOpMap[collection] = opsData.reduce<{ [recordId: string]: IRawOp }>((pre, d) => {
-        pre[d.recordId] = d.rawOp;
-        return pre;
-      }, {});
       await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
-      await this.executeInsertOps(tableId, IdPrefix.Record, opsData);
+
+      const opDataList = Object.entries(recordOpsMap).map(([recordId, ops]) => {
+        return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
+      });
+      await this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
     }
-    return rawOpMap;
   }
 
   @Timing()
@@ -152,20 +149,10 @@ export class BatchService {
       );
 
       const version = versionGroup[recordId].__version;
-      const rawOp: IEditOp = {
-        src: this.cls.get('tx.id'),
-        seq: 1,
-        op: recordOpsMap[recordId],
-        v: version,
-        m: {
-          ts: Date.now(),
-        },
-      };
 
       opsData.push({
         recordId,
         version,
-        rawOp,
         updateParam,
       });
     }
@@ -244,16 +231,72 @@ export class BatchService {
     await prisma.$executeRawUnsafe(dropTempTableSql);
   }
 
-  @Timing()
-  private async executeInsertOps(collectionId: string, docType: IdPrefix, opsData: IOpsData[]) {
+  async saveRawOps(
+    collectionId: string,
+    opType: RawOpType,
+    docType: IdPrefix,
+    dataList: { docId: string; version: number; data?: unknown }[]
+  ) {
+    const collection = `${docType}_${collectionId}`;
+    const rawOpMap: IRawOpMap = { [collection]: {} };
+
+    const baseRaw = {
+      src: this.cls.get('tx.id') || 'unknown',
+      seq: 1,
+      m: {
+        ts: Date.now(),
+      },
+    };
+
+    const rawOps = dataList.map(({ docId: docId, version, data }) => {
+      let rawOp: IRawOp;
+      if (opType === RawOpType.Create) {
+        rawOp = {
+          ...baseRaw,
+          create: {
+            type: 'http://sharejs.org/types/JSONv0',
+            data,
+          },
+          v: version,
+        };
+      } else if (opType === RawOpType.Del) {
+        rawOp = {
+          ...baseRaw,
+          del: true,
+          v: version,
+        };
+      } else if (opType === RawOpType.Edit) {
+        rawOp = {
+          ...baseRaw,
+          op: data as IOtOperation[],
+          v: version,
+        };
+      } else {
+        throw new Error('unknown raw op type');
+      }
+      rawOpMap[collection][docId] = rawOp;
+      return { rawOp, docId };
+    });
+
+    await this.executeInsertOps(collectionId, docType, rawOps);
+    const prevMap = this.cls.get('tx.rawOpMap') || {};
+    this.cls.set('tx.rawOpMap', merge({}, prevMap, rawOpMap));
+    return rawOpMap;
+  }
+
+  private async executeInsertOps(
+    collectionId: string,
+    docType: IdPrefix,
+    rawOps: { rawOp: IRawOp; docId: string }[]
+  ) {
     const userId = this.cls.get('user.id');
-    const insertRowsData = opsData.map((data) => {
+    const insertRowsData = rawOps.map(({ rawOp, docId }) => {
       return {
         collection: collectionId,
         doc_type: docType,
-        doc_id: data.recordId,
-        version: data.version + 1,
-        operation: JSON.stringify(data.rawOp),
+        doc_id: docId,
+        version: rawOp.v,
+        operation: JSON.stringify(rawOp),
         created_by: userId,
       };
     });
