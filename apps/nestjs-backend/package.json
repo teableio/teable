@@ -33,6 +33,7 @@
   "scripts": {
     "build": "nest build -b swc --type-check",
     "clean": "rimraf ./out ./coverage ./main ./dist ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "dev": "nest start -b swc --type-check -w",
     "start": "nest start -b swc",
     "start:debug": "nest start -b swc --debug --watch",
     "check-dist": "es-check -v",
