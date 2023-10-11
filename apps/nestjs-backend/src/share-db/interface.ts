@@ -3,7 +3,7 @@ import type { CreateOp, DB, DeleteOp, EditOp } from 'sharedb';
 export interface IAdapterService {
   create(collectionId: string, snapshot: unknown): Promise<void>;
 
-  del(collectionId: string, docId: string): Promise<void>;
+  del(version: number, collectionId: string, docId: string): Promise<void>;
 
   update(
     version: number,

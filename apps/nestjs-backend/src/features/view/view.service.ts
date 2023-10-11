@@ -136,7 +136,7 @@ export class ViewService implements IAdapterService {
     await this.createViewTransaction(tableId, view);
   }
 
-  async del(_tableId: string, viewId: string) {
+  async del(_version: number, _tableId: string, viewId: string) {
     const userId = this.cls.get('user.id');
 
     const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);

@@ -176,9 +176,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
     await this.getService(docType as IdPrefix).create(collectionId, snapshot);
   }
 
-  private async deleteSnapshot(collection: string, docId: string) {
+  private async deleteSnapshot(version: number, collection: string, docId: string) {
     const [docType, collectionId] = collection.split('_');
-    await this.getService(docType as IdPrefix).del(collectionId, docId);
+    await this.getService(docType as IdPrefix).del(version, collectionId, docId);
   }
 
   // Persists an op and snapshot if it is for the next version. Calls back with
@@ -203,7 +203,6 @@ export class SqliteDbAdapter extends ShareDb.DB {
      */
     // console.log('commit', collection, id, options, rawOp.op);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [docType, collectionId] = collection.split('_');
 
     try {
@@ -213,13 +212,11 @@ export class SqliteDbAdapter extends ShareDb.DB {
           where: { collection: collectionId, docId: id },
         });
 
-        const maxVersion = opsResult._max.version || 0;
+        const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
 
-        if (snapshot.v !== maxVersion + 1) {
+        if (rawOp.v !== maxVersion) {
           console.log('crashed', rawOp.op);
-          throw new Error(
-            `${id} version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`
-          );
+          throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
         }
 
         // 1. save op in db;
@@ -228,7 +225,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
             docId: id,
             docType,
             collection: collectionId,
-            version: snapshot.v,
+            version: rawOp.v,
             operation: JSON.stringify(rawOp),
             createdBy: this.clsService.get('user.id'),
           },
@@ -246,7 +243,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
 
         // delete snapshot
         if (rawOp.del) {
-          await this.deleteSnapshot(collection, id);
+          await this.deleteSnapshot(snapshot.v, collection, id);
         }
       });
       callback(null, true, true);

@@ -107,14 +107,12 @@ export class AttachmentsTableService {
   ) {
     const userId = this.cls.get('user.id');
 
-    for (let i = 0; i < query.length; i++) {
-      await this.prismaService.txClient().attachmentsTable.updateMany({
-        where: query[i],
-        data: {
-          deletedTime: new Date(),
-          lastModifiedBy: userId,
-        },
-      });
-    }
+    await this.prismaService.attachmentsTable.updateMany({
+      where: { OR: query },
+      data: {
+        deletedTime: new Date(),
+        lastModifiedBy: userId,
+      },
+    });
   }
 }

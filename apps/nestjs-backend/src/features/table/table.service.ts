@@ -249,12 +249,12 @@ export class TableService implements IAdapterService {
     await this.createDBTable(collection, snapshot);
   }
 
-  async del(_collection: string, tableId: string) {
+  async del(version: number, _collection: string, tableId: string) {
     const userId = this.cls.get('user.id');
     await this.attachmentService.delete([{ tableId: tableId }]);
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId },
-      data: { deletedTime: new Date(), lastModifiedBy: userId },
+      data: { version, deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 

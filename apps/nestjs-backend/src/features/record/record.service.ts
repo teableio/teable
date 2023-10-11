@@ -491,7 +491,7 @@ export class RecordService implements IAdapterService {
     await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
   }
 
-  async del(tableId: string, recordId: string) {
+  async del(_version: number, tableId: string, recordId: string) {
     const dbTableName = await this.getDbTableName(tableId);
     const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId },
