@@ -1,18 +1,38 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { generateSpaceId, getUniqName } from '@teable-group/core';
+import { SpaceRole, generateSpaceId, getUniqName } from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable-group/openapi';
+import { map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import { SpaceCollaboratorService } from '../collaborator/space-collaborator/space-collaborator.service';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
 export class SpaceService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly spaceCollaboratorService: SpaceCollaboratorService
+    private readonly collaboratorService: CollaboratorService
   ) {}
+
+  async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
+    return await this.prismaService.$tx(async () => {
+      const result = await this.prismaService.space.create({
+        select: {
+          id: true,
+          name: true,
+        },
+        data: spaceCreateInput,
+      });
+      await this.collaboratorService.createSpaceCollaborator(
+        spaceCreateInput.createdBy,
+        result.id,
+        SpaceRole.Owner
+      );
+      return result;
+    });
+  }
 
   async getSpaceById(spaceId: string) {
     const userId = this.cls.get('user.id');
@@ -21,6 +41,7 @@ export class SpaceService {
       select: {
         id: true,
         name: true,
+        deletedTime: true,
       },
       where: {
         id: spaceId,
@@ -37,15 +58,20 @@ export class SpaceService {
   async getSpaceList() {
     const userId = this.cls.get('user.id');
 
-    return await this.prismaService.space.findMany({
+    const collaboratorSpaceList = await this.prismaService.collaborator.findMany({
       select: {
-        id: true,
-        name: true,
+        spaceId: true,
       },
       where: {
+        userId,
+        spaceId: { not: null },
         deletedTime: null,
-        createdBy: userId,
       },
+    });
+    const spaceIds = map(collaboratorSpaceList, 'spaceId') as string[];
+    return await this.prismaService.space.findMany({
+      where: { id: { in: spaceIds } },
+      select: { id: true, name: true },
     });
   }
 
@@ -65,7 +91,7 @@ export class SpaceService {
         lastModifiedBy: userId,
       },
     });
-    await this.spaceCollaboratorService.registerSpaceOwner(space.id);
+    await this.collaboratorService.registerSpaceOwner(space.id);
     return space;
   }
 
@@ -79,17 +105,11 @@ export class SpaceService {
 
     const names = spaceList.map((space) => space.name);
     const uniqName = getUniqName(createSpaceRo.name ?? 'Workspace', names);
-    return await this.prismaService.space.create({
-      select: {
-        id: true,
-        name: true,
-      },
-      data: {
-        id: generateSpaceId(),
-        name: uniqName,
-        createdBy: userId,
-        lastModifiedBy: userId,
-      },
+    return await this.createSpaceByParams({
+      id: generateSpaceId(),
+      name: uniqName,
+      createdBy: userId,
+      lastModifiedBy: userId,
     });
   }
 
@@ -115,15 +135,18 @@ export class SpaceService {
   async deleteSpace(spaceId: string) {
     const userId = this.cls.get('user.id');
 
-    await this.prismaService.space.update({
-      data: {
-        deletedTime: new Date(),
-        lastModifiedBy: userId,
-      },
-      where: {
-        id: spaceId,
-        deletedTime: null,
-      },
+    this.prismaService.$tx(async () => {
+      await this.prismaService.txClient().space.update({
+        data: {
+          deletedTime: new Date(),
+          lastModifiedBy: userId,
+        },
+        where: {
+          id: spaceId,
+          deletedTime: null,
+        },
+      });
+      await this.collaboratorService.deleteBySpaceId(spaceId);
     });
   }
 }

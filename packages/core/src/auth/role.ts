@@ -19,10 +19,8 @@ export enum SpaceRole {
 
 export const spaceRolesSchema = z.nativeEnum(SpaceRole);
 
-export type ISpaceRoles = z.infer<typeof spaceRolesSchema>;
-
 export const spacePermissions: Record<
-  ISpaceRoles,
+  SpaceRole,
   Record<
     SpaceActions | BaseActions | TableActions | ViewActions | FieldActions | RecordActions,
     boolean

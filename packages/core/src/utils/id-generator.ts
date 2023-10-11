@@ -17,6 +17,8 @@ export enum IdPrefix {
   WorkflowDecision = 'wde',
 
   User = 'usr',
+
+  Invitation = 'inv',
 }
 
 export function getRandomString(len: number) {
@@ -86,4 +88,12 @@ export function generateSpaceId() {
 
 export function generateBaseId() {
   return IdPrefix.Base + getRandomString(10);
+}
+
+export function generateInvitationCode() {
+  return getRandomString(30);
+}
+
+export function generateInvitationId() {
+  return IdPrefix.Invitation + getRandomString(16);
 }

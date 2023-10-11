@@ -32,7 +32,7 @@ export const CreateSpaceRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns information about a successfully created space.',
       content: {
         'application/json': {
