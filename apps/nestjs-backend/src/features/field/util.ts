@@ -9,11 +9,13 @@ export function dbType2knexFormat(dbFieldType: DbFieldType) {
     case DbFieldType.Json:
       return 'text'; // use text in sqlite
     case DbFieldType.Real:
-      return 'float';
+      return 'double';
     case DbFieldType.Text:
       return 'text';
     case DbFieldType.DateTime:
       return 'datetime';
+    case DbFieldType.Boolean:
+      return 'boolean';
     default:
       assertNever(dbFieldType);
   }

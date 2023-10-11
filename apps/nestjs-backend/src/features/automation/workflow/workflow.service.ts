@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
-  AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
   AutomationWorkflow as AutomationWorkflowModel,
+  AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
   Prisma,
 } from '@teable-group/db-main-prisma';
 import { PrismaManager, PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
-import { keyBy, isEmpty } from 'lodash';
+import { Knex } from 'knex';
+import { isEmpty, keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { TriggerTypeEnums } from '../enums/trigger-type.enum';
 import type { CreateWorkflowRo } from '../model/create-workflow.ro';
 import { WorkflowVo } from '../model/workflow.vo';
@@ -17,15 +18,12 @@ import { WorkflowTriggerService } from './trigger/workflow-trigger.service';
 export class WorkflowService {
   private logger = new Logger(WorkflowService.name);
 
-  private queryBuilder: ReturnType<typeof knex>;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly triggerService: WorkflowTriggerService,
-    private readonly actionService: WorkflowActionService
-  ) {
-    this.queryBuilder = knex({ client: 'sqlite3' });
-  }
+    private readonly actionService: WorkflowActionService,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   async getWorkflow(workflowId: string): Promise<WorkflowVo | null> {
     const workflow = await this.prisma.automationWorkflow.findFirst({
@@ -56,7 +54,8 @@ export class WorkflowService {
     nodeId: string,
     triggerType?: TriggerTypeEnums[]
   ): Promise<WorkflowVo[] | null> {
-    const queryBuilder = this.queryBuilder
+    const queryBuilder = this.knex
+      .queryBuilder()
       .select('workflow_id as workflowId')
       .from('automation_workflow_trigger')
       .whereRaw("JSON_EXTRACT(input_expressions, '$.tableId.value') = ?", nodeId);
@@ -103,7 +102,7 @@ export class WorkflowService {
   }
 
   async delete(workflowId: string): Promise<boolean> {
-    return await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const composedTransaction = PrismaManager.extendTransaction(tx) as PrismaService;
 
       const [triggerDeleted, actionDeleted, workflowDeleted] = await Promise.all([

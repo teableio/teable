@@ -31,7 +31,9 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
   };
 
   const saveValue = () => {
-    onChange?.(parseStringToNumber(formatStr));
+    const currentValue = parseStringToNumber(formatStr, formatting);
+    onChange?.(currentValue);
+    setFormatStr(formatNumberToString(currentValue as number, formatting));
   };
 
   const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {

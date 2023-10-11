@@ -35,7 +35,7 @@ By default, it connects to the sqlite file main.db
 #### Option 1: Postgresql local (deprecated)
 
 The default env for `PRISMA_DATABASE_URL` is defined in the main [.env](.env) file.
-By default, it connects to the postgresql service defined in [../../docker-compose.yml](../../docker-compose.yml).
+By default, it connects to the postgresql service defined in [../../docker-compose.yml](../../dockers/docker-compose.yml).
 
 Ensure you have docker and docker-compose and run
 

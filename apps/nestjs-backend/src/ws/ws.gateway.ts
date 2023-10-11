@@ -3,13 +3,18 @@ import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@n
 import { WebSocketGateway } from '@nestjs/websockets';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Server } from 'ws';
+import { checkCookie } from '../share-db/auth.middleware';
 import { ShareDbService } from '../share-db/share-db.service';
+import { WsAuthService } from '../share-db/ws-auth.service';
 
 @WebSocketGateway({ path: '/socket' })
 export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger(WsGateway.name);
 
-  constructor(private readonly shareDb: ShareDbService) {}
+  constructor(
+    private readonly shareDb: ShareDbService,
+    private readonly wsAuthService: WsAuthService
+  ) {}
 
   handleDisconnect() {
     this.logger.log('ws:on:close');
@@ -21,10 +26,17 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
 
   afterInit(server: Server) {
     this.logger.log('WsGateway afterInit');
-    server.on('connection', (webSocket) => {
-      this.logger.log('ws:on:connection');
-      const stream = new WebSocketJSONStream(webSocket);
-      this.shareDb.listen(stream);
+    server.on('connection', async (webSocket, request) => {
+      try {
+        const cookie = request.headers.cookie;
+        await checkCookie(cookie, this.wsAuthService);
+        this.logger.log('ws:on:connection');
+        const stream = new WebSocketJSONStream(webSocket);
+        this.shareDb.listen(stream, request);
+      } catch (error) {
+        webSocket.send(JSON.stringify({ error }));
+        webSocket.close();
+      }
     });
   }
 }

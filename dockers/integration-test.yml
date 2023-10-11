@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  integration-test:
+    container_name: integration-test
+    build:
+      context: ../
+      dockerfile: ./dockers/teable/Dockerfile
+      target: builder
+      args:
+        INTEGRATION_TEST: 1
+    hostname: integration-test
+    networks:
+      - teable-net
+    environment:
+      - PRISMA_DATABASE_URL=file:../../db/main.db

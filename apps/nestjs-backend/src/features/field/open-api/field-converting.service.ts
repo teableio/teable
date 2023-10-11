@@ -9,9 +9,9 @@ import type {
   IFieldVo,
   ILookupOptionsVo,
   IOtOperation,
-  IUpdateFieldRo,
   ISelectFieldChoice,
   ITinyRecord,
+  IUpdateFieldRo,
 } from '@teable-group/core';
 import {
   ColorUtils,
@@ -27,16 +27,17 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { Connection } from 'sharedb/lib/client';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
+import type { IFieldMap, IFkOpMap, IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
-import type { IOpsMap, IFieldMap, IFkOpMap } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -67,8 +68,6 @@ interface IPropertyChange {
 export class FieldConvertingService {
   private logger = new Logger(FieldConvertingService.name);
 
-  private readonly knex = knex({ client: 'sqlite3' });
-
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
@@ -79,7 +78,8 @@ export class FieldConvertingService {
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly recordOpenApiService: RecordOpenApiService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   private fieldOpsMap() {

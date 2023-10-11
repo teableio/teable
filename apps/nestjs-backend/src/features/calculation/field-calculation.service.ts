@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { ILookupOptionsVo } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { uniq, uniqBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
 import { tinyPreservedFieldName } from '../field/constant';
@@ -30,10 +31,9 @@ export class FieldCalculationService {
   constructor(
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex
   ) {}
-
-  protected readonly knex = knex({ client: 'sqlite3' });
 
   private async getSelfOriginRecords(dbTableName: string) {
     const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();

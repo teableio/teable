@@ -2,8 +2,9 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import knex from 'knex';
+import { Knex } from 'knex';
 import { cloneDeep, isEqual, set } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { IFkOpMap } from './reference.service';
 import type { ICellChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -58,8 +59,10 @@ interface IUpdateForeignKeyParam {
 
 @Injectable()
 export class LinkService {
-  constructor(private readonly prismaService: PrismaService) {}
-  private readonly knex = knex({ client: 'sqlite3' });
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
     return contexts

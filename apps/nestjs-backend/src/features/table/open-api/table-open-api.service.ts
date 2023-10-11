@@ -179,7 +179,7 @@ export class TableOpenApiService {
           where: { docId: tableId },
         });
         // drop db table
-        await prisma.$executeRawUnsafe(`DROP TABLE ${dbTableName}`);
+        await prisma.$executeRawUnsafe(`DROP TABLE "${dbTableName}"`);
       },
       {
         maxWait: 100000,

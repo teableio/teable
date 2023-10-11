@@ -5,11 +5,11 @@ import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
 import { useField } from '../../../hooks';
 
+import { NumberEditor, RatingEditor } from '../../editor';
 import {
   FilterSingleSelect,
   FilterMultipleSelect,
   FilterInput,
-  FilterInputNumber,
   FilterDatePicker,
   FilterCheckbox,
   FilterLinkSelect,
@@ -46,10 +46,10 @@ function FieldValue(props: IFieldValue) {
     switch (field?.type) {
       case FieldType.Number:
         return (
-          <FilterInputNumber
-            placeholder="Enter a value"
+          <NumberEditor
             value={filter.value as number}
-            onChange={onSelect}
+            options={field.options}
+            onChange={onSelect as (value?: number | null) => void}
             className="w-40"
           />
         );
@@ -100,6 +100,15 @@ function FieldValue(props: IFieldValue) {
         );
       case FieldType.Attachment:
         return <FileTypeSelect value={filter.value as string} onSelect={onSelect} />;
+      case FieldType.Rating:
+        return (
+          <RatingEditor
+            value={filter.value as number}
+            options={field.options}
+            onChange={onSelect as (value?: number) => void}
+            className="px-2 h-8 border border-input rounded-md shadow-sm"
+          />
+        );
       default:
         return InputComponent;
     }

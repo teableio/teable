@@ -1,6 +1,8 @@
 # All node_modules directories
 node_modules
 **/node_modules
+**/dist
+**/.next
 
 # All secrets
 **/.env.local
@@ -34,9 +36,9 @@ tsconfig.tsbuildinfo
 # Docker related
 .dockerignore
 Dockerfile
-docker-compose.*.yml
 docker-compose.yml
-docker
+docker-compose.*.yml
+dockers/**
 
 # Log files
 logs
@@ -47,6 +49,9 @@ tmp
 *.tmp
 
 # IDE related
-
 .idea
 .vscode
+
+# other
+**/.assets
+.DS_Store

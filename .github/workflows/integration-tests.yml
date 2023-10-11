@@ -1,0 +1,34 @@
+name: Integration Tests
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x]
+        database-type: [postgres, sqlite]
+    env:
+      CI: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🧪 Run Tests
+        run: |
+          make ${{ matrix.database-type }}.integration.test
+
+      - name: ⛔ Stop Database(s)
+        run: |
+          make docker.down
+        if: matrix.database-type != 'sqlite'

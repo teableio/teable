@@ -1,34 +1,19 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import { TeableConfigModule } from '../../../../configs/config.module';
-import { TeableEventEmitterModule } from '../../../../event-emitter/event-emitter.module';
+import { GlobalModule } from '../../../../global/global.module';
 import { AutomationModule } from '../../automation.module';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import ajv from '../../engine/json-schema/ajv';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IWebhookSchema } from './webhook';
+jest.setTimeout(60000);
 
 describe('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [
-        TeableConfigModule.register(),
-        AutomationModule,
-        TeableEventEmitterModule.register(),
-      ],
-    })
-      .useMocker((token) => {
-        if (token === PrismaService) {
-          return jest.fn();
-        }
-        if (token === ClsService) {
-          return jest.fn();
-        }
-      })
-      .compile();
+      imports: [GlobalModule, AutomationModule],
+    }).compile();
 
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
   });
