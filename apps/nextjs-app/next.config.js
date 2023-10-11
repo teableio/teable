@@ -2,11 +2,8 @@
 
 const { readFileSync } = require('fs');
 const path = require('path');
-// const url = require('node:url');
-
-const { createSecureHeaders } = require('next-secure-headers');
-const withNextTranspileModules = require('next-transpile-modules');
 const pc = require('picocolors');
+const { createSecureHeaders } = require('next-secure-headers');
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**
@@ -22,33 +19,38 @@ const trueEnv = ['true', '1', 'yes'];
 
 const isProd = process.env.NODE_ENV === 'production';
 const isCI = trueEnv.includes(process.env?.CI ?? 'false');
-const enableCSP = true;
 
-const NEXTJS_IGNORE_ESLINT = trueEnv.includes(process.env?.NEXTJS_IGNORE_ESLINT ?? 'false');
-const NEXTJS_IGNORE_TYPECHECK = trueEnv.includes(process.env?.NEXTJS_IGNORE_TYPECHECK ?? 'false');
-const NEXTJS_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'false'
+const NEXT_BUILD_ENV_OUTPUT = process.env?.NEXT_BUILD_ENV_OUTPUT ?? 'classic';
+const NEXT_BUILD_ENV_TSCONFIG = process.env?.NEXT_BUILD_ENV_TSCONFIG ?? 'tsconfig.json';
+
+const NEXT_BUILD_ENV_TYPECHECK = trueEnv.includes(process.env?.NEXT_BUILD_ENV_TYPECHECK ?? 'true');
+const NEXT_BUILD_ENV_LINT = trueEnv.includes(process.env?.NEXT_BUILD_ENV_LINT ?? 'true');
+const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
+  process.env?.NEXT_BUILD_ENV_SOURCEMAPS ?? String(isProd)
 );
-const NEXTJS_DISABLE_SENTRY = trueEnv.includes(process.env?.NEXTJS_DISABLE_SENTRY ?? 'false');
 
-const NEXTJS_SENTRY_DEBUG = trueEnv.includes(process.env?.NEXTJS_SENTRY_DEBUG ?? 'false');
-const NEXTJS_SENTRY_TRACING = trueEnv.includes(process.env?.NEXTJS_SENTRY_TRACING ?? 'false');
+const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
 
-const NEXTJS_SERVER_HOST = 'localhost';
+const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
+  process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'true'
+);
+const NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
+  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'true'
+);
+const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
+  process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
+);
+const NEXT_BUILD_ENV_SENTRY_TRACING = trueEnv.includes(
+  process.env?.NEXT_BUILD_ENV_SENTRY_TRACING ?? 'false'
+);
+
 const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
 
-/**
- * A way to allow CI optimization when the build done there is not used
- * to deliver an image or deploy the files.
- * @link https://nextjs.org/docs/advanced-features/source-maps
- */
-const disableSourceMaps = trueEnv.includes(process.env?.NEXT_DISABLE_SOURCEMAPS ?? 'false');
-
-if (disableSourceMaps) {
+if (!NEXT_BUILD_ENV_SOURCEMAPS) {
   console.log(
-    `${pc.green(
-      'notice'
-    )}- Sourcemaps generation have been disabled through NEXT_DISABLE_SOURCEMAPS`
+    `- ${pc.green(
+      'info'
+    )} Sourcemaps generation have been disabled through NEXT_BUILD_ENV_SOURCEMAPS`
   );
 }
 
@@ -71,7 +73,7 @@ const tmModules = [
 // @link https://github.com/jagaapple/next-secure-headers
 const secureHeaders = createSecureHeaders({
   contentSecurityPolicy: {
-    directives: enableCSP
+    directives: NEXT_BUILD_ENV_CSP
       ? {
           defaultSrc: "'self'",
           styleSrc: [
@@ -109,7 +111,7 @@ const secureHeaders = createSecureHeaders({
         }
       : {},
   },
-  ...(enableCSP && isProd
+  ...(NEXT_BUILD_ENV_CSP && isProd
     ? {
         forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 4, includeSubDomains: true }],
       }
@@ -122,7 +124,7 @@ const secureHeaders = createSecureHeaders({
  */
 const nextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: !disableSourceMaps,
+  productionBrowserSourceMaps: NEXT_BUILD_ENV_SOURCEMAPS === true,
   optimizeFonts: true,
 
   httpAgentOptions: {
@@ -170,9 +172,15 @@ const nextConfig = {
     unoptimized: false,
   },
 
+  // Standalone build
+  // @link https://nextjs.org/docs/advanced-features/output-file-tracing#automatically-copying-traced-files-experimental
+  ...(NEXT_BUILD_ENV_OUTPUT === 'standalone'
+    ? { output: 'standalone', outputFileTracing: true }
+    : {}),
+
   experimental: {
     // @link https://nextjs.org/docs/advanced-features/output-file-tracing#caveats
-    outputFileTracingRoot: workspaceRoot,
+    ...(NEXT_BUILD_ENV_OUTPUT === 'standalone' ? { outputFileTracingRoot: workspaceRoot } : {}),
 
     // Prefer loading of ES Modules over CommonJS
     // @link {https://nextjs.org/blog/next-11-1#es-modules-support|Blog 11.1.0}
@@ -188,18 +196,19 @@ const nextConfig = {
   },
 
   typescript: {
-    ignoreBuildErrors: NEXTJS_IGNORE_TYPECHECK,
+    ignoreBuildErrors: !NEXT_BUILD_ENV_TYPECHECK,
+    tsconfigPath: NEXT_BUILD_ENV_TSCONFIG,
   },
 
   eslint: {
-    ignoreDuringBuilds: NEXTJS_IGNORE_ESLINT,
+    ignoreDuringBuilds: !NEXT_BUILD_ENV_LINT,
     // dirs: [`${__dirname}/src`],
   },
 
   async rewrites() {
     const socketProxy = {
       source: '/socket/:path*',
-      destination: `http://${NEXTJS_SERVER_HOST}:${NEXTJS_SOCKET_PORT}/socket/:path*`,
+      destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
     };
 
     return isProd ? [] : [socketProxy];
@@ -230,8 +239,8 @@ const nextConfig = {
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/tree-shaking/
     config.plugins.push(
       new webpack.DefinePlugin({
-        __SENTRY_DEBUG__: NEXTJS_SENTRY_DEBUG,
-        __SENTRY_TRACING__: NEXTJS_SENTRY_TRACING,
+        __SENTRY_DEBUG__: NEXT_BUILD_ENV_SENTRY_DEBUG,
+        __SENTRY_TRACING__: NEXT_BUILD_ENV_SENTRY_TRACING,
       })
     );
 
@@ -269,7 +278,7 @@ const nextConfig = {
 
 let config = nextConfig;
 
-if (!NEXTJS_DISABLE_SENTRY) {
+if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
   const { withSentryConfig } = require('@sentry/nextjs'); // https://docs.sentry.io/platforms/javascript/guides/nextjs)/
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore because sentry does not match nextjs current definitions
@@ -282,12 +291,14 @@ if (!NEXTJS_DISABLE_SENTRY) {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options.
     // silent: isProd, // Suppresses all logs
-    dryRun: NEXTJS_SENTRY_UPLOAD_DRY_RUN,
+    dryRun: NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN === true,
+    silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
   });
 }
 
 if (tmModules.length > 0) {
   console.info(`${pc.green('notice')}- Will transpile [${tmModules.join(',')}]`);
+  const withNextTranspileModules = require('next-transpile-modules');
 
   config = withNextTranspileModules(tmModules, {
     resolveSymlinks: true,

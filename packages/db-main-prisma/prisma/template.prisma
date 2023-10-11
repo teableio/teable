@@ -1,12 +1,3 @@
-{{!
-    This `schema.mustache` file is a template that will be used to generate the actual `schema.prisma` file.
-
-    The final `schema.prisma` file will be generated in the "./db_client/" subdirectory.
-
-    Do not manually edit the generated `schema.prisma` file under subdirectories, because it will be overridden next time the command is run.
-
-    The template `schema.mustache` will be used to generate the final `schema.prisma` every time.
-}}
 generator client {
   provider = "prisma-client-js"
 }

@@ -18,6 +18,8 @@ jobs:
       matrix:
         node-version: [18.x]
         database-type: [postgres, sqlite]
+    env:
+      CI: 1
 
     steps:
       - uses: actions/checkout@v4
