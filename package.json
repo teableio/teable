@@ -77,7 +77,7 @@
   },
   "engines": {
     "node": ">=18.15.0",
-    "yarn": ">=1.22.0",
+    "yarn": ">=4.0.0-rc.53",
     "npm": "please-use-yarn"
   },
   "packageManager": "yarn@4.0.0-rc.53"
