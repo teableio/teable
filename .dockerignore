@@ -2,6 +2,7 @@
 node_modules
 **/node_modules
 dist
+**/.next
 
 # All secrets
 **/.env.local
@@ -35,9 +36,9 @@ tsconfig.tsbuildinfo
 # Docker related
 .dockerignore
 Dockerfile
-dockers/docker-compose.*.yml
-dockers/docker-compose.yml
-docker
+docker-compose.yml
+docker-compose.*.yml
+dockers/**
 
 # Log files
 logs

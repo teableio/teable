@@ -79,14 +79,20 @@ DOCKER_COMPOSE_ARGS := DOCKER_UID=$(shell id -u) \
     NETWORK_MODE=$(NETWORK_MODE)
 
 
-define print_db_options
+define print_db_mode_options
 @echo -e "\nSelect a database to start."
 @echo -e "\n\tsqlite			Lightweight embedded, ideal for mobile and embedded systems, simple, resource-efficient, "
 @echo -e "\t\t\t\teasy integration (default database)"
 @echo -e "\tpostges(pg)		Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support\n"
 endef
 
-.PHONY: db-mode sqlite-mode postgres-mode
+define print_db_push_options
+@echo -e "The 'db pull' command connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.\n"
+@echo -e "0) sqlite"
+@echo -e "1) postges(pg)\n"
+endef
+
+.PHONY: db-mode sqlite-mode postgres-mode gen-prisma-schema gen-sqlite-prisma-schema gen-postgres-prisma-schema
 .DEFAULT_GOAL := help
 
 docker.create.network:
@@ -170,20 +176,36 @@ postgres.integration.test: docker.create.network
 				make postgres-mode && \
 				yarn workspace @teable-group/backend test:e2e'
 
-gen-sqlite-prisma-schema:		## Generate the 'sqlite' version of the 'schema.prisma' file（alias 'gspc'）
+gen-sqlite-prisma-schema:
 	@cd ./packages/db-main-prisma; \
-		echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/sqlite/schema.prisma
+		echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/template.prisma > ./prisma/sqlite/schema.prisma
 	@echo 'generate【 prisma/sqlite/schema.prisma 】success.'
 
-gen-postgres-prisma-schema:		## Generate the 'postgres' version of the 'schema.prisma' file（alias 'gpps'）
+gen-postgres-prisma-schema:
 	@cd ./packages/db-main-prisma; \
-		echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/schema.mustache > ./prisma/postgres/schema.prisma
+		echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/template.prisma > ./prisma/postgres/schema.prisma
 	@echo 'generate【 prisma/postgres/schema.prisma 】success.'
 
-gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema ## Generate 'schema.prisma' files for all versions of the system
-gspc: gen-sqlite-prisma-schema
-gpps: gen-postgres-prisma-schema
+gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema		## Generate 'schema.prisma' files for all versions of the system
 
+sqlite-db-push:		## db-push by sqlite
+	@cd ./packages/db-main-prisma; \
+		yarn prisma-db-push --schema ./prisma/sqlite/schema.prisma
+
+postgres-db-push:		## db-push by postgres
+	@cd ./packages/db-main-prisma; \
+		yarn prisma-db-push --schema ./prisma/postgres/schema.prisma
+
+db-push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
+	$(print_db_push_options)
+	@read -p "Enter a command: " command; \
+    if [ "$$command" = "0" ] || [ "$$command" = "sqlite" ]; then \
+      make gen-sqlite-prisma-schema; \
+      make sqlite-db-push; \
+    elif [ "$$command" = "1" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
+      	make gen-postgres-prisma-schema; \
+		make postgres-db-push; \
+    else echo "Unknown command.";  fi
 
 sqlite-mode:		## sqlite-mode
 	@make gen-sqlite-prisma-schema
@@ -198,7 +220,7 @@ postgres-mode:		## postgres-mode
 		yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
 db-mode:		## db-mode
-	$(print_db_options)
+	$(print_db_mode_options)
 	@read -p "Enter a command: " command; \
     if [ "$$command" = "sqlite" ]; then make sqlite-mode; \
     elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
@@ -208,4 +230,4 @@ db-mode:		## db-mode
     else echo "Unknown command.";  fi
 
 help:   ## show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

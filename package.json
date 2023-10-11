@@ -41,7 +41,7 @@
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "nuke:node_modules": "rimraf --glob '**/node_modules'",
-    "postinstall": "is-ci || yarn husky install"
+    "postinstall": "skip-postinstall || yarn husky install"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",
@@ -62,16 +62,17 @@
     "@playwright/test": "1.27.1",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/prettier": "2.7.1",
-    "@types/shell-quote": "1.7.1",
+    "@types/shell-quote": "1.7.2",
     "eslint": "8.26.0",
     "husky": "8.0.1",
     "is-ci": "3.0.1",
     "lint-staged": "13.0.3",
     "npm-run-all": "4.1.5",
-    "openapi-typescript": "6.2.4",
+    "openapi-typescript": "6.7.0",
     "prettier": "2.7.1",
-    "rimraf": "5.0.1",
-    "shell-quote": "1.7.4",
+    "rimraf": "5.0.5",
+    "shell-quote": "1.8.1",
+    "skip-postinstall": "1.0.0",
     "typescript": "4.8.4"
   },
   "engines": {

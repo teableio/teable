@@ -1,4 +1,4 @@
-import { parseDsn as parse } from '@soluble/dsn-parser';
+import { isParsableDsn as isParsable, parseDsn as parse } from '@soluble/dsn-parser';
 
 export function parseDsn(dsn: string) {
   const parsedDsn = parse(dsn);
@@ -21,4 +21,8 @@ export function parseDsn(dsn: string) {
     dsn,
     ...parsedDsn.value,
   };
+}
+
+export function isParsableDsn(dsn: unknown) {
+  return (dsn as string).startsWith('file:') || isParsable(dsn);
 }
