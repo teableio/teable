@@ -31,8 +31,8 @@
     ]
   },
   "scripts": {
-    "clean": "rimraf --no-glob ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./main ./dist",
-    "build": "yarn clean && tsc --build tsconfig.build.json",
+    "build": "nest build",
+    "clean": "rimraf ./out ./coverage ./main ./dist ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "nest start --watch",
     "start": "NODE_ENV=production node ./dist",
     "start:debug": "nest start --debug --watch",
