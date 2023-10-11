@@ -33,6 +33,7 @@ import {
   DateFieldCore,
   CheckboxFieldCore,
   RatingFieldCore,
+  LongTextFieldCore,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import knex from 'knex';
@@ -461,6 +462,18 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
+  private prepareLongTextField(field: IFieldRo) {
+    const { name, options } = field;
+
+    return {
+      ...field,
+      name: name ?? 'Notes',
+      options: options ?? LongTextFieldCore.defaultOptions(),
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Text,
+    };
+  }
+
   private prepareNumberField(field: IFieldRo) {
     const { name, options } = field;
 
@@ -581,6 +594,8 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareFormulaField(fieldRo, batchFieldVos);
       case FieldType.SingleLineText:
         return this.prepareSingleTextField(fieldRo);
+      case FieldType.LongText:
+        return this.prepareLongTextField(fieldRo);
       case FieldType.Number:
         return this.prepareNumberField(fieldRo);
       case FieldType.Rating:
@@ -619,6 +634,8 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareUpdateFormulaField(fieldRo, oldFieldVo);
       case FieldType.SingleLineText:
         return this.prepareSingleTextField(fieldRo);
+      case FieldType.LongText:
+        return this.prepareLongTextField(fieldRo);
       case FieldType.Number:
         return this.prepareNumberField(fieldRo);
       case FieldType.Rating:

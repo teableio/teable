@@ -46,7 +46,7 @@ export class SingleLineTextFieldCore extends FieldCore {
       return null;
     }
 
-    return value;
+    return value.replace(/\n|\r/g, ' ');
   }
 
   repair(value: unknown) {

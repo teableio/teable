@@ -68,7 +68,6 @@ const getInputStyle = (cellType: CellType, height: number, theme: IGridTheme): C
     border: `2px solid ${theme.cellLineColorActived}`,
     boxShadow: 'none',
     textAlign: cellType === CellType.Number ? 'right' : 'left',
-    paddingRight: 8,
     paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
   };
 };
@@ -210,13 +209,15 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       case CellType.Text:
       case CellType.Link:
       case CellType.Number: {
+        const inputStyle = getInputStyle(cellType, height, theme);
+
         return (
           <TextEditor
             ref={editorRef}
             cell={cellContent}
             style={{
               ...editorStyle,
-              ...getInputStyle(cellType, height, theme),
+              ...inputStyle,
             }}
             onChange={onChangeInner}
           />

@@ -52,6 +52,7 @@ export interface ITextCell extends IEditableCell {
   type: CellType.Text;
   data: string;
   displayData: string;
+  isWrap?: boolean;
 }
 
 export interface ILinkCell extends IEditableCell {

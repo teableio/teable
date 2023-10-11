@@ -7,6 +7,7 @@ import { CheckboxField } from './checkbox.field';
 import { DateField } from './date.field';
 import { FormulaField } from './formula.field';
 import { LinkField } from './link.field';
+import { LongTextField } from './long-text.field';
 import { MultipleSelectField } from './multiple-select.field';
 import { NumberField } from './number.field';
 import { RatingField } from './rating.field';
@@ -19,6 +20,8 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
     switch (field.type) {
       case FieldType.SingleLineText:
         return plainToInstance(SingleLineTextField, field);
+      case FieldType.LongText:
+        return plainToInstance(LongTextField, field);
       case FieldType.Number:
         return plainToInstance(NumberField, field);
       case FieldType.SingleSelect:
@@ -43,7 +46,6 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
       case FieldType.CreatedBy:
       case FieldType.Email:
       case FieldType.LastModifiedBy:
-      case FieldType.LongText:
       case FieldType.PhoneNumber:
       case FieldType.URL:
       case FieldType.User:

@@ -55,12 +55,15 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
       const char = text[i];
 
       if (char === '\n') {
+        if (lines.length + 1 === maxLines && i < text.length - 1) {
+          lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
+          currentLine = '';
+          currentLineWidth = 0;
+          break;
+        }
         lines.push({ text: currentLine, width: currentLineWidth });
         currentLine = '';
         currentLineWidth = 0;
-        if (lines.length === maxLines) {
-          break;
-        }
         continue;
       }
 

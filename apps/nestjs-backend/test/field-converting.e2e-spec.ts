@@ -379,6 +379,287 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     });
   });
 
+  describe('convert long text field', () => {
+    const sourceFieldRo: IFieldRo = {
+      name: 'LongTextField',
+      type: FieldType.LongText,
+    };
+
+    it('should convert long text to text', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        '1 2 3',
+        'x\ny\nz',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        name: 'LongTextField',
+        type: FieldType.SingleLineText,
+      });
+      expect(values[0]).toEqual('1 2 3');
+      expect(values[1]).toEqual('x y z');
+    });
+
+    it('should convert long text to number', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Number,
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        '1',
+        'x',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        name: 'LongTextField 2',
+        type: FieldType.Number,
+      });
+      expect(values[0]).toEqual(1);
+      expect(values[1]).toEqual(undefined);
+    });
+
+    it('should convert long text to single select', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'A', color: Colors.Cyan }],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'A',
+        'B',
+        'Hello\nWorld',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        options: {
+          choices: [{ name: 'A', color: Colors.Cyan }, { name: 'B' }, { name: 'Hello World' }],
+        },
+        type: FieldType.SingleSelect,
+      });
+      expect(values[0]).toEqual('A');
+      expect(values[1]).toEqual('B');
+      expect(values[2]).toEqual('Hello World');
+    });
+
+    it('should convert long text to multiple select', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [
+            { name: 'x', color: Colors.Blue },
+            { name: 'y', color: Colors.Red },
+          ],
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        'x, y',
+        'x\nz',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        options: {
+          choices: [
+            { name: 'x', color: Colors.Blue },
+            { name: 'y', color: Colors.Red },
+            { name: 'z' },
+          ],
+        },
+        type: FieldType.MultipleSelect,
+      });
+      expect(values[0]).toEqual(['x']);
+      expect(values[1]).toEqual(['x', 'y']);
+      expect(values[2]).toEqual(['x', 'z']);
+    });
+
+    it('should convert long text to attachment', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Attachment,
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        'x\ny',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Attachment,
+      });
+      expect(values[0]).toEqual(undefined);
+      expect(values[1]).toEqual(undefined);
+    });
+
+    it('should convert long text to checkbox', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Checkbox,
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Boolean,
+        dbFieldType: DbFieldType.Integer,
+        type: FieldType.Checkbox,
+      });
+      expect(values[0]).toEqual(true);
+      expect(values[1]).toEqual(undefined);
+    });
+
+    it('should convert long text to date', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: 'M/D/YYYY',
+            time: TimeFormatting.None,
+            timeZone: 'GMT',
+          },
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        '2023-08-31T08:32:32.117Z',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        type: FieldType.Date,
+      });
+      expect(values[0]).toEqual(undefined);
+      expect(values[1]).toEqual('2023-08-31T08:32:32.117Z');
+    });
+
+    it('should convert long text to formula', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: '1',
+        },
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        type: FieldType.Formula,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual(1);
+      expect(values[1]).toEqual(1);
+    });
+
+    it('should convert long text to many-one rollup', async () => {
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(request, table1.id, linkFieldRo);
+      // set primary key 'x' in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // add 2 link record
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [null]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(values[0]).toEqual(1);
+    });
+
+    it('should convert long text to one-many rollup', async () => {
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(request, table1.id, linkFieldRo);
+      // set primary key in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
+      // add 2 link record
+      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [null]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Real,
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect(values[0]).toEqual(2);
+    });
+  });
+
   describe('convert select field', () => {
     it('should convert select to number', async () => {
       const sourceFieldRo: IFieldRo = {

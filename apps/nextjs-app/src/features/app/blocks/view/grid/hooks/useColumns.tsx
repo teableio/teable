@@ -88,6 +88,15 @@ const createCellValue2GridDisplay =
           readonly: isComputed,
         };
       }
+      case FieldType.LongText: {
+        return {
+          type: CellType.Text,
+          data: (cellValue as string) || '',
+          displayData: field.cellValue2String(cellValue),
+          readonly: isComputed,
+          isWrap: true,
+        };
+      }
       case FieldType.Date: {
         let displayData = '';
         const cacheKey = `${id}-${cellValue}`;
