@@ -56,10 +56,9 @@ WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
-# Optional: if the app depends on global /static shared assets like images, locales...
 RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
-# integration_test
+# Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ];  \
     then yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build;  \
     else yarn workspace @teable-group/app share-static-hardlink &&  \
@@ -67,6 +66,7 @@ RUN if [ -n "$INTEGRATION_TEST" ];  \
           SKIP_POSTINSTALL=1 yarn workspaces focus --production @teable-group/core @teable-group/openapi @teable-group/db-main-prisma  \
                                 @teable-group/backend @teable-group/app; \
     fi
+
 
 ##################################################################
 # Stage 3: Extract a minimal image from the build                #
