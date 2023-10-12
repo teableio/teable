@@ -1,3 +1,4 @@
+import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import type { FieldOperator } from '@/features/app/components/field-setting/type';
 import type { IPosition, IRectangle } from '../../../grid';
 
@@ -7,11 +8,13 @@ export interface ISetting {
 }
 
 export interface IHeaderMenu {
-  fieldIds: string[];
+  fields: IFieldInstance[];
   position: IPosition;
 }
+
 export interface IRecordMenu {
-  recordIds: string[];
+  fields: IFieldInstance[];
+  records: Record[];
   position: IPosition;
 }
 

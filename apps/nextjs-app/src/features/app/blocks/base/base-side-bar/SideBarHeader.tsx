@@ -23,12 +23,12 @@ export const SideBarHeader: React.FC = () => {
   };
 
   return (
-    <div className="flex m-2 gap-1 items-center">
-      <div className="group w-6 h-6 relative shrink-0 cursor-pointer" onClick={backSpace}>
-        <TeableNew className="absolute top-0 w-6 h-6 group-hover:opacity-0" />
-        <ChevronsLeft className="absolute top-0 w-6 h-6 opacity-0 group-hover:opacity-100" />
+    <div className="m-2 flex items-center gap-1">
+      <div className="group relative h-6 w-6 shrink-0 cursor-pointer" onClick={backSpace}>
+        <TeableNew className="absolute top-0 h-6 w-6 group-hover:opacity-0" />
+        <ChevronsLeft className="absolute top-0 h-6 w-6 opacity-0 group-hover:opacity-100" />
       </div>
-      <p className="text-sm overflow-hidden text-ellipsis whitespace-nowrap">{data?.data.name}</p>
+      <p className="truncate text-sm">{data?.data.name}</p>
       <div className="grow basis-0"></div>
       {isHydrated && <ThemePicker className="px-1" />}
     </div>

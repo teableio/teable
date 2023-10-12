@@ -20,7 +20,6 @@ import {
   Relationship,
   FieldKeyType,
   FIELD_VO_PROPERTIES,
-  IdPrefix,
   RecordOpBuilder,
   FieldType,
   FieldOpBuilder,
@@ -30,8 +29,6 @@ import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import type { Connection } from 'sharedb/lib/client';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
@@ -74,7 +71,6 @@ export class FieldConvertingService {
     private readonly linkService: LinkService,
     private readonly batchService: BatchService,
     private readonly referenceService: ReferenceService,
-    private readonly shareDbService: ShareDbService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
@@ -342,7 +338,8 @@ export class FieldConvertingService {
       return;
     }
 
-    return await this.generateReferenceFieldOps(newField.id);
+    const fieldOpsMap = await this.generateReferenceFieldOps(newField.id);
+    await this.submitFieldOpsMap(fieldOpsMap);
   }
 
   private async modifyFormulaOptions(
@@ -685,14 +682,7 @@ export class FieldConvertingService {
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
     // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
 
-    const rawOpsMap = await this.batchService.save(
-      'calculated',
-      composedOpsMap,
-      fieldMap,
-      tableId2DbTableName
-    );
-    // console.log('rawOpsMap', JSON.stringify(rawOpsMap));
-    this.shareDbService.publishOpsMap(rawOpsMap);
+    await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
   }
 
   private async getRecords(tableId: string, newField: IFieldInstance) {
@@ -856,8 +846,6 @@ export class FieldConvertingService {
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    const connection = this.shareDbService.getConnection();
-
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
@@ -868,19 +856,21 @@ export class FieldConvertingService {
       result = await this.modifyOptions(tableId, newField, oldField);
     }
 
-    const supplementResult = await this.fieldConvertingLinkService.supplementLink(
-      connection,
+    const fieldChange = await this.fieldConvertingLinkService.supplementLink(
       tableId,
       newField,
       oldField
     );
 
-    await this.submitFieldOps(connection, tableId, newField.id, ops.concat(result?.fieldOps || []));
+    await this.fieldService.batchUpdateFields(tableId, [
+      { fieldId: newField.id, ops: ops.concat(result?.fieldOps || []) },
+    ]);
+
     // apply supplement(link) field change
-    if (supplementResult?.fieldChange) {
-      const { tableId, newField, oldField } = supplementResult.fieldChange;
+    if (fieldChange) {
+      const { tableId, newField, oldField } = fieldChange;
       const { ops } = this.getOriginFieldOps(newField, oldField);
-      await this.submitFieldOps(connection, tableId, newField.id, ops);
+      await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
     }
 
     // create and submit records
@@ -896,60 +886,34 @@ export class FieldConvertingService {
     }
 
     // update & submit referenced fields
-    const fieldOpsMaps: (IOpsMap | undefined)[] = [];
-    fieldOpsMaps.push(await this.updateReferencedFields(newField, oldField));
-    if (supplementResult?.fieldChange) {
-      const { newField, oldField } = supplementResult.fieldChange;
-      fieldOpsMaps.push(await this.updateReferencedFields(newField, oldField));
+    await this.updateReferencedFields(newField, oldField);
+    if (fieldChange) {
+      const { newField, oldField } = fieldChange;
+      await this.updateReferencedFields(newField, oldField);
     }
-    const composedMap = composeMaps(fieldOpsMaps);
-    composedMap && (await this.submitFieldOpsMap(connection, composedMap));
 
     // calculate and submit records
     if (result?.recordOpsMap) {
       await this.calculateAndSaveRecords(tableId, newField, result.recordOpsMap);
     }
+
     if (newField.isComputed) {
-      const computedRawOpsMap = await this.fieldCalculationService.calculateFields(
-        'calculated',
-        tableId,
-        [newField.id]
-      );
-      computedRawOpsMap && this.shareDbService.publishOpsMap(computedRawOpsMap);
+      await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     }
-    supplementResult?.rawOpMaps?.forEach((rawOpsMap) =>
-      this.shareDbService.publishOpsMap(rawOpsMap)
-    );
   }
 
-  private async submitFieldOpsMap(connection: Connection, fieldOpsMap: IOpsMap) {
+  private async submitFieldOpsMap(fieldOpsMap: IOpsMap | undefined) {
+    if (!fieldOpsMap) {
+      return;
+    }
+
     for (const tableId in fieldOpsMap) {
-      for (const fieldId in fieldOpsMap[tableId]) {
-        const ops = fieldOpsMap[tableId][fieldId];
-        await this.submitFieldOps(connection, tableId, fieldId, ops);
-      }
+      const opData = Object.entries(fieldOpsMap[tableId]).map(([fieldId, ops]) => ({
+        fieldId,
+        ops,
+      }));
+      await this.fieldService.batchUpdateFields(tableId, opData);
     }
-  }
-
-  private async submitFieldOps(
-    connection: Connection,
-    tableId: string,
-    fieldId: string,
-    ops: IOtOperation[]
-  ) {
-    const collection = `${IdPrefix.Field}_${tableId}`;
-    const doc = connection.get(collection, fieldId);
-    await new Promise((resolve, reject) => {
-      doc.fetch((err) => {
-        err ? reject(err) : resolve(undefined);
-      });
-    });
-
-    return new Promise((resolve, reject) => {
-      doc.submitOp(ops, undefined, (err) => {
-        err ? reject(err) : resolve(undefined);
-      });
-    });
   }
 
   // we should create a new field in visual db, because we can not modify a field in sqlite.

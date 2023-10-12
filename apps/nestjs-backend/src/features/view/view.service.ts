@@ -99,25 +99,20 @@ export class ViewService implements IAdapterService {
     // 3. fill initial order for every record, with auto increment integer
     const updateRowIndexSql = this.knex(dbTableName)
       .update({
-        [rowIndexFieldName]: this.knex.ref('__row_default'),
+        [rowIndexFieldName]: this.knex.ref('__auto_number'),
       })
       .toQuery();
     await prisma.$executeRawUnsafe(updateRowIndexSql);
 
     // 4. create index
     const createRowIndexSQL = this.knex.schema
-      .table(dbTableName, (table) => {
-        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
+      .alterTable(dbTableName, (table) => {
+        table.unique(rowIndexFieldName, {
+          indexName: this.getRowIndexFieldIndexName(viewId),
+        });
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);
-
-    // set strick not null and unique type for safety（sqlite cannot do that)
-    // prisma.$executeRawUnsafe(`
-    //   ALTER TABLE ${dbTableName}
-    //   CONSTRAINT COLUMN ${rowIndexFieldName} NOT NULL UNIQUE;
-    // `),
-
     return viewData;
   }
 
@@ -141,7 +136,7 @@ export class ViewService implements IAdapterService {
     await this.createViewTransaction(tableId, view);
   }
 
-  async del(_tableId: string, viewId: string) {
+  async del(_version: number, _tableId: string, viewId: string) {
     const userId = this.cls.get('user.id');
 
     const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);

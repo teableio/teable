@@ -90,11 +90,11 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full">
-      <div className="flex flex-col gap-2 w-full">
+    <div className="flex w-full flex-col gap-2">
+      <div className="flex w-full flex-col gap-2">
         <Label className="font-normal">Format type</Label>
         <Select value={type} onValueChange={onFormattingTypeChange}>
-          <SelectTrigger className="w-full h-8">
+          <SelectTrigger className="h-8 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -108,7 +108,7 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
       </div>
       <>
         {type === NumberFormattingType.Currency && (
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex w-full flex-col gap-2">
             <Label className="font-normal">Currency symbol</Label>
             <Input
               placeholder="Currency symbol"
@@ -119,10 +119,10 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
           </div>
         )}
       </>
-      <div className="flex flex-col gap-2 w-full">
+      <div className="flex w-full flex-col gap-2">
         <Label className="font-normal">Precision</Label>
         <Select value={precision.toString()} onValueChange={onPrecisionChange}>
-          <SelectTrigger className="w-full h-8">
+          <SelectTrigger className="h-8 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -29,7 +29,7 @@ export const SpaceList: FC = () => {
   });
 
   return (
-    <div className="pt-4 flex flex-col overflow-hidden gap-2">
+    <div className="flex flex-col gap-2 overflow-hidden pt-4">
       <div className="px-3">
         <Button
           variant={'outline'}
@@ -38,10 +38,10 @@ export const SpaceList: FC = () => {
           className="w-full"
           onClick={() => addSpace({})}
         >
-          {isLoading ? <Spin className="w-3 h-3" /> : <Plus />}
+          {isLoading ? <Spin className="h-3 w-3" /> : <Plus />}
         </Button>
       </div>
-      <div className="px-3 overflow-y-auto">
+      <div className="overflow-y-auto px-3">
         <ul>
           {spaceList?.data.map((space) => (
             <li key={space.id}>

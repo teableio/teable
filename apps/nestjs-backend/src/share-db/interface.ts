@@ -1,9 +1,9 @@
-import type { IOtOperation, ISnapshotBase } from '@teable-group/core';
-import type { DB } from 'sharedb';
+import type { ISnapshotBase } from '@teable-group/core';
+import type { CreateOp, DB, DeleteOp, EditOp } from 'sharedb';
 export interface IAdapterService {
   create(collectionId: string, snapshot: unknown): Promise<void>;
 
-  del(collectionId: string, docId: string): Promise<void>;
+  del(version: number, collectionId: string, docId: string): Promise<void>;
 
   update(
     version: number,
@@ -33,20 +33,20 @@ export interface IShareDbConfig {
   db: DB;
 }
 
-export interface IRawOp {
-  src: string;
-  seq: number;
-  op: IOtOperation[];
-  v: number;
-  m: {
-    ts: number;
-  };
-  c?: string;
-  d?: string;
+export enum RawOpType {
+  Create = 'create',
+  Del = 'del',
+  Edit = 'edit',
 }
 
+export type IEditOp = Omit<EditOp, 'c' | 'd' | 'create' | 'del'>;
+export type IDeleteOp = Omit<DeleteOp, 'c' | 'd' | 'create' | 'op'>;
+export type ICreateOp = Omit<CreateOp, 'c' | 'd' | 'op' | 'del'>;
+
+export type IRawOp = ICreateOp | IDeleteOp | IEditOp;
+
 export interface IRawOpMap {
-  [tableId: string]: {
-    [recordId: string]: IRawOp;
+  [collection: string]: {
+    [docId: string]: IRawOp;
   };
 }

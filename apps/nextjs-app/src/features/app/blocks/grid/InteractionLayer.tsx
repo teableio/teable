@@ -488,7 +488,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     >
       <div
         ref={stageRef}
-        className="w-full h-full"
+        className="h-full w-full"
         onClick={onSmartClick}
         onMouseUp={onMouseUp}
         onMouseDown={onMouseDown}

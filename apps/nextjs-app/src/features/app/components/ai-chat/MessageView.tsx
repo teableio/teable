@@ -56,7 +56,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
 
     return (
       <ReactMarkdown
-        className="bg-base-300 prose prose-slate w-auto max-w-full px-2 py-1 rounded-lg text-sm"
+        className="bg-base-300 prose prose-slate w-auto max-w-full rounded-lg px-2 py-1 text-sm"
         remarkPlugins={[remarkGfm]}
         components={{
           pre({ node, className, children, ...props }) {
@@ -65,7 +65,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
             const language = match ? match[1] : 'text';
             const strValue = String(child.props.children);
             return (
-              <pre className={`${className || ''} w-full p-0 my-1`} {...props}>
+              <pre className={`${className || ''} my-1 w-full p-0`} {...props}>
                 <CodeBlock
                   chat={chat}
                   language={language || 'text'}
@@ -91,24 +91,24 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
   };
   return (
     <div
-      className={`group w-full max-w-full flex flex-row justify-start items-start my-4 ${
+      className={`group my-4 flex w-full max-w-full flex-row items-start justify-start ${
         isCurrentUser && 'justify-end'
       }`}
     >
       {isCurrentUser ? (
         <>
-          <div className="w-auto max-w-full bg-indigo-600 text-white px-2 py-1 rounded-lg whitespace-pre-wrap text-sm">
+          <div className="w-auto max-w-full whitespace-pre-wrap rounded-lg bg-indigo-600 px-2 py-1 text-sm text-white">
             {message.content}
           </div>
-          <div className="w-8 h-8 p-1 border rounded-full flex justify-center items-center ml-2 shrink-0">
+          <div className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border p-1">
             <UserIcon />
           </div>
         </>
       ) : (
         <>
-          <div className="w-full flex flex-col justify-start items-start">
+          <div className="flex w-full flex-col items-start justify-start">
             {Element()}
-            <span className="self-end text-xs pt-1 pr-1">
+            <span className="self-end pr-1 pt-1 text-xs">
               {dayjs(message.createdAt).format('lll')}
             </span>
           </div>

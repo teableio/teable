@@ -1,9 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
   IColumnMeta,
-  IFieldSnapshotQuery,
   IFieldVo,
   IGetFieldsQuery,
   ISetColumnMetaOpContext,
@@ -11,23 +10,27 @@ import type {
   ISetFieldPropertyOpContext,
   DbFieldType,
   ILookupOptionsVo,
+  IOtOperation,
 } from '@teable-group/core';
-import { OpName } from '@teable-group/core';
+import { FieldOpBuilder, IdPrefix, OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { forEach, isEqual, sortBy } from 'lodash';
+import { forEach, isEqual, keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
+import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
+import { BatchService } from '../calculation/batch.service';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
 
-type IOpContexts =
+type IOpContext =
   | IAddColumnMetaOpContext
   | ISetColumnMetaOpContext
   | IDeleteColumnMetaOpContext
@@ -38,6 +41,7 @@ export class FieldService implements IAdapterService {
   private logger = new Logger(FieldService.name);
 
   constructor(
+    private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
@@ -246,6 +250,85 @@ export class FieldService implements IAdapterService {
     return sortedFields[index].id;
   }
 
+  async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
+    if (!opData.length) return;
+
+    const fieldRaw = await this.prismaService.txClient().field.findMany({
+      where: { tableId, id: { in: opData.map((data) => data.fieldId) }, deletedTime: null },
+      select: { id: true, version: true },
+    });
+
+    const fieldMap = keyBy(fieldRaw, 'id');
+
+    for (const { fieldId, ops } of opData) {
+      const opContext = ops.map((op) => {
+        const ctx = FieldOpBuilder.detect(op);
+        if (!ctx) {
+          throw new Error('unknown field editing op');
+        }
+        return ctx as IOpContext;
+      });
+
+      await this.update(fieldMap[fieldId].version + 1, tableId, fieldId, opContext);
+    }
+
+    const dataList = opData.map((data) => ({
+      docId: data.fieldId,
+      version: fieldMap[data.fieldId].version,
+      data: data.ops,
+    }));
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+  }
+
+  async batchDeleteFields(tableId: string, fieldIds: string[]) {
+    if (!fieldIds.length) return;
+
+    const fieldRaw = await this.prismaService.txClient().field.findMany({
+      where: { tableId, id: { in: fieldIds }, deletedTime: null },
+      select: { id: true, version: true },
+    });
+
+    if (fieldRaw.length !== fieldIds.length) {
+      throw new BadRequestException('delete field not found');
+    }
+
+    const fieldRawMap = keyBy(fieldRaw, 'id');
+
+    const dataList = fieldIds.map((fieldId) => ({
+      docId: fieldId,
+      version: fieldRawMap[fieldId].version,
+    }));
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Field, dataList);
+
+    await this.deleteMany(
+      tableId,
+      dataList.map((d) => ({ ...d, version: d.version + 1 }))
+    );
+  }
+
+  async batchCreateFields(tableId: string, dbTableName: string, fields: IFieldInstance[]) {
+    if (!fields.length) return;
+
+    const dataList = fields.map((field) => {
+      const snapshot = instanceToPlain(field, { excludePrefixes: ['_'] }) as IFieldVo;
+      return {
+        docId: field.id,
+        version: 0,
+        data: snapshot,
+      };
+    });
+
+    // 1. save field meta in db
+    await this.dbCreateMultipleField(tableId, fields);
+
+    // 2. alter table with real field in visual table
+    await this.alterVisualTable(dbTableName, fields);
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
+  }
+
   async create(tableId: string, snapshot: IFieldVo) {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(tableId);
@@ -257,18 +340,27 @@ export class FieldService implements IAdapterService {
     await this.alterVisualTable(dbTableName, [fieldInstance]);
   }
 
-  async del(_tableId: string, fieldId: string) {
+  async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
     const userId = this.cls.get('user.id');
+    await this.attachmentService.deleteFields(
+      tableId,
+      fieldData.map((data) => data.docId)
+    );
 
-    await this.attachmentService.delete([{ fieldId, tableId: _tableId }]);
-    await this.prismaService.txClient().field.update({
-      where: { id: fieldId },
-      data: { deletedTime: new Date(), lastModifiedBy: userId },
-    });
+    for (const data of fieldData) {
+      const { docId: id, version } = data;
+      await this.prismaService.txClient().field.update({
+        where: { id: id },
+        data: { deletedTime: new Date(), lastModifiedBy: userId, version },
+      });
+    }
   }
 
-  private handleFieldProperty(params: { opContext: IOpContexts }) {
-    const { opContext } = params;
+  async del(version: number, tableId: string, fieldId: string) {
+    await this.deleteMany(tableId, [{ docId: fieldId, version }]);
+  }
+
+  private handleFieldProperty(_fieldId: string, opContext: IOpContext) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
     if (key === 'options') {
       if (!newValue) {
@@ -288,9 +380,7 @@ export class FieldService implements IAdapterService {
     return { [key]: newValue ?? null };
   }
 
-  private handleColumnMeta = async (params: { fieldId: string; opContext: IOpContexts }) => {
-    const { fieldId, opContext } = params;
-
+  private handleColumnMeta = async (fieldId: string, opContext: IOpContext) => {
     const fieldData = await this.prismaService.txClient().field.findUniqueOrThrow({
       where: { id: fieldId },
       select: { columnMeta: true },
@@ -333,13 +423,7 @@ export class FieldService implements IAdapterService {
     return { columnMeta: JSON.stringify(newColumnMeta) };
   };
 
-  private async updateStrategies(
-    opContext: IOpContexts,
-    params: {
-      fieldId: string;
-      opContext: IOpContexts;
-    }
-  ) {
+  private async updateStrategies(fieldId: string, opContext: IOpContext) {
     const opHandlers = {
       [OpName.SetFieldProperty]: this.handleFieldProperty,
       [OpName.AddColumnMeta]: this.handleColumnMeta,
@@ -353,23 +437,23 @@ export class FieldService implements IAdapterService {
       throw new Error(`Unknown context ${opContext.name} for field update`);
     }
 
-    return handler.constructor.name === 'AsyncFunction' ? await handler(params) : handler(params);
+    return handler.constructor.name === 'AsyncFunction'
+      ? await handler(fieldId, opContext)
+      : handler(fieldId, opContext);
   }
 
-  async update(version: number, tableId: string, fieldId: string, opContexts: IOpContexts[]) {
+  async update(version: number, tableId: string, fieldId: string, opContexts: IOpContext[]) {
     const userId = this.cls.get('user.id');
+    const result: Prisma.FieldUpdateInput = { version, lastModifiedBy: userId };
     for (const opContext of opContexts) {
-      const result = await this.updateStrategies(opContext, { fieldId, opContext });
-
-      await this.prismaService.txClient().field.update({
-        where: { id: fieldId, tableId },
-        data: {
-          version,
-          ...result,
-          lastModifiedBy: userId,
-        },
-      });
+      const updatedResult = await this.updateStrategies(fieldId, opContext);
+      Object.assign(result, updatedResult);
     }
+
+    await this.prismaService.txClient().field.update({
+      where: { id: fieldId, tableId },
+      data: result,
+    });
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]> {
@@ -390,7 +474,7 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(tableId: string, query: IFieldSnapshotQuery) {
+  async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
     let viewId = query.viewId;
     if (!viewId) {
       const view = await this.prismaService.txClient().view.findFirstOrThrow({
@@ -405,12 +489,16 @@ export class FieldService implements IAdapterService {
       select: { id: true, columnMeta: true },
     });
 
-    const fields = fieldsPlain.map((field) => {
+    let fields = fieldsPlain.map((field) => {
       return {
         ...field,
         columnMeta: JSON.parse(field.columnMeta),
       };
     });
+
+    if (query.filterHidden) {
+      fields = fields.filter((field) => !field.columnMeta[viewId as string].hidden);
+    }
 
     return {
       ids: sortBy(fields, (field) => {

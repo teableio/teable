@@ -73,7 +73,7 @@ export const ViewOperators: React.FC = () => {
             size={'xs'}
             className={classNames('font-normal', { 'bg-secondary': isActive })}
           >
-            <EyeOff className="text-sm w-4 h-4" />
+            <EyeOff className="h-4 w-4 text-sm" />
             {text}
           </Button>
         )}
@@ -85,7 +85,7 @@ export const ViewOperators: React.FC = () => {
             size={'xs'}
             className={classNames('font-normal', { 'bg-secondary': isActive })}
           >
-            <FilterIcon className="text-sm w-4 h-4" />
+            <FilterIcon className="h-4 w-4 text-sm" />
             <span className="truncate">{text}</span>
           </Button>
         )}
@@ -97,17 +97,17 @@ export const ViewOperators: React.FC = () => {
             size={'xs'}
             variant={'ghost'}
           >
-            <ArrowUpDown className="text-sm w-4 h-4" />
+            <ArrowUpDown className="h-4 w-4 text-sm" />
             <span className="truncate">{text}</span>
           </Button>
         )}
       </Sort>
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <LayoutList className="text-sm w-4 h-4" />
+        <LayoutList className="h-4 w-4 text-sm" />
         Group
       </Button>
       <Button className="font-normal" size={'xs'} variant={'ghost'}>
-        <PaintBucket className="text-sm w-4 h-4" />
+        <PaintBucket className="h-4 w-4 text-sm" />
         Color
       </Button>
       <RowHeight>

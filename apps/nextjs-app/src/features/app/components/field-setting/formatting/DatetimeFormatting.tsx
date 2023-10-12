@@ -160,7 +160,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({
                 onFormattingChange(list.find((option) => option.text === text)!.value, typeKey)
               }
             >
-              <SelectTrigger className="w-full h-8">
+              <SelectTrigger className="h-8 w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

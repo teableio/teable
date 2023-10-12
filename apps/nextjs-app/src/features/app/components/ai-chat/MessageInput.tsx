@@ -60,10 +60,10 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
   };
 
   return (
-    <div className="bg-base-100 w-full h-auto flex flex-row justify-between items-end border rounded-lg mb-2 p-1 relative shadow">
+    <div className="bg-base-100 relative mb-2 flex h-auto w-full flex-row items-end justify-between rounded-lg border p-1 shadow">
       <TextareaAutosize
         ref={textareaRef}
-        className="hide-scrollbar textarea w-full h-full bg-transparent leading-6 p-1 mr-1 resize-none text-sm min-h-0"
+        className="hide-scrollbar textarea mr-1 h-full min-h-0 w-full resize-none bg-transparent p-1 text-sm leading-6"
         placeholder="Type a message..."
         rows={1}
         minRows={1}
@@ -74,7 +74,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
         onKeyDown={handleKeyDown}
       />
       <button
-        className="hover:bg-base-300 w-8 p-1 -translate-y-1 cursor-pointer rounded-md hover:shadow disabled:cursor-not-allowed disabled:opacity-60 text-[18px]"
+        className="hover:bg-base-300 w-8 -translate-y-1 cursor-pointer rounded-md p-1 text-[18px] hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
         disabled={disabled}
         onClick={handleSend}
       >

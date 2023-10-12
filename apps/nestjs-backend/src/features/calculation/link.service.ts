@@ -126,6 +126,7 @@ export class LinkService {
     recordMapByTableId: IRecordMapByTableId
   ) {
     recordMapByTableId = cloneDeep(recordMapByTableId);
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     updateForeignKeyParams.forEach((param) => {
       const {
         tableId,
@@ -148,6 +149,9 @@ export class LinkService {
       const oldFRecordId = mainRecord[fkFieldId] as string;
       if (oldFRecordId) {
         const fRecord = foreignTable[oldFRecordId];
+        if (!fRecord) {
+          throw new BadRequestException('Can not set duplicate link record in this field');
+        }
         const oldFRecordFLink = fRecord[foreignLinkFieldId] as
           | { id: string; title?: string }[]
           | undefined;
@@ -574,7 +578,7 @@ export class LinkService {
     const fieldMapByTableId = await this.getTinyFieldMapByTableId(fieldIds);
     const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
 
-    return await this.getDerivateByCellContexts(
+    return this.getDerivateByCellContexts(
       tableId,
       tableId2DbTableName,
       fieldMapByTableId,

@@ -82,7 +82,7 @@ export class ViewOpenApiService {
       const collection = `${IdPrefix.Field}_${tableId}`;
       const doc = this.shareDbService.getConnection().get(collection, field.id);
 
-      let data: unknown;
+      let data: IOtOperation;
       if (opName === OpName.AddColumnMeta) {
         data = this.addColumnMeta2Op(viewId, index);
       } else {

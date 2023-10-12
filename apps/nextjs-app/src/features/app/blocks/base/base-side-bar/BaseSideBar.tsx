@@ -61,7 +61,7 @@ export const BaseSideBar = () => {
                 >
                   <Link href={href} className="font-normal">
                     <Icon className="h-4 w-4 shrink-0" />
-                    <p className="overflow-hidden text-ellipsis whitespace-nowrap">{text}</p>
+                    <p className="truncate">{text}</p>
                     <div className="grow basis-0"></div>
                     <p className="text-xs text-slate-500">{shortCutKey}</p>
                   </Link>

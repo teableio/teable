@@ -3,7 +3,7 @@ import { fieldVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { cellSchema } from './copy';
+import { cellSchema } from './range';
 
 export const PASTE_URL = '/table/{tableId}/view/{viewId}/selection/paste';
 
@@ -36,7 +36,7 @@ export const PasteRoute: RouteConfig = registerRoute({
   description: 'Copy operations in tables',
   request: {
     params: z.object({
-      teableId: z.string(),
+      tableId: z.string(),
       viewId: z.string(),
     }),
     body: {

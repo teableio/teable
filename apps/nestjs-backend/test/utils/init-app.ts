@@ -3,7 +3,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldRo, IFieldVo, IRecord, IRecordsVo, IUpdateRecordRo } from '@teable-group/core';
+import type {
+  ICreateRecordsRo,
+  ICreateRecordsVo,
+  IFieldRo,
+  IFieldVo,
+  IRecord,
+  IRecordsVo,
+  IUpdateRecordRo,
+} from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
@@ -49,7 +57,7 @@ export async function initApp() {
   console.log(`> Jest Test Ready on ${await app.getUrl()}`);
   const newRequest = request.agent(app.getHttpServer());
   newRequest.set('Cookie', cookie);
-  return { app, request: newRequest };
+  return { app, request: newRequest, cookie: cookie.join(';') };
 }
 
 export async function signin(app: INestApplication, email: string, password: string) {
@@ -71,7 +79,8 @@ export async function updateRecordByApi(
   tableId: string,
   recordId: string,
   fieldId: string,
-  newValues: unknown
+  newValue: unknown,
+  expect = 200
 ): Promise<IRecord> {
   return (
     await request
@@ -80,11 +89,11 @@ export async function updateRecordByApi(
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {
-            [fieldId]: newValues,
+            [fieldId]: newValue,
           },
         },
       } as IUpdateRecordRo)
-      .expect(200)
+      .expect(expect)
   ).body;
 }
 
@@ -115,6 +124,45 @@ export async function getRecord(
       })
       .expect(200)
   ).body;
+}
+
+export async function deleteRecords(
+  request: request.SuperAgentTest,
+  tableId: string,
+  recordIds: string[]
+): Promise<IRecordsVo> {
+  return (
+    await request
+      .delete(`/api/table/${tableId}/record`)
+      .query({
+        recordIds,
+      })
+      .expect(200)
+  ).body;
+}
+
+export async function createRecords(
+  request: request.SuperAgentTest,
+  tableId: string,
+  records: ICreateRecordsRo['records']
+): Promise<ICreateRecordsVo> {
+  return (
+    await request
+      .post(`/api/table/${tableId}/record`)
+      .send({
+        records,
+        fieldKeyType: FieldKeyType.Id,
+      })
+      .expect(201)
+  ).body;
+}
+
+export async function deleteRecord(
+  request: request.SuperAgentTest,
+  tableId: string,
+  recordId: string
+): Promise<IRecord> {
+  return (await request.delete(`/api/table/${tableId}/record/${recordId}`).expect(200)).body;
 }
 
 export async function createField(

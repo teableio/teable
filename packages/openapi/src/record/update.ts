@@ -10,7 +10,7 @@ export const UPDATE_RECORD = '/table/{tableId}/record/{recordId}';
 export const UpdateRecordRoute: RouteConfig = registerRoute({
   method: 'put',
   path: UPDATE_RECORD,
-  description: 'Update a record.',
+  description: 'Update a record',
   request: {
     params: z.object({
       tableId: z.string(),

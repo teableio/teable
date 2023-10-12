@@ -34,14 +34,14 @@ export const SpacePage: FC = () => {
   });
 
   return (
-    <div ref={ref} className="w-full h-screen flex flex-col py-8">
-      <div className="flex px-12 justify-between items-center">
+    <div ref={ref} className="flex h-screen w-full flex-col py-8">
+      <div className="flex items-center justify-between px-12">
         <h4>All Workspaces</h4>
         <Button size={'sm'} disabled={isLoading} onClick={() => createSpaceMutator({})}>
-          {isLoading && <Spin className="w-3 h-3" />}Create a workspace
+          {isLoading && <Spin className="h-3 w-3" />}Create a workspace
         </Button>
       </div>
-      <div className="flex-1 px-12 pt-8 space-y-8 overflow-y-auto">
+      <div className="flex-1 space-y-8 overflow-y-auto px-12 pt-8">
         {spaceList?.data.map((space) => (
           <SpaceCard
             key={space.id}
