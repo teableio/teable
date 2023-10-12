@@ -74,6 +74,20 @@ export async function signin(app: INestApplication, email: string, password: str
   };
 }
 
+export async function signup(app: INestApplication, email: string, password: string) {
+  const sessionResponse = await request(app.getHttpServer())
+    .post('/api/auth/signup')
+    .send({
+      email,
+      password,
+    } as ISignin)
+    .expect(200);
+  return {
+    access_token: sessionResponse.body,
+    cookie: sessionResponse.headers['set-cookie'],
+  };
+}
+
 export async function updateRecordByApi(
   request: request.SuperAgentTest,
   tableId: string,

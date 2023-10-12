@@ -41,7 +41,9 @@ export class AuthController {
   ) {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const { access_token } = await this.authService.signup(body.email, body.password);
-    res.cookie(AUTH_COOKIE, access_token);
+    res.cookie(AUTH_COOKIE, access_token, {
+      httpOnly: true,
+    });
     return { access_token };
   }
 }

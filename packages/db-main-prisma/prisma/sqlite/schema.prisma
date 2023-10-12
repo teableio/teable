@@ -8,13 +8,13 @@ datasource db {
 }
 
 model Space {
-  id             String    @id @default(cuid())
-  name           String
-  deletedTime    DateTime? @map("deleted_time")
-  createdTime    DateTime  @default(now()) @map("created_time")
-  createdBy      String    @map("created_by")
-  lastModifiedBy String    @map("last_modified_by")
-  baseGroup      Base[]
+  id                String              @id @default(cuid())
+  name              String
+  deletedTime       DateTime?           @map("deleted_time")
+  createdTime       DateTime            @default(now()) @map("created_time")
+  createdBy         String              @map("created_by")
+  lastModifiedBy    String              @map("last_modified_by")
+  baseGroup         Base[]
 
   @@map("space")
 }
@@ -264,4 +264,46 @@ model AutomationWorkflowExecutionHistory {
 
   @@index([workflowId])
   @@map("automation_workflow_execution_history")
+}
+
+model Collaborator {
+  id               String    @id @default(cuid())
+  roleName         String    @map("role_name")
+  baseId           String?   @map("base_id")
+  spaceId          String?   @map("space_id")
+  userId           String    @map("user_id")
+  deletedTime      DateTime? @map("deleted_time")
+  createdBy        String    @map("created_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime  @default(now()) @map("last_modified_time")
+  lastModifiedBy   String    @map("last_modified_by")
+
+  @@map("collaborator")
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  baseId         String?   @map("base_id")
+  spaceId        String?   @map("space_id")
+  type           String    @map("type")
+  role           String
+  invitationCode String    @map("invitation_code")
+  expiredTime    DateTime? @map("expired_time")
+  createdBy      String    @map("create_by")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  deletedTime    DateTime? @map("deleted_time")
+
+  @@map("invitation")
+}
+
+model InvitationRecord {
+  id           String   @id @default(cuid())
+  baseId       String?  @map("base_id")
+  spaceId      String?  @map("space_id")
+  type         String   @map("type")
+  inviter      String   @map("inviter")
+  accepter     String   @map("accepter")
+  createdTime  DateTime @default(now()) @map("created_time")
+
+  @@map("invitation_record")
 }
