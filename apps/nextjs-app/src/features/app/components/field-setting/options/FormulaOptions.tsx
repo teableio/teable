@@ -79,14 +79,14 @@ export const FormulaOptions = (props: {
           <span className="neutral-content label-text">Formula</span>
           <Dialog open={visible} onOpenChange={setVisible}>
             <DialogTrigger asChild>
-              <code className="flex items-center h-8 px-3 border border-input rounded-md bg-background ring-offset-background cursor-pointer">
+              <code className="flex h-8 cursor-pointer items-center rounded-md border border-input bg-background px-3 ring-offset-background">
                 {expressionByName}
               </code>
             </DialogTrigger>
             <DialogContent
               tabIndex={-1}
               closeable
-              className="max-w-full md:w-auto w-auto h-auto p-0 rounded-sm flex overflow-hidden outline-0"
+              className="flex h-auto w-auto max-w-full overflow-hidden rounded-sm p-0 outline-0 md:w-auto"
             >
               <FormulaEditor expression={expression} onConfirm={onExpressionChange} />
             </DialogContent>

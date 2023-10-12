@@ -117,6 +117,7 @@ model View {
 model Ops {
   collection  String
   docId       String   @map("doc_id")
+  docType     String   @map("doc_type")
   version     Int
   operation   String
   createdTime DateTime @default(now()) @map("created_time")

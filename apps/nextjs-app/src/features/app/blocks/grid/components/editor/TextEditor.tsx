@@ -37,7 +37,7 @@ const TextEditorBase: ForwardRefRenderFunction<
       value={value}
       width={'100%'}
       height={'100%'}
-      className="border-2 shadow-none h-full w-full focus-visible:ring-transparent px-2"
+      className="h-full w-full border-2 px-2 shadow-none focus-visible:ring-transparent"
       onChange={onChangeInner}
     />
   );

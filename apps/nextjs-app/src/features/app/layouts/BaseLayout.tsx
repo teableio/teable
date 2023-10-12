@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import React from 'react';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
-import { ChatWindow } from '../components/ai-chat/ChatWindow';
+// import { ChatWindow } from '../components/ai-chat/ChatWindow';
 import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
 
 export const BaseLayout: React.FC<{
@@ -32,11 +32,10 @@ export const BaseLayout: React.FC<{
           >
             <BaseProvider serverData={baseServerData}>
               <TableProvider serverData={tableServerData}>
-                <div id="portal" className="h-screen flex items-start w-full relative">
+                <div id="portal" className="relative flex h-screen w-full items-start">
                   <ResizablePane>
                     <SideBar />
                     {children}
-                    <ChatWindow />
                   </ResizablePane>
                 </div>
               </TableProvider>

@@ -143,7 +143,7 @@ export const Graph: React.FC = () => {
 
   return (
     <Rnd
-      className="absolute top-20 right-10  bg-background rounded shadow border"
+      className="absolute right-10 top-20  rounded border bg-background shadow"
       size={{ width, height }}
       position={{ x, y }}
       onDragStop={(e, d) => {
@@ -159,22 +159,22 @@ export const Graph: React.FC = () => {
       <Button
         variant={'ghost'}
         size="xs"
-        className="absolute top-2 right-2"
+        className="absolute right-2 top-2"
         onClick={() => closeGraph()}
       >
-        <X className="w-4 h-4" />
+        <X className="h-4 w-4" />
       </Button>
-      <div className="absolute top-0 left-0 p-2 flex text-xs gap-2">
+      <div className="absolute left-0 top-0 flex gap-2 p-2 text-xs">
         {tables.map((table) => {
           return (
-            <div key={table.color} className="flex gap-1 justify-center items-center">
+            <div key={table.color} className="flex items-center justify-center gap-1">
               <span>{table.name}</span>
               <span className="h-2 w-2" style={{ backgroundColor: table.color }}></span>
             </div>
           );
         })}
       </div>
-      <div ref={ref} className="w-full h-full"></div>
+      <div ref={ref} className="h-full w-full"></div>
     </Rnd>
   );
 };

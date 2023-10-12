@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import type { ISelectFieldOptions } from '@teable-group/core';
-import { Colors, FieldType, generateRecordId } from '@teable-group/core';
+import { IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
 import { chunk, flatten, groupBy } from 'lodash';
 
 const prisma = new PrismaClient();
@@ -121,11 +121,10 @@ export async function seeding(tableId: string, mockDataNum: number) {
   const data: { [dbFieldName: string]: unknown }[] = [];
   for (let i = 0; i <= mockDataNum; i++) {
     const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
-    const viewRowIndex = await generateViewRowIndex({ views, rowCount, i });
+    const viewRowIndex = await generateViewRowIndex({ views, rowCount, i: i + 1 });
 
     data.push({
       __id: generateRecordId(),
-      __row_default: Number(rowCount) + i,
       __created_time: new Date().toISOString(),
       __created_by: 'admin',
       __last_modified_by: 'admin',
@@ -152,16 +151,17 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
     const sqlOp = `
         INSERT INTO ops
-        ("collection", "doc_id", "version", "operation", "created_by")
+        ("collection", "doc_id", "doc_type", "version", "operation", "created_by")
         VALUES
         ${page
           .map((d) => {
             return {
               collection: tableId,
               doc_id: d.__id,
-              version: 1,
+              doc_type: IdPrefix.Record,
+              version: 0,
               operation: '{}',
-              created_by: 'admin',
+              created_by: 'mock',
             };
           })
           .map((d) => `('${Object.values(d).join(`', '`)}')`)

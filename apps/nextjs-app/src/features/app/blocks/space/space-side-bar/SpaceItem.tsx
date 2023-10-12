@@ -38,8 +38,8 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
         }}
         title={name}
       >
-        <Component className="w-4 h-4 shrink-0" />
-        <p className="grow overflow-hidden text-ellipsis whitespace-nowrap">{' ' + name}</p>
+        <Component className="h-4 w-4 shrink-0" />
+        <p className="grow truncate">{' ' + name}</p>
       </Link>
     </Button>
   );

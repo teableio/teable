@@ -254,7 +254,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
-    <div className="w-full h-full" style={style} ref={ref}>
+    <div className="h-full w-full" style={style} ref={ref}>
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
         <InteractionLayer
           ref={interactionLayerRef}

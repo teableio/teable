@@ -30,7 +30,7 @@ export const LinkOptions = (props: {
   }
 
   return (
-    <div className="gap-2 w-full flex flex-col">
+    <div className="flex w-full flex-col gap-2">
       <span className="neutral-content label-text">Link table</span>
       <Selector
         selectedId={foreignTableId}

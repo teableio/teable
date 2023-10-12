@@ -49,9 +49,9 @@ export enum RegionType {
   None = 'None',
 }
 
-export type ICellRange = [colIndex: number, rowIndex: number];
-export type IColumnRange = [colIndex: number, colIndex: number];
-export type IRowRange = [rowIndex: number, rowIndex: number];
+export type ICellRange = [colIndex: number, rowIndex: number]; // The beginning and the end come in pairs
+export type IColumnRange = [colStartIndex: number, colEndIndex: number];
+export type IRowRange = [rowStartIndex: number, rowEndIndex: number];
 export type IRange = ICellRange | IColumnRange | IRowRange;
 
 export interface IMouseState extends IRegionPosition {

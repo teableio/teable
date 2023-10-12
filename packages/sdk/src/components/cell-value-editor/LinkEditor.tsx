@@ -19,7 +19,7 @@ interface ILinkEditorProps {
 const LinkEditorInner = (props: ILinkEditorProps) => {
   const { cellValue, options, onChange } = props;
 
-  const { relationship, dbForeignKeyName } = options;
+  const { relationship } = options;
 
   const values = useMemo(
     () =>
@@ -33,15 +33,7 @@ const LinkEditorInner = (props: ILinkEditorProps) => {
 
   // many <> one relation ship only allow select record that has not been selected
   const isMultiple = relationship !== Relationship.ManyOne;
-  const records = useRecords(
-    relationship === Relationship.OneMany
-      ? {
-          where: {
-            [dbForeignKeyName]: null,
-          },
-        }
-      : undefined
-  );
+  const records = useRecords();
   const choices = records.map(({ id, name }) => ({
     label: name,
     value: id,

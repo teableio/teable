@@ -241,7 +241,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }
 
   return (
-    <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
+    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
       <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
         {!readonly && (
           <>

@@ -28,6 +28,11 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/yarn-nm-install
 
+      - name: 🧩 Generate Prisma Client
+        working-directory: packages/db-main-prisma
+        run: |
+          yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+
       - name: 🏗 Run build
         run: |
           yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build

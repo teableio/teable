@@ -24,7 +24,7 @@ export const ErrorPage: FC<Props> = (props) => {
             Something went wrong. Please try again later.
           </p>
         </div>
-        <div className="absolute right-0 bottom-0 m-5 rounded-lg border-2 border-solid border-indigo-400 p-5 text-left text-sm text-gray-700">
+        <div className="absolute bottom-0 right-0 m-5 rounded-lg border-2 border-solid border-indigo-400 p-5 text-left text-sm text-gray-700">
           <p data-testid="error-status-code">Code: {statusCode}</p>
           <p>Message: {message}</p>
           <p>Error id: {errorId}</p>

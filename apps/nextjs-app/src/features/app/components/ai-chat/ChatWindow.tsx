@@ -141,11 +141,11 @@ export const ChatWindow = () => {
   return (
     <main
       ref={chatWindowRef}
-      className="drawer-content relative h-full flex flex-col justify-start items-start basis-[300px] overflow-y-auto"
+      className="drawer-content relative flex h-full basis-[300px] flex-col items-start justify-start overflow-y-auto"
     >
-      <div className="w-full h-auto grow max-w-4xl p-2 mx-auto">
+      <div className="mx-auto h-auto w-full max-w-4xl grow p-2">
         {messageList.length === 0 ? (
-          <div className="flex justify-center flex-col items-center">
+          <div className="flex flex-col items-center justify-center">
             <p>What can I do for you?</p>
           </div>
         ) : (
@@ -155,7 +155,7 @@ export const ChatWindow = () => {
         )}
         {isLoading && <p>...</p>}
       </div>
-      <div className="bg-base-100 sticky bottom-0 w-full max-w-4xl p-2 mx-auto backdrop-blur">
+      <div className="bg-base-100 sticky bottom-0 mx-auto w-full max-w-4xl p-2 backdrop-blur">
         <MessageInput disabled={isLoading} sendMessage={sendMessageToCurrentChat} chat={chat} />
       </div>
     </main>

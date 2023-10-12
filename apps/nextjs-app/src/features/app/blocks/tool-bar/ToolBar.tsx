@@ -16,9 +16,9 @@ export const ToolBar: React.FC = () => {
   }, [table]);
 
   return (
-    <div className="items-center flex px-4 py-2 border-t gap-2 flex-wrap">
+    <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2">
       <Button
-        className="font-normal rounded-full h-6 w-6 p-0"
+        className="h-6 w-6 rounded-full p-0 font-normal"
         size={'xs'}
         variant={'outline'}
         onClick={addRecord}

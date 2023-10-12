@@ -1,17 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
-import type { Error } from 'sharedb';
+import { ClsService } from 'nestjs-cls';
+import type { CreateOp, DeleteOp, EditOp, Error } from 'sharedb';
 import ShareDBClass from 'sharedb';
+import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
-import type { ICellChange } from '../features/calculation/utils/changes';
+import type { IClsStore } from '../types/cls';
 import { authMiddleware } from './auth.middleware';
-import { DerivateChangeService } from './derivate-change.service';
+import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import { WsAuthService } from './ws-auth.service';
+import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -19,9 +23,12 @@ export class ShareDbService extends ShareDBClass {
 
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
-    private readonly derivateChangeService: DerivateChangeService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly wsAuthService: WsAuthService
+    private readonly eventService: EventEmitterService,
+    private readonly prismaService: PrismaService,
+    private readonly clsService: ClsService<IClsStore>,
+    private readonly wsAuthService: WsAuthService,
+    private readonly wsDerivateService: WsDerivateService
   ) {
     super({
       presence: true,
@@ -29,13 +36,17 @@ export class ShareDbService extends ShareDBClass {
       db: sqliteDbAdapter,
     });
     // auth
-    authMiddleware(this, this.wsAuthService);
+    authMiddleware(this, this.wsAuthService, this.clsService);
+    derivateMiddleware(this, this.wsDerivateService);
 
-    // this.use('submit', this.onSubmit);
     this.use('commit', this.onCommit);
-    // this.use('apply', this.onApply);
-    this.use('afterWrite', this.onAfterWrite);
     this.on('submitRequestEnd', this.onSubmitRequestEnd);
+
+    // broadcast raw op events to client
+    this.prismaService.bindAfterTransaction(() => {
+      const rawOpMap = this.clsService.get('tx.rawOpMap');
+      rawOpMap && this.publishOpsMap(rawOpMap);
+    });
   }
 
   getConnection() {
@@ -45,78 +56,21 @@ export class ShareDbService extends ShareDBClass {
     return connection;
   }
 
-  // private onSubmit = async (
-  //   context: ShareDBClass.middleware.SubmitContext,
-  //   next: (err?: unknown) => void
-  // ) => {
-  //   next();
-  // };
-
-  /**
-   * Goal:
-   * 1. we need all effect to be done when get API response
-   * 2. all effect should be done in one transaction
-   */
-  // private onApply = async (
-  //   context: ShareDBClass.middleware.ApplyContext,
-  //   next: (err?: unknown) => void
-  // ) => {
-  //   next();
-  //   await this.onRecordApply(context);
-  // };
-
-  private async onRecordApply(context: ShareDBClass.middleware.SubmitContext) {
-    const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
-    const recordId = context.id;
-    if (docType !== IdPrefix.Record || !context.op.op) {
-      return;
-    }
-
-    console.log('onRecordApply', context.op.op);
-    const changes = context.op.op.reduce<ICellChange[]>((pre, cur) => {
-      const ctx = RecordOpBuilder.editor.setRecord.detect(cur);
-      if (ctx) {
-        pre.push({
-          tableId: tableId,
-          recordId: recordId,
-          ...ctx,
-        });
-      }
-      return pre;
-    }, []);
-
-    if (!changes.length) {
-      return;
-    }
-
-    try {
-      const rawOpsMap = await this.derivateChangeService.derivateAndCalculateLink(
-        context.op.src,
-        changes
-      );
-      rawOpsMap && this.publishOpsMap(rawOpsMap);
-    } catch (e) {
-      console.error('calculationError', e);
-      await this.rollback(context);
-    }
-  }
-
-  private async rollback(_context: ShareDBClass.middleware.SubmitContext) {
-    //
-  }
-
   publishOpsMap(rawOpMap: IRawOpMap) {
-    for (const tableId in rawOpMap) {
-      const collection = `${IdPrefix.Record}_${tableId}`;
-      const data = rawOpMap[tableId];
-      for (const recordId in data) {
-        const rawOp = data[recordId];
-        const channels = [collection, `${collection}.${recordId}`];
+    const rawOps: (EditOp | CreateOp | DeleteOp)[] = [];
+    for (const collection in rawOpMap) {
+      const data = rawOpMap[collection];
+      for (const docId in data) {
+        const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
+        const channels = [collection, `${collection}.${docId}`];
         rawOp.c = collection;
-        rawOp.d = recordId;
+        rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
+
+        rawOps.push(rawOp);
       }
     }
+    this.eventService.ops2Event(rawOps);
   }
 
   private onCommit = (
@@ -136,14 +90,6 @@ export class ShareDbService extends ShareDBClass {
       }
     }
 
-    next();
-  };
-
-  private onAfterWrite = async (
-    context: ShareDBClass.middleware.SubmitContext,
-    next: (err?: unknown) => void
-  ) => {
-    await this.onRecordApply(context);
     next();
   };
 

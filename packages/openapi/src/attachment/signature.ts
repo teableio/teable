@@ -18,11 +18,11 @@ export const SIGNATURE_URL = '/attachments/signature';
 export const SignatureRoute: RouteConfig = registerRoute({
   method: 'post',
   path: SIGNATURE_URL,
-  description: 'I need to retrieve the upload URL and the key.',
+  description: 'Retrieve upload signature.',
   request: {},
   responses: {
     200: {
-      description: 'I need to retrieve the upload URL and the key.',
+      description: 'return the upload URL and the key.',
       content: {
         'application/json': {
           schema: signatureVoSchema,

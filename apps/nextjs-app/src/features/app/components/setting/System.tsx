@@ -36,7 +36,7 @@ export const System: React.FC = () => {
     }
   }, [toast, url]);
   return (
-    <div className="px-6 flex flex-col gap-2">
+    <div className="flex flex-col gap-2 px-6">
       <div className="space-y-2">
         <h1 className="font-semibold leading-none tracking-tight">System</h1>
         <p className="text-sm">
