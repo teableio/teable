@@ -235,6 +235,7 @@ export class BatchService {
     await prisma.$executeRawUnsafe(dropTempTableSql);
   }
 
+  @Timing()
   async saveRawOps(
     collectionId: string,
     opType: RawOpType,

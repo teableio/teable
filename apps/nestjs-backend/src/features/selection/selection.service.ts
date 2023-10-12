@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordRo } from '@teable-group/core';
+import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -203,6 +203,9 @@ export class SelectionService {
     tableId: string;
     numRowsToExpand: number;
   }) {
+    if (numRowsToExpand === 0) {
+      return [];
+    }
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
     const createdRecords = await this.recordOpenApiService.createRecords(tableId, records);
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
@@ -310,14 +313,14 @@ export class SelectionService {
       fields,
       tableData,
     });
-    const updateRecordsRo: (IUpdateRecordRo & { recordId: string })[] = [];
+    const updateRecordsRo: IUpdateRecordsRo = { fieldKeyType: FieldKeyType.Id, records: [] };
     fields.forEach((field, col) => {
       if (field.isComputed) {
         return;
       }
       records.forEach((record, row) => {
         const stringValue = tableData?.[row]?.[col] ?? null;
-        const recordField = updateRecordsRo[row]?.record?.fields || {};
+        const recordField = updateRecordsRo.records[row]?.fields || {};
 
         if (stringValue === null) {
           recordField[field.id] = null;
@@ -328,10 +331,9 @@ export class SelectionService {
           );
         }
 
-        updateRecordsRo[row] = {
-          recordId: record.id,
-          record: { fields: recordField },
-          fieldKeyType: FieldKeyType.Id,
+        updateRecordsRo.records[row] = {
+          id: record.id,
+          fields: recordField,
         };
       });
     });
