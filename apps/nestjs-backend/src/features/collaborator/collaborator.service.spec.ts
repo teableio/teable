@@ -3,7 +3,9 @@ import { Test } from '@nestjs/testing';
 import { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { mockDeep } from 'jest-mock-extended';
+import { ClsService } from 'nestjs-cls';
 import { GlobalModule } from '../../global/global.module';
+import type { IClsStore } from '../../types/cls';
 import { CollaboratorModule } from './collaborator.module';
 import { CollaboratorService } from './collaborator.service';
 
@@ -12,6 +14,7 @@ describe('CollaboratorService', () => {
   const mockSpace = { id: 'spcxxxxxxxx', name: 'Test Space' };
   const prismaService = mockDeep<PrismaService>();
 
+  let clsService: ClsService<IClsStore>;
   let collaboratorService: CollaboratorService;
 
   beforeEach(async () => {
@@ -22,7 +25,11 @@ describe('CollaboratorService', () => {
       .useValue(prismaService)
       .compile();
 
+    clsService = module.get<ClsService<IClsStore>>(ClsService);
     collaboratorService = module.get<CollaboratorService>(CollaboratorService);
+
+    clsService.enter();
+    clsService.set('user', mockUser);
 
     prismaService.txClient.mockImplementation(() => {
       return prismaService;
