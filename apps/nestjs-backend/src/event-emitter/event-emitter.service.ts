@@ -11,6 +11,7 @@ import {
   FieldCreatedEvent,
   FieldUpdatedEvent,
   RecordCreatedEvent,
+  RecordDeletedEvent,
   RecordUpdatedEvent,
   ViewCreatedEvent,
   ViewUpdatedEvent,
@@ -42,7 +43,7 @@ export class EventEmitterService {
           return RecordUpdatedEvent;
         }
         case `${IdPrefix.Record}_${IEventType.Delete}`: {
-          return undefined;
+          return RecordDeletedEvent;
         }
         case `${IdPrefix.Field}_${IEventType.Create}`:
           return FieldCreatedEvent;
@@ -114,6 +115,12 @@ export class EventEmitterService {
           cacheData.set(createOp.d, { recordId: createOp.d, eventType: IEventType.Create });
 
           data = { ...data, eventType: IEventType.Create };
+        } else if ('del' in op) {
+          const deleteOp = op as ShareDBClass.DeleteOp;
+
+          cacheData.set(deleteOp.d, { recordId: deleteOp.d, eventType: IEventType.Delete });
+
+          data = { ...data, eventType: IEventType.Delete };
         } else if ('op' in op) {
           const editOp = op as ShareDBClass.EditOp;
 
