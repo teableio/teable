@@ -58,7 +58,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex w-full flex-col gap-2">
       <Label className="font-normal">Show As</Label>
       <div className="flex justify-between">
         {MULTI_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {
@@ -85,11 +85,11 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
           <Popover>
             <PopoverTrigger>
               <div
-                className="ml-4 w-5 h-5 rounded-full p-[2px]"
+                className="ml-4 h-5 w-5 rounded-full p-[2px]"
                 style={{ border: `1px solid ${ColorUtils.getHexForColor(color)}` }}
               >
                 <div
-                  className="w-full h-full rounded-full"
+                  className="h-full w-full rounded-full"
                   style={{ backgroundColor: ColorUtils.getHexForColor(color) }}
                 />
               </div>

@@ -8,6 +8,7 @@ import type { ClsService } from 'nestjs-cls';
 interface ITx {
   client?: Prisma.TransactionClient;
   id?: string;
+  rawOpMap?: unknown;
 }
 @Injectable()
 export class PrismaService
@@ -15,6 +16,8 @@ export class PrismaService
   implements OnModuleInit
 {
   private readonly logger = new Logger(PrismaService.name);
+
+  private afterTxCb?: () => void;
 
   constructor(private readonly cls: ClsService<{ tx: ITx }>) {
     const logConfig = {
@@ -42,6 +45,10 @@ export class PrismaService
     super(initialConfig);
   }
 
+  bindAfterTransaction(fn: () => void) {
+    this.afterTxCb = fn;
+  }
+
   /**
    * Executes a transaction using the provided function and options.
    * If a transaction client is already defined in the current context, the function is executed using it.
@@ -65,15 +72,17 @@ export class PrismaService
     }
 
     await this.cls.runWith(this.cls.get(), async () => {
-      result = await super.$transaction<R>(
-        async (prisma) => {
-          this.cls.set('tx.client', prisma);
-          this.cls.set('tx.id', nanoid());
-          return await fn(prisma);
-        },
-        { maxWait: 60000, timeout: 600000 }
-      );
+      result = await super.$transaction<R>(async (prisma) => {
+        this.cls.set('tx.client', prisma);
+        this.cls.set('tx.id', nanoid());
+        const res = await fn(prisma);
+        this.cls.set('tx.client', undefined);
+        this.cls.set('tx.id', undefined);
+        return res;
+      }, options);
+      this.afterTxCb?.();
     });
+
     return result;
   }
 

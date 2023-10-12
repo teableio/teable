@@ -8,9 +8,7 @@ import {
   RecordOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEqual } from 'lodash';
-import type { Connection } from 'sharedb/lib/client';
-import type { IRawOpMap } from '../../../share-db/interface';
+import { isEmpty, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { FieldSupplementService } from '../field-supplement.service';
@@ -53,12 +51,7 @@ export class FieldConvertingLinkService {
     };
   }
 
-  private async linkOptionsChange(
-    connection: Connection,
-    tableId: string,
-    newField: LinkFieldDto,
-    oldField: LinkFieldDto
-  ) {
+  private async linkOptionsChange(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
     if (
       newField.options.foreignTableId === oldField.options.foreignTableId &&
       newField.options.relationship === oldField.options.relationship
@@ -81,77 +74,52 @@ export class FieldConvertingLinkService {
         tableId,
         newField
       );
-      const createResult = await this.fieldCreatingService.createAndCalculate(
-        connection,
+      await this.fieldCreatingService.createAndCalculate(
         newField.options.foreignTableId,
         symmetricField
       );
 
       // delete old symmetric link
-      const deleteResult = await this.fieldDeletingService.delateAndCleanRef(
-        connection,
+      await this.fieldDeletingService.delateAndCleanRef(
         oldField.options.foreignTableId,
-        oldField.options.symmetricFieldId,
-        true
+        oldField.options.symmetricFieldId
       );
-      return {
-        rawOpMaps: [createResult.rawOpsMap, deleteResult.rawOpsMap].filter(Boolean) as IRawOpMap[],
-      };
+      return;
     }
 
     if (newField.options.relationship !== oldField.options.relationship) {
       await this.fieldSupplementService.cleanForeignKey(tableId, oldField.options);
       // create new symmetric link
       await this.fieldSupplementService.createForeignKey(tableId, newField);
-      const rawOpsMap = await this.fieldDeletingService.cleanField(
-        connection,
-        newField.options.foreignTableId,
-        [newField.options.symmetricFieldId]
-      );
-      const fieldChange = await this.generateSymmetricFieldChange(newField);
+      await this.fieldDeletingService.cleanField(newField.options.foreignTableId, [
+        newField.options.symmetricFieldId,
+      ]);
 
-      return {
-        rawOpMaps: rawOpsMap && [rawOpsMap],
-        fieldChange,
-      };
+      return this.generateSymmetricFieldChange(newField);
     }
   }
 
-  private async otherToLink(connection: Connection, tableId: string, newField: LinkFieldDto) {
+  private async otherToLink(tableId: string, newField: LinkFieldDto) {
     await this.fieldSupplementService.createForeignKey(tableId, newField);
     const symmetricField = await this.fieldSupplementService.generateSymmetricField(
       tableId,
       newField
     );
     await this.fieldSupplementService.createReference(newField);
-    const symmetricResult = await this.fieldCreatingService.createAndCalculate(
-      connection,
+    await this.fieldCreatingService.createAndCalculate(
       newField.options.foreignTableId,
       symmetricField
     );
-    return {
-      rawOpMaps: symmetricResult.rawOpsMap && [symmetricResult.rawOpsMap],
-    };
   }
 
-  private async linkToOther(connection: Connection, tableId: string, oldField: LinkFieldDto) {
-    const mainRawOpsMap = await this.fieldDeletingService.cleanRef(
-      connection,
-      tableId,
-      oldField.id,
-      true
-    );
+  private async linkToOther(tableId: string, oldField: LinkFieldDto) {
+    await this.fieldDeletingService.cleanRef(tableId, oldField.id, true);
 
-    const { rawOpsMap: symRawOpsMap } = await this.fieldDeletingService.delateAndCleanRef(
-      connection,
+    await this.fieldDeletingService.delateAndCleanRef(
       oldField.options.foreignTableId,
       oldField.options.symmetricFieldId,
       true
     );
-
-    return {
-      rawOpMaps: [symRawOpsMap, mainRawOpsMap].filter(Boolean) as IRawOpMap[],
-    };
   }
 
   /**
@@ -160,31 +128,24 @@ export class FieldConvertingLinkService {
    * 3. link field to other field
    */
   async supplementLink(
-    connection: Connection,
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
-  ): Promise<
-    | {
-        rawOpMaps?: IRawOpMap[];
-        fieldChange?: { tableId: string; newField: IFieldInstance; oldField: IFieldInstance };
-      }
-    | undefined
-  > {
+  ): Promise<{ tableId: string; newField: IFieldInstance; oldField: IFieldInstance } | void> {
     if (
       newField.type === FieldType.Link &&
       oldField.type === FieldType.Link &&
       !isEqual(newField.options, oldField.options)
     ) {
-      return this.linkOptionsChange(connection, tableId, newField, oldField);
+      return this.linkOptionsChange(tableId, newField, oldField);
     }
 
     if (newField.type !== FieldType.Link && oldField.type === FieldType.Link) {
-      return this.linkToOther(connection, tableId, oldField);
+      return this.linkToOther(tableId, oldField);
     }
 
     if (newField.type === FieldType.Link && oldField.type !== FieldType.Link) {
-      return this.otherToLink(connection, tableId, newField);
+      return this.otherToLink(tableId, newField);
     }
   }
 
@@ -212,6 +173,7 @@ export class FieldConvertingLinkService {
    * convert oldCellValue to new link field cellValue
    * if oldCellValue is not in foreignTable, create new record in foreignTable
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async convertLink(tableId: string, newField: LinkFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
     const foreignTableId = newField.options.foreignTableId;
@@ -298,7 +260,9 @@ export class FieldConvertingLinkService {
 
     return {
       recordOpsMap,
-      recordsForCreate: { [foreignTableId]: recordsForCreate },
+      recordsForCreate: isEmpty(recordsForCreate)
+        ? undefined
+        : { [foreignTableId]: recordsForCreate },
     };
   }
 }

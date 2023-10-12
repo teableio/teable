@@ -52,9 +52,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             }
           }}
         >
-          {table.icon || <Table2 className="w-4 h-4 shrink-0" />}
-          <p className="grow overflow-hidden text-ellipsis whitespace-nowrap">{' ' + table.name}</p>
-          <DeleteTable tableId={table.id} className="w-4 h-4 hidden group-hover:block shrink-0" />
+          {table.icon || <Table2 className="h-4 w-4 shrink-0" />}
+          <p className="grow truncate">{' ' + table.name}</p>
+          <DeleteTable tableId={table.id} className="hidden h-4 w-4 shrink-0 group-hover:block" />
         </Link>
       </Button>
       {isEditing && (
@@ -65,7 +65,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
           style={{
             boxShadow: 'none',
           }}
-          className="round-none outline-none top-0 left-0 w-full cursor-text absolute h-full px-4 bg-background"
+          className="round-none absolute left-0 top-0 h-full w-full cursor-text bg-background px-4 outline-none"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {

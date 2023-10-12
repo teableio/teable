@@ -76,14 +76,14 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       className={classNames('group cursor-pointer hover:shadow-md', className)}
       onClick={intoBase}
     >
-      <CardContent className="w-full h-full flex items-center px-4 py-6">
-        <Database className="min-w-[3.5rem] w-14 h-14" />
-        <div className="flex-1 h-full overflow-hidden">
-          <div className="flex justify-between items-center gap-3 p-0.5">
+      <CardContent className="flex h-full w-full items-center px-4 py-6">
+        <Database className="h-14 w-14 min-w-[3.5rem]" />
+        <div className="h-full flex-1 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 p-0.5">
             {renaming ? (
               <Input
                 ref={inputRef}
-                className="flex-1 h-7"
+                className="h-7 flex-1"
                 value={baseName}
                 onChange={(e) => setBaseName(e.target.value)}
                 onBlur={toggleRenameBase}

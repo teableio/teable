@@ -50,7 +50,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   };
 
   return (
-    <Command className="rounded-sm shadow-sm p-2 border" style={style}>
+    <Command className="rounded-sm border p-2 shadow-sm" style={style}>
       <CommandInput ref={inputRef} placeholder="Search" />
       <CommandList>
         <CommandEmpty>No found.</CommandEmpty>

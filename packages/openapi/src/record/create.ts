@@ -10,7 +10,7 @@ export const CREATE_RECORD = '/table/{tableId}/record';
 export const CreateRecordRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_RECORD,
-  description: 'Create multiple record',
+  description: 'Create multiple records',
   request: {
     params: z.object({
       tableId: z.string(),

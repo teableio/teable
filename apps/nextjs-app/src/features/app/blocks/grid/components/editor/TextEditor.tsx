@@ -44,16 +44,16 @@ const TextEditorBase: ForwardRefRenderFunction<
   return (
     <>
       {(cell as ITextCell)?.isWrap ? (
-        <div style={{ ...style, paddingBottom: 16 }} className="relative rounded-md flex flex-col">
+        <div style={{ ...style, paddingBottom: 16 }} className="relative flex flex-col rounded-md">
           <Textarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
             style={{ boxShadow: 'none' }}
-            className="w-full min-h-[80px] flex-1 px-2 pt-[6px] bg-background resize-none border-none leading-[22px]"
+            className="min-h-[80px] w-full flex-1 resize-none border-none bg-background px-2 pt-[6px] leading-[22px]"
             value={value}
             onChange={onChangeInner}
             onKeyDown={onKeyDown}
           />
-          <div className="absolute left-0 bottom-0 pr-1 pb-[2px] w-full text-right text-xs text-slate-400 dark:text-slate-600 bg-background rounded-b-md">
+          <div className="absolute bottom-0 left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
             Shift + Enter
           </div>
         </div>
@@ -64,7 +64,7 @@ const TextEditorBase: ForwardRefRenderFunction<
           value={value}
           width={'100%'}
           height={'100%'}
-          className="border-2 shadow-none h-full w-full focus-visible:ring-transparent px-2"
+          className="h-full w-full border-2 px-2 shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
         />
       )}

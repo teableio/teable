@@ -12,7 +12,6 @@ import type {
   IGetRecordsQuery,
   IMakeRequired,
   IRecord,
-  IRecordSnapshotQuery,
   IRecordsVo,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
@@ -36,8 +35,10 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
 import type { IAdapterService } from '../../share-db/interface';
+import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
+import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -54,6 +55,7 @@ export class RecordService implements IAdapterService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly batchService: BatchService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
     @InjectModel() private readonly knex: Knex
@@ -151,8 +153,8 @@ export class RecordService implements IAdapterService {
       // 2. generate rowIndexValues
       const rowIndexValues = rowIndexFieldNames.map(() => rowCount + i);
 
-      // 3. generate id, __row_default, __created_time, __created_by, __version
-      const systemValues = [generateRecordId(), rowCount + i, new Date().toISOString(), 'admin', 1];
+      // 3. generate id, __created_time, __created_by, __version
+      const systemValues = [generateRecordId(), new Date().toISOString(), 'admin', 1];
 
       dbValueMatrix.push([...recordValues, ...rowIndexValues, ...systemValues]);
     }
@@ -175,7 +177,7 @@ export class RecordService implements IAdapterService {
     const allDbFieldNames = [
       ...userFields.map((field) => field.dbFieldName),
       ...rowOrderFieldNames,
-      ...['__id', '__row_default', '__created_time', '__created_by', '__version'],
+      ...['__id', '__created_time', '__created_by', '__version'],
     ];
 
     const dbValueMatrix = await this.getDbValueMatrix(
@@ -214,7 +216,7 @@ export class RecordService implements IAdapterService {
 
   async buildQuery(
     tableId: string,
-    query: IRecordSnapshotQuery & {
+    query: IGetRecordsQuery & {
       select?: string | string[];
       viewId: string;
     }
@@ -222,11 +224,10 @@ export class RecordService implements IAdapterService {
     const {
       viewId,
       orderBy: extraOrderBy,
-      offset = 0,
-      limit = 10,
+      skip = 0,
+      take = 10,
       select,
       filter: extraFilter,
-      where = {},
     } = query;
 
     const view = await this.prismaService.txClient().view.findFirstOrThrow({
@@ -255,16 +256,14 @@ export class RecordService implements IAdapterService {
     }
 
     // All `where` condition-related construction work
-    const filterQueryTranslator = new FilterQueryTranslator(queryBuilder, fieldMap, filter);
     const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
 
-    filterQueryTranslator
-      .translateToSql()
-      .andWhere(where)
-      .orderBy(translatedOrderby)
-      .orderBy(orderFieldName, 'asc')
-      .offset(offset)
-      .limit(limit);
+    queryBuilder.orderBy(translatedOrderby).orderBy(orderFieldName, 'asc').offset(skip);
+    if (take !== -1) {
+      queryBuilder.limit(take);
+    }
+
+    new FilterQueryTranslator(queryBuilder, fieldMap, filter);
 
     return { queryBuilder };
   }
@@ -391,10 +390,9 @@ export class RecordService implements IAdapterService {
     const viewId = defaultView.id;
 
     const queryResult = await this.getDocIdsByQuery(tableId, {
-      type: IdPrefix.Record,
       viewId,
-      offset: query.skip,
-      limit: query.take,
+      skip: query.skip,
+      take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
     });
@@ -450,43 +448,101 @@ export class RecordService implements IAdapterService {
     return result[0].__id;
   }
 
+  async getMaxRecordOrder(dbTableName: string) {
+    const sqlNative = this.knex(dbTableName).max('__auto_number', { as: 'max' }).toSQL().toNative();
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ max?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+
+    return Number(result[0]?.max ?? 0) + 1;
+  }
+
+  async batchDeleteRecords(tableId: string, recordIds: string[]) {
+    const dbTableName = await this.getDbTableName(tableId);
+    // get version by recordIds, __id as id, __version as version
+    const nativeSql = this.knex(dbTableName)
+      .select('__id as id', '__version as version')
+      .whereIn('__id', recordIds)
+      .toSQL()
+      .toNative();
+    const recordRaw = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeSql.sql, ...nativeSql.bindings);
+
+    if (recordIds.length !== recordRaw.length) {
+      throw new BadRequestException('delete record not found');
+    }
+
+    const recordRawMap = keyBy(recordRaw, 'id');
+
+    const dataList = recordIds.map((recordId) => ({
+      docId: recordId,
+      version: recordRawMap[recordId].version,
+    }));
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
+
+    await this.batchDel(tableId, recordIds);
+  }
+
+  async batchCreateRecords(tableId: string, records: IRecord[]) {
+    const snapshots = await this.createBatch(tableId, records);
+
+    const dataList = snapshots.map((snapshot) => ({
+      docId: snapshot.__id,
+      version: 0,
+    }));
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
+  }
+
   async create(tableId: string, snapshot: IRecord) {
+    await this.createBatch(tableId, [snapshot]);
+  }
+
+  private async createBatch(tableId: string, records: IRecord[]) {
     const userId = this.cls.get('user.id');
     const dbTableName = await this.getDbTableName(tableId);
 
-    // TODO: get row count will causes performance issus when insert lot of records
-    const rowCount = await this.getAllRecordCount(dbTableName);
+    const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
+
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
     });
 
-    const orders = views.reduce<{ [viewId: string]: number }>((pre, cur) => {
-      const viewOrderFieldName = getViewOrderFieldName(cur.id);
-      if (snapshot.recordOrder[cur.id] !== undefined) {
-        pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
-      } else {
-        pre[viewOrderFieldName] = rowCount;
-      }
-      return pre;
-    }, {});
+    const snapshots = records
+      .map((snapshot, i) =>
+        views.reduce<{ [viewId: string]: number }>((pre, cur) => {
+          const viewOrderFieldName = getViewOrderFieldName(cur.id);
+          if (snapshot.recordOrder[cur.id] !== undefined) {
+            pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
+          } else {
+            pre[viewOrderFieldName] = maxRecordOrder + i;
+          }
+          return pre;
+        }, {})
+      )
+      .map((order, i) => {
+        const snapshot = records[i];
+        return {
+          __id: snapshot.id,
+          __created_by: userId,
+          __last_modified_by: userId,
+          __version: 1,
+          ...order,
+        };
+      });
 
-    const nativeSql = this.knex(dbTableName)
-      .insert({
-        __id: snapshot.id,
-        __row_default: rowCount,
-        __created_by: userId,
-        __last_modified_by: userId,
-        __version: 1,
-        ...orders,
-      })
-      .toSQL()
-      .toNative();
+    const nativeSql = this.knex(dbTableName).insert(snapshots).toSQL().toNative();
 
     await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+
+    return snapshots;
   }
 
-  async del(tableId: string, recordId: string) {
+  private async batchDel(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId },
@@ -495,18 +551,24 @@ export class RecordService implements IAdapterService {
     const attachmentFields = fields.filter((field) => field.type === FieldType.Attachment);
 
     await this.attachmentService.delete(
-      attachmentFields.map(({ id }) => ({ tableId, recordId, fieldId: id }))
+      attachmentFields.reduce<{ tableId: string; recordId: string; fieldId: string }[]>(
+        (pre, { id }) => {
+          recordIds.forEach((recordId) => {
+            pre.push({ tableId, recordId, fieldId: id });
+          });
+          return pre;
+        },
+        []
+      )
     );
 
-    const nativeSql = this.knex(dbTableName)
-      .where({
-        __id: recordId,
-      })
-      .del()
-      .toSQL()
-      .toNative();
+    const nativeSql = this.knex(dbTableName).whereIn('__id', recordIds).del().toSQL().toNative();
 
     await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+  }
+
+  async del(_version: number, tableId: string, recordId: string) {
+    await this.batchDel(tableId, [recordId]);
   }
 
   async update(
@@ -627,7 +689,7 @@ export class RecordService implements IAdapterService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IRecordSnapshotQuery
+    query: IGetRecordsQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const { id: viewId } = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true },
@@ -635,13 +697,13 @@ export class RecordService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    const { limit = 100 } = query;
+    const { take = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
 
-    if (limit > 1000) {
-      throw new BadRequestException(`limit can't be greater than ${limit}`);
+    if (take > 1000) {
+      throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
     // If you return `queryBuilder` directly and use `await` to receive it,
@@ -676,10 +738,9 @@ export class RecordService implements IAdapterService {
     const fieldNames = fields.map((f) => f.dbFieldName);
 
     const { queryBuilder } = await this.buildQuery(tableId, {
-      type: IdPrefix.Record,
       viewId: viewId,
-      offset: skip,
-      limit: take,
+      skip,
+      take,
       filter,
       orderBy,
       select: fieldNames.concat('__id'),

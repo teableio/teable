@@ -5,7 +5,6 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import type { IRawOpMap } from '../../share-db/interface';
 import { Timing } from '../../utils/timing';
 import { tinyPreservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
@@ -120,36 +119,8 @@ export class FieldCalculationService {
     throw new Error('Invalid relationship');
   }
 
-  private async getOriginComputedRecords(
-    tableId: string,
-    tableId2DbTableName: Record<string, string>,
-    field: IFieldInstance
-  ): Promise<{ dbTableName: string; id: string }[]> {
-    let records: { dbTableName: string; id: string }[] = [];
-    if (field.lookupOptions) {
-      records = records.concat(
-        await this.getOriginLookupRecords(tableId, tableId2DbTableName, field)
-      );
-
-      // if nothing to lookup, we don't have to calculate this field
-      if (!records.length) {
-        return records;
-      }
-    }
-
-    const dbTableName = tableId2DbTableName[tableId];
-    records = records.concat(await this.getSelfOriginRecords(dbTableName));
-
-    return records;
-  }
-
   @Timing()
-  async calculateFields(
-    src: string,
-    tableId: string,
-    fieldIds: string[],
-    reset?: boolean
-  ): Promise<IRawOpMap | undefined> {
+  async calculateFields(tableId: string, fieldIds: string[], reset?: boolean) {
     const result = reset
       ? await this.getChangedOpsMapByReset(tableId, fieldIds)
       : await this.getChangedOpsMap(tableId, fieldIds);
@@ -158,7 +129,7 @@ export class FieldCalculationService {
       return;
     }
     const { opsMap, fieldMap, tableId2DbTableName } = result;
-    return await this.batchService.save(src, opsMap, fieldMap, tableId2DbTableName);
+    await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
   async getTopoOrdersContext(fieldIds: string[]): Promise<ITopoOrdersContext> {
@@ -193,12 +164,30 @@ export class FieldCalculationService {
     tableId2DbTableName: { [tableId: string]: string };
     topoOrdersByFieldId: { [fieldId: string]: ITopoItem[] };
     fieldMap: IFieldMap;
+    originRecordIds?: string[];
   }) {
-    const { tableId, fieldId2TableId, tableId2DbTableName, topoOrdersByFieldId, fieldMap } = params;
+    const {
+      tableId,
+      fieldId2TableId,
+      tableId2DbTableName,
+      topoOrdersByFieldId,
+      fieldMap,
+      originRecordIds,
+    } = params;
     // the origin change will lead to affected record changes
     let affectedRecordItems: IRecordRefItem[] = [];
     let originRecordIdItems: { dbTableName: string; id: string }[] = [];
+
+    const dbTableName = tableId2DbTableName[tableId];
+
+    if (originRecordIds) {
+      originRecordIdItems = originRecordIds.map((id) => ({ dbTableName, id }));
+    } else {
+      originRecordIdItems = await this.getSelfOriginRecords(dbTableName);
+    }
+
     for (const fieldId in topoOrdersByFieldId) {
+      const field = fieldMap[fieldId];
       const topoOrders = topoOrdersByFieldId[fieldId];
       const linkOrders = this.referenceService.getLinkOrderFromTopoOrders({
         tableId2DbTableName,
@@ -210,24 +199,26 @@ export class FieldCalculationService {
       if (!fieldMap[fieldId].isComputed) {
         continue;
       }
+      let itemsToCalculate = originRecordIdItems;
 
-      const originItems = await this.getOriginComputedRecords(
-        tableId,
-        tableId2DbTableName,
-        fieldMap[fieldId]
-      );
+      if (field.lookupOptions) {
+        itemsToCalculate = await this.getOriginLookupRecords(tableId, tableId2DbTableName, field);
+        originRecordIdItems = originRecordIdItems.concat(itemsToCalculate);
+      }
 
-      if (!originItems.length) {
+      if (!itemsToCalculate.length) {
         continue;
       }
 
       // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
       // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
-      const items = await this.referenceService.getAffectedRecordItems(linkOrders, originItems);
+      const items = await this.referenceService.getAffectedRecordItems(
+        linkOrders,
+        itemsToCalculate
+      );
       // nameConsole('fieldId:', { fieldId }, fieldMap);
       // nameConsole('affectedRecordItems:', items, fieldMap);
       affectedRecordItems = affectedRecordItems.concat(items);
-      originRecordIdItems = originRecordIdItems.concat(originItems);
     }
     return { affectedRecordItems, originRecordIdItems };
   }
@@ -335,14 +326,14 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async getChangedOpsMap(tableId: string, fieldIds: string[]) {
+  async getChangedOpsMap(tableId: string, fieldIds: string[], recordIds?: string[]) {
     if (!fieldIds.length) {
       return undefined;
     }
 
     const context = await this.getTopoOrdersContext(fieldIds);
     const { fieldMap, tableId2DbTableName } = context;
-    const changes = await this.calculateChanges(tableId, context);
+    const changes = await this.calculateChanges(tableId, context, undefined, recordIds);
     if (!changes.length) {
       return;
     }
@@ -354,7 +345,8 @@ export class FieldCalculationService {
   private async calculateChanges(
     tableId: string,
     context: ITopoOrdersContext,
-    resetFieldIds?: string[]
+    resetFieldIds?: string[],
+    recordIds?: string[]
   ) {
     const {
       fieldMap,
@@ -369,6 +361,7 @@ export class FieldCalculationService {
       tableId2DbTableName,
       topoOrdersByFieldId,
       fieldMap,
+      originRecordIds: recordIds,
     });
 
     const dependentRecordItems = await this.referenceService.getDependentRecordItems(
@@ -376,6 +369,7 @@ export class FieldCalculationService {
     );
 
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
+    // nameConsole('recordIds', recordIds, fieldMap);
     // nameConsole('originRecordIdItems', originRecordIdItems, fieldMap);
     // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
     // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);

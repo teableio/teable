@@ -21,11 +21,11 @@ export const SpaceInnerPage: FC = () => {
   const space = spaceData?.data;
 
   return (
-    <div ref={ref} className="w-full h-screen flex flex-col py-8">
-      <div className="flex px-12 justify-between items-center">
+    <div ref={ref} className="flex h-screen w-full flex-col py-8">
+      <div className="flex items-center justify-between px-12">
         <h4>{space?.name}</h4>
       </div>
-      <div className="flex-1 px-12 pt-8 space-y-8 overflow-y-auto">
+      <div className="flex-1 space-y-8 overflow-y-auto px-12 pt-8">
         {space && (
           <SpaceCard
             key={space.id}

@@ -26,14 +26,14 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
   const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
       ...field,
-      name: e.target.value,
+      name: e.target.value || undefined,
     });
   };
 
   const updateFieldDesc = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
       ...field,
-      description: e.target.value,
+      description: e.target.value || undefined,
     });
   };
 
@@ -141,21 +141,21 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
   };
 
   return (
-    <div className="flex-1 w-full overflow-y-auto gap-2 px-2 text-sm">
+    <div className="w-full flex-1 gap-2 overflow-y-auto px-2 text-sm">
       {/* General */}
       <div className="flex flex-col gap-2">
-        <div className="w-full flex flex-col gap-2">
+        <div className="flex w-full flex-col gap-2">
           <div>
             <span className="label-text mb-2">Name</span>
           </div>
           <Input
             placeholder="Field name (optional)"
             className="h-8"
-            value={field['name']}
+            value={field['name'] || ''}
             onChange={updateFieldName}
           />
           {!showDescription && (
-            <p className="text-xs font-medium text-left text-slate-500">
+            <p className="text-left text-xs font-medium text-slate-500">
               <span
                 onClick={() => {
                   setShowDescription(true);
@@ -175,7 +175,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
           )}
         </div>
         {showDescription && (
-          <div className="w-full flex flex-col gap-2">
+          <div className="flex w-full flex-col gap-2">
             <div>
               <span className="label-text mb-2">Description</span>
             </div>
@@ -187,7 +187,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             />
           </div>
         )}
-        <div className="w-full flex flex-col gap-2">
+        <div className="flex w-full flex-col gap-2">
           <div>
             <span className="label-text mb-2">Type</span>
           </div>
@@ -195,7 +195,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             value={field.isLookup ? 'lookup' : field.type}
             onChange={updateFieldTypeWithLookup}
           />
-          <p className="text-xs font-medium text-left text-slate-500">
+          <p className="text-left text-xs font-medium text-slate-500">
             {field.isLookup
               ? 'See values from a field in a linked record.'
               : getFieldSubtitle(field.type)}

@@ -3,41 +3,18 @@ import { fieldVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { rangesSchema } from './range';
 
 export const COPY_URL = '/table/{tableId}/view/{viewId}/selection/copy';
 
-export enum RangeType {
-  Rows = 'Rows',
-  Columns = 'Columns',
-}
-
-export const cellSchema = z.tuple([z.number(), z.number()]);
-
-export const copyRoSchema = z.object({
-  ranges: z
-    .string()
-    .refine((value) => z.array(cellSchema).safeParse(JSON.parse(value)).success, {
-      message: 'The range parameter must be a valid 2D array with even length.',
-    })
-    .openapi({
-      description:
-        'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
-      example: '[[0, 0],[1, 1]]',
-    }),
-  type: z.nativeEnum(RangeType).optional().openapi({
-    description: 'Types of non-contiguous selections',
-    example: RangeType.Columns,
-  }),
-});
-
-export type CopyRo = z.infer<typeof copyRoSchema>;
+export type ICopyRo = z.infer<typeof rangesSchema>;
 
 export const copyVoSchema = z.object({
   content: z.string(),
   header: fieldVoSchema.array(),
 });
 
-export type CopyVo = z.infer<typeof copyVoSchema>;
+export type ICopyVo = z.infer<typeof copyVoSchema>;
 
 export const CopyRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -45,10 +22,10 @@ export const CopyRoute: RouteConfig = registerRoute({
   description: 'Copy operations in tables',
   request: {
     params: z.object({
-      teableId: z.string(),
+      tableId: z.string(),
       viewId: z.string(),
     }),
-    query: copyRoSchema,
+    query: rangesSchema,
   },
   responses: {
     200: {
@@ -63,8 +40,8 @@ export const CopyRoute: RouteConfig = registerRoute({
   tags: ['selection'],
 });
 
-export const copy = async (tableId: string, viewId: string, copyRo: CopyRo) => {
-  return axios.get<CopyVo>(
+export const copy = async (tableId: string, viewId: string, copyRo: ICopyRo) => {
+  return axios.get<ICopyVo>(
     urlBuilder(COPY_URL, {
       tableId,
       viewId,

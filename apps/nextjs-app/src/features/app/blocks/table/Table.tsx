@@ -38,7 +38,7 @@ export const Table: React.FC<ITableProps> = ({
     <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
       <ViewProvider serverData={viewServerData}>
         <AggregationProvider>
-          <div className="grow flex flex-col h-full basis-[500px]">
+          <div className="flex h-full grow basis-[500px] flex-col">
             <TableHeader />
             <FieldProvider serverSideData={fieldServerData}>
               <ToolBar />
@@ -46,7 +46,7 @@ export const Table: React.FC<ITableProps> = ({
                 <RowCountProvider>
                   <ErrorBoundary
                     fallback={
-                      <div className="w-full h-full flex justify-center items-center">
+                      <div className="flex h-full w-full items-center justify-center">
                         <FailAlert />
                       </div>
                     }

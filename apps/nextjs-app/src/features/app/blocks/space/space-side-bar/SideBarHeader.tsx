@@ -6,9 +6,9 @@ export const SideBarHeader: React.FC = () => {
   const isHydrated = useIsHydrated();
 
   return (
-    <div className="flex m-2 gap-1 items-center">
-      <TeableNew className="w-6 h-6 shrink-0" />
-      <p className="text-sm overflow-hidden text-ellipsis whitespace-nowrap">Table</p>
+    <div className="m-2 flex items-center gap-1">
+      <TeableNew className="h-6 w-6 shrink-0" />
+      <p className="truncate text-sm">Table</p>
       <div className="grow basis-0"></div>
       {isHydrated && <ThemePicker className="px-1" />}
     </div>

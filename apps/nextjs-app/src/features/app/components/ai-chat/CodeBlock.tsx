@@ -39,19 +39,19 @@ export const CodeBlock: React.FC<Props> = ({ language, value, onExecute }) => {
   };
 
   return (
-    <div className="w-full max-w-full relative font-sans text-sm">
-      <div className="flex items-center justify-between py-2 px-4">
-        <span className="text-xs text-white font-mono">{language}</span>
+    <div className="relative w-full max-w-full font-sans text-sm">
+      <div className="flex items-center justify-between px-4 py-2">
+        <span className="font-mono text-xs text-white">{language}</span>
         <div className="flex items-center space-x-2">
           <button
-            className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white opacity-70 hover:opacity-100 bg-gray-500"
+            className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
             onClick={copyToClipboard}
           >
             <CopyIcon />
           </button>
           {showExecuteButton && (
             <button
-              className="flex justify-center items-center rounded bg-none w-6 h-6 p-1 text-xs text-white opacity-70 hover:opacity-100 bg-gray-500"
+              className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
               onClick={handleExecuteQuery}
             >
               ▶️

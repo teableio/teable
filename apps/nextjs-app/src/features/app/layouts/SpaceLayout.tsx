@@ -13,7 +13,7 @@ export const SpaceLayout: React.FC<{
     <AppLayout>
       <AppProvider>
         <SessionProvider user={user}>
-          <div id="portal" className="h-screen flex items-start w-full relative">
+          <div id="portal" className="relative flex h-screen w-full items-start">
             <SideBar />
             {children}
           </div>

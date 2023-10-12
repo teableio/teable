@@ -101,10 +101,10 @@ const FieldSettingBase = (props: IFieldSetting) => {
 
   return (
     <Sheet open={visible} onOpenChange={onOpenChange}>
-      <SheetContent className="p-2 w-[320px]" side="right">
-        <div className="h-full flex flex-col gap-2">
+      <SheetContent className="w-[320px] p-2" side="right">
+        <div className="flex h-full flex-col gap-2">
           {/* Header */}
-          <div className="text-md w-full mx-2 py-2 font-semibold border-b">{title}</div>
+          <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
           {/* Content Form */}
           {<FieldEditor field={field} onChange={onFieldEditorChange} />}
           {/* Footer */}

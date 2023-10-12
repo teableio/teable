@@ -30,7 +30,7 @@ export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ childr
         </DialogHeader>
         <Tabs defaultValue="system" orientation="vertical" className="flex gap-4">
           <div>
-            <TabsList className="grid-row-2 grid w-full gap-2 h-auto">
+            <TabsList className="grid-row-2 grid h-auto w-full gap-2">
               <TabsTrigger value="system">System</TabsTrigger>
               <TabsTrigger value="profile">Profile</TabsTrigger>
             </TabsList>

@@ -10,7 +10,7 @@ import { GridView } from './grid/GridView';
 
 const Graph = dynamic(() => import('../graph/Graph').then<React.FC>((mod) => mod.Graph), {
   loading: () => (
-    <div className="absolute top-20 right-10 bg-background rounded shadow border w-96 space-y-2 p-4">
+    <div className="absolute right-10 top-20 w-96 space-y-2 rounded border bg-background p-4 shadow">
       <Skeleton className="h-6 w-full" />
       <Skeleton className="h-6 w-full" />
       <Skeleton className="h-6 w-full" />

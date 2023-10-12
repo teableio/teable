@@ -74,9 +74,9 @@ export class AttachmentsTableService {
       {} as {
         [key: string]: {
           tableId: string;
-          recordId?: string;
-          fieldId?: string;
-          attachmentId?: string;
+          recordId: string;
+          fieldId: string;
+          attachmentId: string;
         };
       }
     );
@@ -94,27 +94,36 @@ export class AttachmentsTableService {
       });
     }
 
-    await this.delete(needDeleteKey.map((key) => existsMap[key]));
+    const toDeletes = needDeleteKey.map((key) => existsMap[key]);
+    toDeletes.length && (await this.delete(toDeletes));
   }
 
   async delete(
     query: {
       tableId: string;
-      recordId?: string;
-      fieldId?: string;
+      recordId: string;
+      fieldId: string;
       attachmentId?: string;
     }[]
   ) {
-    const userId = this.cls.get('user.id');
-
-    for (let i = 0; i < query.length; i++) {
-      await this.prismaService.txClient().attachmentsTable.updateMany({
-        where: query[i],
-        data: {
-          deletedTime: new Date(),
-          lastModifiedBy: userId,
-        },
-      });
+    if (!query.length) {
+      return;
     }
+
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
+      where: { OR: query },
+    });
+  }
+
+  async deleteFields(tableId: string, fieldIds: string[]) {
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
+      where: { tableId, fieldId: { in: fieldIds } },
+    });
+  }
+
+  async deleteTable(tableId: string) {
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
+      where: { tableId },
+    });
   }
 }

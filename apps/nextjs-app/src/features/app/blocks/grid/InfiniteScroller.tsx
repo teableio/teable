@@ -187,7 +187,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     <>
       <div
         ref={horizontalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-scroll overflow-y-hidden h-4 left-0 bottom-[2px] scrollbar scrollbar-h-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-foreground/40"
+        className="absolute bottom-[2px] left-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px]"
         style={{
           left,
           width: containerWidth - left,
@@ -204,14 +204,14 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       </div>
       <div
         ref={verticalScrollRef}
-        className="absolute will-change-transform cursor-pointer overflow-x-hidden overflow-y-scroll w-4 right-[2px] scrollbar scrollbar-w-[10px] scrollbar-thumb-rounded-md scrollbar-thumb-foreground/40 scrollbar-min-thumb"
+        className="absolute right-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb"
         style={{
           top,
           height: containerHeight - top,
         }}
         onScroll={(e) => onScroll(e, 'vertical')}
       >
-        <div className="flex flex-col shrink-0">{placeholderElements}</div>
+        <div className="flex shrink-0 flex-col">{placeholderElements}</div>
       </div>
     </>
   );
