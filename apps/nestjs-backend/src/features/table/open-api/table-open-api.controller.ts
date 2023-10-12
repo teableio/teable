@@ -34,12 +34,12 @@ export class TableController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
   ): Promise<ITableVo> {
-    return await this.tableService.getTable(baseId, tableId, query);
+    return await this.tableOpenApiService.getTable(baseId, tableId, query);
   }
 
   @Get()
   async getTables(@Param('baseId') baseId: string): Promise<ITableListVo> {
-    return await this.tableService.getTables(baseId);
+    return await this.tableOpenApiService.getTables(baseId);
   }
 
   @Post()

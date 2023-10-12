@@ -21,4 +21,12 @@ export abstract class ViewCore implements IViewVo {
   order!: number;
 
   abstract options: unknown;
+
+  createdBy!: string;
+
+  lastModifiedBy!: string;
+
+  createdTime!: string;
+
+  lastModifiedTime!: string;
 }
