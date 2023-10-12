@@ -77,7 +77,7 @@ export const RecordMenu = () => {
         <CommandGroup className="p-0" aria-valuetext="name">
           {menuItems.map(({ type, name, icon, onClick }) => (
             <CommandItem
-              className="py-2 px-4"
+              className="px-4 py-2"
               key={type}
               value={name}
               onSelect={async () => {

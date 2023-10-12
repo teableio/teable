@@ -53,13 +53,13 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           }}
         >
           <Sheet className="h-4 w-4 shrink-0" />
-          <p className="shrink-1 overflow-hidden text-ellipsis whitespace-nowrap">{view.name}</p>
+          <p className="shrink-1 truncate">{view.name}</p>
         </Link>
       </Button>
     );
   };
   return (
-    <div className={'flex items-center relative justify-start max-w-[33%] min-w-[100px]'}>
+    <div className={'relative flex min-w-[100px] max-w-[33%] items-center justify-start'}>
       {!isEditing && (
         <>
           <DropdownMenu>
@@ -92,7 +92,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           type="text"
           placeholder="name"
           defaultValue={view.name}
-          className="min-w-[150px] h-6 py-0 cursor-text focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="h-6 min-w-[150px] cursor-text py-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {

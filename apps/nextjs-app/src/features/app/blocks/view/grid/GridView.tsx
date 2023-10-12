@@ -351,8 +351,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           onRowExpand={onRowExpand}
         />
       ) : (
-        <div className="flex items-center space-x-4 w-full">
-          <div className="space-y-3 px-2 w-full">
+        <div className="flex w-full items-center space-x-4">
+          <div className="w-full space-y-3 px-2">
             <Skeleton className="h-6 w-full" />
             <Skeleton className="h-6 w-full" />
             <Skeleton className="h-6 w-full" />

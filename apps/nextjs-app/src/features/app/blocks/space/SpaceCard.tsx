@@ -76,11 +76,11 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   return (
     <Card className="w-full">
       <CardHeader className="pt-5">
-        <div className="flex justify-between items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           {renaming ? (
             <Input
               ref={inputRef}
-              className="flex-1 h-7"
+              className="h-7 flex-1"
               value={spaceName}
               onChange={(e) => setSpaceName(e.target.value)}
               onBlur={(e) => toggleUpdateSpace(e)}
@@ -114,11 +114,11 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
         {bases?.length ? (
           <div className="flex flex-wrap gap-4">
             {bases.map((base) => (
-              <BaseCard key={base.id} className="min-w-[17rem] flex-1 h-24" base={base} />
+              <BaseCard key={base.id} className="h-24 min-w-[17rem] flex-1" base={base} />
             ))}
           </div>
         ) : (
-          <div className="w-full h-24 flex items-center justify-center">
+          <div className="flex h-24 w-full items-center justify-center">
             This workspace is empty
           </div>
         )}

@@ -8,14 +8,14 @@ export const Others: React.FC = () => {
   return (
     <div className="flex">
       <Button variant={'ghost'} size={'xs'} className="font-normal">
-        <ArrowUpRight className="w-4 h-4" />
+        <ArrowUpRight className="h-4 w-4" />
         Share
       </Button>
 
       <Popover>
         <PopoverTrigger asChild>
           <Button variant={'ghost'} size={'xs'} className="font-normal">
-            <Component className="w-4 h-4" />
+            <Component className="h-4 w-4" />
             Extensions
           </Button>
         </PopoverTrigger>
@@ -24,10 +24,10 @@ export const Others: React.FC = () => {
             <Button
               variant={'ghost'}
               size={'xs'}
-              className="font-normal w-full justify-start"
+              className="w-full justify-start font-normal"
               onClick={() => toggleGraph()}
             >
-              <Share2 className="text-lg pr-1" />
+              <Share2 className="pr-1 text-lg" />
               Graph
             </Button>
           </div>
@@ -35,7 +35,7 @@ export const Others: React.FC = () => {
       </Popover>
       <Button variant={'ghost'} size={'xs'} className="font-normal" asChild>
         <Link href="/docs" target="_blank">
-          <Code2 className="w-4 h-4" />
+          <Code2 className="h-4 w-4" />
           API
         </Link>
       </Button>

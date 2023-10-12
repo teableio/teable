@@ -83,7 +83,7 @@ export const SelectOptions = (props: {
                   style={{
                     backgroundColor: ColorUtils.getHexForColor(color),
                   }}
-                  className="rounded-full w-4 h-4"
+                  className="h-4 w-4 rounded-full"
                 />
               </PopoverTrigger>
               <PopoverContent className="w-auto">
@@ -112,12 +112,12 @@ export const SelectOptions = (props: {
       })}
       <li className="mt-1">
         <Button
-          className="gap-2 font-normal w-full"
+          className="w-full gap-2 font-normal"
           size={'xs'}
           variant={'ghost'}
           onClick={addOption}
         >
-          <PlusCircle className="w-4 h-4" />
+          <PlusCircle className="h-4 w-4" />
           Add option
         </Button>
       </li>
@@ -134,7 +134,7 @@ export const ColorPicker = ({
 }) => {
   const colors = Object.values(Colors);
   return (
-    <div className="flex w-80 p-2 flex-wrap">
+    <div className="flex w-80 flex-wrap p-2">
       {colors.map((col) => (
         <button
           key={col}
@@ -147,7 +147,7 @@ export const ColorPicker = ({
             style={{
               backgroundColor: ColorUtils.getHexForColor(col),
             }}
-            className="rounded-full w-4 h-4"
+            className="h-4 w-4 rounded-full"
           ></div>
         </button>
       ))}

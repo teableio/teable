@@ -95,12 +95,12 @@ export const RatingOptions = (props: {
 
   return (
     <div className="form-control space-y-2">
-      <div className="flex flex-col gap-2 w-full">
+      <div className="flex w-full flex-col gap-2">
         <Label className="font-normal">Style</Label>
-        <div className="w-full flex flex-col items-center">
+        <div className="flex w-full flex-col items-center">
           {RATING_ICON_LIST.map((group, index) => {
             return (
-              <div key={index} className="flex my-1">
+              <div key={index} className="my-1 flex">
                 {group.map((item) => {
                   const { id, Icon, colorKey } = item;
                   const isSelected = selectedIcon === id && selectedColor === colorKey;
@@ -122,10 +122,10 @@ export const RatingOptions = (props: {
           })}
         </div>
       </div>
-      <div className="flex flex-col gap-2 w-full">
+      <div className="flex w-full flex-col gap-2">
         <Label className="font-normal">Maximum</Label>
         <Select value={max?.toString()} onValueChange={onMaximumChange}>
-          <SelectTrigger className="w-full h-8">
+          <SelectTrigger className="h-8 w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

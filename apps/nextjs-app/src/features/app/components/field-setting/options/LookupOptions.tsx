@@ -50,7 +50,7 @@ export const LookupOptions = (props: {
   const existLinkField = linkFields.length > 0;
 
   return (
-    <div className="space-y-2 w-full">
+    <div className="w-full space-y-2">
       {existLinkField ? (
         <>
           <div className="space-y-2">

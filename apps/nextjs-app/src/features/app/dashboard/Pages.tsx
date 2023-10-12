@@ -10,14 +10,14 @@ export function DashboardPage() {
 
   return (
     <AnchorProvider viewId={viewId} tableId={tableId}>
-      <div className="flex-col md:flex h-full">
-        <div className="flex flex-col flex-1 gap-2 lg:gap-4 h-full">
-          <div className="lg:flex items-center justify-between space-y-2 pt-6 px-8 pb-2">
+      <div className="h-full flex-col md:flex">
+        <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
+          <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
             <Pickers setAnchor={setAnchor} />
           </div>
           <Tabs defaultValue="overview" className="overflow-y-auto">
-            <div className="sticky top-0 bg-background px-8 z-[1] pb-4">
+            <div className="sticky top-0 z-[1] bg-background px-8 pb-4">
               <TabsList className="shrink-0">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="analytics" disabled>
