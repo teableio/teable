@@ -507,7 +507,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
       expect(newField).toMatchObject({
         cellValueType: CellValueType.Boolean,
-        dbFieldType: DbFieldType.Integer,
+        dbFieldType: DbFieldType.Boolean,
         type: FieldType.Checkbox,
       });
       expect(values[0]).toEqual(true);
