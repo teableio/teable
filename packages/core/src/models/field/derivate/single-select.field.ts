@@ -20,12 +20,13 @@ export class SingleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
+    const cellValue = String(value).replace(/\n|\r/g, ' ');
     if (shouldExtend) {
-      return String(value);
+      return cellValue;
     }
 
-    if (this.options.choices.find((c) => c.name === value)) {
-      return value;
+    if (this.options.choices.find((c) => c.name === cellValue)) {
+      return cellValue;
     }
 
     return null;

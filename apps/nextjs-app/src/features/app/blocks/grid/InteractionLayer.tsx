@@ -325,7 +325,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.Cell: {
         const { columnIndex, rowIndex } = mouseState;
         const cell = getCellContent([columnIndex, rowIndex]);
-        if (cell.readonly) return;
         const cellRenderer = getCellRenderer(cell.type);
         const cellClick = cellRenderer.onClick;
         if (cellClick && onCellEdited && hoverCellPosition) {
@@ -391,7 +390,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { columnIndex, rowIndex } = mouseState;
     const cell = getCellContent([columnIndex, rowIndex]);
     const cellRenderer = getCellRenderer(cell.type);
-    if (cell.readonly) return;
     if (cellRenderer.needsHover && hoverCellPosition) {
       const isBound = cellRenderer.checkWithinBound?.(cell as never, {
         width: coordInstance.getColumnWidth(columnIndex),

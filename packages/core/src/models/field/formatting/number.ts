@@ -44,14 +44,12 @@ export const defaultNumberFormatting: INumberFormatting = {
 
 export const DEFAULT_CURRENCY_SYMBOL = '$';
 
-export const formatNumberToString = (
-  cellValue: number | undefined,
-  formatting: INumberFormatting
-) => {
-  if (cellValue == null) {
+export const formatNumberToString = (value: number | undefined, formatting: INumberFormatting) => {
+  if (value == null) {
     return '';
   }
 
+  const cellValue = Number(value);
   const { type, precision } = formatting;
 
   if (type === NumberFormattingType.Currency) {

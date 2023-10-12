@@ -1,15 +1,16 @@
-import type { INumberShowAs } from '@teable-group/core';
+import type { IUnionShowAs } from '@teable-group/core';
 import { CellValueType } from '@teable-group/core';
 import type { FC } from 'react';
 import { useMemo } from 'react';
 import { MultiNumberShowAs } from './MultiNumberShowAs';
+import { SingleTextLineShowAs } from './SingleLineTextShowAs';
 import { SingleNumberShowAs } from './SingleNumberShowAs';
 
 interface IUnionShowAsProps {
-  showAs?: INumberShowAs;
+  showAs?: IUnionShowAs;
   cellValueType?: CellValueType;
   isMultipleCellValue?: boolean;
-  onChange?: (showAs?: INumberShowAs) => void;
+  onChange?: (showAs?: IUnionShowAs) => void;
 }
 
 export const UnionShowAs: FC<IUnionShowAsProps> = (props) => {
@@ -18,6 +19,9 @@ export const UnionShowAs: FC<IUnionShowAsProps> = (props) => {
   const ShowAsComponent = useMemo(() => {
     if (cellValueType === CellValueType.Number) {
       return isMultipleCellValue ? MultiNumberShowAs : SingleNumberShowAs;
+    }
+    if (cellValueType === CellValueType.String) {
+      return SingleTextLineShowAs;
     }
     return null;
   }, [cellValueType, isMultipleCellValue]);

@@ -1,11 +1,10 @@
-import { instanceToInstance } from 'class-transformer';
 import { z } from 'zod';
 import { EvalVisitor } from '../../../formula/visitor';
 import type { CellValueType, FieldType } from '../constant';
 import type { FieldCore } from '../field';
 import type { ILookupOptionsVo } from '../field.schema';
 import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
-import { getShowAsSchema, numberShowAsSchema } from '../show-as';
+import { getShowAsSchema, unionShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const ROLLUP_FUNCTIONS = [
@@ -28,7 +27,7 @@ export const rollupFieldOptionsSchema = z
   .object({
     expression: z.enum(ROLLUP_FUNCTIONS),
     formatting: unionFormattingSchema.optional(),
-    showAs: numberShowAsSchema.optional(),
+    showAs: unionShowAsSchema.optional(),
   })
   .strict();
 
@@ -52,14 +51,14 @@ export class RollupFieldCore extends FormulaAbstractCore {
     isMultipleCellValue: boolean
   ) {
     const tree = this.parse(expression);
-    // generate a virtual field to evaluate the expression
-    const clonedInstance = instanceToInstance(dependentField);
+    // nly need to perform shallow copy to generate virtual field to evaluate the expression
+    const clonedInstance = { ...dependentField };
     clonedInstance.id = 'values';
     clonedInstance.name = 'values';
     clonedInstance.isMultipleCellValue = isMultipleCellValue;
     // field type is not important here
     const visitor = new EvalVisitor({
-      values: clonedInstance,
+      values: clonedInstance as FieldCore,
     });
     const typedValue = visitor.visit(tree);
     return {

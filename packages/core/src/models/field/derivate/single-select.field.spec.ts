@@ -81,6 +81,7 @@ describe('SingleSelectFieldCore', () => {
 
   it('should convert string to cellValue', () => {
     expect(field.convertStringToCellValue('Option 1')).toEqual('Option 1');
+    expect(field.convertStringToCellValue('Option\n1')).toEqual('Option 1');
 
     expect(field.convertStringToCellValue('text')).toBeNull();
     expect(lookupField.convertStringToCellValue('Option 1')).toBeNull();

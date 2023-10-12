@@ -26,6 +26,7 @@ export interface IGridTheme {
   cellLineColor: string;
   cellLineColorActived: string;
   cellTextColor: string;
+  cellTextColorHighlight: string;
   cellHorizontalPadding: number;
   cellVerticalPadding: number;
   cellOptionBg: string;
@@ -70,6 +71,7 @@ export const gridTheme: IGridTheme = {
   cellLineColor: colors.slate[200],
   cellLineColorActived: colors.black,
   cellTextColor: colors.zinc[800],
+  cellTextColorHighlight: colors.violet[500],
   cellHorizontalPadding: 8,
   cellVerticalPadding: 3,
   cellOptionBg: colors.gray[500],

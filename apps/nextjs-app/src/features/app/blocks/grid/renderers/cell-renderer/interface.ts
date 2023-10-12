@@ -6,6 +6,7 @@ import type { ImageManager, SpriteManager } from '../../managers';
 
 export enum CellType {
   Text = 'Text',
+  Link = 'Link',
   Number = 'Number',
   Select = 'Select',
   Image = 'Image',
@@ -51,6 +52,14 @@ export interface ITextCell extends IEditableCell {
   type: CellType.Text;
   data: string;
   displayData: string;
+  isWrap?: boolean;
+}
+
+export interface ILinkCell extends IEditableCell {
+  type: CellType.Link;
+  data: string[];
+  displayData: string;
+  onClick: (value: string) => void;
 }
 
 export enum NumberDisplayType {
@@ -127,6 +136,7 @@ export interface IImageCell extends IEditableCell {
 
 export type IInnerCell =
   | ITextCell
+  | ILinkCell
   | INumberCell
   | ISelectCell
   | IImageCell

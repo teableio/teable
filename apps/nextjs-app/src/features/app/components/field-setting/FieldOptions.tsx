@@ -8,6 +8,7 @@ import type {
   IRollupFieldOptions,
   ILookupOptionsRo,
   IRatingFieldOptions,
+  ISingleLineTextFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -18,6 +19,7 @@ import { NumberOptions } from './options/NumberOptions';
 import { RatingOptions } from './options/RatingOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
+import { SingleLineTextOptions } from './options/SingleLineTextOptions';
 
 export interface IFieldOptionsProps {
   options: IFieldInstance['options'];
@@ -38,6 +40,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
   updateFieldOptions,
 }) => {
   switch (type) {
+    case FieldType.SingleLineText:
+      return (
+        <SingleLineTextOptions
+          options={options as ISingleLineTextFieldOptions}
+          isLookup={isLookup}
+          onChange={updateFieldOptions}
+        />
+      );
     case FieldType.SingleSelect:
     case FieldType.MultipleSelect:
       return (

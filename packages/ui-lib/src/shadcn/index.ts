@@ -23,3 +23,4 @@ export * from './ui/separator';
 export * from './ui/skeleton';
 export * from './ui/form';
 export * from './ui/scroll-area';
+export * from './ui/textarea';

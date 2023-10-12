@@ -1,13 +1,23 @@
 import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
-import type { IAttachmentCellValue, INumberFieldOptions } from '@teable-group/core';
-import { NumberEditor } from '@teable-group/sdk/components';
+import type {
+  IAttachmentCellValue,
+  INumberFieldOptions,
+  INumberShowAs,
+  ISingleLineTextShowAs,
+} from '@teable-group/core';
+import { NumberEditor, onMixedTextClick } from '@teable-group/sdk/components';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import { getFileCover } from '@/features/app/utils';
-import type { IGridColumn, ICell, INumberShowAs, ChartType } from '../../../grid';
+import type {
+  IGridColumn,
+  ICell,
+  INumberShowAs as IGridNumberShowAs,
+  ChartType,
+} from '../../../grid';
 import { CellType, EditorPosition } from '../../../grid';
 import { DateEditor, LinkEditor } from '../components';
 import { AttachmentEditor } from '../components/editor/AttachmentEditor';
@@ -57,11 +67,34 @@ const createCellValue2GridDisplay =
 
     switch (type) {
       case FieldType.SingleLineText: {
+        const { showAs } = field.options;
+
+        if (showAs != null) {
+          const { type } = showAs;
+
+          return {
+            type: CellType.Link,
+            data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
+            displayData: field.cellValue2String(cellValue),
+            readonly: isComputed,
+            onClick: (text) => onMixedTextClick(type, text),
+          };
+        }
+
         return {
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
+        };
+      }
+      case FieldType.LongText: {
+        return {
+          type: CellType.Text,
+          data: (cellValue as string) || '',
+          displayData: field.cellValue2String(cellValue),
+          readonly: isComputed,
+          isWrap: true,
         };
       }
       case FieldType.Date: {
@@ -95,7 +128,7 @@ const createCellValue2GridDisplay =
           };
         }
 
-        if (cellValueType !== CellValueType.Number) {
+        if (cellValueType === CellValueType.DateTime) {
           return {
             type: CellType.Text,
             data: (cellValue as string) || '',
@@ -104,7 +137,30 @@ const createCellValue2GridDisplay =
           };
         }
 
-        const { showAs: optionShowAs } = field.options;
+        if (cellValueType === CellValueType.String) {
+          const showAs = field.options.showAs as ISingleLineTextShowAs;
+
+          if (showAs != null) {
+            const { type } = showAs;
+
+            return {
+              type: CellType.Link,
+              data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
+              displayData: field.cellValue2String(cellValue),
+              readonly: isComputed,
+              onClick: (text) => onMixedTextClick(type, text),
+            };
+          }
+
+          return {
+            type: CellType.Text,
+            data: (cellValue as string) || '',
+            displayData: field.cellValue2String(cellValue),
+            readonly: isComputed,
+          };
+        }
+
+        const optionShowAs = field.options.showAs as INumberShowAs;
         const showAs =
           optionShowAs == null
             ? undefined
@@ -133,7 +189,7 @@ const createCellValue2GridDisplay =
           data: cellValue as number,
           displayData: field.cellValue2String(cellValue),
           readonly: isComputed,
-          showAs: showAs as unknown as INumberShowAs,
+          showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
             <NumberEditor
               ref={editorRef}

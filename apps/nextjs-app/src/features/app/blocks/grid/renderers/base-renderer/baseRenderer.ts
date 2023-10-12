@@ -13,19 +13,20 @@ import type {
   IProcessBarProps,
   IChartLineProps,
   IChartBarProps,
+  ITextInfo,
 } from './interface';
 
 const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }> = new LRUCache({
   max: 1000,
 });
 
-const multiLineTextInfoCache: LRUCache<string, string[]> = new LRUCache({ max: 1000 });
+const multiLineTextInfoCache: LRUCache<string, ITextInfo[]> = new LRUCache({ max: 1000 });
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
-    x,
-    y,
+    x = 0,
+    y = 0,
     text,
     fill,
     maxWidth,
@@ -35,9 +36,10 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
     lineHeight = 22,
     textAlign = 'left',
     verticalAlign = 'middle',
+    needRender = true,
   } = props;
 
-  let lines: string[] = [];
+  let lines: ITextInfo[] = [];
   const ellipsis = '...';
   const ellipsisWidth = ctx.measureText(ellipsis).width;
   let currentLine = '';
@@ -53,12 +55,15 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
       const char = text[i];
 
       if (char === '\n') {
-        lines.push(currentLine);
-        currentLine = '';
-        currentLineWidth = 0;
-        if (lines.length === maxLines) {
+        if (lines.length + 1 === maxLines && i < text.length - 1) {
+          lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
+          currentLine = '';
+          currentLineWidth = 0;
           break;
         }
+        lines.push({ text: currentLine, width: currentLineWidth });
+        currentLine = '';
+        currentLineWidth = 0;
         continue;
       }
 
@@ -66,7 +71,7 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
 
       if (currentLineWidth + charWidth > maxWidth) {
         if (lines.length < maxLines - 1) {
-          lines.push(currentLine);
+          lines.push({ text: currentLine, width: currentLineWidth });
           currentLine = char;
           currentLineWidth = charWidth;
         } else {
@@ -80,7 +85,7 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
             currentLine = tempLine;
             currentLineWidth = tempLineWidth;
           }
-          lines.push(currentLine + ellipsis);
+          lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
           break;
         }
       } else {
@@ -90,7 +95,7 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
     }
 
     if (lines.length < maxLines && currentLine !== '') {
-      lines.push(currentLine);
+      lines.push({ text: currentLine, width: currentLineWidth });
     }
 
     multiLineTextInfoCache.set(cacheKey, lines);
@@ -98,20 +103,27 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
 
   const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
 
-  if (fill) ctx.fillStyle = fill;
-  ctx.textAlign = textAlign;
-  ctx.textBaseline = verticalAlign;
+  if (needRender) {
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = fill;
+    }
+    ctx.textAlign = textAlign;
+    ctx.textBaseline = verticalAlign;
 
-  for (let j = 0; j < lines.length; j++) {
-    ctx.fillText(lines[j], x, y + j * lineHeight + offsetY);
-    if (isUnderline) {
-      const textWidth = ctx.measureText(lines[j]).width;
-      ctx.beginPath();
-      ctx.moveTo(x, y + j * lineHeight + 2);
-      ctx.lineTo(x + textWidth, y + j * lineHeight + 2);
-      ctx.stroke();
+    for (let j = 0; j < lines.length; j++) {
+      ctx.fillText(lines[j].text, x, y + j * lineHeight + offsetY);
+      if (isUnderline) {
+        const textWidth = ctx.measureText(lines[j].text).width;
+        ctx.beginPath();
+        ctx.moveTo(x, y + j * lineHeight + fontSize - 1);
+        ctx.lineTo(x + textWidth, y + j * lineHeight + fontSize - 1);
+        ctx.stroke();
+      }
     }
   }
+
+  return lines;
 };
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -126,6 +138,7 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     verticalAlign = 'middle',
     maxWidth = Infinity,
     needRender = true,
+    isUnderline = false,
   } = props;
 
   let width = 0;
@@ -160,10 +173,20 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
   if (needRender) {
     const offsetY = verticalAlign === 'middle' ? fontSize / 2 : 0;
     const finalX = textAlign === 'right' ? x + maxWidth : x;
-    if (fill) ctx.fillStyle = fill;
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = fill;
+    }
     ctx.textAlign = textAlign;
     ctx.textBaseline = verticalAlign;
     ctx.fillText(displayText, finalX, y + offsetY);
+
+    if (isUnderline) {
+      ctx.beginPath();
+      ctx.moveTo(finalX, y + offsetY + fontSize / 2 - 1);
+      ctx.lineTo(finalX + width, y + offsetY + fontSize / 2 - 1);
+      ctx.stroke();
+    }
   }
 
   return {

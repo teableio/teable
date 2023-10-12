@@ -14,6 +14,7 @@ import {
   ListChecks as MenuIcon,
   Search as SearchIcon,
   Star as RatingIcon,
+  LongText as LongTextIcon,
 } from '@teable-group/icons';
 
 import { useCallback } from 'react';
@@ -22,6 +23,7 @@ import {
   CheckboxField,
   DateField,
   LinkField,
+  LongTextField,
   MultipleSelectField,
   NumberField,
   RatingField,
@@ -53,8 +55,8 @@ export const useFieldStaticGetter = () => {
         case FieldType.LongText:
           return {
             title: 'Long text',
-            defaultOptions: {},
-            Icon: UnknownIcon,
+            defaultOptions: LongTextField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : LongTextIcon,
           };
         case FieldType.SingleSelect:
           return {

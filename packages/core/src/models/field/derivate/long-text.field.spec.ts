@@ -2,31 +2,26 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { SingleLineTextDisplayType } from '../show-as';
-import { SingleLineTextFieldCore } from './single-line-text.field';
+import { LongTextFieldCore } from './long-text.field';
 
-describe('SingleLineTextFieldCore', () => {
-  let field: SingleLineTextFieldCore;
-  let multipleLookupField: SingleLineTextFieldCore;
+describe('LongTextFieldCore', () => {
+  let field: LongTextFieldCore;
+  let multipleLookupField: LongTextFieldCore;
 
   const json = {
     id: 'test',
-    name: 'Test Single Line Text Field',
-    description: 'A test Single Line Text field',
-    type: FieldType.SingleLineText,
+    name: 'Test Long Text Field',
+    description: 'A test Long Text field',
+    type: FieldType.LongText,
     dbFieldType: DbFieldType.Text,
-    options: {
-      showAs: {
-        type: SingleLineTextDisplayType.Email,
-      },
-    },
+    options: {},
     cellValueType: CellValueType.String,
     isComputed: false,
   };
 
   beforeEach(() => {
-    field = plainToInstance(SingleLineTextFieldCore, json);
-    multipleLookupField = plainToInstance(SingleLineTextFieldCore, {
+    field = plainToInstance(LongTextFieldCore, json);
+    multipleLookupField = plainToInstance(LongTextFieldCore, {
       ...json,
       isMultipleCellValue: true,
       isLookup: true,
@@ -36,7 +31,7 @@ describe('SingleLineTextFieldCore', () => {
 
   it('should extend parent class', () => {
     expect(field).toBeInstanceOf(FieldCore);
-    expect(field).toBeInstanceOf(SingleLineTextFieldCore);
+    expect(field).toBeInstanceOf(LongTextFieldCore);
   });
 
   it('should convert cellValue to string', () => {
@@ -47,8 +42,7 @@ describe('SingleLineTextFieldCore', () => {
   });
 
   it('should convert string to cellValue', () => {
-    expect(field.convertStringToCellValue('text')).toBe('text');
-    expect(field.convertStringToCellValue('wrap\ntext')).toBe('wrap text');
+    expect(field.convertStringToCellValue('wrap \n text')).toBe('wrap \n text');
     expect(field.convertStringToCellValue(null as any)).toBeNull();
 
     expect(multipleLookupField.convertStringToCellValue('1.234')).toBeNull();
@@ -69,33 +63,14 @@ describe('SingleLineTextFieldCore', () => {
   });
 
   describe('validateOptions', () => {
-    it('should return success if options has valid showAs', () => {
+    it('should return success if options are valid', () => {
+      const field = plainToInstance(LongTextFieldCore, { ...json });
       const result = field.validateOptions();
       expect(result.success).toBe(true);
-    });
-
-    it('should return success if options are plain object', () => {
-      const field = plainToInstance(SingleLineTextFieldCore, {
-        ...json,
-        options: {},
-      });
-      const result = field.validateOptions();
-      expect(result.success).toBe(true);
-    });
-
-    it('should return failure if options has invalid showAs', () => {
-      const field = plainToInstance(SingleLineTextFieldCore, {
-        ...json,
-        options: {
-          showAs: { type: 'test' },
-        },
-      });
-      const result = field.validateOptions();
-      expect(result.success).toBe(false);
     });
 
     it('should return failure if options are invalid', () => {
-      const field = plainToInstance(SingleLineTextFieldCore, {
+      const field = plainToInstance(LongTextFieldCore, {
         ...json,
         options: null,
       });
@@ -104,7 +79,7 @@ describe('SingleLineTextFieldCore', () => {
     });
 
     it('should get default options', () => {
-      expect(SingleLineTextFieldCore.defaultOptions()).toEqual({});
+      expect(LongTextFieldCore.defaultOptions()).toEqual({});
     });
   });
 });

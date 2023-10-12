@@ -73,7 +73,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
   const updateLookupOptions = useCallback(
     (options: Partial<ILookupOptionsRo> & { lookupField?: IFieldInstance }) => {
       const { lookupField, ...lookupOptions } = options;
-      setLookupField(lookupField);
+      lookupField && setLookupField(lookupField);
       setFieldFn({
         ...field,
         type: lookupField?.type ?? field.type,
@@ -112,6 +112,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
               // ignore type in rollup lookup options
               const { lookupField, ...lookupOptions } = options;
               updateLookupOptions(lookupOptions);
+              setLookupField(lookupField);
             }}
           />
           {field.lookupOptions && (
@@ -119,6 +120,7 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
               options={field.options as IFieldOptionsProps['options']}
               type={field.type}
               isLookup={field.isLookup}
+              lookupField={lookupField}
               lookupOptions={field.lookupOptions}
               updateFieldOptions={updateFieldOptions}
             />

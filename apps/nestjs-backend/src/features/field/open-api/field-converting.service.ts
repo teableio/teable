@@ -774,6 +774,7 @@ export class FieldConvertingService {
   private async basalConvert(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     // simple value type change is not need to convert
     if (
+      oldField.type !== FieldType.LongText &&
       newField.cellValueType === oldField.cellValueType &&
       newField.isMultipleCellValue !== true &&
       oldField.isMultipleCellValue !== true &&

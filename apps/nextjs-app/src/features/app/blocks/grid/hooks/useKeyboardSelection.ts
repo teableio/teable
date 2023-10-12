@@ -3,7 +3,7 @@ import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
 import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
-import { getCellRenderer } from '../renderers';
+import { CellType, getCellRenderer } from '../renderers';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SELECTION_MOVE_HOTKEYS = [
@@ -139,7 +139,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       const { isColumnSelection, ranges: selectionRanges } = selection;
       const cellRenderer = getCellRenderer(cell.type);
       const isShiftEnter = combo === 'shift+enter';
-      if (cellRenderer.onClick) return;
+      if (cellRenderer.onClick && cell.type !== CellType.Link) return;
       if (isEditing) {
         let range = selectionRanges[0];
         if (isColumnSelection) {

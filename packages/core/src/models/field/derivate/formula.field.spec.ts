@@ -2,7 +2,11 @@ import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { DbFieldType, FieldType, CellValueType } from '../constant';
 import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
-import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
+import {
+  MultiNumberDisplayType,
+  SingleLineTextDisplayType,
+  SingleNumberDisplayType,
+} from '../show-as';
 import { FormulaFieldCore } from './formula.field';
 import { NumberFieldCore } from './number.field';
 
@@ -67,6 +71,9 @@ describe('FormulaFieldCore', () => {
     ...numberFormulaJson,
     options: {
       expression: 'text',
+      showAs: {
+        type: SingleLineTextDisplayType.Url,
+      },
     },
     cellValueType: CellValueType.String,
   });
@@ -132,6 +139,17 @@ describe('FormulaFieldCore', () => {
       options: {
         ...numberFormulaJson.options,
         showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        expression: '"abc"',
+        showAs: {
+          type: 'test',
+        },
       },
       cellValueType: CellValueType.String,
       isMultipleCellValue: false,

@@ -1,8 +1,8 @@
 import type {
   ILookupOptionsRo,
-  INumberShowAs,
   IRollupFieldOptions,
   IUnionFormatting,
+  IUnionShowAs,
 } from '@teable-group/core';
 import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -63,7 +63,7 @@ export const RollupOptions = (props: {
     onChange?.({ formatting });
   };
 
-  const onShowAsChange = (value?: INumberShowAs) => {
+  const onShowAsChange = (value?: IUnionShowAs) => {
     if (isLookup) {
       return onChange?.({
         showAs: value,
@@ -148,14 +148,16 @@ export const RollupOptions = (props: {
           onChange={onFormattingChange}
         />
       </div>
-      <div className="space-y-2">
-        <UnionShowAs
-          showAs={options?.showAs}
-          cellValueType={cellValueType}
-          isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
-          onChange={onShowAsChange}
-        />
-      </div>
+      {Boolean(expression) && (
+        <div className="space-y-2">
+          <UnionShowAs
+            showAs={options?.showAs}
+            cellValueType={cellValueType}
+            isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
+            onChange={onShowAsChange}
+          />
+        </div>
+      )}
     </div>
   );
 };

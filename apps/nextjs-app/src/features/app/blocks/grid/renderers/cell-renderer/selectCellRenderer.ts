@@ -9,7 +9,9 @@ import type {
   ISelectChoice,
 } from './interface';
 
+const OPTION_RADIUS = 6;
 const OPTION_GAP_SIZE = 6;
+const OPTION_PADDING_HORIZONTAL = 8;
 const SELECT_CELL_PADDING_TOP = 6;
 
 export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
@@ -65,22 +67,19 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     });
 
     for (const text of value) {
-      const textY = iconSizeSM / 2 + 1;
       const choice = choiceMap[text];
       const bgColor = choice?.bgColor || cellOptionBg;
       const textColor = choice?.textColor || cellOptionTextColor;
 
       const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
         text,
-        x: x + OPTION_GAP_SIZE,
-        y: y + textY,
         fill: textColor,
         maxWidth: maxTextWidth,
         needRender: false,
         fontSize: fontSizeXS,
       });
 
-      const width = displayWidth + OPTION_GAP_SIZE * 2;
+      const width = displayWidth + OPTION_PADDING_HORIZONTAL * 2;
 
       if (x !== drawArea.x && x + width > drawArea.x + drawArea.width && row < rows) {
         row++;
@@ -93,12 +92,12 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         y,
         width,
         height: iconSizeSM,
-        radius: 8,
+        radius: OPTION_RADIUS,
         fill: bgColor,
       });
       drawSingleLineText(ctx, {
         text: displayText,
-        x: x + OPTION_GAP_SIZE,
+        x: x + OPTION_PADDING_HORIZONTAL,
         y: y + 4,
         fill: textColor,
         maxWidth: maxTextWidth,

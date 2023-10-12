@@ -4,12 +4,14 @@ import type {
   IDateCellValue,
   ILinkCellValue,
   ILinkFieldOptions,
+  ILongTextCellValue,
   IMultipleSelectCellValue,
   INumberCellValue,
   INumberFieldOptions,
   IRatingFieldOptions,
   ISelectFieldOptions,
   ISingleLineTextCellValue,
+  ISingleLineTextFieldOptions,
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
@@ -22,6 +24,7 @@ import {
   SelectEditor,
   TextEditor,
   RatingEditor,
+  LongTextEditor,
 } from '../editor';
 import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
@@ -54,9 +57,21 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             ref={editorRef}
             className="h-8"
             value={cellValue as ISingleLineTextCellValue}
+            options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
             disabled={disabled}
-          ></TextEditor>
+          />
+        );
+      }
+      case FieldType.LongText: {
+        return (
+          <LongTextEditor
+            ref={editorRef}
+            className="h-20"
+            value={cellValue as ILongTextCellValue}
+            onChange={onChange}
+            disabled={disabled}
+          />
         );
       }
       case FieldType.Number: {
