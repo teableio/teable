@@ -59,9 +59,6 @@ describe('InvitationService', () => {
     prismaService.$tx.mockImplementation(async (fn, _options) => {
       return await fn(prismaService);
     });
-
-    clsService.enter();
-    clsService.set('user', mockUser);
   });
 
   afterEach(() => {
@@ -69,9 +66,17 @@ describe('InvitationService', () => {
   });
 
   it('generateInvitationBySpace', async () => {
-    await invitationService.generateInvitationBySpace('link', mockSpace.id, {
-      role: SpaceRole.Owner,
-    });
+    await clsService.runWith(
+      {
+        user: mockUser,
+        tx: {},
+      },
+      async () => {
+        await invitationService.generateInvitationBySpace('link', mockSpace.id, {
+          role: SpaceRole.Owner,
+        });
+      }
+    );
 
     expect(prismaService.invitation.create).toHaveBeenCalledWith({
       data: {
@@ -121,10 +126,17 @@ describe('InvitationService', () => {
         .spyOn(invitationService as any, 'spaceEmailOptions')
         .mockResolvedValue({ title: '', content: '' });
 
-      const result = await invitationService.emailInvitationBySpace(mockSpace.id, {
-        emails: [mockInvitedUser.email],
-        role: SpaceRole.Owner,
-      });
+      const result = await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+        },
+        async () =>
+          await invitationService.emailInvitationBySpace(mockSpace.id, {
+            emails: [mockInvitedUser.email],
+            role: SpaceRole.Owner,
+          })
+      );
 
       expect(collaboratorService.createSpaceCollaborator).toBeCalledWith(
         mockInvitedUser.id,
