@@ -36,6 +36,11 @@ jobs:
             ${{ github.workspace }}/**/tsconfig.tsbuildinfo
           key: packages-cache-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
+      - name: 🧩 Generate Prisma Client
+        working-directory: packages/db-main-prisma
+        run: |
+          yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+
       - name: 🏗 Run build
         run: |
           yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build
