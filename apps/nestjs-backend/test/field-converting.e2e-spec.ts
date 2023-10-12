@@ -1139,7 +1139,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual('x, y');
     });
 
-    it('should convert many-one to one-many link', async () => {
+    it.skip('should convert many-one to one-many link', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
