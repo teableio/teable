@@ -11,6 +11,7 @@ import { IEventBase } from '../../../event-emitter/interfaces/event-base.interfa
 import type {
   FieldUpdatedEvent,
   RecordCreatedEvent,
+  RecordDeletedEvent,
   RecordUpdatedEvent,
   ViewUpdatedEvent,
 } from '../../../event-emitter/model';
@@ -29,6 +30,7 @@ export class AggregationListener {
 
   @OnEvent(EventEnums.RecordCreated, { async: true })
   @OnEvent(EventEnums.RecordUpdated, { async: true })
+  @OnEvent(EventEnums.RecordDeleted, { async: true })
   @OnEvent(EventEnums.ViewUpdated, { async: true })
   @OnEvent(EventEnums.FieldUpdated, { async: true })
   private async onTableChange(event: IEventBase) {
@@ -39,8 +41,12 @@ export class AggregationListener {
       fieldAggregation: true,
     };
 
-    if ([EventEnums.RecordCreated, EventEnums.RecordUpdated].includes(event.eventName)) {
-      const recordEvent = event as RecordCreatedEvent | RecordUpdatedEvent;
+    if (
+      [EventEnums.RecordCreated, EventEnums.RecordDeleted, EventEnums.RecordUpdated].includes(
+        event.eventName
+      )
+    ) {
+      const recordEvent = event as RecordCreatedEvent | RecordUpdatedEvent | RecordDeletedEvent;
       let fieldIds: string[] | undefined;
       const { tableId, ops } = recordEvent;
 

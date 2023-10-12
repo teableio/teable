@@ -37,6 +37,8 @@ The TeableEventEmitterModule supports the following events:
 
 - `RecordUpdated`: Triggered when an existing record is updated.
 
+- `RecordDeleted`: Triggered when an existing record is deleted.
+
 - `ViewCreated`: Triggered when a new view is created.
 
 - `ViewUpdated`: Triggered when an existing view is updated.
