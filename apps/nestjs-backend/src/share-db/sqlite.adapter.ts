@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation, IRecord, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IOtOperation, IRecord } from '@teable-group/core';
 import {
   FieldOpBuilder,
   RecordOpBuilder,
@@ -9,6 +9,7 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { groupBy } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
@@ -23,7 +24,7 @@ export interface ICollectionSnapshot {
   v: number;
   data: IRecord;
 }
-type IOptions = { agentCustom?: unknown };
+
 type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
@@ -31,6 +32,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
   closed: boolean;
 
   constructor(
+    private readonly clsService: ClsService,
     private readonly tableService: TableService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
@@ -120,7 +122,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     _collection: string,
     _id: string,
     op: CreateOp | DeleteOp | EditOp,
-    _query: IRecordSnapshotQuery
+    _query: unknown
   ): boolean {
     // ShareDB is in charge of doing the validation of ops, so at this point we
     // should be able to assume that the op is structured validly
@@ -174,9 +176,9 @@ export class SqliteDbAdapter extends ShareDb.DB {
     await this.getService(docType as IdPrefix).create(collectionId, snapshot);
   }
 
-  private async deleteSnapshot(collection: string, docId: string) {
+  private async deleteSnapshot(version: number, collection: string, docId: string) {
     const [docType, collectionId] = collection.split('_');
-    await this.getService(docType as IdPrefix).del(collectionId, docId);
+    await this.getService(docType as IdPrefix).del(version, collectionId, docId);
   }
 
   // Persists an op and snapshot if it is for the next version. Calls back with
@@ -186,7 +188,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     rawOp: CreateOp | DeleteOp | EditOp,
     snapshot: ICollectionSnapshot,
-    options: IOptions,
+    options: unknown,
     callback: (err: unknown, succeed?: boolean, complete?: boolean) => void
   ) {
     /*
@@ -201,51 +203,49 @@ export class SqliteDbAdapter extends ShareDb.DB {
      */
     // console.log('commit', collection, id, options, rawOp.op);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, collectionId] = collection.split('_');
-    const prisma = this.prismaService.txClient();
+    const [docType, collectionId] = collection.split('_');
 
     try {
-      const opsResult = await prisma.ops.aggregate({
-        _max: { version: true },
-        where: { collection: collectionId, docId: id },
+      await this.prismaService.$tx(async (prisma) => {
+        const opsResult = await prisma.ops.aggregate({
+          _max: { version: true },
+          where: { collection: collectionId, docId: id },
+        });
+
+        const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
+
+        if (rawOp.v !== maxVersion) {
+          console.log('crashed', rawOp.op);
+          throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
+        }
+
+        // 1. save op in db;
+        await prisma.ops.create({
+          data: {
+            docId: id,
+            docType,
+            collection: collectionId,
+            version: rawOp.v,
+            operation: JSON.stringify(rawOp),
+            createdBy: this.clsService.get('user.id'),
+          },
+        });
+
+        // create snapshot
+        if (rawOp.create) {
+          await this.createSnapshot(collection, id, rawOp.create.data);
+        }
+
+        // update snapshot
+        if (rawOp.op) {
+          await this.updateSnapshot(snapshot.v, collection, id, rawOp.op);
+        }
+
+        // delete snapshot
+        if (rawOp.del) {
+          await this.deleteSnapshot(snapshot.v, collection, id);
+        }
       });
-
-      const maxVersion = opsResult._max.version || 0;
-
-      if (snapshot.v !== maxVersion + 1) {
-        console.log('crashed', rawOp.op);
-        throw new Error(
-          `${id} version mismatch: maxVersion: ${maxVersion} snapshotV: ${snapshot.v}`
-        );
-      }
-
-      // 1. save op in db;
-      await prisma.ops.create({
-        data: {
-          docId: id,
-          collection: collectionId,
-          version: snapshot.v,
-          operation: JSON.stringify(rawOp),
-          createdBy: 'admin',
-        },
-      });
-
-      // create snapshot
-      if (rawOp.create) {
-        await this.createSnapshot(collection, id, rawOp.create.data);
-      }
-
-      // update snapshot
-      if (rawOp.op) {
-        await this.updateSnapshot(snapshot.v, collection, id, rawOp.op);
-      }
-
-      // delete snapshot
-      if (rawOp.del) {
-        await this.deleteSnapshot(collection, id);
-      }
-
       callback(null, true, true);
     } catch (err) {
       callback(err);
@@ -266,7 +266,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     ids: string[],
     projection: IProjection | undefined,
-    options: IOptions | undefined,
+    options: unknown,
     callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
   ) {
     // console.log('getSnapshotBulk:', { options, collection, ids });
@@ -305,7 +305,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: IOptions,
+    options: unknown,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
     // console.log('getSnapshot:', { options, collection });
@@ -333,24 +333,22 @@ export class SqliteDbAdapter extends ShareDb.DB {
     id: string,
     from: number,
     to: number,
-    options: IOptions,
+    options: unknown,
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
       // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
-      const res = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<
-          { collection: string; id: string; from: number; to: number; operation: string }[]
-        >(
-          'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
-          collectionId,
-          id,
-          from,
-          to
-        );
+      const res = await this.prismaService.$queryRawUnsafe<
+        { collection: string; id: string; from: number; to: number; operation: string }[]
+      >(
+        'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
+        collectionId,
+        id,
+        from,
+        to
+      );
 
       callback(
         null,

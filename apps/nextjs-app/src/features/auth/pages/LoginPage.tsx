@@ -24,7 +24,7 @@ export const LoginPage: FC = () => {
     <QueryClientProvider client={queryClient}>
       <NextSeo title={t('auth:page.title')} />
       <div className="fixed h-screen w-full overflow-y-auto">
-        <div className="bg-background absolute left-0 flex h-[4em] w-full items-center justify-between px-5 lg:h-20">
+        <div className="absolute left-0 flex h-[4em] w-full items-center justify-between bg-background px-5 lg:h-20">
           <div className="flex h-full items-center gap-2">
             <TeableNew className="h-8 w-8" />
             Teable

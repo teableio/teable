@@ -8,7 +8,11 @@ import {
   DecimalFormattingDto,
   PercentFormattingDto,
 } from '../formatting.dto';
-import { MultiNumberShowAsDto, SingleNumberShowAsDto } from '../show-as.dto';
+import {
+  MultiNumberShowAsDto,
+  SingleLineTextShowAsDto,
+  SingleNumberShowAsDto,
+} from '../show-as.dto';
 
 @ApiExtraModels(DatetimeFormattingDto)
 @ApiExtraModels(DecimalFormattingDto)
@@ -35,6 +39,7 @@ export class FormulaOptionsDto implements IFormulaFieldOptions {
     oneOf: [
       { $ref: getSchemaPath(SingleNumberShowAsDto) },
       { $ref: getSchemaPath(MultiNumberShowAsDto) },
+      { $ref: getSchemaPath(SingleLineTextShowAsDto) },
     ],
   })
   showAs?: SingleNumberShowAsDto;

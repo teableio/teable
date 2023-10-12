@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import type { CopyVo, PasteVo } from '@teable-group/openapi';
+import type { ICopyVo, IRangesToIdVo, PasteVo } from '@teable-group/openapi';
 import {
+  IRangesToIdRo,
+  rangesToIdRoSchema,
   ClearRo,
   clearRoSchema,
-  CopyRo,
-  copyRoSchema,
+  ICopyRo,
+  rangesSchema,
   PasteRo,
   pasteRoSchema,
 } from '@teable-group/openapi';
@@ -15,13 +17,22 @@ import { SelectionService } from './selection.service';
 export class SelectionController {
   constructor(private selectionService: SelectionService) {}
 
+  @Get('/getIdsFromRanges')
+  async getIdsFromRanges(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Query(new ZodValidationPipe(rangesToIdRoSchema)) query: IRangesToIdRo
+  ): Promise<IRangesToIdVo> {
+    return this.selectionService.getIdsFromRanges(tableId, viewId, query);
+  }
+
   @Get('/copy')
   async copy(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Query(new ZodValidationPipe(copyRoSchema)) query: CopyRo
-  ): Promise<CopyVo> {
-    return await this.selectionService.copy(tableId, viewId, query);
+    @Query(new ZodValidationPipe(rangesSchema)) query: ICopyRo
+  ): Promise<ICopyVo> {
+    return this.selectionService.copy(tableId, viewId, query);
   }
 
   @Post('/paste')

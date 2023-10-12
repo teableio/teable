@@ -7,6 +7,7 @@ import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
 import { DateFieldDto } from './field-dto/date-field.dto';
 import { FormulaFieldDto } from './field-dto/formula-field.dto';
 import { LinkFieldDto } from './field-dto/link-field.dto';
+import { LongTextFieldDto } from './field-dto/long-text-field.dto';
 import { MultipleSelectFieldDto } from './field-dto/multiple-select-field.dto';
 import { NumberFieldDto } from './field-dto/number-field.dto';
 import { RatingFieldDto } from './field-dto/rating-field.dto';
@@ -45,6 +46,8 @@ export function createFieldInstanceByVo(field: IFieldVo) {
   switch (field.type) {
     case FieldType.SingleLineText:
       return plainToInstance(SingleLineTextFieldDto, field);
+    case FieldType.LongText:
+      return plainToInstance(LongTextFieldDto, field);
     case FieldType.Number:
       return plainToInstance(NumberFieldDto, field);
     case FieldType.SingleSelect:
@@ -69,7 +72,6 @@ export function createFieldInstanceByVo(field: IFieldVo) {
     case FieldType.CreatedBy:
     case FieldType.Email:
     case FieldType.LastModifiedBy:
-    case FieldType.LongText:
     case FieldType.PhoneNumber:
     case FieldType.URL:
     case FieldType.User:

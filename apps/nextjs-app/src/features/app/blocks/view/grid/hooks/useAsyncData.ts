@@ -1,4 +1,4 @@
-import type { IRecord, IRecordSnapshotQuery } from '@teable-group/core';
+import type { IRecord, IGetRecordsQuery } from '@teable-group/core';
 import { useRecords, useRowCount, useViewId } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange, debounce } from 'lodash';
@@ -36,9 +36,9 @@ export const useAsyncData = (
   onEdited: IRowEditedCallback<Record>,
   initRecords?: IRecord[]
 ): IRes => {
-  const [query, setQuery] = useState<Omit<IRecordSnapshotQuery, 'type'>>({
-    offset: 0,
-    limit: PAGE_SIZE,
+  const [query, setQuery] = useState<IGetRecordsQuery>({
+    skip: 0,
+    take: PAGE_SIZE,
   });
   const viewId = useViewId();
   const rowCount = useRowCount();
@@ -56,7 +56,7 @@ export const useAsyncData = (
   visiblePagesRef.current = visiblePages;
 
   useEffect(() => {
-    const startIndex = queryRef.current.offset ?? 0;
+    const startIndex = queryRef.current.skip ?? 0;
     const data = records;
     setLoadedRecords((preLoadedRecords) => {
       const cacheLen = PAGE_SIZE * 2;
@@ -79,24 +79,23 @@ export const useAsyncData = (
   useEffect(() => {
     const { y, height } = visiblePages;
     setQuery((cv) => {
-      if (cv.offset === undefined) {
+      if (cv.skip === undefined) {
         return cv;
       }
 
       const pageOffsetSize = PAGE_SIZE / 3;
       const pageGap = PAGE_SIZE / 3;
 
-      const visibleStartIndex =
-        cv.offset <= y ? cv.offset - pageOffsetSize : cv.offset + pageOffsetSize;
+      const visibleStartIndex = cv.skip <= y ? cv.skip - pageOffsetSize : cv.skip + pageOffsetSize;
       const visibleEndIndex = visibleStartIndex + PAGE_SIZE;
       const viewInRange =
         inRange(y, visibleStartIndex, visibleEndIndex) &&
         inRange(y + height, visibleStartIndex, visibleEndIndex);
       if (!viewInRange) {
-        const offset = Math.floor(y / pageGap) * pageGap - pageGap;
+        const skip = Math.floor(y / pageGap) * pageGap - pageGap;
         return {
           ...cv,
-          offset: Math.max(0, offset),
+          skip: Math.max(0, skip),
         };
       }
       return cv;

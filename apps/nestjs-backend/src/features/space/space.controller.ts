@@ -1,17 +1,38 @@
 import { Body, Controller, Param, Patch, Post, Get, Delete } from '@nestjs/common';
-import type { ICreateSpaceVo, IUpdateSpaceVo, IGetSpaceVo } from '@teable-group/openapi';
+import type {
+  ICreateSpaceVo,
+  IUpdateSpaceVo,
+  IGetSpaceVo,
+  EmailInvitationVo,
+  ListSpaceInvitationLinkVo,
+  CreateSpaceInvitationLinkVo,
+  UpdateSpaceInvitationLinkVo,
+  ListSpaceCollaboratorVo,
+} from '@teable-group/openapi';
 import {
   createSpaceRoSchema,
   ICreateSpaceRo,
   updateSpaceRoSchema,
   IUpdateSpaceRo,
+  emailSpaceInvitationRoSchema,
+  updateSpaceInvitationLinkRoSchema,
+  CreateSpaceInvitationLinkRo,
+  EmailSpaceInvitationRo,
+  UpdateSpaceInvitationLinkRo,
+  createSpaceInvitationLinkRoSchema,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { CollaboratorService } from '../collaborator/collaborator.service';
+import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
 
-@Controller('api/space')
+@Controller('api/space/')
 export class SpaceController {
-  constructor(private readonly spaceService: SpaceService) {}
+  constructor(
+    private readonly spaceService: SpaceService,
+    private readonly invitationService: InvitationService,
+    private readonly collaboratorService: CollaboratorService
+  ) {}
 
   @Post()
   async createSpace(
@@ -44,5 +65,60 @@ export class SpaceController {
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;
+  }
+
+  @Post(':spaceId/invitation/link')
+  async createInvitationLink(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(createSpaceInvitationLinkRoSchema))
+    spaceInvitationLinkRo: CreateSpaceInvitationLinkRo
+  ): Promise<CreateSpaceInvitationLinkVo> {
+    return await this.invitationService.generateInvitationLinkBySpace(
+      spaceId,
+      spaceInvitationLinkRo
+    );
+  }
+
+  @Delete(':spaceId/invitation/link/:invitationId')
+  async deleteInvitationLink(
+    @Param('spaceId') spaceId: string,
+    @Param('invitationId') invitationId: string
+  ): Promise<void> {
+    return await this.invitationService.deleteInvitationLinkBySpace(spaceId, invitationId);
+  }
+
+  @Patch(':spaceId/invitation/link/:invitationId')
+  async updateInvitationLink(
+    @Param('spaceId') spaceId: string,
+    @Param('invitationId') invitationId: string,
+    @Body(new ZodValidationPipe(updateSpaceInvitationLinkRoSchema))
+    updateSpaceInvitationLinkRo: UpdateSpaceInvitationLinkRo
+  ): Promise<UpdateSpaceInvitationLinkVo> {
+    return await this.invitationService.updateInvitationLinkBySpace(
+      spaceId,
+      invitationId,
+      updateSpaceInvitationLinkRo
+    );
+  }
+
+  @Get(':spaceId/invitation/link')
+  async listInvitationLinkBySpace(
+    @Param('spaceId') spaceId: string
+  ): Promise<ListSpaceInvitationLinkVo> {
+    return await this.invitationService.getInvitationLinkBySpace(spaceId);
+  }
+
+  @Post(':spaceId/invitation/email')
+  async emailInvitation(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(emailSpaceInvitationRoSchema))
+    emailSpaceInvitationRo: EmailSpaceInvitationRo
+  ): Promise<EmailInvitationVo> {
+    return await this.invitationService.emailInvitationBySpace(spaceId, emailSpaceInvitationRo);
+  }
+
+  @Get(':spaceId/collaborators')
+  async listCollaborator(@Param('spaceId') spaceId: string): Promise<ListSpaceCollaboratorVo> {
+    return await this.collaboratorService.getListBySpace(spaceId);
   }
 }

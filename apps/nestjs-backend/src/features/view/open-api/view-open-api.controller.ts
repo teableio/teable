@@ -1,11 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import type { IViewVo } from '@teable-group/core';
-import { viewRoSchema, manualSortRoSchema, IManualSortRo } from '@teable-group/core';
+import { viewRoSchema, manualSortRoSchema, IManualSortRo, IViewRo } from '@teable-group/core';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
-import { IViewInstance } from '../model/factory';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
-import { ViewPipe } from './view.pipe';
 
 @Controller('api/table/:tableId/view')
 export class ViewOpenApiController {
@@ -30,9 +28,9 @@ export class ViewOpenApiController {
   @Post()
   async createView(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(viewRoSchema), ViewPipe) viewInstance: IViewInstance
+    @Body(new ZodValidationPipe(viewRoSchema)) viewRo: IViewRo
   ): Promise<IViewVo> {
-    return await this.viewOpenApiService.createView(tableId, viewInstance);
+    return await this.viewOpenApiService.createView(tableId, viewRo);
   }
 
   @Delete('/:viewId')

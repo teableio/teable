@@ -19,6 +19,7 @@ import {
   numberFieldOptionsRoSchema,
   selectFieldOptionsRoSchema,
   ratingFieldOptionsSchema,
+  longTextFieldOptionsSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -225,7 +226,7 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.SingleLineText:
       return singlelineTextFieldOptionsSchema;
     case FieldType.LongText:
-      return false;
+      return longTextFieldOptionsSchema;
     case FieldType.User:
       return false;
     case FieldType.Attachment:

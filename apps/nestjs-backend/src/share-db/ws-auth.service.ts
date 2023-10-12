@@ -22,7 +22,7 @@ export class WsAuthService {
       if (!user) {
         throw new UnauthorizedException();
       }
-      return { id: user.id };
+      return { id: user.id, email: user.email, name: user.name };
     } catch (error) {
       throw new UnauthorizedException();
     }

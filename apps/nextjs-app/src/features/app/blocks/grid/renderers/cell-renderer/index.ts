@@ -2,6 +2,7 @@ import { booleanCellRenderer } from './booleanCellRenderer';
 import { chartCellRenderer } from './chartCellRenderer';
 import { imageCellRenderer } from './imageCellRenderer';
 import { CellType } from './interface';
+import { linkCellRenderer } from './linkCellRenderer';
 import { loadingCellRenderer } from './loadingCellRenderer';
 import { numberCellRenderer } from './numberCellRenderer';
 import { ratingCellRenderer } from './ratingCellRenderer';
@@ -14,6 +15,8 @@ export const getCellRenderer = (cellType: CellType) => {
   switch (cellType) {
     case CellType.Text:
       return textCellRenderer;
+    case CellType.Link:
+      return linkCellRenderer;
     case CellType.Number:
       return numberCellRenderer;
     case CellType.Boolean:

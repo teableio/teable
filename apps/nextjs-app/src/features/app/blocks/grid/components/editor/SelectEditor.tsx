@@ -50,7 +50,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   };
 
   return (
-    <Command className="rounded-sm shadow-sm p-2 border" style={style}>
+    <Command className="rounded-sm border p-2 shadow-sm" style={style}>
       <CommandInput ref={inputRef} placeholder="Search" />
       <CommandList>
         <CommandEmpty>No found.</CommandEmpty>
@@ -65,7 +65,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
                   )}
                 />
                 <div
-                  className={classNames('px-2 rounded-lg text-ellipsis whitespace-nowrap')}
+                  className="text-ellipsis whitespace-nowrap rounded-[6px] px-2 text-[12px]"
                   style={{
                     backgroundColor: bgColor,
                     color: textColor,

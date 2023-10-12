@@ -1,11 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 
-export const urlBuilder = (url: string, params?: Record<string, unknown>) => {
-  if (!params) {
+export const urlBuilder = (url: string, pathParams?: Record<string, unknown>) => {
+  if (!pathParams) {
     return url;
   }
 
-  Object.entries(params).forEach(([key, value]) => {
+  Object.entries(pathParams).forEach(([key, value]) => {
     url = url.replace(`{${key}}`, encodeURIComponent(String(value)));
   });
   return url;

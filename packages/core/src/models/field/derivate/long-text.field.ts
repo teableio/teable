@@ -1,0 +1,68 @@
+import { z } from 'zod';
+import type { CellValueType, FieldType } from '../constant';
+import { FieldCore } from '../field';
+
+export const longTextFieldOptionsSchema = z.object({}).strict();
+
+export type ILongTextFieldOptions = z.infer<typeof longTextFieldOptionsSchema>;
+
+export const longTextCelValueSchema = z.string().max(10, { message: 'should be long text' });
+
+export type ILongTextCellValue = z.infer<typeof longTextCelValueSchema>;
+
+export class LongTextFieldCore extends FieldCore {
+  type!: FieldType.LongText;
+
+  options!: ILongTextFieldOptions;
+
+  cellValueType!: CellValueType.String;
+
+  static defaultOptions(): ILongTextFieldOptions {
+    return {};
+  }
+
+  cellValue2String(cellValue?: unknown) {
+    if (this.isMultipleCellValue && Array.isArray(cellValue)) {
+      return cellValue.join(', ');
+    }
+    return (cellValue as string) ?? '';
+  }
+
+  item2String(value?: unknown): string {
+    return value ? String(value) : '';
+  }
+
+  convertStringToCellValue(value: string): string | null {
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (value === '' || value == null) {
+      return null;
+    }
+
+    return value;
+  }
+
+  repair(value: unknown) {
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      return this.convertStringToCellValue(value);
+    }
+    return String(value);
+  }
+
+  validateOptions() {
+    return longTextFieldOptionsSchema.safeParse(this.options);
+  }
+
+  validateCellValue(value: unknown) {
+    if (this.isMultipleCellValue) {
+      return z.array(longTextCelValueSchema).nonempty().optional().safeParse(value);
+    }
+    return longTextCelValueSchema.optional().safeParse(value);
+  }
+}

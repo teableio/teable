@@ -1,8 +1,13 @@
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import { singleLineTextShowAsSchema } from '../show-as';
 
-export const singlelineTextFieldOptionsSchema = z.object({}).strict();
+export const singlelineTextFieldOptionsSchema = z
+  .object({
+    showAs: singleLineTextShowAsSchema.optional(),
+  })
+  .strict();
 
 export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;
 
@@ -41,7 +46,7 @@ export class SingleLineTextFieldCore extends FieldCore {
       return null;
     }
 
-    return value;
+    return value.replace(/\n|\r/g, ' ');
   }
 
   repair(value: unknown) {

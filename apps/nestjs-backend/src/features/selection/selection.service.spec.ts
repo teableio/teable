@@ -155,6 +155,15 @@ describe('selectionService', () => {
       // Verify the result
       expect(result).toEqual(expectedRecords);
     });
+
+    it('should return empty array when numRowsToExpand is 0', async () => {
+      const result = await selectionService['expandRows']({
+        tableId: 'table1',
+        numRowsToExpand: 0,
+      });
+
+      expect(result).toEqual([]);
+    });
   });
 
   describe('expandColumns', () => {
@@ -317,29 +326,23 @@ describe('selectionService', () => {
         records,
       });
 
-      expect(updateRecordsRo).toEqual([
-        {
-          recordId: records[0].id,
-          record: {
+      expect(updateRecordsRo).toEqual({
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: records[0].id,
             fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
           },
-          fieldKeyType: FieldKeyType.Id,
-        },
-        {
-          recordId: records[1].id,
-          record: {
+          {
+            id: records[1].id,
             fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
           },
-          fieldKeyType: FieldKeyType.Id,
-        },
-        {
-          recordId: records[2].id,
-          record: {
+          {
+            id: records[2].id,
             fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
           },
-          fieldKeyType: FieldKeyType.Id,
-        },
-      ]);
+        ],
+      });
     });
   });
 
@@ -507,7 +510,11 @@ describe('selectionService', () => {
           [0, 0],
         ] as [number, number][],
       };
-      const updateRecordsRo = {}; // Mock the updateRecordsRo object
+      // Mock the updateRecordsRo object
+      const updateRecordsRo = {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ id: 'record1', fields: { field1: null } }],
+      };
 
       // Mock the required methods from the service
       selectionService['getSelectionCtxByRange'] = jest.fn().mockResolvedValue({ fields, records });

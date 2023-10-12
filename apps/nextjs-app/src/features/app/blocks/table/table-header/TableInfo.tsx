@@ -16,10 +16,10 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
         className
       )}
     >
-      {connected ? <Table2 className="w-5 h-5" /> : <Spin />}
-      <div className="flex flex-col justify-center items-start grow-0 shrink-0 h-7">
+      {connected ? <Table2 className="h-5 w-5" /> : <Spin />}
+      <div className="flex h-7 shrink-0 grow-0 flex-col items-start justify-center">
         <div className="text-sm leading-none">{table?.name}</div>
-        <div className="text-xs text-slate-400 leading-none">
+        <div className="text-xs leading-none text-slate-400">
           last modified: {dayjs(table?.lastModifiedTime).fromNow()}
         </div>
       </div>

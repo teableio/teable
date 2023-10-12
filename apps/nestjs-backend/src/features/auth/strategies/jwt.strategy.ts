@@ -38,6 +38,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
     this.cls.set('user.id', user.id);
+    this.cls.set('user.name', user.name);
+    this.cls.set('user.email', user.email);
     return pick(user, 'id', 'name', 'avatar', 'phone', 'email');
   }
 }

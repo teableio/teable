@@ -123,7 +123,7 @@ export const Dashboard = () => {
           isBounded
         >
           {layout.map((v) => (
-            <div className="border border-slate-600 rounded-lg" key={v.i}>
+            <div className="rounded-lg border border-slate-600" key={v.i}>
               {v.chartInstance && <Chart chartInstance={v.chartInstance} />}
             </div>
           ))}

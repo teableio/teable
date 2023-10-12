@@ -4,44 +4,36 @@ import type {
   ICreateTablePreparedRo,
   ICreateTableRo,
   IFieldVo,
+  IGetTableQuery,
   ITableFullVo,
-  ITableOp,
   ITableVo,
   IViewRo,
   IViewVo,
 } from '@teable-group/core';
-import {
-  FieldKeyType,
-  getUniqName,
-  generateTableId,
-  IdPrefix,
-  TableOpBuilder,
-} from '@teable-group/core';
+import { FieldKeyType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { ShareDbService } from '../../../share-db/share-db.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
-import { createViewInstanceByRo } from '../../view/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { TableService } from '../table.service';
 
 @Injectable()
 export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
-    private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
+    private readonly tableService: TableService,
     private readonly fieldCreatingService: FieldCreatingService
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
-    const viewCreationPromises = viewRos.map(async (fieldRo) => {
-      const viewInstance = createViewInstanceByRo(fieldRo);
-      return this.viewOpenApiService.createView(tableId, viewInstance);
+    const viewCreationPromises = viewRos.map(async (viewRo) => {
+      return this.viewOpenApiService.createView(tableId, viewRo);
     });
     return await Promise.all(viewCreationPromises);
   }
@@ -91,70 +83,47 @@ export class TableOpenApiService {
   }
 
   async createTableMeta(baseId: string, tableRo: ICreateTableRo) {
-    const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
-      where: { deletedTime: null },
-      select: { name: true, order: true },
-    });
-    const tableId = generateTableId();
-    const names = tableRaws.map((table) => table.name);
-    const uniqName = getUniqName(tableRo.name ?? 'New table', names);
-
-    const order =
-      tableRaws.reduce((acc, cur) => {
-        return acc > cur.order ? acc : cur.order;
-      }, 0) + 1;
-
-    const snapshot = this.createTable2Op({
-      id: tableId,
-      name: uniqName,
-      description: tableRo.description,
-      icon: tableRo.icon,
-      order,
-      lastModifiedTime: new Date().toISOString(),
-    });
-
-    const collection = `${IdPrefix.Table}_${baseId}`;
-    const connection = this.shareDbService.getConnection();
-    const doc = connection.get(collection, tableId);
-    const tableVo = await new Promise<ITableVo>((resolve, reject) => {
-      doc.create(snapshot, (error) => {
-        if (error) return reject(error);
-        resolve(doc.data);
-      });
-    });
-
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-
-    return {
-      ...tableVo,
-      dbTableName,
-    };
+    return await this.tableService.createTable(baseId, tableRo);
   }
 
-  private createTable2Op(tableVo: ITableOp) {
-    return TableOpBuilder.creator.build(tableVo);
+  async getTable(baseId: string, tableId: string, query: IGetTableQuery): Promise<ITableVo> {
+    const { viewId, fieldKeyType, includeContent } = query;
+    if (includeContent) {
+      return await this.tableService.getFullTable(baseId, tableId, viewId, fieldKeyType);
+    }
+    return await this.tableService.getTableMeta(baseId, tableId);
+  }
+
+  async getTables(baseId: string): Promise<ITableVo[]> {
+    const tablesMeta = await this.prismaService.txClient().tableMeta.findMany({
+      orderBy: { order: 'asc' },
+      where: { baseId, deletedTime: null },
+    });
+    const tableIds = tablesMeta.map((tableMeta) => tableMeta.id);
+    const tableTime = await this.tableService.getTableLastModifiedTime(tableIds);
+    const tableDefaultViewIds = await this.tableService.getTableDefaultViewId(tableIds);
+    return tablesMeta.map((tableMeta, i) => {
+      const time = tableTime[i];
+      const defaultViewId = tableDefaultViewIds[i];
+      if (!defaultViewId) {
+        throw new Error('defaultViewId is not found');
+      }
+      return {
+        ...tableMeta,
+        description: tableMeta.description ?? undefined,
+        icon: tableMeta.icon ?? undefined,
+        lastModifiedTime: time || tableMeta.lastModifiedTime.toISOString(),
+        defaultViewId,
+      };
+    });
   }
 
   async deleteTable(baseId: string, tableId: string) {
-    const collection = `${IdPrefix.Table}_${baseId}`;
     return await this.prismaService.$tx(
       async (prisma) => {
-        const doc = this.shareDbService.getConnection().get(collection, tableId);
-        // delete field for table
-        await new Promise((resolve, reject) => {
-          doc.fetch((error) => {
-            if (error) return reject(error);
-            doc.del({}, (error) => {
-              if (error) return reject(error);
-              this.logger.log(`delete document ${collection}.${tableId} succeed!`);
-              resolve(doc.data);
-            });
-          });
-        });
+        await this.tableService.deleteTable(baseId, tableId);
 
+        // delete field for table
         await prisma.field.deleteMany({
           where: { tableId },
         });
@@ -164,22 +133,15 @@ export class TableOpenApiService {
           where: { tableId },
         });
 
-        // clear tableMeta
-        const deleteTable = await prisma.tableMeta.delete({
-          where: { id: tableId },
-        });
-        const dbTableName = deleteTable.dbTableName;
-        this.logger.log('Dropping: ', dbTableName);
-
-        // clear ops
+        // clear ops for view/field/record
         await prisma.ops.deleteMany({
           where: { collection: tableId },
         });
+
+        // clean ops for table
         await prisma.ops.deleteMany({
           where: { docId: tableId },
         });
-        // drop db table
-        await prisma.$executeRawUnsafe(`DROP TABLE "${dbTableName}"`);
       },
       {
         maxWait: 100000,
@@ -191,9 +153,8 @@ export class TableOpenApiService {
   async sqlQuery(tableId: string, viewId: string, sql: string) {
     this.logger.log('sqlQuery:sql: ' + sql);
     const { queryBuilder } = await this.recordService.buildQuery(tableId, {
-      type: IdPrefix.Record,
       viewId,
-      limit: -1,
+      take: -1,
     });
     const baseQuery = queryBuilder.toString();
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({

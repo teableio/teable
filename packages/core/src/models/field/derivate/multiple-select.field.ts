@@ -18,7 +18,7 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
-    let cellValue = value.split(', ');
+    let cellValue = value.split(/[,\n\r]\s*/);
     cellValue = shouldExtend
       ? cellValue
       : cellValue.filter((value) => this.options.choices.find((c) => c.name === value));

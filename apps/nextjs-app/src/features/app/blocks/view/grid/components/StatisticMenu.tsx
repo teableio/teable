@@ -46,15 +46,15 @@ export const StatisticMenu = () => {
   return (
     <Popover open={visible}>
       <PopoverTrigger asChild style={style} className="absolute">
-        <div className="w-0 h-0 opacity-0" />
+        <div className="h-0 w-0 opacity-0" />
       </PopoverTrigger>
-      <PopoverContent className="h-auto w-[150px] px-0 py-1 rounded-sm" align="end">
-        <Command ref={fieldStatisticRef} className="shadow-none border-none rounded-none">
+      <PopoverContent className="h-auto w-[150px] rounded-sm px-0 py-1" align="end">
+        <Command ref={fieldStatisticRef} className="rounded-none border-none shadow-none">
           <CommandList>
             <CommandGroup className="p-0" aria-valuetext="name">
               {menuItems.map((type) => (
                 <CommandItem
-                  className="p-2 py-1.5 rounded-none text-[13px]"
+                  className="rounded-none p-2 py-1.5 text-[13px]"
                   key={type}
                   value={statisticFunc2NameMap[type]}
                   onSelect={() => onSelect(type)}

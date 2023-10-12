@@ -100,7 +100,7 @@ export const SignForm: FC<ISignForm> = (props) => {
             {buttonText}
           </Button>
           {error && (
-            <div className="absolute w-full -bottom-1 translate-y-full text-destructive text-sm text-center">
+            <div className="absolute -bottom-1 w-full translate-y-full text-center text-sm text-destructive">
               {error}
             </div>
           )}

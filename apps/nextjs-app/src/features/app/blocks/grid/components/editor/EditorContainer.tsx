@@ -63,12 +63,11 @@ const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
 
 const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
 
-const getNumberStyle = (height: number, theme: IGridTheme): CSSProperties => {
+const getInputStyle = (cellType: CellType, height: number, theme: IGridTheme): CSSProperties => {
   return {
     border: `2px solid ${theme.cellLineColorActived}`,
     boxShadow: 'none',
-    textAlign: 'right',
-    paddingRight: 8,
+    textAlign: cellType === CellType.Number ? 'right' : 'left',
     paddingBottom: height > defaultRowHeight ? height - defaultRowHeight : 0,
   };
 };
@@ -208,14 +207,17 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (readonly) return;
     switch (cellType) {
       case CellType.Text:
+      case CellType.Link:
       case CellType.Number: {
+        const inputStyle = getInputStyle(cellType, height, theme);
+
         return (
           <TextEditor
             ref={editorRef}
             cell={cellContent}
             style={{
               ...editorStyle,
-              ...getNumberStyle(height, theme),
+              ...inputStyle,
             }}
             onChange={onChangeInner}
           />
@@ -241,7 +243,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }
 
   return (
-    <div className="click-outside-ignore absolute top-0 left-0 pointer-events-none">
+    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
       <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
         {!readonly && (
           <>
@@ -252,7 +254,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
                       cellType === CellType.Number
                         ? {
                             ...editorStyle,
-                            ...getNumberStyle(height, theme),
+                            ...getInputStyle(cellType, height, theme),
                           }
                         : editorStyle,
                     cell: cellContent as IInnerCell,

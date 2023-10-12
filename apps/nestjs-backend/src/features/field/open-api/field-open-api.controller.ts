@@ -55,6 +55,6 @@ export class FieldOpenApiController {
 
   @Delete(':fieldId')
   async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
-    return await this.fieldOpenApiService.deleteField(tableId, fieldId);
+    await this.fieldOpenApiService.deleteField(tableId, fieldId);
   }
 }

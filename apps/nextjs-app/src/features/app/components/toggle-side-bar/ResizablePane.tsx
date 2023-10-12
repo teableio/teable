@@ -47,7 +47,7 @@ export const ResizablePane: React.FC<{
           }}
         />
       )}
-      {!rightVisible && (
+      {right && !rightVisible && (
         <OpenRightSide
           onClick={() => {
             setRightVisible(true);
@@ -67,9 +67,11 @@ export const ResizablePane: React.FC<{
           {left}
         </Allotment.Pane>
         <Allotment.Pane minSize={400}>{center}</Allotment.Pane>
-        <Allotment.Pane minSize={minSize} preferredSize={100} snap visible={rightVisible}>
-          {right}
-        </Allotment.Pane>
+        {right && (
+          <Allotment.Pane minSize={minSize} preferredSize={100} snap visible={rightVisible}>
+            {right}
+          </Allotment.Pane>
+        )}
       </Allotment>
     </>
   );

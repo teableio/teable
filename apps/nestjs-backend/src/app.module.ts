@@ -5,7 +5,9 @@ import { AuthModule } from './features/auth/auth.module';
 import { AutomationModule } from './features/automation/automation.module';
 import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
+import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
+import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { SpaceModule } from './features/space/space.module';
@@ -35,6 +37,10 @@ import { WsModule } from './ws/ws.module';
     UserModule,
     AuthModule,
     SpaceModule,
+    CollaboratorModule,
+    InvitationModule,
   ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
