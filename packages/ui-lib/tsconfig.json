@@ -14,7 +14,11 @@
     "incremental": true,
     "composite": true
   },
-  "references": [{ "path": "../icons" }],
+  "references": [
+    {
+      "path": "../icons"
+    }
+  ],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
   "include": ["./src"]
 }

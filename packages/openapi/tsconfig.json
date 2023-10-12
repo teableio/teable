@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "@teable-group/core",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "CommonJS",

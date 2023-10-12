@@ -15,10 +15,10 @@
     ".": "./dist"
   },
   "scripts": {
+    "build": "pnpm clean && tsc --build tsconfig.json",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "rm -rf dist && tsc --watch",
-    "build": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && tsc --build tsconfig.json",
     "test": "echo \"Error: no test specified\"",
-    "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "lint": "echo \"No ESLint script defined\"",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "generate": "rm -rf src/components && node ./scripts/generate.mjs"

@@ -26,7 +26,7 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 ENV HUSKY=0
 
 RUN npm install skip-postinstall -g
-RUN yarn install --immutable --inline-builds
+RUN pnpm install --immutable --inline-builds
 
 ###################################################################
 # Stage 2: Build the app                                          #

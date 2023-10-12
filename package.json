@@ -24,24 +24,24 @@
     "clean:global-cache": "rimraf ./.cache",
     "deps:check": "npx npm-check-updates@latest --configFileName ncurc.yml --workspaces --root --mergeConfig",
     "deps:update": "npx npm-check-updates@latest --configFileName ncurc.yml -u --workspaces --root --mergeConfig",
-    "g:build": "yarn workspaces foreach -A -p --topological-dev -v run build",
-    "g:build-changed": "yarn workspaces foreach --topological-dev --no-private -v --since=origin/main run build",
+    "g:build": "pnpm -r run build",
+    "g:build-changed": "pnpm -r -F '...[origin/main]' build",
     "g:changeset": "changeset",
-    "g:check-dist": "yarn workspaces foreach -A -ptv run check-dist",
-    "g:clean": "yarn clean:global-cache && rimraf ./out && yarn workspaces foreach -A -ptv run clean",
-    "g:fix-all-files": "yarn workspaces foreach -A -ptv run fix-all-files",
-    "g:lint": "yarn workspaces foreach -A -tv run lint --color",
+    "g:check-dist": "pnpm -r --parallel check-dist",
+    "g:clean": "pnpm clean:global-cache && pnpm -r run clean",
+    "g:fix-all-files": "pnpm -r fix-all-files",
+    "g:lint": "pnpm -r lint --color",
     "g:lint-staged-files": "lint-staged --allow-empty",
-    "g:lint-styles": "yarn workspaces foreach -A -ptv run lint-styles --color",
+    "g:lint-styles": "pnpm -r lint-styles --color",
     "g:release": "yarn g:build && changeset publish",
-    "g:test-e2e": "yarn workspaces foreach -A -tv run test-e2e",
-    "g:test-unit": "yarn workspaces foreach -A -tv run test-unit",
-    "g:test-unit-jest": "yarn workspaces foreach -A -tv run test-unit-jest",
-    "g:typecheck": "yarn workspaces foreach -A -tv run typecheck",
+    "g:test-e2e": "pnpm -r test-e2e",
+    "g:test-unit": "pnpm -r --parralel test-unit",
+    "g:test-unit-jest": "pnpm -r test-unit-jest",
+    "g:typecheck": "pnpm -r --parralel typecheck",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "nuke:node_modules": "rimraf --glob '**/node_modules'",
-    "postinstall": "skip-postinstall || yarn husky install"
+    "postinstall": "skip-postinstall || pnpm husky install"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",
@@ -77,8 +77,7 @@
   },
   "engines": {
     "node": ">=18.15.0",
-    "yarn": ">=1.22.0",
-    "npm": "please-use-yarn"
+    "pnpm": ">=8.8.0"
   },
-  "packageManager": "yarn@4.0.0-rc.53"
+  "packageManager": "pnpm@8.9.0"
 }

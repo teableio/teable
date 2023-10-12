@@ -21,10 +21,18 @@
     }
   },
   "references": [
-    { "path": "../core" },
-    { "path": "../ui-lib" },
-    { "path": "../icons" },
-    { "path": "../openapi" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../ui-lib"
+    },
+    {
+      "path": "../icons"
+    },
+    {
+      "path": "../openapi"
+    }
   ],
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
   "include": ["./src"]

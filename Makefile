@@ -163,7 +163,7 @@ sqlite.integration.test: docker.create.network
 		-e PRISMA_DATABASE_URL=file:../../db/main.db \
 		integration-test bash -c \
 			'make sqlite-mode && \
-				yarn workspace @teable-group/backend test:e2e'
+				pnpm workspace @teable-group/backend test:e2e'
 
 postgres.integration.test: docker.create.network
 	make docker.build integration-test
@@ -174,27 +174,27 @@ postgres.integration.test: docker.create.network
 		integration-test bash -c \
 			'chmod +x ./scripts/wait-for-it.sh && ./scripts/wait-for-it.sh teable-postgres:5432 --timeout=30 -- \
 				make postgres-mode && \
-				yarn workspace @teable-group/backend test:e2e'
+				pnpm workspace @teable-group/backend test:e2e'
 
 gen-sqlite-prisma-schema:
 	@cd ./packages/db-main-prisma; \
-		echo '{ "PRISMA_PROVIDER": "sqlite" }' | yarn mustache - ./prisma/template.prisma > ./prisma/sqlite/schema.prisma
+		echo '{ "PRISMA_PROVIDER": "sqlite" }' | pnpm mustache - ./prisma/template.prisma > ./prisma/sqlite/schema.prisma
 	@echo 'generate【 prisma/sqlite/schema.prisma 】success.'
 
 gen-postgres-prisma-schema:
 	@cd ./packages/db-main-prisma; \
-		echo '{ "PRISMA_PROVIDER": "postgres" }' | yarn mustache - ./prisma/template.prisma > ./prisma/postgres/schema.prisma
+		echo '{ "PRISMA_PROVIDER": "postgres" }' | pnpm mustache - ./prisma/template.prisma > ./prisma/postgres/schema.prisma
 	@echo 'generate【 prisma/postgres/schema.prisma 】success.'
 
 gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema		## Generate 'schema.prisma' files for all versions of the system
 
 sqlite-db-push:		## db-push by sqlite
 	@cd ./packages/db-main-prisma; \
-		yarn prisma-db-push --schema ./prisma/sqlite/schema.prisma
+		pnpm prisma-db-push --schema ./prisma/sqlite/schema.prisma
 
 postgres-db-push:		## db-push by postgres
 	@cd ./packages/db-main-prisma; \
-		yarn prisma-db-push --schema ./prisma/postgres/schema.prisma
+		pnpm prisma-db-push --schema ./prisma/postgres/schema.prisma
 
 db-push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
 	$(print_db_push_options)
@@ -209,13 +209,13 @@ db-push:		## connects to your database and adds Prisma models to your Prisma sch
 
 sqlite-mode:		## sqlite-mode
 	@cd ./packages/db-main-prisma; \
-		yarn prisma-generate --schema ./prisma/sqlite/schema.prisma; \
-		yarn prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
+		pnpm prisma-generate --schema ./prisma/sqlite/schema.prisma; \
+		pnpm prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
 postgres-mode:		## postgres-mode
 	@cd ./packages/db-main-prisma; \
-		yarn prisma-generate --schema ./prisma/postgres/schema.prisma; \
-		yarn prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
+		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
+		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
 db-mode:		## db-mode
 	$(print_db_mode_options)

@@ -44,6 +44,7 @@
     "@size-limit/file": "9.0.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.5.5",
+    "@types/lodash": "^4.14.199",
     "@types/node": "18.11.7",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",

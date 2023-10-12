@@ -24,32 +24,32 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "postinstall": "prisma generate --schema=./prisma/sqlite/schema.prisma",
     "prisma-generate": "prisma generate",
-    "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
-    "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset",
-    "prisma-db-push": "dotenv-flow -- yarn prisma db push",
-    "prisma-studio": "dotenv-flow -- yarn prisma studio",
+    "prisma-migrate": "dotenv-flow -- pnpm prisma migrate",
+    "prisma-migrate-reset": "dotenv-flow -- pnpm prisma migrate reset",
+    "prisma-db-push": "dotenv-flow -- pnpm prisma db push",
+    "prisma-studio": "dotenv-flow -- pnpm prisma studio",
     "test": "run-s test-unit",
     "test-unit": "echo \"No unit tests yet\"",
     "test-e2e": "echo \"No e2e tests yet\"",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "peerDependencies": {
+    "@prisma/client": "^5.4.0",
     "@nestjs/common": "^10.0.0",
     "nestjs-cls": "^3.5.1"
   },
   "dependencies": {
-    "@prisma/client": "5.4.2",
-    "dotenv-flow-cli": "1.0.0",
-    "nanoid": "3.3.6",
-    "prisma": "5.4.2"
+    "nanoid": "3.3.6"
   },
   "devDependencies": {
+    "@prisma/client": "5.4.2",
     "@faker-js/faker": "8.1.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.5.5",
     "@types/node": "18.11.7",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
+    "dotenv-flow-cli": "1.0.0",
     "eslint": "8.26.0",
     "execa": "5.1.1",
     "handlebars": "4.7.8",
@@ -57,6 +57,7 @@
     "jest": "29.7.0",
     "keyword-extractor": "0.0.23",
     "mustache": "4.2.0",
+    "prisma": "5.4.2",
     "npm-run-all": "4.1.5",
     "picocolors": "1.0.0",
     "prettier": "2.7.1",

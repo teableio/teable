@@ -2,6 +2,7 @@ import { Injectable, Logger, Scope } from '@nestjs/common';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import { isEmpty, get } from 'lodash';
 import fetch from 'node-fetch';
+import timeoutSignal from 'timeout-signal';
 import type { IActionResponse, ITemplateSchema, IConstSchema, IObjectSchema } from '../action-core';
 import { ActionCore, actionConst, ActionResponseStatus } from '../action-core';
 
@@ -51,11 +52,14 @@ export class Webhook extends ActionCore {
       method,
       headers,
       body,
-      timeout,
+      signal: timeoutSignal(timeout),
     })
       .then((response) => response.json())
       .then((resultJson) => {
-        const responseData = this.responseDataWrapper(resultJson, responseParams);
+        const responseData = this.responseDataWrapper(
+          resultJson as Record<string, unknown>,
+          responseParams
+        );
         outPut = { data: responseData, status: ActionResponseStatus.OK };
       })
       .catch((error) => {

@@ -8,7 +8,6 @@ import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
-import isCI from 'is-ci';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
@@ -16,7 +15,7 @@ import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
 export async function initApp() {
-  isCI && (process.env.LOG_LEVEL = 'error');
+  process.env.LOG_LEVEL = 'error';
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],

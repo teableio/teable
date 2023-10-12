@@ -12,16 +12,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "pnpm clean && tsc",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "tsc --watch",
-    "build": "tsc",
-    "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/ui-lib.eslintcache",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.1.0",
     "@teable-group/core": "workspace:*",
     "axios": "1.5.1",
+    "openapi3-ts": "^4.1.2",
     "zod": "3.22.4"
   },
   "devDependencies": {
