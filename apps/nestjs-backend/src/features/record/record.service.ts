@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -34,9 +35,11 @@ import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
@@ -58,6 +61,7 @@ export class RecordService implements IAdapterService {
     private readonly batchService: BatchService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -486,6 +490,7 @@ export class RecordService implements IAdapterService {
     await this.batchDel(tableId, recordIds);
   }
 
+  @Timing()
   async batchCreateRecords(tableId: string, records: IRecord[]) {
     const snapshots = await this.createBatch(tableId, records);
 
@@ -535,9 +540,9 @@ export class RecordService implements IAdapterService {
         };
       });
 
-    const nativeSql = this.knex(dbTableName).insert(snapshots).toSQL().toNative();
+    const sql = this.dbProvider.batchInsertSql(dbTableName, snapshots);
 
-    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(sql);
 
     return snapshots;
   }

@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
+  IUpdateRecordsRo,
 } from '@teable-group/core';
 import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -220,6 +221,9 @@ export class RecordOpenApiService {
     recordsRo: { id?: string; fields: Record<string, unknown> }[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
+    if (recordsRo.length === 0) {
+      throw new BadRequestException('Create records is empty');
+    }
     const emptyRecords = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
       return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });
@@ -252,14 +256,13 @@ export class RecordOpenApiService {
     };
   }
 
-  async updateRecords(
-    tableId: string,
-    updateRecordsRo: (IUpdateRecordRo & { recordId: string })[]
-  ) {
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
     return await this.prismaService.$tx(async () => {
-      for (const { recordId, ...updateRecordRo } of updateRecordsRo) {
-        await this.updateRecordById(tableId, recordId, updateRecordRo);
-      }
+      await this.calculateUpdatedRecord(
+        tableId,
+        updateRecordsRo.fieldKeyType,
+        updateRecordsRo.records
+      );
     });
   }
 

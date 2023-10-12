@@ -198,6 +198,22 @@ export const updateRecordRoSchema = z
 
 export type IUpdateRecordRo = z.infer<typeof updateRecordRoSchema>;
 
+export const updateRecordsRoSchema = z
+  .object({
+    fieldKeyType: fieldKeyTypeRoSchema,
+    records: z.array(
+      z.object({
+        id: z.string(),
+        fields: recordSchema.shape.fields,
+      })
+    ),
+  })
+  .openapi({
+    description: 'Update records',
+  });
+
+export type IUpdateRecordsRo = z.infer<typeof updateRecordsRoSchema>;
+
 export const updateRecordByIndexRoSchema = updateRecordRoSchema
   .merge(
     z.object({
