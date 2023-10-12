@@ -251,6 +251,8 @@ export class FieldService implements IAdapterService {
   }
 
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
+    if (!opData.length) return;
+
     const fieldRaw = await this.prismaService.txClient().field.findMany({
       where: { tableId, id: { in: opData.map((data) => data.fieldId) }, deletedTime: null },
       select: { id: true, version: true },
@@ -280,6 +282,8 @@ export class FieldService implements IAdapterService {
   }
 
   async batchDeleteFields(tableId: string, fieldIds: string[]) {
+    if (!fieldIds.length) return;
+
     const fieldRaw = await this.prismaService.txClient().field.findMany({
       where: { tableId, id: { in: fieldIds }, deletedTime: null },
       select: { id: true, version: true },
@@ -305,6 +309,8 @@ export class FieldService implements IAdapterService {
   }
 
   async batchCreateFields(tableId: string, dbTableName: string, fields: IFieldInstance[]) {
+    if (!fields.length) return;
+
     const dataList = fields.map((field) => {
       const snapshot = instanceToPlain(field, { excludePrefixes: ['_'] }) as IFieldVo;
       return {

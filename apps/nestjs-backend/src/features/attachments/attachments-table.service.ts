@@ -106,19 +106,23 @@ export class AttachmentsTableService {
       attachmentId?: string;
     }[]
   ) {
-    await this.prismaService.attachmentsTable.deleteMany({
+    if (!query.length) {
+      return;
+    }
+
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
       where: { OR: query },
     });
   }
 
   async deleteFields(tableId: string, fieldIds: string[]) {
-    await this.prismaService.attachmentsTable.deleteMany({
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
       where: { tableId, fieldId: { in: fieldIds } },
     });
   }
 
   async deleteTable(tableId: string) {
-    await this.prismaService.attachmentsTable.deleteMany({
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
       where: { tableId },
     });
   }

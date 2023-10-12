@@ -8,7 +8,7 @@ import {
   RecordOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEqual } from 'lodash';
+import { isEmpty, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { FieldSupplementService } from '../field-supplement.service';
@@ -173,6 +173,7 @@ export class FieldConvertingLinkService {
    * convert oldCellValue to new link field cellValue
    * if oldCellValue is not in foreignTable, create new record in foreignTable
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async convertLink(tableId: string, newField: LinkFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
     const foreignTableId = newField.options.foreignTableId;
@@ -259,7 +260,9 @@ export class FieldConvertingLinkService {
 
     return {
       recordOpsMap,
-      recordsForCreate: { [foreignTableId]: recordsForCreate },
+      recordsForCreate: isEmpty(recordsForCreate)
+        ? undefined
+        : { [foreignTableId]: recordsForCreate },
     };
   }
 }

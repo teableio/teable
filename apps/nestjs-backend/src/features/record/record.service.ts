@@ -455,7 +455,7 @@ export class RecordService implements IAdapterService {
       .txClient()
       .$queryRawUnsafe<{ max?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
 
-    return (result[0]?.max ?? 0) + 1;
+    return Number(result[0]?.max ?? 0) + 1;
   }
 
   async batchDeleteRecords(tableId: string, recordIds: string[]) {

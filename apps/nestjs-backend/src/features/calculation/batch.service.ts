@@ -102,6 +102,8 @@ export class BatchService {
       const versionGroup = keyBy(raw, '__id');
 
       const opsData = this.buildRecordOpsData(recordOpsMap, versionGroup);
+      if (!opsData.length) continue;
+
       await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
 
       const opDataList = Object.entries(recordOpsMap).map(([recordId, ops]) => {
@@ -166,6 +168,8 @@ export class BatchService {
     fieldMap: { [fieldId: string]: IFieldInstance },
     opsData: IOpsData[]
   ) {
+    if (!opsData.length) return;
+
     const opsDataGroup = groupBy(opsData, (d) => {
       return Object.keys(d.updateParam).join();
     });
@@ -298,6 +302,7 @@ export class BatchService {
         version: rawOp.v,
         operation: JSON.stringify(rawOp),
         created_by: userId,
+        created_time: new Date().toISOString(),
       };
     });
 
