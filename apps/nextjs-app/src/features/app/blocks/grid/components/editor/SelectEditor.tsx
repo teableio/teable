@@ -65,7 +65,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
                   )}
                 />
                 <div
-                  className="px-2 rounded-[6px] text-[12px] text-ellipsis whitespace-nowrap"
+                  className="text-ellipsis whitespace-nowrap rounded-[6px] px-2 text-[12px]"
                   style={{
                     backgroundColor: bgColor,
                     color: textColor,

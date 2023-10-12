@@ -48,7 +48,7 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex w-full flex-col gap-2">
       <Label className="font-normal">Show As</Label>
       <div className="grid grid-cols-4 gap-2">
         {SINGLE_LINE_TEXT_DISPLAY_INFOS.map(({ type, text }) => {
