@@ -45,13 +45,13 @@ export class TableService implements IAdapterService {
   private logger = new Logger(TableService.name);
 
   constructor(
+    private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
-    private readonly cls: ClsService<IClsStore>,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -63,7 +63,7 @@ export class TableService implements IAdapterService {
   private async createDBTable(baseId: string, tableRo: ICreateTableRo) {
     const userId = this.cls.get('user.id');
     const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
-      where: { deletedTime: null },
+      where: { baseId, deletedTime: null },
       select: { name: true, order: true },
     });
     const tableId = generateTableId();
@@ -274,7 +274,15 @@ export class TableService implements IAdapterService {
     tableId: string,
     input: Omit<
       Prisma.TableMetaUpdateInput,
-      'id' | 'createdBy' | 'lastModifiedBy' | 'version' | 'base' | 'fields' | 'views'
+      | 'id'
+      | 'createdBy'
+      | 'lastModifiedBy'
+      | 'createdTime'
+      | 'lastModifiedTime'
+      | 'version'
+      | 'base'
+      | 'fields'
+      | 'views'
     >
   ) {
     const select = Object.keys(input).reduce<{ [key: string]: boolean }>((acc, key) => {
@@ -314,7 +322,7 @@ export class TableService implements IAdapterService {
         };
       });
 
-    await this.prismaService.txClient().tableMeta.update({
+    const tableRawAfter = await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId },
       data: updateInput,
     });
@@ -322,10 +330,12 @@ export class TableService implements IAdapterService {
     await this.batchService.saveRawOps(baseId, RawOpType.Edit, IdPrefix.Table, [
       {
         docId: tableId,
-        version: 0,
+        version: tableRaw.version,
         data: ops,
       },
     ]);
+
+    return tableRawAfter;
   }
 
   async create(baseId: string, snapshot: ITableVo) {
@@ -372,9 +382,9 @@ export class TableService implements IAdapterService {
     }
   }
 
-  async getSnapshotBulk(_collection: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
+  async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { id: { in: ids }, deletedTime: null },
+      where: { baseId, id: { in: ids }, deletedTime: null },
     });
     const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
@@ -397,9 +407,9 @@ export class TableService implements IAdapterService {
       });
   }
 
-  async getDocIdsByQuery(collection: string, _query: unknown) {
+  async getDocIdsByQuery(baseId: string, _query: unknown) {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { deletedTime: null, baseId: collection },
+      where: { deletedTime: null, baseId },
       select: { id: true },
       orderBy: { order: 'asc' },
     });

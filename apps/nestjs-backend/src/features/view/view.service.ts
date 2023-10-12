@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import type {
   ISetViewFilterOpContext,
   ISetViewSortOpContext,
@@ -7,24 +7,28 @@ import type {
   ISnapshotBase,
   IViewRo,
   IViewVo,
-  ViewType,
+  IOtOperation,
 } from '@teable-group/core';
-import { generateViewId, OpName } from '@teable-group/core';
+import { getUniqName, IdPrefix, generateViewId, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
+import { maxBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from 'src/types/cls';
 import type { IAdapterService } from '../../share-db/interface';
+import { RawOpType } from '../../share-db/interface';
+import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
-import { createViewInstanceByRaw } from './model/factory';
+import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 
 @Injectable()
 export class ViewService implements IAdapterService {
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly batchService: BatchService,
+    private readonly prismaService: PrismaService,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -36,23 +40,32 @@ export class ViewService implements IAdapterService {
     return `idx_${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
   }
 
-  async createViewTransaction(
-    tableId: string,
-    createViewRo: IViewRo & { id?: string; name: string }
-  ) {
-    const userId = this.cls.get('user.id');
-    const { id, name, description, type, options, sort, filter, group } = createViewRo;
-    let order = createViewRo.order;
-    const viewId = id || generateViewId();
-    const prisma = this.prismaService.txClient();
+  private async polishOrderAndName(tableId: string, viewRo: IViewRo) {
+    const viewRaws = await this.prismaService.txClient().view.findMany({
+      where: { tableId, deletedTime: null },
+      select: { name: true, order: true },
+    });
 
-    if (!order) {
-      const viewAggregate = await prisma.view.aggregate({
-        where: { tableId, deletedTime: null },
-        _max: { order: true },
-      });
-      order = (viewAggregate._max.order || 0) + 1;
+    let { name, order } = viewRo;
+
+    const names = viewRaws.map((view) => view.name);
+    name = getUniqName(name ?? 'New view', names);
+
+    if (order == null) {
+      const maxOrder = maxBy(viewRaws)?.order;
+      order = maxOrder == null ? 0 : maxOrder + 1;
     }
+    return { name, order };
+  }
+
+  async createDbView(tableId: string, viewRo: IViewRo) {
+    const userId = this.cls.get('user.id');
+    const { description, type, options, sort, filter, group } = viewRo;
+
+    const { name, order } = await this.polishOrderAndName(tableId, viewRo);
+
+    const viewId = generateViewId();
+    const prisma = this.prismaService.txClient();
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -113,6 +126,7 @@ export class ViewService implements IAdapterService {
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);
+
     return viewData;
   }
 
@@ -132,18 +146,103 @@ export class ViewService implements IAdapterService {
     return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
+  async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
+    const viewRaw = await this.createDbView(tableId, viewRo);
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.View, [
+      { docId: viewRaw.id, version: 0, data: viewRaw },
+    ]);
+
+    return createViewVoByRaw(viewRaw);
+  }
+
+  async deleteView(tableId: string, viewId: string) {
+    const { version } = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        where: { id: viewId, tableId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('Table not found');
+      });
+
+    await this.del(version + 1, tableId, viewId);
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
+      { docId: viewId, version },
+    ]);
+  }
+
+  async updateView(
+    tableId: string,
+    viewId: string,
+    input: Omit<
+      Prisma.ViewUpdateInput,
+      'id' | 'createdBy' | 'createdTime' | 'lastModifiedBy' | 'lastModifiedTime' | 'version'
+    >
+  ) {
+    const select = Object.keys(input).reduce<{ [key: string]: boolean }>((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {});
+
+    const viewRaw = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        where: { id: viewId, tableId, deletedTime: null },
+        select: {
+          ...select,
+          version: true,
+          lastModifiedBy: true,
+          lastModifiedTime: true,
+        },
+      })
+      .catch(() => {
+        throw new BadRequestException('View not found');
+      });
+
+    const updateInput: Prisma.ViewUpdateInput = {
+      ...input,
+      version: viewRaw.version + 1,
+      lastModifiedBy: this.cls.get('user.id'),
+      lastModifiedTime: new Date(),
+    };
+
+    const ops = Object.entries(updateInput)
+      .filter(([key, value]) => Boolean(value == (viewRaw as Record<string, unknown>)[key]))
+      .map<IOtOperation>(([key, value]) => {
+        return {
+          p: [key],
+          oi: value,
+          od: (viewRaw as Record<string, unknown>)[key],
+        };
+      });
+
+    const viewRawAfter = await this.prismaService.txClient().view.update({
+      where: { id: viewId },
+      data: updateInput,
+    });
+
+    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, [
+      {
+        docId: viewId,
+        version: 0,
+        data: ops,
+      },
+    ]);
+
+    return viewRawAfter;
+  }
+
   async create(tableId: string, view: IViewVo) {
-    await this.createViewTransaction(tableId, view);
+    await this.createDbView(tableId, view);
   }
 
   async del(_version: number, _tableId: string, viewId: string) {
-    const userId = this.cls.get('user.id');
-
     const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
 
-    await this.prismaService.txClient().view.update({
+    await this.prismaService.txClient().view.delete({
       where: { id: viewId },
-      data: { deletedTime: new Date(), lastModifiedBy: userId },
     });
 
     await this.prismaService.txClient().$executeRawUnsafe(`
@@ -204,16 +303,7 @@ export class ViewService implements IAdapterService {
           id: view.id,
           v: view.version,
           type: 'json0',
-          data: {
-            ...view,
-            deletedTime: view.deletedTime?.toISOString() || undefined,
-            type: view.type as ViewType,
-            description: view.description || undefined,
-            filter: JSON.parse(view.filter as string) || undefined,
-            sort: JSON.parse(view.sort as string) || undefined,
-            group: JSON.parse(view.group as string) || undefined,
-            options: JSON.parse(view.options as string) || undefined,
-          },
+          data: createViewVoByRaw(view),
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));

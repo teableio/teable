@@ -16,7 +16,6 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
-import { createViewInstanceByRo } from '../../view/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableService } from '../table.service';
 
@@ -33,9 +32,8 @@ export class TableOpenApiService {
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
-    const viewCreationPromises = viewRos.map(async (fieldRo) => {
-      const viewInstance = createViewInstanceByRo(fieldRo);
-      return this.viewOpenApiService.createView(tableId, viewInstance);
+    const viewCreationPromises = viewRos.map(async (viewRo) => {
+      return this.viewOpenApiService.createView(tableId, viewRo);
     });
     return await Promise.all(viewCreationPromises);
   }
