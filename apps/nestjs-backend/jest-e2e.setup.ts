@@ -33,7 +33,7 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
     if (!existsEmail) {
       await prisma.user.create({
         data: {
-          id: generateUserId(),
+          id: userId,
           name: email.split('@')[0],
           email,
           salt,
@@ -46,6 +46,16 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
         data: {
           id: spaceId,
           name: 'test space',
+          createdBy: userId,
+          lastModifiedBy: userId,
+        },
+      });
+
+      await prisma.collaborator.create({
+        data: {
+          spaceId,
+          roleName: 'owner',
+          userId,
           createdBy: userId,
           lastModifiedBy: userId,
         },

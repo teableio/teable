@@ -5,6 +5,8 @@ import type { IRawOpMap } from '../share-db/interface';
 export interface IClsStore extends ClsStore {
   user: {
     id: string;
+    name: string;
+    email: string;
   };
   tx: {
     client?: Prisma.TransactionClient;
