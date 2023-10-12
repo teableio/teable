@@ -56,6 +56,8 @@ WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
+RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ];  \
     then yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build;  \
@@ -65,7 +67,6 @@ RUN if [ -n "$INTEGRATION_TEST" ];  \
                                 @teable-group/backend @teable-group/app; \
     fi
 
-RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 ##################################################################
 # Stage 3: Extract a minimal image from the build                #
