@@ -8,7 +8,9 @@ import {
   IdPrefix,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Knex } from 'knex';
 import { groupBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
@@ -37,7 +39,8 @@ export class SqliteDbAdapter extends ShareDb.DB {
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @InjectModel() private readonly knex: Knex
   ) {
     super();
     this.closed = false;
@@ -340,14 +343,20 @@ export class SqliteDbAdapter extends ShareDb.DB {
       // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
-      const res = await this.prismaService.$queryRawUnsafe<
-        { collection: string; id: string; from: number; to: number; operation: string }[]
-      >(
-        'SELECT version, operation FROM ops WHERE collection = ? AND doc_id = ? AND version >= ? AND version < ?',
-        collectionId,
-        id,
-        from,
-        to
+      const nativeSql = this.knex('ops')
+        .select('operation')
+        .where({
+          collection: collectionId,
+          doc_id: id,
+        })
+        .andWhere('version', '>=', from)
+        .andWhere('version', '<', to)
+        .toSQL()
+        .toNative();
+
+      const res = await this.prismaService.$queryRawUnsafe<{ operation: string }[]>(
+        nativeSql.sql,
+        ...nativeSql.bindings
       );
 
       callback(

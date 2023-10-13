@@ -97,7 +97,7 @@ export class PrismaService
 
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
-        proxyClient(prisma);
+        prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         const res = await fn(prisma);
