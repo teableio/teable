@@ -3,9 +3,16 @@ import type { IGetBaseVo } from '@teable-group/openapi';
 import knex from 'knex';
 import { Table } from './table/table';
 
+function getDriver() {
+  if (typeof window === 'object') {
+    return window.__s.driver;
+  }
+  return 'sqlite3';
+}
+
 export class Base implements IGetBaseVo {
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  static knex = knex({ client: 'sqlite3' });
+  static knex = knex({ client: getDriver() });
 
   id: string;
   name: string;
