@@ -12,11 +12,7 @@
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
-    "baseUrl": "./",
-    "outDir": "./dist",
-    "paths": {
-      "src/*": ["./src/*"]
-    }
+    "outDir": "./dist"
   },
   "references": [
     { "path": "../../packages/core" },

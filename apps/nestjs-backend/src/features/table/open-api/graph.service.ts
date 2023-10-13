@@ -9,11 +9,11 @@ import type {
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { keyBy } from 'lodash';
-import type { FormulaFieldDto } from 'src/features/field/model/field-dto/formula-field.dto';
 import type { IFieldMap, IRecordItem } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
+import type { FormulaFieldDto } from '../../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../../record/record.service';
 
 @Injectable()

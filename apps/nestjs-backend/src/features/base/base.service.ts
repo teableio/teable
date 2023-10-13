@@ -3,7 +3,7 @@ import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from 'src/types/cls';
+import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class BaseService {
