@@ -2,7 +2,7 @@ import type { ISortItem } from '@teable-group/core';
 import { OrderSelect } from './OrderSelect';
 import { SortFieldSelect } from './SortFieldSelect';
 
-interface ISortItemProps {
+export interface ISortItemProps {
   index: number;
   value: ISortItem;
   selectedFields?: string[];
@@ -24,7 +24,7 @@ function SortItem(props: ISortItemProps) {
   };
 
   return (
-    <div className="flex py-2">
+    <div className="flex">
       <SortFieldSelect
         value={fieldId}
         onSelect={(value) => selectHandler(ISortKey.FIELDID, value)}

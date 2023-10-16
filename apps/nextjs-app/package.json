@@ -115,6 +115,8 @@
     "@codemirror/language": "^6.9.1",
     "@codemirror/state": "^6.3.0",
     "@codemirror/view": "^6.21.3",
+    "@dnd-kit/core": "6.0.8",
+    "@dnd-kit/sortable": "7.0.2",
     "@fontsource/inter": "4.5.14",
     "@hookform/resolvers": "3.3.1",
     "@nem035/gpt-3-encoder": "1.1.7",
