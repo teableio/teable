@@ -17,6 +17,14 @@ function updateTheme(theme: ThemeKey | null) {
     : document.documentElement.classList.remove(ThemeKey.Dark);
 }
 
+export function getTheme() {
+  return typeof window === 'object' &&
+    window.matchMedia &&
+    window.matchMedia(darkModeMediaQuery).matches
+    ? ThemeKey.Dark
+    : ThemeKey.Light;
+}
+
 /**
  * Theme provider
  * if user set theme manually, it will keep in localstorage
@@ -33,13 +41,7 @@ export function useTheme(): IUseThemeResult {
 
   // run in browser environment
   useEffect(() => {
-    const aTheme =
-      typeof window === 'object' &&
-      window.matchMedia &&
-      window.matchMedia(darkModeMediaQuery).matches
-        ? ThemeKey.Dark
-        : ThemeKey.Light;
-    setAutoTheme(aTheme);
+    setAutoTheme(getTheme());
   }, []);
 
   useEffect(() => {

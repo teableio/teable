@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { DriverClient } from '@teable-group/core';
 import knex from 'knex';
-import { DriverClient } from '../../utils/constants';
 
 knex.QueryBuilder.extend('columnList', function (tableName: string) {
   const driverClient = this.client.config?.client as DriverClient;

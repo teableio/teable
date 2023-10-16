@@ -4,7 +4,6 @@ export function parseDsn(dsn: string) {
   const parsedDsn = parse(dsn);
   if (dsn.startsWith('file:')) {
     return {
-      dsn,
       host: 'localhost',
       driver: 'sqlite3',
     };
@@ -18,11 +17,15 @@ export function parseDsn(dsn: string) {
   }
 
   return {
-    dsn,
     ...parsedDsn.value,
   };
 }
 
 export function isParsableDsn(dsn: unknown) {
   return (dsn as string).startsWith('file:') || isParsable(dsn);
+}
+
+export enum DriverClient {
+  PG = 'postgresql',
+  SQLITE = 'sqlite3',
 }
