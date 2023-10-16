@@ -1,7 +1,7 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
 
@@ -10,6 +10,33 @@ interface ITx {
   id?: string;
   rawOpMap?: unknown;
 }
+
+function proxyClient(tx: Prisma.TransactionClient) {
+  return new Proxy(tx, {
+    get(target, p) {
+      if (p === '$queryRawUnsafe' || p === '$executeRawUnsafe') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return async function (query: string, ...args: any[]) {
+          const stack = new Error().stack;
+          try {
+            // eslint-disable-next-line prefer-spread
+            return await target[p](query, ...args);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } catch (e: any) {
+            // you can debug here
+            const newError = new Error(`An error occurred in ${p}: ${e.message}`);
+            newError.stack = stack;
+            throw newError;
+          }
+        };
+      }
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      return target[p];
+    },
+  });
+}
+
 @Injectable()
 export class PrismaService
   extends PrismaClient<Prisma.PrismaClientOptions, 'query'>
@@ -73,6 +100,7 @@ export class PrismaService
 
     await this.cls.runWith(this.cls.get(), async () => {
       result = await super.$transaction<R>(async (prisma) => {
+        prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         const res = await fn(prisma);

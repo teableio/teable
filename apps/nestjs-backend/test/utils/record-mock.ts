@@ -2,9 +2,12 @@ import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import type { ISelectFieldOptions } from '@teable-group/core';
-import { IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
+import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
+import Knex from 'knex';
 import { chunk, flatten, groupBy } from 'lodash';
-
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+const { driver } = parseDsn(databaseUrl);
 const prisma = new PrismaClient();
 
 async function rectifyField(fields: Field[], selectOptions: ISelectFieldOptions) {
@@ -113,8 +116,12 @@ export async function seeding(tableId: string, mockDataNum: number) {
   console.log(`Table: ${tableName}, mockDataNum: ${mockDataNum}`);
 
   const views = await prisma.view.findMany({ where: { tableId } });
+  const knex = Knex({
+    client: driver,
+  });
+
   const [{ count: rowCount }] = await prisma.$queryRawUnsafe<{ count: number }[]>(
-    `select count(*) as count from "${dbTableName}"`
+    knex(dbTableName).count({ count: '*' }).toQuery()
   );
 
   console.time(`Table: ${tableName}, Ready Install Data`);
@@ -140,7 +147,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   const promises = pages.map((page) => {
     const sql = `
-        INSERT INTO "${dbTableName}"
+        INSERT INTO ${knex.ref(dbTableName)}
         ("${Object.keys(page[0]).join('", "')}")
         VALUES
         ${page

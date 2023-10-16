@@ -21,16 +21,16 @@ describe('TableService', () => {
 
   it('should convert table name to valid db table name', () => {
     const dbTableName = service.generateValidDbTableName('!@#$_a ha3ha 中文');
-    expect(dbTableName).toBe('visual__aha3ha');
+    expect(dbTableName).toBe('_aha3ha');
   });
 
   it('should limit table name to 10', () => {
     const dbTableName = service.generateValidDbTableName('!@#$_a haha long long test for mr 中文');
-    expect(dbTableName).toBe('visual__ahahalong');
+    expect(dbTableName).toBe('_ahahalong');
   });
 
   it('should convert empty table name unnamed', () => {
     const dbTableName = service.generateValidDbTableName('中文');
-    expect(dbTableName).toBe('visual_unnamed');
+    expect(dbTableName).toBe('unnamed');
   });
 });

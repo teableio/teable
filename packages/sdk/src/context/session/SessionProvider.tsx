@@ -8,9 +8,14 @@ interface ISessionProviderProps {
   user?: IUser;
 }
 
-declare let window: {
-  __user: IUser;
-};
+declare global {
+  interface Window {
+    __s: {
+      user?: IUser;
+      driver: string;
+    };
+  }
+}
 
 export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderProps>> = (
   props
@@ -21,7 +26,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
       return user;
     }
     if (typeof window === 'object') {
-      return window.__user;
+      return window.__s.user;
     }
     return undefined;
   });

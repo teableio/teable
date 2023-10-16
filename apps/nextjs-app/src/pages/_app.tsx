@@ -1,5 +1,5 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { HttpError } from '@teable-group/core';
+import { HttpError, parseDsn } from '@teable-group/core';
 import { axios } from '@teable-group/openapi';
 import type { IUser } from '@teable-group/sdk';
 import dayjs from 'dayjs';
@@ -51,15 +51,22 @@ export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P
 type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
   user?: IUser;
+  driver: string;
 };
 
 /**
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, pageProps, err, user } = appProps;
+  const { Component, pageProps, err, user, driver } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
+
+  const serverInfo = {
+    driver,
+    user,
+  };
+
   return (
     <AppProviders>
       <Head>
@@ -69,7 +76,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
       <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
       <script
         dangerouslySetInnerHTML={{
-          __html: `window.__user = ${user ? JSON.stringify(user) : null};`,
+          __html: `window.__s = ${JSON.stringify(serverInfo)};`,
         }}
       />
       {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
@@ -89,9 +96,18 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   const res = appContext.ctx.res;
   const host = appContext.ctx.req?.headers.host || '';
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
+
   if (!res || !res?.writeHead) {
-    return { ...appProps };
+    return appProps;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL!);
+  const initialProps = {
+    ...appProps,
+    driver,
+  };
+
   try {
     const user = await axios.get<IUser>(`http://${host}/api/auth/user/me`, {
       headers: { cookie: appContext.ctx.req?.headers.cookie },
@@ -103,7 +119,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       });
       res.end();
     }
-    return { ...appProps, user: user.data };
+    return { ...initialProps, user: user.data };
   } catch (error) {
     if (error instanceof HttpError && !isLoginPage) {
       const redirect = encodeURIComponent(appContext.ctx.req?.url || '');
@@ -114,7 +130,8 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       res.end();
     }
   }
-  return { ...appProps };
+
+  return initialProps;
 };
 
 export default appWithTranslation(MyApp, {
