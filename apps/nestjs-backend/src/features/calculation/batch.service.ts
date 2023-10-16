@@ -4,6 +4,7 @@ import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, keyBy, merge } from 'lodash';
+import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
@@ -191,7 +192,7 @@ export class BatchService {
 
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
-    const tempTableName = `${dbTableName}_temp`;
+    const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
     const columnNames = fieldIds
       .map((id) => fieldMap[id].dbFieldName)

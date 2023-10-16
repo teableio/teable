@@ -96,17 +96,18 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   const res = appContext.ctx.res;
   const host = appContext.ctx.req?.headers.host || '';
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
-  const databaseUrl = process.env.PRISMA_DATABASE_URL as string;
-  const { driver } = parseDsn(databaseUrl);
 
+  if (!res || !res?.writeHead) {
+    return appProps;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL!);
   const initialProps = {
     ...appProps,
     driver,
   };
 
-  if (!res || !res?.writeHead) {
-    return initialProps;
-  }
   try {
     const user = await axios.get<IUser>(`http://${host}/api/auth/user/me`, {
       headers: { cookie: appContext.ctx.req?.headers.cookie },

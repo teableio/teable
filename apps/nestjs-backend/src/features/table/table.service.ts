@@ -30,6 +30,7 @@ import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { isSQLite } from '../../utils/db-helpers';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
@@ -37,8 +38,6 @@ import { BatchService } from '../calculation/batch.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
-
-const tableNamePrefix = 'visual';
 
 @Injectable()
 export class TableService implements IAdapterService {
@@ -56,8 +55,7 @@ export class TableService implements IAdapterService {
   ) {}
 
   generateValidDbTableName(name: string) {
-    const validInputName = convertNameToValidCharacter(name);
-    return `${tableNamePrefix}_${validInputName}`;
+    return convertNameToValidCharacter(name, 10);
   }
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo) {
@@ -76,7 +74,8 @@ export class TableService implements IAdapterService {
       }, 0) + 1;
 
     const validDbTableName = this.generateValidDbTableName(uniqName);
-    const dbTableName = `${validDbTableName}_${tableId}`;
+    const split = isSQLite(this.knex) ? '_' : '.';
+    const dbTableName = `${baseId}${split}${validDbTableName}_${tableId}`;
 
     const data: Prisma.TableMetaCreateInput = {
       id: tableId,

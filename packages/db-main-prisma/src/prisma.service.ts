@@ -17,13 +17,16 @@ function proxyClient(tx: Prisma.TransactionClient) {
       if (p === '$queryRawUnsafe' || p === '$executeRawUnsafe') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return async function (query: string, ...args: any[]) {
+          const stack = new Error().stack;
           try {
             // eslint-disable-next-line prefer-spread
             return await target[p](query, ...args);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (e: any) {
-            console.error(e);
-            throw new Error(`An error occurred in $queryRawUnsafe: ${e.message}`);
+            // you can debug here
+            const newError = new Error(`An error occurred in ${p}: ${e.message}`);
+            newError.stack = stack;
+            throw newError;
           }
         };
       }

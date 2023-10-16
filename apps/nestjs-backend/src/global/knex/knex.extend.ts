@@ -8,7 +8,8 @@ knex.QueryBuilder.extend('columnList', function (tableName: string) {
   switch (driverClient) {
     case DriverClient.SQLITE:
       return knex(this.client.config).raw(`PRAGMA table_info(??)`, tableName);
-    case DriverClient.PG:
+    case DriverClient.PG: {
+      const [schema, name] = tableName.split('.');
       this.select({
         name: 'column_name',
         type: 'data_type',
@@ -16,8 +17,10 @@ knex.QueryBuilder.extend('columnList', function (tableName: string) {
         notnull: 'is_nullable',
       })
         .from('information_schema.columns')
-        .where('table_name', tableName);
+        .where('table_name', name)
+        .where('table_schema', schema);
       break;
+    }
   }
   return this;
 });

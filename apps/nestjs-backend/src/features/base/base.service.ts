@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
@@ -11,7 +12,8 @@ export class BaseService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
   async getBaseById(baseId: string) {
@@ -58,31 +60,38 @@ export class BaseService {
     const userId = this.cls.get('user.id');
     const { name, spaceId } = createBaseRo;
 
-    let order = createBaseRo.order;
-    if (!order) {
-      const spaceAggregate = await this.prismaService.base.aggregate({
-        where: { spaceId, deletedTime: null },
-        _max: { order: true },
-      });
-      order = (spaceAggregate._max.order || 0) + 1;
-    }
+    return this.prismaService.$transaction(async (prisma) => {
+      let order = createBaseRo.order;
+      if (!order) {
+        const spaceAggregate = await prisma.base.aggregate({
+          where: { spaceId, deletedTime: null },
+          _max: { order: true },
+        });
+        order = (spaceAggregate._max.order || 0) + 1;
+      }
 
-    return this.prismaService.base.create({
-      data: {
-        id: generateBaseId(),
-        name: name || 'Untitled Base',
-        spaceId,
-        order,
-        createdBy: userId,
-        lastModifiedBy: userId,
-      },
-      select: {
-        id: true,
-        name: true,
-        icon: true,
-        spaceId: true,
-        order: true,
-      },
+      const base = await prisma.base.create({
+        data: {
+          id: generateBaseId(),
+          name: name || 'Untitled Base',
+          spaceId,
+          order,
+          createdBy: userId,
+          lastModifiedBy: userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          spaceId: true,
+          order: true,
+        },
+      });
+
+      const sql = this.dbProvider.createSchema(base.id);
+      sql && (await prisma.$executeRawUnsafe(sql));
+
+      return base;
     });
   }
 
