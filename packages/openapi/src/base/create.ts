@@ -37,7 +37,7 @@ export const CreateBaseRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns information about a successfully created base.',
       content: {
         'application/json': {

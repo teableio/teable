@@ -1,6 +1,12 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Param, Patch, Post, Get, Delete } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { ICreateBaseVo, IUpdateBaseVo, IGetBaseVo } from '@teable-group/openapi';
+import type {
+  ICreateBaseVo,
+  IUpdateBaseVo,
+  IGetBaseVo,
+  IDbConnectionVo,
+} from '@teable-group/openapi';
 import {
   createBaseRoSchema,
   ICreateBaseRo,
@@ -9,11 +15,15 @@ import {
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { BaseService } from './base.service';
+import { DbConnectionService } from './db-connection.service';
 
 @ApiTags('api/base')
 @Controller('api/base')
 export class BaseController {
-  constructor(private readonly baseService: BaseService) {}
+  constructor(
+    private readonly baseService: BaseService,
+    private readonly dbConnectionService: DbConnectionService
+  ) {}
 
   @Post()
   async createBase(
@@ -45,6 +55,22 @@ export class BaseController {
   @Delete(':baseId')
   async deleteBase(@Param('baseId') baseId: string) {
     await this.baseService.deleteBase(baseId);
+    return null;
+  }
+
+  @Post(':baseId/connection')
+  async createDbConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo> {
+    return await this.dbConnectionService.create(baseId);
+  }
+
+  @Get(':baseId/connection')
+  async getDBConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo> {
+    return await this.dbConnectionService.retrieve(baseId);
+  }
+
+  @Delete(':baseId/connection')
+  async deleteDbConnection(@Param('baseId') baseId: string) {
+    await this.dbConnectionService.remove(baseId);
     return null;
   }
 }

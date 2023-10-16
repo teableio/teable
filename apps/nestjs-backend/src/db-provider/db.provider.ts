@@ -11,9 +11,9 @@ export const DbProvider: Provider = {
     const driverClient = knex.client.config?.client as DriverClient;
 
     switch (driverClient) {
-      case DriverClient.SQLITE:
+      case DriverClient.Sqlite:
         return new SqliteProvider(knex);
-      case DriverClient.PG:
+      case DriverClient.Pg:
         return new PostgresProvider(knex);
     }
   },

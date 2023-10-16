@@ -6,9 +6,9 @@ import knex from 'knex';
 knex.QueryBuilder.extend('columnList', function (tableName: string) {
   const driverClient = this.client.config?.client as DriverClient;
   switch (driverClient) {
-    case DriverClient.SQLITE:
+    case DriverClient.Sqlite:
       return knex(this.client.config).raw(`PRAGMA table_info(??)`, tableName);
-    case DriverClient.PG: {
+    case DriverClient.Pg: {
       const [schema, name] = tableName.split('.');
       this.select({
         name: 'column_name',

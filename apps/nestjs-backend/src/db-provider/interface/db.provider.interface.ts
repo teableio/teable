@@ -1,9 +1,12 @@
+import type { DriverClient } from '@teable-group/core';
 import type { IOpsData } from '../../features/calculation/batch.service';
 import type { ITopoLinkOrder } from '../../features/calculation/reference.service';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 export interface IDbProvider {
-  createSchema(schemaName: string): string | undefined;
+  driver: DriverClient;
+
+  createSchema(schemaName: string): string[] | undefined;
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
