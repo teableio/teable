@@ -762,8 +762,8 @@ export class FieldSupplementService implements ISupplementService {
     } as IFieldVo) as LinkFieldDto;
   }
 
-  private async columnExists(tableName: string, columnName: string): Promise<boolean> {
-    const columnListSql = this.knex.queryBuilder().columnList(tableName).toQuery();
+  private async columnExists(dbTableName: string, columnName: string): Promise<boolean> {
+    const columnListSql = this.knex.queryBuilder().columnList(dbTableName).toQuery();
 
     const result = await this.prismaService
       .txClient()

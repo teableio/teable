@@ -11,6 +11,10 @@ export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);
   constructor(private readonly knex: Knex) {}
 
+  createSchema(schemaName: string): string {
+    return `create schema if not exists "${schemaName}"`;
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     return this.knex.insert(insertData).into(tableName).toQuery();
   }
@@ -45,7 +49,7 @@ export class PostgresProvider implements IDbProvider {
           .select({
             __id: this.knex.ref(`${linkedTable}.${foreignKeyField}`),
             dbTableName: this.knex.raw('?', dbTableName),
-            selectIn: this.knex.raw('?', `${linkedTable}.${foreignKeyField}`),
+            selectIn: this.knex.raw('?', `${linkedTable}#${foreignKeyField}`),
             relationTo: this.knex.raw('?', null),
             fieldId: this.knex.raw('?', fieldId),
           })

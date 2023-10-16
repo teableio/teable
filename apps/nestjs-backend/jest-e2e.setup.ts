@@ -1,6 +1,6 @@
 import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
-import { generateUserId } from '@teable-group/core';
+import { generateUserId, parseDsn } from '@teable-group/core';
 import * as bcrypt from 'bcrypt';
 
 interface ITestConfig {
@@ -62,6 +62,13 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
       });
     }
     if (!existsBase) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+      const { driver } = parseDsn(databaseUrl);
+
+      if (driver !== 'sqlite3') {
+        await prisma.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
+      }
       await prisma.base.create({
         data: {
           id: baseId,

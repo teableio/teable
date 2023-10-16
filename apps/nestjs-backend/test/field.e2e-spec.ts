@@ -461,13 +461,13 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       // foreignKey should be removed
       const linkedRecordsAfter = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        `SELECT * FROM "${dbTableName}" WHERE "${dbForeignKeyName}" NOTNULL`
+        knex(dbTableName).select('*').whereNotNull(dbForeignKeyName).toQuery()
       );
       expect(linkedRecordsAfter.length).toBe(0);
 
       // cell should be clean
       const linkedCellAfter = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        `SELECT * FROM "${dbTableName}" WHERE "${linkField.dbFieldName}" NOTNULL`
+        knex(dbTableName).select('*').whereNotNull(linkField.dbFieldName).toQuery()
       );
       expect(linkedCellAfter.length).toBe(0);
 

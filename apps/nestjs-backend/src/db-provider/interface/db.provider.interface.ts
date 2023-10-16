@@ -3,6 +3,8 @@ import type { ITopoLinkOrder } from '../../features/calculation/reference.servic
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 export interface IDbProvider {
+  createSchema(schemaName: string): string | undefined;
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
   affectedRecordItemsQuerySql(

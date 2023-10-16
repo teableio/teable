@@ -12,6 +12,10 @@ export class SqliteProvider implements IDbProvider {
 
   constructor(private readonly knex: Knex) {}
 
+  createSchema(_schemaName: string) {
+    return undefined;
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.
@@ -57,7 +61,7 @@ export class SqliteProvider implements IDbProvider {
           .select({
             __id: this.knex.ref(`${linkedTable}.${foreignKeyField}`),
             dbTableName: this.knex.raw('?', dbTableName),
-            selectIn: this.knex.raw('?', `${linkedTable}.${foreignKeyField}`),
+            selectIn: this.knex.raw('?', `${linkedTable}#${foreignKeyField}`),
             relationTo: this.knex.raw('?', null),
             fieldId: this.knex.raw('?', fieldId),
           })

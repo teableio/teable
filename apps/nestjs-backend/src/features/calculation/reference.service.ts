@@ -1246,7 +1246,7 @@ export class ReferenceService {
       .map((item) => {
         const { id, fieldId, selectIn } = item;
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const [dbTableName, selectField] = selectIn!.split('.');
+        const [dbTableName, selectField] = selectIn!.split('#');
         return this.knex
           .select({
             id: '__id',
@@ -1263,7 +1263,6 @@ export class ReferenceService {
 
     const [firstQuery, ...restQueries] = queries;
     const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
-
     return this.prismaService
       .txClient()
       .$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
