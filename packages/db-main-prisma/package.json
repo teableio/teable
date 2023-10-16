@@ -22,7 +22,6 @@
     "dev": "tsc --watch",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
-    "postinstall": "prisma generate --schema=./prisma/sqlite/schema.prisma",
     "prisma-generate": "prisma generate",
     "prisma-migrate": "dotenv-flow -- pnpm prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -- pnpm prisma migrate reset",

@@ -12,7 +12,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "pnpm clean && tsc",
+    "build": "tsc",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "tsc --watch",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",

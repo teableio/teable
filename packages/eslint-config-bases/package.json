@@ -57,7 +57,7 @@
     }
   },
   "scripts": {
-    "clean": "rimraf --no-glob ./dist ./coverage ./tsconfig.tsbuildinfo",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint  --ext .ts,.js,.cjs,.mjs --cache --cache-location ../../.cache/eslint/eslint-config-bases.eslintcache",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "fix-all-files": "eslint  --ext .ts,.tsx,.js,.jsx --fix"

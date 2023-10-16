@@ -1,6 +1,4 @@
 #
-# EXAMPLE OF MULTISTAGE BUILD FOR MONOREPOS
-#
 # @link https://github.com/teable-group/teable
 #
 
@@ -13,20 +11,23 @@ ARG NODE_VERSION=18
 ARG ALPINE_VERSION=3.18
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
-RUN apk add --no-cache make bash rsync && corepack enable
-
-WORKDIR /workspace-install
-
-COPY --link package.json yarn.lock ./
-
-COPY --link . .
 
 # Disabling some well-known postinstall scripts
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 ENV HUSKY=0
 
-RUN npm install skip-postinstall -g
-RUN pnpm install --immutable --inline-builds
+RUN apk add --no-cache make bash rsync && corepack enable
+
+WORKDIR /workspace-install
+
+COPY --link package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+RUN pnpm fetch
+
+COPY --link . .
+
+RUN npm install is-ci husky -g
+RUN pnpm install -r --offline --frozen-lockfile
 
 ###################################################################
 # Stage 2: Build the app                                          #
@@ -42,29 +43,18 @@ ENV NEXT_BUILD_ENV_OUTPUT=standalone
 ENV NEXT_BUILD_ENV_SENTRY_ENABLED=false
 ENV NEXT_BUILD_ENV_SENTRY_TRACING=false
 
-
-# Optimize for YARN installation speed
-ENV YARN_ENABLE_GLOBAL_CACHE=false
-ENV YARN_ENABLE_MIRROR=false
-ENV YARN_NODE_LINKER=node-modules
-ENV YARN_NM_MODE=hardlinks-local
-# If using different compression level than in local (recommended: prefer to not do this)
-#ENV YARN_COMPRESSION_LEVEL 0
-#ENV YARN_CHECKSUM_BEHAVIOR ignore
-
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
-RUN yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ];  \
-    then yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build;  \
-    else yarn workspace @teable-group/app share-static-hardlink &&  \
-          yarn g:build &&  \
-          SKIP_POSTINSTALL=1 yarn workspaces focus --production @teable-group/core @teable-group/openapi @teable-group/db-main-prisma  \
-                                @teable-group/backend @teable-group/app; \
+    then pnpm -F "./packages/**" run build;  \
+    else pnpm -F @teable-group/app share-static-hardlink &&  \
+            pnpm g:build && \
+            pnpm prune --prod; \
     fi
 
 
@@ -102,17 +92,26 @@ COPY --from=builder /app/apps/nextjs-app/.next/static ./apps/nextjs-app/.next/st
 COPY --from=builder /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 COPY --from=builder /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=builder /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=builder /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
-COPY --from=builder /app/packages/core/package.json ./packages/core/
+
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
+COPY --from=builder /app/packages/core/node_modules ./packages/core/node_modules
+COPY --from=builder /app/packages/core/package.json ./packages/core/
 
-COPY --from=builder /app/packages/db-main-prisma/package.json ./packages/db-main-prisma/
-COPY --from=builder /app/packages/db-main-prisma/dist ./packages/db-main-prisma/dist
-
-COPY --from=builder /app/packages/openapi/package.json ./packages/openapi/
 COPY --from=builder /app/packages/openapi/dist ./packages/openapi/dist
+COPY --from=builder /app/packages/openapi/node_modules ./packages/openapi/node_modules
+COPY --from=builder /app/packages/openapi/package.json ./packages/openapi/
+
+COPY --from=builder /app/packages/db-main-prisma/dist ./packages/db-main-prisma/dist
+COPY --from=builder /app/packages/db-main-prisma/node_modules ./packages/db-main-prisma/node_modules
+COPY --from=builder /app/packages/db-main-prisma/package.json ./packages/db-main-prisma/
+
+COPY --from=builder /app/packages/openapi/dist ./packages/openapi/dist
+COPY --from=builder /app/packages/openapi/node_modules ./packages/openapi/node_modules
+COPY --from=builder /app/packages/openapi/package.json ./packages/openapi/
 
 EXPOSE ${PORT}
 

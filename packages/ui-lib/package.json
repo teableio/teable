@@ -20,7 +20,7 @@
   "types": "dist/index.d.ts",
   "type": "commonjs",
   "scripts": {
-    "build": "rimraf --no-glob ./dist && cross-env NODE_ENV=production microbundle --tsconfig ./tsconfig.build.json --jsx React.createElement --jsxFragment React.Fragment -f cjs,es --no-compress",
+    "build": "cross-env NODE_ENV=production microbundle --tsconfig ./tsconfig.build.json --jsx React.createElement --jsxFragment React.Fragment -f cjs,es --no-compress",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "microbundle watch --tsconfig ./tsconfig.build.json",

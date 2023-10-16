@@ -33,15 +33,14 @@
     "g:lint": "pnpm -r lint --color",
     "g:lint-staged-files": "lint-staged --allow-empty",
     "g:lint-styles": "pnpm -r lint-styles --color",
-    "g:release": "yarn g:build && changeset publish",
+    "g:release": "pnpm g:build && changeset publish",
     "g:test-e2e": "pnpm -r test-e2e",
     "g:test-unit": "pnpm -r --parralel test-unit",
-    "g:test-unit-jest": "pnpm -r test-unit-jest",
     "g:typecheck": "pnpm -r --parralel typecheck",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
-    "nuke:node_modules": "rimraf --glob '**/node_modules'",
-    "postinstall": "skip-postinstall || pnpm husky install"
+    "nuke:node_modules": "pnpm -r exec -- rm -fr node_modules",
+    "postinstall": "is-ci || pnpm husky install"
   },
   "helpResolutions": {
     "i18next": "https://github.com/i18next/next-i18next/pull/1966",
@@ -72,12 +71,12 @@
     "prettier": "2.7.1",
     "rimraf": "5.0.5",
     "shell-quote": "1.8.1",
-    "skip-postinstall": "1.0.0",
     "typescript": "4.8.4"
   },
   "engines": {
     "node": ">=18.15.0",
-    "pnpm": ">=8.8.0"
+    "pnpm": ">=8.9.0",
+    "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.9.0"
+  "packageManager": "pnpm@8.9.2"
 }

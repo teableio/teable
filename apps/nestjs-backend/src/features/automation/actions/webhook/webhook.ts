@@ -52,7 +52,7 @@ export class Webhook extends ActionCore {
       method,
       headers,
       body,
-      signal: timeoutSignal(timeout),
+      timeout,
     })
       .then((response) => response.json())
       .then((resultJson) => {
