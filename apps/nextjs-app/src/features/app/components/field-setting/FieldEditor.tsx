@@ -8,10 +8,15 @@ import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
 import { LookupOptions } from './options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
+import { SystemInfo } from './SystemInfo';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
-export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldRo) => void }) => {
-  const { field, onChange } = props;
+export const FieldEditor = (props: {
+  field: IFieldRo;
+  fieldInstance?: IFieldInstance; // if fieldInstance is provided, it means this field is a been editing
+  onChange?: (field: IFieldRo) => void;
+}) => {
+  const { field, fieldInstance, onChange } = props;
   const [lookupField, setLookupField] = useState<IFieldInstance | undefined>();
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
@@ -144,9 +149,9 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
     <div className="w-full flex-1 gap-2 overflow-y-auto px-2 text-sm">
       {/* General */}
       <div className="flex flex-col gap-2">
-        <div className="flex w-full flex-col gap-2">
+        <div className="relative flex w-full flex-col gap-2">
           <div>
-            <span className="label-text mb-2">Name</span>
+            <p className="label-text mb-2">Name</p>
           </div>
           <Input
             placeholder="Field name (optional)"
@@ -154,6 +159,8 @@ export const FieldEditor = (props: { field: IFieldRo; onChange?: (field: IFieldR
             value={field['name'] || ''}
             onChange={updateFieldName}
           />
+          {/* should place after the name input to make sure tab index correct */}
+          <SystemInfo fieldInstance={fieldInstance} />
           {!showDescription && (
             <p className="text-left text-xs font-medium text-slate-500">
               <span

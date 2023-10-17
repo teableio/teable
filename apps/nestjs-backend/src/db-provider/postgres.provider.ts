@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { Relationship } from '@teable-group/core';
+import { DriverClient, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { map } from 'lodash';
 import type { IOpsData } from '../features/calculation/batch.service';
@@ -11,8 +11,13 @@ export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);
   constructor(private readonly knex: Knex) {}
 
-  createSchema(schemaName: string): string {
-    return `create schema if not exists "${schemaName}"`;
+  driver = DriverClient.Pg;
+
+  createSchema(schemaName: string) {
+    return [
+      `create schema if not exists "${schemaName}"`,
+      `revoke all on schema "${schemaName}" from public`,
+    ];
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

@@ -1,14 +1,8 @@
 import type { ICreateTableRo } from '@teable-group/core';
 import type { IGetBaseVo } from '@teable-group/openapi';
 import knex from 'knex';
+import { getDriver } from '../utils/driver';
 import { Table } from './table/table';
-
-function getDriver() {
-  if (typeof window === 'object') {
-    return window.__s.driver;
-  }
-  return 'sqlite3';
-}
 
 export class Base implements IGetBaseVo {
   // eslint-disable-next-line @typescript-eslint/naming-convention

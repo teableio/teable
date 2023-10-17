@@ -16,7 +16,7 @@ export const pasteRoSchema = z.object({
     description: 'Starting cell for paste operation, [column, row]',
     example: [1, 2],
   }),
-  header: z.array(fieldVoSchema).openapi({
+  header: z.array(fieldVoSchema).optional().openapi({
     description: 'Table header for paste operation',
     example: [],
   }),

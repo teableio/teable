@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Provider } from '@nestjs/common';
+import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
-import { DriverClient } from '../utils/constants';
 import { PostgresProvider } from './postgres.provider';
 import { SqliteProvider } from './sqlite.provider';
 
@@ -11,9 +11,9 @@ export const DbProvider: Provider = {
     const driverClient = knex.client.config?.client as DriverClient;
 
     switch (driverClient) {
-      case DriverClient.SQLITE:
+      case DriverClient.Sqlite:
         return new SqliteProvider(knex);
-      case DriverClient.PG:
+      case DriverClient.Pg:
         return new PostgresProvider(knex);
     }
   },

@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
+import { getDriver } from '../../utils/driver';
 import { AppContext } from '../app/AppContext';
 import { createQueryClient } from './queryClient';
 import { useConnection } from './useConnection';
@@ -18,7 +19,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [connection]);
 
   const value = useMemo(() => {
-    return { connection, connected, ...themeProps };
+    return { connection, connected, driver: getDriver(), ...themeProps };
   }, [connection, connected, themeProps]);
 
   return (

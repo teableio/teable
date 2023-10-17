@@ -1,3 +1,4 @@
 export enum LocalStorageKeys {
-  Theme = 'teable_theme',
+  Theme = 'ls_theme',
+  FieldSystem = 'ls_field_system',
 }
