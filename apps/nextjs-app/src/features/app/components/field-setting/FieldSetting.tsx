@@ -106,7 +106,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
           {/* Header */}
           <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
           {/* Content Form */}
-          {<FieldEditor field={field} onChange={onFieldEditorChange} />}
+          {<FieldEditor field={field} fieldInstance={props.field} onChange={onFieldEditorChange} />}
           {/* Footer */}
           <div className="flex w-full justify-end space-x-2 p-2">
             <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
