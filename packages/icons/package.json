@@ -35,7 +35,7 @@
     "@svgr/plugin-jsx": "8.0.1",
     "@svgr/plugin-prettier": "8.0.1",
     "@svgr/plugin-svgo": "8.0.1",
-    "@types/fs-extra": "11.0.1",
+    "@types/fs-extra": "11.0.2",
     "@types/node": "18.11.7",
     "@types/react": "18.0.24",
     "axios": "1.5.1",

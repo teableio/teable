@@ -207,6 +207,23 @@ db-push:		## connects to your database and adds Prisma models to your Prisma sch
 		make postgres-db-push; \
     else echo "Unknown command.";  fi
 
+sqlite-db-migration:
+	@_MIGRATION_NAME=$(if $(_MIGRATION_NAME),$(_MIGRATION_NAME),`read -p "Enter name of the migration (sqlite): " migration_name; echo $$migration_name`); \
+	make gen-sqlite-prisma-schema; \
+	PRISMA_DATABASE_URL=file:../../db/.shadow/main.db \
+	pnpm -F @teable-group/db-main-prisma prisma-migrate dev --schema ./prisma/sqlite/schema.prisma --name $$_MIGRATION_NAME
+
+postgres-db-migration:
+	@_MIGRATION_NAME=$(if $(_MIGRATION_NAME),$(_MIGRATION_NAME),`read -p "Enter name of the migration (postgres): " migration_name; echo $$migration_name`); \
+	make gen-postgres-prisma-schema; \
+	PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:5432/teable?schema=shadow \
+	pnpm -F @teable-group/db-main-prisma prisma-migrate dev --schema ./prisma/postgres/schema.prisma --name $$_MIGRATION_NAME
+
+db-migration:		## Reruns the existing migration history in the shadow database in order to detect schema drift (edited or deleted migration file, or a manual changes to the database schema)
+	@read -p "Enter name of the migration: " migration_name; \
+  	make sqlite-db-migration _MIGRATION_NAME=$$migration_name; \
+  	make postgres-db-migration _MIGRATION_NAME=$$migration_name
+
 sqlite-mode:		## sqlite-mode
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-generate --schema ./prisma/sqlite/schema.prisma; \

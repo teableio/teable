@@ -49,5 +49,5 @@ tmp
 
 # other
 **/.assets
-.DS_Store
+**.DS_Store
 *.md
