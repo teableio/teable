@@ -45,7 +45,7 @@ export const HideFields: React.FC<{
   const content = () => (
     <div className="rounded-lg border shadow-md p-1">
       <Command>
-        <CommandInput placeholder="Search a field" className="h-8" />
+        <CommandInput placeholder="Search a field" className="h-8 text-xs" />
         <CommandList className="my-2">
           <CommandEmpty>No results found.</CommandEmpty>
           {fieldData.map((field) => {
@@ -66,7 +66,7 @@ export const HideFields: React.FC<{
                     }}
                   />
                   <Icon className="shrink-0 ml-2" />
-                  <span className="flex-1 pl-1 cursor-pointer h-full truncate">{name}</span>
+                  <span className="flex-1 pl-1 cursor-pointer h-full truncate text-sm">{name}</span>
                 </Label>
               </CommandItem>
             );
@@ -74,10 +74,20 @@ export const HideFields: React.FC<{
         </CommandList>
       </Command>
       <div className="flex justify-between p-2">
-        <Button variant="secondary" size="xs" className="w-32" onClick={handleSelectAll}>
+        <Button
+          variant="secondary"
+          size="xs"
+          className="w-32 text-muted-foreground hover:text-secondary-foreground"
+          onClick={handleSelectAll}
+        >
           Show All
         </Button>
-        <Button variant="secondary" size="xs" className="w-32" onClick={handleDeselectAll}>
+        <Button
+          variant="secondary"
+          size="xs"
+          className="w-32 text-muted-foreground hover:text-secondary-foreground"
+          onClick={handleDeselectAll}
+        >
           Hide All
         </Button>
       </div>
