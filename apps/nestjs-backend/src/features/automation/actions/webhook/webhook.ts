@@ -2,7 +2,6 @@ import { Injectable, Logger, Scope } from '@nestjs/common';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import { isEmpty, get } from 'lodash';
 import fetch from 'node-fetch';
-import timeoutSignal from 'timeout-signal';
 import type { IActionResponse, ITemplateSchema, IConstSchema, IObjectSchema } from '../action-core';
 import { ActionCore, actionConst, ActionResponseStatus } from '../action-core';
 
@@ -83,10 +82,13 @@ export class Webhook extends ActionCore {
     if (responseParams && !isEmpty(responseParams)) {
       // When the 'responseParams' parameter is defined, it means that custom response results are constructed.
       // The format and number of custom parameters depend on the user-defined parameter data.
-      responseData = Object.entries(responseParams).reduce((pre, [key, value]) => {
-        pre[key] = get(json, value);
-        return pre;
-      }, {} as Record<string, unknown>);
+      responseData = Object.entries(responseParams).reduce(
+        (pre, [key, value]) => {
+          pre[key] = get(json, value);
+          return pre;
+        },
+        {} as Record<string, unknown>
+      );
     } else {
       responseData = json;
     }

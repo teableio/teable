@@ -14,7 +14,7 @@ module.exports = {
   ignorePatterns: [...getDefaultIgnorePatterns()],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
-    '@teable-group/eslint-config-bases/prettier',
+    '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
     // optional overrides per project

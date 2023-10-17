@@ -191,8 +191,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
             nextIndex = totalItemCount - 1;
           }
           setSuggestionItemIndex(nextIndex);
-          requestAnimationFrame(() =>
-            suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
+          requestAnimationFrame(
+            () => suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
           );
           return true;
         },
@@ -205,8 +205,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
             nextIndex = 0;
           }
           setSuggestionItemIndex(nextIndex);
-          requestAnimationFrame(() =>
-            suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
+          requestAnimationFrame(
+            () => suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
           );
           return true;
         },

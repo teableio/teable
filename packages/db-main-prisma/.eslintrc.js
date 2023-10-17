@@ -21,7 +21,7 @@ module.exports = {
     '@teable-group/eslint-config-bases/regexp',
     '@teable-group/eslint-config-bases/jest',
     // Apply prettier and disable incompatible rules
-    '@teable-group/eslint-config-bases/prettier',
+    '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
     // optional overrides per project

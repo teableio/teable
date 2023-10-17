@@ -22,7 +22,7 @@ describe('useInstances hook', () => {
       listenerCount: jest.fn(),
       removeEventListener: jest.fn(),
       removeListener: jest.fn(),
-    } as any);
+    }) as any;
 
   // Factory function for creating test data instances
   const createTestInstance = jest.fn((data: any, doc?: any) => {

@@ -7,7 +7,7 @@ import { devices } from '@playwright/test';
 import pc from 'picocolors';
 
 const webServerModes = ['DEV', 'START', 'BUILD_AND_START'] as const;
-type IWebServerMode = typeof webServerModes[number];
+type IWebServerMode = (typeof webServerModes)[number];
 
 const isCI = ['true', '1'].includes(process.env?.CI ?? '');
 const webServerMode = (process.env?.E2E_WEBSERVER_MODE as IWebServerMode) ?? 'NOT_SET';

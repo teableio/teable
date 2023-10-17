@@ -181,9 +181,8 @@ export class ReferenceService {
     if (!recordData.length) {
       return;
     }
-    const { directedGraph, startFieldIds, extraRecordIdItems } = await this.getDirectedGraph(
-      recordData
-    );
+    const { directedGraph, startFieldIds, extraRecordIdItems } =
+      await this.getDirectedGraph(recordData);
     if (!directedGraph.length) {
       return;
     }

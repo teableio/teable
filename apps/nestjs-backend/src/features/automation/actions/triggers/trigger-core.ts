@@ -92,15 +92,18 @@ export abstract class TriggerCore<TEvent> {
 
     const decision = decisionGroups && decisionGroups[currentActionId];
     if (decision) {
-      const conditions = decision.condition.conditions.reduce((pre, cur) => {
-        pre.push({
-          fact: head(cur.left as string[]),
-          operator: cur.operator,
-          value: cur.right,
-          path: `$.${join(tail(cur.left as string[]), '.')}`,
-        });
-        return pre;
-      }, [] as { [key: string]: unknown }[]);
+      const conditions = decision.condition.conditions.reduce(
+        (pre, cur) => {
+          pre.push({
+            fact: head(cur.left as string[]),
+            operator: cur.operator,
+            value: cur.right,
+            path: `$.${join(tail(cur.left as string[]), '.')}`,
+          });
+          return pre;
+        },
+        [] as { [key: string]: unknown }[]
+      );
 
       const dynamicLogic = {
         [`${decision.condition.logical === 'and' ? 'all' : 'any'}`]: conditions,

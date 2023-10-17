@@ -59,7 +59,10 @@ export type IAggregationCalcCallback = (
 export class AggregationService {
   private logger = new Logger(AggregationService.name);
 
-  constructor(private prisma: PrismaService, @InjectModel() private readonly knex: Knex) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectModel() private readonly knex: Knex
+  ) {}
 
   /**
    * This method calculates the aggregations for a specified view.
@@ -213,11 +216,14 @@ export class AggregationService {
     });
 
     const fieldInstances = fieldsRaw.map((field) => createFieldInstanceByRaw(field));
-    const fieldInstanceMap = fieldInstances.reduce((map, field) => {
-      map[field.id] = field;
-      map[field.name] = field;
-      return map;
-    }, {} as Record<string, IFieldInstance>);
+    const fieldInstanceMap = fieldInstances.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        map[field.name] = field;
+        return map;
+      },
+      {} as Record<string, IFieldInstance>
+    );
     return { fieldInstances, fieldInstanceMap };
   }
 

@@ -30,7 +30,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
     return !INPUTOPERTORS.includes(operator);
   }, [operator]);
 
-  const displayRender = useCallback((option: typeof options[number]) => {
+  const displayRender = useCallback((option: (typeof options)[number]) => {
     return (
       <div
         className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1"
@@ -41,7 +41,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
     );
   }, []);
 
-  const optionRender = useCallback((option: typeof options[number]) => {
+  const optionRender = useCallback((option: (typeof options)[number]) => {
     return (
       <div
         key={option.value}

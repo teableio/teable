@@ -46,23 +46,26 @@ export class AttachmentsTableService {
         fieldId: true,
       },
     });
-    const attachmentsMap = _attachments.reduce((map, attachment) => {
-      const key = this.createUniqueKey(
-        tableId,
-        recordId,
-        attachment.fieldId,
-        attachment.attachmentId
-      );
-      map[key] = {
-        ...attachment,
-        tableId,
-        recordId,
-        attachmentId: attachment.attachmentId,
-        createdBy: userId,
-        lastModifiedBy: userId,
-      };
-      return map;
-    }, {} as { [key: string]: Prisma.AttachmentsTableCreateInput });
+    const attachmentsMap = _attachments.reduce(
+      (map, attachment) => {
+        const key = this.createUniqueKey(
+          tableId,
+          recordId,
+          attachment.fieldId,
+          attachment.attachmentId
+        );
+        map[key] = {
+          ...attachment,
+          tableId,
+          recordId,
+          attachmentId: attachment.attachmentId,
+          createdBy: userId,
+          lastModifiedBy: userId,
+        };
+        return map;
+      },
+      {} as { [key: string]: Prisma.AttachmentsTableCreateInput }
+    );
 
     const existsMap = exists.reduce(
       (map, attachment) => {

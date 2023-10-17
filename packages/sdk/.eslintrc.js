@@ -23,7 +23,7 @@ module.exports = {
     '@teable-group/eslint-config-bases/rtl',
     '@teable-group/eslint-config-bases/react',
     // Apply prettier and disable incompatible rules
-    '@teable-group/eslint-config-bases/prettier',
+    '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
     // optional overrides per project
