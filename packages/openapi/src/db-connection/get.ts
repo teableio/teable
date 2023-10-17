@@ -21,7 +21,7 @@ export const GetDbConnectionRoute: RouteConfig = registerRoute({
       description: 'Returns information about a db connection.',
       content: {
         'application/json': {
-          schema: dbConnectionVoSchema,
+          schema: dbConnectionVoSchema.optional(),
         },
       },
     },
@@ -30,7 +30,7 @@ export const GetDbConnectionRoute: RouteConfig = registerRoute({
 });
 
 export const getDbConnection = async (baseId: string) => {
-  return axios.get<IDbConnectionVo>(
+  return axios.get<IDbConnectionVo | null>(
     urlBuilder(GET_DB_CONNECTION, {
       baseId,
     })

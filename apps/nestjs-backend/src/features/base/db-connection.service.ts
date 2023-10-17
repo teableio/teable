@@ -3,7 +3,6 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable-group/core';
@@ -78,7 +77,7 @@ export class DbConnectionService {
     });
   }
 
-  async retrieve(baseId: string): Promise<{ dsn: IDsn; url: string }> {
+  async retrieve(baseId: string): Promise<{ dsn: IDsn; url: string } | null> {
     const userId = this.cls.get('user.id'); // Assuming this.cls is a context object that has user info
     if (this.dbProvider.driver !== DriverClient.Pg) {
       throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
@@ -91,15 +90,15 @@ export class DbConnectionService {
     // Check if the base exists and the user is the owner
     const base = await this.prismaService.base
       .findFirstOrThrow({
-        where: { id: baseId, createdBy: userId, deletedTime: null, schemaPass: { not: null } },
+        where: { id: baseId, createdBy: userId, deletedTime: null },
         select: { id: true, schemaPass: true },
       })
       .catch(() => {
-        throw new NotFoundException('connection not found');
+        throw new BadRequestException('base not found, you should be base owner');
       });
 
     if (!base.schemaPass) {
-      throw new InternalServerErrorException(`Schema password not found: ${baseId}`);
+      return null;
     }
 
     // Check if the read-only role already exists
@@ -143,7 +142,6 @@ export class DbConnectionService {
    */
   async create(baseId: string) {
     const userId = this.cls.get('user.id');
-    console.log('this.dbProvider.driver', this.dbProvider.driver);
     if (this.dbProvider.driver === DriverClient.Pg) {
       const readOnlyRole = `read_only_role_${baseId}`;
       const schemaName = baseId;
@@ -152,8 +150,6 @@ export class DbConnectionService {
       const originDsn = parseDsn(databaseUrl);
 
       return this.prismaService.$tx(async (prisma) => {
-        console.log('baseId', baseId);
-        console.log('userId', userId);
         await prisma.base
           .findFirstOrThrow({
             where: { id: baseId, createdBy: userId, deletedTime: null }, // TODO: change it to owner check

@@ -64,7 +64,7 @@ export class BaseController {
   }
 
   @Get(':baseId/connection')
-  async getDBConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo> {
+  async getDBConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo | null> {
     return await this.dbConnectionService.retrieve(baseId);
   }
 

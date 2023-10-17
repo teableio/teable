@@ -2,6 +2,7 @@ import { ArrowUpRight, Code2, Component, Database, Share2 } from '@teable-group/
 import { useDriver } from '@teable-group/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import Link from 'next/link';
+import { DbConnectionPanelTrigger } from '../db-connection/PanelTrigger';
 import { useGraphStore } from '../graph/useGraphStore';
 
 export const Others: React.FC = () => {
@@ -53,10 +54,12 @@ export const Others: React.FC = () => {
               Restful API
             </Link>
           </Button>
-          <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
-            <Database className="pr-1 text-lg" />
-            <span className="capitalize">{driver}</span>Connection
-          </Button>
+          <DbConnectionPanelTrigger>
+            <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
+              <Database className="pr-1 text-lg" />
+              <span className="capitalize">{driver}</span>Connection
+            </Button>
+          </DbConnectionPanelTrigger>
         </PopoverContent>
       </Popover>
     </div>

@@ -25,7 +25,6 @@ describe('OpenAPI Db Connection (e2e)', () => {
     request = appCtx.request;
 
     postResult = (await request.post(`/api/base/${baseId}/connection`)).body as IDbConnectionVo;
-    console.log(postResult);
     expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
     expect(postResult.dsn.driver).toEqual('postgresql');
   });
@@ -33,7 +32,8 @@ describe('OpenAPI Db Connection (e2e)', () => {
   afterEach(async () => {
     await request.delete(`/api/base/${baseId}/connection`).expect(200);
 
-    await request.get(`/api/base/${baseId}/connection`).expect(404);
+    const result = await request.get(`/api/base/${baseId}/connection`).expect(200);
+    expect(result.body).toEqual({});
 
     await app.close();
   });

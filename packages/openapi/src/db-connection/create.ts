@@ -27,7 +27,7 @@ export type IDbConnectionVo = z.infer<typeof dbConnectionVoSchema>;
 export const CreateDbConnectionRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_DB_CONNECTION,
-  description: 'Create a db connection url that directly access to all database table in the base',
+  description: 'Create a db connection url that directly access to all tables in the base',
   request: {
     body: {
       content: {
