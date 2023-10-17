@@ -412,11 +412,16 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
     onAutoScroll(mouseState);
-    !view?.sort?.shouldAutoSort && onDragChange(mouseState);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
+    /**
+     * only forbid row drag when sort enable AutoSort
+     */
+    if (!(view?.sort?.shouldAutoSort && mouseState?.type !== RegionType.ColumnHeader)) {
+      onDragChange(mouseState);
+    }
   };
 
   const onMouseUp = () => {
