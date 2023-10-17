@@ -26,7 +26,7 @@
     "check-dist": "es-check -v",
     "check-size": "size-limit",
     "test": "run test-unit",
-    "test-unit": "jest --config ./jest.config.js --colors --logHeapUsage --silent",
+    "test-unit": "jest --config jest.config.js --colors --logHeapUsage --silent",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
@@ -42,6 +42,7 @@
   },
   "devDependencies": {
     "@size-limit/file": "9.0.0",
+    "@testing-library/jest-dom": "6.1.4",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.5.5",
     "@types/lodash": "^4.14.199",
@@ -57,8 +58,5 @@
     "ts-jest": "29.1.1",
     "tslib": "2.4.0",
     "typescript": "5.2.2"
-  },
-  "engines": {
-    "node": ">=14.16"
   }
 }

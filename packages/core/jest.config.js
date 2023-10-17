@@ -1,8 +1,11 @@
 // @ts-check
+
 const { getTsconfig } = require('get-tsconfig');
 const { pathsToModuleNameMapper } = require('ts-jest');
 
 const { getJestCachePath } = require('../../cache.config');
+
+const packageJson = require('./package.json');
 
 const tsConfigFile = './tsconfig.json';
 
@@ -25,14 +28,14 @@ const getTsConfigBasePaths = (tsConfigFile) => {
 
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 const config = {
-  displayName: `core:unit`,
-  cacheDirectory: getJestCachePath('@teable-group/core'),
+  displayName: `${packageJson.name}:unit`,
+  cacheDirectory: getJestCachePath(packageJson.name),
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   verbose: true,
-  rootDir: './src',
-  setupFilesAfterEnv: ['@testing-library/jest-dom/extend-expect'],
-  testMatch: ['<rootDir>/**/*.{spec,test}.{js,jsx,ts,tsx}'],
+  rootDir: './',
+  testMatch: ['<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     ...getTsConfigBasePaths(tsConfigFile),
   },
@@ -53,7 +56,6 @@ const config = {
     '!**/*.{spec,test}.{js,ts}',
     '!**/__mock__/*',
   ],
-  setupFiles: ['<rootDir>/../jest.setup.js'],
 };
 
 module.exports = config;

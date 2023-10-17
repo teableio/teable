@@ -34,7 +34,7 @@ const config = {
   verbose: true,
   rootDir: './',
   testMatch: ['<rootDir>/src/**/*.{spec,test}.{js,jsx,ts,tsx}'],
-  setupFilesAfterEnv: ['@testing-library/jest-dom/extend-expect'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transform: {
     '^.+\\.m?[tj]sx?$': [
       'ts-jest',
