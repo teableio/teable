@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { DriverClient } from '@teable-group/core';
 import knex from 'knex';
-import { DriverClient } from '../../utils/constants';
 
 knex.QueryBuilder.extend('columnList', function (tableName: string) {
   const driverClient = this.client.config?.client as DriverClient;
   switch (driverClient) {
-    case DriverClient.SQLITE:
+    case DriverClient.Sqlite:
       return knex(this.client.config).raw(`PRAGMA table_info(??)`, tableName);
-    case DriverClient.PG: {
+    case DriverClient.Pg: {
       const [schema, name] = tableName.split('.');
       this.select({
         name: 'column_name',

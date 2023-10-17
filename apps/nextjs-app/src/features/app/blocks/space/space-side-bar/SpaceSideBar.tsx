@@ -1,4 +1,4 @@
-import { Bell, Home, Users } from '@teable-group/icons';
+import { Home } from '@teable-group/icons';
 import { cn } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
@@ -17,21 +17,9 @@ export const SpaceSideBar = () => {
   }[] = [
     {
       href: '/space',
-      text: 'Home',
+      text: 'All spaces',
       shortCutKey: '⌘H',
       Icon: Home,
-    },
-    {
-      href: '/space/notification',
-      text: 'Notification',
-      shortCutKey: '⌘T',
-      Icon: Bell,
-    },
-    {
-      href: '/space/Member',
-      text: 'Member',
-      shortCutKey: '⌘A',
-      Icon: Users,
     },
   ];
   return (

@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { Relationship } from '@teable-group/core';
+import { DriverClient, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { map } from 'lodash';
 import type { IOpsData } from '../features/calculation/batch.service';
@@ -11,6 +11,8 @@ export class SqliteProvider implements IDbProvider {
   private readonly logger = new Logger(SqliteProvider.name);
 
   constructor(private readonly knex: Knex) {}
+
+  driver = DriverClient.Sqlite;
 
   createSchema(_schemaName: string) {
     return undefined;

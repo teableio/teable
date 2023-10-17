@@ -1,10 +1,12 @@
+import type { parseDsnOrThrow } from '@soluble/dsn-parser';
 import { isParsableDsn as isParsable, parseDsn as parse } from '@soluble/dsn-parser';
 
-export function parseDsn(dsn: string) {
+export type IDsn = ReturnType<typeof parseDsnOrThrow>;
+
+export function parseDsn(dsn: string): IDsn {
   const parsedDsn = parse(dsn);
   if (dsn.startsWith('file:')) {
     return {
-      dsn,
       host: 'localhost',
       driver: 'sqlite3',
     };
@@ -17,12 +19,14 @@ export function parseDsn(dsn: string) {
     throw new Error(`DATABASE_URL must provide a port`);
   }
 
-  return {
-    dsn,
-    ...parsedDsn.value,
-  };
+  return parsedDsn.value;
 }
 
 export function isParsableDsn(dsn: unknown) {
   return (dsn as string).startsWith('file:') || isParsable(dsn);
+}
+
+export enum DriverClient {
+  Pg = 'postgresql',
+  Sqlite = 'sqlite3',
 }

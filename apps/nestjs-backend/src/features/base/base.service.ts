@@ -88,8 +88,12 @@ export class BaseService {
         },
       });
 
-      const sql = this.dbProvider.createSchema(base.id);
-      sql && (await prisma.$executeRawUnsafe(sql));
+      const sqlList = this.dbProvider.createSchema(base.id);
+      if (sqlList) {
+        for (const sql of sqlList) {
+          await prisma.$executeRawUnsafe(sql);
+        }
+      }
 
       return base;
     });

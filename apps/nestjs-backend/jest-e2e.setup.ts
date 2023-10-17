@@ -1,10 +1,12 @@
 import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
-import { generateUserId, parseDsn } from '@teable-group/core';
+import { parseDsn } from '@teable-group/core';
 import * as bcrypt from 'bcrypt';
 
 interface ITestConfig {
+  driver: string;
   email: string;
+  userId: string;
   password: string;
   spaceId: string;
   baseId: string;
@@ -16,11 +18,15 @@ declare global {
 }
 
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
-  const { email, password, spaceId, baseId } = projectConfig.globals.testConfig as ITestConfig;
+  const { email, password, spaceId, baseId, userId } = projectConfig.globals
+    .testConfig as ITestConfig;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+  const { driver } = parseDsn(databaseUrl);
+  (projectConfig.globals.testConfig as ITestConfig).driver = driver;
 
   const prismaClient = new PrismaClient();
 
-  const userId = generateUserId();
   const salt = await bcrypt.genSalt(10);
   const hashPassword = await bcrypt.hash(password, salt);
 
@@ -62,12 +68,9 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
       });
     }
     if (!existsBase) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const databaseUrl = process.env.PRISMA_DATABASE_URL!;
-      const { driver } = parseDsn(databaseUrl);
-
       if (driver !== 'sqlite3') {
         await prisma.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
+        await prisma.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
       }
       await prisma.base.create({
         data: {

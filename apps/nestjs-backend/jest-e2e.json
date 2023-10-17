@@ -14,6 +14,7 @@
     "testConfig": {
       "email": "test@e2e.com",
       "password": "12345678",
+      "userId": "usrTestUserId",
       "spaceId": "spcTestSpaceId",
       "baseId": "bseTestBaseId"
     }

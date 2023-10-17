@@ -1,3 +1,4 @@
+import type { DriverClient } from '@teable-group/core';
 import React from 'react';
 import type { Connection } from 'sharedb/lib/client';
 
@@ -8,6 +9,7 @@ export enum ThemeKey {
 
 export interface IAppContext {
   connection?: Connection;
+  driver: DriverClient;
   connected: boolean;
   theme: ThemeKey;
   isAutoTheme: boolean;

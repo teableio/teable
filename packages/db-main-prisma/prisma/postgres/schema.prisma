@@ -25,6 +25,7 @@ model Base {
   name           String
   order          Float
   icon           String?
+  schemaPass     String?     @map("schema_pass")
   deletedTime    DateTime?   @map("deleted_time")
   createdTime    DateTime    @default(now()) @map("created_time")
   createdBy      String      @map("created_by")
