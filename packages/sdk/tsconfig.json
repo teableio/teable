@@ -18,7 +18,8 @@
     "incremental": true,
     "paths": {
       "@teable-group/icons": ["../../../packages/icons/src/index"]
-    }
+    },
+    "types": ["@testing-library/jest-dom/types"]
   },
   "references": [
     {

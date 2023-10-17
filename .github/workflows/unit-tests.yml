@@ -32,7 +32,7 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          pnpm -r -F "./packages/**" run build
+          pnpm -F "./packages/**" run build
 
       - name: 🧪 Run Tests
         run: |

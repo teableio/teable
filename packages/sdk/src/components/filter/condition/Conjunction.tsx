@@ -10,7 +10,7 @@ interface IConjunctionProps {
 enum ConjunctionPosition {
   WHERE = 0,
   SELECTOR = 1,
-  JOIN = 1,
+  JOIN = 2,
 }
 
 const Conjunction = (props: IConjunctionProps) => {
