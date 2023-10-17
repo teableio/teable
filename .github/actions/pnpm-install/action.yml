@@ -46,8 +46,8 @@ runs:
         echo "YEAR_WEEK=$(/bin/date -u "+%Y%W")" >> $GITHUB_OUTPUT
 
     - name: ♻️ Restore pnpm cache
-    - uses: actions/cache@v3
       id: pnpm-store-cache
+      uses: actions/cache@v3
       with:
         path: ${{ steps.pnpm-config.outputs.STORE_PATH }}
         key: ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_WEEK }}-${{ hashFiles('**/pnpm-lock.yaml') }}
