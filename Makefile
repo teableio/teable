@@ -163,7 +163,7 @@ sqlite.integration.test: docker.create.network
 		-e PRISMA_DATABASE_URL=file:../../db/.test/main.db \
 		integration-test bash -c \
 			'make sqlite-mode && \
-				pnpm workspace @teable-group/backend test:e2e'
+				pnpm -F @teable-group/backend test:e2e'
 
 postgres.integration.test: docker.create.network
 	make docker.build integration-test
@@ -174,7 +174,7 @@ postgres.integration.test: docker.create.network
 		integration-test bash -c \
 			'chmod +x ./scripts/wait-for-it.sh && ./scripts/wait-for-it.sh teable-postgres:5432 --timeout=30 -- \
 				make postgres-mode && \
-				pnpm workspace @teable-group/backend test:e2e'
+				pnpm -F @teable-group/backend test:e2e'
 
 gen-sqlite-prisma-schema:
 	@cd ./packages/db-main-prisma; \
