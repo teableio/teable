@@ -362,7 +362,7 @@ export class SelectionService {
   }
 
   async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
-    const { cell, content, header } = pasteRo;
+    const { cell, content, header = [] } = pasteRo;
     const [col, row] = cell;
     const tableData = this.parseCopyContent(content);
     const tableColCount = tableData[0].length;
