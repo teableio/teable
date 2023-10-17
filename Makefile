@@ -160,7 +160,7 @@ docker.images:
 sqlite.integration.test: docker.create.network
 	make docker.build integration-test
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
-		-e PRISMA_DATABASE_URL=file:../../db/main.db \
+		-e PRISMA_DATABASE_URL=file:../../db/.test/main.db \
 		integration-test bash -c \
 			'make sqlite-mode && \
 				pnpm workspace @teable-group/backend test:e2e'
