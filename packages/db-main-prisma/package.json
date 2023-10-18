@@ -23,33 +23,34 @@
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
     "prisma-generate": "prisma generate",
-    "prisma-migrate": "dotenv-flow -- yarn prisma migrate",
-    "prisma-migrate-reset": "dotenv-flow -- yarn prisma migrate reset --schema=./prisma/sqlite/schema.prisma",
-    "prisma-db-push": "dotenv-flow -- yarn prisma db push --schema=./prisma/sqlite/schema.prisma",
-    "prisma-studio": "dotenv-flow -- yarn prisma studio",
+    "prisma-migrate": "dotenv-flow -- pnpm prisma migrate",
+    "prisma-migrate-reset": "dotenv-flow -- pnpm prisma migrate reset",
+    "prisma-db-push": "dotenv-flow -- pnpm prisma db push",
+    "prisma-studio": "dotenv-flow -- pnpm prisma studio",
     "test": "run-s test-unit",
     "test-unit": "echo \"No unit tests yet\"",
     "test-e2e": "echo \"No e2e tests yet\"",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "peerDependencies": {
+    "@prisma/client": "^5.4.0",
     "@nestjs/common": "^10.0.0",
     "nestjs-cls": "^3.5.1"
   },
   "dependencies": {
     "@prisma/client": "5.4.2",
-    "dotenv-flow-cli": "1.0.0",
-    "nanoid": "3.3.6",
-    "prisma": "5.4.2"
+    "prisma": "5.4.2",
+    "nanoid": "3.3.6"
   },
   "devDependencies": {
-    "@faker-js/faker": "8.1.0",
+    "@faker-js/faker": "8.2.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.5.5",
-    "@types/node": "18.11.7",
+    "@types/node": "18.15.0",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
-    "eslint": "8.26.0",
+    "dotenv-flow-cli": "1.0.0",
+    "eslint": "8.51.0",
     "execa": "5.1.1",
     "handlebars": "4.7.8",
     "is-port-reachable": "3.1.0",
@@ -58,10 +59,10 @@
     "mustache": "4.2.0",
     "npm-run-all": "4.1.5",
     "picocolors": "1.0.0",
-    "prettier": "2.7.1",
+    "prettier": "3.0.3",
     "rimraf": "5.0.5",
     "ts-jest": "29.1.1",
     "tsx": "3.11.0",
-    "typescript": "4.8.4"
+    "typescript": "5.2.2"
   }
 }

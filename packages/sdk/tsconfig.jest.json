@@ -6,7 +6,6 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "jsx": "react-jsx",
-    // "jsxImportSource": "@emotion/react",
     "noEmit": true,
     "incremental": true,
     "noImplicitAny": false,

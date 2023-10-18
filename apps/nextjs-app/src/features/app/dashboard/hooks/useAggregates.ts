@@ -22,14 +22,17 @@ export function useAggregates(funcs: StatisticsFunc[]) {
       return;
     }
 
-    const statsList = funcs.reduce((pre, cur, i) => {
-      const field = sortedFields[i];
-      if (!field || !table?.id || !viewId) {
+    const statsList = funcs.reduce(
+      (pre, cur, i) => {
+        const field = sortedFields[i];
+        if (!field || !table?.id || !viewId) {
+          return pre;
+        }
+        (pre[cur] = pre[cur] ?? []).push(field.id);
         return pre;
-      }
-      (pre[cur] = pre[cur] ?? []).push(field.id);
-      return pre;
-    }, {} as { [func in StatisticsFunc]: string[] });
+      },
+      {} as { [func in StatisticsFunc]: string[] }
+    );
 
     if (!table?.id || !viewId || !Object.keys(statsList)?.length) {
       return;

@@ -68,7 +68,7 @@ module.exports = {
 
     // Post configure the prettier base so there won't be
     // any conficts between eslint / prettier
-    "@teable-group/eslint-config-bases/prettier",
+    "@teable-group/eslint-config-bases/prettier-plugin",
   ],
   rules: {
     // Specific global rules for your app or package
@@ -79,7 +79,7 @@ module.exports = {
 };
 ```
 
-> **Tip:** "@teable-group/eslint-config-bases/prettier" must be set at the end to disable any
+> **Tip:** "@teable-group/eslint-config-bases/prettier-plugin" must be set at the end to disable any
 > conflicting rules.
 
 ## Bases
@@ -104,7 +104,6 @@ You can find the bases in [./src/bases](./src/bases).
 >   rules. For example the [react base](./src/bases/react.js) will tune the naming conventions
 >   for function components and increase recommended cognitive complexity. The [typescript base](./src/bases/typescript.js)
 >   will also relax conventions for javascript files.
->
 > - Based on filename conventions some rules are relaxed or disabled to avoid false positives and
 >   keep a good level of performance. For example the [sonar base](./src/bases/sonar.js) won't run on
 >   test and storybook files. If you work on different conventions the patterns must be updated.
@@ -114,9 +113,7 @@ You can find the bases in [./src/bases](./src/bases).
 To prevent conflicts between prettier and eslint, you must re-export the prettier base from `@teable-group/eslint-config-bases`.
 
 ```javascript
-const {
-  getPrettierConfig,
-} = require("@teable-group/eslint-config-bases/helpers");
+const { getPrettierConfig } = require("@teable-group/eslint-config-bases/helpers");
 module.exports = {
   ...prettierConfig,
   overrides: [

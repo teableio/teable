@@ -16,7 +16,7 @@ export interface IFuncHelpData {
 
 export interface IFunctionSchema<T extends FunctionName> {
   name: T;
-  func: typeof FUNCTIONS[T];
+  func: (typeof FUNCTIONS)[T];
   params: string[];
   definition: string;
   summary: string;

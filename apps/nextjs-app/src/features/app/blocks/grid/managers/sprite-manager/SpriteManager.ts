@@ -28,7 +28,10 @@ export class SpriteManager {
   private icons: ISpriteMap;
   private inFlight = 0;
 
-  constructor(icons?: ISpriteMap, private onSettled?: () => void) {
+  constructor(
+    icons?: ISpriteMap,
+    private onSettled?: () => void
+  ) {
     this.icons = {
       ...sprites,
       ...icons,

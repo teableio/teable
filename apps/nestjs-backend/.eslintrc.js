@@ -14,7 +14,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: 'tsconfig.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns(), '.dist', '.out', 'main'],
+  ignorePatterns: [...getDefaultIgnorePatterns(), '.dist', '.out'],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/sonar',
@@ -22,6 +22,12 @@ module.exports = {
     '@teable-group/eslint-config-bases/jest',
     '@teable-group/eslint-config-bases/tailwind',
     // Apply prettier and disable incompatible rules
-    '@teable-group/eslint-config-bases/prettier',
+    '@teable-group/eslint-config-bases/prettier-plugin',
+  ],
+  rules: {
+    // optional overrides per project
+  },
+  overrides: [
+    // optional overrides per project file match
   ],
 };

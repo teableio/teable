@@ -16,13 +16,8 @@ node_modules
 
 # Tools caches
 .cache/*
-tsconfig.tsbuildinfo
-.eslintcache
-
-# Yarn
-!.yarnrc.yml
-!.yarn/plugins
-!.yarn/releases
+**.tsbuildinfo
+**/.eslintcache
 
 # Used when building with nextjs (next-eslint)
 !.eslintrc.base.json
@@ -54,4 +49,5 @@ tmp
 
 # other
 **/.assets
-.DS_Store
+**.DS_Store
+*.md

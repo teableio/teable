@@ -364,9 +364,8 @@ export class FieldCalculationService {
       originRecordIds: recordIds,
     });
 
-    const dependentRecordItems = await this.referenceService.getDependentRecordItems(
-      affectedRecordItems
-    );
+    const dependentRecordItems =
+      await this.referenceService.getDependentRecordItems(affectedRecordItems);
 
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
     // nameConsole('recordIds', recordIds, fieldMap);

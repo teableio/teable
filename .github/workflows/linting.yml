@@ -23,22 +23,22 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: 📥 Monorepo install
-        uses: ./.github/actions/yarn-nm-install
+        uses: ./.github/actions/pnpm-install
 
       - name: 🧩 Generate Prisma Client
         working-directory: packages/db-main-prisma
         run: |
-          yarn workspace @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+          pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
       - name: 🏗 Run build
         run: |
-          yarn workspaces foreach -A -tv --exclude '@teable-group/(app|backend)' run build
+          pnpm -F "./packages/**" run build
 
       - name: 🕵️ Typecheck
         run: |
-          yarn workspaces foreach -A -tv --include '@teable-group/*' run typecheck
+          pnpm g:typecheck
 
       - name: 🔬 Linter
         run: |
-          yarn workspaces foreach -A -tv --include '@teable-group/*' run lint
-          yarn workspaces foreach -A -tv --include '@teable-group/*' run lint-styles
+          pnpm g:lint
+          pnpm g:lint-styles

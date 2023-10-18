@@ -153,7 +153,7 @@ Initialize a package.json with the name of your package.
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "clean": "rimraf --no-glob ./tsconfig.tsbuildinfo",
+    "clean": "rimraf ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "run-s 'test:*'",

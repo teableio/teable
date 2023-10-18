@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
+import type { OpenAPIObject } from 'openapi3-ts/oas30';
 import { getRoutes } from './utils';
 
 function registerAllRoute() {
@@ -16,7 +17,7 @@ function registerAllRoute() {
   return registry;
 }
 
-export function getOpenApiDocumentation() {
+export function getOpenApiDocumentation(): OpenAPIObject {
   const registry = registerAllRoute();
   const generator = new OpenApiGeneratorV3(registry.definitions);
 

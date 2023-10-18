@@ -1,13 +1,16 @@
 const getDefaultIgnorePatterns = () => {
+  // Hacky way to silence @yarnpkg/doctor about node_modules detection
   return [
-    // Hacky way to silence @yarnpkg/doctor about node_modules detection
-    `**/${'node'}_modules`,
-    '.cache',
+    `${'node'}_modules}`,
+    `**/${'node'}_modules}`,
     '**/.cache',
-    '**/build',
-    '**/dist',
-    '**/.storybook',
-    '**/storybook-static',
+    'build',
+    'dist',
+    'storybook-static',
+    '.yarn',
+    '.turbo',
+    `**/.turbo`,
+    '.out',
   ];
 };
 

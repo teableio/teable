@@ -12,12 +12,7 @@
 
 # dependencies
 node_modules
-.yarn/*
-!.yarn/patches
-!.yarn/releases
-!.yarn/plugins
-!.yarn/sdks
-!.yarn/versions
+.pnpm-store/
 .pnp.*
 
 # testing
@@ -35,10 +30,10 @@ node_modules
 /dist/
 
 # Cache
-**/tsconfig.tsbuildinfo
-**/tsconfig.build.tsbuildinfo
+*.tsbuildinfo
 **/.eslintcache
 .cache/*
+.swc/
 
 # Misc
 .DS_Store
@@ -46,8 +41,7 @@ node_modules
 
 # Debug
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
 
 
 # IDE

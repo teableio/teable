@@ -1,5 +1,5 @@
-import { useTranslation } from 'next-i18next';
 import Head from 'next/head';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 
 import { systemConfig } from '@/features/system/system.config';

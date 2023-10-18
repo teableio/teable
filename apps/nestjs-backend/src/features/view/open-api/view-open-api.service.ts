@@ -92,10 +92,13 @@ export class ViewOpenApiService {
     const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
     const fieldIndexName = this.viewService.getRowIndexFieldIndexName(viewId);
 
-    const fieldMap = fields.reduce((map, field) => {
-      map[field.id] = field;
-      return map;
-    }, {} as Record<string, IFieldVo>);
+    const fieldMap = fields.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, IFieldVo>
+    );
 
     const orders = sortObjs.map(({ fieldId, order }) => ({
       column: fieldMap[fieldId].dbFieldName,

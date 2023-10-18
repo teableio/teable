@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { act, renderHook } from '@testing-library/react';
 import type { Query } from 'sharedb/lib/client';
-import { createAppContext } from '../__test__/createAppContext';
+import { createAppContext } from '../__tests__/createAppContext';
 import type { IUseInstancesProps } from './useInstances';
 import { useInstances } from './useInstances';
 
@@ -22,7 +22,7 @@ describe('useInstances hook', () => {
       listenerCount: jest.fn(),
       removeEventListener: jest.fn(),
       removeListener: jest.fn(),
-    } as any);
+    }) as any;
 
   // Factory function for creating test data instances
   const createTestInstance = jest.fn((data: any, doc?: any) => {

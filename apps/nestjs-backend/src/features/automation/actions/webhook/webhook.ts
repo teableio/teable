@@ -55,7 +55,10 @@ export class Webhook extends ActionCore {
     })
       .then((response) => response.json())
       .then((resultJson) => {
-        const responseData = this.responseDataWrapper(resultJson, responseParams);
+        const responseData = this.responseDataWrapper(
+          resultJson as Record<string, unknown>,
+          responseParams
+        );
         outPut = { data: responseData, status: ActionResponseStatus.OK };
       })
       .catch((error) => {
@@ -79,10 +82,13 @@ export class Webhook extends ActionCore {
     if (responseParams && !isEmpty(responseParams)) {
       // When the 'responseParams' parameter is defined, it means that custom response results are constructed.
       // The format and number of custom parameters depend on the user-defined parameter data.
-      responseData = Object.entries(responseParams).reduce((pre, [key, value]) => {
-        pre[key] = get(json, value);
-        return pre;
-      }, {} as Record<string, unknown>);
+      responseData = Object.entries(responseParams).reduce(
+        (pre, [key, value]) => {
+          pre[key] = get(json, value);
+          return pre;
+        },
+        {} as Record<string, unknown>
+      );
     } else {
       responseData = json;
     }

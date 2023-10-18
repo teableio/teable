@@ -22,7 +22,7 @@ function FieldSelect(props: IFieldSelectProps) {
   const fieldStaticGetter = useFieldStaticGetter();
 
   const optionRender = useCallback(
-    (option: typeof options[number]) => {
+    (option: (typeof options)[number]) => {
       const { Icon } = fieldStaticGetter(option.type, option.isLookup);
       return (
         <>

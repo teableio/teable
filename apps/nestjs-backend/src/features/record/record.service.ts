@@ -252,11 +252,14 @@ export class RecordService implements IAdapterService {
     if (filter || orderBy.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(tableId);
-      fieldMap = fields.reduce((map, field) => {
-        map[field.id] = field;
-        map[field.name] = field;
-        return map;
-      }, {} as Record<string, IFieldInstance>);
+      fieldMap = fields.reduce(
+        (map, field) => {
+          map[field.id] = field;
+          map[field.name] = field;
+          return map;
+        },
+        {} as Record<string, IFieldInstance>
+      );
     }
 
     // All `where` condition-related construction work
@@ -657,10 +660,13 @@ export class RecordService implements IAdapterService {
         ...sqlNative.bindings
       );
 
-    const recordIdsMap = recordIds.reduce((acc, recordId, currentIndex) => {
-      acc[recordId] = currentIndex;
-      return acc;
-    }, {} as { [recordId: string]: number });
+    const recordIdsMap = recordIds.reduce(
+      (acc, recordId, currentIndex) => {
+        acc[recordId] = currentIndex;
+        return acc;
+      },
+      {} as { [recordId: string]: number }
+    );
 
     return result
       .sort((a, b) => {

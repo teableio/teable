@@ -18,7 +18,10 @@ export class DateUtil {
   public static readonly UTC_WITH_ZONE_OFFSET_PATTERN = 'YYYY-MM-DDTHH:mm:ssZ';
   public static readonly UTC_MS_WITH_ZONE_OFFSET_PATTERN = 'YYYY-MM-DDTHH:mm:ss.SSSZ';
 
-  constructor(private readonly timeZone: string, private readonly useUTC = true) {}
+  constructor(
+    private readonly timeZone: string,
+    private readonly useUTC = true
+  ) {}
 
   /**
    * Current time

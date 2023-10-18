@@ -33,7 +33,7 @@ module.exports = {
     // Add specific rules for nextjs
     'plugin:@next/next/core-web-vitals',
     // Apply prettier and disable incompatible rules
-    '@teable-group/eslint-config-bases/prettier',
+    '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
     // https://github.com/vercel/next.js/discussions/16832
@@ -41,6 +41,7 @@ module.exports = {
     // For the sake of example
     // https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/HEAD/docs/rules/anchor-is-valid.md
     'jsx-a11y/anchor-is-valid': 'off',
+    'jsx-a11y/label-has-associated-control': 'off',
   },
   overrides: [
     {

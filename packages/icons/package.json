@@ -15,10 +15,10 @@
     ".": "./dist"
   },
   "scripts": {
+    "build": "tsc",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "rm -rf dist && tsc --watch",
-    "build": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && tsc --build tsconfig.json",
     "test": "echo \"Error: no test specified\"",
-    "clean": "rimraf --no-glob ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "lint": "echo \"No ESLint script defined\"",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "generate": "rm -rf src/components && node ./scripts/generate.mjs"
@@ -28,20 +28,20 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "typescript": "4.8.4"
+    "typescript": "5.2.2"
   },
   "devDependencies": {
     "@svgr/core": "8.0.0",
     "@svgr/plugin-jsx": "8.0.1",
     "@svgr/plugin-prettier": "8.0.1",
     "@svgr/plugin-svgo": "8.0.1",
-    "@types/fs-extra": "11.0.1",
-    "@types/node": "18.11.7",
-    "@types/react": "18.0.24",
+    "@types/fs-extra": "11.0.2",
+    "@types/node": "18.15.0",
+    "@types/react": "18.2.28",
     "axios": "1.5.1",
     "chalk": "5.3.0",
     "dotenv": "16.3.1",
-    "eslint": "8.26.0",
+    "eslint": "8.51.0",
     "figma-js": "1.16.0",
     "fs-extra": "11.1.1",
     "lodash": "4.17.21",

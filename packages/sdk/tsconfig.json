@@ -6,26 +6,35 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "react-jsx",
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "src",
+    "outDir": "dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noEmit": false,
     "declaration": true,
-    "declarationDir": "./dist",
+    "declarationDir": "dist",
     "composite": true,
     "sourceMap": true,
     "incremental": true,
     "paths": {
       "@teable-group/icons": ["../../../packages/icons/src/index"]
-    }
+    },
+    "types": ["@testing-library/jest-dom/types"]
   },
   "references": [
-    { "path": "../core" },
-    { "path": "../ui-lib" },
-    { "path": "../icons" },
-    { "path": "../openapi" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../ui-lib"
+    },
+    {
+      "path": "../icons"
+    },
+    {
+      "path": "../openapi"
+    }
   ],
-  "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
-  "include": ["./src"]
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": ["src"]
 }

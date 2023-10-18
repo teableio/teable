@@ -55,10 +55,7 @@ export const RecordMenu = () => {
         onClick: async () => {
           tableId &&
             recordMenu?.records &&
-            (await deleteRecords(
-              tableId,
-              recordMenu?.records.map((r) => r.id)
-            ));
+            (await deleteRecords(tableId, recordMenu?.records.map((r) => r.id)));
         },
       },
     ],
