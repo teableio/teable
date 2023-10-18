@@ -4,23 +4,22 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/u
 import Link from 'next/link';
 import { DbConnectionPanelTrigger } from '../db-connection/PanelTrigger';
 import { useGraphStore } from '../graph/useGraphStore';
+import { ToolBarButton } from './ToolBarButton';
 
 export const Others: React.FC = () => {
   const { toggleGraph } = useGraphStore();
   const driver = useDriver();
   return (
     <div className="flex">
-      <Button variant={'ghost'} size={'xs'} className="font-normal">
+      <ToolBarButton text="Share">
         <ArrowUpRight className="h-4 w-4" />
-        Share
-      </Button>
+      </ToolBarButton>
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant={'ghost'} size={'xs'} className="font-normal">
+          <ToolBarButton text="Extensions">
             <Component className="h-4 w-4" />
-            Extensions
-          </Button>
+          </ToolBarButton>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className="w-40 p-0">
           <Button
@@ -37,10 +36,9 @@ export const Others: React.FC = () => {
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant={'ghost'} size={'xs'} className="font-normal">
+          <ToolBarButton text="API">
             <Code2 className="h-4 w-4" />
-            API
-          </Button>
+          </ToolBarButton>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className="w-48 p-0">
           <Button

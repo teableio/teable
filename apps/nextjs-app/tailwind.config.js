@@ -25,5 +25,6 @@ module.exports = uiConfig({
 
       addUtilities(newUtilities);
     },
+    require('@tailwindcss/container-queries'),
   ],
 });

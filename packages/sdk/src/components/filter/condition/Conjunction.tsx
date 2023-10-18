@@ -22,7 +22,7 @@ const Conjunction = (props: IConjunctionProps) => {
       {index === ConjunctionPosition.SELECTOR ? (
         <ConjunctionSelect value={value} onSelect={onSelect} />
       ) : null}
-      {index > ConjunctionPosition.JOIN ? <span className="px-1 text-[13px]">{value}</span> : null}
+      {index >= ConjunctionPosition.JOIN ? <span className="px-1 text-[13px]">{value}</span> : null}
     </div>
   );
 };
