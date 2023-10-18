@@ -433,6 +433,15 @@ importers:
       '@codemirror/view':
         specifier: ^6.21.3
         version: 6.21.3
+      '@dnd-kit/core':
+        specifier: 6.0.8
+        version: 6.0.8(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/sortable':
+        specifier: 7.0.2
+        version: 7.0.2(@dnd-kit/core@6.0.8)(react@18.2.0)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.1
+        version: 3.2.1(react@18.2.0)
       '@fontsource/inter':
         specifier: 4.5.14
         version: 4.5.14
@@ -451,6 +460,9 @@ importers:
       '@sentry/react':
         specifier: 7.17.2
         version: 7.17.2(react@18.2.0)
+      '@tailwindcss/container-queries':
+        specifier: ^0.1.1
+        version: 0.1.1(tailwindcss@3.3.3)
       '@tanstack/react-query':
         specifier: 4.35.0
         version: 4.35.0(react-dom@18.2.0)(react@18.2.0)
@@ -544,9 +556,6 @@ importers:
       react:
         specifier: 18.2.0
         version: 18.2.0
-      react-beautiful-dnd:
-        specifier: 13.1.1
-        version: 13.1.1(react-dom@18.2.0)(react@18.2.0)
       react-confetti:
         specifier: 6.1.0
         version: 6.1.0(react@18.2.0)
@@ -683,9 +692,6 @@ importers:
       '@types/react':
         specifier: 18.2.28
         version: 18.2.28
-      '@types/react-beautiful-dnd':
-        specifier: 13.1.4
-        version: 13.1.4
       '@types/react-dom':
         specifier: 18.2.13
         version: 18.2.13
@@ -1192,6 +1198,15 @@ importers:
       '@codemirror/view':
         specifier: ^6.21.3
         version: 6.21.3
+      '@dnd-kit/core':
+        specifier: 6.0.8
+        version: 6.0.8(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/sortable':
+        specifier: 7.0.2
+        version: 7.0.2(@dnd-kit/core@6.0.8)(react@18.2.0)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.1
+        version: 3.2.1(react@18.2.0)
       '@lezer/highlight':
         specifier: ^1.1.6
         version: 1.1.6
@@ -1246,9 +1261,6 @@ importers:
       lucide-react:
         specifier: 0.244.0
         version: 0.244.0(react@18.2.0)
-      react-beautiful-dnd:
-        specifier: 13.1.1
-        version: 13.1.1(react-dom@18.2.0)(react@18.2.0)
       react-day-picker:
         specifier: 8.8.0
         version: 8.8.0(date-fns@2.30.0)(react@18.2.0)
@@ -1289,9 +1301,6 @@ importers:
       '@types/react':
         specifier: 18.2.28
         version: 18.2.28
-      '@types/react-beautiful-dnd':
-        specifier: 13.1.4
-        version: 13.1.4
       '@types/react-dom':
         specifier: 18.2.13
         version: 18.2.13
@@ -4858,6 +4867,61 @@ packages:
       }
     engines: { node: '>=10.0.0' }
     dev: true
+
+  /@dnd-kit/accessibility@3.0.1(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-HXRrwS9YUYQO9lFRc/49uO/VICbM+O+ZRpFDe9Pd1rwVv2PCNkRiTZRdxrDgng/UkvdC3Re9r2vwPpXXrWeFzg==,
+      }
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.4.0
+    dev: false
+
+  /@dnd-kit/core@6.0.8(react-dom@18.2.0)(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-lYaoP8yHTQSLlZe6Rr9qogouGUz9oRUj4AHhDQGQzq/hqaJRpFo65X+JKsdHf8oUFBzx5A+SJPUvxAwTF2OabA==,
+      }
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/accessibility': 3.0.1(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.1(react@18.2.0)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      tslib: 2.4.0
+    dev: false
+
+  /@dnd-kit/sortable@7.0.2(@dnd-kit/core@6.0.8)(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-wDkBHHf9iCi1veM834Gbk1429bd4lHX4RpAwT0y2cHLf246GAvU2sVw/oxWNpPKQNQRQaeGXhAVgrOl1IT+iyA==,
+      }
+    peerDependencies:
+      '@dnd-kit/core': ^6.0.7
+      react: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/core': 6.0.8(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.1(react@18.2.0)
+      react: 18.2.0
+      tslib: 2.4.0
+    dev: false
+
+  /@dnd-kit/utilities@3.2.1(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-OOXqISfvBw/1REtkSK2N3Fi2EQiLMlWUlqnOK/UpOISqBZPWpE6TqL+jcPtMOkE8TqYGiURvRdPSI9hltNUjEA==,
+      }
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.4.0
+    dev: false
 
   /@esbuild-kit/cjs-loader@2.4.4:
     resolution:
@@ -10584,6 +10648,17 @@ packages:
       tailwindcss: 3.3.3(ts-node@10.9.1)
     dev: true
 
+  /@tailwindcss/container-queries@0.1.1(tailwindcss@3.3.3):
+    resolution:
+      {
+        integrity: sha512-p18dswChx6WnTSaJCSGx6lTmrGzNNvm2FtXmiO6AuA1V4U5REyoqwmT6kgAsIMdjo07QdAfYXHJ4hnMtfHzWgA==,
+      }
+    peerDependencies:
+      tailwindcss: '>=3.2.0'
+    dependencies:
+      tailwindcss: 3.3.3(ts-node@10.9.1)
+    dev: false
+
   /@tanstack/eslint-plugin-query@4.36.1(eslint@8.51.0):
     resolution:
       {
@@ -11577,15 +11652,6 @@ packages:
       }
     dev: true
 
-  /@types/react-beautiful-dnd@13.1.4:
-    resolution:
-      {
-        integrity: sha512-4bIBdzOr0aavN+88q3C7Pgz+xkb7tz3whORYrmSj77wfVEMfiWiooIwVWFR7KM2e+uGTe5BVrXqSfb0aHeflJA==,
-      }
-    dependencies:
-      '@types/react': 18.2.28
-    dev: true
-
   /@types/react-dom@18.2.13:
     resolution:
       {
@@ -11602,18 +11668,6 @@ packages:
     dependencies:
       '@types/react': 18.2.28
     dev: true
-
-  /@types/react-redux@7.1.27:
-    resolution:
-      {
-        integrity: sha512-xj7d9z32p1K/eBmO+OEy+qfaWXtcPlN8f1Xk3Ne0p/ZRQ867RI5bQ/bpBtxbqU1AHNhKJSgGvld/P2myU2uYkg==,
-      }
-    dependencies:
-      '@types/hoist-non-react-statics': 3.3.3
-      '@types/react': 18.2.28
-      hoist-non-react-statics: 3.3.2
-      redux: 4.2.1
-    dev: false
 
   /@types/react-syntax-highlighter@15.5.6:
     resolution:
@@ -16040,15 +16094,6 @@ packages:
       postcss: 8.4.18
       postcss-selector-parser: 6.0.13
     dev: true
-
-  /css-box-model@1.2.1:
-    resolution:
-      {
-        integrity: sha512-a7Vr4Q/kd/aw96bnJG332W9V9LkJO69JRcaCYDUqjp6/z0w6VcZjgAcTbgFxEPfBgdnAwlh3iwu+hLopa+flJw==,
-      }
-    dependencies:
-      tiny-invariant: 1.3.1
-    dev: false
 
   /css-declaration-sorter@6.4.1(postcss@8.4.18):
     resolution:
@@ -25016,13 +25061,6 @@ packages:
       fs-monkey: 1.0.5
     dev: true
 
-  /memoize-one@5.2.1:
-    resolution:
-      {
-        integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==,
-      }
-    dev: false
-
   /memoizerific@1.11.3:
     resolution:
       {
@@ -29550,13 +29588,6 @@ packages:
     engines: { node: '>=10' }
     dev: true
 
-  /raf-schd@4.0.3:
-    resolution:
-      {
-        integrity: sha512-tQkJl2GRWh83ui2DiPTJz9wEiMN20syf+5oKfB03yYP7ioZcJwsIK8FjrtLwH1m7C7e+Tt2yYBlrOpdT+dyeIQ==,
-      }
-    dev: false
-
   /ramda@0.28.0:
     resolution:
       {
@@ -29652,28 +29683,6 @@ packages:
       fast-memoize: 2.5.2
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
-    dev: false
-
-  /react-beautiful-dnd@13.1.1(react-dom@18.2.0)(react@18.2.0):
-    resolution:
-      {
-        integrity: sha512-0Lvs4tq2VcrEjEgDXHjT98r+63drkKEgqyxdA7qD3mvKwga6a5SscbdLPO2IExotU1jW8L0Ksdl0Cj2AF67nPQ==,
-      }
-    peerDependencies:
-      react: ^16.8.5 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.5 || ^17.0.0 || ^18.0.0
-    dependencies:
-      '@babel/runtime': 7.23.2
-      css-box-model: 1.2.1
-      memoize-one: 5.2.1
-      raf-schd: 4.0.3
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      react-redux: 7.2.9(react-dom@18.2.0)(react@18.2.0)
-      redux: 4.2.1
-      use-memo-one: 1.1.3(react@18.2.0)
-    transitivePeerDependencies:
-      - react-native
     dev: false
 
   /react-confetti@6.1.0(react@18.2.0):
@@ -29893,6 +29902,7 @@ packages:
       {
         integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==,
       }
+    dev: true
 
   /react-is@18.2.0:
     resolution:
@@ -29935,31 +29945,6 @@ packages:
       vfile: 5.3.7
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /react-redux@7.2.9(react-dom@18.2.0)(react@18.2.0):
-    resolution:
-      {
-        integrity: sha512-Gx4L3uM182jEEayZfRbI/G11ZpYdNAnBs70lFVMNdHJI76XYtR+7m0MN+eAs7UHBPhWXcnFPaS+9owSCJQHNpQ==,
-      }
-    peerDependencies:
-      react: ^16.8.3 || ^17 || ^18
-      react-dom: '*'
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@babel/runtime': 7.23.2
-      '@types/react-redux': 7.1.27
-      hoist-non-react-statics: 3.3.2
-      loose-envify: 1.4.0
-      prop-types: 15.8.1
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      react-is: 17.0.2
     dev: false
 
   /react-refresh@0.11.0:
@@ -30527,15 +30512,6 @@ packages:
     dependencies:
       css-unit-converter: 1.1.2
       postcss-value-parser: 3.3.1
-    dev: false
-
-  /redux@4.2.1:
-    resolution:
-      {
-        integrity: sha512-LAUYz4lc+Do8/g7aeRa8JkyDErK6ekstQaqWQrNRW//MY1TvCEpMtpTWvlQ+FPbWCx+Xixu/6SHt5N0HR+SB4w==,
-      }
-    dependencies:
-      '@babel/runtime': 7.23.2
     dev: false
 
   /refa@0.12.1:
@@ -33577,13 +33553,6 @@ packages:
       globrex: 0.1.2
     dev: true
 
-  /tiny-invariant@1.3.1:
-    resolution:
-      {
-        integrity: sha512-AD5ih2NlSssTCwsMznbvwMZpJ1cbhkGd2uueNxzv2jDlEeZdU04JQfRnggJQ8DrcVBGjAsCKwFBbDlVNtEMlzw==,
-      }
-    dev: false
-
   /tinycolor2@1.6.0:
     resolution:
       {
@@ -34948,17 +34917,6 @@ packages:
       '@types/react': 18.2.28
       react: 18.2.0
       use-isomorphic-layout-effect: 1.1.2(@types/react@18.2.28)(react@18.2.0)
-    dev: false
-
-  /use-memo-one@1.1.3(react@18.2.0):
-    resolution:
-      {
-        integrity: sha512-g66/K7ZQGYrI6dy8GLpVcMsBp4s17xNkYJVSMvTEevGy3nDxHOfE6z8BVE22+5G5x7t3+bhzrlTDB7ObrEE0cQ==,
-      }
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-    dependencies:
-      react: 18.2.0
     dev: false
 
   /use-resize-observer@9.1.0(react-dom@18.2.0)(react@18.2.0):

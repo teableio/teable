@@ -1,15 +1,18 @@
-import { Search } from '@teable-group/icons';
 import {
-  Input,
   Switch,
   Label,
   Button,
   Popover,
   PopoverTrigger,
   PopoverContent,
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
 } from '@teable-group/ui-lib';
-import React, { useState } from 'react';
-import { useViewId, useFields } from '../../hooks';
+import React from 'react';
+import { useViewId, useFields, useFieldStaticGetter } from '../../hooks';
 import type { IFieldInstance } from '../../model';
 
 export const HideFields: React.FC<{
@@ -17,20 +20,18 @@ export const HideFields: React.FC<{
 }> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ widthHidden: true });
+  const fieldStaticGetter = useFieldStaticGetter();
 
-  const [searchText, setSearchText] = useState<string>('');
-
-  const filterFields = (fields: IFieldInstance[], searchText: string, shouldBeHidden?: boolean) =>
+  const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(
       (field) =>
         activeViewId &&
         !field.isPrimary &&
-        (!searchText || field.name.includes(searchText)) &&
         (!shouldBeHidden || field.columnMeta[activeViewId]?.hidden === shouldBeHidden)
     );
 
-  const fieldData = filterFields(fields, searchText);
-  const hiddenCount = filterFields(fields, searchText, true).length;
+  const fieldData = filterFields(fields);
+  const hiddenCount = filterFields(fields, true).length;
 
   const updateColumnHiddenStatus = (status: boolean) => {
     fieldData
@@ -42,56 +43,57 @@ export const HideFields: React.FC<{
   const handleSelectAll = () => updateColumnHiddenStatus(false);
 
   const content = () => (
-    <div className="space-y-4">
-      <div className="relative inline-flex items-center w-full">
-        <Input
-          className="pl-8 pr-2 py-1"
-          placeholder="Find column"
-          value={searchText}
-          onChange={(e) => {
-            setSearchText(e.target.value);
-          }}
-        />
-        <Search className="text-xl absolute left-2 top-1/2 -translate-y-1/2" />
-      </div>
-      <div className="w-72 space-y-2">
-        {fieldData.map((field) => (
-          <div className="flex items-center space-x-2" key={field.id}>
-            <Switch
-              className="h-5 w-9"
-              classNameThumb="w-4 h-4 data-[state=checked]:translate-x-4"
-              id="airplane-mode"
-              checked={Boolean(activeViewId && !field.columnMeta[activeViewId]?.hidden)}
-              onCheckedChange={(checked) => {
-                activeViewId && field.updateColumnHidden(activeViewId, !checked);
-              }}
-            />
-            <Label htmlFor="airplane-mode" className="font-normal">
-              {field.name}
-            </Label>
-          </div>
-        ))}
-      </div>
-      <div className="p-1">
+    <div className="rounded-lg border shadow-md p-1">
+      <Command>
+        <CommandInput placeholder="Search a field" className="h-8 text-xs" />
+        <CommandList className="my-2">
+          <CommandEmpty>No results found.</CommandEmpty>
+          {fieldData.map((field) => {
+            const { id, name, type, isLookup } = field;
+            const { Icon } = fieldStaticGetter(type, isLookup);
+            return (
+              <CommandItem className="flex p-0" key={id}>
+                <Label
+                  htmlFor={id}
+                  className="flex flex-1 p-2 cursor-pointer items-center truncate"
+                >
+                  <Switch
+                    id={id}
+                    className="scale-75"
+                    checked={Boolean(activeViewId && !field.columnMeta[activeViewId]?.hidden)}
+                    onCheckedChange={(checked) => {
+                      activeViewId && field.updateColumnHidden(activeViewId, !checked);
+                    }}
+                  />
+                  <Icon className="shrink-0 ml-2" />
+                  <span className="flex-1 pl-1 cursor-pointer h-full truncate text-sm">{name}</span>
+                </Label>
+              </CommandItem>
+            );
+          })}
+        </CommandList>
+      </Command>
+      <div className="flex justify-between p-2">
         <Button
-          variant={'ghost'}
+          variant="secondary"
           size="xs"
-          className="font-normal text-xs"
-          onClick={handleDeselectAll}
-        >
-          HIDE ALL
-        </Button>
-        <Button
-          variant={'ghost'}
-          size="xs"
-          className="float-right font-normal text-xs"
+          className="w-32 text-muted-foreground hover:text-secondary-foreground"
           onClick={handleSelectAll}
         >
-          SHOW ALL
+          Show All
+        </Button>
+        <Button
+          variant="secondary"
+          size="xs"
+          className="w-32 text-muted-foreground hover:text-secondary-foreground"
+          onClick={handleDeselectAll}
+        >
+          Hide All
         </Button>
       </div>
     </div>
   );
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -100,7 +102,7 @@ export const HideFields: React.FC<{
           Boolean(hiddenCount)
         )}
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="start">
+      <PopoverContent side="bottom" align="start" className="p-0 border-0">
         {content()}
       </PopoverContent>
     </Popover>

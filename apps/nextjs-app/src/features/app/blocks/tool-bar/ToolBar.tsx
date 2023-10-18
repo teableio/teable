@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { Others } from './Others';
 import { ViewOperators } from './ViewOperators';
 
-export const ToolBar: React.FC = () => {
+export const ToolBar = () => {
   const table = useTable();
 
   const addRecord = useCallback(async () => {
@@ -16,19 +16,20 @@ export const ToolBar: React.FC = () => {
   }, [table]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2">
+    <div className="flex items-center gap-2 border-t px-4 py-2 @container/toolbar">
       <Button
-        className="h-6 w-6 rounded-full p-0 font-normal"
+        className="h-6 w-6 shrink-0 rounded-full p-0 font-normal"
         size={'xs'}
         variant={'outline'}
         onClick={addRecord}
       >
         <Plus className="h-4 w-4" />
       </Button>
-      <div className="mx-2 h-4 w-px bg-slate-200"></div>
-      <ViewOperators />
-      <div className="grow basis-0"></div>
-      <Others />
+      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <div className="flex flex-1 justify-between">
+        <ViewOperators />
+        <Others />
+      </div>
     </div>
   );
 };

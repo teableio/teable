@@ -18,7 +18,7 @@ interface ISortFieldCommand {
 function SortFieldCommand(props: ISortFieldCommand) {
   const { onSelect, selectedFields } = props;
 
-  const fields = useFields();
+  const fields = useFields({ widthHidden: true });
 
   const fieldStaticGetter = useFieldStaticGetter();
 

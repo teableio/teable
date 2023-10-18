@@ -9,11 +9,10 @@ import {
 import { Filter, HideFields, RowHeight, useFields, Sort } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useToast } from '@teable-group/ui-lib';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import classNames from 'classnames';
 import { useCallback } from 'react';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { ToolBarButton } from './ToolBarButton';
 
 export const ViewOperators: React.FC = () => {
   const view = useView();
@@ -68,60 +67,36 @@ export const ViewOperators: React.FC = () => {
     <div className="flex gap-1">
       <HideFields>
         {(text, isActive) => (
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className={classNames('font-normal', { 'bg-secondary': isActive })}
-          >
+          <ToolBarButton isActive={isActive} text={text} className="max-w-[140px]">
             <EyeOff className="h-4 w-4 text-sm" />
-            {text}
-          </Button>
+          </ToolBarButton>
         )}
       </HideFields>
       <Filter filters={(view?.filter || null) as IFilter} onChange={onFilterChange}>
         {(text, isActive) => (
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className={classNames('font-normal', { 'bg-secondary': isActive })}
-          >
+          <ToolBarButton isActive={isActive} text={text} className="max-w-[236px]">
             <FilterIcon className="h-4 w-4 text-sm" />
-            <span className="truncate">{text}</span>
-          </Button>
+          </ToolBarButton>
         )}
       </Filter>
       <Sort sorts={(view?.sort || null) as ISort} onChange={onSortChange}>
         {(text: string, isActive) => (
-          <Button
-            className={classNames('font-normal', { 'bg-secondary': isActive })}
-            size={'xs'}
-            variant={'ghost'}
-          >
+          <ToolBarButton isActive={isActive} text={text} className="max-w-[120px]">
             <ArrowUpDown className="h-4 w-4 text-sm" />
-            <span className="truncate">{text}</span>
-          </Button>
+          </ToolBarButton>
         )}
       </Sort>
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
+      <ToolBarButton text="Group">
         <LayoutList className="h-4 w-4 text-sm" />
-        Group
-      </Button>
-      <Button className="font-normal" size={'xs'} variant={'ghost'}>
+      </ToolBarButton>
+      <ToolBarButton text="Color">
         <PaintBucket className="h-4 w-4 text-sm" />
-        Color
-      </Button>
+      </ToolBarButton>
       <RowHeight>
         {(text, isActive, Icon) => (
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className={classNames('font-normal capitalize', {
-              'bg-secondary': isActive,
-            })}
-          >
+          <ToolBarButton isActive={isActive} text={text}>
             <Icon className="text-sm" />
-            {text}
-          </Button>
+          </ToolBarButton>
         )}
       </RowHeight>
     </div>
