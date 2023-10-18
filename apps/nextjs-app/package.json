@@ -49,7 +49,6 @@
     "share-static-hardlink": "rimraf ./public/shared-assets && syncdir ../../static/assets ./public/shared-assets --copy",
     "test": "run-s test-unit",
     "test-unit": "jest --config ./jest.config.js --colors --logHeapUsage --silent",
-    "test-e2e": "cross-env E2E_WEBSERVER_MODE=START playwright test",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx --cache --cache-location ../../.cache/eslint/nextjs-app.eslintcache",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx --fix",
