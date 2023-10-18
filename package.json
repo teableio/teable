@@ -34,6 +34,7 @@
     "g:lint-staged-files": "lint-staged --allow-empty",
     "g:lint-styles": "pnpm -r lint-styles --color",
     "g:release": "pnpm g:build && changeset publish",
+    "g:test": "pnpm g:test-e2e && pnpm g:test-unit",
     "g:test-e2e": "pnpm -r test-e2e",
     "g:test-unit": "pnpm -r --parralel test-unit",
     "g:typecheck": "pnpm -r --parralel typecheck",
