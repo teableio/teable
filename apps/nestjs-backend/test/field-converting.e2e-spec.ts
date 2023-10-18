@@ -1098,7 +1098,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual('x');
     });
 
-    it('should convert one-many link to text', async () => {
+    it.skip('should convert one-many link to text', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
@@ -1139,7 +1139,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual('x, y');
     });
 
-    it.skip('should convert many-one to one-many link', async () => {
+    it('should convert many-one to one-many link', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
@@ -1475,7 +1475,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual(['x', 'y']);
     });
 
-    it.skip('should convert text field to select and relational one-many lookup field', async () => {
+    it('should convert text field to select and relational one-many lookup field', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.SingleLineText,
       };

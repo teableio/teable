@@ -553,11 +553,11 @@ export class ReferenceService {
         throw new Error('relationship should not be undefined');
       }
 
-      const lookupField = fieldMap[lookupFieldId];
+      const lookedField = fieldMap[lookupFieldId];
       // nameConsole('calculateLookup:dependencies', recordItem.dependencies, fieldMap);
       const lookupValues = this.calculateLookup(
         field,
-        lookupField,
+        lookedField,
         recordItem,
         fieldId2TableId,
         tableId2DbTableName,
@@ -574,9 +574,9 @@ export class ReferenceService {
       return this.calculateRollup(
         field,
         relationship,
-        lookupField,
+        lookedField,
         record,
-        this.joinOriginLookup(lookupField, lookupValues)
+        this.joinOriginLookup(lookedField, lookupValues)
       );
     }
 
@@ -599,23 +599,38 @@ export class ReferenceService {
    */
   private calculateLookup(
     field: IFieldInstance,
-    lookupField: IFieldInstance,
+    lookedField: IFieldInstance,
     recordItem: IRecordItem,
     fieldId2TableId: { [fieldId: string]: string },
     tableId2DbTableName: { [tableId: string]: string },
     fkRecordTableMap: IFkOpMap
   ) {
-    const fieldId = lookupField.id;
+    const fieldId = lookedField.id;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const dependencies = recordItem.dependencies!;
+    let dependencies = recordItem.dependencies!;
 
-    const fkFieldId = Array.isArray(dependencies) ? lookupField.id : field.id;
+    const fkFieldId = Array.isArray(dependencies) ? lookedField.id : field.id;
     const tableId = fieldId2TableId[fkFieldId];
     const dbTableName = tableId2DbTableName[tableId];
     const fkRecordMap = fkRecordTableMap[dbTableName];
     const fkFieldName = field.lookupOptions?.dbForeignKeyName || '';
 
     if (Array.isArray(dependencies)) {
+      // sort lookup values by link cell order
+      if (field.lookupOptions) {
+        const linkFieldId = field.lookupOptions.linkFieldId;
+        const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
+
+        const dependenciesIndexed = keyBy(dependencies, 'id');
+        // when delete a link cell, the link cell value will be null
+        // but dependencies will still be there in the first round calculation
+        if (linkCellValues) {
+          dependencies = linkCellValues.map((v) => {
+            return dependenciesIndexed[v.id];
+          });
+        }
+      }
+
       return dependencies
         .filter(
           (depRecord) =>
@@ -1244,8 +1259,7 @@ export class ReferenceService {
       .filter((item) => item.selectIn)
       .map((item) => {
         const { id, fieldId, selectIn } = item;
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const [dbTableName, selectField] = selectIn!.split('#');
+        const [dbTableName, selectField] = (selectIn as string)!.split('#');
         return this.knex
           .select({
             id: '__id',
