@@ -3,10 +3,11 @@ import { AttachmentFieldCore, generateAttachmentId } from '@teable-group/core';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
-  static getTokenByString(value: string): string | undefined {
-    const url = value.match(/\((.*?)\)/)?.[1];
+  static getTokenAndNameByString(value: string): { token: string; name: string } | undefined {
+    const obj = value.match(/(.+?)\s\(([^)]+)/);
+    const url = obj?.[2];
     const paths = url?.split('/') || [];
-    return paths[paths.length - 1];
+    return { name: obj?.[1] || '', token: paths[paths.length - 1] };
   }
 
   convertCellValue2DBValue(value: unknown): unknown {
@@ -25,16 +26,20 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
     if (!attachments?.length || !value) {
       return null;
     }
-    const tokens = value.split(',').map(AttachmentFieldDto.getTokenByString);
-    return tokens
-      .map((token) => {
+    const tokensAndNames = value.split(',').map(AttachmentFieldDto.getTokenAndNameByString);
+    return tokensAndNames
+      .map((tokenAndName) => {
+        const { token, name } = tokenAndName || {};
+        if (!token) {
+          return;
+        }
         const attachment = attachments.find((attachment) => attachment.token === token);
         if (!attachment) {
           return;
         }
         return {
           ...attachment,
-          name: '',
+          name,
           id: generateAttachmentId(),
         };
       })

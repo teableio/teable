@@ -1,5 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { FieldCore, IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
+import type {
+  AttachmentFieldCore,
+  FieldCore,
+  IFieldRo,
+  IFieldVo,
+  IRecord,
+  IUpdateRecordsRo,
+  SelectFieldCore,
+} from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -11,13 +19,13 @@ import type {
   IRangesToIdVo,
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
-import { isNumber, isString, omit } from 'lodash';
-import { FieldSupplementService } from '../field/field-supplement.service';
+import { isNumber, isString, map, omit } from 'lodash';
+import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
+import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { AttachmentFieldDto } from '../field/model/field-dto/attachment-field.dto';
-import { FieldCreatingService } from '../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 
@@ -249,11 +257,10 @@ export class SelectionService {
 
     const tokens = tableData.reduce((acc, recordData) => {
       const tokensInRecord = attachmentFieldsIndex.reduce((acc, index) => {
-        const tokens = recordData[index]
+        const tokensAndNames = recordData[index]
           .split(',')
-          .map(AttachmentFieldDto.getTokenByString)
-          .filter(isString);
-        return acc.concat(tokens);
+          .map(AttachmentFieldDto.getTokenAndNameByString);
+        return acc.concat(map(tokensAndNames, 'token').filter(isString));
       }, [] as string[]);
       return acc.concat(tokensInRecord);
     }, [] as string[]);
@@ -325,10 +332,25 @@ export class SelectionService {
         if (stringValue === null) {
           recordField[field.id] = null;
         } else {
-          recordField[field.id] = (field as FieldCore).convertStringToCellValue(
-            stringValue,
-            attachments
-          );
+          switch (field.type) {
+            case FieldType.Attachment:
+              {
+                recordField[field.id] = (field as AttachmentFieldCore).convertStringToCellValue(
+                  stringValue,
+                  attachments
+                );
+              }
+              break;
+            case FieldType.SingleSelect:
+            case FieldType.MultipleSelect:
+              recordField[field.id] = (field as SelectFieldCore).convertStringToCellValue(
+                stringValue,
+                true
+              );
+              break;
+            default:
+              recordField[field.id] = (field as FieldCore).convertStringToCellValue(stringValue);
+          }
         }
 
         updateRecordsRo.records[row] = {
