@@ -41,13 +41,13 @@ import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import type { ISupplementService } from '../../share-db/interface';
-import { FieldService } from './field.service';
-import type { IFieldInstance } from './model/factory';
-import { createFieldInstanceByRaw, createFieldInstanceByVo } from './model/factory';
-import { FormulaFieldDto } from './model/field-dto/formula-field.dto';
-import type { LinkFieldDto } from './model/field-dto/link-field.dto';
-import { RollupFieldDto } from './model/field-dto/rollup-field.dto';
+import type { ISupplementService } from '../../../share-db/interface';
+import { FieldService } from '../field.service';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
+import type { IFieldInstance } from '../model/factory';
+import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
+import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
+import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
 @Injectable()
 export class FieldSupplementService implements ISupplementService {

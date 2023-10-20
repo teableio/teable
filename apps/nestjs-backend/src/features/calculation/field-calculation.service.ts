@@ -414,4 +414,22 @@ export class FieldCalculationService {
       );
     }, []);
   }
+
+  async calculateFieldsByRecordIds(tableId: string, recordIds: string[]) {
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { OR: [{ tableId, isComputed: true, deletedTime: null }] },
+      select: { id: true },
+    });
+
+    const computedFieldIds = fieldRaws.map((fieldRaw) => fieldRaw.id);
+
+    // calculate by origin ops and link derivation
+    const result = await this.getChangedOpsMap(tableId, computedFieldIds, recordIds);
+
+    if (result) {
+      const { opsMap, fieldMap, tableId2DbTableName } = result;
+
+      await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
+    }
+  }
 }

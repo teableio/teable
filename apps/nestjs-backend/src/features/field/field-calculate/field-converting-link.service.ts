@@ -11,7 +11,6 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/reference.service';
-import { FieldSupplementService } from '../field-supplement.service';
 import type { IFieldInstance } from '../model/factory';
 import {
   createFieldInstanceByVo,
@@ -21,6 +20,7 @@ import {
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
+import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
 export class FieldConvertingLinkService {
