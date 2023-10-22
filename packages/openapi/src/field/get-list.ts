@@ -12,7 +12,10 @@ export const GetFieldListRoute: RouteConfig = registerRoute({
   path: GET_FIELD_LIST,
   description: 'Get field list by query',
   request: {
-    params: getFieldsQuerySchema,
+    params: z.object({
+      tableId: z.string(),
+    }),
+    query: getFieldsQuerySchema,
   },
   responses: {
     200: {
