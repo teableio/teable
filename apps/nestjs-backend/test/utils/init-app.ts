@@ -158,7 +158,7 @@ export async function createRecords(
   request: request.SuperAgentTest,
   tableId: string,
   records: ICreateRecordsRo['records'],
-  expect = 200
+  expect = 201
 ): Promise<ICreateRecordsVo> {
   return (
     await request
