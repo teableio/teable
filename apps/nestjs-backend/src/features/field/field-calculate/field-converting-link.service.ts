@@ -183,6 +183,7 @@ export class FieldConvertingLinkService {
     const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
 
     const records = await this.getRecords(tableId, oldField);
+    // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
     const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
     const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {

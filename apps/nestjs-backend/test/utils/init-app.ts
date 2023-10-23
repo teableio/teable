@@ -157,7 +157,8 @@ export async function deleteRecords(
 export async function createRecords(
   request: request.SuperAgentTest,
   tableId: string,
-  records: ICreateRecordsRo['records']
+  records: ICreateRecordsRo['records'],
+  expect = 200
 ): Promise<ICreateRecordsVo> {
   return (
     await request
@@ -166,7 +167,7 @@ export async function createRecords(
         records,
         fieldKeyType: FieldKeyType.Id,
       })
-      .expect(201)
+      .expect(expect)
   ).body;
 }
 
