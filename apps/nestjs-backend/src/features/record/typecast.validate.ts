@@ -226,12 +226,15 @@ export class TypeCastAndValidate {
     const linkRecords = await this.services.recordService.getRecordsWithPrimary(
       (this.field as LinkFieldDto).options.foreignTableId
     );
-    return linkRecords.reduce((result, { id, title }) => {
-      if (!result[title]) {
-        result[title] = id;
-      }
-      return result;
-    }, {} as Record<string, string>);
+    return linkRecords.reduce(
+      (result, { id, title }) => {
+        if (!result[title]) {
+          result[title] = id;
+        }
+        return result;
+      },
+      {} as Record<string, string>
+    );
   }
 
   /**
