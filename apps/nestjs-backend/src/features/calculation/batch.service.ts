@@ -40,13 +40,9 @@ export class BatchService {
     tableId2DbTableName: { [tableId: string]: string }
   ) {
     const tableIds = Object.keys(opsMap);
-    const missingTableIds = tableIds.filter((id) => !tableId2DbTableName[id]);
-    if (!missingTableIds.length) {
-      return { tableId2DbTableName, fieldMap };
-    }
 
     const missingFieldIds = Array.from(
-      missingTableIds.reduce<Set<string>>((pre, id) => {
+      tableIds.reduce<Set<string>>((pre, id) => {
         Object.values(opsMap[id]).forEach((ops) =>
           ops.forEach((op) => {
             const fieldId = RecordOpBuilder.editor.setRecord.detect(op)?.fieldId;
@@ -59,8 +55,12 @@ export class BatchService {
       }, new Set())
     );
 
+    if (!missingFieldIds.length) {
+      return { fieldMap, tableId2DbTableName };
+    }
+
     const tableRaw = await this.prismaService.txClient().tableMeta.findMany({
-      where: { id: { in: missingTableIds }, deletedTime: null },
+      where: { id: { in: tableIds }, deletedTime: null },
       select: { id: true, dbTableName: true },
     });
 

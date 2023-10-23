@@ -168,7 +168,6 @@ export class FieldConvertingLinkService {
     return records;
   }
 
-  // TODO: how to handle consistency of one-many ? Same value should not be select in a multiple cell value field.
   /**
    * convert oldCellValue to new link field cellValue
    * if oldCellValue is not in foreignTable, create new record in foreignTable
@@ -183,6 +182,7 @@ export class FieldConvertingLinkService {
     const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
 
     const records = await this.getRecords(tableId, oldField);
+    // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
     const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
     const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
@@ -193,6 +193,7 @@ export class FieldConvertingLinkService {
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
     const recordsForCreate: { [title: string]: ITinyRecord } = {};
+    const checkSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
     records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
@@ -211,10 +212,19 @@ export class FieldConvertingLinkService {
       }
 
       const newCellValue: ILinkCellValue[] = [];
+      function pushNewCellValue(linkCell: ILinkCellValue) {
+        if (newField.options.relationship !== Relationship.OneMany) {
+          return newCellValue.push(linkCell);
+        }
+        // OneMany relationship only allow link to one same recordId
+        if (checkSet.has(linkCell.id)) return;
+        checkSet.add(linkCell.id);
+        return newCellValue.push(linkCell);
+      }
 
       newCellValueTitle.forEach((title) => {
         if (primaryNameToIdMap[title]) {
-          newCellValue.push({ id: primaryNameToIdMap[title], title });
+          pushNewCellValue({ id: primaryNameToIdMap[title], title });
           return;
         }
 
@@ -243,7 +253,7 @@ export class FieldConvertingLinkService {
             },
           };
         }
-        newCellValue.push({ id: recordsForCreate[title].id, title });
+        pushNewCellValue({ id: recordsForCreate[title].id, title });
       });
 
       if (!recordOpsMap[tableId][record.id]) {
