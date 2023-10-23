@@ -20,6 +20,7 @@ import {
   deleteRecord,
   getRecord,
   createRecords,
+  getFields,
 } from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
@@ -314,6 +315,130 @@ describe('OpenAPI link (e2e)', () => {
           ],
         })
         .expect(400);
+    });
+
+    it('should have correct title when create a new table with manyOne link field', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const result1 = await request
+        .post(`/api/base/${baseId}/table`)
+        .send({
+          name: 'table1',
+          fields: [textFieldRo],
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
+        })
+        .expect(201);
+
+      table1Id = result1.body.id;
+      const table1 = result1.body as ITableFullVo;
+
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1Id,
+        },
+      };
+
+      const result2 = await request
+        .post(`/api/base/${baseId}/table`)
+        .send({
+          name: 'table2',
+          fields: [textFieldRo, linkFieldRo],
+          records: [
+            {
+              fields: {
+                'text field': 'table2_1',
+                'link field': { id: table1.records[0].id },
+              },
+            },
+          ],
+        })
+        .expect(201);
+      const table2 = result2.body as ITableFullVo;
+      expect(table2.records[0].fields['link field']).toEqual({
+        title: 'table1_1',
+        id: table1.records[0].id,
+      });
+      const table1Records = await getRecords(request, table1Id);
+      const table1Fields = await getFields(request, table1Id);
+
+      expect(table1Records.records[0].fields[table1Fields[1].id]).toEqual([
+        {
+          title: 'table2_1',
+          id: table2.records[0].id,
+        },
+      ]);
+    });
+
+    it('should have correct title when create a new table with oneMany link field', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const result1 = await request
+        .post(`/api/base/${baseId}/table`)
+        .send({
+          name: 'table1',
+          fields: [textFieldRo],
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
+        })
+        .expect(201);
+
+      table1Id = result1.body.id;
+      const table1 = result1.body as ITableFullVo;
+
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1Id,
+        },
+      };
+
+      const result2 = await request
+        .post(`/api/base/${baseId}/table`)
+        .send({
+          name: 'table2',
+          fields: [textFieldRo, linkFieldRo],
+          records: [
+            {
+              fields: {
+                'text field': 'table2_1',
+                'link field': [{ id: table1.records[0].id }],
+              },
+            },
+          ],
+        })
+        .expect(201);
+      const table2 = result2.body as ITableFullVo;
+      expect(table2.records[0].fields['link field']).toEqual([
+        {
+          title: 'table1_1',
+          id: table1.records[0].id,
+        },
+      ]);
+      const table1Records = await getRecords(request, table1Id);
+      const table1Fields = await getFields(request, table1Id);
+
+      expect(table1Records.records[0].fields[table1Fields[1].id]).toEqual({
+        title: 'table2_1',
+        id: table2.records[0].id,
+      });
     });
   });
 

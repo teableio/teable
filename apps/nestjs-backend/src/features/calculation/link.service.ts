@@ -3,7 +3,7 @@ import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, isEqual, set } from 'lodash';
+import { cloneDeep, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { IFkOpMap } from './reference.service';
 import type { ICellChange } from './utils/changes';
@@ -317,8 +317,10 @@ export class LinkService {
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     recordMapByTableId: IRecordMapByTableId,
+    cellContexts: ICellContext[],
     fromReset?: boolean
   ): Promise<IRecordMapByTableId> {
+    const cellContextGroup = keyBy(cellContexts, (ctx) => `${ctx.recordId}-${ctx.fieldId}`);
     for (const tableId in recordMapByTableId) {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
@@ -369,6 +371,13 @@ export class LinkService {
           }
           const field = fieldMapByTableId[tableId][fieldId];
           if (fromReset && field.type === FieldType.Link) {
+            continue;
+          }
+
+          // Overlay with new data, especially cellValue in primary field
+          const inputData = cellContextGroup[`${recordId}-${fieldId}`];
+          if (field.type !== FieldType.Link && inputData !== undefined) {
+            recordLookupFieldsMap[recordId][fieldId] = inputData.newValue ?? undefined;
             continue;
           }
 
@@ -523,6 +532,7 @@ export class LinkService {
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     linkContexts: ILinkCellContext[],
+    cellContexts: ICellContext[],
     fromReset?: boolean
   ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkOpMap }> {
     const { recordMapByTableId, updateForeignKeyParams } =
@@ -532,6 +542,7 @@ export class LinkService {
       tableId2DbTableName,
       fieldMapByTableId,
       recordMapByTableId,
+      cellContexts,
       fromReset
     );
     // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
@@ -596,6 +607,7 @@ export class LinkService {
       tableId2DbTableName,
       fieldMapByTableId,
       linkContexts,
+      cellContexts,
       fromReset
     );
   }

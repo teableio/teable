@@ -304,7 +304,7 @@ describe('LinkService', () => {
       ]);
     });
 
-    it('should create correct ForeignKeyParams even when illegal value for oneMany field', () => {
+    it('should throw error when when illegal value for oneMany field', () => {
       const ctx1: ILinkCellContext[] = [
         {
           recordId: 'B1',
@@ -319,80 +319,9 @@ describe('LinkService', () => {
         },
       ];
 
-      const result1 = service['getRecordMapStructAndForeignKeyParams'](
-        'tableB',
-        fieldMapByTableId,
-        ctx1
-      );
-
-      expect(result1.recordMapByTableId).toEqual({
-        tableA: {
-          A1: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
-          A2: { fieldA: undefined, 'ManyOne-LinkB': undefined, '__fk_ManyOne-LinkB': undefined },
-        },
-        tableB: {
-          B1: { fieldB: undefined, 'OneMany-LinkA': undefined },
-          B2: { fieldB: undefined, 'OneMany-LinkA': undefined },
-        },
-      });
-
-      expect(result1.updateForeignKeyParams).toEqual([
-        {
-          tableId: 'tableA',
-          foreignTableId: 'tableB',
-          mainLinkFieldId: 'ManyOne-LinkB',
-          mainTableLookupFieldId: 'fieldA',
-          foreignLinkFieldId: 'OneMany-LinkA',
-          foreignTableLookupFieldId: 'fieldB',
-          dbForeignKeyName: '__fk_ManyOne-LinkB',
-          recordId: 'A1',
-          fRecordId: null,
-        },
-        {
-          tableId: 'tableA',
-          foreignTableId: 'tableB',
-          mainLinkFieldId: 'ManyOne-LinkB',
-          mainTableLookupFieldId: 'fieldA',
-          foreignLinkFieldId: 'OneMany-LinkA',
-          foreignTableLookupFieldId: 'fieldB',
-          dbForeignKeyName: '__fk_ManyOne-LinkB',
-          recordId: 'A1',
-          fRecordId: 'B1',
-        },
-        {
-          tableId: 'tableA',
-          foreignTableId: 'tableB',
-          mainLinkFieldId: 'ManyOne-LinkB',
-          mainTableLookupFieldId: 'fieldA',
-          foreignLinkFieldId: 'OneMany-LinkA',
-          foreignTableLookupFieldId: 'fieldB',
-          dbForeignKeyName: '__fk_ManyOne-LinkB',
-          recordId: 'A2',
-          fRecordId: 'B1',
-        },
-        {
-          tableId: 'tableA',
-          foreignTableId: 'tableB',
-          mainLinkFieldId: 'ManyOne-LinkB',
-          mainTableLookupFieldId: 'fieldA',
-          foreignLinkFieldId: 'OneMany-LinkA',
-          foreignTableLookupFieldId: 'fieldB',
-          dbForeignKeyName: '__fk_ManyOne-LinkB',
-          recordId: 'A1',
-          fRecordId: 'B2',
-        },
-        {
-          tableId: 'tableA',
-          foreignTableId: 'tableB',
-          mainLinkFieldId: 'ManyOne-LinkB',
-          mainTableLookupFieldId: 'fieldA',
-          foreignLinkFieldId: 'OneMany-LinkA',
-          foreignTableLookupFieldId: 'fieldB',
-          dbForeignKeyName: '__fk_ManyOne-LinkB',
-          recordId: 'A2',
-          fRecordId: 'B2',
-        },
-      ]);
+      expect(() =>
+        service['getRecordMapStructAndForeignKeyParams']('tableB', fieldMapByTableId, ctx1)
+      ).toThrow();
     });
 
     it('should update foreign key in memory correctly when add value', () => {
