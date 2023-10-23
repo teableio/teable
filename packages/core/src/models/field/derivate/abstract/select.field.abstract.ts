@@ -1,10 +1,11 @@
+import { keyBy } from 'lodash';
 import { z } from 'zod';
 import { Colors } from '../../colors';
 import { FieldCore } from '../../field';
 
 export const selectFieldChoiceSchema = z.object({
   id: z.string(),
-  name: z.string().nonempty(),
+  name: z.string().min(1),
   color: z.nativeEnum(Colors),
 });
 
@@ -37,6 +38,12 @@ export abstract class SelectFieldCore extends FieldCore {
 
   options!: ISelectFieldOptions;
 
+  // For validate cellValue,
+  // avoiding choice and checking too many rows has a complexity of m(choice.length) x n(rows.length)
+  get choicesMap() {
+    return keyBy(this.options.choices, 'name');
+  }
+
   validateOptions() {
     return selectFieldOptionsSchema.safeParse(this.options);
   }
@@ -58,11 +65,9 @@ export abstract class SelectFieldCore extends FieldCore {
   }
 
   validateCellValue(cellValue: unknown) {
-    const choiceNames = this.options.choices.map((v) => v.name);
-
     const nameSchema = z.string().refine(
       (value) => {
-        return value == null || choiceNames.includes(value);
+        return value == null || this.choicesMap[value];
       },
       { message: `${cellValue} is not one of the choice names` }
     );

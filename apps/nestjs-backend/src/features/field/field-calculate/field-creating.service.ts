@@ -4,9 +4,9 @@ import { FieldOpBuilder, getUniqName, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
+import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
 export class FieldCreatingService {

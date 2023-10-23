@@ -1,18 +1,18 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { GlobalModule } from '../../../global/global.module';
-import { FieldConvertingService } from './field-converting.service';
-import { FieldOpenApiModule } from './field-open-api.module';
+import { FieldOpenApiModule } from '../open-api/field-open-api.module';
+import { FieldCreatingService } from './field-creating.service';
 
-describe('FieldConvertingService', () => {
-  let service: FieldConvertingService;
+describe('FieldCreatingService', () => {
+  let service: FieldCreatingService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, FieldOpenApiModule],
     }).compile();
 
-    service = module.get<FieldConvertingService>(FieldConvertingService);
+    service = module.get<FieldCreatingService>(FieldCreatingService);
   });
 
   it('should be defined', () => {

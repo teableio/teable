@@ -37,8 +37,7 @@ import type { IFieldMap, IFkOpMap, IOpsMap } from '../../calculation/reference.s
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
-import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import { FieldSupplementService } from '../field-supplement.service';
+import { RecordCalculateService } from '../../record/record-calculate/record-calculate.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { createFieldInstanceByVo } from '../model/factory';
@@ -49,6 +48,7 @@ import type { RatingFieldDto } from '../model/field-dto/rating-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
 import { FieldConvertingLinkService } from './field-converting-link.service';
+import { FieldSupplementService } from './field-supplement.service';
 
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
@@ -74,7 +74,7 @@ export class FieldConvertingService {
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly recordCalculateService: RecordCalculateService,
     @InjectModel() private readonly knex: Knex
   ) {}
 
@@ -878,7 +878,7 @@ export class FieldConvertingService {
     if (result?.recordsForCreate) {
       for (const tableId in result.recordsForCreate) {
         const recordsMap = result.recordsForCreate[tableId];
-        await this.recordOpenApiService.createRecords(
+        await this.recordCalculateService.createRecords(
           tableId,
           Object.values(recordsMap),
           FieldKeyType.Id
