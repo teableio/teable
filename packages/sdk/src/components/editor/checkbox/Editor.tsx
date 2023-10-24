@@ -1,4 +1,4 @@
-import { Checkbox } from '@teable-group/ui-lib';
+import { Checkbox, cn } from '@teable-group/ui-lib';
 import type { ICellEditor } from '../type';
 
 type ICheckboxEditor = ICellEditor<boolean>;
@@ -9,7 +9,7 @@ export const CheckboxEditor = (props: ICheckboxEditor) => {
   return (
     <Checkbox
       style={style}
-      className={className}
+      className={cn('w-6 h-6', className)}
       checked={Boolean(value)}
       onCheckedChange={(checked) => {
         onChange?.(Boolean(checked));

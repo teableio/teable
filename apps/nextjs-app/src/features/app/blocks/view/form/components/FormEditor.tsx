@@ -84,29 +84,32 @@ export const FormEditor = () => {
     const { over, active } = event;
     const activeData = active.data?.current || {};
     const overData = over?.data?.current || {};
+    const { fromSidebar, field } = activeData;
+    const { index, isContainer } = overData;
 
-    if (activeData?.fromSidebar && overData?.index != null) {
-      const index = overData.index;
-      setAdditionalFieldData({ field: activeData.field, index });
+    if (fromSidebar && (index != null || isContainer)) {
+      setAdditionalFieldData({ field, index: index ?? 0 });
     }
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const onDragEnd = async (event: DragEndEvent) => {
     const { over } = event;
     const overData = over?.data?.current || {};
-    const targetIndex = overData?.index;
+    const { index: targetIndex, isContainer } = overData;
 
     onClean();
 
-    if (activeSidebarField && targetIndex != null) {
+    if (activeSidebarField && (targetIndex != null || isContainer)) {
       const sourceDragId = activeSidebarField.id;
       if (activeViewId) {
         const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
         const draggingField = allFields[sourceIndex];
         await draggingField.updateColumnHidden(activeViewId, false);
 
-        if (sourceIndex === targetIndex) return;
-        const newOrders = reorder(1, targetIndex, visibleFields.length, (index) => {
+        const finalIndex = targetIndex ?? 0;
+        if (sourceIndex === finalIndex) return;
+        const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
           return visibleFields[index].columnMeta[activeViewId].order;
         });
         draggingField.updateColumnOrder(activeViewId, newOrders[0]);

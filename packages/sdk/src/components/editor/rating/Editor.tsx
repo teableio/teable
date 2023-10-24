@@ -7,6 +7,7 @@ import type { ICellEditor } from '../type';
 
 interface IRatingEditor extends ICellEditor<number> {
   options: IRatingFieldOptions;
+  iconClassName?: string;
 }
 
 export const RATING_ICON_MAP = {
@@ -21,7 +22,7 @@ export const RATING_ICON_MAP = {
 };
 
 export const RatingEditor: FC<IRatingEditor> = (props) => {
-  const { value, options, disabled, className, onChange } = props;
+  const { value, options, disabled, className, iconClassName, onChange } = props;
   const { icon, color: colorKey, max } = options;
   const [hoverIndex, setHoverIndex] = useState(-1);
 
@@ -36,7 +37,7 @@ export const RatingEditor: FC<IRatingEditor> = (props) => {
   const hoveredColor = ColorUtils.getRgbaStringForColor(colorKey, 0.3);
 
   return (
-    <div className={cn('flex items-center', className)}>
+    <div className={cn('flex items-center h-8', className)}>
       {Array.from({ length: max }).map((_, index) => {
         let style = {};
 
@@ -48,7 +49,10 @@ export const RatingEditor: FC<IRatingEditor> = (props) => {
         return (
           <Icon
             key={index}
-            className="w-5 h-5 mr-[6px] rounded cursor-pointer text-slate-200 fill-slate-200 dark:text-gray-700 dark:fill-gray-700"
+            className={cn(
+              'w-6 h-6 mr-2 rounded cursor-pointer text-slate-200 fill-slate-200 dark:text-gray-700 dark:fill-gray-700',
+              iconClassName
+            )}
             style={style}
             onMouseEnter={() => setHoverIndex(index)}
             onMouseLeave={() => setHoverIndex(-1)}

@@ -38,7 +38,7 @@ export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain
           role="combobox"
           aria-expanded={open}
           className={classNames(
-            'w-full h-auto min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
+            'w-full h-auto min-h-[40px] sm:min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
             className
           )}
         >

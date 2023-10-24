@@ -15,7 +15,6 @@ import type {
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
-import { cn } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   AttachmentEditor,
@@ -56,7 +55,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         return (
           <TextEditor
             ref={editorRef}
-            className={cn('h-8', className)}
+            className={className}
             value={cellValue as ISingleLineTextCellValue}
             options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
@@ -68,7 +67,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         return (
           <LongTextEditor
             ref={editorRef}
-            className={cn('h-20', className)}
+            className={className}
             value={cellValue as ILongTextCellValue}
             onChange={onChange}
             disabled={disabled}
@@ -79,7 +78,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         return (
           <NumberEditor
             ref={editorRef}
-            className={cn('h-8', className)}
+            className={className}
             options={options as INumberFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
@@ -90,7 +89,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       case FieldType.Rating: {
         return (
           <RatingEditor
-            className="h-8"
+            className={className}
             options={options as IRatingFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
@@ -101,23 +100,23 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       case FieldType.SingleSelect: {
         return (
           <SelectEditor
+            className={className}
             value={cellValue as ISingleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             disabled={disabled}
-            className={className}
           />
         );
       }
       case FieldType.MultipleSelect: {
         return (
           <SelectEditor
+            className={className}
             value={cellValue as IMultipleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             isMultiple
             disabled={disabled}
-            className={className}
           />
         );
       }
@@ -126,7 +125,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           // Setting the checkbox size is affected by the font-size causing the height to change.
           <div style={{ fontSize: 0 }}>
             <CheckboxEditor
-              className={cn('w-6 h-6', className)}
+              className={className}
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
               disabled={disabled}
@@ -137,7 +136,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       case FieldType.Date: {
         return (
           <DateEditor
-            className={cn('w-44', className)}
+            className={className}
             value={cellValue ? new Date(cellValue as IDateCellValue) : undefined}
             onChange={(selectedDay) => onChange?.(selectedDay ? selectedDay.toISOString() : null)}
           />
@@ -156,11 +155,11 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       case FieldType.Link: {
         return (
           <LinkEditor
+            className={className}
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
             options={options as ILinkFieldOptions}
             onChange={onChange}
             disabled={disabled}
-            className={className}
           />
         );
       }

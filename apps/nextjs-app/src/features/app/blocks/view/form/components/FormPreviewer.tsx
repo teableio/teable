@@ -115,11 +115,12 @@ export const FormPreviewer = () => {
       )}
       ref={containerRef}
     >
-      <div className="mx-auto flex h-full w-full max-w-[640px] flex-col items-center overflow-hidden pb-12 shadow-md sm:h-auto sm:rounded-lg sm:border">
+      <div className="mx-auto flex min-h-full w-full max-w-[640px] flex-col items-center overflow-hidden pb-12 shadow-md sm:rounded-lg sm:border">
         <div
           className={cn(
             'relative h-36 w-full',
-            !coverUrl && 'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600'
+            !coverUrl &&
+              'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
           {coverUrl && (
@@ -152,7 +153,7 @@ export const FormPreviewer = () => {
               );
             })}
 
-            <div className="mt-6 flex w-full justify-center sm:px-12">
+            <div className="mb-12 mt-8 flex w-full justify-center sm:mb-0 sm:px-12">
               <Button
                 className="w-full text-base sm:w-48"
                 size={'lg'}

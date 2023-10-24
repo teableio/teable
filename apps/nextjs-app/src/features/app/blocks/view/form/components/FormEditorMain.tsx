@@ -71,7 +71,8 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         <div
           className={cn(
             'relative h-36 w-full',
-            !coverUrl && 'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600'
+            !coverUrl &&
+              'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
           {coverUrl && (

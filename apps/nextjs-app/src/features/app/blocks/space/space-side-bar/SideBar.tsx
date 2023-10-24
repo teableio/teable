@@ -4,7 +4,7 @@ import { SpaceSideBar } from './SpaceSideBar';
 
 export const SideBar = () => {
   return (
-    <div className="flex h-full basis-[300px] flex-col overflow-hidden border-r">
+    <div className="hidden h-full basis-[300px] flex-col overflow-hidden border-r sm:flex">
       <SideBarHeader />
       <div className="divide-base-300 flex flex-col gap-2 divide-y divide-solid overflow-hidden py-2">
         <SpaceSideBar />

@@ -35,7 +35,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
     <Textarea
       ref={inputRef}
       style={style}
-      className={cn('bg-background resize-none', className)}
+      className={cn('bg-background resize-none h-20', className)}
       value={text}
       onChange={onChangeInner}
       onBlur={onBlur}
