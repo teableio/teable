@@ -62,6 +62,17 @@ export abstract class Field extends FieldCore {
     return this.submitOperation(fieldOperation);
   }
 
+  async updateColumnRequired(viewId: string, required: boolean) {
+    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
+      viewId,
+      metaKey: 'required',
+      newMetaValue: required,
+      oldMetaValue: this.columnMeta[viewId]?.required,
+    });
+
+    return this.submitOperation(fieldOperation);
+  }
+
   async updateColumnStatistic(viewId: string, statisticFunc?: StatisticsFunc | null) {
     if (statisticFunc === this.columnMeta[viewId]?.statisticFunc) {
       return;

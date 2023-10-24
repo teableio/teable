@@ -15,7 +15,7 @@ function SortFieldSelect(props: ISortFieldSelect) {
 
   const [open, setOpen] = useState(false);
 
-  const fields = useFields({ widthHidden: true });
+  const fields = useFields({ withHidden: true });
 
   const displayName = useMemo(() => {
     const map: Record<string, string> = {};

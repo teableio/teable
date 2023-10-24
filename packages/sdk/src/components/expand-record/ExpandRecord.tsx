@@ -44,7 +44,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   } = props;
   const defaultViewId = useViews()?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const allFields = useFields({ widthHidden: true });
+  const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
 

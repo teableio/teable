@@ -2,14 +2,14 @@ import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
 import { useViewId } from './use-view-id';
 
-export function useFields(options: { widthHidden?: boolean } = {}) {
-  const { widthHidden } = options;
+export function useFields(options: { withHidden?: boolean } = {}) {
+  const { withHidden } = options;
   const { fields } = useContext(FieldContext);
   const viewId = useViewId();
 
   return useMemo(() => {
-    return widthHidden || !viewId
+    return withHidden || !viewId
       ? fields
       : fields.filter(({ columnMeta }) => !columnMeta?.[viewId]?.hidden);
-  }, [viewId, fields, widthHidden]);
+  }, [viewId, fields, withHidden]);
 }

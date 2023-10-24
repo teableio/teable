@@ -9,26 +9,29 @@ export function useAddView() {
   const router = useRouter();
   const viewName = views[views.length - 1]?.name + ' ' + views.length;
 
-  return useCallback(async () => {
-    if (!table) {
-      return;
-    }
+  return useCallback(
+    async (type: ViewType = ViewType.Grid, name?: string) => {
+      if (!table) {
+        return;
+      }
 
-    const viewDoc = (
-      await table.createView({
-        name: viewName,
-        type: ViewType.Grid,
-      })
-    ).data;
-    const viewId = viewDoc.id;
-    const { baseId } = router.query;
-    router.push(
-      {
-        pathname: '/base/[baseId]/[nodeId]/[viewId]',
-        query: { baseId, nodeId: table.id, viewId },
-      },
-      undefined,
-      { shallow: Boolean(router.query.viewId) }
-    );
-  }, [router, table, viewName]);
+      const viewDoc = (
+        await table.createView({
+          name: name ?? viewName,
+          type,
+        })
+      ).data;
+      const viewId = viewDoc.id;
+      const { baseId } = router.query;
+      router.push(
+        {
+          pathname: '/base/[baseId]/[nodeId]/[viewId]',
+          query: { baseId, nodeId: table.id, viewId },
+        },
+        undefined,
+        { shallow: Boolean(router.query.viewId) }
+      );
+    },
+    [router, table, viewName]
+  );
 }

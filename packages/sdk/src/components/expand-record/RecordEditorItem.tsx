@@ -35,7 +35,7 @@ export const RecordEditorItem = (props: {
         </div>
       </div>
       <CellEditor
-        className="min-w-0 flex-1 p-0.5"
+        wrapClassName="min-w-0 flex-1 p-0.5"
         cellValue={cellValue}
         onChange={onChangeInner}
         field={field}

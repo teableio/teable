@@ -1,4 +1,3 @@
-import { Sheet } from '@teable-group/icons';
 import { useTableId } from '@teable-group/sdk/hooks';
 import type { IViewInstance } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn';
@@ -14,6 +13,7 @@ import classnames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import { VIEW_ICON_MAP } from '../constant';
 import { useDeleteView } from './useDeleteView';
 interface IProps {
   view: IViewInstance;
@@ -29,6 +29,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const deleteView = useDeleteView(view.id);
 
   const ViewButton = () => {
+    const ViewIcon = VIEW_ICON_MAP[view.type];
+
     return (
       <Button
         className={classnames('w-full px-1', { 'bg-secondary': isActive })}
@@ -52,7 +54,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
             }
           }}
         >
-          <Sheet className="h-4 w-4 shrink-0" />
+          <ViewIcon className="h-4 w-4 shrink-0" />
           <p className="shrink-1 truncate">{view.name}</p>
         </Link>
       </Button>

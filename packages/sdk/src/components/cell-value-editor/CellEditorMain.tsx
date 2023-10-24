@@ -15,6 +15,7 @@ import type {
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
+import { cn } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   AttachmentEditor,
@@ -30,8 +31,8 @@ import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
-export const CellEditorMain = (props: ICellValueEditor) => {
-  const { field, cellValue, onChange, disabled } = props;
+export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
+  const { field, cellValue, onChange, disabled, className } = props;
   const { type, options } = field;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<IEditorRef<any>>(null);
@@ -55,7 +56,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <TextEditor
             ref={editorRef}
-            className="h-8"
+            className={cn('h-8', className)}
             value={cellValue as ISingleLineTextCellValue}
             options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
@@ -67,7 +68,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <LongTextEditor
             ref={editorRef}
-            className="h-20"
+            className={cn('h-20', className)}
             value={cellValue as ILongTextCellValue}
             onChange={onChange}
             disabled={disabled}
@@ -78,7 +79,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <NumberEditor
             ref={editorRef}
-            className="h-8"
+            className={cn('h-8', className)}
             options={options as INumberFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
@@ -104,6 +105,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             disabled={disabled}
+            className={className}
           />
         );
       }
@@ -115,6 +117,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             onChange={onChange}
             isMultiple
             disabled={disabled}
+            className={className}
           />
         );
       }
@@ -123,7 +126,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
           // Setting the checkbox size is affected by the font-size causing the height to change.
           <div style={{ fontSize: 0 }}>
             <CheckboxEditor
-              className="w-6 h-6"
+              className={cn('w-6 h-6', className)}
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
               disabled={disabled}
@@ -134,7 +137,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Date: {
         return (
           <DateEditor
-            className="w-44"
+            className={cn('w-44', className)}
             value={cellValue ? new Date(cellValue as IDateCellValue) : undefined}
             onChange={(selectedDay) => onChange?.(selectedDay ? selectedDay.toISOString() : null)}
           />
@@ -143,6 +146,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Attachment: {
         return (
           <AttachmentEditor
+            className={className}
             value={cellValue as IAttachmentCellValue}
             onChange={onChange}
             disabled={disabled}
@@ -156,11 +160,12 @@ export const CellEditorMain = (props: ICellValueEditor) => {
             options={options as ILinkFieldOptions}
             onChange={onChange}
             disabled={disabled}
+            className={className}
           />
         );
       }
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, cellValue, onChange, disabled, selectOptions, options]);
+  }, [type, className, cellValue, options, onChange, disabled, selectOptions]);
 };

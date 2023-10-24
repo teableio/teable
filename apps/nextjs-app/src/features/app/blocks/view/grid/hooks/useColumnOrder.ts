@@ -23,7 +23,7 @@ export function useColumnOrder() {
         throw new Error('Can not find view id');
       }
 
-      const newOrders = reorder(colIndexCollection, newColIndex, fields.length, (index) => {
+      const newOrders = reorder(colIndexCollection.length, newColIndex, fields.length, (index) => {
         return fields[index].columnMeta[viewId].order;
       });
 
