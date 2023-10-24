@@ -33,7 +33,8 @@ export class RecordOpenApiService {
       return await this.createRecords(
         tableId,
         createRecordsRo.records,
-        createRecordsRo.fieldKeyType
+        createRecordsRo.fieldKeyType,
+        createRecordsRo.typecast
       );
     });
   }
@@ -41,9 +42,17 @@ export class RecordOpenApiService {
   async createRecords(
     tableId: string,
     recordsRo: { id?: string; fields: Record<string, unknown> }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    typecast?: boolean
   ): Promise<ICreateRecordsVo> {
-    return await this.recordCalculateService.createRecords(tableId, recordsRo, fieldKeyType);
+    const typecastRecords = await this.validateFieldsAndTypecast(
+      tableId,
+      recordsRo,
+      fieldKeyType,
+      typecast
+    );
+
+    return await this.recordCalculateService.createRecords(tableId, typecastRecords, fieldKeyType);
   }
 
   async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
@@ -51,17 +60,15 @@ export class RecordOpenApiService {
       // validate cellValue and typecast
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
-        map(updateRecordsRo.records, 'fields'),
+        updateRecordsRo.records,
         updateRecordsRo.fieldKeyType,
-        true
+        updateRecordsRo.typecast
       );
+
       await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         updateRecordsRo.fieldKeyType,
-        updateRecordsRo.records.map(({ id }, index) => ({
-          id,
-          fields: typecastRecords[index],
-        }))
+        typecastRecords
       );
     });
   }
@@ -92,17 +99,23 @@ export class RecordOpenApiService {
     return map(usedFields, createFieldInstanceByRaw);
   }
 
-  async validateFieldsAndTypecast(
+  async validateFieldsAndTypecast<
+    T extends {
+      fields: Record<string, unknown>;
+    },
+  >(
     tableId: string,
-    recordsFields: Record<string, unknown>[],
+    records: T[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     typecast?: boolean
-  ) {
+  ): Promise<T[]> {
+    const recordsFields = map(records, 'fields');
     const effectFieldInstance = await this.getEffectFieldInstances(
       tableId,
       recordsFields,
       fieldKeyType
     );
+
     let newRecordsFields: Record<string, unknown>[] = recordsFields;
     for (const field of effectFieldInstance) {
       const typeCastAndValidate = new TypeCastAndValidate({
@@ -121,7 +134,11 @@ export class RecordOpenApiService {
         fieldKeyType
       );
     }
-    return newRecordsFields;
+
+    return records.map((record, i) => ({
+      ...record,
+      fields: newRecordsFields[i],
+    }));
   }
 
   async updateRecordById(
@@ -130,11 +147,20 @@ export class RecordOpenApiService {
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.prismaService.$tx(async () => {
-      const { fieldKeyType = FieldKeyType.Name, record } = updateRecordRo;
+      const { fieldKeyType = FieldKeyType.Name, typecast, record } = updateRecordRo;
 
-      await this.recordCalculateService.calculateUpdatedRecord(tableId, fieldKeyType, [
-        { id: recordId, fields: record.fields },
-      ]);
+      const typecastRecords = await this.validateFieldsAndTypecast(
+        tableId,
+        [{ id: recordId, fields: record.fields }],
+        fieldKeyType,
+        typecast
+      );
+
+      await this.recordCalculateService.calculateUpdatedRecord(
+        tableId,
+        fieldKeyType,
+        typecastRecords
+      );
 
       // return record result
       const snapshots = await this.recordService.getSnapshotBulk(

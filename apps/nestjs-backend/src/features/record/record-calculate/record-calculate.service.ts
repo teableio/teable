@@ -195,6 +195,7 @@ export class RecordCalculateService {
     if (recordsRo.length === 0) {
       throw new BadRequestException('Create records is empty');
     }
+
     const emptyRecords = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
       return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });

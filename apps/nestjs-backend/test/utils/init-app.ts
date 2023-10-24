@@ -93,21 +93,22 @@ export async function updateRecordByApi(
   recordId: string,
   fieldId: string,
   newValue: unknown,
-  expect = 200
+  expectStatus = 200
 ): Promise<IRecord> {
-  return (
-    await request
-      .put(`/api/table/${tableId}/record/${recordId}`)
-      .send({
-        fieldKeyType: FieldKeyType.Id,
-        record: {
-          fields: {
-            [fieldId]: newValue,
-          },
-        },
-      } as IUpdateRecordRo)
-      .expect(expect)
-  ).body;
+  const result = await request.put(`/api/table/${tableId}/record/${recordId}`).send({
+    fieldKeyType: FieldKeyType.Id,
+    record: {
+      fields: {
+        [fieldId]: newValue,
+      },
+    },
+  } as IUpdateRecordRo);
+
+  if (result.status !== 200 && result.status !== expectStatus) {
+    console.error(result.body);
+  }
+  expect(result.status).toEqual(expectStatus);
+  return result.body;
 }
 
 export async function getRecords(
@@ -158,6 +159,7 @@ export async function createRecords(
   request: request.SuperAgentTest,
   tableId: string,
   records: ICreateRecordsRo['records'],
+  typecast = false,
   expect = 201
 ): Promise<ICreateRecordsVo> {
   return (
@@ -166,6 +168,7 @@ export async function createRecords(
       .send({
         records,
         fieldKeyType: FieldKeyType.Id,
+        typecast: typecast,
       })
       .expect(expect)
   ).body;

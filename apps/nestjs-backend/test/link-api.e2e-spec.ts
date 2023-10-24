@@ -733,6 +733,7 @@ describe('OpenAPI link (e2e)', () => {
             },
           },
         ],
+        false,
         400
       );
 
@@ -743,8 +744,66 @@ describe('OpenAPI link (e2e)', () => {
           { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
           { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
         ],
+        false,
         400
       );
+    });
+
+    it('should set a text value in a link record with typecast', async () => {
+      await updateRecordByApi(request, table1.id, table1.records[0].id, table1.fields[0].id, 'A1');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+      // // reject data when typecast is false
+      await createRecords(
+        request,
+        table2.id,
+        [
+          {
+            fields: {
+              [table2.fields[2].id]: ['A1'],
+            },
+          },
+        ],
+        false,
+        400
+      );
+
+      const { records } = await createRecords(
+        request,
+        table2.id,
+        [
+          {
+            fields: {
+              [table2.fields[2].id]: 'A1',
+            },
+          },
+        ],
+        true
+      );
+
+      expect(records[0].fields[table2.fields[2].id]).toEqual({
+        id: table1.records[0].id,
+        title: 'A1',
+      });
+
+      const { records: records2 } = await createRecords(
+        request,
+        table1.id,
+        [
+          {
+            fields: {
+              [table1.fields[2].id]: 'B2',
+            },
+          },
+        ],
+        true
+      );
+
+      expect(records2[0].fields[table1.fields[2].id]).toEqual([
+        {
+          id: table2.records[1].id,
+          title: 'B2',
+        },
+      ]);
     });
   });
 
