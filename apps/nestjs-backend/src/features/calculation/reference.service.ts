@@ -898,17 +898,13 @@ export class ReferenceService {
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
         .concat([...preservedFieldName]);
-      const nativeSql = this.knex(dbTableName)
+      const nativeQuery = this.knex(dbTableName)
         .select(dbFieldNames)
         .whereIn('__id', recordIds)
-        .toSQL()
-        .toNative();
+        .toQuery();
       const result = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
-          nativeSql.sql,
-          ...nativeSql.bindings
-        );
+        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(nativeQuery);
       results[dbTableName] = result;
     }
 

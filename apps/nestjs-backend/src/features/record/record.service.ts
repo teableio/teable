@@ -468,14 +468,13 @@ export class RecordService implements IAdapterService {
   async batchDeleteRecords(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     // get version by recordIds, __id as id, __version as version
-    const nativeSql = this.knex(dbTableName)
+    const nativeQuery = this.knex(dbTableName)
       .select('__id as id', '__version as version')
       .whereIn('__id', recordIds)
-      .toSQL()
-      .toNative();
+      .toQuery();
     const recordRaw = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeSql.sql, ...nativeSql.bindings);
+      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
     if (recordIds.length !== recordRaw.length) {
       throw new BadRequestException('delete record not found');
@@ -570,9 +569,9 @@ export class RecordService implements IAdapterService {
       )
     );
 
-    const nativeSql = this.knex(dbTableName).whereIn('__id', recordIds).del().toSQL().toNative();
+    const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
 
-    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
   async del(_version: number, tableId: string, recordId: string) {
@@ -648,16 +647,15 @@ export class RecordService implements IAdapterService {
       .map((f) => f.dbFieldName)
       .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
 
-    const sqlNative = this.knex(dbTableName)
+    const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
-      .toSQL()
-      .toNative();
+      .toQuery();
+
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
+        nativeQuery
       );
 
     const recordIdsMap = recordIds.reduce(

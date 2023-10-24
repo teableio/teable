@@ -993,6 +993,36 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   describe('convert link field', () => {
     bfAf();
 
+    it('should convert empty text to many-one link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+      };
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      // set primary key 'x' in table2
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+        },
+      });
+    });
+
     it('should convert text to many-one link', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',
