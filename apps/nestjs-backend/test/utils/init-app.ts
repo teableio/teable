@@ -157,7 +157,8 @@ export async function deleteRecords(
 export async function createRecords(
   request: request.SuperAgentTest,
   tableId: string,
-  records: ICreateRecordsRo['records']
+  records: ICreateRecordsRo['records'],
+  expect = 201
 ): Promise<ICreateRecordsVo> {
   return (
     await request
@@ -166,7 +167,7 @@ export async function createRecords(
         records,
         fieldKeyType: FieldKeyType.Id,
       })
-      .expect(201)
+      .expect(expect)
   ).body;
 }
 
@@ -202,6 +203,14 @@ export async function updateField(
     console.error(JSON.stringify(result.body, null, 2));
   }
   expect(result.status).toEqual(200);
+  return result.body;
+}
+
+export async function getFields(
+  request: request.SuperAgentTest,
+  tableId: string
+): Promise<IFieldVo[]> {
+  const result = await request.get(`/api/table/${tableId}/field`).expect(200);
   return result.body;
 }
 

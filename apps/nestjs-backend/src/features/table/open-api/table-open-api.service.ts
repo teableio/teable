@@ -12,8 +12,8 @@ import type {
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
-import { FieldCreatingService } from '../../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';

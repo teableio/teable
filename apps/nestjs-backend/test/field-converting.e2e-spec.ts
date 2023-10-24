@@ -29,33 +29,38 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let table3: ITableFullVo;
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
-
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
-
-    const result1 = await request.post(`/api/base/${baseId}/table`).send({
-      name: 'table1',
-    });
-    table1 = result1.body;
-    const result2 = await request.post(`/api/base/${baseId}/table`).send({
-      name: 'table2',
-    });
-    table2 = result2.body;
-    const result3 = await request.post(`/api/base/${baseId}/table`).send({
-      name: 'table2',
-    });
-    table3 = result3.body;
   });
 
   afterAll(async () => {
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
-
     await app.close();
   });
+
+  const bfAf = () => {
+    beforeAll(async () => {
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table1',
+      });
+      table1 = result1.body;
+      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table2',
+      });
+      table2 = result2.body;
+      const result3 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table2',
+      });
+      table3 = result3.body;
+    });
+
+    afterAll(async () => {
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
+    });
+  };
 
   async function expectUpdate(
     table: ITableFullVo,
@@ -84,6 +89,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   }
 
   describe('modify general property', () => {
+    bfAf();
     it('should modify field name', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',
@@ -119,6 +125,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert text field', () => {
+    bfAf();
+
     const sourceFieldRo: IFieldRo = {
       name: 'TextField',
       type: FieldType.SingleLineText,
@@ -380,6 +388,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert long text field', () => {
+    bfAf();
+
     const sourceFieldRo: IFieldRo = {
       name: 'LongTextField',
       type: FieldType.LongText,
@@ -661,6 +671,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert select field', () => {
+    bfAf();
+
     it('should convert select to number', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.SingleSelect,
@@ -795,6 +807,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert rating field', () => {
+    bfAf();
+
     it('should correctly update and format values when transitioning from a Number field to a Rating field', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Number,
@@ -903,6 +917,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert formula field', () => {
+    bfAf();
+
     const refField1Ro: IFieldRo = {
       type: FieldType.SingleLineText,
     };
@@ -975,6 +991,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert link field', () => {
+    bfAf();
+
     it('should convert text to many-one link', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',
@@ -1098,7 +1116,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual('x');
     });
 
-    it.skip('should convert one-many link to text', async () => {
+    it('should convert one-many link to text', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
@@ -1139,7 +1157,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual('x, y');
     });
 
-    it('should convert many-one to one-many link', async () => {
+    it('should convert many-one to one-many link with in cell illegal', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {
@@ -1157,8 +1175,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'xx');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'yy');
 
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         { id: table2.records[0].id },
@@ -1178,9 +1196,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       const { records } = await getRecords(request, table2.id);
-      // values[0] should replaced by values[1] to keep link consistency
-      expect(values[0]).toEqual(undefined);
-      expect(values[1]).toEqual([{ title: 'x', id: records[0].id }]);
+      expect(values[0]).toEqual([{ title: 'xx', id: records[0].id }]);
+      // values[1] should by values[0] to keep link consistency
+      expect(values[1]).toEqual(undefined);
     });
 
     it('should convert one-many to many-one link', async () => {
@@ -1376,6 +1394,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert lookup field', () => {
+    bfAf();
+
     it('should convert text to many-one lookup', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',

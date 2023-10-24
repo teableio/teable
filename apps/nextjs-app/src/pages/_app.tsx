@@ -120,7 +120,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       res.writeHead(302, {
         Location: `/space`,
       });
-      res.end();
+      return res.end();
     }
     return { ...initialProps, user: user.data };
   } catch (error) {
@@ -130,7 +130,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       res.writeHead(302, {
         Location: `/auth/login?${query}`,
       });
-      res.end();
+      return res.end();
     }
   }
 

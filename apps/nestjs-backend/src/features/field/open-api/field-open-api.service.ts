@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { FieldSupplementService } from '../field-supplement.service';
+import { FieldConvertingService } from '../field-calculate/field-converting.service';
+import { FieldCreatingService } from '../field-calculate/field-creating.service';
+import { FieldDeletingService } from '../field-calculate/field-deleting.service';
+import { FieldSupplementService } from '../field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../model/factory';
-import { FieldConvertingService } from './field-converting.service';
-import { FieldCreatingService } from './field-creating.service';
-import { FieldDeletingService } from './field-deleting.service';
 
 @Injectable()
 export class FieldOpenApiService {

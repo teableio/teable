@@ -3,7 +3,7 @@ import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, isEqual, set } from 'lodash';
+import { cloneDeep, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { IFkOpMap } from './reference.service';
 import type { ICellChange } from './utils/changes';
@@ -150,7 +150,9 @@ export class LinkService {
       if (oldFRecordId) {
         const fRecord = foreignTable[oldFRecordId];
         if (!fRecord) {
-          throw new BadRequestException('Can not set duplicate link record in this field');
+          throw new BadRequestException(
+            'Consistency error, Can not set duplicate link record in this field'
+          );
         }
         const oldFRecordFLink = fRecord[foreignLinkFieldId] as
           | { id: string; title?: string }[]
@@ -203,7 +205,20 @@ export class LinkService {
     cellContexts: ILinkCellContext[]
   ) {
     const recordMapByTableId: IRecordMapByTableId = {};
+    // include main table update message, and foreign table update will reflect to main table
     const updateForeignKeyParams: IUpdateForeignKeyParam[] = [];
+    const checkSet = new Set<string>();
+    function pushForeignKeyParam(param: IUpdateForeignKeyParam) {
+      if (param.fRecordId) {
+        if (checkSet.has(param.recordId)) {
+          throw new BadRequestException(
+            `Consistency error, link field {${param.foreignLinkFieldId}} unable to link a record (${param.recordId}) more than once`
+          );
+        }
+        checkSet.add(param.recordId);
+      }
+      return updateForeignKeyParams.push(param);
+    }
     for (const cellContext of cellContexts) {
       const { recordId, fieldId, newValue, oldValue } = cellContext;
       const linkRecordIds = [oldValue, newValue]
@@ -232,7 +247,7 @@ export class LinkService {
         }
         // add dbForeignKeyName to the record
         set(recordMapByTableId, [tableId, recordId, dbForeignKeyName], undefined);
-        updateForeignKeyParams.push({
+        pushForeignKeyParam({
           tableId,
           foreignTableId,
           mainLinkFieldId: fieldId,
@@ -241,20 +256,20 @@ export class LinkService {
           foreignTableLookupFieldId: foreignLookupFieldId,
           dbForeignKeyName: field.options.dbForeignKeyName,
           recordId,
-          fRecordId: newValue?.id || null,
+          fRecordId: newValue?.id || null, // to set main table link cellValue to null;
         });
       }
       if (field.options.relationship === Relationship.OneMany) {
         if (newValue && !Array.isArray(newValue)) {
           throw new BadRequestException(
-            `OneMany relationship newValue should have multiple records, received: ${JSON.stringify(
+            `Consistency error, OneMany relationship newValue should have multiple records, received: ${JSON.stringify(
               newValue
             )}`
           );
         }
         if (oldValue && !Array.isArray(oldValue)) {
           throw new BadRequestException(
-            `OneMany relationship oldValue should have multiple records, received: ${JSON.stringify(
+            `Consistency error, OneMany relationship oldValue should have multiple records, received: ${JSON.stringify(
               oldValue
             )}`
           );
@@ -273,7 +288,7 @@ export class LinkService {
           oldValue.forEach((oldValueItem) => {
             // add dbForeignKeyName to the record
             set(recordMapByTableId, [foreignTableId, oldValueItem.id, dbForeignKeyName], undefined);
-            updateForeignKeyParams.push({
+            pushForeignKeyParam({
               ...paramCommon,
               recordId: oldValueItem.id,
               fRecordId: null,
@@ -283,7 +298,7 @@ export class LinkService {
           newValue.forEach((newValueItem) => {
             // add dbForeignKeyName to the record
             set(recordMapByTableId, [foreignTableId, newValueItem.id, dbForeignKeyName], undefined);
-            updateForeignKeyParams.push({
+            pushForeignKeyParam({
               ...paramCommon,
               recordId: newValueItem.id,
               fRecordId: recordId,
@@ -302,8 +317,10 @@ export class LinkService {
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     recordMapByTableId: IRecordMapByTableId,
+    cellContexts: ICellContext[],
     fromReset?: boolean
   ): Promise<IRecordMapByTableId> {
+    const cellContextGroup = keyBy(cellContexts, (ctx) => `${ctx.recordId}-${ctx.fieldId}`);
     for (const tableId in recordMapByTableId) {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
@@ -354,6 +371,13 @@ export class LinkService {
           }
           const field = fieldMapByTableId[tableId][fieldId];
           if (fromReset && field.type === FieldType.Link) {
+            continue;
+          }
+
+          // Overlay with new data, especially cellValue in primary field
+          const inputData = cellContextGroup[`${recordId}-${fieldId}`];
+          if (field.type !== FieldType.Link && inputData !== undefined) {
+            recordLookupFieldsMap[recordId][fieldId] = inputData.newValue ?? undefined;
             continue;
           }
 
@@ -508,17 +532,17 @@ export class LinkService {
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: ITinyFieldMapByTableId,
     linkContexts: ILinkCellContext[],
+    cellContexts: ICellContext[],
     fromReset?: boolean
   ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkOpMap }> {
     const { recordMapByTableId, updateForeignKeyParams } =
       this.getRecordMapStructAndForeignKeyParams(tableId, fieldMapByTableId, linkContexts);
 
-    // console.log('recordMapByTableId:', recordMapByTableId);
-    // console.log('updateForeignKeyParams:', updateForeignKeyParams);
     const originRecordMapByTableId = await this.fillRecordMap(
       tableId2DbTableName,
       fieldMapByTableId,
       recordMapByTableId,
+      cellContexts,
       fromReset
     );
     // console.log('originRecordMapByTableId:', JSON.stringify(originRecordMapByTableId, null, 2));
@@ -583,6 +607,7 @@ export class LinkService {
       tableId2DbTableName,
       fieldMapByTableId,
       linkContexts,
+      cellContexts,
       fromReset
     );
   }

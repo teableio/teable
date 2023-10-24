@@ -3,8 +3,8 @@ import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import { FieldSupplementService } from '../field-supplement.service';
 import { FieldService } from '../field.service';
+import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
 export class FieldDeletingService {

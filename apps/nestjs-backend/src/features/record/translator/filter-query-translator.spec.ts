@@ -1004,19 +1004,19 @@ describe('FilterQueryTranslator', () => {
           relationship: Relationship.ManyOne,
         },
       },
-      {
-        id: 'fld8',
-        name: 'link',
-        type: FieldType.Link,
-        dbFieldName: 'link_fld8',
-        dbFieldType: DbFieldType.Json,
-        cellValueType: CellValueType.String,
-        isMultipleCellValue: true,
-        columnMeta: {},
-        options: {
-          relationship: Relationship.ManyMany,
-        },
-      },
+      // {
+      //   id: 'fld8',
+      //   name: 'link',
+      //   type: FieldType.Link,
+      //   dbFieldName: 'link_fld8',
+      //   dbFieldType: DbFieldType.Json,
+      //   cellValueType: CellValueType.String,
+      //   isMultipleCellValue: true,
+      //   columnMeta: {},
+      //   options: {
+      //     relationship: Relationship.ManyMany,
+      //   },
+      // },
       {
         id: 'fld9',
         name: 'link',

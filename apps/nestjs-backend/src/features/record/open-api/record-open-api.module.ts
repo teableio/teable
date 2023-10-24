@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ShareDbModule } from '../../../share-db/share-db.module';
-import { CalculationModule } from '../../calculation/calculation.module';
+import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
+import { RecordCalculateModule } from '../record-calculate/record-calculate.module';
 import { RecordModule } from '../record.module';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
 
 @Module({
-  imports: [RecordModule, ShareDbModule, CalculationModule],
+  imports: [RecordModule, RecordCalculateModule, FieldCalculateModule],
   controllers: [RecordOpenApiController],
   providers: [RecordOpenApiService],
   exports: [RecordOpenApiService],

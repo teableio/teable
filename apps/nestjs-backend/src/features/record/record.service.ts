@@ -771,4 +771,23 @@ export class RecordService implements IAdapterService {
       };
     });
   }
+
+  async getRecordsWithPrimary(tableId: string) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const field = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+    });
+    if (!field) {
+      throw new BadRequestException(`Could not find primary index ${tableId}`);
+    }
+    // return fields.map((field) => createFieldInstanceByRaw(field));
+    const queryBuilder = this.knex(dbTableName).select([
+      this.knex.raw(`${field.dbFieldName} as title`),
+      this.knex.raw('__id as id'),
+    ]);
+    const sqlNative = queryBuilder.toSQL().toNative();
+    return await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; title: string }[]>(sqlNative.sql, ...sqlNative.bindings);
+  }
 }

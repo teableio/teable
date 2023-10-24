@@ -28,4 +28,12 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
       title: title as string,
     };
   }
+
+  override convertStringToCellValue(value: string): string[] | null {
+    const cellValue = value.split(/[,\n\r]\s*/);
+    if (cellValue.length) {
+      return cellValue;
+    }
+    return null;
+  }
 }
