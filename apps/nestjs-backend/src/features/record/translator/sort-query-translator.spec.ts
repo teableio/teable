@@ -3,13 +3,13 @@ import type { IFieldInstance } from '../../field/model/factory';
 import { SortQueryTranslator } from './sort-query-translator';
 
 describe('SortQueryTranslator', () => {
-  it('should return empty array, if the fields is undefined', () => {
+  it('should return empty array, if the fields is undefined for (translateToOrderQuery)', () => {
     const translatedOrderBy = SortQueryTranslator.translateToOrderQuery([], undefined);
     expect(Array.isArray(translatedOrderBy)).toBe(true);
     expect(translatedOrderBy.length).toBe(0);
   });
 
-  it('should return right orderBy', () => {
+  it('should return correct orderBy for (translateToOrderQuery)', () => {
     const orderBy: ISortItem[] = [
       {
         fieldId: 'fldOxH1uuemSQZmoEd0',

@@ -9,8 +9,11 @@ import type {
 } from '@teable-group/core';
 import { FieldOpBuilder, OpName } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
+import { SortQueryTranslator } from '../../record/translator/sort-query-translator';
 import { ViewService } from '../view.service';
 
 @Injectable()
@@ -21,7 +24,8 @@ export class ViewOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
-    private readonly fieldService: FieldService
+    private readonly fieldService: FieldService,
+    @InjectModel() private readonly knex: Knex
   ) {}
 
   async createView(tableId: string, viewRo: IViewRo) {
@@ -105,24 +109,47 @@ export class ViewOpenApiService {
       order: order,
     }));
 
-    const orderSql = orders.map(({ column, order }) => `${column} ${order.toUpperCase()}`).join();
+    // ensure order stable
+    orders.push({
+      column: '__auto_number',
+      order: 'asc',
+    });
 
-    const dropIndexSql = `
-      DROP INDEX IF EXISTS ${fieldIndexName};
-    `;
-    const updateRecordsOrderSql = `
-      UPDATE ${dbTableName}
-      SET ${fieldIndexId} = new_order
-      FROM (
-        SELECT t.__id, ROW_NUMBER() OVER (ORDER BY ${orderSql}) as new_order
-        FROM ${dbTableName} AS t
-      ) AS temp_order
-      WHERE temp_order.__id = ${dbTableName}.__id;
-    `;
-    const createIndexSql = `
-      CREATE UNIQUE INDEX ${fieldIndexName}
-      ON ${dbTableName} (${fieldIndexId});
-    `;
+    const orderRawSql = orders
+      .map(({ column, order }) => {
+        const upperOrder = order.toUpperCase();
+        return `${this.knex.raw('??', [column]).toQuery()} ${upperOrder} NULLS ${
+          upperOrder === 'ASC' ? 'FIRST' : 'LAST'
+        }`;
+      })
+      .join();
+
+    const dropIndexSQL = this.knex.schema
+      .table(dbTableName, (t) => {
+        t.dropUnique([fieldIndexId], fieldIndexName);
+      })
+      .toQuery();
+
+    const createIndexSql = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.unique([fieldIndexId], { indexName: fieldIndexName, useConstraint: true });
+      })
+      .toQuery();
+
+    const updateRecordsOrderSql = this.knex
+      .raw(
+        `
+          UPDATE ??
+          SET ?? = ??.new_order
+          FROM (
+            SELECT t.__id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order
+            FROM ?? AS t
+          ) AS temp_order
+          WHERE temp_order.__id = ??.__id;
+        `,
+        [dbTableName, fieldIndexId, 'temp_order', dbTableName, dbTableName]
+      )
+      .toQuery();
 
     // build ops
     const newSort = {
@@ -131,11 +158,11 @@ export class ViewOpenApiService {
     };
 
     // execute sql to update raw order with transaction
-    await this.prismaService.$executeRawUnsafe(dropIndexSql);
+    await this.prismaService.$executeRawUnsafe(dropIndexSQL);
 
     await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(updateRecordsOrderSql);
-      await this.viewService.updateView(tableId, viewId, { sort: JSON.stringify(newSort) });
+      await this.viewService.updateView(tableId, viewId, newSort);
     });
 
     await this.prismaService.$executeRawUnsafe(createIndexSql);
