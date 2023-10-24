@@ -9,12 +9,12 @@ export const splitRange = (start: number, end: number, parts: number) => {
 };
 
 export const reorder = (
-  dragIndexs: number[],
+  dragElemSize: number,
   dropIndex: number,
   totalSize: number,
   getOrder: (index: number) => number
 ) => {
-  let newOrders = Array.from({ length: dragIndexs.length }).fill(0) as number[];
+  let newOrders = Array.from({ length: dragElemSize }).fill(0) as number[];
   if (dropIndex === 0) {
     newOrders = newOrders.map((_, index) => getOrder(0) - index - 1);
   } else if (dropIndex > totalSize - 1) {
@@ -22,7 +22,7 @@ export const reorder = (
   } else {
     const prevOrder = getOrder(dropIndex - 1);
     const nextOrder = getOrder(dropIndex);
-    newOrders = splitRange(prevOrder, nextOrder, dragIndexs.length + 1);
+    newOrders = splitRange(prevOrder, nextOrder, dragElemSize + 1);
   }
   return newOrders;
 };

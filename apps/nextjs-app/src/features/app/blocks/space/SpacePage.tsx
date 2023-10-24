@@ -41,7 +41,7 @@ export const SpacePage: FC = () => {
           {isLoading && <Spin className="h-3 w-3" />}Create a workspace
         </Button>
       </div>
-      <div className="flex-1 space-y-8 overflow-y-auto px-12 pt-8">
+      <div className="flex-1 space-y-8 overflow-y-auto px-8 pt-8 sm:px-12">
         {spaceList?.data.map((space) => (
           <SpaceCard
             key={space.id}

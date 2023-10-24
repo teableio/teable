@@ -66,7 +66,7 @@ export const ResizablePane: React.FC<{
         <Allotment.Pane snap minSize={minSize} preferredSize={300} visible={leftVisible}>
           {left}
         </Allotment.Pane>
-        <Allotment.Pane minSize={400}>{center}</Allotment.Pane>
+        <Allotment.Pane minSize={320}>{center}</Allotment.Pane>
         {right && (
           <Allotment.Pane minSize={minSize} preferredSize={100} snap visible={rightVisible}>
             {right}

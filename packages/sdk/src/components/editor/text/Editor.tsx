@@ -1,7 +1,7 @@
 import { SingleLineTextDisplayType } from '@teable-group/core';
 import type { ISingleLineTextFieldOptions } from '@teable-group/core';
 import { Link, Mail, Phone } from '@teable-group/icons';
-import { Button, Input } from '@teable-group/ui-lib';
+import { Button, Input, cn } from '@teable-group/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -57,7 +57,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
       <Input
         ref={inputRef}
         style={style}
-        className={className}
+        className={cn('h-10 sm:h-8', className)}
         value={text}
         onChange={onChangeInner}
         onBlur={onBlur}

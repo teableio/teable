@@ -70,7 +70,10 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   return (
     <AppProviders>
       <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+          name="viewport"
+          content="width=device-width,viewport-fit=cover, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
         <style>{getColorsCssVariablesText(colors)}</style>
       </Head>
       <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />

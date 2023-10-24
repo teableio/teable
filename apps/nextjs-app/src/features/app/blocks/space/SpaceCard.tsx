@@ -114,7 +114,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
         {bases?.length ? (
           <div className="flex flex-wrap gap-4">
             {bases.map((base) => (
-              <BaseCard key={base.id} className="h-24 min-w-[17rem] flex-1" base={base} />
+              <BaseCard key={base.id} className="h-24 w-full flex-1 sm:min-w-[17rem]" base={base} />
             ))}
           </div>
         ) : (

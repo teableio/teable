@@ -11,7 +11,7 @@ interface IFieldSelectProps {
 function FieldSelect(props: IFieldSelectProps) {
   const { fieldId: value, onSelect } = props;
 
-  const fields = useFields({ widthHidden: true });
+  const fields = useFields({ withHidden: true });
   const options = useMemo(() => {
     return fields.map((field) => ({
       value: field.id,

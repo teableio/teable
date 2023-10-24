@@ -19,7 +19,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
       {connected ? <Table2 className="h-5 w-5" /> : <Spin />}
       <div className="flex h-7 shrink-0 grow-0 flex-col items-start justify-center">
         <div className="text-sm leading-none">{table?.name}</div>
-        <div className="text-xs leading-none text-slate-400">
+        <div className="hidden text-xs leading-none text-slate-400 sm:block">
           last modified: {dayjs(table?.lastModifiedTime).fromNow()}
         </div>
       </div>

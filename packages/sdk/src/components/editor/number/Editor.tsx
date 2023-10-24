@@ -1,6 +1,6 @@
 import { formatNumberToString, parseStringToNumber } from '@teable-group/core';
 import type { INumberFieldOptions } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib';
+import { Input, cn } from '@teable-group/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -44,7 +44,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
     <Input
       ref={inputRef}
       style={style}
-      className={className}
+      className={cn('h-10 sm:h-8', className)}
       value={formatStr || ''}
       onChange={onChangeInner}
       onBlur={saveValue}

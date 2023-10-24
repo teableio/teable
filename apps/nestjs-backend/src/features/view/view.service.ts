@@ -8,6 +8,7 @@ import type {
   IViewRo,
   IViewVo,
   IOtOperation,
+  ISetViewDescriptionOpContext,
 } from '@teable-group/core';
 import { getUniqName, IdPrefix, generateViewId, OpName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -256,6 +257,7 @@ export class ViewService implements IAdapterService {
     viewId: string,
     opContexts: (
       | ISetViewNameOpContext
+      | ISetViewDescriptionOpContext
       | ISetViewFilterOpContext
       | ISetViewOptionsOpContext
       | ISetViewSortOpContext
@@ -268,6 +270,9 @@ export class ViewService implements IAdapterService {
       switch (opContext.name) {
         case OpName.SetViewName:
           updateData['name'] = opContext.newName;
+          break;
+        case OpName.SetViewDescription:
+          updateData['description'] = opContext.newDescription;
           break;
         case OpName.SetViewFilter:
           updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;

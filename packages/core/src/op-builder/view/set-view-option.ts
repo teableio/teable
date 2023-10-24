@@ -1,11 +1,11 @@
-import type { GridViewOptions, IOtOperation } from '../../models';
+import type { FormViewOptions, GridViewOptions, IOtOperation } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
 export interface ISetViewOptionsOpContext {
   name: OpName.SetViewOptions;
-  newOptions: GridViewOptions;
-  oldOptions?: GridViewOptions;
+  newOptions: GridViewOptions | FormViewOptions;
+  oldOptions?: GridViewOptions | FormViewOptions;
 }
 
 export class SetViewOptionBuilder implements IOpBuilder {
