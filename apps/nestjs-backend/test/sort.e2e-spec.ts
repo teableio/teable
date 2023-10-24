@@ -29,7 +29,7 @@ const typeTests = [
   },
   {
     type: CellValueType.Boolean,
-    valueGenerateFn: () => faker.datatype.boolean(),
+    valueGenerateFn: () => faker.datatype.boolean() || null,
   },
 ];
 

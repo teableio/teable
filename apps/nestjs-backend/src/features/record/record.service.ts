@@ -781,13 +781,15 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
     // return fields.map((field) => createFieldInstanceByRaw(field));
-    const queryBuilder = this.knex(dbTableName).select([
-      this.knex.raw(`${field.dbFieldName} as title`),
-      this.knex.raw('__id as id'),
-    ]);
-    const sqlNative = queryBuilder.toSQL().toNative();
+    const queryBuilder = this.knex(dbTableName).select({
+      title: field.dbFieldName,
+      id: '__id',
+    });
+
+    const querySql = queryBuilder.toQuery();
+
     return await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ id: string; title: string }[]>(sqlNative.sql, ...sqlNative.bindings);
+      .$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
   }
 }
