@@ -344,18 +344,14 @@ export class LinkService {
         return field.dbFieldName;
       });
 
-      const nativeSql = this.knex(tableId2DbTableName[tableId])
+      const nativeQuery = this.knex(tableId2DbTableName[tableId])
         .select(dbFieldNames.concat('__id'))
         .whereIn('__id', recordIds)
-        .toSQL()
-        .toNative();
+        .toQuery();
 
       const recordRaw = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(
-          nativeSql.sql,
-          ...nativeSql.bindings
-        );
+        .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(nativeQuery);
 
       recordRaw.forEach((record) => {
         const recordId = record.__id as string;

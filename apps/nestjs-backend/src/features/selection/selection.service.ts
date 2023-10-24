@@ -320,7 +320,11 @@ export class SelectionService {
       fields,
       tableData,
     });
-    const updateRecordsRo: IUpdateRecordsRo = { fieldKeyType: FieldKeyType.Id, records: [] };
+    const updateRecordsRo: IUpdateRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      records: [],
+    };
     fields.forEach((field, col) => {
       if (field.isComputed) {
         return;

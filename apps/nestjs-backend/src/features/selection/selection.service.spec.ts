@@ -328,6 +328,7 @@ describe('selectionService', () => {
 
       expect(updateRecordsRo).toEqual({
         fieldKeyType: FieldKeyType.Id,
+        typecast: true,
         records: [
           {
             id: records[0].id,
