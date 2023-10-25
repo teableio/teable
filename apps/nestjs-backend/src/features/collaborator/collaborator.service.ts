@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ListSpaceCollaboratorVo } from '@teable-group/openapi';
+import type { ListSpaceCollaboratorVo, UpdateSpaceCollaborateRo } from '@teable-group/openapi';
 import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -27,6 +27,7 @@ export class CollaboratorService {
   }
 
   async createSpaceCollaborator(userId: string, spaceId: string, role: SpaceRole) {
+    const currentUserId = this.cls.get('user.id');
     const exist = await this.prismaService
       .txClient()
       .collaborator.count({ where: { userId, spaceId, deletedTime: null } });
@@ -38,8 +39,8 @@ export class CollaboratorService {
         spaceId,
         roleName: role,
         userId,
-        createdBy: userId,
-        lastModifiedBy: userId,
+        createdBy: currentUserId,
+        lastModifiedBy: currentUserId,
       },
     });
   }
@@ -94,5 +95,56 @@ export class CollaboratorService {
         createdTime: createdTime.toISOString(),
       };
     });
+  }
+
+  async deleteCollaborator(spaceId: string, userId: string) {
+    return await this.prismaService.txClient().collaborator.updateMany({
+      where: {
+        spaceId,
+        userId,
+      },
+      data: {
+        deletedTime: new Date().toISOString(),
+      },
+    });
+  }
+
+  async updateCollaborator(spaceId: string, updateCollaborator: UpdateSpaceCollaborateRo) {
+    const currentUserId = this.cls.get('user.id');
+    const { userId, role } = updateCollaborator;
+    return await this.prismaService.txClient().collaborator.updateMany({
+      where: {
+        spaceId,
+        userId,
+      },
+      data: {
+        roleName: role,
+        lastModifiedBy: currentUserId,
+        lastModifiedTime: new Date().toISOString(),
+      },
+    });
+  }
+
+  async getCollaboratorsBaseAndSpaceArray(userId: string) {
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        userId,
+        deletedTime: null,
+      },
+      select: {
+        baseId: true,
+        spaceId: true,
+      },
+    });
+    const baseIds = new Set<string>();
+    const spaceIds = new Set<string>();
+    collaborators.forEach(({ baseId, spaceId }) => {
+      baseId && baseIds.add(baseId);
+      spaceId && spaceIds.add(spaceId);
+    });
+    return {
+      baseIds: Array.from(baseIds),
+      spaceIds: Array.from(spaceIds),
+    };
   }
 }

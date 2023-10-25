@@ -1,23 +1,24 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
 export class BaseService {
-  private logger = new Logger(BaseService.name);
-
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly collaboratorService: CollaboratorService,
     @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
+    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
 
     const base = await this.prismaService.base.findFirst({
       select: {
@@ -30,7 +31,9 @@ export class BaseService {
       where: {
         id: baseId,
         deletedTime: null,
-        createdBy: userId,
+        spaceId: {
+          in: spaceIds,
+        },
       },
     });
     if (!base) {
@@ -39,9 +42,14 @@ export class BaseService {
     return base;
   }
 
-  async getBaseList() {
+  async getBaseList(spaceId?: string) {
+    if (spaceId) {
+      return await this.getBaseListBySpaceId(spaceId);
+    }
     const userId = this.cls.get('user.id');
-    return this.prismaService.base.findMany({
+    const { spaceIds, baseIds } =
+      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    return await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -51,7 +59,39 @@ export class BaseService {
       },
       where: {
         deletedTime: null,
-        createdBy: userId,
+        OR: [
+          {
+            id: {
+              in: baseIds,
+            },
+          },
+          {
+            spaceId: {
+              in: spaceIds,
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  async getBaseListBySpaceId(spaceId: string) {
+    const userId = this.cls.get('user.id');
+    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    if (!spaceIds.includes(spaceId)) {
+      throw new ForbiddenException();
+    }
+    return await this.prismaService.base.findMany({
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        spaceId: true,
+        icon: true,
+      },
+      where: {
+        spaceId,
+        deletedTime: null,
       },
     });
   }
@@ -116,7 +156,6 @@ export class BaseService {
       where: {
         id: baseId,
         deletedTime: null,
-        createdBy: userId,
       },
     });
   }

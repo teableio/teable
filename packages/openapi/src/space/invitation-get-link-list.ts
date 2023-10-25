@@ -1,9 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { spaceRolesSchema } from '@teable-group/core';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const LIST_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation';
+export const LIST_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link';
 
 export const itemSpaceInvitationLinkVoSchema = z.object({
   invitationId: z.string(),
@@ -40,3 +41,7 @@ export const ListSpaceInvitationLinkRoute: RouteConfig = registerRoute({
   },
   tags: ['space'],
 });
+
+export const listSpaceInvitationLink = (spaceId: string) => {
+  return axios.get<ListSpaceInvitationLinkVo>(urlBuilder(LIST_SPACE_INVITATION_LINK, { spaceId }));
+};
