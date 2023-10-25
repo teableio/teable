@@ -1,4 +1,5 @@
-import { Body, Controller, Param, Patch, Post, Get, Delete } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -20,6 +21,8 @@ import {
   EmailSpaceInvitationRo,
   UpdateSpaceInvitationLinkRo,
   createSpaceInvitationLinkRoSchema,
+  updateSpaceCollaborateRoSchema,
+  UpdateSpaceCollaborateRo,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -120,5 +123,22 @@ export class SpaceController {
   @Get(':spaceId/collaborators')
   async listCollaborator(@Param('spaceId') spaceId: string): Promise<ListSpaceCollaboratorVo> {
     return await this.collaboratorService.getListBySpace(spaceId);
+  }
+
+  @Patch(':spaceId/collaborators')
+  async updateCollaborator(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
+    updateSpaceCollaborateRo: UpdateSpaceCollaborateRo
+  ): Promise<void> {
+    await this.collaboratorService.updateCollaborator(spaceId, updateSpaceCollaborateRo);
+  }
+
+  @Delete(':spaceId/collaborators')
+  async deleteCollaborator(
+    @Param('spaceId') spaceId: string,
+    @Query('userId') userId: string
+  ): Promise<void> {
+    await this.collaboratorService.deleteCollaborator(spaceId, userId);
   }
 }

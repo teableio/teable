@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { SpaceRole, generateSpaceId, getUniqName } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable-group/openapi';
-import { map } from 'lodash';
+import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -41,7 +41,6 @@ export class SpaceService {
       select: {
         id: true,
         name: true,
-        deletedTime: true,
       },
       where: {
         id: spaceId,
@@ -52,7 +51,23 @@ export class SpaceService {
     if (!space) {
       throw new NotFoundException('Space not found');
     }
-    return space;
+    const collaborator = await this.prismaService.collaborator.findFirst({
+      select: {
+        roleName: true,
+      },
+      where: {
+        spaceId,
+        userId,
+        deletedTime: null,
+      },
+    });
+    if (!collaborator) {
+      throw new ForbiddenException();
+    }
+    return {
+      ...space,
+      role: collaborator.roleName as SpaceRole,
+    };
   }
 
   async getSpaceList() {
@@ -61,6 +76,7 @@ export class SpaceService {
     const collaboratorSpaceList = await this.prismaService.collaborator.findMany({
       select: {
         spaceId: true,
+        roleName: true,
       },
       where: {
         userId,
@@ -69,10 +85,15 @@ export class SpaceService {
       },
     });
     const spaceIds = map(collaboratorSpaceList, 'spaceId') as string[];
-    return await this.prismaService.space.findMany({
+    const spaceList = await this.prismaService.space.findMany({
       where: { id: { in: spaceIds } },
       select: { id: true, name: true },
     });
+    const roleMap = keyBy(collaboratorSpaceList, 'spaceId');
+    return spaceList.map((space) => ({
+      ...space,
+      role: roleMap[space.id].roleName as SpaceRole,
+    }));
   }
 
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {

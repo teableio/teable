@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { spaceRolesSchema } from '@teable-group/core';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const UPDATE_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link/{invitationId}';
@@ -47,3 +48,15 @@ export const UpdateSpaceInvitationLinkRoute: RouteConfig = registerRoute({
   },
   tags: ['space'],
 });
+
+export const updateSpaceInvitationLink = (params: {
+  spaceId: string;
+  invitationId: string;
+  updateSpaceInvitationLinkRo: UpdateSpaceInvitationLinkRo;
+}) => {
+  const { spaceId, invitationId, updateSpaceInvitationLinkRo } = params;
+  return axios.patch<UpdateSpaceInvitationLinkVo>(
+    urlBuilder(UPDATE_SPACE_INVITATION_LINK, { spaceId, invitationId }),
+    updateSpaceInvitationLinkRo
+  );
+};

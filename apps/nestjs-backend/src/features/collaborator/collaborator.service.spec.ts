@@ -3,7 +3,9 @@ import { Test } from '@nestjs/testing';
 import { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { mockDeep } from 'jest-mock-extended';
+import { ClsService } from 'nestjs-cls';
 import { GlobalModule } from '../../global/global.module';
+import type { IClsStore } from '../../types/cls';
 import { CollaboratorModule } from './collaborator.module';
 import { CollaboratorService } from './collaborator.service';
 
@@ -13,6 +15,7 @@ describe('CollaboratorService', () => {
   const prismaService = mockDeep<PrismaService>();
 
   let collaboratorService: CollaboratorService;
+  let clsService: ClsService<IClsStore>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,6 +25,7 @@ describe('CollaboratorService', () => {
       .useValue(prismaService)
       .compile();
 
+    clsService = module.get<ClsService<IClsStore>>(ClsService);
     collaboratorService = module.get<CollaboratorService>(CollaboratorService);
 
     prismaService.txClient.mockImplementation(() => {
@@ -33,7 +37,19 @@ describe('CollaboratorService', () => {
     it('should create collaborator correctly', async () => {
       prismaService.collaborator.count.mockResolvedValue(0);
 
-      await collaboratorService.createSpaceCollaborator(mockUser.id, mockSpace.id, SpaceRole.Owner);
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+        },
+        async () => {
+          await collaboratorService.createSpaceCollaborator(
+            mockUser.id,
+            mockSpace.id,
+            SpaceRole.Owner
+          );
+        }
+      );
 
       expect(prismaService.collaborator.create).toBeCalledWith({
         data: {
