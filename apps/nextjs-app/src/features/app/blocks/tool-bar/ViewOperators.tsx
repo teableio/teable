@@ -81,7 +81,7 @@ export const ViewOperators: React.FC = () => {
       </Filter>
       <Sort sorts={(view?.sort || null) as ISort} onChange={onSortChange}>
         {(text: string, isActive) => (
-          <ToolBarButton isActive={isActive} text={text} className="max-w-[120px]">
+          <ToolBarButton isActive={isActive} text={text}>
             <ArrowUpDown className="h-4 w-4 text-sm" />
           </ToolBarButton>
         )}
