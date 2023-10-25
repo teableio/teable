@@ -265,7 +265,21 @@ export class RecordService implements IAdapterService {
     // All `where` condition-related construction work
     const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
 
-    queryBuilder.orderBy(translatedOrderby).orderBy(orderFieldName, 'asc').offset(skip);
+    const orderByRawSql = translatedOrderby
+      .map(({ column, order }) => {
+        const upperOrder = order.toUpperCase();
+        // let nulls to lowest
+        return `${this.knex.raw('??', [column]).toQuery()} ${upperOrder} NULLS ${
+          upperOrder === 'ASC' ? 'FIRST' : 'LAST'
+        }`;
+      })
+      .join();
+
+    if (orderByRawSql) {
+      queryBuilder.orderByRaw(orderByRawSql);
+    }
+
+    queryBuilder.orderBy(orderFieldName, 'asc').offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
