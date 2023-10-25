@@ -66,8 +66,8 @@ export class SingleLineTextFieldCore extends FieldCore {
 
   validateCellValue(value: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(singleLineTextCelValueSchema).nonempty().optional().safeParse(value);
+      return z.array(singleLineTextCelValueSchema).nonempty().nullable().safeParse(value);
     }
-    return singleLineTextCelValueSchema.optional().safeParse(value);
+    return singleLineTextCelValueSchema.nullable().safeParse(value);
   }
 }
