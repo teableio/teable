@@ -5,7 +5,6 @@ services:
     container_name: integration-test
     build:
       context: ../
-      dockerfile: ./dockers/teable/Dockerfile
       target: builder
       args:
         INTEGRATION_TEST: 1
