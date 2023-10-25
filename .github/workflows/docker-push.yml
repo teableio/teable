@@ -23,3 +23,7 @@ jobs:
         run: |
           docker build -t registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} -f dockers/teable/Dockerfile .
           docker push registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA}
+          # Tag the built image with 'latest' label
+          docker tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} registry.cn-beijing.aliyuncs.com/bieber/teable:latest
+          # Push the 'latest' tagged image
+          docker push registry.cn-beijing.aliyuncs.com/bieber/teable:latest
