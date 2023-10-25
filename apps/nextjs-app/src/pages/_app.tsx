@@ -1,6 +1,5 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { HttpError, parseDsn } from '@teable-group/core';
-import { axios } from '@teable-group/openapi';
 import type { IUser } from '@teable-group/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -12,6 +11,7 @@ import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
+import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
@@ -97,24 +97,20 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
   const appProps = await App.getInitialProps(appContext);
   const res = appContext.ctx.res;
-  const host = appContext.ctx.req?.headers.host || '';
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
 
   if (!res || !res?.writeHead) {
     return appProps;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL!);
+  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
   const initialProps = {
     ...appProps,
     driver,
   };
 
   try {
-    const user = await axios.get<IUser>(`http://${host}/api/auth/user/me`, {
-      headers: { cookie: appContext.ctx.req?.headers.cookie },
-    });
+    const user = await ssrApi.getUserMe(appContext.ctx.req?.headers.cookie);
     // Already logged in
     if (user && isLoginPage) {
       res.writeHead(302, {
@@ -122,7 +118,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       });
       return res.end();
     }
-    return { ...initialProps, user: user.data };
+    return { ...initialProps, user };
   } catch (error) {
     if (error instanceof HttpError && !isLoginPage) {
       const redirect = encodeURIComponent(appContext.ctx.req?.url || '');
@@ -132,6 +128,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       });
       return res.end();
     }
+    console.error(error);
   }
 
   return initialProps;
