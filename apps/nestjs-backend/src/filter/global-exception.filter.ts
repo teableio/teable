@@ -8,14 +8,16 @@ import { AjvError } from '../utils/catch-error';
 export class GlobalExceptionFilter implements ExceptionFilter {
   private logger = new Logger(GlobalExceptionFilter.name);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: Error | HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    this.logger.error((exception as Error).message, (exception as Error).stack);
+    this.logger.error(`${exception.message}\n${exception.stack}`);
 
-    if (exception instanceof BadRequestException || exception.getStatus?.() === 400) {
+    if (
+      exception instanceof BadRequestException ||
+      ('getStatus' in exception && exception.getStatus?.() === 400)
+    ) {
       return response.status(400).json({
         message: exception.message,
         status: 400,

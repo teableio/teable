@@ -37,7 +37,7 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
+import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -121,10 +121,7 @@ export class FieldSupplementService implements ISupplementService {
       oldOptions.foreignTableId === newOptions.foreignTableId &&
       oldOptions.relationship === newOptions.relationship
     ) {
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-      };
+      return merge({}, oldFieldVo, fieldRo);
     }
 
     const { relationship, foreignTableId } = newOptions;
@@ -312,10 +309,7 @@ export class FieldSupplementService implements ISupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-      };
+      return merge({}, oldFieldVo, fieldRo);
     }
 
     return this.prepareLookupField(fieldRo);
@@ -375,10 +369,7 @@ export class FieldSupplementService implements ISupplementService {
     const oldOptions = oldFieldVo.options as IFormulaFieldOptions;
 
     if (newOptions.expression === oldOptions.expression) {
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-      };
+      return merge({}, oldFieldVo, fieldRo);
     }
 
     return this.prepareFormulaField(fieldRo);
@@ -442,10 +433,7 @@ export class FieldSupplementService implements ISupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-      };
+      return merge({}, oldFieldVo, fieldRo);
     }
 
     return this.prepareRollupField(fieldRo);
