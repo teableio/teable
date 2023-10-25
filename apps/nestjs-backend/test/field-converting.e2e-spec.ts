@@ -107,6 +107,130 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.columnMeta).toMatchObject({});
     });
 
+    it('should modify formula field name', async () => {
+      const formulaFieldRo: IFieldRo = {
+        name: 'formulaField',
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+        },
+      };
+
+      const formulaFieldRo2: IFieldRo = {
+        name: 'new FormulaField',
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, formulaFieldRo, formulaFieldRo2);
+      expect(newField.name).toEqual('new FormulaField');
+    });
+
+    it('should modify link field name', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkFieldRo2: IFieldRo = {
+        name: 'other name',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, linkFieldRo, linkFieldRo2);
+      expect(newField.name).toEqual('other name');
+    });
+
+    it('should modify rollup field name', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(request, table1.id, linkFieldRo);
+
+      const rollupFieldRo: IFieldRo = {
+        name: 'rollUpField',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const rollupFieldRo2: IFieldRo = {
+        name: 'new rollUpField',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, rollupFieldRo, rollupFieldRo2);
+      expect(newField.name).toEqual('new rollUpField');
+    });
+
+    it('should modify lookup field name', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(request, table1.id, linkFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookupField',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const lookupFieldRo2: IFieldRo = {
+        name: 'new lookupField',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, lookupFieldRo, lookupFieldRo2);
+      expect(newField.name).toEqual('new lookupField');
+    });
+
     it('should modify field description', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'my name',
