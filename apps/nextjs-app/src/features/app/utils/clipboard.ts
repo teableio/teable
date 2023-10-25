@@ -1,7 +1,8 @@
 import { fieldVoSchema, type IFieldVo } from '@teable-group/core';
+import { mapValues } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 
-const teableHtmlMarker = 'TEABLE_HTML_MARKER';
+const teableHtmlMarker = 'data-teable-html-marker';
 
 export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   const records = data.split('\n');
@@ -14,7 +15,7 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   const headerContent = headers
     .map((header, index) => {
       const attrs = Object.entries(header)
-        .map(([key, value]) => `${key}='${JSON.stringify(value)}'`)
+        .map(([key, value]) => `${key}="${encodeURIComponent(JSON.stringify(value))}"`)
         .join(' ');
       return `<td colspan="${index}" ${attrs}>${header.name}</td>`;
     })
@@ -36,26 +37,32 @@ export const extractTableHeader = (html: string) => {
   const headers = Array.from(headerCells);
   let error = '';
   const result = headers.map((cell) => {
-    const id = cell.getAttribute('id')?.replace(/"/g, '');
-    const name = cell.getAttribute('name')?.replace(/"/g, '');
-    const isPrimary = cell.getAttribute('isPrimary') === 'true' || undefined;
-    const columnMeta = JSON.parse(cell.getAttribute('columnMeta') ?? '');
-    const dbFieldName = cell.getAttribute('dbFieldName')?.replace(/"/g, '');
-    const dbFieldType = cell.getAttribute('dbFieldType')?.replace(/"/g, '');
-    const type = cell.getAttribute('type')?.replace(/"/g, '');
-    const options = JSON.parse(cell.getAttribute('options') ?? '');
-    const cellValueType = cell.getAttribute('cellValueType')?.replace(/"/g, '');
-    const fieldVo = {
-      id,
-      name,
-      isPrimary,
-      columnMeta,
-      dbFieldName,
-      dbFieldType,
-      type,
-      options,
-      cellValueType,
-    };
+    const id = cell.getAttribute('id');
+    const name = cell.getAttribute('name');
+    const isPrimary = cell.getAttribute('isPrimary');
+    const columnMeta = cell.getAttribute('columnMeta');
+    const dbFieldName = cell.getAttribute('dbFieldName');
+    const dbFieldType = cell.getAttribute('dbFieldType');
+    const type = cell.getAttribute('type');
+    const options = cell.getAttribute('options');
+    const cellValueType = cell.getAttribute('cellValueType');
+    const fieldVo = mapValues(
+      {
+        id,
+        name,
+        isPrimary,
+        columnMeta,
+        dbFieldName,
+        dbFieldType,
+        type,
+        options,
+        cellValueType,
+      },
+      (value) => {
+        const encodeValue = value ? decodeURIComponent(value) : undefined;
+        return encodeValue ? JSON.parse(encodeValue) : undefined;
+      }
+    );
     const validate = fieldVoSchema.safeParse(fieldVo);
     if (validate.success) {
       return fieldVo;
