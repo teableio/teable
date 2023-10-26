@@ -6,11 +6,11 @@ import {
   PopoverTrigger,
   Button,
   cn,
-  CommandGroup,
   CommandInput,
   Command,
   CommandEmpty,
   CommandItem,
+  CommandList,
 } from '../../shadcn';
 
 export interface ISelectorItem {
@@ -45,7 +45,7 @@ export const Selector: React.FC<ISelectorProps> = ({
 
   const selected = candidates.find(({ id }) => id === selectedId);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           ref={ref}
@@ -78,7 +78,7 @@ export const Selector: React.FC<ISelectorProps> = ({
         >
           <CommandInput placeholder={searchTip} />
           <CommandEmpty>{emptyTip}</CommandEmpty>
-          <CommandGroup>
+          <CommandList>
             {candidates.map(({ id, name, icon }) => (
               <CommandItem
                 key={id}
@@ -94,7 +94,7 @@ export const Selector: React.FC<ISelectorProps> = ({
                 {icon} <span className="ml-2">{name ? name : defaultName}</span>
               </CommandItem>
             ))}
-          </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

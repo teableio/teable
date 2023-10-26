@@ -1,14 +1,18 @@
 import type { IDatetimeFormatting } from '@teable-group/core';
-import { DateFormattingPreset, TimeFormatting } from '@teable-group/core';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+import { DateFormattingPreset, TIME_ZONE_LIST, TimeFormatting } from '@teable-group/core';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@teable-group/ui-lib/shadcn/ui/select';
+  Selector,
+} from '@teable-group/ui-lib';
+import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import dayjs from 'dayjs';
+import 'dayjs/plugin/utc';
+
+const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 // | Locale | Date Format | Notes |
 // |--------|-------------|-------|
@@ -48,6 +52,14 @@ const friendlyFormatStrings: { [key: string]: string } = {
   ta: 'D MMMM, YYYY', // Tamil
 };
 
+function getUTCOffset(timeZone: string): string {
+  const offsetMinutes = dayjs().tz(timeZone).utcOffset();
+
+  const offsetHours = offsetMinutes / 60;
+
+  return offsetHours >= 0 ? `UTC+${offsetHours}` : `UTC${offsetHours}`;
+}
+
 function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
   // If the full language tag is not found, fallback to the base language
   const baseLanguage = language.split('-')[0];
@@ -74,13 +86,17 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
     optionsWithExample('US', DateFormattingPreset.US),
     optionsWithExample('European', DateFormattingPreset.European),
     optionsWithExample('Asia', DateFormattingPreset.Asian),
-    optionsWithExample('ISO', DateFormattingPreset.ISO),
+  ];
+  if (localDateFormatting !== DateFormattingPreset.ISO) {
+    dateFormattingPresetOptions.push(optionsWithExample('ISO', DateFormattingPreset.ISO));
+  }
+  dateFormattingPresetOptions.push(
     optionsWithExample('Year/Month', DateFormattingPreset.YM),
     optionsWithExample('Month/Day', DateFormattingPreset.MD),
     optionsWithExample('Year', DateFormattingPreset.Y),
     optionsWithExample('Month', DateFormattingPreset.M),
-    optionsWithExample('Day', DateFormattingPreset.D),
-  ];
+    optionsWithExample('Day', DateFormattingPreset.D)
+  );
 
   // add [Custom] option if currentDateFormatting not in the list
   if (!dateFormattingPresetOptions.find((option) => option.value === currentDateFormatting)) {
@@ -111,6 +127,13 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
       label: 'Time Formatting',
       list: timeFormattingPresetOptions,
     },
+    timeZone: {
+      label: 'Time Zone',
+      list: TIME_ZONE_LIST.map((item) => ({
+        text: `${item} (${systemTimeZone === item ? 'System' : getUTCOffset(item)})`,
+        value: item,
+      })),
+    },
   };
 };
 
@@ -118,22 +141,16 @@ interface IProps {
   formatting?: IDatetimeFormatting;
   onChange?: (formatting: IDatetimeFormatting) => void;
 }
-export const DatetimeFormatting: React.FC<IProps> = ({
-  formatting = {
-    date: '',
-    time: TimeFormatting.None,
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  },
-  onChange,
-}) => {
+export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) => {
   const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
 
   formatting = {
-    ...formatting,
-    date: formatting.date || localDateFormatting,
+    date: formatting?.date || localDateFormatting,
+    time: formatting?.time || TimeFormatting.None,
+    timeZone: formatting?.timeZone || systemTimeZone,
   };
 
-  const selectInfoMap = useSelectInfoMap(formatting.date);
+  const { date, time, timeZone } = useSelectInfoMap(formatting.date);
 
   const onFormattingChange = (value: string, typeKey: string) => {
     onChange?.({
@@ -144,36 +161,42 @@ export const DatetimeFormatting: React.FC<IProps> = ({
 
   return (
     <div className="w-full space-y-2">
-      {Object.entries(selectInfoMap).map(([typeKey, item]) => {
-        const { label, list } = item;
-        const formattingString = formatting[typeKey as 'date' | 'time'] as string;
-        const formattingTitle = list.find((option) => option.value === formattingString)?.text;
-        return (
-          <div key={typeKey} className="space-y-2">
-            <Label htmlFor="datetime-formatting-select" className="font-normal">
-              {label}
-            </Label>
-            <Select
-              value={formattingTitle}
-              onValueChange={(text) =>
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                onFormattingChange(list.find((option) => option.text === text)!.value, typeKey)
-              }
-            >
-              <SelectTrigger className="h-8 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {list.map(({ text }) => (
-                  <SelectItem key={text} value={text}>
-                    {text}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        );
-      })}
+      <div className="space-y-2">
+        <Label className="font-normal">{date.label}</Label>
+        <Selector
+          className="w-full"
+          candidates={date.list.map((item) => ({ id: item.value, name: item.text }))}
+          selectedId={formatting.date}
+          onChange={(value) => onFormattingChange(value, 'date')}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="font-normal">{time.label}</Label>
+        <Select
+          value={formatting.time}
+          onValueChange={(value) => onFormattingChange(value, 'time')}
+        >
+          <SelectTrigger className="h-8 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {time.list.map(({ value, text }) => (
+              <SelectItem key={value} value={value}>
+                {text}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label className="font-normal">{timeZone.label}</Label>
+        <Selector
+          className="w-full"
+          candidates={timeZone.list.map((item) => ({ id: item.value, name: item.text }))}
+          selectedId={formatting.timeZone}
+          onChange={(value) => onFormattingChange(value, 'timeZone')}
+        />
+      </div>
     </div>
   );
 };

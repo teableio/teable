@@ -5,6 +5,7 @@ import { defaultNumberFormatting, numberFormattingSchema } from './number';
 
 export * from './number';
 export * from './datetime';
+export * from './time-zone';
 
 export const unionFormattingSchema = z
   .union([datetimeFormattingSchema, numberFormattingSchema])
