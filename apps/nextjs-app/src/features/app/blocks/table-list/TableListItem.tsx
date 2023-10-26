@@ -3,7 +3,6 @@ import type { Table } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { DeleteTable } from './DeleteTable';
@@ -18,6 +17,22 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
   const router = useRouter();
   const { baseId } = router.query;
   const viewId = router.query.viewId;
+  const handleTableNavigate = () => {
+    router.push(
+      {
+        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        query: {
+          nodeId: table.id,
+          viewId: table.defaultViewId,
+          baseId: baseId as string,
+        },
+      },
+      undefined,
+      {
+        shallow: Boolean(viewId),
+      }
+    );
+  };
   return (
     <>
       <Button
@@ -30,32 +45,17 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             'bg-secondary': isActive,
           }
         )}
+        onClick={handleTableNavigate}
+        onTouchStart={handleTableNavigate}
+        onDoubleClick={() => {
+          setIsEditing(true);
+        }}
       >
-        <Link
-          href={{
-            pathname: '/base/[baseId]/[nodeId]/[viewId]',
-            query: {
-              nodeId: table.id,
-              viewId: table.defaultViewId,
-              baseId: baseId as string,
-            },
-          }}
-          title={table.name}
-          // when switch between tables, page will not change we should just do shallow routing
-          shallow={Boolean(viewId)}
-          onDoubleClick={() => {
-            setIsEditing(true);
-          }}
-          onClick={(e) => {
-            if (isActive) {
-              e.preventDefault();
-            }
-          }}
-        >
+        <div>
           {table.icon || <Table2 className="h-4 w-4 shrink-0" />}
           <p className="grow truncate">{' ' + table.name}</p>
           <DeleteTable tableId={table.id} className="hidden h-4 w-4 shrink-0 group-hover:block" />
-        </Link>
+        </div>
       </Button>
       {isEditing && (
         <Input
