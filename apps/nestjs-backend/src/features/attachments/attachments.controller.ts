@@ -21,7 +21,7 @@ export class AttachmentsController {
   @Post('/upload/:token')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@UploadedFile() file: Express.Multer.File, @Param('token') token: string) {
-    this.attachmentsService.upload(file, token);
+    await this.attachmentsService.upload(file, token);
     return null;
   }
 
