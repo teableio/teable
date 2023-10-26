@@ -571,6 +571,9 @@ importers:
       react-grid-layout:
         specifier: 1.3.4
         version: 1.3.4(react-dom@18.2.0)(react@18.2.0)
+      react-hammerjs:
+        specifier: ^1.0.1
+        version: 1.0.1(react@18.2.0)
       react-hook-form:
         specifier: 7.45.4
         version: 7.45.4(react@18.2.0)
@@ -610,6 +613,9 @@ importers:
       remark-gfm:
         specifier: 3.0.1
         version: 3.0.1
+      scroller:
+        specifier: ^0.0.3
+        version: 0.0.3
       sharedb:
         specifier: 4.1.0
         version: 4.1.0
@@ -698,9 +704,15 @@ importers:
       '@types/react-grid-layout':
         specifier: 1.3.2
         version: 1.3.2
+      '@types/react-hammerjs':
+        specifier: ^1.0.6
+        version: 1.0.6
       '@types/react-syntax-highlighter':
         specifier: 15.5.6
         version: 15.5.6
+      '@types/scroller':
+        specifier: ^0.1.4
+        version: 0.1.4
       '@types/sharedb':
         specifier: 3.3.5
         version: 3.3.5
@@ -11216,6 +11228,13 @@ packages:
       '@types/node': 18.15.0
     dev: true
 
+  /@types/hammerjs@2.0.43:
+    resolution:
+      {
+        integrity: sha512-wqxfwHk83RS7+6OpytGdo5wqkqtvx+bGaIs1Rwm5NrtQHUfL4OgWs/5p0OipmjmT+fexePh37Ek+mqIpdNjQKA==,
+      }
+    dev: true
+
   /@types/hast@2.3.6:
     resolution:
       {
@@ -11669,6 +11688,16 @@ packages:
       '@types/react': 18.2.28
     dev: true
 
+  /@types/react-hammerjs@1.0.6:
+    resolution:
+      {
+        integrity: sha512-XKm2A/MqdqMa+q5C4kH7261lIrDt9dPZuu+AKDv6pyyxROqOHClZ6dpNEaT3bxwopxISwL07EUGWg5tpKkQWHQ==,
+      }
+    dependencies:
+      '@types/hammerjs': 2.0.43
+      '@types/react': 18.2.28
+    dev: true
+
   /@types/react-syntax-highlighter@15.5.6:
     resolution:
       {
@@ -11711,6 +11740,13 @@ packages:
       {
         integrity: sha512-2L9ifAGl7wmXwP4v3pN4p2FLhD0O1qsJpvKmNin5VA8+UvNVb447UDaAEV6UdrkA+m/Xs58U1RFps44x6TFsVQ==,
       }
+
+  /@types/scroller@0.1.4:
+    resolution:
+      {
+        integrity: sha512-cFZkTksWgSGX0ku6y2HQwCXDrUJ1x9oExSK5cPW81Q1Gm3ZJsIsZXwm1vnXigBBgrRtHpfkD/lQjqOeG2tV/ZQ==,
+      }
+    dev: true
 
   /@types/semver@7.5.3:
     resolution:
@@ -20725,6 +20761,14 @@ packages:
     dependencies:
       duplexer: 0.1.2
     dev: true
+
+  /hammerjs@2.0.8:
+    resolution:
+      {
+        integrity: sha512-tSQXBXS/MWQOn/RKckawJ61vvsDpCom87JgxiYdGwHdOa0ht0vzUWDlfioofFCRU0L+6NGDt6XzbgoJvZkMeRQ==,
+      }
+    engines: { node: '>=0.8.0' }
+    dev: false
 
   /handlebars@4.7.8:
     resolution:
@@ -29842,6 +29886,18 @@ packages:
       react-resizable: 3.0.5(react-dom@18.2.0)(react@18.2.0)
     dev: false
 
+  /react-hammerjs@1.0.1(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-uyx7LAdy4rduPNm/PwXPTf/NxikNK4ak+0WiPOH4ZnrFjawA7kpeD27aEuYB7ybB/U8vLDXnooAiI5dSem+6nw==,
+      }
+    peerDependencies:
+      react: ^0.14.9 || ^15.3.0 || ^16.0.0-rc || ^16.0
+    dependencies:
+      hammerjs: 2.0.8
+      react: 18.2.0
+    dev: false
+
   /react-hook-form@7.45.4(react@18.2.0):
     resolution:
       {
@@ -31491,6 +31547,13 @@ packages:
         integrity: sha512-9BakfsO2aUQN2K9Fdbj87RJIEZ82Q9IGim7FqM5OsebfoFC6ZHXgDq/KvniuLTPdeM8wY2o6Dj3WQ7KeQCj3cA==,
       }
     engines: { node: '>=0.10.0' }
+    dev: false
+
+  /scroller@0.0.3:
+    resolution:
+      {
+        integrity: sha512-S+ulSggvom5bCaYqbnkmTo6fNrHBqSQK8RNCeeEurGXqZM5Fl1q8VgpDpRuqJyZw/P8AJCQJ0jcFKJBHajrTew==,
+      }
     dev: false
 
   /scslre@0.3.0:

@@ -300,7 +300,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return onColumnAppend?.();
       case RegionType.RowHeaderExpandHandler:
         return onRowExpand?.(rowIndex);
-      case RegionType.ColumnResizeHandler:
+      case RegionType.ColumnHeader:
         return onColumnHeaderClick?.(columnIndex, {
           x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
           y: 0,

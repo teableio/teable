@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { useMeasure } from 'react-use';
-import { useFields, useRecord, useViewId, useViews } from '../../hooks';
+import { useFields, useIsTouchDevice, useRecord, useViewId, useViews } from '../../hooks';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
@@ -47,6 +47,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
+  const isTouchDevice = useIsTouchDevice();
 
   const fields = useMemo(
     () => (viewId ? allFields.filter((field) => !field.columnMeta?.[viewId]?.hidden) : []),
@@ -92,7 +93,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
   return (
     <ExpandRecordWrap
-      model={model ?? IExpandRecordModel.Modal}
+      model={isTouchDevice ? IExpandRecordModel.Panel : model ?? IExpandRecordModel.Modal}
       visible={visible}
       showActivity={showActivity}
       onClose={onClose}
@@ -126,7 +127,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           {showActivity && (
             <div
               className={classNames('flex', {
-                'absolute top-0 right-0 h-full bg-background':
+                'absolute top-0 right-0 h-full bg-background w-full':
                   containerWidth <= MIN_SHOW_ACTIVITY_WIDTH,
               })}
             >
