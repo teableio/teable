@@ -6,6 +6,7 @@ import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import { EmojiPicker } from '../../components/EmojiPicker';
 import { DeleteTable } from './DeleteTable';
 
 interface IProps {
@@ -27,7 +28,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
         className={classNames(
           'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group',
           {
-            'bg-secondary': isActive,
+            'bg-secondary/90': isActive,
           }
         )}
       >
@@ -52,7 +53,16 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             }
           }}
         >
-          {table.icon || <Table2 className="h-4 w-4 shrink-0" />}
+          <EmojiPicker
+            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/50"
+            onChange={(icon: string) => table.updateIcon(icon)}
+          >
+            {table.icon ? (
+              <div className="text-base leading-none">{table.icon}</div>
+            ) : (
+              <Table2 className="h-4 w-4 shrink-0" />
+            )}
+          </EmojiPicker>
           <p className="grow truncate">{' ' + table.name}</p>
           <DeleteTable tableId={table.id} className="hidden h-4 w-4 shrink-0 group-hover:block" />
         </Link>
