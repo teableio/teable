@@ -20,6 +20,7 @@ import { json, urlencoded } from 'express';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
+import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
@@ -40,7 +41,7 @@ export async function initApp() {
     .compile();
 
   const app = moduleFixture.createNestApplication();
-
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })

@@ -252,15 +252,15 @@ export class TableService implements IAdapterService {
   }
 
   async deleteTable(baseId: string, tableId: string) {
-    const { version } = await this.prismaService
-      .txClient()
-      .tableMeta.findFirstOrThrow({
-        where: { id: tableId, baseId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('Table not found');
-      });
+    const result = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableId, baseId, deletedTime: null },
+    });
 
+    if (!result) {
+      throw new NotFoundException('Table not found');
+    }
+
+    const { version } = result;
     await this.del(version + 1, baseId, tableId);
 
     await this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
