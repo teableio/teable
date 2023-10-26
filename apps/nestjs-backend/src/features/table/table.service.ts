@@ -8,6 +8,7 @@ import {
 import type {
   ICreateTableRo,
   IOtOperation,
+  ISetTableIconOpContext,
   ISetTableNameOpContext,
   ISetTableOrderOpContext,
   ISnapshotBase,
@@ -354,7 +355,7 @@ export class TableService implements IAdapterService {
     version: number,
     baseId: string,
     tableId: string,
-    opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext)[]
+    opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext | ISetTableIconOpContext)[]
   ) {
     const userId = this.cls.get('user.id');
 
@@ -376,8 +377,17 @@ export class TableService implements IAdapterService {
           });
           return;
         }
+        case OpName.SetTableIcon: {
+          const { newIcon } = opContext;
+          await this.prismaService.txClient().tableMeta.update({
+            where: { id: tableId, baseId },
+            data: { icon: newIcon, version, lastModifiedBy: userId },
+          });
+          return;
+        }
+        default:
+          throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
       }
-      throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
     }
   }
 

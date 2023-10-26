@@ -75,7 +75,7 @@ export class ShareDbService extends ShareDBClass {
          * which only send view ops but update record too
          */
         if (ops?.[0] && setViewSort.detect(ops?.[0])) {
-          const [prefix, tableId] = collection.split('_');
+          const [, tableId] = collection.split('_');
           this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
         }
       }

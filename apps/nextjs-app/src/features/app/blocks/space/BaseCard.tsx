@@ -6,6 +6,7 @@ import { Button, Card, CardContent, Input } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
+import { EmojiPicker } from '../../components/EmojiPicker';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 
 interface IBaseCard {
@@ -71,13 +72,31 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
+  const iconChange = (icon: string) => {
+    updateBaseMutator({
+      baseId: base.id,
+      updateBaseRo: { icon },
+    });
+  };
+
   return (
     <Card
       className={classNames('group cursor-pointer hover:shadow-md', className)}
       onClick={intoBase}
     >
       <CardContent className="flex h-full w-full items-center px-4 py-6">
-        <Database className="h-14 w-14 min-w-[3.5rem]" />
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <EmojiPicker onChange={iconChange}>
+            {base.icon ? (
+              <span className="h-14 w-14 min-w-[3.5rem] text-[3.5rem] leading-none">
+                {base.icon}
+              </span>
+            ) : (
+              <Database className="h-14 w-14 min-w-[3.5rem]" />
+            )}
+          </EmojiPicker>
+        </div>
         <div className="h-full flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-3 p-0.5">
             {renaming ? (
