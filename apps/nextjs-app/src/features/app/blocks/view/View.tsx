@@ -1,9 +1,8 @@
 import { ViewType, type IRecord } from '@teable-group/core';
-import { useIsHydrated, useView, useViewId } from '@teable-group/sdk';
+import { useIsHydrated, useIsTouchDevice, useView, useViewId } from '@teable-group/sdk';
 import { Skeleton, cn } from '@teable-group/ui-lib/shadcn';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef } from 'react';
-import { useMedia } from 'react-use';
 import type { IExpandRecordContainerRef } from '../../components/ExpandRecordContainer';
 import { ExpandRecordContainer } from '../../components/ExpandRecordContainer';
 import { useGraphStore } from '../graph/useGraphStore';
@@ -37,7 +36,7 @@ export const View = (props: IView) => {
   const { graphOpen } = useGraphStore();
 
   // Determine whether it is a touch device
-  const isTouchDevice = useMedia('(pointer: coarse)');
+  const isTouchDevice = useIsTouchDevice();
 
   // Solve the problem that the page will be pushed up after the input is focused on touch devices
   useEffect(() => {

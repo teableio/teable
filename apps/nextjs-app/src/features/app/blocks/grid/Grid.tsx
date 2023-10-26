@@ -24,6 +24,7 @@ import type {
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import type { ICell, IInnerCell } from './renderers';
+import { TouchLayer } from './TouchLayer';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
@@ -57,6 +58,7 @@ export interface IGridProps extends IGridExternalProps {
   rowCount: number;
   rowHeight?: number;
   style?: CSSProperties;
+  isTouchDevice?: boolean;
   columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
@@ -88,6 +90,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowHeight = defaultRowHeight,
     rowControls = [{ type: RowControlType.Checkbox }],
     theme: customTheme,
+    isTouchDevice,
     smoothScrollX,
     smoothScrollY,
     style,
@@ -149,6 +152,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
+
   const hasColumnStatistics = columnStatistics != null;
   const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
 
@@ -256,42 +260,71 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   return (
     <div className="h-full w-full" style={style} ref={ref}>
       <div ref={containerRef} tabIndex={0} className="relative outline-none">
-        <InteractionLayer
-          ref={interactionLayerRef}
-          width={width}
-          height={height}
-          theme={theme}
-          columns={columns}
-          rowControls={rowControls}
-          imageManager={imageManager}
-          spriteManager={spriteManager}
-          coordInstance={coordInstance}
-          columnStatistics={columnStatistics}
-          scrollState={scrollState}
-          mouseState={mouseState}
-          setMouseState={setMouseState}
-          getCellContent={getCellContent}
-          forceRenderFlag={forceRenderFlag}
-          scrollToItem={scrollToItem}
-          scrollBy={scrollBy}
-          onCopy={onCopy}
-          onPaste={onPaste}
-          onDelete={onDelete}
-          onRowAppend={onRowAppend}
-          onRowExpand={onRowExpand}
-          onRowOrdered={onRowOrdered}
-          onCellEdited={onCellEdited}
-          onCellActivated={onCellActivated}
-          onSelectionChanged={onSelectionChanged}
-          onContextMenu={onContextMenu}
-          onColumnAppend={onColumnAppend}
-          onColumnResize={onColumnResize}
-          onColumnOrdered={onColumnOrdered}
-          onColumnHeaderClick={onColumnHeaderClick}
-          onColumnHeaderDblClick={onColumnHeaderDblClick}
-          onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-          onColumnStatisticClick={onColumnStatisticClick}
-        />
+        {isTouchDevice ? (
+          <TouchLayer
+            width={width}
+            height={height}
+            theme={theme}
+            columns={columns}
+            mouseState={mouseState}
+            scrollState={scrollState}
+            rowControls={rowControls}
+            imageManager={imageManager}
+            spriteManager={spriteManager}
+            coordInstance={coordInstance}
+            columnStatistics={columnStatistics}
+            getCellContent={getCellContent}
+            forceRenderFlag={forceRenderFlag}
+            setMouseState={setMouseState}
+            onDelete={onDelete}
+            onRowAppend={onRowAppend}
+            onRowExpand={onRowExpand}
+            onCellEdited={onCellEdited}
+            onCellActivated={onCellActivated}
+            onSelectionChanged={onSelectionChanged}
+            onContextMenu={onContextMenu}
+            onColumnAppend={onColumnAppend}
+            onColumnHeaderClick={onColumnHeaderClick}
+            onColumnStatisticClick={onColumnStatisticClick}
+          />
+        ) : (
+          <InteractionLayer
+            ref={interactionLayerRef}
+            width={width}
+            height={height}
+            theme={theme}
+            columns={columns}
+            rowControls={rowControls}
+            imageManager={imageManager}
+            spriteManager={spriteManager}
+            coordInstance={coordInstance}
+            columnStatistics={columnStatistics}
+            scrollState={scrollState}
+            mouseState={mouseState}
+            setMouseState={setMouseState}
+            getCellContent={getCellContent}
+            forceRenderFlag={forceRenderFlag}
+            scrollToItem={scrollToItem}
+            scrollBy={scrollBy}
+            onCopy={onCopy}
+            onPaste={onPaste}
+            onDelete={onDelete}
+            onRowAppend={onRowAppend}
+            onRowExpand={onRowExpand}
+            onRowOrdered={onRowOrdered}
+            onCellEdited={onCellEdited}
+            onCellActivated={onCellActivated}
+            onSelectionChanged={onSelectionChanged}
+            onContextMenu={onContextMenu}
+            onColumnAppend={onColumnAppend}
+            onColumnResize={onColumnResize}
+            onColumnOrdered={onColumnOrdered}
+            onColumnHeaderClick={onColumnHeaderClick}
+            onColumnHeaderDblClick={onColumnHeaderDblClick}
+            onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+            onColumnStatisticClick={onColumnStatisticClick}
+          />
+        )}
       </div>
 
       <InfiniteScroller

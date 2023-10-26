@@ -1,6 +1,15 @@
+/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff } from '@teable-group/icons';
-import { useFields, useViewId } from '@teable-group/sdk/hooks';
-import { Command, CommandGroup, CommandItem, CommandList } from '@teable-group/ui-lib/shadcn';
+import { useFields, useIsTouchDevice, useViewId } from '@teable-group/sdk/hooks';
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+} from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -16,6 +25,7 @@ enum MenuItemType {
 const iconClassName = 'mr-2 h-4 w-4';
 
 export const FieldMenu = () => {
+  const isTouchDevice = useIsTouchDevice();
   const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
   const visible = Boolean(headerMenu);
   const position = headerMenu?.position;
@@ -86,28 +96,52 @@ export const FieldMenu = () => {
   ].filter(({ filter }) => (filter ? filter() : true));
 
   return (
-    <Command
-      ref={fieldSettingRef}
-      className={classNames('absolute rounded-sm shadow-sm w-60 h-auto border', {
-        hidden: !visible,
-      })}
-      style={style}
-    >
-      <CommandList>
-        <CommandGroup className="p-0" aria-valuetext="name">
-          {menuItems.map(({ type, name, icon }) => (
-            <CommandItem
-              className="px-4 py-2"
-              key={type}
-              value={name}
-              onSelect={() => onSelect(type)}
-            >
-              {icon}
-              {name}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
-    </Command>
+    <>
+      {isTouchDevice ? (
+        <Sheet open={visible} onOpenChange={(open) => !open && closeHeaderMenu()}>
+          <SheetContent className="h-5/6 rounded-t-lg py-0" side="bottom">
+            <SheetHeader className="h-16 justify-center border-b text-2xl">
+              {fields.find((f) => f.id === fieldIds[0])?.name ?? 'Untitled'}
+            </SheetHeader>
+            {menuItems.map(({ type, name, icon }) => {
+              return (
+                <div
+                  className="flex w-full items-center border-b py-3"
+                  key={type}
+                  onClick={() => onSelect(type)}
+                >
+                  {icon}
+                  {name}
+                </div>
+              );
+            })}
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Command
+          ref={fieldSettingRef}
+          className={classNames('absolute rounded-sm shadow-sm w-60 h-auto border', {
+            hidden: !visible,
+          })}
+          style={style}
+        >
+          <CommandList>
+            <CommandGroup className="p-0" aria-valuetext="name">
+              {menuItems.map(({ type, name, icon }) => (
+                <CommandItem
+                  className="px-4 py-2"
+                  key={type}
+                  value={name}
+                  onSelect={() => onSelect(type)}
+                >
+                  {icon}
+                  {name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      )}
+    </>
   );
 };

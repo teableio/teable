@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { useLocalStorage } from 'react-use';
+import { useIsTouchDevice } from '../../hooks';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_SIZE = 300;
@@ -26,6 +27,7 @@ export const Panel: FC<
   const [sashSize, setSashSize] = useState<number>(0);
   const sashRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<boolean>();
+  const isTouchDevice = useIsTouchDevice();
 
   useEffect(() => {
     setSashSize(sashRef.current?.offsetWidth || 0);
@@ -68,7 +70,7 @@ export const Panel: FC<
         'before:absolute before:w-[1px] before:h-full before:top-0 before:bg-[var(--separator-border)]',
         className
       )}
-      style={{ width: size + 'px' }}
+      style={{ width: isTouchDevice ? '100%' : size + 'px' }}
     >
       <div
         ref={sashRef}
