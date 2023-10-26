@@ -1,3 +1,4 @@
+import { useIsTouchDevice } from '@teable-group/sdk/hooks';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -62,6 +63,8 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       verticalScrollRef.current?.scrollBy(0, deltaY);
     },
   }));
+
+  const isTouchDevice = useIsTouchDevice();
 
   const scrollerRef = useRef<Scroller | null>(null);
   const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
@@ -207,6 +210,8 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   }, []);
 
   useEffect(() => {
+    if (!isTouchDevice) return;
+
     const options = {
       scrollingX: true,
       scrollingY: true,
@@ -214,7 +219,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     };
 
     scrollerRef.current = new Scroller(mobileScrollHandler, options);
-  }, [mobileScrollHandler]);
+  }, [mobileScrollHandler, isTouchDevice]);
 
   useEffect(() => {
     if (scrollerRef.current) {
