@@ -1,6 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, ILinkFieldOptions, ITableFullVo } from '@teable-group/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILinkFieldOptions,
+  ISelectFieldOptions,
+  ITableFullVo,
+} from '@teable-group/core';
 import {
   Relationship,
   TimeFormatting,
@@ -1930,6 +1936,78 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const record = await getRecord(request, table1.id, table1.records[0].id);
       expect(record.fields[newField.id]).toEqual('x');
       expect(record.fields[lookupField.id]).toEqual(undefined);
+    });
+
+    it('should update lookup when the options of the fields being lookup are updated', async () => {
+      const selectFieldRo: IFieldRo = {
+        name: 'SelectField',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'x', color: Colors.Cyan }],
+        },
+      };
+
+      const selectField = await createField(request, table1.id, selectFieldRo);
+
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField = await createField(request, table2.id, linkFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        name: 'Lookup SelectField',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const lookupField = await createField(request, table2.id, lookupFieldRo);
+
+      expect(lookupField).toMatchObject({
+        name: 'Lookup SelectField',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        options: {
+          choices: [{ name: 'x', color: Colors.Cyan }],
+        },
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const selectFieldUpdateRo = {
+        ...selectFieldRo,
+        options: {
+          choices: [
+            ...(selectField.options as ISelectFieldOptions).choices,
+            { name: 'y', color: Colors.Blue },
+          ],
+        },
+      };
+
+      await updateField(request, table1.id, selectField.id, selectFieldUpdateRo);
+
+      const lookupFieldAfter = await getField(request, table2.id, lookupField.id);
+      expect((lookupFieldAfter.options as ISelectFieldOptions).choices.length).toEqual(2);
+      expect((lookupFieldAfter.options as ISelectFieldOptions).choices[0]).toMatchObject({
+        name: 'x',
+        color: Colors.Cyan,
+      });
+      expect((lookupFieldAfter.options as ISelectFieldOptions).choices[1]).toMatchObject({
+        name: 'y',
+        color: Colors.Blue,
+      });
     });
   });
 });
