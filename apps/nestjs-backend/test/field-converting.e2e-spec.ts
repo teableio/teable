@@ -378,7 +378,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           formatting: {
             date: 'M/D/YYYY',
             time: TimeFormatting.None,
-            timeZone: 'GMT',
+            timeZone: 'utc',
           },
         },
       };
@@ -661,7 +661,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           formatting: {
             date: 'M/D/YYYY',
             time: TimeFormatting.None,
-            timeZone: 'GMT',
+            timeZone: 'utc',
           },
         },
       };

@@ -212,7 +212,7 @@ describe('TypeCastAndValidate', () => {
 
       field.validateCellValue.mockReturnValue({
         success: true,
-      });
+      } as any);
 
       const records = [{ [field.id]: 1 }];
 
@@ -230,7 +230,7 @@ describe('TypeCastAndValidate', () => {
 
       field.validateCellValue.mockReturnValue({
         success: true,
-      });
+      } as any);
 
       const result = typeCastAndValidate['mapFieldsRecordsWithValidate'](
         records,
@@ -426,7 +426,9 @@ describe('TypeCastAndValidate', () => {
         .spyOn(typeCastAndValidate as any, 'mapFieldsRecordsWithValidate')
         .mockImplementation((...args) => (args[2] as any)('title'));
 
-      jest.spyOn(typeCastAndValidate as any, 'castToLinkOne').mockReturnValue({ title1: '1' });
+      jest
+        .spyOn(typeCastAndValidate as any, 'castToLinkOne')
+        .mockReturnValue({ title1: '1' } as any);
 
       const result = await typeCastAndValidate['castToLink'](records, FieldKeyType.Id);
 

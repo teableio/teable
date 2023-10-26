@@ -60,7 +60,8 @@ export const getRecordQuerySchema = z.object({
     .default(CellFormat.Json)
     .optional()
     .openapi({
-      description: 'value formate, you can set it to text if you only need simple string value',
+      description:
+        'Define the return value  formate, you can set it to text if you only need simple string value',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });
