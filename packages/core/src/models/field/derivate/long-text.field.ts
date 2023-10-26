@@ -61,8 +61,8 @@ export class LongTextFieldCore extends FieldCore {
 
   validateCellValue(value: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(longTextCelValueSchema).nonempty().optional().safeParse(value);
+      return z.array(longTextCelValueSchema).nonempty().nullable().safeParse(value);
     }
-    return longTextCelValueSchema.optional().safeParse(value);
+    return longTextCelValueSchema.nullable().safeParse(value);
   }
 }

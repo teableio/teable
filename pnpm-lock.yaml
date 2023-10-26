@@ -894,6 +894,9 @@ importers:
       jest:
         specifier: 29.7.0
         version: 29.7.0(@types/node@18.15.0)(ts-node@10.9.1)
+      prettier:
+        specifier: 3.0.3
+        version: 3.0.3
       rimraf:
         specifier: 5.0.5
         version: 5.0.5

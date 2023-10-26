@@ -848,7 +848,7 @@ export class FieldConvertingService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
-    this.logger.log('changed Keys:' + JSON.stringify(keys));
+    console.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
     if (keys.includes('type') || keys.includes('isComputed')) {

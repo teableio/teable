@@ -1,6 +1,7 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, HttpError } from '@teable-group/core';
 import type { IGetBaseVo } from '@teable-group/openapi';
+import type { IUser } from '@teable-group/sdk';
 import axios from 'axios';
 
 export class SsrApi {
@@ -53,6 +54,14 @@ export class SsrApi {
 
   async getBaseById(baseId: string) {
     return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
+  }
+
+  async getUserMe(cookie?: string) {
+    return await this.axios
+      .get<IUser>(`/auth/user/me`, {
+        headers: { cookie },
+      })
+      .then(({ data }) => data);
   }
 }
 

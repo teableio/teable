@@ -63,6 +63,7 @@ describe('SingleLineTextFieldCore', () => {
   it('should validate value', () => {
     expect(field.validateCellValue('1.234').success).toBe(true);
     expect(field.validateCellValue(1.234).success).toBe(false);
+    expect(field.validateCellValue(null).success).toBe(true);
 
     expect(multipleLookupField.validateCellValue(['1.234']).success).toBe(true);
     expect(multipleLookupField.validateCellValue([1.234]).success).toBe(false);

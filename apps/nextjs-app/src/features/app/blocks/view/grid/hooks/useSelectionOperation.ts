@@ -5,6 +5,7 @@ import { clear, copy, paste, RangeType } from '@teable-group/openapi';
 import { useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
+import { extractTableHeader, serializerHtml } from '@/features/app/utils/clipboard';
 import { SelectionRegionType } from '../../../grid';
 import type { CombinedSelection } from '../../../grid/managers';
 
@@ -14,8 +15,6 @@ const rangeTypes = {
   [SelectionRegionType.Cells]: undefined,
   [SelectionRegionType.None]: undefined,
 };
-
-const copyMark = 'TeableCopyContent:';
 
 export const useSelectionOperation = () => {
   const tableId = useTableId();
@@ -34,8 +33,6 @@ export const useSelectionOperation = () => {
   });
 
   const { toast } = useToast();
-
-  const copyHeaderKey = 'teable_copy_header';
 
   const doCopy = useCallback(
     async (selection: CombinedSelection) => {
@@ -56,8 +53,12 @@ export const useSelectionOperation = () => {
       });
       const { content, header } = data;
 
-      await navigator.clipboard.writeText(`${copyMark}${content}`);
-      sessionStorage.setItem(copyHeaderKey, JSON.stringify(header));
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          ['text/plain']: new Blob([content], { type: 'text/plain' }),
+          ['text/html']: new Blob([serializerHtml(content, header)], { type: 'text/html' }),
+        }),
+      ]);
       toaster.update({ id: toaster.id, title: 'Copied success!' });
     },
     [tableId, toast, viewId, copyReq]
@@ -72,14 +73,18 @@ export const useSelectionOperation = () => {
         title: 'Pasting...',
       });
       const ranges = selection.ranges;
-      const content = await navigator.clipboard.readText();
-      const usingHeader = content.startsWith(copyMark);
-      const headerStr = sessionStorage.getItem(copyHeaderKey);
-      const header = headerStr && usingHeader ? JSON.parse(headerStr) : undefined;
+      const clipboardContent = await navigator.clipboard.read();
+      const text = await (await clipboardContent[0].getType('text/plain')).text();
+      const html = await (await clipboardContent[0].getType('text/html')).text();
+      const header = extractTableHeader(html);
+      if (header.error) {
+        toaster.update({ id: toaster.id, title: header.error });
+        return;
+      }
       await pasteReq({
-        content: usingHeader ? content.split(copyMark)[1] : content,
+        content: text,
         cell: ranges[0],
-        header,
+        header: header.result,
       });
       toaster.update({ id: toaster.id, title: 'Pasted success!' });
     },

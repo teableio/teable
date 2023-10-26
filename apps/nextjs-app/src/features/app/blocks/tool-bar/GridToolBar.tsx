@@ -26,7 +26,7 @@ export const GridToolBar: React.FC = () => {
         <Plus className="h-4 w-4" />
       </Button>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
-      <div className="flex flex-1 justify-between">
+      <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">
         <ViewOperators />
         <Others />
       </div>
