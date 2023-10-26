@@ -64,7 +64,10 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
             )}
           </EmojiPicker>
           <p className="grow truncate">{' ' + table.name}</p>
-          <DeleteTable tableId={table.id} className="hidden h-4 w-4 shrink-0 group-hover:block" />
+          <DeleteTable
+            tableId={table.id}
+            className="h-4 w-4 shrink-0 sm:hidden sm:group-hover:block"
+          />
         </Link>
       </Button>
       {isEditing && (
