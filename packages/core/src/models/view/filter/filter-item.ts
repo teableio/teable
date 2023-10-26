@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { dataFieldCellValueSchema, timeZoneStringSchema } from '../../field';
+import { dataFieldCellValueSchema } from '../../field';
+import { timeZoneStringSchema } from '../../field/formatting/time-zone';
 import type { IOperator, ISymbol } from './operator';
 import {
   daysAgo,

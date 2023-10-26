@@ -40,12 +40,7 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Query(new ZodValidationPipe(getRecordQuerySchema)) query: IGetRecordQuery
   ): Promise<IRecord> {
-    return await this.recordService.getRecord(
-      tableId,
-      recordId,
-      query.projection,
-      query.fieldKeyType
-    );
+    return await this.recordService.getRecord(tableId, recordId, query);
   }
 
   @Put(':recordId')

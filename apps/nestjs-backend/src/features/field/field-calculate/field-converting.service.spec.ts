@@ -18,4 +18,62 @@ describe('FieldConvertingService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  it('should return the correct changes', () => {
+    expect(
+      service['getOptionsChanges'](
+        {
+          formatting: 'italic',
+          showAs: 'number',
+          anotherKey: 'anotherKey',
+        },
+        {
+          formatting: 'bold',
+          showAs: 'text',
+          otherKey: 'otherKey',
+        }
+      )
+    ).toEqual({
+      anotherKey: 'anotherKey',
+      otherKey: null,
+    });
+
+    expect(
+      service['getOptionsChanges'](
+        {
+          formatting: 'italic',
+          showAs: 'number',
+          anotherKey: 'anotherKey',
+        },
+        {
+          formatting: 'bold',
+          showAs: 'text',
+          otherKey: 'otherKey',
+        },
+        true
+      )
+    ).toEqual({
+      anotherKey: 'anotherKey',
+      otherKey: null,
+      formatting: null,
+      showAs: null,
+    });
+
+    expect(
+      service['getOptionsChanges'](
+        {
+          formatting: 'italic',
+          showAs: 'number',
+          otherKey: 'newOtherKey',
+        },
+        {
+          formatting: 'bold',
+          showAs: 'text',
+          otherKey: 'oldOtherKey',
+        }
+      )
+    ).toEqual({
+      otherKey: 'newOtherKey',
+    });
+  });
 });

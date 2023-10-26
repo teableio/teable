@@ -71,7 +71,7 @@ describe('recordsRoSchema', () => {
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual(
-        'Error cellFormate, You should set it to "json" or "text"'
+        'Error cellFormat, You should set it to "json" or "text"'
       );
   });
 

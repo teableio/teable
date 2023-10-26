@@ -11,6 +11,7 @@ import type {
   IRecord,
   IRecordsVo,
   IUpdateRecordRo,
+  CellFormat,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
@@ -19,6 +20,7 @@ import { json, urlencoded } from 'express';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
+import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
@@ -39,7 +41,7 @@ export async function initApp() {
     .compile();
 
   const app = moduleFixture.createNestApplication();
-
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
@@ -113,13 +115,15 @@ export async function updateRecordByApi(
 
 export async function getRecords(
   request: request.SuperAgentTest,
-  tableId: string
+  tableId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecordsVo> {
   return (
     await request
       .get(`/api/table/${tableId}/record`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;
@@ -128,13 +132,15 @@ export async function getRecords(
 export async function getRecord(
   request: request.SuperAgentTest,
   tableId: string,
-  recordId: string
+  recordId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecord> {
   return (
     await request
       .get(`/api/table/${tableId}/record/${recordId}`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;

@@ -7,7 +7,7 @@ import {
   TimeFormatting,
 } from './datetime';
 
-const timeZone = 'Etc/GMT';
+const timeZone = 'utc';
 
 describe('formatDateToString', () => {
   it('should correctly format date string', () => {

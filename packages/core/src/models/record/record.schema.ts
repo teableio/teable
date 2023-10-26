@@ -55,12 +55,13 @@ export const getRecordQuerySchema = z.object({
   }),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
+      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
     })
     .default(CellFormat.Json)
     .optional()
     .openapi({
-      description: 'value formate, you can set it to text if you only need simple string value',
+      description:
+        'Define the return value  formate, you can set it to text if you only need simple string value',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });

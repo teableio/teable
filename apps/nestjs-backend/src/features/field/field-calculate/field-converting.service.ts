@@ -27,7 +27,7 @@ import {
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import { difference, differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -54,11 +54,6 @@ interface IModifiedResult {
   recordOpsMap?: IOpsMap;
   fieldOps?: IOtOperation[];
   recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
-}
-
-interface IPropertyChange {
-  key: string;
-  value: unknown;
 }
 
 @Injectable()
@@ -273,33 +268,40 @@ export class FieldConvertingService {
     return getOpsMap();
   }
 
+  /**
+   * get deep deference in options, and return changes
+   * formatting, showAs should be ignore
+   */
   private getOptionsChanges(
     newOptions: Record<string, unknown>,
     oldOptions: Record<string, unknown>,
     valueTypeChange?: boolean
-  ) {
-    const optionsChanges: IPropertyChange[] = [];
+  ): Record<string, unknown> {
+    const optionsChanges: Record<string, unknown> = {};
 
+    newOptions = { ...newOptions };
+    oldOptions = { ...oldOptions };
     const nonInfectKeys = ['formatting', 'showAs'];
-    const newOptionsKeys = Object.keys(newOptions || {}).filter((key) =>
-      nonInfectKeys.includes(key)
-    );
-    const oldOptionsKeys = Object.keys(oldOptions || {}).filter((key) =>
-      nonInfectKeys.includes(key)
-    );
+    nonInfectKeys.forEach((key) => {
+      delete newOptions[key];
+      delete oldOptions[key];
+    });
 
-    const addedOptionsKeys = differenceBy(newOptionsKeys, oldOptionsKeys);
-    const removedOptionsKeys = differenceBy(oldOptionsKeys, newOptionsKeys);
-    const editedOptionsKeys = intersection(newOptionsKeys, addedOptionsKeys).filter(
+    const newOptionsKeys = Object.keys(newOptions);
+    const oldOptionsKeys = Object.keys(oldOptions);
+
+    const addedOptionsKeys = difference(newOptionsKeys, oldOptionsKeys);
+    const removedOptionsKeys = difference(oldOptionsKeys, newOptionsKeys);
+    const editedOptionsKeys = intersection(newOptionsKeys, oldOptionsKeys).filter(
       (key) => !isEqual(oldOptions[key], newOptions[key])
     );
 
-    addedOptionsKeys.forEach((key) => optionsChanges.push({ key, value: newOptions }));
-    editedOptionsKeys.forEach((key) => optionsChanges.push({ key, value: newOptions[key] }));
-    removedOptionsKeys.forEach((key) => optionsChanges.push({ key, value: null }));
+    addedOptionsKeys.forEach((key) => (optionsChanges[key] = newOptions[key]));
+    editedOptionsKeys.forEach((key) => (optionsChanges[key] = newOptions[key]));
+    removedOptionsKeys.forEach((key) => (optionsChanges[key] = null));
 
     // clean formatting, showAs when valueType change
-    valueTypeChange && nonInfectKeys.forEach((key) => optionsChanges.push({ key, value: null }));
+    valueTypeChange && nonInfectKeys.forEach((key) => (optionsChanges[key] = null));
 
     return optionsChanges;
   }
@@ -322,7 +324,7 @@ export class FieldConvertingService {
       valueTypeChanged
     );
 
-    return Boolean(changedProperties.length || optionsChanges.length);
+    return Boolean(changedProperties.length || !isEmpty(optionsChanges));
   }
 
   /**

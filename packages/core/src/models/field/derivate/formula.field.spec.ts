@@ -85,7 +85,7 @@ describe('FormulaFieldCore', () => {
       formatting: {
         date: DateFormattingPreset.US,
         time: TimeFormatting.None,
-        timeZone: 'Etc/GMT',
+        timeZone: 'utc',
       },
       showAs: undefined,
     },
