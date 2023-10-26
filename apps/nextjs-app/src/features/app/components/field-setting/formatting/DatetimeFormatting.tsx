@@ -139,7 +139,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({
     onChange?.({
       ...formatting,
       [typeKey]: value,
-    });
+    } as IDatetimeFormatting);
   };
 
   return (

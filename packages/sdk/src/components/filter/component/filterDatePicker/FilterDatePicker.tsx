@@ -1,4 +1,4 @@
-import type { IDateTimeFieldOperator, IDateFilter } from '@teable-group/core';
+import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable-group/core';
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -54,9 +54,9 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         mode: val as IDateFilter['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
-      setInnerValue(mergedValue);
+      setInnerValue(mergedValue as IDateFilter);
       if (val !== null && !INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
-        onSelect?.(mergedValue);
+        onSelect?.(mergedValue as IDateFilter);
       }
     },
     [onSelect]
@@ -67,7 +67,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       const mergedValue = {
         mode: exactDate.value,
         exactDate: val,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
       };
       onSelect?.(mergedValue);
     },

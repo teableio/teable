@@ -11,6 +11,7 @@ import type {
   IRecord,
   IRecordsVo,
   IUpdateRecordRo,
+  CellFormat,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
@@ -113,13 +114,15 @@ export async function updateRecordByApi(
 
 export async function getRecords(
   request: request.SuperAgentTest,
-  tableId: string
+  tableId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecordsVo> {
   return (
     await request
       .get(`/api/table/${tableId}/record`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;
@@ -128,13 +131,15 @@ export async function getRecords(
 export async function getRecord(
   request: request.SuperAgentTest,
   tableId: string,
-  recordId: string
+  recordId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecord> {
   return (
     await request
       .get(`/api/table/${tableId}/record/${recordId}`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;

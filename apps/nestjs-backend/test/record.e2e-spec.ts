@@ -8,9 +8,17 @@ import type {
   ITableFullVo,
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
+import { CellFormat, FieldKeyType, FieldType } from '@teable-group/core';
 import type request from 'supertest';
-import { createField, createRecords, getField, initApp, updateRecordByApi } from './utils/init-app';
+import {
+  createField,
+  createRecords,
+  getField,
+  getRecord,
+  getRecords,
+  initApp,
+  updateRecordByApi,
+} from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
@@ -47,6 +55,32 @@ describe('OpenAPI RecordController (e2e)', () => {
       const result = await request.get(`/api/table/${table.id}/record`).expect(200);
       expect(result.body.records).toBeInstanceOf(Array);
       // console.log('result: ', result.body);
+    });
+
+    it('should get string records', async () => {
+      const createdRecord = await createRecords(request, table.id, [
+        {
+          fields: {
+            [table.fields[0].id]: 'text value',
+            [table.fields[1].id]: 123,
+          },
+        },
+      ]);
+
+      const { records } = await getRecords(request, table.id, CellFormat.Text);
+
+      expect(records[3].fields[table.fields[0].id]).toEqual('text value');
+      expect(records[3].fields[table.fields[1].id]).toEqual('123.00');
+
+      const record = await getRecord(
+        request,
+        table.id,
+        createdRecord.records[0].id,
+        CellFormat.Text
+      );
+
+      expect(record.fields[table.fields[0].id]).toEqual('text value');
+      expect(record.fields[table.fields[1].id]).toEqual('123.00');
     });
 
     it('should create a record', async () => {

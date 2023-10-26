@@ -55,7 +55,7 @@ export const getRecordQuerySchema = z.object({
   }),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
+      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
     })
     .default(CellFormat.Json)
     .optional()
