@@ -1,11 +1,11 @@
 import { Loader2 } from '@teable-group/icons';
+import { LocalStorageKeys } from '@teable-group/sdk/config';
 import { useFields, useTable, useView } from '@teable-group/sdk/hooks';
 import type { FormView } from '@teable-group/sdk/model';
 import { Button, cn, useToast } from '@teable-group/ui-lib/shadcn';
 import { omit } from 'lodash';
 import { useMemo, useRef, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';
-import { FORM_VIEW_DATA_LOCAL_STORAGE_KEY } from '../constant';
 import { generateUniqLocalKey } from '../util';
 import { FormField } from './FormField';
 
@@ -16,7 +16,7 @@ export const FormPreviewer = () => {
   const { toast } = useToast();
   const localKey = generateUniqLocalKey(table?.id, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
-    FORM_VIEW_DATA_LOCAL_STORAGE_KEY,
+    LocalStorageKeys.ViewFromData,
     {}
   );
   const [formData, { set: setFormData, reset: resetFormData }] = useMap<Record<string, unknown>>(

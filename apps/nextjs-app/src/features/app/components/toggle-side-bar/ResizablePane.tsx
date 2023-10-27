@@ -1,4 +1,4 @@
-import { useIsHydrated } from '@teable-group/sdk';
+import { LocalStorageKeys, useIsHydrated } from '@teable-group/sdk';
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -12,7 +12,7 @@ const minSize = 150;
 export const ResizablePane: React.FC<{
   children: React.ReactNode[];
 }> = ({ children }) => {
-  const [size, setSize] = useLocalStorage<number[]>('side-bar-size');
+  const [size, setSize] = useLocalStorage<number[]>(LocalStorageKeys.SideBarSize);
   const [left, center, right] = children;
 
   const [leftVisible, setLeftVisible] = useState<boolean>(Boolean(size?.[0] && size[0] > minSize));
