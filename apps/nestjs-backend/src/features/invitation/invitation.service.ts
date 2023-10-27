@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { SpaceRole } from '@teable-group/core';
 import { generateInvitationCode, generateInvitationId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -12,6 +13,7 @@ import type {
 import dayjs from 'dayjs';
 import MarkdownIt from 'markdown-it';
 import { ClsService } from 'nestjs-cls';
+import type { IMailConfig } from '../../configs/mail.config';
 import type { IClsStore } from '../../types/cls';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
@@ -21,6 +23,7 @@ export class InvitationService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService
   ) {}
@@ -28,25 +31,26 @@ export class InvitationService {
   private spaceEmailOptions(info: {
     name: string;
     email: string;
-    workspaceName: string;
+    spaceName: string;
     inviteUrl: string;
   }) {
-    const { name, email, inviteUrl, workspaceName } = info;
+    const { name, email, inviteUrl, spaceName } = info;
     return {
-      title: `${name} (${email}) invited you to their workspace ${workspaceName} - Teable`,
+      title: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
       content: MarkdownIt({ html: true, breaks: true }).render(`
 ### Invitation to Collaborate
 
-**${name}** (${email}) has invited you to collaborate on their workspace **${workspaceName}**.
+**${name}** (${email}) has invited you to collaborate on their space **${spaceName}**.
 
 
-[Open workspace](${inviteUrl})
+[Open space](${inviteUrl})
       `),
     };
   }
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
-    return `/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
+    const mailConfig = this.configService.get<IMailConfig>('mail');
+    return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
   }
 
   async emailInvitationBySpace(spaceId: string, data: EmailSpaceInvitationRo) {
@@ -91,7 +95,7 @@ export class InvitationService {
         const { title, content } = this.spaceEmailOptions({
           name: user.name,
           email: user.email,
-          workspaceName: space?.name,
+          spaceName: space?.name,
           inviteUrl: this.generateInviteUrl(id, invitationCode),
         });
         this.mailSenderService.sendMail({
