@@ -12,9 +12,10 @@ import { DeleteTable } from './DeleteTable';
 interface IProps {
   table: Table;
   isActive: boolean;
+  className?: string;
 }
 
-export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
+export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) => {
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
   const { baseId } = router.query;
@@ -27,6 +28,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive }) => {
         asChild
         className={classNames(
           'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group',
+          className,
           {
             'bg-secondary/90': isActive,
           }

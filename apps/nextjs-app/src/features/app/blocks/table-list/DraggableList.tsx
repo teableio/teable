@@ -30,7 +30,10 @@ const DraggableContainer = (props: { children: React.ReactElement; id: string })
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={classNames('group relative overflow-y-auto', isDragging ? 'opacity-60' : null)}
+      className={classNames(
+        'group relative overflow-y-auto cursor-pointer',
+        isDragging ? 'opacity-60' : null
+      )}
     >
       {children}
     </div>
@@ -107,7 +110,7 @@ export const DraggableList: React.FC = () => {
     if (!table) {
       return null;
     }
-    return <TableListItem isActive={false} table={table} />;
+    return <TableListItem isActive={false} table={table} className="cursor-grabbing" />;
   };
 
   return isHydrated ? (
