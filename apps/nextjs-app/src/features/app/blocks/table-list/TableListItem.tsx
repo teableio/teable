@@ -3,7 +3,6 @@ import type { Table } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { EmojiPicker } from '../../components/EmojiPicker';
@@ -20,6 +19,20 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
   const router = useRouter();
   const { baseId } = router.query;
   const viewId = router.query.viewId;
+  const navigateHandler = () => {
+    router.push(
+      {
+        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        query: {
+          nodeId: table.id,
+          viewId: table.defaultViewId,
+          baseId: baseId as string,
+        },
+      },
+      undefined,
+      { shallow: Boolean(viewId) }
+    );
+  };
   return (
     <>
       <Button
@@ -33,28 +46,12 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
             'bg-secondary/90': isActive,
           }
         )}
+        onClick={navigateHandler}
+        onDoubleClick={() => {
+          setIsEditing(true);
+        }}
       >
-        <Link
-          href={{
-            pathname: '/base/[baseId]/[nodeId]/[viewId]',
-            query: {
-              nodeId: table.id,
-              viewId: table.defaultViewId,
-              baseId: baseId as string,
-            },
-          }}
-          title={table.name}
-          // when switch between tables, page will not change we should just do shallow routing
-          shallow={Boolean(viewId)}
-          onDoubleClick={() => {
-            setIsEditing(true);
-          }}
-          onClick={(e) => {
-            if (isActive) {
-              e.preventDefault();
-            }
-          }}
-        >
+        <div>
           <EmojiPicker
             className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/50"
             onChange={(icon: string) => table.updateIcon(icon)}
@@ -70,7 +67,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
             tableId={table.id}
             className="h-4 w-4 shrink-0 sm:hidden sm:group-hover:block"
           />
-        </Link>
+        </div>
       </Button>
       {isEditing && (
         <Input
