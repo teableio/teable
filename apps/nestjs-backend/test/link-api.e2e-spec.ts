@@ -805,6 +805,48 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
     });
+
+    it('should update link cellValue when change primary field value', async () => {
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+
+      await updateRecordByApi(request, table1.id, table1.records[0].id, table1.fields[2].id, [
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'B1+');
+
+      const record1 = await getRecord(request, table1.id, table1.records[0].id);
+
+      expect(record1.fields[table1.fields[2].id]).toEqual([
+        {
+          title: 'B1+',
+          id: table2.records[0].id,
+        },
+        {
+          title: 'B2',
+          id: table2.records[1].id,
+        },
+      ]);
+
+      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'B2+');
+      const record2 = await getRecord(request, table1.id, table1.records[0].id);
+      expect(record2.fields[table1.fields[2].id]).toEqual([
+        {
+          title: 'B1+',
+          id: table2.records[0].id,
+        },
+        {
+          title: 'B2+',
+          id: table2.records[1].id,
+        },
+      ]);
+    });
   });
 
   describe('multi link with depends same field', () => {

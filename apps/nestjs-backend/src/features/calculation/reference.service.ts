@@ -617,18 +617,17 @@ export class ReferenceService {
 
     if (Array.isArray(dependencies)) {
       // sort lookup values by link cell order
-      if (field.lookupOptions) {
-        const linkFieldId = field.lookupOptions.linkFieldId;
-        const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
+      const linkFieldId = field.lookupOptions ? field.lookupOptions.linkFieldId : field.id;
 
-        const dependenciesIndexed = keyBy(dependencies, 'id');
-        // when delete a link cell, the link cell value will be null
-        // but dependencies will still be there in the first round calculation
-        if (linkCellValues) {
-          dependencies = linkCellValues.map((v) => {
-            return dependenciesIndexed[v.id];
-          });
-        }
+      const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
+
+      const dependenciesIndexed = keyBy(dependencies, 'id');
+      // when delete a link cell, the link cell value will be null
+      // but dependencies will still be there in the first round calculation
+      if (linkCellValues) {
+        dependencies = linkCellValues.map((v) => {
+          return dependenciesIndexed[v.id];
+        });
       }
 
       return dependencies
