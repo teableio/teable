@@ -5,6 +5,7 @@ import { ChevronsLeft, TeableNew } from '@teable-group/icons';
 import { getBaseById } from '@teable-group/openapi';
 import { useIsHydrated } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
+import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { ThemePicker } from '../../../components/ThemePicker';
 
 export const SideBarHeader: React.FC = () => {
@@ -27,7 +28,7 @@ export const SideBarHeader: React.FC = () => {
       <div className="group relative h-6 w-6 shrink-0 cursor-pointer" onClick={backSpace}>
         <div className="absolute top-0 h-6 w-6 group-hover:opacity-0">
           {data?.data.icon ? (
-            <div className="text-2xl leading-none">{data?.data.icon}</div>
+            <Emoji emoji={data.data.icon} size={'1.5rem'} />
           ) : (
             <TeableNew className="h-6 w-6" />
           )}

@@ -5,7 +5,8 @@ import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
-import { EmojiPicker } from '../../components/EmojiPicker';
+import { Emoji } from '../../components/emoji/Emoji';
+import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { DeleteTable } from './DeleteTable';
 
 interface IProps {
@@ -53,11 +54,11 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
       >
         <div>
           <EmojiPicker
-            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/50"
+            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
             onChange={(icon: string) => table.updateIcon(icon)}
           >
             {table.icon ? (
-              <div className="text-base leading-none">{table.icon}</div>
+              <Emoji emoji={table.icon} size={'1rem'} />
             ) : (
               <Table2 className="h-4 w-4 shrink-0" />
             )}

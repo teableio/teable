@@ -25,7 +25,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
           {children}
         </div>
       </PopoverTrigger>
-      <PopoverContent>
+      <PopoverContent className="w-auto overflow-hidden p-0">
         <EmojiPickerCom theme={theme} data={emojiData} onEmojiSelect={onEmojiSelect} />
       </PopoverContent>
     </Popover>
