@@ -1,5 +1,12 @@
 import type { DragStartEvent, DragEndEvent, UniqueIdentifier } from '@dnd-kit/core';
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  MouseSensor,
+  TouchSensor,
+} from '@dnd-kit/core';
 import { useSortable, SortableContext } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTableId, useTables, useIsHydrated } from '@teable-group/sdk';
@@ -23,7 +30,10 @@ const DraggableContainer = (props: { children: React.ReactElement; id: string })
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={classNames('group relative overflow-y-auto', isDragging ? 'opacity-60' : null)}
+      className={classNames(
+        'group relative overflow-y-auto cursor-pointer',
+        isDragging ? 'opacity-60' : null
+      )}
     >
       {children}
     </div>
@@ -82,7 +92,13 @@ export const DraggableList: React.FC = () => {
   };
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8,
       },
@@ -94,7 +110,7 @@ export const DraggableList: React.FC = () => {
     if (!table) {
       return null;
     }
-    return <TableListItem isActive={false} table={table} />;
+    return <TableListItem isActive={false} table={table} className="cursor-grabbing" />;
   };
 
   return isHydrated ? (
