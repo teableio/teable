@@ -207,8 +207,14 @@ export class LinkService {
     const recordMapByTableId: IRecordMapByTableId = {};
     // include main table update message, and foreign table update will reflect to main table
     const updateForeignKeyParams: IUpdateForeignKeyParam[] = [];
-    const checkSet = new Set<string>();
+    const checkSetMap: { [fieldId: string]: Set<string> } = {};
     function pushForeignKeyParam(param: IUpdateForeignKeyParam) {
+      let checkSet = checkSetMap[param.mainLinkFieldId];
+      if (!checkSet) {
+        checkSet = new Set<string>();
+        checkSetMap[param.mainLinkFieldId] = checkSet;
+      }
+
       if (param.fRecordId) {
         if (checkSet.has(param.recordId)) {
           throw new BadRequestException(

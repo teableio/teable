@@ -2,6 +2,7 @@ import type { IRecord } from '@teable-group/core';
 import { useToast } from '@teable-group/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
+import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { AnchorProvider, ViewProvider } from '../../context';
 import { useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
@@ -36,7 +37,10 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
     props;
   const { toast } = useToast();
-  const [showActivity, setShowActivity] = useLocalStorage<boolean>('showActivity', true);
+  const [showActivity, setShowActivity] = useLocalStorage<boolean>(
+    LocalStorageKeys.ShowActivity,
+    true
+  );
 
   if (!recordId) {
     return <></>;
