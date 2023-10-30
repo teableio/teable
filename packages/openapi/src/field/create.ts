@@ -24,7 +24,7 @@ export const CreateFieldRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about a field.',
       content: {
         'application/json': {

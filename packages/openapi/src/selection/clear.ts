@@ -21,7 +21,7 @@ export const clearRoSchema = z.object({
 export type ClearRo = z.infer<typeof clearRoSchema>;
 
 export const ClearRoute: RouteConfig = registerRoute({
-  method: 'post',
+  method: 'patch',
   path: CLEAR_URL,
   description: 'Clarify the constituency section',
   request: {
@@ -46,7 +46,7 @@ export const ClearRoute: RouteConfig = registerRoute({
 });
 
 export const clear = async (tableId: string, viewId: string, clearRo: ClearRo) => {
-  return axios.post<null>(
+  return axios.patch<null>(
     urlBuilder(CLEAR_URL, {
       tableId,
       viewId,

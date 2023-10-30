@@ -34,7 +34,7 @@ export const SigninRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Sign in successfully',
       content: {
         'application/json': {

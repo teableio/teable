@@ -21,7 +21,7 @@ export const SignatureRoute: RouteConfig = registerRoute({
   description: 'Retrieve upload signature.',
   request: {},
   responses: {
-    200: {
+    201: {
       description: 'return the upload URL and the key.',
       content: {
         'application/json': {

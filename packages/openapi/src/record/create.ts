@@ -24,7 +24,7 @@ export const CreateRecordRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about the records.',
       content: {
         'application/json': {
