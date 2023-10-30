@@ -116,7 +116,7 @@ export class RecordOpenApiService {
       fieldKeyType
     );
 
-    let newRecordsFields: Record<string, unknown>[] = recordsFields;
+    const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
     for (const field of effectFieldInstance) {
       const typeCastAndValidate = new TypeCastAndValidate({
         services: {
@@ -128,11 +128,17 @@ export class RecordOpenApiService {
         tableId,
         typecast,
       });
+      const fieldIdOrName = field[fieldKeyType];
 
-      newRecordsFields = await typeCastAndValidate.typecastRecordsWithField(
-        recordsFields,
-        fieldKeyType
-      );
+      const cellValues = recordsFields.map((recordFields) => recordFields[fieldIdOrName]);
+
+      const newCellValues = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
+      newRecordsFields.forEach((recordField, i) => {
+        // do not generate undefined field key
+        if (newCellValues[i] !== undefined) {
+          recordField[fieldIdOrName] = newCellValues[i];
+        }
+      });
     }
 
     return records.map((record, i) => ({

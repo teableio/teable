@@ -52,11 +52,7 @@ export class FieldService implements IAdapterService {
     return fields.map(({ id, name }) => `${convertNameToValidCharacter(name, 12)}_${id}`);
   }
 
-  private async dbCreateField(
-    tableId: string,
-    columnMeta: IColumnMeta,
-    fieldInstance: IFieldInstance
-  ) {
+  private async dbCreateField(tableId: string, fieldInstance: IFieldInstance) {
     const userId = this.cls.get('user.id');
     const {
       id,
@@ -75,6 +71,7 @@ export class FieldService implements IAdapterService {
       cellValueType,
       isMultipleCellValue,
       isLookup,
+      columnMeta,
     } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
@@ -110,10 +107,7 @@ export class FieldService implements IAdapterService {
     return this.prismaService.txClient().field.create({ data });
   }
 
-  private async getColumnsMeta(
-    tableId: string,
-    fieldInstances: IFieldInstance[]
-  ): Promise<IColumnMeta[]> {
+  async getColumnsMeta(tableId: string, fieldInstances: IFieldInstance[]): Promise<IColumnMeta[]> {
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true },
@@ -146,11 +140,9 @@ export class FieldService implements IAdapterService {
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
     const multiFieldData: RawField[] = [];
 
-    // maintain columnsMeta by view
-    const columnsMeta = await this.getColumnsMeta(tableId, fieldInstances);
     for (let i = 0; i < fieldInstances.length; i++) {
       const fieldInstance = fieldInstances[i];
-      const fieldData = await this.dbCreateField(tableId, columnsMeta[i], fieldInstance);
+      const fieldData = await this.dbCreateField(tableId, fieldInstance);
 
       multiFieldData.push(fieldData);
     }
@@ -332,6 +324,10 @@ export class FieldService implements IAdapterService {
   async create(tableId: string, snapshot: IFieldVo) {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(tableId);
+
+    // maintain columnsMeta by view
+    const [columnsMeta] = await this.getColumnsMeta(tableId, [fieldInstance]);
+    fieldInstance.columnMeta = columnsMeta;
 
     // 1. save field meta in db
     await this.dbCreateMultipleField(tableId, [fieldInstance]);

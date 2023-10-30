@@ -1,13 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type {
-  AttachmentFieldCore,
-  FieldCore,
-  IFieldRo,
-  IFieldVo,
-  IRecord,
-  IUpdateRecordsRo,
-  SelectFieldCore,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -339,21 +331,15 @@ export class SelectionService {
           switch (field.type) {
             case FieldType.Attachment:
               {
-                recordField[field.id] = (field as AttachmentFieldCore).convertStringToCellValue(
-                  stringValue,
-                  attachments
-                );
+                recordField[field.id] = field.convertStringToCellValue(stringValue, attachments);
               }
               break;
             case FieldType.SingleSelect:
             case FieldType.MultipleSelect:
-              recordField[field.id] = (field as SelectFieldCore).convertStringToCellValue(
-                stringValue,
-                true
-              );
+              recordField[field.id] = field.convertStringToCellValue(stringValue, true);
               break;
             default:
-              recordField[field.id] = (field as FieldCore).convertStringToCellValue(stringValue);
+              recordField[field.id] = field.convertStringToCellValue(stringValue);
           }
         }
 
