@@ -37,8 +37,10 @@ export class FieldCreatingService {
     const fieldId = field.id;
 
     const uniqName = await this.uniqFieldName(tableId, field.name);
+    const [columnMeta] = await this.fieldService.getColumnsMeta(tableId, [field]);
 
     field.name = uniqName;
+    field.columnMeta = columnMeta;
 
     await this.fieldSupplementService.createReference(field);
 

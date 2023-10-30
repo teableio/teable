@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import type { ILinkCellValue } from '@teable-group/core';
-import { ColorUtils, FieldKeyType, FieldType, generateChoiceId } from '@teable-group/core';
+import { ColorUtils, FieldType, generateChoiceId } from '@teable-group/core';
 import type { PrismaService } from '@teable-group/db-main-prisma';
-import { has, isUndefined, keyBy, map } from 'lodash';
+import { isUndefined, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -48,29 +48,26 @@ export class TypeCastAndValidate {
    * Attempts to cast a cell value to the appropriate type based on the field configuration.
    * Calls the appropriate typecasting method depending on the field type.
    */
-  async typecastRecordsWithField(
-    fieldsRecords: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
-  ) {
+  async typecastCellValuesWithField(cellValues: unknown[]) {
     const { type, isComputed } = this.field;
     if (isComputed) {
-      return fieldsRecords;
+      return cellValues;
     }
     switch (type) {
       case FieldType.SingleSelect:
-        return await this.castToSingleSelect(fieldsRecords, fieldKeyType);
+        return await this.castToSingleSelect(cellValues);
       case FieldType.MultipleSelect:
-        return await this.castToMultipleSelect(fieldsRecords, fieldKeyType);
+        return await this.castToMultipleSelect(cellValues);
       case FieldType.Link: {
-        return await this.castToLink(fieldsRecords, fieldKeyType);
+        return await this.castToLink(cellValues);
       }
       default:
-        return this.defaultCastTo(fieldsRecords, fieldKeyType);
+        return this.defaultCastTo(cellValues);
     }
   }
 
-  private defaultCastTo(fieldsRecords: Record<string, unknown>[], fieldKeyType: FieldKeyType) {
-    return this.mapFieldsRecordsWithValidate(fieldsRecords, fieldKeyType, (cellValue: unknown) => {
+  private defaultCastTo(cellValues: unknown[]) {
+    return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       return this.field.repair(cellValue);
     });
   }
@@ -78,30 +75,23 @@ export class TypeCastAndValidate {
   /**
    * Traverse fieldRecords, and do validation here.
    */
-  private mapFieldsRecordsWithValidate(
-    fieldsRecords: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType,
+  private mapFieldsCellValuesWithValidate(
+    cellValues: unknown[],
     callBack: (cellValue: unknown) => unknown
   ) {
-    return fieldsRecords.map((record) => {
-      const fieldIdOrName = this.field[fieldKeyType];
-      if (!has(record, fieldIdOrName)) {
-        return record;
-      }
-      const cellValue = record[fieldIdOrName];
+    return cellValues.map((cellValue) => {
       const validate = this.field.validateCellValue(cellValue);
+      if (cellValue === undefined) {
+        return;
+      }
       if (!validate.success) {
         if (this.typecast) {
-          const typecastCv = callBack(cellValue);
-          return {
-            ...record,
-            [fieldIdOrName]: typecastCv,
-          };
+          return callBack(cellValue);
         } else {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
-      return record;
+      return cellValue;
     });
   }
 
@@ -157,60 +147,42 @@ export class TypeCastAndValidate {
    * Casts the value to a single select option.
    * Creates the option if it does not already exist.
    */
-  private async castToSingleSelect(
-    fieldsRecords: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType
-  ): Promise<Record<string, unknown>[]> {
+  private async castToSingleSelect(cellValues: unknown[]): Promise<unknown[]> {
     const allValuesSet = new Set<string>();
-    const newFieldsRecords = this.mapFieldsRecordsWithValidate(
-      fieldsRecords,
-      fieldKeyType,
-      (cellValue: unknown) => {
-        const valueArr = this.valueToStringArray(cellValue);
-        const newCellValue: string | null = valueArr?.length ? valueArr[0] : null;
-        newCellValue && allValuesSet.add(newCellValue);
-        return newCellValue;
-      }
-    );
+    const newCellValues = this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
+      const valueArr = this.valueToStringArray(cellValue);
+      const newCellValue: string | null = valueArr?.length ? valueArr[0] : null;
+      newCellValue && allValuesSet.add(newCellValue);
+      return newCellValue;
+    });
     await this.createOptionsIfNotExists([...allValuesSet]);
-    return newFieldsRecords;
+    return newCellValues;
   }
 
   /**
    * Casts the value to multiple select options.
    * Creates the option if it does not already exist.
    */
-  private async castToMultipleSelect(
-    fieldsRecords: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType
-  ): Promise<Record<string, unknown>[]> {
+  private async castToMultipleSelect(cellValues: unknown[]): Promise<unknown[]> {
     const allValuesSet = new Set<string>();
-    const newFieldsRecords = this.mapFieldsRecordsWithValidate(
-      fieldsRecords,
-      fieldKeyType,
-      (cellValue: unknown) => {
-        const valueArr = this.valueToStringArray(cellValue);
-        const newCellValue: string[] | null = valueArr?.length ? valueArr : null;
-        // collect all options
-        newCellValue?.forEach((v) => v && allValuesSet.add(v));
-        return newCellValue;
-      }
-    );
+    const newCellValues = this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
+      const valueArr = this.valueToStringArray(cellValue);
+      const newCellValue: string[] | null = valueArr?.length ? valueArr : null;
+      // collect all options
+      newCellValue?.forEach((v) => v && allValuesSet.add(v));
+      return newCellValue;
+    });
     await this.createOptionsIfNotExists([...allValuesSet]);
-    return newFieldsRecords;
+    return newCellValues;
   }
 
   /**
    * Casts the value to a link type, associating it with another table.
    * Try to find the rows with matching titles from the associated table and write them to the cell.
    */
-  private async castToLink(
-    fieldsRecords: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType
-  ): Promise<Record<string, unknown>[]> {
-    const linkRecordMap = this.typecast ? await this.getLinkTableRecordMap() : {};
-
-    return this.mapFieldsRecordsWithValidate(fieldsRecords, fieldKeyType, (cellValue: unknown) => {
+  private async castToLink(cellValues: unknown[]): Promise<unknown[]> {
+    const linkRecordMap = this.typecast ? await this.getLinkTableRecordMap(cellValues) : {};
+    return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       const newCellValue: ILinkCellValue[] | ILinkCellValue | null = this.castToLinkOne(
         cellValue,
         linkRecordMap
@@ -222,9 +194,12 @@ export class TypeCastAndValidate {
   /**
    * Get the recordMap of the associated table, the format is: {[title]: [id]}.
    */
-  private async getLinkTableRecordMap() {
+  private async getLinkTableRecordMap(cellValues: unknown[]) {
+    const titles = cellValues.flat().filter(Boolean) as string[];
+
     const linkRecords = await this.services.recordService.getRecordsWithPrimary(
-      (this.field as LinkFieldDto).options.foreignTableId
+      (this.field as LinkFieldDto).options.foreignTableId,
+      titles
     );
 
     return linkRecords.reduce(

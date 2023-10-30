@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Colors, FieldKeyType, FieldType } from '@teable-group/core';
+import { Colors, FieldType } from '@teable-group/core';
 import type { PrismaService } from '@teable-group/db-main-prisma';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
@@ -34,60 +34,57 @@ describe('TypeCastAndValidate', () => {
     mockReset(recordService);
   });
 
-  describe('typecastRecordsWithField', () => {
+  describe('typecastCellValuesWithField', () => {
     it('should call castToSingleSelect for single select field', async () => {
       const field = mockDeep<IFieldInstance>({ type: FieldType.SingleSelect, isComputed: false });
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
-      const records: Record<string, unknown>[] = [];
+      const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockResolvedValue(records);
+      jest.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockResolvedValue(cellValues);
 
-      const result = await typeCastAndValidate.typecastRecordsWithField(records);
+      const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
-      expect(result).toEqual(records);
-      expect(typeCastAndValidate['castToSingleSelect']).toBeCalledWith(records, FieldKeyType.Name);
+      expect(result).toEqual(cellValues);
+      expect(typeCastAndValidate['castToSingleSelect']).toBeCalledWith(cellValues);
     });
 
     it('should call castToMultipleSelect for multiple select field', async () => {
       const field = mockDeep<IFieldInstance>({ type: FieldType.MultipleSelect, isComputed: false });
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
-      const records: Record<string, unknown>[] = [];
+      const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToMultipleSelect').mockResolvedValue(records);
+      jest.spyOn(typeCastAndValidate as any, 'castToMultipleSelect').mockResolvedValue(cellValues);
 
-      const result = await typeCastAndValidate.typecastRecordsWithField(records);
+      const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
-      expect(result).toEqual(records);
-      expect(typeCastAndValidate['castToMultipleSelect']).toBeCalledWith(
-        records,
-        FieldKeyType.Name
-      );
+      expect(result).toEqual(cellValues);
+      expect(typeCastAndValidate['castToMultipleSelect']).toBeCalledWith(cellValues);
     });
 
     it('should call castToLink for link field', async () => {
       const field = mockDeep<IFieldInstance>({ type: FieldType.Link, isComputed: false });
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
-      const records: Record<string, unknown>[] = [];
+      const cellValues: Record<string, unknown>[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToLink').mockResolvedValue(records);
+      jest.spyOn(typeCastAndValidate as any, 'castToLink').mockResolvedValue(cellValues);
 
-      const result = await typeCastAndValidate.typecastRecordsWithField(records);
+      const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
-      expect(result).toEqual(records);
-      expect(typeCastAndValidate['castToLink']).toBeCalledWith(records, FieldKeyType.Name);
+      expect(result).toEqual(cellValues);
+      expect(typeCastAndValidate['castToLink']).toBeCalledWith(cellValues);
     });
 
     it('should call defaultCastTo for other field', async () => {
       const field = mockDeep<IFieldInstance>({ type: FieldType.SingleLineText, isComputed: false });
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
-      const records: Record<string, unknown>[] = [];
+      const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'defaultCastTo').mockResolvedValue(records);
+      jest.spyOn(typeCastAndValidate as any, 'defaultCastTo').mockResolvedValue(cellValues);
 
-      const result = await typeCastAndValidate.typecastRecordsWithField(records);
+      const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
-      expect(result).toEqual(records);
-      expect(typeCastAndValidate['defaultCastTo']).toBeCalledWith(records, FieldKeyType.Name);
+      expect(result).toEqual(cellValues);
+      expect(typeCastAndValidate['defaultCastTo']).toBeCalledWith(cellValues);
     });
 
     it('should reject if sub method throws error', async () => {
@@ -98,7 +95,7 @@ describe('TypeCastAndValidate', () => {
         throw new Error('xxxxx');
       });
 
-      await expect(typeCastAndValidate.typecastRecordsWithField([])).rejects.toThrow();
+      await expect(typeCastAndValidate.typecastCellValuesWithField([])).rejects.toThrow();
     });
   });
 
@@ -153,7 +150,7 @@ describe('TypeCastAndValidate', () => {
     });
   });
 
-  describe('mapFieldsRecordsWithValidate', () => {
+  describe('mapFieldsCellValuesWithValidate', () => {
     const field = mockDeep<IFieldInstance>({ id: 'fldxxxx' });
     const typeCastAndValidate = new TypeCastAndValidate({
       services,
@@ -162,7 +159,7 @@ describe('TypeCastAndValidate', () => {
       typecast: true,
     });
     it('should map record and apply callback', () => {
-      const records = [{ [field.id]: 1 }];
+      const cellValues = [1];
       const callback = jest.fn(() => 'value');
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -172,18 +169,14 @@ describe('TypeCastAndValidate', () => {
         error: 'error',
       });
 
-      const result = typeCastAndValidate['mapFieldsRecordsWithValidate'](
-        records,
-        FieldKeyType.Id,
-        callback
-      );
+      const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, callback);
 
-      expect(result).toEqual([{ [field.id]: 'value' }]);
+      expect(result).toEqual(['value']);
       expect(callback).toBeCalledWith(1);
     });
 
     it('should throw error when validate fails', () => {
-      const records = [{ [field.id]: 1 }];
+      const cellValues = [1];
 
       const typeCastAndValidate = new TypeCastAndValidate({
         services,
@@ -199,14 +192,15 @@ describe('TypeCastAndValidate', () => {
       });
 
       expect(() => {
-        typeCastAndValidate['mapFieldsRecordsWithValidate'](records, FieldKeyType.Id, jest.fn());
+        typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, jest.fn());
       }).toThrow('Bad Request');
     });
 
     it('should return original record if typecast is false', () => {
+      const field = mockDeep<IFieldInstance>();
       const typeCastAndValidate = new TypeCastAndValidate({
         services,
-        field: mockDeep<IFieldInstance>(),
+        field,
         tableId,
       });
 
@@ -214,31 +208,26 @@ describe('TypeCastAndValidate', () => {
         success: true,
       } as any);
 
-      const records = [{ [field.id]: 1 }];
+      const cellValues = [1];
 
-      const result = typeCastAndValidate['mapFieldsRecordsWithValidate'](
-        records,
-        FieldKeyType.Id,
+      const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](
+        cellValues,
         () => 'value'
       );
 
-      expect(result).toEqual(records);
+      expect(result).toEqual(cellValues);
     });
 
     it('should not throw error if no field value', () => {
-      const records = [{ other: 1 }];
+      const cellValues = [1];
 
       field.validateCellValue.mockReturnValue({
         success: true,
       } as any);
 
-      const result = typeCastAndValidate['mapFieldsRecordsWithValidate'](
-        records,
-        FieldKeyType.Id,
-        jest.fn()
-      );
+      const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, jest.fn());
 
-      expect(result).toEqual(records);
+      expect(result).toEqual(cellValues);
     });
   });
 
@@ -284,9 +273,9 @@ describe('TypeCastAndValidate', () => {
   });
 
   describe('defaultCastTo', () => {
-    it('should call mapFieldsRecordsWithValidate with repair callback', () => {
+    it('should call mapFieldsCellValuesWithValidate with repair callback', () => {
       const field = mockDeep<IFieldInstance>({ id: 'fldxxxx', repair: () => 'repair' });
-      const records = [{ [field.id]: 'value' }];
+      const cellValues = ['value'];
       const typeCastAndValidate = new TypeCastAndValidate({
         services,
         field,
@@ -295,10 +284,10 @@ describe('TypeCastAndValidate', () => {
       });
 
       jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsRecordsWithValidate')
-        .mockImplementation((...args) => (args[2] as any)());
+        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
+        .mockImplementation((...args) => (args[1] as any)());
 
-      const result = typeCastAndValidate['defaultCastTo'](records, FieldKeyType.Id);
+      const result = typeCastAndValidate['defaultCastTo'](cellValues);
 
       expect(result).toEqual('repair');
     });
@@ -310,7 +299,7 @@ describe('TypeCastAndValidate', () => {
       type: FieldType.SingleSelect,
       options: { choices: [{ id: '1', name: 'option 1', color: Colors.Blue }] },
     });
-    const records = [{ [field.id]: 'value' }];
+    const cellValues = ['value'];
     const typeCastAndValidate = new TypeCastAndValidate({
       services,
       field,
@@ -319,14 +308,14 @@ describe('TypeCastAndValidate', () => {
     });
     it('should call dependencies correctly and return', async () => {
       jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsRecordsWithValidate')
-        .mockImplementation((...args) => (args[2] as any)('value'));
+        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
+        .mockImplementation((...args) => (args[1] as any)('value'));
 
       jest.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation();
 
-      const result = await typeCastAndValidate['castToSingleSelect'](records, FieldKeyType.Id);
+      const result = await typeCastAndValidate['castToSingleSelect'](cellValues);
 
-      expect(typeCastAndValidate['mapFieldsRecordsWithValidate']).toBeCalled();
+      expect(typeCastAndValidate['mapFieldsCellValuesWithValidate']).toBeCalled();
       expect(typeCastAndValidate['createOptionsIfNotExists']).toBeCalledWith(['value']);
       expect(result).toEqual('value');
     });
@@ -338,7 +327,7 @@ describe('TypeCastAndValidate', () => {
       type: FieldType.SingleSelect,
       options: { choices: [{ id: '1', name: 'option 1', color: Colors.Blue }] },
     });
-    const records = [{ [field.id]: 'value' }];
+    const cellValues = ['value'];
     const typeCastAndValidate = new TypeCastAndValidate({
       services,
       field,
@@ -347,14 +336,14 @@ describe('TypeCastAndValidate', () => {
     });
     it('should call dependencies correctly and return', async () => {
       jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsRecordsWithValidate')
-        .mockImplementation((...args) => (args[2] as any)('value'));
+        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
+        .mockImplementation((...args) => (args[1] as any)('value'));
 
       jest.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation();
 
-      const result = await typeCastAndValidate['castToMultipleSelect'](records, FieldKeyType.Id);
+      const result = await typeCastAndValidate['castToMultipleSelect'](cellValues);
 
-      expect(typeCastAndValidate['mapFieldsRecordsWithValidate']).toBeCalled();
+      expect(typeCastAndValidate['mapFieldsCellValuesWithValidate']).toBeCalled();
       expect(typeCastAndValidate['createOptionsIfNotExists']).toBeCalledWith(['value']);
       expect(result).toEqual(['value']);
     });
@@ -375,9 +364,9 @@ describe('TypeCastAndValidate', () => {
     it('should call dependencies correctly and return recordMap', async () => {
       recordService.getRecordsWithPrimary.mockResolvedValue([{ id: '1', title: 'title1' }]);
 
-      const result = await typeCastAndValidate['getLinkTableRecordMap']();
+      const result = await typeCastAndValidate['getLinkTableRecordMap'](['title1']);
 
-      expect(recordService.getRecordsWithPrimary).toBeCalledWith('foreignTableId');
+      expect(recordService.getRecordsWithPrimary).toBeCalledWith('foreignTableId', ['title1']);
       expect(result).toEqual({
         title1: '1',
       });
@@ -412,7 +401,7 @@ describe('TypeCastAndValidate', () => {
 
   describe('castToLink', () => {
     const field = mockDeep<LinkFieldDto>();
-    const records = [{ [field.id]: 'value' }];
+    const cellValues = ['value'];
     const typeCastAndValidate = new TypeCastAndValidate({
       services,
       field,
@@ -423,14 +412,14 @@ describe('TypeCastAndValidate', () => {
       jest.spyOn(typeCastAndValidate as any, 'getLinkTableRecordMap').mockResolvedValue({});
 
       jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsRecordsWithValidate')
-        .mockImplementation((...args) => (args[2] as any)('title'));
+        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
+        .mockImplementation((...args) => (args[1] as any)('title'));
 
       jest
         .spyOn(typeCastAndValidate as any, 'castToLinkOne')
         .mockReturnValue({ title1: '1' } as any);
 
-      const result = await typeCastAndValidate['castToLink'](records, FieldKeyType.Id);
+      const result = await typeCastAndValidate['castToLink'](cellValues);
 
       expect(result).toEqual({ title1: '1' });
     });
