@@ -13,6 +13,6 @@ axios.interceptors.response.use(
   (error) => {
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     const { data, status } = error?.response || {};
-    throw new HttpError(data || 'no response from server', status || 500);
+    throw new HttpError(data || error?.message || 'no response from server', status || 500);
   }
 );

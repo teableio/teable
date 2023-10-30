@@ -7,9 +7,10 @@ import type {
   ISnapshotBase,
   IViewRo,
   IViewVo,
-  IOtOperation,
+  ISetViewDescriptionOpContext,
+  ISort,
 } from '@teable-group/core';
-import { getUniqName, IdPrefix, generateViewId, OpName } from '@teable-group/core';
+import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
@@ -173,28 +174,14 @@ export class ViewService implements IAdapterService {
     ]);
   }
 
-  async updateView(
-    tableId: string,
-    viewId: string,
-    input: Omit<
-      Prisma.ViewUpdateInput,
-      'id' | 'createdBy' | 'createdTime' | 'lastModifiedBy' | 'lastModifiedTime' | 'version'
-    >
-  ) {
-    const select = Object.keys(input).reduce<{ [key: string]: boolean }>((acc, key) => {
-      acc[key] = true;
-      return acc;
-    }, {});
-
+  async updateView(tableId: string, viewId: string, sort: ISort) {
     const viewRaw = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
         where: { id: viewId, tableId, deletedTime: null },
         select: {
-          ...select,
+          sort: true,
           version: true,
-          lastModifiedBy: true,
-          lastModifiedTime: true,
         },
       })
       .catch(() => {
@@ -202,31 +189,27 @@ export class ViewService implements IAdapterService {
       });
 
     const updateInput: Prisma.ViewUpdateInput = {
-      ...input,
-      version: viewRaw.version + 1,
+      sort: JSON.stringify(sort),
       lastModifiedBy: this.cls.get('user.id'),
       lastModifiedTime: new Date(),
     };
 
-    const ops = Object.entries(updateInput)
-      .filter(([key, value]) => Boolean(value == (viewRaw as Record<string, unknown>)[key]))
-      .map<IOtOperation>(([key, value]) => {
-        return {
-          p: [key],
-          oi: value,
-          od: (viewRaw as Record<string, unknown>)[key],
-        };
-      });
+    const ops = [
+      ViewOpBuilder.editor.setViewSort.build({
+        newSort: sort,
+        oldSort: viewRaw?.sort ? JSON.parse(viewRaw.sort) : null,
+      }),
+    ];
 
     const viewRawAfter = await this.prismaService.txClient().view.update({
       where: { id: viewId },
-      data: updateInput,
+      data: { version: viewRaw.version + 1, ...updateInput },
     });
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, [
+    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
       {
         docId: viewId,
-        version: 0,
+        version: viewRaw.version,
         data: ops,
       },
     ]);
@@ -256,6 +239,7 @@ export class ViewService implements IAdapterService {
     viewId: string,
     opContexts: (
       | ISetViewNameOpContext
+      | ISetViewDescriptionOpContext
       | ISetViewFilterOpContext
       | ISetViewOptionsOpContext
       | ISetViewSortOpContext
@@ -268,6 +252,9 @@ export class ViewService implements IAdapterService {
       switch (opContext.name) {
         case OpName.SetViewName:
           updateData['name'] = opContext.newName;
+          break;
+        case OpName.SetViewDescription:
+          updateData['description'] = opContext.newDescription;
           break;
         case OpName.SetViewFilter:
           updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;

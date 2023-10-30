@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete } from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type {
   ICreateBaseVo,
@@ -48,8 +48,8 @@ export class BaseController {
   }
 
   @Get()
-  async getBaseList(): Promise<IGetBaseVo[]> {
-    return await this.baseService.getBaseList();
+  async getBaseList(@Query('spaceId') spaceId?: string): Promise<IGetBaseVo[]> {
+    return await this.baseService.getBaseList(spaceId);
   }
 
   @Delete(':baseId')

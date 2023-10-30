@@ -5,8 +5,14 @@ import { defaultNumberFormatting, numberFormattingSchema } from './number';
 
 export * from './number';
 export * from './datetime';
+export * from './time-zone';
 
-export const unionFormattingSchema = z.union([datetimeFormattingSchema, numberFormattingSchema]);
+export const unionFormattingSchema = z
+  .union([datetimeFormattingSchema, numberFormattingSchema])
+  .openapi({
+    description:
+      'Different cell value types are determined based on the results of expression parsing, where numbers, dates, and formatting options are provided',
+  });
 
 export type IUnionFormatting = z.infer<typeof unionFormattingSchema>;
 

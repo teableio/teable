@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { spaceRolesSchema } from '@teable-group/core';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
@@ -41,3 +42,11 @@ export const ListSpaceCollaboratorRoute: RouteConfig = registerRoute({
   },
   tags: ['space'],
 });
+
+export const getSpaceCollaboratorList = async (spaceId: string) => {
+  return axios.get<ListSpaceCollaboratorVo>(
+    urlBuilder(SPACE_COLLABORATE_LIST, {
+      spaceId,
+    })
+  );
+};

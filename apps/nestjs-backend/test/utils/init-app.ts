@@ -11,6 +11,7 @@ import type {
   IRecord,
   IRecordsVo,
   IUpdateRecordRo,
+  CellFormat,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type { ISignin } from '@teable-group/openapi';
@@ -19,6 +20,7 @@ import { json, urlencoded } from 'express';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
+import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
@@ -39,7 +41,7 @@ export async function initApp() {
     .compile();
 
   const app = moduleFixture.createNestApplication();
-
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
@@ -93,32 +95,35 @@ export async function updateRecordByApi(
   recordId: string,
   fieldId: string,
   newValue: unknown,
-  expect = 200
+  expectStatus = 200
 ): Promise<IRecord> {
-  return (
-    await request
-      .put(`/api/table/${tableId}/record/${recordId}`)
-      .send({
-        fieldKeyType: FieldKeyType.Id,
-        record: {
-          fields: {
-            [fieldId]: newValue,
-          },
-        },
-      } as IUpdateRecordRo)
-      .expect(expect)
-  ).body;
+  const result = await request.put(`/api/table/${tableId}/record/${recordId}`).send({
+    fieldKeyType: FieldKeyType.Id,
+    record: {
+      fields: {
+        [fieldId]: newValue,
+      },
+    },
+  } as IUpdateRecordRo);
+
+  if (result.status !== 200 && result.status !== expectStatus) {
+    console.error(result.body);
+  }
+  expect(result.status).toEqual(expectStatus);
+  return result.body;
 }
 
 export async function getRecords(
   request: request.SuperAgentTest,
-  tableId: string
+  tableId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecordsVo> {
   return (
     await request
       .get(`/api/table/${tableId}/record`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;
@@ -127,13 +132,15 @@ export async function getRecords(
 export async function getRecord(
   request: request.SuperAgentTest,
   tableId: string,
-  recordId: string
+  recordId: string,
+  cellFormat?: CellFormat
 ): Promise<IRecord> {
   return (
     await request
       .get(`/api/table/${tableId}/record/${recordId}`)
       .query({
         fieldKeyType: FieldKeyType.Id,
+        cellFormat,
       })
       .expect(200)
   ).body;
@@ -157,7 +164,9 @@ export async function deleteRecords(
 export async function createRecords(
   request: request.SuperAgentTest,
   tableId: string,
-  records: ICreateRecordsRo['records']
+  records: ICreateRecordsRo['records'],
+  typecast = false,
+  expect = 201
 ): Promise<ICreateRecordsVo> {
   return (
     await request
@@ -165,8 +174,9 @@ export async function createRecords(
       .send({
         records,
         fieldKeyType: FieldKeyType.Id,
+        typecast: typecast,
       })
-      .expect(201)
+      .expect(expect)
   ).body;
 }
 
@@ -202,6 +212,14 @@ export async function updateField(
     console.error(JSON.stringify(result.body, null, 2));
   }
   expect(result.status).toEqual(200);
+  return result.body;
+}
+
+export async function getFields(
+  request: request.SuperAgentTest,
+  tableId: string
+): Promise<IFieldVo[]> {
+  const result = await request.get(`/api/table/${tableId}/field`).expect(200);
   return result.body;
 }
 

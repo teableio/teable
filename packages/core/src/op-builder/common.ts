@@ -2,6 +2,7 @@ export enum OpName {
   AddTable = 'addTable',
   SetTableName = 'setTableName',
   SetTableOrder = 'setTableOrder',
+  SetTableIcon = 'SetTableIcon',
 
   SetRecord = 'setRecord',
   SetRecordOrder = 'setRecordOrder',
@@ -16,6 +17,7 @@ export enum OpName {
 
   AddView = 'addView',
   SetViewName = 'setViewName',
+  SetViewDescription = 'SetViewDescription',
   SetViewFilter = 'setViewFilter',
   SetViewSort = 'setViewSort',
   SetViewOptions = 'SetViewOptions',

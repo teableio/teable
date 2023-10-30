@@ -2,6 +2,7 @@ import type { IViewVo } from '@teable-group/core';
 import { assertNever, ViewType } from '@teable-group/core';
 import type { View } from '@teable-group/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
+import { FormViewDto } from './form-view.dto';
 import { GridViewDto } from './grid-view.dto';
 import { KanbanViewDto } from './kanban-view.dto';
 
@@ -14,6 +15,7 @@ export function createViewInstanceByRaw(viewRaw: View) {
     case ViewType.Kanban:
       return plainToInstance(KanbanViewDto, viewVo);
     case ViewType.Form:
+      return plainToInstance(FormViewDto, viewVo);
     case ViewType.Gallery:
     case ViewType.Gantt:
     case ViewType.Calendar:

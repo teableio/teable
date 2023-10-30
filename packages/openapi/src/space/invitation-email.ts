@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { spaceRolesSchema } from '@teable-group/core';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const EMAIL_SPACE_INVITATION = '/space/{spaceId}/invitation/email';
@@ -48,3 +49,14 @@ export const EmailInvitationRoute: RouteConfig = registerRoute({
   },
   tags: ['space'],
 });
+
+export const emailSpaceInvitation = (params: {
+  spaceId: string;
+  emailSpaceInvitationRo: EmailSpaceInvitationRo;
+}) => {
+  const { spaceId, emailSpaceInvitationRo } = params;
+  return axios.post<EmailInvitationVo>(
+    urlBuilder(EMAIL_SPACE_INVITATION, { spaceId }),
+    emailSpaceInvitationRo
+  );
+};

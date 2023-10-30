@@ -6,6 +6,7 @@ import { AutomationModule } from './features/automation/automation.module';
 import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
+import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
@@ -27,6 +28,7 @@ import { WsModule } from './ws/ws.module';
     NextModule,
     FileTreeModule,
     TableOpenApiModule,
+    FieldOpenApiModule,
     BaseModule,
     ChatModule,
     AttachmentsModule,

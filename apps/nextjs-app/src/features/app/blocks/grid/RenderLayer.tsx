@@ -28,7 +28,7 @@ export interface IRenderLayerProps
     | 'coordInstance'
     | 'columnStatistics'
   > {
-  isEditing: boolean;
+  isEditing?: boolean;
   visibleRegion: IVisibleRegion;
   activeCell: ICellItem | null;
   dragState: IDragState;

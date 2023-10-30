@@ -30,8 +30,8 @@ import type { IEditorRef } from '../editor/type';
 import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
-export const CellEditorMain = (props: ICellValueEditor) => {
-  const { field, cellValue, onChange, disabled } = props;
+export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
+  const { field, cellValue, onChange, disabled, className } = props;
   const { type, options } = field;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<IEditorRef<any>>(null);
@@ -55,7 +55,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <TextEditor
             ref={editorRef}
-            className="h-8"
+            className={className}
             value={cellValue as ISingleLineTextCellValue}
             options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
@@ -67,7 +67,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <LongTextEditor
             ref={editorRef}
-            className="h-20"
+            className={className}
             value={cellValue as ILongTextCellValue}
             onChange={onChange}
             disabled={disabled}
@@ -78,7 +78,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
         return (
           <NumberEditor
             ref={editorRef}
-            className="h-8"
+            className={className}
             options={options as INumberFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
@@ -89,7 +89,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Rating: {
         return (
           <RatingEditor
-            className="h-8"
+            className={className}
             options={options as IRatingFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
@@ -100,6 +100,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.SingleSelect: {
         return (
           <SelectEditor
+            className={className}
             value={cellValue as ISingleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
@@ -110,6 +111,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.MultipleSelect: {
         return (
           <SelectEditor
+            className={className}
             value={cellValue as IMultipleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
@@ -123,7 +125,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
           // Setting the checkbox size is affected by the font-size causing the height to change.
           <div style={{ fontSize: 0 }}>
             <CheckboxEditor
-              className="w-6 h-6"
+              className={className}
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
               disabled={disabled}
@@ -134,7 +136,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Date: {
         return (
           <DateEditor
-            className="w-44"
+            className={className}
             value={cellValue ? new Date(cellValue as IDateCellValue) : undefined}
             onChange={(selectedDay) => onChange?.(selectedDay ? selectedDay.toISOString() : null)}
           />
@@ -143,6 +145,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Attachment: {
         return (
           <AttachmentEditor
+            className={className}
             value={cellValue as IAttachmentCellValue}
             onChange={onChange}
             disabled={disabled}
@@ -152,6 +155,7 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       case FieldType.Link: {
         return (
           <LinkEditor
+            className={className}
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
             options={options as ILinkFieldOptions}
             onChange={onChange}
@@ -162,5 +166,5 @@ export const CellEditorMain = (props: ICellValueEditor) => {
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, cellValue, onChange, disabled, selectOptions, options]);
+  }, [type, className, cellValue, options, onChange, disabled, selectOptions]);
 };

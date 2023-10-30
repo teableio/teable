@@ -48,7 +48,9 @@
         "--inspect-brk",
         "./node_modules/.bin/jest",
         "${relativeFile}",
-        "--runInBand"
+        "--runInBand",
+        "--config",
+        "./jest.config.js"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"

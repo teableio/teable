@@ -20,7 +20,7 @@ interface IOrderProps {
 function OrderSelect(props: IOrderProps) {
   const { value, onSelect, fieldId } = props;
 
-  const fields = useFields({ widthHidden: true });
+  const fields = useFields({ withHidden: true });
 
   const field = useMemo(() => {
     const map: Record<string, FieldCore> = {};

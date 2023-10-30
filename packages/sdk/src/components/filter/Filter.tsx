@@ -33,7 +33,7 @@ function Filter(props: IFilterProps) {
   const { onChange, filters: initFilter, children } = props;
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
 
-  const fields = useFields({ widthHidden: true });
+  const fields = useFields({ withHidden: true });
   const setFilterHandler = (
     path: IFiltersPath,
     value:

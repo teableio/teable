@@ -6,12 +6,13 @@ interface IToolBarButton {
   text: string;
   isActive?: boolean;
   className?: string;
+  textClassName?: string;
   children: React.ReactElement | React.ReactElement[];
 }
 
 const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
   (props: IToolBarButton, ref) => {
-    const { children, text, isActive = false, className, ...restProps } = props;
+    const { children, text, isActive = false, className, textClassName, ...restProps } = props;
 
     return (
       <Button
@@ -26,7 +27,14 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
         {...restProps}
       >
         {children}
-        <span className="hidden truncate @5xl/toolbar:inline">{text}</span>
+        <span
+          className={classNames(
+            'hidden truncate',
+            textClassName ? textClassName : '@2xl/toolbar:inline'
+          )}
+        >
+          {text}
+        </span>
       </Button>
     );
   }

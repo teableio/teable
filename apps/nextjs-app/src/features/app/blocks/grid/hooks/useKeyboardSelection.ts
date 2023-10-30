@@ -118,21 +118,21 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
-    Mousetrap.bind(
-      ['del', 'backspace', 'mod+c', 'mod+v'],
-      (e: ExtendedKeyboardEvent, combo: string) => {
-        if (!activeCell || isEditing) return;
-        switch (combo) {
-          case 'del':
-          case 'backspace':
-            return onDelete?.(selection);
-          case 'mod+c':
-            return onCopy?.(selection);
-          case 'mod+v':
-            return onPaste?.(selection);
-        }
+    Mousetrap.bind(['del', 'backspace', 'mod+v'], (e: ExtendedKeyboardEvent, combo: string) => {
+      if (!activeCell || isEditing) return;
+      switch (combo) {
+        case 'del':
+        case 'backspace':
+          return onDelete?.(selection);
+        case 'mod+v':
+          return onPaste?.(selection);
       }
-    );
+    });
+
+    Mousetrap.bind(['mod+c'], () => {
+      if (isEditing) return;
+      onCopy?.(selection);
+    });
 
     Mousetrap.bind(['enter', 'shift+enter'], (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell) return;
@@ -171,7 +171,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     });
 
     Mousetrap.bind('space', () => {
-      if (!activeCell) return;
+      if (!activeCell || isEditing) return;
       const [, rowIndex] = activeCell;
       onRowExpand?.(rowIndex);
     });

@@ -57,17 +57,27 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
+    const { setViewSort } = ViewOpBuilder.editor;
     const rawOps: (EditOp | CreateOp | DeleteOp)[] = [];
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
         const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
         const channels = [collection, `${collection}.${docId}`];
+        const ops = rawOp.op;
         rawOp.c = collection;
         rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
-
         rawOps.push(rawOp);
+
+        /**
+         * this is for some special scenarios like manual sort
+         * which only send view ops but update record too
+         */
+        if (ops?.[0] && setViewSort.detect(ops?.[0])) {
+          const [, tableId] = collection.split('_');
+          this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+        }
       }
     }
     this.eventService.ops2Event(rawOps);

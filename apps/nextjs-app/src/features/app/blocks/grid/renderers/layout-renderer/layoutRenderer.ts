@@ -169,6 +169,8 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         });
       }
 
+      if (isFreezeRegion && freezeColumnCount === 0) continue;
+
       cellPropList.push({
         x: isFirstColumn ? x : x + 0.5,
         y: y + 0.5,
@@ -676,19 +678,6 @@ export const drawColumnHeaders = (
       hoverColumnIndex === columnIndex;
     let fill = undefined;
 
-    if (columnIndex === 0) {
-      const isChecked = isRowSelection && isEqual(selectionRanges[0], [0, endRowIndex]);
-      drawGridHeader(ctx, {
-        x: 0.5,
-        y: 0.5,
-        width: columnInitSize + 1,
-        height: rowInitSize,
-        theme,
-        rowControls,
-        isChecked,
-      });
-    }
-
     if (isActive) {
       fill = columnHeaderBgSelected;
     } else if (isHover) {
@@ -708,6 +697,17 @@ export const drawColumnHeaders = (
         spriteManager,
       });
   }
+
+  const isChecked = isRowSelection && isEqual(selectionRanges[0], [0, endRowIndex]);
+  drawGridHeader(ctx, {
+    x: 0,
+    y: 0.5,
+    width: columnInitSize + 1.5,
+    height: rowInitSize,
+    theme,
+    rowControls,
+    isChecked,
+  });
 
   ctx.restore();
 };

@@ -3,12 +3,13 @@
 import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
+import type { ITimeZoneString } from '../formatting';
 import { DateFormattingPreset, defaultDatetimeFormatting, TimeFormatting } from '../formatting';
 import type { IDateFieldOptions } from './date.field';
 import { DateFieldCore } from './date.field';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const DEFAULT_TIME_ZONE = 'Etc/GMT';
+const DEFAULT_TIME_ZONE = 'utc';
 
 describe('DateFieldCore', () => {
   let field: DateFieldCore;
@@ -127,7 +128,7 @@ describe('DateFieldCore', () => {
           formatting: {
             date: DateFormattingPreset.Y,
             time: TimeFormatting.Hour24,
-            timeZone: 123 as unknown as string,
+            timeZone: 123 as unknown as ITimeZoneString,
           },
           defaultValue: 'now',
         },

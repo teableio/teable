@@ -9,7 +9,10 @@ import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 export const formulaFieldOptionsSchema = z
   .object({
-    expression: z.string(),
+    expression: z.string().openapi({
+      description:
+        'The formula including fields referenced by their IDs. For example, LEFT(4, {Birthday}) input will be returned as LEFT(4, {fldXXX}) via API.',
+    }),
     formatting: unionFormattingSchema.optional(),
     showAs: unionShowAsSchema.optional(),
   })

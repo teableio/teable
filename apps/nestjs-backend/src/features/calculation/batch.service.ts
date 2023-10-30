@@ -3,7 +3,7 @@ import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { groupBy, keyBy, merge } from 'lodash';
+import { groupBy, isEmpty, keyBy, merge } from 'lodash';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -40,13 +40,9 @@ export class BatchService {
     tableId2DbTableName: { [tableId: string]: string }
   ) {
     const tableIds = Object.keys(opsMap);
-    const missingTableIds = tableIds.filter((id) => !tableId2DbTableName[id]);
-    if (!missingTableIds.length) {
-      return { tableId2DbTableName, fieldMap };
-    }
 
     const missingFieldIds = Array.from(
-      missingTableIds.reduce<Set<string>>((pre, id) => {
+      tableIds.reduce<Set<string>>((pre, id) => {
         Object.values(opsMap[id]).forEach((ops) =>
           ops.forEach((op) => {
             const fieldId = RecordOpBuilder.editor.setRecord.detect(op)?.fieldId;
@@ -59,8 +55,12 @@ export class BatchService {
       }, new Set())
     );
 
+    if (!missingFieldIds.length) {
+      return { fieldMap, tableId2DbTableName };
+    }
+
     const tableRaw = await this.prismaService.txClient().tableMeta.findMany({
-      where: { id: { in: missingTableIds }, deletedTime: null },
+      where: { id: { in: tableIds }, deletedTime: null },
       select: { id: true, dbTableName: true },
     });
 
@@ -99,6 +99,10 @@ export class BatchService {
     for (const tableId in opsMap) {
       const dbTableName = tableId2DbTableName[tableId];
       const recordOpsMap = opsMap[tableId];
+      if (isEmpty(recordOpsMap)) {
+        continue;
+      }
+
       const raw = await this.fetchRawData(dbTableName, recordOpsMap);
       const versionGroup = keyBy(raw, '__id');
 
@@ -120,15 +124,14 @@ export class BatchService {
     recordOpsMap: { [recordId: string]: IOtOperation[] }
   ) {
     const recordIds = Object.keys(recordOpsMap);
-    const nativeSql = this.knex(dbTableName)
+    const querySql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
       .select('__id', '__version')
-      .toSQL()
-      .toNative();
+      .toQuery();
 
     return this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __version: number; __id: string }[]>(nativeSql.sql, ...nativeSql.bindings);
+      .$queryRawUnsafe<{ __version: number; __id: string }[]>(querySql);
   }
 
   @Timing()

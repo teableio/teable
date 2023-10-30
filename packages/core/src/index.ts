@@ -16,3 +16,4 @@ export * from './formula';
 export * from './query';
 export * from './errors';
 export * from './auth';
+export * from './permission';

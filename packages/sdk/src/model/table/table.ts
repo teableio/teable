@@ -37,6 +37,23 @@ export class Table extends TableCore {
     }
   }
 
+  async updateIcon(icon: string) {
+    const tableOperation = TableOpBuilder.editor.setTableIcon.build({
+      newIcon: icon,
+      oldIcon: this.icon,
+    });
+
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([tableOperation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
+      });
+    } catch (error) {
+      return error;
+    }
+  }
+
   async createView(viewRo: IViewRo) {
     return View.createView(this.id, viewRo);
   }

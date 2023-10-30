@@ -3,8 +3,10 @@ import { generateAttachmentId } from '@teable-group/core';
 import { X, Download } from '@teable-group/icons';
 import type { INotifyVo } from '@teable-group/openapi';
 import { Button, Progress } from '@teable-group/ui-lib';
-import { map, omit } from 'lodash';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import classNames from 'classnames';
+import { debounce, map, omit } from 'lodash';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDrop } from 'react-use';
 import { getFileCover } from '../utils';
 import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
@@ -53,8 +55,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   );
 
   const uploadAttachment = useCallback(
-    (fileList: FileList) => {
-      const files = Array.from(fileList);
+    (files: File[]) => {
       const uploadList = files.map((v) => ({ instance: v, id: generateAttachmentId() }));
 
       const newUploadMap = uploadList.reduce((acc: IUploadFileMap, file) => {
@@ -90,10 +91,29 @@ export const UploadAttachment = (props: IUploadAttachment) => {
 
   const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
 
+  const [inPageOver, setInPageOver] = useState<boolean>(false);
+  const { over } = useDrop();
+
+  useEffect(() => {
+    const throttleUpdate = debounce((over: boolean) => {
+      setInPageOver(over);
+    }, 60);
+    throttleUpdate(over);
+    return () => throttleUpdate.cancel();
+  }, [over]);
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="overflow-y-scroll relative flex-1" ref={listRef}>
-        {len === 0 && <DragAndCopy onChange={uploadAttachment} disabled={disabled} />}
+      <div
+        className={classNames('relative flex-1 overflow-y-scroll', {
+          'overflow-y-scroll': !inPageOver,
+          'overflow-y-hidden': inPageOver,
+        })}
+        ref={listRef}
+      >
+        {(len === 0 || inPageOver) && (
+          <DragAndCopy onChange={uploadAttachment} disabled={disabled} />
+        )}
         {len > 0 && (
           <ul className="-right-2 w-full h-full flex flex-wrap">
             {attachments.map((attachment) => (

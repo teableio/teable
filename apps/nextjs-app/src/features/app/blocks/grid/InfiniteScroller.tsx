@@ -1,5 +1,9 @@
+import { useIsTouchDevice } from '@teable-group/sdk/hooks';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
-import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { Scroller } from 'scroller';
 import type { IGridProps } from './Grid';
 import { getHorizontalRangeInfo, getVerticalRangeInfo, useEventListener } from './hooks';
 import type { IScrollState } from './interface';
@@ -60,6 +64,9 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     },
   }));
 
+  const isTouchDevice = useIsTouchDevice();
+
+  const scrollerRef = useRef<Scroller | null>(null);
   const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
   const verticalScrollRef = useRef<HTMLDivElement | null>(null);
   const resetScrollingTimeoutID = useRef<ITimeoutID | null>(null);
@@ -156,6 +163,15 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     }
   }, []);
 
+  const mobileScrollHandler = useCallback((scrollLeft: number, scrollTop: number) => {
+    if (horizontalScrollRef.current) {
+      horizontalScrollRef.current.scrollLeft = scrollLeft;
+    }
+    if (verticalScrollRef.current) {
+      verticalScrollRef.current.scrollTop = scrollTop;
+    }
+  }, []);
+
   const onWheel = useCallback(
     (event: Event) => {
       if (!scrollEnable) return;
@@ -167,6 +183,50 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     },
     [scrollEnable, scrollHandler]
   );
+
+  const onTouchStart = useCallback((e: TouchEvent) => {
+    if (scrollerRef.current) {
+      scrollerRef.current.doTouchStart(e.changedTouches, e.timeStamp);
+    }
+  }, []);
+
+  const onTouchMove = useCallback((e: TouchEvent) => {
+    e.preventDefault();
+    if (scrollerRef.current) {
+      scrollerRef.current.doTouchMove(e.changedTouches, e.timeStamp);
+    }
+  }, []);
+
+  const onTouchEnd = useCallback((e: TouchEvent) => {
+    if (scrollerRef.current) {
+      if (horizontalScrollRef.current && verticalScrollRef.current) {
+        scrollerRef.current?.scrollTo(
+          horizontalScrollRef.current.scrollLeft,
+          verticalScrollRef.current.scrollTop
+        );
+      }
+      scrollerRef.current.doTouchEnd(e.timeStamp);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isTouchDevice) return;
+
+    const options = {
+      scrollingX: true,
+      scrollingY: true,
+      animationDuration: 200,
+    };
+
+    scrollerRef.current = new Scroller(mobileScrollHandler, options);
+  }, [mobileScrollHandler, isTouchDevice]);
+
+  useEffect(() => {
+    if (scrollerRef.current) {
+      scrollTo({});
+      scrollerRef.current.setDimensions(containerWidth, containerHeight, scrollWidth, scrollHeight);
+    }
+  }, [containerHeight, containerWidth, scrollWidth, scrollHeight]);
 
   const placeholderElements: ReactNode[] = useMemo(() => {
     let h = 0;
@@ -182,6 +242,9 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
   }, [scrollHeight]);
 
   useEventListener('wheel', onWheel, containerRef.current, false);
+  useEventListener('touchstart', onTouchStart, containerRef.current, false);
+  useEventListener('touchmove', onTouchMove, containerRef.current, false);
+  useEventListener('touchend', onTouchEnd, containerRef.current, false);
 
   return (
     <>

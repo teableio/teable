@@ -14,6 +14,7 @@ interface ILinkEditorProps {
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 const LinkEditorInner = (props: ILinkEditorProps) => {
@@ -72,7 +73,7 @@ export const LinkEditorMain = (props: ILinkEditorProps) => {
 };
 
 export const LinkEditor = (props: ILinkEditorProps) => {
-  const { cellValue, options, onChange, disabled } = props;
+  const { cellValue, options, onChange, disabled, className } = props;
   const { toast } = useToast();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { foreignTableId, relationship } = options;
@@ -137,7 +138,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
       />
       <Popover>
         <PopoverTrigger asChild disabled={disabled}>
-          <Button variant="outline" size={'sm'}>
+          <Button variant="outline" size={'sm'} className={className}>
             <Plus />
             Add Record
           </Button>

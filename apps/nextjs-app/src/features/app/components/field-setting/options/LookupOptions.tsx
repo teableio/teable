@@ -19,6 +19,7 @@ const SelectFieldByTableId: React.FC<{
         {table?.name} field you want to look up
       </span>
       <Selector
+        className="w-full"
         placeholder="Select a field..."
         selectedId={selectedId}
         onChange={(id) => {
@@ -58,6 +59,7 @@ export const LookupOptions = (props: {
               Linked record field to use for lookup
             </span>
             <Selector
+              className="w-full"
               placeholder="Select a table..."
               selectedId={options.linkFieldId}
               onChange={(selected: string) => {

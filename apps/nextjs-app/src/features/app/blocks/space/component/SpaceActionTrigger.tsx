@@ -1,7 +1,9 @@
+import { Pencil, Trash2 } from '@teable-group/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import React from 'react';
@@ -18,9 +20,16 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[160px]">
-        <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
-        <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onRename}>
+          <Pencil className="mr-2" />
+          Rename
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+          <Trash2 className="mr-2" />
+          Delete
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

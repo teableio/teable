@@ -47,6 +47,15 @@ export abstract class View extends ViewCore {
     return await this.submitOperation(viewOperation);
   }
 
+  async updateDescription(description: string) {
+    const viewOperation = ViewOpBuilder.editor.setViewDescription.build({
+      newDescription: description,
+      oldDescription: this.description,
+    });
+
+    return await this.submitOperation(viewOperation);
+  }
+
   async setFilter(newFilter?: IFilter | null) {
     const validFilter = newFilter && (await filterSchema.parseAsync(newFilter));
 

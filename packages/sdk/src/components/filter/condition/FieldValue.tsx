@@ -107,6 +107,7 @@ function FieldValue(props: IFieldValue) {
             options={field.options}
             onChange={onSelect as (value?: number) => void}
             className="px-2 h-8 border border-input rounded-md shadow-sm"
+            iconClassName="w-4 h-4 mr-1"
           />
         );
       default:

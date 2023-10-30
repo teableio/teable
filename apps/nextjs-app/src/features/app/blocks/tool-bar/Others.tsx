@@ -10,14 +10,14 @@ export const Others: React.FC = () => {
   const { toggleGraph } = useGraphStore();
   const driver = useDriver();
   return (
-    <div className="flex">
-      <ToolBarButton text="Share">
+    <div className="min-w-[100px] justify-end @container/toolbar-others @2xl/toolbar:flex @2xl/toolbar:flex-1">
+      <ToolBarButton text="Share" textClassName="@[234px]/toolbar-others:inline">
         <ArrowUpRight className="h-4 w-4" />
       </ToolBarButton>
 
       <Popover>
         <PopoverTrigger asChild>
-          <ToolBarButton text="Extensions">
+          <ToolBarButton text="Extensions" textClassName="@[234px]/toolbar-others:inline">
             <Component className="h-4 w-4" />
           </ToolBarButton>
         </PopoverTrigger>
@@ -36,7 +36,7 @@ export const Others: React.FC = () => {
 
       <Popover>
         <PopoverTrigger asChild>
-          <ToolBarButton text="API">
+          <ToolBarButton text="API" textClassName="@[234px]/toolbar-others:inline">
             <Code2 className="h-4 w-4" />
           </ToolBarButton>
         </PopoverTrigger>

@@ -19,7 +19,7 @@ export const HideFields: React.FC<{
   children: (text: string, isActive: boolean) => React.ReactNode;
 }> = ({ children }) => {
   const activeViewId = useViewId();
-  const fields = useFields({ widthHidden: true });
+  const fields = useFields({ withHidden: true });
   const fieldStaticGetter = useFieldStaticGetter();
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>

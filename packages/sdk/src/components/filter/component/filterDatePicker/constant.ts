@@ -8,6 +8,7 @@ import {
 import type {
   IDateTimeFieldSubOperator,
   IDateTimeFieldSubOperatorByIsWithin,
+  ITimeZoneString,
 } from '@teable-group/core';
 
 const defaultMapping: Record<
@@ -48,12 +49,12 @@ const DATEPICKEROPTIONS: string[] = [exactDate.value];
 
 const defaultValue = {
   mode: exactDate.value,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
 };
 
 const withInDefaultValue = {
   mode: nextNumberOfDays.value,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
 };
 
 export { defaultMapping, DATEPICKEROPTIONS, INPUTOPTIONS, defaultValue, withInDefaultValue };

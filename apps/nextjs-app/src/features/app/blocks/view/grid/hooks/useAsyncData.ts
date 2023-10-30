@@ -166,7 +166,7 @@ export const useAsyncData = (
       }
 
       const newOrders = reorder(
-        rowIndexCollection,
+        rowIndexCollection.length,
         newRowIndex,
         rowCount ?? initRecords?.length ?? 0,
         (index) => {

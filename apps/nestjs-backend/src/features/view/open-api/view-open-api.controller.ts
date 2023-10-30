@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import type { IViewVo } from '@teable-group/core';
 import { viewRoSchema, manualSortRoSchema, IManualSortRo, IViewRo } from '@teable-group/core';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -38,7 +38,7 @@ export class ViewOpenApiController {
     return await this.viewOpenApiService.deleteView(tableId, viewId);
   }
 
-  @Post('/:viewId/sort')
+  @Put('/:viewId/sort')
   async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,

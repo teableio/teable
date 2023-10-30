@@ -2,11 +2,11 @@ import { Plus } from '@teable-group/icons';
 import { Button } from '@teable-group/ui-lib';
 import { useRef } from 'react';
 
-export const FileInput = (props: { onChange?: (files: FileList) => void }) => {
+export const FileInput = (props: { onChange?: (files: File[]) => void }) => {
   const fileInput = useRef<HTMLInputElement>(null);
   const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
-    fileList && props.onChange?.(fileList);
+    fileList && props.onChange?.(Array.from(fileList));
     e.target.value = '';
   };
 

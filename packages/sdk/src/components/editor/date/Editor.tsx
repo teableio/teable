@@ -14,7 +14,7 @@ export const DateEditor = (props: IDateEditorMain) => {
         <Button
           variant={'outline'}
           className={classNames(
-            'w-full first-line:pl-3 text-left font-normal',
+            'w-full sm:w-44 first-line:pl-3 text-left font-normal h-10 sm:h-9',
             !value && 'text-muted-foreground',
             className
           )}

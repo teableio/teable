@@ -12,6 +12,7 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef, useEffect } from 'react';
+import { SpaceCollaboratorModalTrigger } from '../../components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { BaseCard } from './BaseCard';
 import { SpaceActionTrigger } from './component/SpaceActionTrigger';
 
@@ -92,13 +93,17 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
           )}
           <div className="flex shrink-0 items-center gap-3">
             <Button
-              variant={'outline'}
               size={'xs'}
               disabled={createBaseLoading}
               onClick={() => createBaseMutator({ spaceId: space.id })}
             >
               Create Base
             </Button>
+            <SpaceCollaboratorModalTrigger space={space}>
+              <Button variant={'outline'} size={'xs'} disabled={createBaseLoading}>
+                Share
+              </Button>
+            </SpaceCollaboratorModalTrigger>
             <SpaceActionTrigger
               onDelete={() => deleteSpaceMutator(space.id)}
               onRename={() => setRenaming(true)}
@@ -112,9 +117,13 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
       </CardHeader>
       <CardContent>
         {bases?.length ? (
-          <div className="flex flex-wrap gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
             {bases.map((base) => (
-              <BaseCard key={base.id} className="h-24 min-w-[17rem] flex-1" base={base} />
+              <BaseCard
+                key={base.id}
+                className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
+                base={base}
+              />
             ))}
           </div>
         ) : (

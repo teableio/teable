@@ -13,10 +13,10 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import type { DeepMockProxy } from 'jest-mock-extended';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
+import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
-import { FieldCreatingService } from '../field/open-api/field-creating.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionModule } from './selection.module';
@@ -328,6 +328,7 @@ describe('selectionService', () => {
 
       expect(updateRecordsRo).toEqual({
         fieldKeyType: FieldKeyType.Id,
+        typecast: true,
         records: [
           {
             id: records[0].id,

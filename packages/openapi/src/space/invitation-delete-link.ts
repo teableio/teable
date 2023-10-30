@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const DELETE_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link/{invitationId}';
@@ -21,3 +22,8 @@ export const DeleteSpaceInvitationLinkRoute: RouteConfig = registerRoute({
   },
   tags: ['space'],
 });
+
+export const deleteSpaceInvitationLink = (params: { spaceId: string; invitationId: string }) => {
+  const { spaceId, invitationId } = params;
+  return axios.delete(urlBuilder(DELETE_SPACE_INVITATION_LINK, { spaceId, invitationId }));
+};

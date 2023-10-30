@@ -5,6 +5,7 @@ import {
   RATING_ICON_MAP,
   useFields,
   useFieldStaticGetter,
+  useIsTouchDevice,
   useRowCount,
   useSSRRecords,
   useTable,
@@ -62,6 +63,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
+  const isTouchDevice = useIsTouchDevice();
   const isLoading = !view;
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, recordMap } =
@@ -191,6 +193,17 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     [columns, openSetting]
   );
 
+  const onColumnHeaderClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      if (!isTouchDevice) return;
+      const fieldId = columns[colIndex].id;
+      const { x, height } = bounds;
+      const selectedFields = fields.filter((field) => field.id === fieldId);
+      openHeaderMenu({ fields: selectedFields, position: { x, y: height } });
+    },
+    [isTouchDevice, columns, fields, openHeaderMenu]
+  );
+
   const onColumnStatisticClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
@@ -259,6 +272,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   }, [view]);
 
   const rowControls = useMemo(() => {
+    if (isTouchDevice) return [];
     return [
       {
         type: RowControlType.Drag,
@@ -273,7 +287,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         icon: RowControlType.Expand,
       },
     ];
-  }, []);
+  }, [isTouchDevice]);
 
   const gridRef = useRef<IGridRef>(null);
 
@@ -319,10 +333,11 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         <Grid
           ref={gridRef}
           theme={theme}
+          isTouchDevice={isTouchDevice}
           rowCount={rowCount ?? ssrRecords?.length ?? 0}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
           columnStatistics={columnStatistics}
-          freezeColumnCount={1}
+          freezeColumnCount={isTouchDevice ? 0 : 1}
           columns={columns}
           smoothScrollX
           smoothScrollY
@@ -341,6 +356,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           onColumnResize={onColumnResize}
           onColumnOrdered={onColumnOrdered}
           onContextMenu={onContextMenu}
+          onColumnHeaderClick={onColumnHeaderClick}
           onColumnStatisticClick={onColumnStatisticClick}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onSelectionChanged={onSelectionChanged}

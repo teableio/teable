@@ -45,7 +45,7 @@ export enum CellValueType {
 }
 
 export enum Relationship {
-  ManyMany = 'manyMany',
+  // ManyMany = 'manyMany',
   OneMany = 'oneMany',
   ManyOne = 'manyOne',
 }
@@ -54,5 +54,5 @@ export enum Relationship {
 export const RelationshipRevert = {
   [Relationship.OneMany]: Relationship.ManyOne,
   [Relationship.ManyOne]: Relationship.OneMany,
-  [Relationship.ManyMany]: Relationship.ManyMany,
+  // [Relationship.ManyMany]: Relationship.ManyMany,
 };

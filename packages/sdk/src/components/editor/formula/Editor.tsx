@@ -349,7 +349,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         </div>
       </div>
       <div className="w-full h-[360px] flex">
-        <div ref={listRef} className="flex-shrink-0 overflow-y-auto w-[200px] border-r-[1px]">
+        <div ref={listRef} className="shrink-0 overflow-y-auto w-[200px] border-r-[1px]">
           {formatFunctionList.length || filteredFields.length ? (
             <>
               {filteredFields.length > 0 && (
@@ -373,7 +373,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                         onClick={onItemClick}
                         onMouseEnter={() => setSuggestionItemIndex(index)}
                       >
-                        <Icon className="mr-1 flex-shrink-0" />
+                        <Icon className="mr-1 shrink-0" />
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                           {name}
                         </span>
@@ -409,7 +409,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                             setSuggestionItemIndex(filteredFields.length + prevCount + index)
                           }
                         >
-                          <Icon className="mr-1 flex-shrink-0" />
+                          <Icon className="mr-1 shrink-0" />
                           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
                             {funcName}
                           </span>

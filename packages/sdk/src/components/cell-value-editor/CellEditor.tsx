@@ -3,11 +3,11 @@ import { ComputedEditor } from './ComputedEditor';
 import type { ICellValueEditor } from './type';
 
 export const CellEditor = (props: ICellValueEditor) => {
-  const { field, cellValue, style, className } = props;
+  const { field, cellValue, wrapStyle, wrapClassName } = props;
   const { isComputed } = field;
 
   return (
-    <div style={style} className={className}>
+    <div style={wrapStyle} className={wrapClassName}>
       {isComputed ? (
         <ComputedEditor cellValueString={field.cellValue2String(cellValue)} />
       ) : (

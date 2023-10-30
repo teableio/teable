@@ -10,6 +10,7 @@ import type {
   IAttachmentCellValue,
   ICreateRecordsRo,
   IExtraResult,
+  IGetRecordQuery,
   IGetRecordsQuery,
   IMakeRequired,
   IRecord,
@@ -27,6 +28,7 @@ import {
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
   OpName,
+  CellFormat,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -111,16 +113,17 @@ export class RecordService implements IAdapterService {
   private dbRecord2RecordFields(
     record: IRecord['fields'],
     fields: IFieldInstance[],
-    fieldMap: Record<string, IFieldInstance>,
-    fieldKeyType?: FieldKeyType
+    fieldKeyType?: FieldKeyType,
+    cellFormat: CellFormat = CellFormat.Json
   ) {
     return fields.reduce<IRecord['fields']>((acc, field) => {
       const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
       const dbCellValue = record[field.dbFieldName];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cellValue = fieldMap[fieldNameOrId].convertDBValue2CellValue(dbCellValue as any);
+      const cellValue = field.convertDBValue2CellValue(dbCellValue as any);
       if (cellValue != null) {
-        acc[fieldNameOrId] = cellValue;
+        acc[fieldNameOrId] =
+          cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
       }
       return acc;
     }, {});
@@ -265,7 +268,21 @@ export class RecordService implements IAdapterService {
     // All `where` condition-related construction work
     const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
 
-    queryBuilder.orderBy(translatedOrderby).orderBy(orderFieldName, 'asc').offset(skip);
+    const orderByRawSql = translatedOrderby
+      .map(({ column, order }) => {
+        const upperOrder = order.toUpperCase();
+        // let nulls to lowest
+        return `${this.knex.raw('??', [column]).toQuery()} ${upperOrder} NULLS ${
+          upperOrder === 'ASC' ? 'FIRST' : 'LAST'
+        }`;
+      })
+      .join();
+
+    if (orderByRawSql) {
+      queryBuilder.orderByRaw(orderByRawSql);
+    }
+
+    queryBuilder.orderBy(orderFieldName, 'asc').offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
@@ -408,24 +425,22 @@ export class RecordService implements IAdapterService {
       tableId,
       queryResult.ids,
       undefined,
-      query.fieldKeyType || FieldKeyType.Name
+      query.fieldKeyType || FieldKeyType.Name,
+      query.cellFormat
     );
     return {
       records: recordSnapshot.map((r) => r.data),
     };
   }
 
-  async getRecord(
-    tableId: string,
-    recordId: string,
-    projection?: { [fieldNameOrId: string]: boolean },
-    fieldKeyType = FieldKeyType.Name
-  ): Promise<IRecord> {
+  async getRecord(tableId: string, recordId: string, query: IGetRecordQuery): Promise<IRecord> {
+    const { projection, fieldKeyType = FieldKeyType.Name, cellFormat } = query;
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       [recordId],
       projection,
-      fieldKeyType
+      fieldKeyType,
+      cellFormat
     );
 
     if (!recordSnapshot.length) {
@@ -436,7 +451,10 @@ export class RecordService implements IAdapterService {
   }
 
   async getCellValue(tableId: string, recordId: string, fieldId: string) {
-    const record = await this.getRecord(tableId, recordId, { [fieldId]: true }, FieldKeyType.Id);
+    const record = await this.getRecord(tableId, recordId, {
+      projection: { [fieldId]: true },
+      fieldKeyType: FieldKeyType.Id,
+    });
     return record.fields[fieldId];
   }
 
@@ -468,14 +486,13 @@ export class RecordService implements IAdapterService {
   async batchDeleteRecords(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     // get version by recordIds, __id as id, __version as version
-    const nativeSql = this.knex(dbTableName)
+    const nativeQuery = this.knex(dbTableName)
       .select('__id as id', '__version as version')
       .whereIn('__id', recordIds)
-      .toSQL()
-      .toNative();
+      .toQuery();
     const recordRaw = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeSql.sql, ...nativeSql.bindings);
+      .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
     if (recordIds.length !== recordRaw.length) {
       throw new BadRequestException('delete record not found');
@@ -570,9 +587,9 @@ export class RecordService implements IAdapterService {
       )
     );
 
-    const nativeSql = this.knex(dbTableName).whereIn('__id', recordIds).del().toSQL().toNative();
+    const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
 
-    await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
+    await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
   async del(_version: number, tableId: string, recordId: string) {
@@ -632,7 +649,8 @@ export class RecordService implements IAdapterService {
     tableId: string,
     recordIds: string[],
     projection?: { [fieldNameOrId: string]: boolean },
-    fieldKeyType: FieldKeyType = FieldKeyType.Id // for convince of collaboration, getSnapshotBulk use id as field key by default.
+    fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
+    cellFormat = CellFormat.Json
   ): Promise<ISnapshotBase<IRecord>[]> {
     const dbTableName = await this.getDbTableName(tableId);
 
@@ -643,21 +661,19 @@ export class RecordService implements IAdapterService {
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
-    const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
     const fieldNames = fields
       .map((f) => f.dbFieldName)
       .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
 
-    const sqlNative = this.knex(dbTableName)
+    const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
-      .toSQL()
-      .toNative();
+      .toQuery();
+
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
+        nativeQuery
       );
 
     const recordIdsMap = recordIds.reduce(
@@ -686,7 +702,7 @@ export class RecordService implements IAdapterService {
           v: record.__version,
           type: 'json0',
           data: {
-            fields: this.dbRecord2RecordFields(record, fields, fieldMap, fieldKeyType),
+            fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
             id: record.__id,
             createdTime: record.__created_time?.toISOString(),
             lastModifiedTime: record.__last_modified_time?.toISOString(),
@@ -742,10 +758,9 @@ export class RecordService implements IAdapterService {
       throw new InternalServerErrorException('query collection must be table id');
     }
 
-    const { skip, take, filter, orderBy, fieldKeyType, projection, viewId } = query;
+    const { skip, take, filter, orderBy, fieldKeyType, cellFormat, projection, viewId } = query;
 
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
-    const fieldMap = keyBy(fields, fieldKeyType === FieldKeyType.Name ? 'name' : 'id');
     const fieldNames = fields.map((f) => f.dbFieldName);
 
     const { queryBuilder } = await this.buildQuery(tableId, {
@@ -767,8 +782,28 @@ export class RecordService implements IAdapterService {
     return result.map((record) => {
       return {
         id: record.__id,
-        fields: this.dbRecord2RecordFields(record, fields, fieldMap, fieldKeyType),
+        fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
       };
     });
+  }
+
+  async getRecordsWithPrimary(tableId: string, titles: string[]) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const field = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+    });
+    if (!field) {
+      throw new BadRequestException(`Could not find primary index ${tableId}`);
+    }
+
+    const queryBuilder = this.knex(dbTableName)
+      .select({ title: field.dbFieldName, id: '__id' })
+      .whereIn(field.dbFieldName, titles);
+
+    const querySql = queryBuilder.toQuery();
+
+    return await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
   }
 }

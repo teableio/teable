@@ -43,6 +43,11 @@ export const fieldKeyTypeRoSchema = z
   .optional()
   .openapi({ description: 'Define the key type of record.fields[key], default is "name"' });
 
+export const typecastSchema = z.boolean().optional().openapi({
+  description:
+    'Automatic data conversion from cellValues if the typecast parameter is passed in. Automatic conversion is disabled by default to ensure data integrity, but it may be helpful for integrating with 3rd party data sources.',
+});
+
 export const getRecordQuerySchema = z.object({
   projection: z.record(z.boolean()).optional().openapi({
     description:
@@ -50,12 +55,13 @@ export const getRecordQuerySchema = z.object({
   }),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormate, You should set it to "json" or "text"' }),
+      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
     })
     .default(CellFormat.Json)
     .optional()
     .openapi({
-      description: 'value formate, you can set it to text if you only need simple string value',
+      description:
+        'Define the return value  formate, you can set it to text if you only need simple string value',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });
@@ -157,6 +163,7 @@ export type IRecordsVo = z.infer<typeof recordsVoSchema>;
 export const createRecordsRoSchema = z
   .object({
     fieldKeyType: fieldKeyTypeRoSchema,
+    typecast: typecastSchema,
     records: z
       .object({
         fields: recordSchema.shape.fields,
@@ -174,7 +181,7 @@ export const createRecordsRoSchema = z
       }),
   })
   .openapi({
-    description: 'Create records',
+    description: 'Multiple Create records',
   });
 
 export type ICreateRecordsRo = z.infer<typeof createRecordsRoSchema>;
@@ -188,12 +195,13 @@ export type ICreateRecordsVo = z.infer<typeof createRecordsVoSchema>;
 export const updateRecordRoSchema = z
   .object({
     fieldKeyType: fieldKeyTypeRoSchema,
+    typecast: typecastSchema,
     record: z.object({
       fields: recordSchema.shape.fields,
     }),
   })
   .openapi({
-    description: 'Update record by record id',
+    description: 'Update record by id',
   });
 
 export type IUpdateRecordRo = z.infer<typeof updateRecordRoSchema>;
@@ -201,6 +209,7 @@ export type IUpdateRecordRo = z.infer<typeof updateRecordRoSchema>;
 export const updateRecordsRoSchema = z
   .object({
     fieldKeyType: fieldKeyTypeRoSchema,
+    typecast: typecastSchema,
     records: z.array(
       z.object({
         id: z.string(),
@@ -209,7 +218,7 @@ export const updateRecordsRoSchema = z
     ),
   })
   .openapi({
-    description: 'Update records',
+    description: 'Multiple Update records',
   });
 
 export type IUpdateRecordsRo = z.infer<typeof updateRecordsRoSchema>;

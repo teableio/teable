@@ -59,6 +59,9 @@ export const columnSchema = z.object({
   statisticFunc: z.nativeEnum(StatisticsFunc).optional().openapi({
     description: 'Statistic function of the column in the view.',
   }),
+  required: z.boolean().optional().openapi({
+    description: 'If column is required',
+  }),
 });
 
 export type IColumn = z.infer<typeof columnSchema>;

@@ -17,11 +17,11 @@ const baseId = globalThis.testConfig.baseId;
 const typeTests = [
   {
     type: CellValueType.String,
-    valueGenerateFn: () => faker.string.nanoid(),
+    valueGenerateFn: () => faker.string.numeric(5),
   },
   {
     type: CellValueType.Number,
-    valueGenerateFn: () => faker.number.int(100),
+    valueGenerateFn: () => faker.number.int(),
   },
   {
     type: CellValueType.DateTime,
@@ -29,7 +29,7 @@ const typeTests = [
   },
   {
     type: CellValueType.Boolean,
-    valueGenerateFn: () => faker.datatype.boolean(),
+    valueGenerateFn: () => faker.datatype.boolean() || null,
   },
 ];
 
@@ -143,11 +143,11 @@ const getSortRecords = async (tableId: string, orderBy: ISortItem[] = []) => {
 
 const setRecordsOrder = async (tableId: string, viewId: string, orderBy: ISortItem[]) => {
   await request
-    .post(`/api/table/${tableId}/view/${viewId}/sort`)
+    .put(`/api/table/${tableId}/view/${viewId}/sort`)
     .send({
       sortObjs: orderBy,
     })
-    .expect(201);
+    .expect(200);
 };
 
 const getRecordsByOrder = (
@@ -159,10 +159,10 @@ const getRecordsByOrder = (
   const fns = conditions.map((condition) => {
     const { fieldId } = condition;
     const field = fields.find((field) => field.id === fieldId) as ITableFullVo['fields'][number];
-    const { name, cellValueType, isMultipleCellValue } = field;
+    const { name, isMultipleCellValue } = field;
     return (record: ITableFullVo['records'][number]) => {
       if (isEmpty(record?.fields?.[name])) {
-        return cellValueType === CellValueType.Number ? -Infinity : '';
+        return -Infinity;
       }
       if (isMultipleCellValue) {
         return JSON.stringify(record?.fields?.[name]);
@@ -228,7 +228,7 @@ describe('OpenAPI RecordController sort (e2e) base cellValueType', () => {
   );
 });
 
-describe.skip('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
+describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
   let mainTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
   let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
 
@@ -317,7 +317,7 @@ describe.skip('OpenAPI RecordController sort (e2e) Multiple CellValueType', () =
   );
 });
 
-describe.skip('OpenAPI ViewController raw order sort (e2e) base cellValueType', () => {
+describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () => {
   let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields'> & { defaultViewId: string };
 
   beforeEach(async () => {
@@ -372,7 +372,7 @@ describe.skip('OpenAPI ViewController raw order sort (e2e) base cellValueType', 
   }
 });
 
-describe.skip('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', () => {
+describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', () => {
   let mainTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
   let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
 

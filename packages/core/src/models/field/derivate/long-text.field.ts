@@ -6,7 +6,7 @@ export const longTextFieldOptionsSchema = z.object({}).strict();
 
 export type ILongTextFieldOptions = z.infer<typeof longTextFieldOptionsSchema>;
 
-export const longTextCelValueSchema = z.string().max(10, { message: 'should be long text' });
+export const longTextCelValueSchema = z.string();
 
 export type ILongTextCellValue = z.infer<typeof longTextCelValueSchema>;
 
@@ -61,8 +61,8 @@ export class LongTextFieldCore extends FieldCore {
 
   validateCellValue(value: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(longTextCelValueSchema).nonempty().optional().safeParse(value);
+      return z.array(longTextCelValueSchema).nonempty().nullable().safeParse(value);
     }
-    return longTextCelValueSchema.optional().safeParse(value);
+    return longTextCelValueSchema.nullable().safeParse(value);
   }
 }

@@ -2,7 +2,7 @@ import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import type { ICreateTableRo, IFieldRo, IFieldVo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import { FieldSupplementService } from '../../field/field-supplement.service';
+import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../constant';
 
 @Injectable()

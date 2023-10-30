@@ -3,7 +3,7 @@ import Image from 'next/image';
 const images = ['Girl1', 'Boy1', 'Girl2', 'Boy3', 'Girl3'];
 export const Collaborators: React.FC<{ className?: string }> = ({ className }) => {
   return (
-    <div className={classNames('flex gap-1 px-2 items-center', className)}>
+    <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
       {images.map((name) => {
         return (
           <div key={name} className="relative overflow-hidden">
