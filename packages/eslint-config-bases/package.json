@@ -1,6 +1,6 @@
 {
   "name": "@teable-group/eslint-config-bases",
-  "version": "1.5.3",
+  "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teable-group/teable",
@@ -72,12 +72,12 @@
     "fix-all-files": "eslint  --ext .ts,.tsx,.js,.jsx --fix"
   },
   "dependencies": {
-    "@rushstack/eslint-patch": "^1.2.0",
+    "@rushstack/eslint-patch": "^1.4.0",
     "@tanstack/eslint-plugin-query": "^4.34.1",
     "@typescript-eslint/eslint-plugin": "^6.7.2",
     "@typescript-eslint/parser": "^6.7.2",
     "eslint-config-prettier": "^9.0.0",
-    "eslint-import-resolver-typescript": "^3.5.2",
+    "eslint-import-resolver-typescript": "^3.6.0",
     "eslint-plugin-import": "^2.28.1",
     "eslint-plugin-jest": "^27.4.0",
     "eslint-plugin-jest-formatting": "^3.1.0",
@@ -126,8 +126,8 @@
   "devDependencies": {
     "@testing-library/jest-dom": "6.1.4",
     "@testing-library/react": "14.0.0",
-    "@types/jest": "29.5.5",
-    "@types/node": "18.15.0",
+    "@types/jest": "29.5.6",
+    "@types/node": "18.17.1",
     "@types/prettier": "2.7.3",
     "@types/react": "18.2.28",
     "@types/react-dom": "18.2.13",

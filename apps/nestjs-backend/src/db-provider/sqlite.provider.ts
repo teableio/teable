@@ -5,6 +5,8 @@ import { map } from 'lodash';
 import type { IOpsData } from '../features/calculation/batch.service';
 import type { ITopoLinkOrder } from '../features/calculation/reference.service';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
+import { AggregationFunctionSqlite } from './aggregation/aggregation-function.sqlite';
 import type { IDbProvider } from './interface/db.provider.interface';
 
 export class SqliteProvider implements IDbProvider {
@@ -146,5 +148,9 @@ export class SqliteProvider implements IDbProvider {
     updateRecordSql += ` FROM \`${tempTableName}\` WHERE ${dbTableName}.__id = ${tempTableName}.__id`;
 
     return { insertTempTableSql, updateRecordSql };
+  }
+
+  aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface {
+    return new AggregationFunctionSqlite(this.knex, dbTableName, field);
   }
 }

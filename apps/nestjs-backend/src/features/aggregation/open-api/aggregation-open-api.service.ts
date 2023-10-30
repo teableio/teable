@@ -48,8 +48,8 @@ export class AggregationOpenApiService {
     )) as IRawAggregationVo;
 
     return {
-      viewId: result[viewId].viewId,
-      aggregations: result[viewId].aggregations,
+      viewId: result[viewId]?.viewId,
+      aggregations: result[viewId]?.aggregations,
     };
   }
 

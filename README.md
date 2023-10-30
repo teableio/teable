@@ -184,20 +184,23 @@ Choose the Sql-database you like
 
 # Run Project
 
-#### 1. Install
+#### 1. Initialize
 
 ```sh
-yarn install
+# Use `.nvmrc` file to specify node version（Requires pre `nvm` tools）
+nvm install
+
+# Enabling the Help Management Package Manager
+corepack enable
+
+# Install project dependencies
+pnpm install
 ```
 
-#### 2. DB migration
+#### 2. Select Database
 
 ```sh
-cd packages/db-main-prisma
-# generate ts interface
-yarn prisma generate
-# create db schema
-yarn prisma-db-push
+make db-mode
 ```
 
 #### 3. Config .env file
@@ -226,7 +229,7 @@ you should only start backend, it will start next server for front-end automatic
 cd apps/nestjs-backend
 tsc --build --watch
 # run in a new terminal
-yarn dev
+pnpm dev
 ```
 
 # Developers

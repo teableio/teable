@@ -48,7 +48,7 @@ const config = {
     '\\.svg$': '<rootDir>/config/tests/ReactSvgrMock.tsx',
     ...getTsConfigBasePaths(tsConfigFile),
   },
-  // false by default, overrides in cli, ie: yarn test:unit --collect-coverage=true
+  // false by default, overrides in cli, ie: pnpm test:unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/coverage',
   collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.{js,ts}', '!**/__mock__/*'],

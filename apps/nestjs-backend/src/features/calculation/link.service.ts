@@ -3,19 +3,13 @@ import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { cloneDeep, isEqual, set } from 'lodash';
+import { cloneDeep, groupBy, isEqual, mapValues, merge, omit, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import type { IFieldInstance } from '../field/model/factory';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { IFkOpMap } from './reference.service';
 import type { ICellChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
-
-export interface ITinyLinkField {
-  id: string;
-  tableId: string;
-  type: FieldType;
-  dbFieldName: string;
-  options: ILinkFieldOptions;
-}
 
 export interface IRecordMapByTableId {
   [tableId: string]: {
@@ -27,7 +21,7 @@ export interface IRecordMapByTableId {
 
 export interface ITinyFieldMapByTableId {
   [tableId: string]: {
-    [fieldId: string]: ITinyLinkField;
+    [fieldId: string]: IFieldInstance;
   };
 }
 
@@ -78,31 +72,29 @@ export class LinkService {
       });
   }
 
-  private async getTinyFieldsByIds(fieldIds: string[]) {
+  private async getFieldsByIds(fieldIds: string[]) {
     const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds } },
-      select: { id: true, type: true, options: true, tableId: true, dbFieldName: true },
     });
 
-    return fieldRaws.map<ITinyLinkField>((field) => ({
-      ...field,
-      type: field.type as FieldType,
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      options: JSON.parse(field.options!),
-    }));
+    return fieldRaws.map((field) => {
+      // return { ...createFieldInstanceByRaw(field), tableId: field.tableId };
+      // return Object.assign(createFieldInstanceByRaw(field), { tableId: field.tableId });
+      return merge(createFieldInstanceByRaw(field), { tableId: field.tableId });
+    });
   }
 
   private async getTinyFieldMapByTableId(fieldIds: string[]): Promise<ITinyFieldMapByTableId> {
-    const fields = await this.getTinyFieldsByIds(fieldIds);
+    const fields = await this.getFieldsByIds(fieldIds);
 
-    const symmetricFields = await this.getTinyFieldsByIds(
-      fields.map((field) => field.options.symmetricFieldId)
+    const symmetricFields = await this.getFieldsByIds(
+      fields.map((field) => (field.options as ILinkFieldOptions).symmetricFieldId)
     );
 
-    const relatedFields = await this.getTinyFieldsByIds(
+    const relatedFields = await this.getFieldsByIds(
       fields
-        .map((field) => field.options.lookupFieldId)
-        .concat(symmetricFields.map((field) => field.options.lookupFieldId))
+        .map((field) => (field.options as ILinkFieldOptions).lookupFieldId)
+        .concat(symmetricFields.map((field) => (field.options as ILinkFieldOptions).lookupFieldId))
     );
 
     return fields
@@ -211,12 +203,17 @@ export class LinkService {
         .filter(Boolean)
         .map((item) => item?.id as string);
       const field = fieldMapByTableId[tableId][fieldId];
-      const dbForeignKeyName = field.options.dbForeignKeyName;
-      const foreignTableId = field.options.foreignTableId;
-      const foreignLinkFieldId = field.options.symmetricFieldId;
+
+      const {
+        dbForeignKeyName,
+        foreignTableId,
+        symmetricFieldId: foreignLinkFieldId,
+        lookupFieldId: foreignLookupFieldId,
+        relationship,
+      } = field.options as ILinkFieldOptions;
+
       const foreignField = fieldMapByTableId[foreignTableId][foreignLinkFieldId];
-      const foreignLookupFieldId = field.options.lookupFieldId;
-      const lookupFieldId = foreignField.options.lookupFieldId;
+      const lookupFieldId = (foreignField.options as ILinkFieldOptions).lookupFieldId;
 
       set(recordMapByTableId, [tableId, recordId, fieldId], undefined);
       set(recordMapByTableId, [tableId, recordId, lookupFieldId], undefined);
@@ -226,7 +223,7 @@ export class LinkService {
         set(recordMapByTableId, [foreignTableId, linkRecordId, foreignLookupFieldId], undefined);
       });
 
-      if (field.options.relationship === Relationship.ManyOne) {
+      if (relationship === Relationship.ManyOne) {
         if (newValue && !('id' in newValue)) {
           throw new BadRequestException('ManyOne relationship should not have multiple records');
         }
@@ -239,12 +236,12 @@ export class LinkService {
           mainTableLookupFieldId: lookupFieldId,
           foreignLinkFieldId,
           foreignTableLookupFieldId: foreignLookupFieldId,
-          dbForeignKeyName: field.options.dbForeignKeyName,
+          dbForeignKeyName: dbForeignKeyName,
           recordId,
           fRecordId: newValue?.id || null,
         });
       }
-      if (field.options.relationship === Relationship.OneMany) {
+      if (relationship === Relationship.OneMany) {
         if (newValue && !Array.isArray(newValue)) {
           throw new BadRequestException(
             `OneMany relationship newValue should have multiple records, received: ${JSON.stringify(
@@ -266,7 +263,7 @@ export class LinkService {
           mainTableLookupFieldId: foreignLookupFieldId,
           foreignLinkFieldId: fieldId,
           foreignTableLookupFieldId: lookupFieldId,
-          dbForeignKeyName: field.options.dbForeignKeyName,
+          dbForeignKeyName: dbForeignKeyName,
         };
 
         oldValue &&
@@ -357,14 +354,8 @@ export class LinkService {
             continue;
           }
 
-          if (field.type === FieldType.Link && cellValue != null) {
-            cellValue = JSON.parse(cellValue as string);
-          }
+          cellValue = field.convertDBValue2CellValue(cellValue);
 
-          // warn: it is assumed that the primary field does not require a value conversion
-          if (cellValue instanceof Date) {
-            cellValue = cellValue.toISOString();
-          }
           recordLookupFieldsMap[recordId][fieldId] = cellValue ?? undefined;
         }
       }, {});

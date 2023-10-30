@@ -48,7 +48,7 @@ const config = {
     ],
   },
 
-  // false by default, overrides in cli, ie: yarn test:unit --collect-coverage=true
+  // false by default, overrides in cli, ie: pnpm test:unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/../coverage',
   collectCoverageFrom: [

@@ -22,7 +22,7 @@ export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements I
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return value && JSON.parse(value as string);
+      return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
     }
     return value;
   }

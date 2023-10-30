@@ -19,7 +19,7 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.1.0",
+    "@asteasolutions/zod-to-openapi": "6.2.0",
     "@teable-group/core": "workspace:*",
     "axios": "1.5.1",
     "openapi3-ts": "^4.1.2",

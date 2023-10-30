@@ -13,8 +13,8 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
     return value && JSON.stringify(value);
   }
 
-  convertDBValue2CellValue(value: string): unknown {
-    return value && JSON.parse(value);
+  convertDBValue2CellValue(value: unknown): unknown {
+    return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
   }
 
   override convertStringToCellValue(

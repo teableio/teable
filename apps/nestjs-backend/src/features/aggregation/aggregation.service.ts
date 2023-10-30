@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   IFilter,
   IRawAggregations,
@@ -16,10 +16,11 @@ import { difference, groupBy, isEmpty, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { Observable } from 'rxjs';
 import { catchError, firstValueFrom, from, mergeMap, of, Subject, tap, toArray } from 'rxjs';
+import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { FilterQueryTranslator } from '../record/translator/filter-query-translator';
-import { getSimpleAggRawSql } from './aggregation-function-mappings';
+import { getAggregationFunctionMapping, getSimpleAggRawSql } from './aggregation-function-mappings';
 
 export type IWithView = {
   viewId?: string;
@@ -61,7 +62,8 @@ export class AggregationService {
 
   constructor(
     private prisma: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel() private readonly knex: Knex,
+    @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
   /**
@@ -299,11 +301,11 @@ export class AggregationService {
         this.getAggregationFunc(queryBuilder, tableAlias, field, statisticFunc);
       });
 
-      const sqlNative = queryBuilder.toSQL().toNative();
-      return prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
-      );
+      const aggSql = queryBuilder.toQuery();
+
+      this.logger.log(`aggSql: ${aggSql}`);
+
+      return prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
     };
 
     // Return promise that resolves to task result
@@ -491,23 +493,24 @@ export class AggregationService {
       StatisticsFunc.PercentFilled,
       StatisticsFunc.PercentChecked,
     ];
+
     if (isMultipleCellValue && !ignoreMcvFunc.includes(func)) {
       const joinTable = `${fieldId}_mcv`;
 
-      const withRawSql = getSimpleAggRawSql(dbTableName, field, func);
+      const withRawSql = getAggregationFunctionMapping(this.dbProvider, dbTableName, field, func);
       kq.with(`${fieldId}_mcv`, this.knex.raw(withRawSql));
-      kq.join(this.knex.raw(joinTable));
+      kq.joinRaw(`, ${this.knex.ref(joinTable)}`);
 
-      rawSql = `${joinTable}.value`;
+      rawSql = `MAX(${this.knex.ref(`${joinTable}.value`)})`;
 
-      if (!kq.toQuery().includes('max(1) as _ignore')) {
-        kq.select(this.knex.raw(`max(1) as _ignore`));
-      }
+      // if (!kq.toQuery().includes('max(1) as _ignore')) {
+      //   kq.select(this.knex.raw(`max(1) as _ignore`));
+      // }
     } else {
-      rawSql = getSimpleAggRawSql(dbTableName, field, func);
+      rawSql = getAggregationFunctionMapping(this.dbProvider, dbTableName, field, func);
     }
 
-    return kq.select(this.knex.raw(`${rawSql} as ${fieldId}_${func}`));
+    return kq.select(this.knex.raw(`${rawSql} AS ??`, [`${fieldId}_${func}`]));
   }
 
   private sortByStatistic(viewStatisticsData: IViewStatisticsData) {
