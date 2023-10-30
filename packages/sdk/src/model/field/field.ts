@@ -3,17 +3,18 @@ import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
 import { createField, deleteField, getFieldList, updateField } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
+import { requestWrap } from '../../utils/requestWrap';
 
 export abstract class Field extends FieldCore {
   tableId!: string;
 
-  static getFields = getFieldList;
+  static getFields = requestWrap(getFieldList);
 
-  static createField = createField;
+  static createField = requestWrap(createField);
 
-  static updateField = updateField;
+  static updateField = requestWrap(updateField);
 
-  static deleteField = deleteField;
+  static deleteField = requestWrap(deleteField);
 
   protected doc!: Doc<IFieldVo>;
 

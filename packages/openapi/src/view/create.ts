@@ -24,7 +24,7 @@ export const CreateViewRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about a view.',
       content: {
         'application/json': {

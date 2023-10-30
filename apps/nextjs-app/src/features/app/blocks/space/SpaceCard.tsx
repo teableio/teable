@@ -47,6 +47,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
     mutationFn: updateSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['space-list'] });
+      queryClient.invalidateQueries({ queryKey: ['space'] });
     },
   });
 
