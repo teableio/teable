@@ -4,11 +4,18 @@ import { Spin } from '@teable-group/ui-lib/base';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { Emoji } from '@/features/app/components/emoji/Emoji';
 dayjs.extend(relativeTime);
 
 export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const { connected } = useConnection();
   const table = useTable();
+
+  const icon = table?.icon ? (
+    <Emoji size={'1.25rem'} emoji={table.icon} />
+  ) : (
+    <Table2 className="h-5 w-5" />
+  );
   return (
     <div
       className={classNames(
@@ -16,7 +23,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
         className
       )}
     >
-      {connected ? <Table2 className="h-5 w-5" /> : <Spin />}
+      {connected ? <div className="h-5 w-5">{icon}</div> : <Spin />}
       <div className="flex h-7 shrink-0 grow-0 flex-col items-start justify-center">
         <div className="text-sm leading-none">{table?.name}</div>
         <div className="hidden text-xs leading-none text-slate-400 sm:block">

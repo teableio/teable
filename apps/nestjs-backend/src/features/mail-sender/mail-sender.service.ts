@@ -29,14 +29,15 @@ export class MailSenderService {
 
   async sendMail(mailOptions: SendMailOptions): Promise<boolean> {
     mailOptions = {
-      from: `"Teable" <${this.mailConfig.auth.user}>`,
+      from: `${this.mailConfig.senderName} <${this.mailConfig.sender}>`,
+      sender: this.mailConfig.sender,
       ...mailOptions,
     };
 
     return new Promise<boolean>((resolve) =>
       this.transporter.sendMail(mailOptions, async (error) => {
         if (error) {
-          this.logger.error('Mail sending failed, check your service.', error);
+          this.logger.error(`Mail sending failed: ${error.message}`, error.stack);
           resolve(false);
         }
         resolve(true);

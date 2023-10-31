@@ -29,7 +29,7 @@ export const NotifyRoute: RouteConfig = registerRoute({
     }),
   },
   responses: {
-    200: {
+    201: {
       description: 'Attachment information',
       content: {
         'application/json': {

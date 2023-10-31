@@ -28,7 +28,7 @@ export const SignupRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Sign up and sing in successfully',
       content: {
         'application/json': {

@@ -96,26 +96,6 @@ export class SpaceService {
     }));
   }
 
-  async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
-    const userId = this.cls.get('user.id');
-    const uniqName = createSpaceRo.name ?? 'Workspace';
-
-    const space = await this.prismaService.txClient().space.create({
-      select: {
-        id: true,
-        name: true,
-      },
-      data: {
-        id: generateSpaceId(),
-        name: uniqName,
-        createdBy: userId,
-        lastModifiedBy: userId,
-      },
-    });
-    await this.collaboratorService.registerSpaceOwner(space.id);
-    return space;
-  }
-
   async createSpace(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
 

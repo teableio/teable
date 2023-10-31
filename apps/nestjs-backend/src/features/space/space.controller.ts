@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Get,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -25,11 +35,14 @@ import {
   UpdateSpaceCollaborateRo,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { PermissionGuard } from '../auth/guard/permission.guard';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
 
 @Controller('api/space/')
+@UseGuards(PermissionGuard)
 export class SpaceController {
   constructor(
     private readonly spaceService: SpaceService,
@@ -37,6 +50,7 @@ export class SpaceController {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
+  @Permissions('space|create')
   @Post()
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
@@ -45,6 +59,7 @@ export class SpaceController {
     return await this.spaceService.createSpace(createSpaceRo);
   }
 
+  @Permissions('space|update')
   @Patch(':spaceId')
   async updateSpace(
     @Param('spaceId') spaceId: string,
@@ -54,22 +69,26 @@ export class SpaceController {
     return await this.spaceService.updateSpace(spaceId, updateSpaceRo);
   }
 
+  @Permissions('space|read')
   @Get(':spaceId')
   async getSpaceById(@Param('spaceId') spaceId: string): Promise<IGetSpaceVo> {
     return await this.spaceService.getSpaceById(spaceId);
   }
 
+  @Permissions('space|read')
   @Get()
   async getSpaceList(): Promise<IGetSpaceVo[]> {
     return await this.spaceService.getSpaceList();
   }
 
+  @Permissions('space|delete')
   @Delete(':spaceId')
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;
   }
 
+  @Permissions('space|invite_link')
   @Post(':spaceId/invitation/link')
   async createInvitationLink(
     @Param('spaceId') spaceId: string,
@@ -82,6 +101,7 @@ export class SpaceController {
     );
   }
 
+  @Permissions('space|invite_link')
   @Delete(':spaceId/invitation/link/:invitationId')
   async deleteInvitationLink(
     @Param('spaceId') spaceId: string,
@@ -90,6 +110,7 @@ export class SpaceController {
     return await this.invitationService.deleteInvitationLinkBySpace(spaceId, invitationId);
   }
 
+  @Permissions('space|invite_link')
   @Patch(':spaceId/invitation/link/:invitationId')
   async updateInvitationLink(
     @Param('spaceId') spaceId: string,
@@ -104,6 +125,7 @@ export class SpaceController {
     );
   }
 
+  @Permissions('space|invite_link')
   @Get(':spaceId/invitation/link')
   async listInvitationLinkBySpace(
     @Param('spaceId') spaceId: string
@@ -111,6 +133,7 @@ export class SpaceController {
     return await this.invitationService.getInvitationLinkBySpace(spaceId);
   }
 
+  @Permissions('space|invite_email')
   @Post(':spaceId/invitation/email')
   async emailInvitation(
     @Param('spaceId') spaceId: string,
@@ -120,11 +143,13 @@ export class SpaceController {
     return await this.invitationService.emailInvitationBySpace(spaceId, emailSpaceInvitationRo);
   }
 
+  @Permissions('space|read')
   @Get(':spaceId/collaborators')
   async listCollaborator(@Param('spaceId') spaceId: string): Promise<ListSpaceCollaboratorVo> {
     return await this.collaboratorService.getListBySpace(spaceId);
   }
 
+  @Permissions('space|grant_role')
   @Patch(':spaceId/collaborators')
   async updateCollaborator(
     @Param('spaceId') spaceId: string,
@@ -134,6 +159,7 @@ export class SpaceController {
     await this.collaboratorService.updateCollaborator(spaceId, updateSpaceCollaborateRo);
   }
 
+  @Permissions('space|delete')
   @Delete(':spaceId/collaborators')
   async deleteCollaborator(
     @Param('spaceId') spaceId: string,

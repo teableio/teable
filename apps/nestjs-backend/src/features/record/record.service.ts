@@ -787,7 +787,7 @@ export class RecordService implements IAdapterService {
     });
   }
 
-  async getRecordsWithPrimary(tableId: string) {
+  async getRecordsWithPrimary(tableId: string, titles: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     const field = await this.prismaService.txClient().field.findFirst({
       where: { tableId, isPrimary: true, deletedTime: null },
@@ -795,11 +795,10 @@ export class RecordService implements IAdapterService {
     if (!field) {
       throw new BadRequestException(`Could not find primary index ${tableId}`);
     }
-    // return fields.map((field) => createFieldInstanceByRaw(field));
-    const queryBuilder = this.knex(dbTableName).select({
-      title: field.dbFieldName,
-      id: '__id',
-    });
+
+    const queryBuilder = this.knex(dbTableName)
+      .select({ title: field.dbFieldName, id: '__id' })
+      .whereIn(field.dbFieldName, titles);
 
     const querySql = queryBuilder.toQuery();
 

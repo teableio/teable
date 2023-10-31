@@ -3,16 +3,17 @@ import type { IFieldRo, IRecord, ITableVo, IViewRo } from '@teable-group/core';
 import { TableOpBuilder, FieldKeyType, TableCore } from '@teable-group/core';
 import { createTable, deleteTable, tableSqlQuery } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
+import { requestWrap } from '../../utils/requestWrap';
 import { Field } from '../field/field';
 import { Record } from '../record/record';
 import { View } from '../view';
 
 export class Table extends TableCore {
-  static createTable = createTable;
+  static createTable = requestWrap(createTable);
 
-  static deleteTable = deleteTable;
+  static deleteTable = requestWrap(deleteTable);
 
-  static sqlQuery = tableSqlQuery;
+  static sqlQuery = requestWrap(tableSqlQuery);
 
   protected doc!: Doc<ITableVo>;
 

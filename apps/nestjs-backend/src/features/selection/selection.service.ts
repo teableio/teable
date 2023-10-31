@@ -1,13 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type {
-  AttachmentFieldCore,
-  FieldCore,
-  IFieldRo,
-  IFieldVo,
-  IRecord,
-  IUpdateRecordsRo,
-  SelectFieldCore,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
 import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -20,6 +12,8 @@ import type {
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, map, omit } from 'lodash';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -37,7 +31,8 @@ export class SelectionService {
     private prismaService: PrismaService,
     private recordOpenApiService: RecordOpenApiService,
     private fieldCreatingService: FieldCreatingService,
-    private fieldSupplementService: FieldSupplementService
+    private fieldSupplementService: FieldSupplementService,
+    private cls: ClsService<IClsStore>
   ) {}
 
   async getIdsFromRanges(
@@ -295,6 +290,7 @@ export class SelectionService {
     cell: [number, number],
     tableDataSize: [number, number]
   ): [number, number] {
+    const permissions = this.cls.get('permissions');
     const [numCols, numRows] = tableSize;
     const [dataNumCols, dataNumRows] = tableDataSize;
 
@@ -304,7 +300,12 @@ export class SelectionService {
     const numRowsToExpand = Math.max(0, endRow - numRows);
     const numColsToExpand = Math.max(0, endCol - numCols);
 
-    return [numColsToExpand, numRowsToExpand];
+    const hasFieldCreatePermission = permissions.includes('field|create');
+    const hasRecordCreatePermission = permissions.includes('record|create');
+    return [
+      hasFieldCreatePermission ? numColsToExpand : 0,
+      hasRecordCreatePermission ? numRowsToExpand : 0,
+    ];
   }
 
   private async fillCells({
@@ -339,21 +340,15 @@ export class SelectionService {
           switch (field.type) {
             case FieldType.Attachment:
               {
-                recordField[field.id] = (field as AttachmentFieldCore).convertStringToCellValue(
-                  stringValue,
-                  attachments
-                );
+                recordField[field.id] = field.convertStringToCellValue(stringValue, attachments);
               }
               break;
             case FieldType.SingleSelect:
             case FieldType.MultipleSelect:
-              recordField[field.id] = (field as SelectFieldCore).convertStringToCellValue(
-                stringValue,
-                true
-              );
+              recordField[field.id] = field.convertStringToCellValue(stringValue, true);
               break;
             default:
-              recordField[field.id] = (field as FieldCore).convertStringToCellValue(stringValue);
+              recordField[field.id] = field.convertStringToCellValue(stringValue);
           }
         }
 

@@ -24,7 +24,7 @@ export const CreateTableRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns data about a table.',
       content: {
         'application/json': {

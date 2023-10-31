@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { useLocalStorage } from 'react-use';
+import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { useIsTouchDevice } from '../../hooks';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -23,7 +24,10 @@ export const Panel: FC<
   }>
 > = (props) => {
   const { children, visible, className } = props;
-  const [size, setSize] = useLocalStorage<number>('expandRecordPanelSize', DEFAULT_SIZE);
+  const [size, setSize] = useLocalStorage<number>(
+    LocalStorageKeys.ExpandRecordPanelSize,
+    DEFAULT_SIZE
+  );
   const [sashSize, setSashSize] = useState<number>(0);
   const sashRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<boolean>();

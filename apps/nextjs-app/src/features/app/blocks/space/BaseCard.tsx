@@ -6,7 +6,8 @@ import { Button, Card, CardContent, Input } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
-import { EmojiPicker } from '../../components/EmojiPicker';
+import { Emoji } from '../../components/emoji/Emoji';
+import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 
 interface IBaseCard {
@@ -89,9 +90,9 @@ export const BaseCard: FC<IBaseCard> = (props) => {
         <div onClick={(e) => e.stopPropagation()}>
           <EmojiPicker onChange={iconChange}>
             {base.icon ? (
-              <span className="h-14 w-14 min-w-[3.5rem] text-[3.5rem] leading-none">
-                {base.icon}
-              </span>
+              <div className="h-14 w-14 min-w-[3.5rem] text-[3.5rem] leading-none">
+                <Emoji emoji={base.icon} size={56} />
+              </div>
             ) : (
               <Database className="h-14 w-14 min-w-[3.5rem]" />
             )}

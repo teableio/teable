@@ -54,7 +54,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
   it('/api/space/:spaceId (DELETE)', async () => {
     const newSpaceRes = await request.post('/api/space').send({ name: 'delete space' }).expect(201);
     await request.delete(`/api/space/${newSpaceRes.body.id}`).expect(200);
-    await request.get(`/api/space/${newSpaceRes.body.id}`).expect(404);
+    await request.get(`/api/space/${newSpaceRes.body.id}`).expect(403);
   });
 
   it('/api/space/:spaceId/collaborators (GET)', async () => {

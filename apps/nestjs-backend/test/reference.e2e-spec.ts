@@ -512,6 +512,11 @@ describe('Reference Service (e2e)', () => {
           fields: { fieldC: 'C2', manyToOneB: { title: 'C1, C2', id: 'idB1' } },
           recordOrder: {},
         },
+        idC3: {
+          id: 'idC3',
+          fields: { fieldC: 'C3', manyToOneB: { title: 'C3', id: 'idB2' } },
+          recordOrder: {},
+        },
         idB1: {
           id: 'idB1',
           fields: {
@@ -533,18 +538,13 @@ describe('Reference Service (e2e)', () => {
           },
           recordOrder: {},
         },
-        idC3: {
-          id: 'idC3',
-          fields: { fieldC: 'C3', manyToOneB: { title: 'C3', id: 'idC3' } },
-          recordOrder: {},
-        },
         idA1: {
           id: 'idA1',
           fields: {
             fieldA: 'A1',
             oneToManyB: [
               { title: 'C1, C2', id: 'idB1' },
-              { title: 'C3', id: 'idC3' },
+              { title: 'C3', id: 'idB2' },
             ],
           },
           recordOrder: {},
@@ -648,11 +648,11 @@ describe('Reference Service (e2e)', () => {
           fieldId: 'oneToManyB',
           oldValue: [
             { title: 'C1, C2', id: 'idB1' },
-            { title: 'C3', id: 'idC3' },
+            { title: 'C3', id: 'idB2' },
           ],
           newValue: [
             { title: 'CX, C2', id: 'idB1' },
-            { title: 'C3', id: 'idC3' },
+            { title: 'C3', id: 'idB2' },
           ],
         },
         {

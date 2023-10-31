@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import type {
   IFieldVo,
   ILinkCellValue,
@@ -584,7 +584,7 @@ export class ReferenceService {
       return this.calculateFormula(field, fieldMap, recordItem);
     }
 
-    throw new Error(`Unsupported field type ${field.type}`);
+    throw new BadRequestException(`Unsupported field type ${field.type}`);
   }
 
   private calculateFormula(field: FormulaFieldDto, fieldMap: IFieldMap, recordItem: IRecordItem) {
@@ -617,18 +617,17 @@ export class ReferenceService {
 
     if (Array.isArray(dependencies)) {
       // sort lookup values by link cell order
-      if (field.lookupOptions) {
-        const linkFieldId = field.lookupOptions.linkFieldId;
-        const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
+      const linkFieldId = field.lookupOptions ? field.lookupOptions.linkFieldId : field.id;
 
-        const dependenciesIndexed = keyBy(dependencies, 'id');
-        // when delete a link cell, the link cell value will be null
-        // but dependencies will still be there in the first round calculation
-        if (linkCellValues) {
-          dependencies = linkCellValues.map((v) => {
-            return dependenciesIndexed[v.id];
-          });
-        }
+      const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
+
+      const dependenciesIndexed = keyBy(dependencies, 'id');
+      // when delete a link cell, the link cell value will be null
+      // but dependencies will still be there in the first round calculation
+      if (linkCellValues) {
+        dependencies = linkCellValues.map((v) => {
+          return dependenciesIndexed[v.id];
+        });
       }
 
       return dependencies
@@ -654,7 +653,7 @@ export class ReferenceService {
     lookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
-      throw new Error('rollup only support link and rollup field currently');
+      throw new BadRequestException('rollup only support link and rollup field currently');
     }
 
     const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as IFieldVo;
@@ -994,7 +993,7 @@ export class ReferenceService {
           affectedRecordItems,
         });
       }
-      throw new Error('Unsupported relationship');
+      throw new BadRequestException('Unsupported relationship');
     });
     return records
       .map((record, i) => ({ record, dependencies: dependenciesArr[i] }))
@@ -1110,7 +1109,7 @@ export class ReferenceService {
       const records = allRecordByDbTableName[cover.dbTableName];
       const record = records.find((r) => r.id === cover.id);
       if (!record) {
-        throw new Error(`Can not find record: ${cover.id} in DB`);
+        throw new BadRequestException(`Can not find record: ${cover.id} in database`);
       }
       record.fields[cover.fieldId] = cover.newValue;
     });

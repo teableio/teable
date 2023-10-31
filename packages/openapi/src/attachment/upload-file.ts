@@ -26,7 +26,7 @@ export const UploadFileRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Upload successful',
     },
   },
