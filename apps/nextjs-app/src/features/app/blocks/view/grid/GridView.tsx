@@ -21,8 +21,15 @@ import { usePrevious, useMount } from 'react-use';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import { Grid, CellType, RowControlType, SelectionRegionType } from '../../grid';
-import type { IRectangle, IPosition, IGridRef } from '../../grid';
+import {
+  Grid,
+  CellType,
+  RowControlType,
+  SelectionRegionType,
+  RegionType,
+  DraggableType,
+} from '../../grid';
+import type { IRectangle, IPosition, IGridRef, ICellItem } from '../../grid';
 import { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
@@ -58,11 +65,19 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const { columns, onColumnResize } = useColumnResize(originalColumns);
   const { columnStatistics } = useColumnStatistics(columns);
   const { onColumnOrdered } = useColumnOrder();
-  const { openRecordMenu, openHeaderMenu, openSetting, openStatisticMenu, setSelection } =
-    useGridViewStore();
+  const {
+    openRecordMenu,
+    openHeaderMenu,
+    openSetting,
+    openStatisticMenu,
+    setSelection,
+    openTooltip,
+    closeTooltip,
+  } = useGridViewStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
+  const isAutoSort = view?.sort?.shouldAutoSort;
   const isTouchDevice = useIsTouchDevice();
   const isLoading = !view;
 
@@ -327,12 +342,48 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     );
   };
 
+  const onItemClick = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
+    const [columnIndex] = cellItem;
+    const { id: fieldId } = columns[columnIndex] ?? {};
+
+    if (type === RegionType.ColumnDescription) {
+      openSetting({ fieldId, operator: FieldOperator.Edit });
+    }
+  };
+
+  const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
+    const [columnIndex] = cellItem;
+    const { description } = columns[columnIndex] ?? {};
+
+    closeTooltip();
+
+    if (type === RegionType.ColumnDescription && description) {
+      openTooltip({
+        text: description,
+        position: bounds,
+      });
+    }
+
+    if (type === RegionType.RowHeaderDragHandler) {
+      openTooltip({
+        text: 'Automatic sorting is turned on, manual sorting is not available',
+        position: bounds,
+      });
+    }
+  };
+
+  const draggable = useMemo(() => {
+    if (isAutoSort) return DraggableType.Column;
+    return DraggableType.All;
+  }, [isAutoSort]);
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
         <Grid
           ref={gridRef}
           theme={theme}
+          draggable={draggable}
           isTouchDevice={isTouchDevice}
           rowCount={rowCount ?? ssrRecords?.length ?? 0}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
@@ -365,6 +416,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           onCopy={onCopy}
           onPaste={onPaste}
           onRowExpand={onRowExpand}
+          onItemClick={onItemClick}
+          onItemHovered={onItemHovered}
         />
       ) : (
         <div className="flex w-full items-center space-x-4">

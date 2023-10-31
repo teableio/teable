@@ -38,11 +38,13 @@ export enum RegionType {
   ColumnHeader = 'ColumnHeader',
   AppendColumn = 'AppendColumn',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
+  ColumnDescription = 'ColumnDescription',
   ColumnResizeHandler = 'ColumnResizeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
   ColumnStatistic = 'ColumnStatistic',
+  RowCountLabel = 'RowCountLabel',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
   Blank = 'Blank',
@@ -104,6 +106,7 @@ export interface IGridColumn {
   width?: number;
   hasMenu?: boolean;
   readonly?: boolean;
+  description?: string;
   customTheme?: Partial<IGridTheme>;
 }
 
@@ -152,4 +155,15 @@ export type ICellPosition = [x: number, y: number];
 export interface IPositionWithBounds {
   bounds: IRectangle;
   eventPosition: IPosition;
+}
+
+export enum DraggableType {
+  All = 'all',
+  None = 'none',
+  Column = 'column',
+  Row = 'row',
+}
+
+export enum GridCustomIcon {
+  Description = 'description',
 }

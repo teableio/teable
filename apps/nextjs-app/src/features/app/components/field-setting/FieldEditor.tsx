@@ -2,6 +2,7 @@ import type { IFieldOptionsRo, IFieldRo, ILookupOptionsRo } from '@teable-group/
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
 import { useFieldStaticGetter } from '@teable-group/sdk';
+import { Textarea } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { FieldOptions } from './FieldOptions';
@@ -35,7 +36,7 @@ export const FieldEditor = (props: {
     });
   };
 
-  const updateFieldDesc = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const updateFieldDesc = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFieldFn({
       ...field,
       description: e.target.value || undefined,
@@ -186,8 +187,8 @@ export const FieldEditor = (props: {
             <div>
               <span className="label-text mb-2">Description</span>
             </div>
-            <Input
-              className="h-8"
+            <Textarea
+              className="h-12 resize-none"
               value={field['description']}
               placeholder="Describe this field (optional)"
               onChange={updateFieldDesc}

@@ -1,4 +1,4 @@
-import { RecordMenu, FieldMenu, FieldSetting, StatisticMenu } from './components';
+import { RecordMenu, FieldMenu, FieldSetting, StatisticMenu, GridTooltip } from './components';
 
 export const DomBox = () => {
   return (
@@ -7,6 +7,7 @@ export const DomBox = () => {
       {<RecordMenu />}
       {<FieldSetting />}
       {<StatisticMenu />}
+      {<GridTooltip />}
     </>
   );
 };

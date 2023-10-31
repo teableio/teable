@@ -3,6 +3,7 @@ import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';
 import type { IRectangle } from '../../interface';
 import { DragRegionType, RegionType, RowControlType } from '../../interface';
+import { GridInnerIcon } from '../../managers';
 import { checkIfRowOrCellActive, checkIfRowOrCellSelected, calculateMaxRange } from '../../utils';
 import type { ISingleLineTextProps } from '../base-renderer';
 import {
@@ -24,8 +25,8 @@ import type {
 import { RenderRegion, DividerRegion } from './interface';
 
 const spriteIconMap = {
-  [RowControlType.Drag]: 'dragIcon',
-  [RowControlType.Expand]: 'expandIcon',
+  [RowControlType.Drag]: GridInnerIcon.Drag,
+  [RowControlType.Expand]: GridInnerIcon.Expand,
 };
 
 const {
@@ -514,7 +515,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
 
 export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHeadDrawerProps) => {
   const { x, y, width, height, theme, fill, column, hasMenu, spriteManager } = props;
-  const { name, icon, hasMenu: hasColumnMenu } = column;
+  const { name, icon, description, hasMenu: hasColumnMenu } = column;
   const {
     cellLineColor,
     columnHeaderBg,
@@ -538,6 +539,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
     points: [0, height, width, height, width, 0],
     stroke: cellLineColor,
   });
+
   icon &&
     spriteManager.drawSprite(ctx, {
       sprite: icon,
@@ -546,6 +548,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
       size: iconSizeXS,
       theme,
     });
+
   if (hasMenu && hasColumnMenu) {
     maxTextWidth = maxTextWidth - columnHeadMenuSize - columnHeadPadding;
     drawRoundPoly(ctx, {
@@ -567,6 +570,19 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
       fill: iconFgCommon,
     });
   }
+
+  if (description) {
+    spriteManager.drawSprite(ctx, {
+      sprite: GridInnerIcon.Description,
+      x: x + maxTextWidth + iconSizeXS - columnHeadPadding,
+      y: y + (height - iconSizeXS) / 2,
+      size: iconSizeXS,
+      theme,
+    });
+
+    maxTextWidth = maxTextWidth - iconSizeXS - columnHeadPadding;
+  }
+
   drawSingleLineText(ctx, {
     x: x + iconSizeXS + columnHeadPadding + columnHeadPadding / 2,
     y: y + cellVerticalPadding,
@@ -745,7 +761,7 @@ export const drawAppendRow = (ctx: CanvasRenderingContext2D, props: ILayoutDrawe
     fill: isHover ? appendRowBgHovered : appendRowBg,
   });
   spriteManager.drawSprite(ctx, {
-    sprite: 'addIcon',
+    sprite: GridInnerIcon.Add,
     x: columnInitSize / 2 - halfIconSize + 0.5,
     y: y + height / 2 - halfIconSize + 0.5,
     size: iconSizeSM,
@@ -783,7 +799,7 @@ export const drawAppendColumn = (ctx: CanvasRenderingContext2D, props: ILayoutDr
 
   const halfIconSize = iconSizeSM / 2;
   spriteManager.drawSprite(ctx, {
-    sprite: 'addIcon',
+    sprite: GridInnerIcon.Add,
     x: x + columnAppendBtnWidth / 2 - halfIconSize + 0.5,
     y: columnHeadHeight / 2 - halfIconSize + 0.5,
     size: iconSizeSM,

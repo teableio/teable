@@ -1,5 +1,5 @@
 import { useMedia } from 'react-use';
 
 export const useIsMobile = () => {
-  return useMedia('(min-width: 640px)');
+  return useMedia('(max-width: 640px)');
 };

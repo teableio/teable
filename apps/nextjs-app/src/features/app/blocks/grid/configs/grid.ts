@@ -1,5 +1,7 @@
 import { DragRegionType, RegionType } from '../interface';
 
+export const GRID_CONTAINER_ID = '__t_grid_container_id';
+
 /* eslint-disable @typescript-eslint/naming-convention */
 export const GRID_DEFAULT = {
   // Row

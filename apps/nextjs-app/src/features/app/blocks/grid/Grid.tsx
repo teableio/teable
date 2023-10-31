@@ -4,7 +4,13 @@ import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useClickAway } from 'react-use';
 import type { IGridTheme } from './configs';
-import { GRID_DEFAULT, gridTheme, DEFAULT_SCROLL_STATE, DEFAULT_MOUSE_STATE } from './configs';
+import {
+  GRID_DEFAULT,
+  gridTheme,
+  DEFAULT_SCROLL_STATE,
+  DEFAULT_MOUSE_STATE,
+  GRID_CONTAINER_ID,
+} from './configs';
 import { useEventListener, useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
@@ -20,6 +26,7 @@ import type {
   IPosition,
   IRowControlItem,
   IColumnStatistics,
+  DraggableType,
 } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
@@ -32,6 +39,7 @@ export interface IGridExternalProps {
   rowControls?: IRowControlItem[];
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
+  draggable?: DraggableType;
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
   onCopy?: (selection: CombinedSelection) => void;
@@ -50,6 +58,8 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
+  onItemHovered?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
+  onItemClick?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -84,6 +94,7 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
+    draggable,
     columnStatistics,
     freezeColumnCount = 1,
     rowCount: originRowCount,
@@ -114,6 +125,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
+    onItemHovered,
+    onItemClick,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -259,7 +272,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   return (
     <div className="h-full w-full" style={style} ref={ref}>
-      <div ref={containerRef} tabIndex={0} className="relative outline-none">
+      <div id={GRID_CONTAINER_ID} ref={containerRef} tabIndex={0} className="relative outline-none">
         {isTouchDevice ? (
           <TouchLayer
             width={width}
@@ -294,6 +307,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             height={height}
             theme={theme}
             columns={columns}
+            draggable={draggable}
             rowControls={rowControls}
             imageManager={imageManager}
             spriteManager={spriteManager}
@@ -323,6 +337,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onColumnStatisticClick={onColumnStatisticClick}
+            onItemHovered={onItemHovered}
+            onItemClick={onItemClick}
           />
         )}
       </div>
