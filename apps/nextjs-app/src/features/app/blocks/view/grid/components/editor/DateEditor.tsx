@@ -14,7 +14,6 @@ export const DateEditor = (props: IWrapperEditorProps) => {
 
   const value = useMemo(() => new Date(dateTime), [dateTime]);
 
-  // TODO: Replace Date Editor
   return (
     <DateEditorMain
       className="rounded-md border bg-background"
