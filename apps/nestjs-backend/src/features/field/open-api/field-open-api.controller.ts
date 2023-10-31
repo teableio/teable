@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
   getFieldsQuerySchema,
@@ -10,16 +10,20 @@ import {
   IFieldRo,
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { FieldService } from '../field.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
 @Controller('api/table/:tableId/field')
+@UseGuards(PermissionGuard)
 export class FieldOpenApiController {
   constructor(
     private readonly fieldService: FieldService,
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
 
+  @Permissions('field|read')
   @Get(':fieldId')
   async getField(
     @Param('tableId') tableId: string,
@@ -28,6 +32,7 @@ export class FieldOpenApiController {
     return await this.fieldService.getField(tableId, fieldId);
   }
 
+  @Permissions('field|read')
   @Get()
   async getFields(
     @Param('tableId') tableId: string,
@@ -36,6 +41,7 @@ export class FieldOpenApiController {
     return await this.fieldService.getFields(tableId, query);
   }
 
+  @Permissions('field|create')
   @Post()
   async createField(
     @Param('tableId') tableId: string,
@@ -44,6 +50,7 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.createField(tableId, fieldRo);
   }
 
+  @Permissions('field|update')
   @Put(':fieldId')
   async updateFieldById(
     @Param('tableId') tableId: string,
@@ -53,6 +60,7 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
   }
 
+  @Permissions('field|delete')
   @Delete(':fieldId')
   async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
     await this.fieldOpenApiService.deleteField(tableId, fieldId);

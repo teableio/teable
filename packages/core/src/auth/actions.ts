@@ -14,15 +14,17 @@ export { IdPrefix as PermissionIdPrefix };
 
 const defaultActionsSchema = z.enum(['create', 'update', 'delete', 'read']);
 
-export const spaceActionsSchema = defaultActionsSchema;
+export const spaceActionsSchema = defaultActionsSchema.or(
+  z.enum(['invite_email', 'invite_link', 'grant_role'])
+);
 
 export type SpaceActions = `${IdPrefix.Space}|${z.infer<typeof spaceActionsSchema>}`;
 
-export const baseActionsSchema = defaultActionsSchema;
+export const baseActionsSchema = defaultActionsSchema.or(z.enum(['invite_email', 'invite_link']));
 
 export type BaseActions = `${IdPrefix.Base}|${z.infer<typeof baseActionsSchema>}`;
 
-export const tableActionsSchema = defaultActionsSchema;
+export const tableActionsSchema = defaultActionsSchema.or(z.enum(['import']));
 
 export type TableActions = `${IdPrefix.Table}|${z.infer<typeof tableActionsSchema>}`;
 
