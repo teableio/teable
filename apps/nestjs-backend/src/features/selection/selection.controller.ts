@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import type { ICopyVo, IRangesToIdVo, PasteVo } from '@teable-group/openapi';
 import {
   IRangesToIdRo,
@@ -11,12 +11,16 @@ import {
   pasteRoSchema,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { PermissionGuard } from '../auth/guard/permission.guard';
 import { SelectionService } from './selection.service';
 
 @Controller('api/table/:tableId/view/:viewId/selection')
+@UseGuards(PermissionGuard)
 export class SelectionController {
   constructor(private selectionService: SelectionService) {}
 
+  @Permissions('view|read')
   @Get('/getIdsFromRanges')
   async getIdsFromRanges(
     @Param('tableId') tableId: string,
@@ -26,6 +30,7 @@ export class SelectionController {
     return this.selectionService.getIdsFromRanges(tableId, viewId, query);
   }
 
+  @Permissions('view|read')
   @Get('/copy')
   async copy(
     @Param('tableId') tableId: string,
@@ -35,6 +40,7 @@ export class SelectionController {
     return this.selectionService.copy(tableId, viewId, query);
   }
 
+  @Permissions('record|update')
   @Patch('/paste')
   async paste(
     @Param('tableId') tableId: string,
@@ -46,6 +52,7 @@ export class SelectionController {
     return { ranges };
   }
 
+  @Permissions('record|update')
   @Patch('/clear')
   async clear(
     @Param('tableId') tableId: string,

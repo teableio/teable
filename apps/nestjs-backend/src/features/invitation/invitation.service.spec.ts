@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { SpaceRole } from '@teable-group/core';
+import { SpaceRole, getPermissions } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
@@ -70,6 +70,7 @@ describe('InvitationService', () => {
       {
         user: mockUser,
         tx: {},
+        permissions: getPermissions(SpaceRole.Owner),
       },
       async () => {
         await invitationService.generateInvitationBySpace('link', mockSpace.id, {
@@ -130,6 +131,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
         },
         async () =>
           await invitationService.emailInvitationBySpace(mockSpace.id, {

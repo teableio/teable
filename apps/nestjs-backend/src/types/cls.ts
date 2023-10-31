@@ -1,3 +1,4 @@
+import type { PermissionAction } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import type { ClsStore } from 'nestjs-cls';
 import type { IRawOpMap } from '../share-db/interface';
@@ -13,4 +14,5 @@ export interface IClsStore extends ClsStore {
     id?: string;
     rawOpMap?: IRawOpMap;
   };
+  permissions: PermissionAction[];
 }
