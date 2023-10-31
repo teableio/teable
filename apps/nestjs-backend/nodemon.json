@@ -1,8 +1,0 @@
-{
-  "$schema": "https://json.schemastore.org/nodemon",
-  "watch": ["../../packages/*/src/"],
-  "ext": "js,jsx,ts,tsx,json",
-  "ignore": ["**/*.spec.ts", "**/*.test.ts"],
-  "exec": "nest start -b swc --type-check -w",
-  "delay": 100
-}

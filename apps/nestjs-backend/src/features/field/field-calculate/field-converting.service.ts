@@ -70,7 +70,7 @@ export class FieldConvertingService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly recordCalculateService: RecordCalculateService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private fieldOpsMap() {
@@ -403,7 +403,11 @@ export class FieldConvertingService {
       .select('__id', field.dbFieldName)
       .where((builder) => {
         for (const value of Object.keys(updatedChoiceMap)) {
-          builder.orWhere(field.dbFieldName, 'LIKE', `%"${value}"%`);
+          builder.orWhere(
+            this.knex.raw(`CAST(?? AS text)`, [field.dbFieldName]),
+            'LIKE',
+            `%"${value}"%`
+          );
         }
       })
       .toSQL()

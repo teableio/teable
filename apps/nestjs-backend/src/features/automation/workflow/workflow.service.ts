@@ -22,7 +22,7 @@ export class WorkflowService {
     private readonly prisma: PrismaService,
     private readonly triggerService: WorkflowTriggerService,
     private readonly actionService: WorkflowActionService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   async getWorkflow(workflowId: string): Promise<WorkflowVo | null> {

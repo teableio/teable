@@ -55,7 +55,7 @@ interface IUpdateForeignKeyParam {
 export class LinkService {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {

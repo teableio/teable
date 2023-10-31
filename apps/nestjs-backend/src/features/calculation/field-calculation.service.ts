@@ -31,7 +31,7 @@ export class FieldCalculationService {
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getSelfOriginRecords(dbTableName: string) {

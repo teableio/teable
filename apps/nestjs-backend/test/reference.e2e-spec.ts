@@ -40,7 +40,7 @@ describe('Reference Service (e2e)', () => {
       }).compile();
       service = module.get<ReferenceService>(ReferenceService);
       prisma = module.get<PrismaService>(PrismaService);
-      db = module.get('default');
+      db = module.get('CUSTOM_KNEX');
     });
 
     afterAll(async () => {

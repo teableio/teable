@@ -2,13 +2,14 @@
 import type { Provider } from '@nestjs/common';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
+import { getDriverName } from '../utils/db-helpers';
 import { PostgresProvider } from './postgres.provider';
 import { SqliteProvider } from './sqlite.provider';
 
 export const DbProvider: Provider = {
   provide: 'DbProvider',
   useFactory: async (knex: Knex) => {
-    const driverClient = knex.client.config?.client as DriverClient;
+    const driverClient = getDriverName(knex);
 
     switch (driverClient) {
       case DriverClient.Sqlite:
@@ -17,5 +18,5 @@ export const DbProvider: Provider = {
         return new PostgresProvider(knex);
     }
   },
-  inject: ['default'],
+  inject: ['CUSTOM_KNEX'],
 };

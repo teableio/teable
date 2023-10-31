@@ -45,7 +45,7 @@ export class FieldService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   generateDbFieldName(fields: { id: string; name: string }[]): string[] {
@@ -158,7 +158,7 @@ export class FieldService implements IAdapterService {
 
       const alterTableQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
-          const typeKey = dbType2knexFormat(field.dbFieldType);
+          const typeKey = dbType2knexFormat(this.knex, field.dbFieldType);
           table[typeKey](field.dbFieldName);
         })
         .toQuery();

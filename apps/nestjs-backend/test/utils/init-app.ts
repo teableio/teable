@@ -25,8 +25,6 @@ import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
 export async function initApp() {
-  process.env.LOG_LEVEL = 'error';
-
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })

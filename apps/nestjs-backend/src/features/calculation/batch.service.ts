@@ -30,7 +30,7 @@ export class BatchService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 
@@ -206,7 +206,7 @@ export class BatchService {
       table.string('__id').primary();
       fieldIds.forEach((id) => {
         const { dbFieldName, dbFieldType } = fieldMap[id];
-        const typeKey = dbType2knexFormat(dbFieldType);
+        const typeKey = dbType2knexFormat(this.knex, dbFieldType);
         table[typeKey](dbFieldName);
       });
       table.integer('__version');

@@ -285,7 +285,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     beforeAll(async () => {
       prisma = app.get(PrismaService);
-      knex = app.get('default');
+      knex = app.get('CUSTOM_KNEX');
     });
 
     it('should delete a simple field', async () => {

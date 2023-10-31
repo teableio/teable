@@ -1,5 +1,7 @@
 SHELL := /usr/bin/env bash
 
+ENV_PATH ?= apps/nextjs-app
+
 DOCKER_COMPOSE ?= docker compose
 
 DOCKER_COMPOSE_ENV_FILE := $(wildcard ./dockers/.env)
@@ -15,6 +17,13 @@ TIMEOUT ?= 300
 SCRATCH ?= /tmp
 
 UNAME_S := $(shell uname -s)
+
+NODE_ENV ?= development
+export NODE_ENV
+
+# prisma database url defaults
+SQLITE_PRISMA_DATABASE_URL ?= file:../../db/main.db
+POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable@127.0.0.1:5432/teable?schema=public
 
 # If the first make argument is "start", "stop"...
 ifeq (docker.start,$(firstword $(MAKECMDGOALS)))
@@ -80,16 +89,15 @@ DOCKER_COMPOSE_ARGS := DOCKER_UID=$(shell id -u) \
 
 
 define print_db_mode_options
-@echo -e "\nSelect a database to start."
-@echo -e "\n\tsqlite			Lightweight embedded, ideal for mobile and embedded systems, simple, resource-efficient, "
-@echo -e "\t\t\t\teasy integration (default database)"
-@echo -e "\tpostges(pg)		Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support\n"
+@echo -e "\nSelect a database to start.\n"
+@echo -e "1)sqlite			Lightweight embedded, ideal for mobile and embedded systems, simple, resource-efficient, easy integration (default database)"
+@echo -e "2)postges(pg)			Powerful and scalable, suitable for complex enterprise needs, highly customizable, rich community support\n"
 endef
 
 define print_db_push_options
 @echo -e "The 'db pull' command connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.\n"
-@echo -e "0) sqlite"
-@echo -e "1) postges(pg)\n"
+@echo -e "1) sqlite"
+@echo -e "2) postges(pg)\n"
 endef
 
 .PHONY: db-mode sqlite-mode postgres-mode gen-prisma-schema gen-sqlite-prisma-schema gen-postgres-prisma-schema
@@ -157,24 +165,23 @@ docker.status:
 docker.images:
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
 
-sqlite.integration.test: docker.create.network
-	make docker.build integration-test
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
-		-e PRISMA_DATABASE_URL=file:../../db/.test/main.db \
-		integration-test bash -c \
-			'make sqlite-mode && \
-				pnpm g:test-e2e'
+sqlite.integration.test:
+	@export PRISMA_DATABASE_URL='file:../../db/.test/main.db'; \
+	make sqlite-mode; \
+	pnpm -F "./packages/**" run build; \
+	pnpm g:test-e2e
 
 postgres.integration.test: docker.create.network
-	make docker.build integration-test
-	docker rm -fv teable-postgres-$(CI_JOB_ID)
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -d -T --no-deps --rm --name teable-postgres-$(CI_JOB_ID) teable-postgres
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm \
-		-e PRISMA_DATABASE_URL=postgresql://teable:teable@teable-postgres:5432/teable?schema=public \
-		integration-test bash -c \
-			'chmod +x ./scripts/wait-for-it.sh && ./scripts/wait-for-it.sh teable-postgres:5432 --timeout=30 -- \
-				make postgres-mode && \
-				pnpm g:test-e2e'
+	@TEST_PG_CONTAINER_NAME=teable-postgres-$(CI_JOB_ID); \
+	docker rm -fv $$TEST_PG_CONTAINER_NAME | true; \
+	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -p 25432:5432 -d -T --no-deps --rm --name $$TEST_PG_CONTAINER_NAME teable-postgres; \
+	chmod +x scripts/wait-for; \
+	scripts/wait-for 127.0.0.1:25432 --timeout=15 -- echo 'pg database started successfully' && \
+		export PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:25432/e2e_test_teable?schema=public && \
+		make postgres-mode && \
+		pnpm -F "./packages/**" run build && \
+		pnpm g:test-e2e && \
+		docker rm -fv $$TEST_PG_CONTAINER_NAME
 
 gen-sqlite-prisma-schema:
 	@cd ./packages/db-main-prisma; \
@@ -199,10 +206,10 @@ postgres-db-push:		## db-push by postgres
 db-push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
 	$(print_db_push_options)
 	@read -p "Enter a command: " command; \
-    if [ "$$command" = "0" ] || [ "$$command" = "sqlite" ]; then \
+    if [ "$$command" = "1" ] || [ "$$command" = "sqlite" ]; then \
       make gen-sqlite-prisma-schema; \
       make sqlite-db-push; \
-    elif [ "$$command" = "1" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
+    elif [ "$$command" = "2" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
       	make gen-postgres-prisma-schema; \
 		make postgres-db-push; \
     else echo "Unknown command.";  fi
@@ -234,15 +241,35 @@ postgres-mode:		## postgres-mode
 		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
 
-db-mode:		## db-mode
+# Override environment variable files based on variables
+RUN_DB_MODE ?= sqlite
+FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
+switch.prisma.env:
+ifeq ($(NODE_ENV)-$(RUN_DB_MODE),development-sqlite)
+	@for file in $(FILE_ENV_PATHS); do \
+		sed -i~ 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
+	done
+else ifeq ($(NODE_ENV)-$(RUN_DB_MODE),development-postges)
+	@for file in $(FILE_ENV_PATHS); do \
+		sed -i~ 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
+	done
+else
+	$(error Sorry, DB mode '${RUN_DB_MODE}' is not supported yet)
+endif
+
+switch-db-mode:		## Switch Database environment
 	$(print_db_mode_options)
 	@read -p "Enter a command: " command; \
-    if [ "$$command" = "sqlite" ]; then make sqlite-mode; \
-    elif [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
+    if [ "$$command" = "1" ] || [ "$$command" = "sqlite" ]; then \
+		make switch.prisma.env RUN_DB_MODE=sqlite; \
+      	make sqlite-mode; \
+    elif [ "$$command" = "2" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
+      	make switch.prisma.env RUN_DB_MODE=postges; \
 		make docker.up teable-postgres; \
     	make docker.await teable-postgres; \
     	make postgres-mode; \
-    else echo "Unknown command.";  fi
+    else \
+      	echo "Unknown command.";  fi
 
 help:   ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

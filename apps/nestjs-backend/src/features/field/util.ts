@@ -1,13 +1,18 @@
-import { assertNever, DbFieldType } from '@teable-group/core';
+import { assertNever, DbFieldType, DriverClient } from '@teable-group/core';
+import type { Knex } from 'knex';
+import { getDriverName } from '../../utils/db-helpers';
 
-export function dbType2knexFormat(dbFieldType: DbFieldType) {
+export function dbType2knexFormat(knex: Knex, dbFieldType: DbFieldType) {
+  const driverName = getDriverName(knex);
+
   switch (dbFieldType) {
     case DbFieldType.Blob:
       return 'binary';
     case DbFieldType.Integer:
       return 'integer';
-    case DbFieldType.Json:
-      return 'json';
+    case DbFieldType.Json: {
+      return driverName === DriverClient.Sqlite ? 'text' : 'json';
+    }
     case DbFieldType.Real:
       return 'double';
     case DbFieldType.Text:

@@ -45,7 +45,7 @@ export type IManualSortRo = z.infer<typeof manualSortRoSchema>;
 export function mergeWithDefaultSort(
   defaultViewSort: string | null,
   querySort?: ISort['sortObjs']
-) {
+): ISortItem[] {
   if (!defaultViewSort && !querySort) {
     return [];
   }

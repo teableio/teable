@@ -357,9 +357,6 @@ importers:
       jest-mock-extended:
         specifier: 3.0.5
         version: 3.0.5(jest@29.7.0)(typescript@5.2.2)
-      nodemon:
-        specifier: ^3.0.1
-        version: 3.0.1
       npm-run-all:
         specifier: 4.1.5
         version: 4.1.5
@@ -432,6 +429,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.1
         version: 3.2.1(react@18.2.0)
+      '@emoji-mart/data':
+        specifier: ^1.1.2
+        version: 1.1.2
+      '@emoji-mart/react':
+        specifier: ^1.1.1
+        version: 1.1.1(emoji-mart@5.5.2)(react@18.2.0)
       '@fontsource/inter':
         specifier: 4.5.14
         version: 4.5.14
@@ -495,6 +498,9 @@ importers:
       echarts:
         specifier: 5.4.2
         version: 5.4.2
+      emoji-mart:
+        specifier: ^5.5.2
+        version: 5.5.2
       eventsource-parser:
         specifier: 1.0.0
         version: 1.0.0
@@ -561,6 +567,9 @@ importers:
       react-grid-layout:
         specifier: 1.3.4
         version: 1.3.4(react-dom@18.2.0)(react@18.2.0)
+      react-hammerjs:
+        specifier: ^1.0.1
+        version: 1.0.1(react@18.2.0)
       react-hook-form:
         specifier: 7.45.4
         version: 7.45.4(react@18.2.0)
@@ -600,6 +609,9 @@ importers:
       remark-gfm:
         specifier: 3.0.1
         version: 3.0.1
+      scroller:
+        specifier: ^0.0.3
+        version: 0.0.3
       sharedb:
         specifier: 4.1.0
         version: 4.1.0
@@ -685,9 +697,15 @@ importers:
       '@types/react-grid-layout':
         specifier: 1.3.2
         version: 1.3.2
+      '@types/react-hammerjs':
+        specifier: ^1.0.6
+        version: 1.0.6
       '@types/react-syntax-highlighter':
         specifier: 15.5.6
         version: 15.5.6
+      '@types/scroller':
+        specifier: ^0.1.4
+        version: 0.1.4
       '@types/sharedb':
         specifier: 3.3.5
         version: 3.3.5
@@ -851,6 +869,9 @@ importers:
       jest:
         specifier: 29.7.0
         version: 29.7.0(@types/node@18.17.1)(ts-node@10.9.1)
+      prettier:
+        specifier: 3.0.3
+        version: 3.0.3
       rimraf:
         specifier: 5.0.5
         version: 5.0.5
@@ -4694,6 +4715,26 @@ packages:
     dependencies:
       react: 18.2.0
       tslib: 2.4.0
+    dev: false
+
+  /@emoji-mart/data@1.1.2:
+    resolution:
+      {
+        integrity: sha512-1HP8BxD2azjqWJvxIaWAMyTySeZY0Osr83ukYjltPVkNXeJvTz7yDrPLBtnrD5uqJ3tg4CcLuuBW09wahqL/fg==,
+      }
+    dev: false
+
+  /@emoji-mart/react@1.1.1(emoji-mart@5.5.2)(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-NMlFNeWgv1//uPsvLxvGQoIerPuVdXwK/EUek8OOkJ6wVOWPUizRBJU0hDqWZCOROVpfBgCemaC3m6jDOXi03g==,
+      }
+    peerDependencies:
+      emoji-mart: ^5.2
+      react: ^16.8 || ^17 || ^18
+    dependencies:
+      emoji-mart: 5.5.2
+      react: 18.2.0
     dev: false
 
   /@emotion/use-insertion-effect-with-fallbacks@1.0.1(react@18.2.0):
@@ -10492,6 +10533,13 @@ packages:
       '@types/node': 18.17.1
     dev: true
 
+  /@types/hammerjs@2.0.43:
+    resolution:
+      {
+        integrity: sha512-wqxfwHk83RS7+6OpytGdo5wqkqtvx+bGaIs1Rwm5NrtQHUfL4OgWs/5p0OipmjmT+fexePh37Ek+mqIpdNjQKA==,
+      }
+    dev: true
+
   /@types/hast@2.3.6:
     resolution:
       {
@@ -10903,6 +10951,16 @@ packages:
       '@types/react': 18.2.28
     dev: true
 
+  /@types/react-hammerjs@1.0.6:
+    resolution:
+      {
+        integrity: sha512-XKm2A/MqdqMa+q5C4kH7261lIrDt9dPZuu+AKDv6pyyxROqOHClZ6dpNEaT3bxwopxISwL07EUGWg5tpKkQWHQ==,
+      }
+    dependencies:
+      '@types/hammerjs': 2.0.43
+      '@types/react': 18.2.28
+    dev: true
+
   /@types/react-syntax-highlighter@15.5.6:
     resolution:
       {
@@ -10945,6 +11003,13 @@ packages:
       {
         integrity: sha512-2L9ifAGl7wmXwP4v3pN4p2FLhD0O1qsJpvKmNin5VA8+UvNVb447UDaAEV6UdrkA+m/Xs58U1RFps44x6TFsVQ==,
       }
+
+  /@types/scroller@0.1.4:
+    resolution:
+      {
+        integrity: sha512-cFZkTksWgSGX0ku6y2HQwCXDrUJ1x9oExSK5cPW81Q1Gm3ZJsIsZXwm1vnXigBBgrRtHpfkD/lQjqOeG2tV/ZQ==,
+      }
+    dev: true
 
   /@types/semver@7.5.3:
     resolution:
@@ -11710,6 +11775,7 @@ packages:
       {
         integrity: sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==,
       }
+    dev: false
 
   /abbrev@2.0.0:
     resolution:
@@ -15310,7 +15376,7 @@ packages:
     dependencies:
       ms: 2.0.0
 
-  /debug@3.2.7(supports-color@5.5.0):
+  /debug@3.2.7:
     resolution:
       {
         integrity: sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==,
@@ -15322,7 +15388,6 @@ packages:
         optional: true
     dependencies:
       ms: 2.1.3
-      supports-color: 5.5.0
 
   /debug@4.3.4:
     resolution:
@@ -16015,6 +16080,13 @@ packages:
     engines: { node: '>=12' }
     dev: true
 
+  /emoji-mart@5.5.2:
+    resolution:
+      {
+        integrity: sha512-Sqc/nso4cjxhOwWJsp9xkVm8OF5c+mJLZJFoFfzRuKO+yWiN7K8c96xmtughYb0d/fZ8UC6cLIQ/p4BR6Pv3/A==,
+      }
+    dev: false
+
   /emoji-regex@8.0.0:
     resolution:
       {
@@ -16485,7 +16557,7 @@ packages:
         integrity: sha512-WFj2isz22JahUv+B788TlO3N6zL3nNJGU8CcZbPZvVEkBPaJdCV4vy5wyghty5ROFbCRnm132v8BScu5/1BQ8g==,
       }
     dependencies:
-      debug: 3.2.7(supports-color@5.5.0)
+      debug: 3.2.7
       is-core-module: 2.13.0
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -16595,7 +16667,7 @@ packages:
         optional: true
     dependencies:
       '@typescript-eslint/parser': 5.62.0(eslint@8.51.0)(typescript@5.2.2)
-      debug: 3.2.7(supports-color@5.5.0)
+      debug: 3.2.7
       eslint: 8.51.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@5.62.0)(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.28.1)(eslint@8.51.0)
@@ -16628,7 +16700,7 @@ packages:
         optional: true
     dependencies:
       '@typescript-eslint/parser': 6.8.0(eslint@8.51.0)(typescript@5.2.2)
-      debug: 3.2.7(supports-color@5.5.0)
+      debug: 3.2.7
       eslint: 8.51.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@6.8.0)(eslint-plugin-import@2.28.1)(eslint@8.51.0)
@@ -16653,7 +16725,7 @@ packages:
       array.prototype.findlastindex: 1.2.3
       array.prototype.flat: 1.3.2
       array.prototype.flatmap: 1.3.2
-      debug: 3.2.7(supports-color@5.5.0)
+      debug: 3.2.7
       doctrine: 2.1.0
       eslint: 8.51.0
       eslint-import-resolver-node: 0.3.9
@@ -16691,7 +16763,7 @@ packages:
       array.prototype.findlastindex: 1.2.3
       array.prototype.flat: 1.3.2
       array.prototype.flatmap: 1.3.2
-      debug: 3.2.7(supports-color@5.5.0)
+      debug: 3.2.7
       doctrine: 2.1.0
       eslint: 8.51.0
       eslint-import-resolver-node: 0.3.9
@@ -18812,6 +18884,14 @@ packages:
       duplexer: 0.1.2
     dev: true
 
+  /hammerjs@2.0.8:
+    resolution:
+      {
+        integrity: sha512-tSQXBXS/MWQOn/RKckawJ61vvsDpCom87JgxiYdGwHdOa0ht0vzUWDlfioofFCRU0L+6NGDt6XzbgoJvZkMeRQ==,
+      }
+    engines: { node: '>=0.8.0' }
+    dev: false
+
   /handlebars@4.7.8:
     resolution:
       {
@@ -19389,13 +19469,6 @@ packages:
     resolution:
       {
         integrity: sha512-DUNFN5j7Tln0D+TxzloUjKB+CtVu6myn0JEFak6dG18mNt9YkQ6lzGCdafwofISZ1lLF3xRHJ98VKy9ynkcFaA==,
-      }
-    dev: true
-
-  /ignore-by-default@1.0.1:
-    resolution:
-      {
-        integrity: sha512-Ius2VYcGNk7T90CppJqcIkS5ooHUZyIQK+ClZfMfMNFEF9VSE73Fq+906u/CWu92x4gzZMWOwfFYckPObzdEbA==,
       }
     dev: true
 
@@ -24164,36 +24237,6 @@ packages:
     engines: { node: '>=6.0.0' }
     dev: false
 
-  /nodemon@3.0.1:
-    resolution:
-      {
-        integrity: sha512-g9AZ7HmkhQkqXkRc20w+ZfQ73cHLbE8hnPbtaFbFtCumZsjyMhKk9LajQ07U5Ux28lvFjZ5X7HvWR1xzU8jHVw==,
-      }
-    engines: { node: '>=10' }
-    hasBin: true
-    dependencies:
-      chokidar: 3.5.3
-      debug: 3.2.7(supports-color@5.5.0)
-      ignore-by-default: 1.0.1
-      minimatch: 3.1.2
-      pstree.remy: 1.1.8
-      semver: 7.5.4
-      simple-update-notifier: 2.0.0
-      supports-color: 5.5.0
-      touch: 3.1.0
-      undefsafe: 2.0.5
-    dev: true
-
-  /nopt@1.0.10:
-    resolution:
-      {
-        integrity: sha512-NWmpvLSqUrgrAC9HCuxEvb+PSloHpqVu+FqcO4eeF2h5qYRhA7ev6KvelyQAKtegUbC6RypJnlEOhd8vloNKYg==,
-      }
-    hasBin: true
-    dependencies:
-      abbrev: 1.1.1
-    dev: true
-
   /nopt@5.0.0:
     resolution:
       {
@@ -26846,13 +26889,6 @@ packages:
       }
     dev: true
 
-  /pstree.remy@1.1.8:
-    resolution:
-      {
-        integrity: sha512-77DZwxQmxKnu3aR542U+X8FypNzbfJ+C5XQDk3uWjWxn6151aIMGthWYRXTqT1E5oJvg+ljaa2OJi+VfvCOQ8w==,
-      }
-    dev: true
-
   /public-encrypt@4.0.3:
     resolution:
       {
@@ -27214,6 +27250,18 @@ packages:
       react-dom: 18.2.0(react@18.2.0)
       react-draggable: 4.4.6(react-dom@18.2.0)(react@18.2.0)
       react-resizable: 3.0.5(react-dom@18.2.0)(react@18.2.0)
+    dev: false
+
+  /react-hammerjs@1.0.1(react@18.2.0):
+    resolution:
+      {
+        integrity: sha512-uyx7LAdy4rduPNm/PwXPTf/NxikNK4ak+0WiPOH4ZnrFjawA7kpeD27aEuYB7ybB/U8vLDXnooAiI5dSem+6nw==,
+      }
+    peerDependencies:
+      react: ^0.14.9 || ^15.3.0 || ^16.0.0-rc || ^16.0
+    dependencies:
+      hammerjs: 2.0.8
+      react: 18.2.0
     dev: false
 
   /react-hook-form@7.45.4(react@18.2.0):
@@ -28685,6 +28733,13 @@ packages:
     engines: { node: '>=0.10.0' }
     dev: false
 
+  /scroller@0.0.3:
+    resolution:
+      {
+        integrity: sha512-S+ulSggvom5bCaYqbnkmTo6fNrHBqSQK8RNCeeEurGXqZM5Fl1q8VgpDpRuqJyZw/P8AJCQJ0jcFKJBHajrTew==,
+      }
+    dev: false
+
   /scslre@0.3.0:
     resolution:
       {
@@ -29042,16 +29097,6 @@ packages:
       }
     dependencies:
       is-arrayish: 0.3.2
-
-  /simple-update-notifier@2.0.0:
-    resolution:
-      {
-        integrity: sha512-a2B9Y0KlNXl9u/vsW6sTIu9vGEpfKu2wRV6l1H3XEas/0gUIzGzBoP/IouTcUQbm9JWZLH3COxyn03TYlFax6w==,
-      }
-    engines: { node: '>=10' }
-    dependencies:
-      semver: 7.5.4
-    dev: true
 
   /sirv-cli@2.0.2:
     resolution:
@@ -30771,16 +30816,6 @@ packages:
     engines: { node: '>=6' }
     dev: true
 
-  /touch@3.1.0:
-    resolution:
-      {
-        integrity: sha512-WBx8Uy5TLtOSRtIq+M03/sKDrXCLHxwDcquSP2c43Le03/9serjQBIztjRz6FkJez9D/hleyAXTBGLwwZUw9lA==,
-      }
-    hasBin: true
-    dependencies:
-      nopt: 1.0.10
-    dev: true
-
   /tough-cookie@4.1.3:
     resolution:
       {
@@ -31422,13 +31457,6 @@ packages:
         integrity: sha512-eXL4nmJT7oCpkZsHZUOJo8hcX3GbsiDOa0Qu9F646fi8dT3XuSVopVqAcEiVzSKKH7UoDti23wNX3qGFxcW5Qg==,
       }
     engines: { node: '>=0.10.0' }
-    dev: true
-
-  /undefsafe@2.0.5:
-    resolution:
-      {
-        integrity: sha512-WxONCrssBM8TSPRqN5EmsjVrsv4A8X12J4ArBiiayv3DyyG3ZlIg6yysuuSYdZsVz3TKcTg2fd//Ujd4CHV1iA==,
-      }
     dev: true
 
   /undici@5.26.3:
