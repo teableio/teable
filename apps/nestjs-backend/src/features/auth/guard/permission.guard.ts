@@ -36,7 +36,7 @@ export class PermissionGuard {
     const req = context.switchToHttp().getRequest();
     const spaceId = req.params.spaceId || req.query.spaceId || req.body.spaceId;
     const baseId = req.params.baseId || req.query.baseId || req.body.baseId;
-    const tableId = req.params.tableId || req.query.tableId || req.body.baseId;
+    const tableId = req.params.tableId || req.query.tableId || req.body.tableId;
     let permissionsByCheck: PermissionAction[] = [];
     // before check baseId, as users can be individually invited into the base.
     if (baseId) {
