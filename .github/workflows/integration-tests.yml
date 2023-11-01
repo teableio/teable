@@ -30,5 +30,7 @@ jobs:
         uses: ./.github/actions/pnpm-install
 
       - name: 🧪 Run Tests
+        env:
+          NODE_ENV: production
         run: |
           make ${{ matrix.database-type }}.integration.test
