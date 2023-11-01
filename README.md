@@ -195,15 +195,18 @@ corepack enable
 
 # Install project dependencies
 pnpm install
+
+# Build packages
+pnpm -F "./packages/**" run build
 ```
 
 #### 2. Select Database
 
 ```sh
-make db-mode
+make switch-db-mode
 ```
 
-#### 3. Config .env file
+#### 3. Custom environment variables（optional）
 
 config openai ai endpoint and key
 
