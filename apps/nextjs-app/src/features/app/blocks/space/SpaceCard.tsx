@@ -32,7 +32,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
     mutationFn: createBase,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: spaceId ? ['base-list', spaceId] : ['base-list'] });
+      queryClient.invalidateQueries({ queryKey: spaceId ? ['base-list', spaceId] : ['base-all'] });
     },
   });
 

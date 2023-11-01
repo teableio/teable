@@ -5,21 +5,13 @@ import { z } from '../zod';
 import type { IGetBaseVo } from './get';
 import { getBaseVoSchema } from './get';
 
-export const GET_BASE_LIST = '/base';
+export const GET_BASE_ALL = '/base/access/all';
 
-export const getBaseListRoSchema = z.object({
-  spaceId: z.string().optional(),
-});
-
-export type IGetBasesListRo = z.infer<typeof getBaseListRoSchema>;
-
-export const GetBaseListRoute: RouteConfig = registerRoute({
+export const GetBaseAllRoute: RouteConfig = registerRoute({
   method: 'get',
-  path: GET_BASE_LIST,
+  path: GET_BASE_ALL,
   description: 'Get base list by query',
-  request: {
-    query: getBaseListRoSchema,
-  },
+  request: {},
   responses: {
     200: {
       description: 'Returns the list of base.',
@@ -33,8 +25,6 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const getBaseList = async (query: IGetBasesListRo) => {
-  return axios.get<IGetBaseVo[]>(GET_BASE_LIST, {
-    params: query,
-  });
+export const getBaseAll = async () => {
+  return axios.get<IGetBaseVo[]>(GET_BASE_ALL);
 };

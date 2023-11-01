@@ -10,7 +10,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
 import type {
   ICreateBaseVo,
   IUpdateBaseVo,
@@ -29,8 +28,7 @@ import { PermissionGuard } from '../auth/guard/permission.guard';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
-@ApiTags('api/base')
-@Controller('api/base')
+@Controller('api/base/')
 @UseGuards(PermissionGuard)
 export class BaseController {
   constructor(
@@ -65,8 +63,13 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get()
-  async getBaseList(@Query('spaceId') spaceId?: string): Promise<IGetBaseVo[]> {
-    return await this.baseService.getBaseList(spaceId);
+  async getBaseList(@Query('spaceId') spaceId: string): Promise<IGetBaseVo[]> {
+    return await this.baseService.getBaseListBySpaceId(spaceId);
+  }
+
+  @Get('access/all')
+  async getAllBase(): Promise<IGetBaseVo[]> {
+    return await this.baseService.getBaseList();
   }
 
   @Permissions('base|delete')
