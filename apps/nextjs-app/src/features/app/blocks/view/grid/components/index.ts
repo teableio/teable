@@ -3,3 +3,4 @@ export * from './RecordMenu';
 export * from './StatisticMenu';
 export * from './editor';
 export * from './FieldSetting';
+export * from './GridTooltip';

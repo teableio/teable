@@ -1,5 +1,7 @@
 import { DragRegionType, RegionType } from '../interface';
 
+export const GRID_CONTAINER_ID = '__t_grid_container_id';
+
 export const GRID_DEFAULT = {
   // Row
   rowHeight: 32,

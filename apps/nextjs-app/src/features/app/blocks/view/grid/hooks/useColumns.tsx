@@ -41,11 +41,12 @@ const generateColumns = (
       if (!field) return undefined;
       const columnMeta = field.columnMeta[viewId];
       const width = columnMeta?.width || 150;
-      const { id, type, name, isLookup } = field;
+      const { id, type, name, description, isLookup } = field;
       return {
         id,
         name,
         width,
+        description,
         customTheme: field.hasError ? { columnHeaderBg: colors.rose[100] } : undefined,
         hasMenu: true,
         icon: iconString(type, isLookup),

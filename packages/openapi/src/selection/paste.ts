@@ -31,7 +31,7 @@ export const pasteVoSchema = z.object({
 export type PasteVo = z.infer<typeof pasteVoSchema>;
 
 export const PasteRoute: RouteConfig = registerRoute({
-  method: 'post',
+  method: 'patch',
   path: PASTE_URL,
   description: 'Copy operations in tables',
   request: {
@@ -61,7 +61,7 @@ export const PasteRoute: RouteConfig = registerRoute({
 });
 
 export const paste = async (tableId: string, viewId: string, pasteRo: PasteRo) => {
-  return axios.post<null>(
+  return axios.patch<null>(
     urlBuilder(PASTE_URL, {
       tableId,
       viewId,

@@ -10,21 +10,22 @@ import {
   manualSortView,
 } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
+import { requestWrap } from '../../utils/requestWrap';
 
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
-  static getViews = getViewList;
+  static getViews = requestWrap(getViewList);
 
-  static createView = createView;
+  static createView = requestWrap(createView);
 
-  static deleteView = deleteView;
+  static deleteView = requestWrap(deleteView);
 
-  static getViewAggregations = getViewAggregations;
+  static getViewAggregations = requestWrap(getViewAggregations);
 
-  static getViewRowCount = getViewRowCount;
+  static getViewRowCount = requestWrap(getViewRowCount);
 
-  static manualSort = manualSortView;
+  static manualSort = requestWrap(manualSortView);
 
   private async submitOperation(operation: unknown) {
     try {

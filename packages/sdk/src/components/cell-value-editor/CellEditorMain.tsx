@@ -2,6 +2,7 @@ import type {
   IAttachmentCellValue,
   ICheckboxCellValue,
   IDateCellValue,
+  IDateFieldOptions,
   ILinkCellValue,
   ILinkFieldOptions,
   ILongTextCellValue,
@@ -137,6 +138,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         return (
           <DateEditor
             className={className}
+            options={options as IDateFieldOptions}
             value={cellValue ? new Date(cellValue as IDateCellValue) : undefined}
             onChange={(selectedDay) => onChange?.(selectedDay ? selectedDay.toISOString() : null)}
           />

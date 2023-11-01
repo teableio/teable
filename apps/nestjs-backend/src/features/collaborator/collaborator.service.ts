@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { SpaceRole } from '@teable-group/core';
+import type { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ListSpaceCollaboratorVo, UpdateSpaceCollaborateRo } from '@teable-group/openapi';
 import { keyBy, map } from 'lodash';
@@ -12,19 +12,6 @@ export class CollaboratorService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>
   ) {}
-
-  async registerSpaceOwner(spaceId: string) {
-    const userId = this.cls.get('user.id');
-    return await this.prismaService.txClient().collaborator.create({
-      data: {
-        spaceId,
-        roleName: SpaceRole.Owner,
-        userId,
-        createdBy: userId,
-        lastModifiedBy: userId,
-      },
-    });
-  }
 
   async createSpaceCollaborator(userId: string, spaceId: string, role: SpaceRole) {
     const currentUserId = this.cls.get('user.id');

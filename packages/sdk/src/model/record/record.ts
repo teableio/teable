@@ -3,12 +3,13 @@ import type { IRecord } from '@teable-group/core';
 import { RecordOpBuilder, RecordCore } from '@teable-group/core';
 import { createRecords, getRecords } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
+import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
 
 export class Record extends RecordCore {
-  static createRecords = createRecords;
+  static createRecords = requestWrap(createRecords);
 
-  static getRecords = getRecords;
+  static getRecords = requestWrap(getRecords);
 
   constructor(
     protected doc: Doc<IRecord>,

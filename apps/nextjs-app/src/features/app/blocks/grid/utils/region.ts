@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { GRID_DEFAULT } from '../configs';
 import { RegionType, RowControlType } from '../interface';
-import type { IRegionPosition, IRowControlItem } from '../interface';
+import type { IRectangle, IRegionPosition, IRowControlItem } from '../interface';
 import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
 
@@ -9,6 +10,7 @@ interface ICheckRegionProps
     IRenderLayerProps,
     | 'theme'
     | 'height'
+    | 'columns'
     | 'scrollState'
     | 'dragState'
     | 'selection'
@@ -24,6 +26,10 @@ interface ICheckRegionProps
   hasAppendColumn: boolean;
 }
 
+export interface IRegionData extends IRectangle {
+  type: RegionType;
+}
+
 // Define all possible row controls and their corresponding RegionTypes
 const rowControlDefinitions = {
   [RowControlType.Drag]: RegionType.RowHeaderDragHandler,
@@ -31,7 +37,24 @@ const rowControlDefinitions = {
   [RowControlType.Expand]: RegionType.RowHeaderExpandHandler,
 };
 
-export const getRegionType = (props: ICheckRegionProps): RegionType => {
+export const BLANK_REGION_DATA = {
+  type: RegionType.Blank,
+  x: Infinity,
+  y: Infinity,
+  width: 0,
+  height: 0,
+};
+
+const {
+  columnHeadPadding,
+  columnHeadMenuClickableSize,
+  columnResizeHandlerWidth,
+  fillHandlerSize,
+  rowHeadIconPaddingTop,
+  columnStatisticHeight,
+} = GRID_DEFAULT;
+
+export const getRegionData = (props: ICheckRegionProps): IRegionData => {
   return (
     checkIsOutOfBounds(props) ||
     checkIfSelecting(props) ||
@@ -45,46 +68,74 @@ export const getRegionType = (props: ICheckRegionProps): RegionType => {
     checkIsFillHandler(props) ||
     checkIsCell(props) ||
     checkIsColumnHeader(props) ||
-    RegionType.Blank
+    BLANK_REGION_DATA
   );
 };
 
-const checkIsOutOfBounds = (props: ICheckRegionProps): RegionType | null => {
+const checkIsOutOfBounds = (props: ICheckRegionProps): IRegionData | null => {
   const { isOutOfBounds } = props;
-  return isOutOfBounds ? RegionType.Blank : null;
+  return isOutOfBounds ? BLANK_REGION_DATA : null;
 };
 
-const checkIfSelecting = (props: ICheckRegionProps): RegionType | null => {
+const checkIfSelecting = (props: ICheckRegionProps): IRegionData | null => {
   const { selection, isSelecting } = props;
-  return isSelecting && selection.isCellSelection ? RegionType.Cell : null;
+  if (!isSelecting || !selection.isCellSelection) return null;
+  return { ...BLANK_REGION_DATA, type: RegionType.Cell };
 };
 
-const checkIfColumnResizing = (props: ICheckRegionProps): RegionType | null => {
+const checkIfColumnResizing = (props: ICheckRegionProps): IRegionData | null => {
   const { columnIndex } = props.columnResizeState;
-  return columnIndex > -1 ? RegionType.ColumnResizeHandler : null;
+  if (columnIndex <= -1) return null;
+  return { ...BLANK_REGION_DATA, type: RegionType.ColumnResizeHandler };
 };
 
-const checkIfDragging = (props: ICheckRegionProps): RegionType | null => {
+const checkIfDragging = (props: ICheckRegionProps): IRegionData | null => {
   const { isDragging } = props.dragState;
-  return isDragging ? RegionType.ColumnHeader : null;
+  if (!isDragging) return null;
+  return { ...BLANK_REGION_DATA, type: RegionType.ColumnHeader };
 };
 
-const checkIsAppendColumn = (props: ICheckRegionProps): RegionType | null => {
+const checkIsAppendColumn = (props: ICheckRegionProps): IRegionData | null => {
   const { position, hasAppendColumn } = props;
   const { rowIndex, columnIndex } = position;
-  return hasAppendColumn && rowIndex >= -1 && columnIndex === -2 ? RegionType.AppendColumn : null;
+  if (hasAppendColumn && rowIndex >= -1 && columnIndex === -2) {
+    return { ...BLANK_REGION_DATA, type: RegionType.AppendColumn };
+  }
+  return null;
 };
 
-const checkIsColumnStatistic = (props: ICheckRegionProps): RegionType | null => {
-  const { position, columnStatistics, height } = props;
+const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null => {
+  const { position, columnStatistics, height, scrollState, coordInstance } = props;
   if (columnStatistics == null) return null;
   const { y, columnIndex } = position;
-  const { columnStatisticHeight } = GRID_DEFAULT;
-  const isColumnStatistic = inRange(y, height - columnStatisticHeight, height) && columnIndex > -1;
-  return isColumnStatistic ? RegionType.ColumnStatistic : null;
+  const isBottomRegion = inRange(y, height - columnStatisticHeight, height);
+  const isColumnStatistic = isBottomRegion && columnIndex > -1;
+  const isRowCountLabel = isBottomRegion && columnIndex === -1;
+
+  if (isRowCountLabel) {
+    return {
+      type: RegionType.RowCountLabel,
+      x: 0,
+      y: height - columnStatisticHeight,
+      width: coordInstance.columnInitSize,
+      height: columnStatisticHeight,
+    };
+  }
+  if (isColumnStatistic) {
+    const { scrollLeft } = scrollState;
+
+    return {
+      type: RegionType.ColumnStatistic,
+      x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
+      y: height - columnStatisticHeight,
+      width: coordInstance.getColumnWidth(columnIndex),
+      height: columnStatisticHeight,
+    };
+  }
+  return null;
 };
 
-const checkIsAllCheckbox = (props: ICheckRegionProps): RegionType | null => {
+const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
   const { position, theme, rowControls, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
   if (
@@ -97,65 +148,68 @@ const checkIsAllCheckbox = (props: ICheckRegionProps): RegionType | null => {
   const { iconSizeXS } = theme;
   const halfIconSize = iconSizeXS / 2;
   const { rowInitSize, columnInitSize } = coordInstance;
-  if (
-    inRange(x, columnInitSize / 2 - halfIconSize, columnInitSize / 2 + halfIconSize) &&
-    inRange(y, rowInitSize / 2 - halfIconSize, rowInitSize / 2 + halfIconSize)
-  ) {
-    return RegionType.AllCheckbox;
+  const minX = columnInitSize / 2 - halfIconSize;
+  const minY = rowInitSize / 2 - halfIconSize;
+  if (inRange(x, minX, minX + iconSizeXS) && inRange(y, minY, minY + iconSizeXS)) {
+    return {
+      type: RegionType.AllCheckbox,
+      x: minX,
+      y: minY,
+      width: iconSizeXS,
+      height: iconSizeXS,
+    };
   }
   return null;
 };
 
-const checkIsAppendRow = (props: ICheckRegionProps): RegionType | null => {
+const checkIsAppendRow = (props: ICheckRegionProps): IRegionData | null => {
   const { position, coordInstance, hasAppendRow } = props;
   const { rowIndex, columnIndex } = position;
   const { rowCount } = coordInstance;
-  return hasAppendRow && rowIndex === rowCount - 1 && columnIndex >= -1
-    ? RegionType.AppendRow
-    : null;
+  if (hasAppendRow && rowIndex === rowCount - 1 && columnIndex >= -1) {
+    return { ...BLANK_REGION_DATA, type: RegionType.AppendRow };
+  }
+  return null;
 };
 
-const checkIsRowHeader = (props: ICheckRegionProps): RegionType | null => {
+const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   const { position, theme, rowControls, scrollState, coordInstance } = props;
   const { x, y, rowIndex, columnIndex } = position;
 
   if (rowIndex <= -1 || columnIndex !== -1) return null;
 
   const { iconSizeXS } = theme;
+  const { scrollTop } = scrollState;
   const { columnInitSize } = coordInstance;
   const halfIconSize = iconSizeXS / 2;
-
   const controlSize = columnInitSize / (rowControls.length || 1);
+  const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
 
   for (let i = 0; i < rowControls.length; i++) {
     const type = rowControls[i].type;
     const regionType = rowControlDefinitions[type];
     if (!rowControls.some((item) => item.type === type)) continue;
 
-    const inControlXRange = inRange(
-      x,
-      controlSize * (i + 0.5) - halfIconSize,
-      controlSize * (i + 0.5) + halfIconSize
-    );
-
-    const { scrollTop } = scrollState;
-    const { rowHeadIconPaddingTop } = GRID_DEFAULT;
-    const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
-    const inYRangeRowHeader = inRange(
-      y,
-      offsetY + rowHeadIconPaddingTop,
-      offsetY + rowHeadIconPaddingTop + iconSizeXS
-    );
+    const minX = controlSize * (i + 0.5) - halfIconSize;
+    const minY = offsetY + rowHeadIconPaddingTop;
+    const inControlXRange = inRange(x, minX, minX + iconSizeXS);
+    const inYRangeRowHeader = inRange(y, minY, minY + iconSizeXS);
 
     if (regionType && inControlXRange && inYRangeRowHeader) {
-      return regionType;
+      return {
+        type: regionType,
+        x: minX,
+        y: minY,
+        width: iconSizeXS,
+        height: iconSizeXS,
+      };
     }
   }
 
-  return RegionType.RowHeader;
+  return { ...BLANK_REGION_DATA, type: RegionType.RowHeader };
 };
 
-const checkIsFillHandler = (props: ICheckRegionProps): RegionType | null => {
+const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {
   const { position, selection, coordInstance: c, scrollState } = props;
   const { isCellSelection, ranges } = selection;
   const { scrollLeft, scrollTop } = scrollState;
@@ -168,51 +222,88 @@ const checkIsFillHandler = (props: ICheckRegionProps): RegionType | null => {
   const handlerOffsetX =
     c.getColumnRelativeOffset(maxColIndex, scrollLeft) + c.getColumnWidth(maxColIndex);
   const handlerOffsetY = c.getRowOffset(maxRowIndex) + c.getRowHeight(maxRowIndex) - scrollTop;
-  const halfSize = GRID_DEFAULT.fillHandlerSize / 2 + 3;
+  const halfSize = fillHandlerSize / 2 + 3;
 
-  if (
-    inRange(x, handlerOffsetX - halfSize, handlerOffsetX + halfSize) &&
-    inRange(y, handlerOffsetY - halfSize, handlerOffsetY + halfSize)
-  ) {
-    return RegionType.FillHandler;
+  const minX = handlerOffsetX - halfSize;
+  const minY = handlerOffsetY - halfSize;
+  if (inRange(x, minX, minX + halfSize * 2) && inRange(y, minY, minY + halfSize * 2)) {
+    return {
+      type: RegionType.FillHandler,
+      x: minX,
+      y: minY,
+      width: halfSize * 2,
+      height: halfSize * 2,
+    };
   }
   return null;
 };
 
-const checkIsCell = (props: ICheckRegionProps): RegionType | null => {
+const checkIsCell = (props: ICheckRegionProps): IRegionData | null => {
   const { rowIndex, columnIndex } = props.position;
-  return rowIndex > -1 && columnIndex > -1 ? RegionType.Cell : null;
+  if (rowIndex > -1 && columnIndex > -1) {
+    return { ...BLANK_REGION_DATA, type: RegionType.Cell };
+  }
+  return null;
 };
 
-const checkIsColumnHeader = (props: ICheckRegionProps): RegionType | null => {
-  const { position, scrollState, coordInstance } = props;
-  const { x, rowIndex, columnIndex } = position;
+const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
+  const { position, scrollState, coordInstance, columns, theme } = props;
+  const { x, y, rowIndex, columnIndex } = position;
+  const { iconSizeXS } = theme;
+
   if (rowIndex === -1 && columnIndex > -1) {
     const { scrollLeft } = scrollState;
-    const { freezeColumnCount } = coordInstance;
-    const { columnHeadPadding, columnHeadMenuClickableSize, columnResizeHandlerWidth } =
-      GRID_DEFAULT;
+    const { rowInitSize } = coordInstance;
+
+    const { description, hasMenu } = columns[columnIndex];
     const width = coordInstance.getColumnWidth(columnIndex);
-    const startOffsetX = coordInstance.getColumnOffset(columnIndex);
+    const startOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const endOffsetX = startOffsetX + width;
-    const clientX = columnIndex < freezeColumnCount ? x : scrollLeft + x;
-    if (
-      inRange(
-        clientX,
-        endOffsetX - columnHeadPadding / 2 - columnHeadMenuClickableSize,
-        endOffsetX - columnHeadPadding / 2
-      )
-    ) {
-      return RegionType.ColumnHeaderMenu;
+    const columnMenuX = hasMenu
+      ? endOffsetX - columnHeadPadding / 2 - columnHeadMenuClickableSize
+      : endOffsetX;
+
+    if (hasMenu && inRange(x, columnMenuX, columnMenuX + columnHeadMenuClickableSize)) {
+      return {
+        type: RegionType.ColumnHeaderMenu,
+        x: startOffsetX,
+        y: 0,
+        width: columnHeadMenuClickableSize,
+        height: rowInitSize,
+      };
     }
+
+    const descriptionX = columnMenuX - iconSizeXS - 4;
+    const descriptionY = (rowInitSize - iconSizeXS) / 2;
+    if (
+      description &&
+      inRange(x, descriptionX, descriptionX + iconSizeXS) &&
+      inRange(y, descriptionY, descriptionY + iconSizeXS)
+    ) {
+      return {
+        type: RegionType.ColumnDescription,
+        x: descriptionX,
+        y: descriptionY,
+        width: iconSizeXS,
+        height: iconSizeXS,
+      };
+    }
+
     if (
       (columnIndex !== 0 &&
-        inRange(clientX, startOffsetX, startOffsetX + columnResizeHandlerWidth / 2)) ||
-      inRange(clientX, endOffsetX - columnResizeHandlerWidth / 2, endOffsetX)
+        inRange(x, startOffsetX, startOffsetX + columnResizeHandlerWidth / 2)) ||
+      inRange(x, endOffsetX - columnResizeHandlerWidth / 2, endOffsetX)
     ) {
-      return RegionType.ColumnResizeHandler;
+      return { ...BLANK_REGION_DATA, type: RegionType.ColumnResizeHandler };
     }
-    return RegionType.ColumnHeader;
+
+    return {
+      type: RegionType.ColumnHeader,
+      x: startOffsetX,
+      y: 0,
+      width,
+      height: rowInitSize,
+    };
   }
   return null;
 };

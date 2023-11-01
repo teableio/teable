@@ -1,14 +1,15 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UseGuards } from '@nestjs/common';
 import type {
   IRawAggregationVo,
   IRawRowCountVo,
-  IViewAggregationRo,
   IViewAggregationVo,
   IViewRowCountVo,
   StatisticsFunc,
 } from '@teable-group/core';
-import { getValidStatisticFunc } from '@teable-group/core';
+import { getValidStatisticFunc, IViewAggregationRo } from '@teable-group/core';
 import { forIn, isEmpty, map } from 'lodash';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { PermissionGuard } from '../../auth/guard/permission.guard';
 import type { IWithView } from '../aggregation.service';
 import { AggregationService } from '../aggregation.service';
 
@@ -18,6 +19,8 @@ export class AggregationOpenApiService {
 
   constructor(private readonly aggregationService: AggregationService) {}
 
+  @Permissions('view|read')
+  @UseGuards(PermissionGuard)
   async getViewAggregations(
     tableId: string,
     viewId: string,
@@ -52,6 +55,8 @@ export class AggregationOpenApiService {
       : { viewId: result[viewId]?.viewId, aggregations: result[viewId]?.aggregations };
   }
 
+  @Permissions('view|read')
+  @UseGuards(PermissionGuard)
   async getViewRowCount(tableId: string, viewId: string): Promise<IViewRowCountVo> {
     const result = (await this.aggregationService.performAggregation(
       { tableId, withView: { viewId } },

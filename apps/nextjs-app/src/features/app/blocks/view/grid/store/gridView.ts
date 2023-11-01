@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { CombinedSelection } from '../../../grid/managers/selection-manager';
-import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu } from './type';
+import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu, ITooltipInfo } from './type';
 
 interface IGridViewState {
   selection?: CombinedSelection;
@@ -8,6 +8,7 @@ interface IGridViewState {
   headerMenu?: IHeaderMenu;
   recordMenu?: IRecordMenu;
   statisticMenu?: IStatisticMenu;
+  tooltipInfo?: ITooltipInfo;
   openSetting: (props: ISetting) => void;
   closeSetting: () => void;
   openHeaderMenu: (props: IHeaderMenu) => void;
@@ -17,6 +18,8 @@ interface IGridViewState {
   openStatisticMenu: (props: IStatisticMenu) => void;
   closeStatisticMenu: () => void;
   setSelection: (props: CombinedSelection) => void;
+  openTooltip: (props: ITooltipInfo) => void;
+  closeTooltip: () => void;
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
@@ -101,6 +104,25 @@ export const useGridViewStore = create<IGridViewState>((set) => ({
       return {
         ...state,
         selection: props,
+      };
+    });
+  },
+  openTooltip: (props) => {
+    set((state) => {
+      return {
+        ...state,
+        tooltipInfo: props,
+      };
+    });
+  },
+  closeTooltip: () => {
+    set((state) => {
+      if (state.tooltipInfo == null) {
+        return state;
+      }
+      return {
+        ...state,
+        tooltipInfo: undefined,
       };
     });
   },

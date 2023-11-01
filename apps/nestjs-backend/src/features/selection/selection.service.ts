@@ -12,6 +12,8 @@ import type {
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, map, omit } from 'lodash';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -29,7 +31,8 @@ export class SelectionService {
     private prismaService: PrismaService,
     private recordOpenApiService: RecordOpenApiService,
     private fieldCreatingService: FieldCreatingService,
-    private fieldSupplementService: FieldSupplementService
+    private fieldSupplementService: FieldSupplementService,
+    private cls: ClsService<IClsStore>
   ) {}
 
   async getIdsFromRanges(
@@ -287,6 +290,7 @@ export class SelectionService {
     cell: [number, number],
     tableDataSize: [number, number]
   ): [number, number] {
+    const permissions = this.cls.get('permissions');
     const [numCols, numRows] = tableSize;
     const [dataNumCols, dataNumRows] = tableDataSize;
 
@@ -296,7 +300,12 @@ export class SelectionService {
     const numRowsToExpand = Math.max(0, endRow - numRows);
     const numColsToExpand = Math.max(0, endCol - numCols);
 
-    return [numColsToExpand, numRowsToExpand];
+    const hasFieldCreatePermission = permissions.includes('field|create');
+    const hasRecordCreatePermission = permissions.includes('record|create');
+    return [
+      hasFieldCreatePermission ? numColsToExpand : 0,
+      hasRecordCreatePermission ? numRowsToExpand : 0,
+    ];
   }
 
   private async fillCells({

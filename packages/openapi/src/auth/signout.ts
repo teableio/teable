@@ -9,7 +9,7 @@ export const SignoutRoute: RouteConfig = registerRoute({
   path: SING_OUT,
   description: 'Sign out',
   responses: {
-    200: {
+    201: {
       description: 'Sign out successfully',
     },
   },

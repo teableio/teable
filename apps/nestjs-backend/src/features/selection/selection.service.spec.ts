@@ -7,12 +7,16 @@ import {
   DbFieldType,
   FieldKeyType,
   FieldType,
+  SpaceRole,
+  getPermissions,
   nullsToUndefined,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { DeepMockProxy } from 'jest-mock-extended';
 import { mockDeep, mockReset } from 'jest-mock-extended';
+import { ClsService } from 'nestjs-cls';
 import { GlobalModule } from '../../global/global.module';
+import type { IClsStore } from '../../types/cls';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -29,6 +33,7 @@ describe('selectionService', () => {
   let prismaService: DeepMockProxy<PrismaService>;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
+  let clsService: ClsService<IClsStore>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -43,6 +48,7 @@ describe('selectionService', () => {
     recordService = module.get<RecordService>(RecordService);
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
+    clsService = module.get<ClsService<IClsStore>>(ClsService);
 
     prismaService = module.get<PrismaService>(
       PrismaService
@@ -111,7 +117,7 @@ describe('selectionService', () => {
   });
 
   describe('calculateExpansion', () => {
-    it('should calculate the number of rows and columns to expand', () => {
+    it('should calculate the number of rows and columns to expand', async () => {
       // Input
       const tableSize: [number, number] = [5, 4];
       const cell: [number, number] = [2, 3];
@@ -119,10 +125,29 @@ describe('selectionService', () => {
       const expectedExpansion = [0, 1];
 
       // Perform the calculation
-      const result = selectionService['calculateExpansion'](tableSize, cell, tableDataSize);
+      const result = await clsService.runWith(
+        {
+          user: {} as any,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
+      );
+
+      // no permission to expand column
+      // Perform the calculation
+      const resultNoPermission = await clsService.runWith(
+        {
+          user: {} as any,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Editor),
+        },
+        async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
+      );
 
       // Verify the result
       expect(result).toEqual(expectedExpansion);
+      expect(resultNoPermission).toEqual([0, expectedExpansion[1]]);
     });
   });
 
@@ -454,7 +479,14 @@ describe('selectionService', () => {
       });
 
       // Call the method
-      const result = await selectionService.paste(tableId, viewId, pasteRo);
+      const result = await clsService.runWith(
+        {
+          user: {} as any,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () => await selectionService.paste(tableId, viewId, pasteRo)
+      );
 
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);

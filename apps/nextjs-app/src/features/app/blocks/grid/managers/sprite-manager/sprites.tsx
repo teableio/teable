@@ -1,4 +1,4 @@
-import { DraggableHandle, Maximize2, Plus } from '@teable-group/icons';
+import { AlertCircle, DraggableHandle, Maximize2, Plus } from '@teable-group/icons';
 import { renderToString } from 'react-dom/server';
 
 export interface ISpriteProps {
@@ -6,25 +6,36 @@ export interface ISpriteProps {
   bgColor: string;
 }
 
-const dragIcon = (props: ISpriteProps) => {
+const drag = (props: ISpriteProps) => {
   const { fgColor } = props;
   return renderToString(<DraggableHandle style={{ color: fgColor }} />);
 };
 
-const expandIcon = (props: ISpriteProps) => {
+const expand = (props: ISpriteProps) => {
   const { fgColor } = props;
   return renderToString(<Maximize2 style={{ color: fgColor }} />);
 };
 
-const addIcon = (props: ISpriteProps) => {
+const add = (props: ISpriteProps) => {
   const { fgColor } = props;
   return renderToString(<Plus style={{ color: fgColor }} />);
 };
 
-export const sprites = {
-  addIcon,
-  dragIcon,
-  expandIcon,
+const description = (props: ISpriteProps) => {
+  const { fgColor } = props;
+  return renderToString(<AlertCircle style={{ color: fgColor }} />);
 };
 
-export type ISpriteIconMap = Readonly<typeof sprites>;
+export const sprites = {
+  add,
+  drag,
+  expand,
+  description,
+};
+
+export enum GridInnerIcon {
+  Add = 'add',
+  Drag = 'drag',
+  Expand = 'expand',
+  Description = 'description',
+}

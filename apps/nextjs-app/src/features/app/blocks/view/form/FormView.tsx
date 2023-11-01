@@ -15,7 +15,7 @@ export const FormView = () => {
 
   return (
     <div className="flex h-full w-full">
-      {isEditMode && isMobile ? <FormEditor /> : <FormPreviewer />}
+      {isEditMode && !isMobile ? <FormEditor /> : <FormPreviewer />}
     </div>
   );
 };
