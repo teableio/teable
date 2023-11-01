@@ -50,7 +50,6 @@ export class SpaceController {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
-  @Permissions('space|create')
   @Post()
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
