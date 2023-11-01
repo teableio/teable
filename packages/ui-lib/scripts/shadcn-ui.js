@@ -1,7 +1,7 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const shadcnConfig = require('../components.json');
-const { execSync } = require('child_process');
 
 function fixAliases(componentName) {
   const fixFile = (filePath) => {

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { CoordinateManager } from './CoordinateManager';
 import type { ICoordinate } from './interface';
 import { ItemType } from './interface';

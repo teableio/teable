@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { ViewType } from '@teable-group/core';
 import { Sheet, ClipboardList as Form } from '@teable-group/icons';
 

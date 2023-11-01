@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { SingleLineTextDisplayType } from '@teable-group/core';
 import type { ISingleLineTextShowAs } from '@teable-group/core';
 import { Button } from '@teable-group/ui-lib/shadcn';

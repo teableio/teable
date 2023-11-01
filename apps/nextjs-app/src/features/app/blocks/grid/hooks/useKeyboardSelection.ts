@@ -5,7 +5,7 @@ import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { CellType, getCellRenderer } from '../renderers';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+// eslint-disable-next-line
 const SELECTION_MOVE_HOTKEYS = [
   'up',
   'down',

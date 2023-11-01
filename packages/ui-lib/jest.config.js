@@ -39,7 +39,7 @@ const config = {
     '^@/test-utils$': '<rootDir>/../config/jest/test-utils',
     ...getTsConfigBasePaths(),
   },
-  // false by default, overrides in cli, ie: pnpm test:unit --collect-coverage=true
+  // false by default, overrides in cli, ie: pnpm test-unit --collect-coverage=true
   collectCoverage: false,
   coverageDirectory: '<rootDir>/../coverage',
   collectCoverageFrom: ['<rootDir>/**/*.{ts,tsx,js,jsx}', '!**/*.test.ts'],

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import type { ICurrencyFormatting, INumberFormatting } from '@teable-group/core';
 import {
   DEFAULT_CURRENCY_SYMBOL,

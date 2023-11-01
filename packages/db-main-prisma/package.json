@@ -45,7 +45,7 @@
   "devDependencies": {
     "@faker-js/faker": "8.2.0",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.6",
+    "@types/jest": "29.5.7",
     "@types/node": "18.17.1",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
@@ -60,7 +60,7 @@
     "prettier": "3.0.3",
     "rimraf": "5.0.5",
     "ts-jest": "29.1.1",
-    "tsx": "3.11.0",
+    "tsx": "3.14.0",
     "typescript": "5.2.2"
   }
 }

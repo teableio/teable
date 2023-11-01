@@ -50,7 +50,7 @@
     }
   },
   "devDependencies": {
-    "@mdx-js/react": "2.1.5",
+    "@mdx-js/react": "3.0.0",
     "@storybook/addon-actions": "7.5.0",
     "@storybook/addon-docs": "7.5.0",
     "@storybook/addon-essentials": "7.5.0",
@@ -64,12 +64,12 @@
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/jest-dom": "6.1.4",
     "@testing-library/react": "14.0.0",
-    "@types/jest": "29.5.6",
+    "@types/jest": "29.5.7",
     "@types/node": "18.17.1",
     "@types/react": "18.2.28",
     "@types/react-dom": "18.2.13",
     "autoprefixer": "10.4.16",
-    "core-js": "3.32.1",
+    "core-js": "3.33.2",
     "cross-env": "7.0.3",
     "eslint": "8.51.0",
     "jest": "29.7.0",
@@ -86,7 +86,7 @@
     "shadcn-ui": "0.2.2",
     "sirv": "2.0.3",
     "sirv-cli": "2.0.2",
-    "tailwindcss": "3.3.3",
+    "tailwindcss": "3.3.5",
     "ts-jest": "29.1.1",
     "tsconfig-paths-webpack-plugin": "4.1.0",
     "typescript": "5.2.2",
@@ -115,10 +115,10 @@
     "clsx": "2.0.0",
     "cmdk": "0.2.0",
     "deepmerge": "4.3.1",
-    "react-day-picker": "8.9.0",
-    "react-hook-form": "7.45.4",
-    "tailwind-merge": "1.13.2",
-    "tailwindcss-animate": "1.0.6",
+    "react-day-picker": "8.9.1",
+    "react-hook-form": "7.47.0",
+    "tailwind-merge": "2.0.0",
+    "tailwindcss-animate": "1.0.7",
     "zod": "3.22.4"
   }
 }

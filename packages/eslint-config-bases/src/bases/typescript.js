@@ -19,6 +19,9 @@ module.exports = {
     sourceType: 'module',
   },
   settings: {
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx', '.mts'],
+    },
     'import/resolver': {
       typescript: {},
     },
@@ -29,6 +32,13 @@ module.exports = {
     'plugin:react-hooks/recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
+
+    // 'plugin:react-hooks/recommended',
+    // 'eslint:recommended',
+    // 'plugin:import/recommended',
+    // 'plugin:import/typescript',
+    // 'plugin:@typescript-eslint/recommended-type-checked',
+    // 'plugin:@typescript-eslint/stylistic-type-checked',
   ],
   rules: {
     'spaced-comment': [
@@ -49,9 +59,12 @@ module.exports = {
     'linebreak-style': ['error', 'unix'],
     'no-empty-function': 'off',
     'import/default': 'off',
+    // Caution this rule is slow https://github.com/import-js/eslint-plugin-import/blob/main/docs/rules/namespace.md
+    'import/namespace': 'off', // ['error'] If you want the extra check (typechecking will spot most issues already)
+    // https://github.com/import-js/eslint-plugin-import/blob/main/docs/rules/no-duplicates.md
     'import/no-duplicates': ['error', { considerQueryString: true }],
-    'import/no-named-as-default-member': 'off',
-    'import/no-named-as-default': 'off',
+    'import/no-named-as-default-member': ['warn'],
+    'import/no-named-as-default': ['warn'],
     'import/order': [
       'error',
       {
@@ -78,6 +91,15 @@ module.exports = {
     ],
     '@typescript-eslint/consistent-type-exports': 'error',
     '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+    '@typescript-eslint/no-misused-promises': [
+      'error',
+      {
+        checksVoidReturn: {
+          arguments: false,
+          attributes: false,
+        },
+      },
+    ],
     '@typescript-eslint/naming-convention': [
       'error',
       {
@@ -85,6 +107,10 @@ module.exports = {
         format: ['camelCase'],
         leadingUnderscore: 'forbid',
         trailingUnderscore: 'forbid',
+      },
+      {
+        selector: 'import',
+        format: ['camelCase', 'PascalCase'],
       },
       {
         selector: 'variable',
@@ -169,34 +195,43 @@ module.exports = {
   },
   overrides: [
     {
+      files: ['*.d.ts'],
+      rules: {
+        '@typescript-eslint/no-import-type-side-effects': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+      },
+    },
+    {
       files: ['*.mjs'],
+      extends: ['plugin:@typescript-eslint/disable-type-checked'],
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
       rules: {
-        '@typescript-eslint/naming-convention': 'off',
         '@typescript-eslint/explicit-module-boundary-types': 'off',
         '@typescript-eslint/consistent-type-exports': 'off',
         '@typescript-eslint/consistent-type-imports': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
       },
     },
     {
-      // commonjs or assumed
+      // javascript commonjs
       files: ['*.js', '*.cjs'],
+      extends: ['plugin:@typescript-eslint/disable-type-checked'],
       parser: 'espree',
       parserOptions: {
-        ecmaVersion: 2020,
+        ecmaVersion: '2020',
       },
       rules: {
-        '@typescript-eslint/naming-convention': 'off',
         '@typescript-eslint/ban-ts-comment': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-var-requires': 'off',
         '@typescript-eslint/explicit-module-boundary-types': 'off',
         '@typescript-eslint/consistent-type-exports': 'off',
         '@typescript-eslint/consistent-type-imports': 'off',
-        'import/order': 'off',
       },
     },
   ],

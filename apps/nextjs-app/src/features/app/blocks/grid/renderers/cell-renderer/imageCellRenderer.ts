@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { drawRect } from '../base-renderer';
 import type { ICellRenderProps, IImageCell, IInternalCellRenderer } from './interface';
 import { CellType } from './interface';

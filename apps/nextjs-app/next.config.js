@@ -2,8 +2,8 @@
 
 const { readFileSync } = require('fs');
 const path = require('path');
-const pc = require('picocolors');
 const { createSecureHeaders } = require('next-secure-headers');
+const pc = require('picocolors');
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**

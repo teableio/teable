@@ -4,6 +4,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType, Relationship } from '@teable-group/core';
 import { GlobalModule } from '../../global/global.module';
+import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { CalculationModule } from './calculation.module';
 import type { ILinkCellContext, ITinyFieldMapByTableId } from './link.service';
 import { LinkService } from './link.service';
@@ -26,7 +27,6 @@ describe('LinkService', () => {
         tableA: {
           'ManyOne-LinkB': {
             id: 'ManyOne-LinkB',
-            tableId: 'tableA',
             type: FieldType.Link,
             dbFieldName: 'ManyOne-LinkB',
             options: {
@@ -36,12 +36,11 @@ describe('LinkService', () => {
               dbForeignKeyName: '__fk_ManyOne-LinkB',
               symmetricFieldId: 'OneMany-LinkA',
             },
-          },
+          } as LinkFieldDto,
         },
         tableB: {
           'OneMany-LinkA': {
             id: 'OneMany-LinkA',
-            tableId: 'tableB',
             type: FieldType.Link,
             dbFieldName: 'OneMany-LinkA',
             options: {
@@ -51,7 +50,7 @@ describe('LinkService', () => {
               dbForeignKeyName: '__fk_ManyOne-LinkB',
               symmetricFieldId: 'ManyOne-LinkB',
             },
-          },
+          } as LinkFieldDto,
         },
       };
     });

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { FieldKeyType } from '@teable-group/core';
 import { Field, Record, Table, View } from '@teable-group/sdk/model';
 import router from 'next/router';

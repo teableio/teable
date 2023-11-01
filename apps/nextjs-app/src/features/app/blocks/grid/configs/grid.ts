@@ -1,6 +1,5 @@
 import { DragRegionType, RegionType } from '../interface';
 
-/* eslint-disable @typescript-eslint/naming-convention */
 export const GRID_DEFAULT = {
   // Row
   rowHeight: 32,

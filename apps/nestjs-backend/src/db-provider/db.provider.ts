@@ -8,7 +8,7 @@ import { SqliteProvider } from './sqlite.provider';
 
 export const DbProvider: Provider = {
   provide: 'DbProvider',
-  useFactory: async (knex: Knex) => {
+  useFactory: (knex: Knex) => {
     const driverClient = getDriverName(knex);
 
     switch (driverClient) {

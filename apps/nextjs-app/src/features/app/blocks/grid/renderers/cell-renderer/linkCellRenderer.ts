@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';
 import { measuredCanvas } from '../../utils';

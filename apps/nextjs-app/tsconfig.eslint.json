@@ -2,18 +2,16 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "./src",
     "target": "esnext",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
-    "jsx": "react-jsx",
-    "noEmit": false,
-    "incremental": true,
-    "paths": {}
+    "jsx": "preserve",
+    "experimentalDecorators": true
   },
-  "exclude": ["**/node_modules", "**/.*/*", "dist"],
+  "exclude": ["node_modules", "**/.*/*", "dist"],
   "include": [
     ".eslintrc.*",
+    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "**/*.mts",
@@ -21,6 +19,7 @@
     "**/*.cjs",
     "**/*.mjs",
     "**/*.jsx",
-    "**/*.json"
+    "**/*.json",
+    ".next/types/**/*.ts"
   ]
 }

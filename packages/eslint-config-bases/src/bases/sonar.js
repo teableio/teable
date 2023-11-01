@@ -5,10 +5,7 @@
 
 const sonarPatterns = {
   files: ['*.{js,jsx,ts,tsx}'],
-  excludedFiles: [
-    '**/?(*.)+(test).{js,jsx,ts,tsx}',
-    '*.stories.{js,ts,jsx,tsx}',
-  ],
+  excludedFiles: ['**/?(*.)+(test).{js,jsx,ts,tsx}', '*.stories.{js,ts,jsx,tsx}'],
 };
 
 module.exports = {
@@ -24,6 +21,7 @@ module.exports = {
       extends: ['plugin:sonarjs/recommended'],
       rules: {
         'sonarjs/no-nested-template-literals': 'off',
+        'sonarjs/prefer-single-boolean-return': 'off',
       },
     },
     {
