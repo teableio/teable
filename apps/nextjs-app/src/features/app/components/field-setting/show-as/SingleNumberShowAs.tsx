@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable-group/core';
 import type { ISingleNumberShowAs } from '@teable-group/core';
 import {

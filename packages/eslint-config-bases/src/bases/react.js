@@ -7,6 +7,15 @@ const reactPatterns = {
   files: ['*.{jsx,tsx}'],
 };
 
+const stylesPatterns = {
+  files: ['*.styles.{js,ts}', 'styles.{js,ts}'],
+};
+
+/**
+ * Fine-tune naming convention react typescript jsx (function components)
+ * @link https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/docs/rules/naming-convention.md
+ */
+
 module.exports = {
   env: {
     browser: true,
@@ -20,7 +29,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: reactPatterns.files,
+      files: [...reactPatterns.files, ...stylesPatterns.files],
       extends: [
         // @see https://github.com/yannickcr/eslint-plugin-react
         'plugin:react/recommended',
@@ -36,24 +45,6 @@ module.exports = {
         'react/no-unescaped-entities': ['error', { forbid: ['>'] }],
         'react/prop-types': 'off',
         'react/react-in-jsx-scope': 'off',
-        // Fine-tune naming convention react typescript jsx (function components)
-        // https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/docs/rules/naming-convention.md
-        '@typescript-eslint/naming-convention': [
-          'warn',
-          {
-            selector: 'variable',
-            format: ['camelCase', 'PascalCase'],
-          },
-          {
-            selector: ['function'],
-            format: ['camelCase', 'PascalCase'],
-          },
-          {
-            selector: 'parameter',
-            format: ['camelCase', 'PascalCase'],
-            leadingUnderscore: 'allow',
-          },
-        ],
       },
     },
   ],

@@ -257,7 +257,7 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
   });
 
   test.each(typeTests)(
-    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type:Multiple`,
+    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type - Multiple`,
     async ({ type, valueGenerateFn }) => {
       const { id: mainTableId, fields: fields1 } = mainTable;
       const { id: subTableId, fields: fields2, records: subRecords } = subTable;
@@ -330,11 +330,9 @@ describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () =>
     console.log('clear subTable: ', result2.body);
   });
 
-  for (let i = 0; i < typeTests.length; i++) {
-    const currentTestInfo = typeTests[i];
-    const { valueGenerateFn, type } = currentTestInfo;
-    // cellValueType tests
-    it(`/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: ${type}`, async () => {
+  test.each(typeTests)(
+    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type`,
+    async ({ type, valueGenerateFn }) => {
       const {
         id: subTableId,
         fields: fields2,
@@ -368,8 +366,8 @@ describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () =>
 
       expect(ascOriginRecords).toEqual(ascManualSortRecords);
       expect(descOriginRecords).toEqual(descManualSortRecords);
-    });
-  }
+    }
+  );
 });
 
 describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', () => {
@@ -400,11 +398,9 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
     console.log('clear subTable: ', result2.body);
   });
 
-  for (let i = 0; i < typeTests.length; i++) {
-    const currentTestInfo = typeTests[i];
-    const { valueGenerateFn, type } = currentTestInfo;
-    // multiple cellValueType tests
-    it(`/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: ${type}:Multiple`, async () => {
+  test.each(typeTests)(
+    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type - Multiple`,
+    async ({ type, valueGenerateFn }) => {
       const { id: mainTableId, fields: fields1, defaultViewId: mainDefaultViewId } = mainTable;
       const { id: subTableId, fields: fields2, records: subRecords } = subTable;
       const field = fields2.find((field) => field.cellValueType === type);
@@ -462,6 +458,6 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
 
       expect(ascOriginRecords).toEqual(ascManualSortRecords);
       expect(descOriginRecords).toEqual(descManualSortRecords);
-    });
-  }
+    }
+  );
 });

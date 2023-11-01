@@ -52,7 +52,7 @@ export class TableService implements IAdapterService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   generateValidDbTableName(name: string) {

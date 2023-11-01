@@ -10,23 +10,14 @@ const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/
 
 module.exports = {
   root: true,
+  parser: '@typescript-eslint/parser',
   parserOptions: {
     tsconfigRootDir: __dirname,
-    project: 'tsconfig.json',
+    project: 'tsconfig.eslint.json',
   },
-  ignorePatterns: [
-    ...getDefaultIgnorePatterns(),
-    '/storybook-static',
-    'tailwind.shadcnui.config.js',
-  ],
+  ignorePatterns: [...getDefaultIgnorePatterns()],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
-    '@teable-group/eslint-config-bases/regexp',
-    '@teable-group/eslint-config-bases/sonar',
-    '@teable-group/eslint-config-bases/jest',
-    '@teable-group/eslint-config-bases/rtl',
-    '@teable-group/eslint-config-bases/storybook',
-    '@teable-group/eslint-config-bases/react',
     // Apply prettier and disable incompatible rules
     '@teable-group/eslint-config-bases/prettier-plugin',
   ],

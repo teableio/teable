@@ -60,7 +60,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
         remarkPlugins={[remarkGfm]}
         components={{
           pre({ node, className, children, ...props }) {
-            const child = children[0] as ReactElement;
+            const child = children as ReactElement;
             const match = /language-(\w+)/.exec(child.props.className || '');
             const language = match ? match[1] : 'text';
             const strValue = String(child.props.children);

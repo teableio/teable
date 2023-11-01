@@ -31,7 +31,7 @@ export const useGPTRequest = () => {
       const response = await fetch('/api/chart/completions', {
         method: 'POST',
         headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
+          // eslint-disable-next-line
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),

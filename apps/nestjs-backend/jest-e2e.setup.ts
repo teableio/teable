@@ -2,6 +2,7 @@ import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
 import { parseDsn } from '@teable-group/core';
 import * as bcrypt from 'bcrypt';
+import * as dotenv from 'dotenv-flow';
 
 interface ITestConfig {
   driver: string;
@@ -18,11 +19,18 @@ declare global {
 }
 
 export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
+  console.log('node-env', process.env.NODE_ENV);
+  dotenv.config({ path: '../nextjs-app' });
+
   const { email, password, spaceId, baseId, userId } = projectConfig.globals
     .testConfig as ITestConfig;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+
+  console.log('database-url: ', databaseUrl);
+
   const { driver } = parseDsn(databaseUrl);
+  console.log('driver: ', driver);
   (projectConfig.globals.testConfig as ITestConfig).driver = driver;
 
   const prismaClient = new PrismaClient();

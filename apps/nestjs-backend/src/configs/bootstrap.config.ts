@@ -3,7 +3,7 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
 export const nextJsConfig = registerAs('nextJs', () => ({
-  dir: process.env.NEXTJS_DIR || '../nextjs-app',
+  dir: process.env.NEXTJS_DIR ?? '../nextjs-app',
 }));
 
 export const securityWebConfig = registerAs('security.web', () => ({

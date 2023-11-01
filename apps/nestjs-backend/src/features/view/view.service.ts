@@ -30,7 +30,7 @@ export class ViewService implements IAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -121,9 +121,7 @@ export class ViewService implements IAdapterService {
     // 4. create index
     const createRowIndexSQL = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        table.unique(rowIndexFieldName, {
-          indexName: this.getRowIndexFieldIndexName(viewId),
-        });
+        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);

@@ -4,7 +4,7 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
 export const loggerConfig = registerAs('logger', () => ({
-  level: process.env.LOG_LEVEL || 'info',
+  level: process.env.LOG_LEVEL ?? 'info',
 }));
 
 export const LoggerConfig = () => Inject(loggerConfig.KEY);

@@ -11,7 +11,7 @@ sentryInit({
   // @see https://develop.sentry.dev/sdk/performance/
   // To turn it off, remove the line
   // @see https://github.com/getsentry/sentry-javascript/discussions/4503#discussioncomment-2143116
-  tracesSampleRate: 1.0,
+  tracesSampleRate: 0.05,
   // ...
   // Note: if you want to override the automatic release value, do not set a
   // `release` value here - use the environment variable `SENTRY_RELEASE`, so
@@ -21,6 +21,6 @@ sentryInit({
       console.log('Sentry event', event);
       console.log('Sentry hint', hint);
     }
-    return event;
+    return Promise.resolve(event);
   },
 });

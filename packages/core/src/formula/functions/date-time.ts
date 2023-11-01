@@ -1,5 +1,5 @@
 import type { ManipulateType, UnitType } from 'dayjs';
-import dayjs, { isDayjs } from 'dayjs';
+import dayjs, { extend, isDayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import isBetween from 'dayjs/plugin/isBetween';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -11,10 +11,10 @@ import type { IFormulaContext } from './common';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
 import { FormulaBaseError } from './logical';
 
-dayjs.extend(relativeTime);
-dayjs.extend(weekOfYear);
-dayjs.extend(isBetween);
-dayjs.extend(customParseFormat);
+extend(relativeTime);
+extend(weekOfYear);
+extend(isBetween);
+extend(customParseFormat);
 
 abstract class DateTimeFunc extends FormulaFunc {
   readonly type = FormulaFuncType.DateTime;

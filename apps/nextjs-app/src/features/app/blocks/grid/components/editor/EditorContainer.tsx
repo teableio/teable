@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions, @typescript-eslint/naming-convention */
+/* eslint-disable jsx-a11y/no-static-element-interactions */
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';

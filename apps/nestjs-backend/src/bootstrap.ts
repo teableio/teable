@@ -23,8 +23,6 @@ import { GlobalExceptionFilter } from './filter/global-exception.filter';
 const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
-  // TODO: only enable cors when using bearer token
-  app.enableCors();
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalPipes(
@@ -62,36 +60,31 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
-  try {
-    const app = await NestFactory.create(AppModule, { snapshot: true });
-    const configService = app.get(ConfigService);
+  const app = await NestFactory.create(AppModule, { snapshot: true });
+  const configService = app.get(ConfigService);
 
-    const logger = app.get(Logger);
-    app.useLogger(logger);
+  const logger = app.get(Logger);
+  app.useLogger(logger);
 
-    app.enableShutdownHooks();
+  app.enableShutdownHooks();
 
-    await setUpAppMiddleware(app, configService);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-    // app.getHttpServer().on('upgrade', async function (req: Request, socket: any, head: any) {
-    //   if (req.url.startsWith('/_next')) {
-    //     console.log('upgrade: ', req.url);
-    //     const server = app.select(NextModule.DEFAULT).get(NextService).server;
-    //     const result = await server.getUpgradeHandler()(req, socket, head);
-    //     console.log('hmr result', result);
-    //   }
-    // });
+  await setUpAppMiddleware(app, configService);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+  // app.getHttpServer().on('upgrade', async function (req: any, socket: any, head: any) {
+  //   if (req.url.startsWith('/_next')) {
+  //     console.log('upgrade: ', req.url);
+  //     const server = app.select(NextModule.DEFAULT).get(NextService).server;
+  //     const result = await server.getUpgradeHandler()(req, socket, head);
+  //     console.log('hmr result', result);
+  //   }
+  // });
 
-    const port = await getAvailablePort(configService.get<string>('PORT') as string);
-    process.env.PORT = port.toString();
-    logger.log(`> Ready on http://${host}:${port}`);
-    logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
-    await app.listen(port);
-    return app;
-  } catch (err) {
-    console.error(`Failed to initialize, due to ${err}`);
-    process.exit(1);
-  }
+  const port = await getAvailablePort(configService.get<string>('PORT') as string);
+  process.env.PORT = port.toString();
+  logger.log(`> Ready on http://${host}:${port}`);
+  logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
+  await app.listen(port);
+  return app;
 }
 
 async function getAvailablePort(dPort: number | string): Promise<number> {

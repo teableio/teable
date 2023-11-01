@@ -10,9 +10,10 @@ const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/
 
 module.exports = {
   root: true,
+  parser: '@typescript-eslint/parser',
   parserOptions: {
     tsconfigRootDir: __dirname,
-    project: 'tsconfig.json',
+    project: 'tsconfig.eslint.json',
   },
   ignorePatterns: [
     ...getDefaultIgnorePatterns(),
@@ -20,7 +21,6 @@ module.exports = {
     '.out',
     'main',
     'tailwind.shadcnui.config.js',
-    'electron-src',
   ],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
@@ -36,6 +36,7 @@ module.exports = {
     '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
+    '@typescript-eslint/naming-convention': 'off',
     // https://github.com/vercel/next.js/discussions/16832
     '@next/next/no-img-element': 'off',
     // For the sake of example
@@ -48,19 +49,6 @@ module.exports = {
       files: ['src/pages/\\_*.{ts,tsx}'],
       rules: {
         'react/display-name': 'off',
-      },
-    },
-    {
-      files: ['src/backend/**/*graphql*schema*.ts'],
-      rules: {
-        '@typescript-eslint/naming-convention': [
-          'error',
-          {
-            // Fine-tune naming convention for graphql resolvers and allow PascalCase
-            selector: ['objectLiteralProperty'],
-            format: ['camelCase', 'PascalCase'],
-          },
-        ],
       },
     },
   ],

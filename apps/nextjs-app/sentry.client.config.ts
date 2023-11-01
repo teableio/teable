@@ -11,7 +11,7 @@ sentryInit({
   // @see https://develop.sentry.dev/sdk/performance/
   tracesSampleRate: ['false', '0'].includes(process.env.NEXTJS_SENTRY_TRACING ?? '')
     ? undefined
-    : 1.0,
+    : 0.05,
 
   // ...
   // Note: if you want to override the automatic release value, do not set a
@@ -22,7 +22,7 @@ sentryInit({
       console.log('Sentry event', event);
       console.log('Sentry hint', hint);
     }
-    return event;
+    return Promise.resolve(event);
   },
   ignoreErrors: [
     /**

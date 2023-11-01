@@ -11,5 +11,16 @@
     "incremental": true,
     "paths": {}
   },
-  "exclude": ["**/node_modules", "**/.*/", "dist", "build"]
+  "exclude": ["**/node_modules", "**/.*/*", "dist"],
+  "include": [
+    ".eslintrc.*",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.js",
+    "**/*.cjs",
+    "**/*.mjs",
+    "**/*.jsx",
+    "**/*.json"
+  ]
 }

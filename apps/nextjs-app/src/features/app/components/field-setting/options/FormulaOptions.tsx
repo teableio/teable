@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import type { IFormulaFieldOptions, ILookupOptionsRo } from '@teable-group/core';
 import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable-group/core';
 import { FormulaEditor } from '@teable-group/sdk/components';

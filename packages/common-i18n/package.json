@@ -1,6 +1,6 @@
 {
   "name": "@teable-group/common-i18n",
-  "version": "1.2.1",
+  "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teable-group/teable",
@@ -29,10 +29,10 @@
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.5",
-    "@types/node": "18.15.0",
+    "@types/jest": "29.5.7",
+    "@types/node": "18.17.1",
     "cross-env": "7.0.3",
-    "eslint": "8.51.0",
+    "eslint": "8.52.0",
     "prettier": "3.0.3",
     "rimraf": "5.0.5",
     "typescript": "5.2.2"

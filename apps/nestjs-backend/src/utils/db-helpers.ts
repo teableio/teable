@@ -2,8 +2,8 @@ import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { get } from 'lodash';
 
-export function getDriverName(knex: Knex) {
-  return get(knex, 'client.driverName', '');
+export function getDriverName(knex: Knex | Knex.QueryBuilder) {
+  return get(knex, 'client.config.client', '') as DriverClient;
 }
 
 export function isPostgreSQL(knex: Knex) {

@@ -1,22 +1,45 @@
 import type { ISort } from '@teable-group/core';
-import { isEmpty } from 'lodash';
+import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../field/model/factory';
 
 export class SortQueryTranslator {
-  public static translateToOrderQuery(
-    sortObjs: ISort['sortObjs'],
-    fieldsMap?: { [fieldId: string]: IFieldInstance }
-  ) {
-    if (!fieldsMap || isEmpty(fieldsMap)) {
-      return [];
+  constructor(
+    private readonly knex: Knex,
+    private readonly queryBuilder: Knex.QueryBuilder,
+    private readonly fields?: { [fieldId: string]: IFieldInstance },
+    private readonly sortObjs?: ISort['sortObjs']
+  ) {}
+
+  translateToSql(): Knex.QueryBuilder {
+    return this.parseSorts(this.queryBuilder, this.sortObjs);
+  }
+
+  private parseSorts(
+    queryBuilder: Knex.QueryBuilder,
+    sortObjs?: ISort['sortObjs']
+  ): Knex.QueryBuilder {
+    if (!sortObjs) {
+      return queryBuilder;
     }
 
-    return sortObjs.map((sortItem) => {
-      const field = fieldsMap[sortItem?.fieldId];
-      return {
-        column: field?.dbFieldName || sortItem.fieldId,
-        order: sortItem.order,
-      };
+    sortObjs.forEach((sort) => {
+      const { fieldId, order } = sort;
+
+      const field = this.fields && this.fields[fieldId];
+      if (!field) {
+        return queryBuilder;
+      }
+
+      const column =
+        field.dbFieldType === 'JSON'
+          ? this.knex.raw(`CAST(?? as text)`, [field.dbFieldName]).toQuery()
+          : this.knex.ref(field.dbFieldName).toQuery();
+
+      const nulls = order.toUpperCase() === 'ASC' ? 'FIRST' : 'LAST';
+
+      queryBuilder.orderByRaw(this.knex.raw(`${column} ${order} NULLS ${nulls}`).toQuery());
     });
+
+    return queryBuilder;
   }
 }

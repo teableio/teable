@@ -1,6 +1,6 @@
 import { RowHeightLevel } from '@teable-group/core';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+// eslint-disable-next-line
 export const GIRD_ROW_HEIGHT_DEFINITIONS = {
   [RowHeightLevel.AutoFit]: 32,
   [RowHeightLevel.Short]: 32,

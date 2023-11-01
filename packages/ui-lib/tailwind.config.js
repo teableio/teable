@@ -1,5 +1,5 @@
-const deepMerge = require('deepmerge');
 const { join } = require('path');
+const deepMerge = require('deepmerge');
 const shadcnuiConfig = require('./tailwind.shadcnui.config');
 
 const filePath = join(__dirname, './src/**/*.{js,ts,jsx,tsx}');

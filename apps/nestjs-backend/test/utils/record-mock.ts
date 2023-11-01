@@ -3,11 +3,17 @@ import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import type { ISelectFieldOptions } from '@teable-group/core';
 import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
+import * as dotenv from 'dotenv-flow';
 import Knex from 'knex';
 import { chunk, flatten, groupBy } from 'lodash';
+
+dotenv.config({ path: '../../../nextjs-app', default_node_env: 'development' });
+
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+console.log('database-url: ', databaseUrl);
 const { driver } = parseDsn(databaseUrl);
+console.log('driver: ', driver);
 const prisma = new PrismaClient();
 
 async function rectifyField(fields: Field[], selectOptions: ISelectFieldOptions) {

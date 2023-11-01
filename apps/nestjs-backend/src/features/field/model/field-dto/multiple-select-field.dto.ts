@@ -6,7 +6,7 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements I
     return value == null ? null : JSON.stringify(value);
   }
 
-  convertDBValue2CellValue(value: string): string[] {
-    return value == null ? value : JSON.parse(value);
+  convertDBValue2CellValue(value: unknown): string[] {
+    return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
   }
 }

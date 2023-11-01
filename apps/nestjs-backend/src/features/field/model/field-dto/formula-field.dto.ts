@@ -11,7 +11,7 @@ export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
 
   convertDBValue2CellValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return value == null ? value : JSON.parse(value as string);
+      return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
     }
     if (value instanceof Date) {
       return value.toISOString();

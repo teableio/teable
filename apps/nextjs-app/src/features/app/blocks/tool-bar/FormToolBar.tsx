@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable-group/icons';
 import { useTableId, useViewId } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn';

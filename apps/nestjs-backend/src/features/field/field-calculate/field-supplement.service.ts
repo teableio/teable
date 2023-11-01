@@ -54,7 +54,7 @@ export class FieldSupplementService implements ISupplementService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getDbTableName(tableId: string) {

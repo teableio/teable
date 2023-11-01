@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 export interface IAutoSize {
   fontFamily?: string;
   fontSize?: number;

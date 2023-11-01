@@ -19,15 +19,15 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.1.0",
-    "@teable-group/core": "workspace:*",
-    "axios": "1.5.1",
+    "@asteasolutions/zod-to-openapi": "6.2.0",
+    "@teable-group/core": "workspace:^",
+    "axios": "1.6.0",
     "openapi3-ts": "^4.1.2",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
-    "eslint": "8.51.0",
+    "eslint": "8.52.0",
     "rimraf": "5.0.5",
     "typescript": "5.2.2"
   }

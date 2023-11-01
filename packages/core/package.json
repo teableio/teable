@@ -1,6 +1,6 @@
 {
   "name": "@teable-group/core",
-  "version": "1.1.1",
+  "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teable-group/teable",
@@ -30,7 +30,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.1.0",
+    "@asteasolutions/zod-to-openapi": "6.2.0",
     "@soluble/dsn-parser": "1.9.2",
     "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
@@ -41,23 +41,22 @@
     "zod": "3.22.4"
   },
   "devDependencies": {
-    "@size-limit/file": "9.0.0",
+    "@size-limit/file": "10.0.1",
     "@testing-library/jest-dom": "6.1.4",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.5",
-    "@types/lodash": "^4.14.199",
-    "@types/node": "18.15.0",
+    "@types/jest": "29.5.7",
+    "@types/lodash": "^4.14.200",
+    "@types/node": "18.17.1",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
-    "eslint": "8.51.0",
-    "get-tsconfig": "4.2.0",
+    "eslint": "8.52.0",
+    "get-tsconfig": "4.7.2",
     "jest": "29.7.0",
     "prettier": "3.0.3",
     "rimraf": "5.0.5",
-    "size-limit": "9.0.0",
+    "size-limit": "10.0.1",
     "ts-jest": "29.1.1",
-    "tslib": "2.4.0",
     "typescript": "5.2.2"
   }
 }

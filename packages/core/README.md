@@ -7,7 +7,7 @@ A package holding some basic typescript utilities: typeguards, assertions...
 
 - [x] Packaged as ES module (type: module in package.json).
 - [x] Can be build with tsup (no need if using tsconfig aliases).
-- [x] Simple unit tests demo with either Vitest (`yarn test-unit`) or TS-Jest (`yarn test-unit-jest`).
+- [x] Simple unit tests demo with either Vitest (`pnpm test-unit`) or TS-Jest (`pnpm test-unit-jest`).
 
 ## Install
 
