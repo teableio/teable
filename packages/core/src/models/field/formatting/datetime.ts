@@ -16,7 +16,7 @@ export enum DateFormattingPreset {
 
 export enum TimeFormatting {
   Hour24 = 'HH:mm',
-  Hour12 = 'hh:mm',
+  Hour12 = 'hh:mm A',
   None = 'None',
 }
 

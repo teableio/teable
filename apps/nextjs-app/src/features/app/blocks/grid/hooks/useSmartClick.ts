@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { IMouseState, IPosition } from '../interface';
 
 export const useSmartClick = (
@@ -11,17 +11,24 @@ export const useSmartClick = (
   const [startTime, setStartTime] = useState(0);
   const [startPos, setStartPos] = useState<IPosition | null>(null);
   const [dragging, setDragging] = useState(false);
+  const isClickOrigin = useRef(false);
 
   const onSmartMouseDown = (mouseState: IMouseState) => {
     const { x, y } = mouseState;
     setStartPos({ x, y });
+    isClickOrigin.current = true;
   };
 
   const onSmartMouseUp = (mouseState: IMouseState) => {
     const { x, y } = mouseState;
-    if (startPos && (Math.abs(startPos.x - x) > 5 || Math.abs(startPos.y - y) > 5)) {
+    if (
+      isClickOrigin.current &&
+      startPos &&
+      (Math.abs(startPos.x - x) > 5 || Math.abs(startPos.y - y) > 5)
+    ) {
       setDragging(true);
     }
+    isClickOrigin.current = false;
   };
 
   const onSmartClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {

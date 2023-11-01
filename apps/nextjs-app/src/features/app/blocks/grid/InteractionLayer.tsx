@@ -1,7 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { useView } from '@teable-group/sdk/hooks/use-view';
 import { isEqual } from 'lodash';
-
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useClickAway, useMouse } from 'react-use';
@@ -36,7 +34,8 @@ import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from
 import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CellType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
-import { flatRanges, getRegionType, inRange } from './utils';
+import type { IRegionData } from './utils';
+import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight, columnStatisticHeight } = GRID_DEFAULT;
 
@@ -80,6 +79,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     width,
     height,
     columns,
+    draggable,
     rowControls,
     mouseState,
     scrollState,
@@ -105,13 +105,13 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnResize,
     onColumnOrdered,
     onContextMenu,
+    onItemHovered,
+    onItemClick,
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
   } = props;
-
-  const view = useView();
 
   useImperativeHandle(ref, () => ({
     onReset,
@@ -142,6 +142,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
+  const previousHoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
+
   const mousePosition = useMouse(stageRef);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
@@ -177,12 +180,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
-    selection
+    selection,
+    draggable
   );
 
   const { isDragging, type: dragType } = dragState;
   const isResizing = columnResizeState.columnIndex > -1;
   const { isCellSelection, ranges: selectionRanges } = selection;
+  const isInteracting = isSelecting || isDragging || isResizing;
 
   const getPosition = () => {
     const x = mousePosition.elX;
@@ -239,24 +244,28 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const isOutOfBounds =
       scrollLeft + x > totalWidth + columnAppendBtnWidth ||
       (scrollTop + y > totalHeight && !inRange(y, containerHeight, height));
+    const regionData = getRegionData({
+      position,
+      dragState,
+      selection,
+      isSelecting,
+      columnResizeState,
+      coordInstance,
+      scrollState,
+      rowControls,
+      isOutOfBounds,
+      hasAppendRow,
+      hasAppendColumn,
+      columnStatistics,
+      columns,
+      height,
+      theme,
+    });
+    hoveredRegionRef.current = regionData;
+
     return {
       ...position,
-      type: getRegionType({
-        position,
-        dragState,
-        selection,
-        isSelecting,
-        columnResizeState,
-        coordInstance,
-        scrollState,
-        rowControls,
-        isOutOfBounds,
-        hasAppendRow,
-        hasAppendColumn,
-        columnStatistics,
-        height,
-        theme,
-      }),
+      type: regionData.type,
       isOutOfBounds,
     };
   };
@@ -271,13 +280,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.AppendRow:
       case RegionType.AppendColumn:
       case RegionType.ColumnHeaderMenu:
+      case RegionType.ColumnDescription:
       case RegionType.RowHeaderCheckbox:
       case RegionType.RowHeaderExpandHandler:
       case RegionType.ColumnStatistic:
       case RegionType.AllCheckbox:
         return setCursor('pointer');
-      case RegionType.RowHeaderDragHandler:
+      case RegionType.RowHeaderDragHandler: {
+        if (draggable === 'column' || draggable === 'none') {
+          return setCursor('not-allowed');
+        }
         return setCursor('grabbing');
+      }
       case RegionType.ColumnResizeHandler:
         return setCursor('ew-resize');
       case RegionType.FillHandler:
@@ -342,6 +356,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         }
       }
     }
+
+    const { type: clickRegionType, ...rest } = hoveredRegionRef.current;
+    onItemClick?.(clickRegionType, rest, [columnIndex, rowIndex]);
   };
 
   const onDblClick = () => {
@@ -416,12 +433,13 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
-    /**
-     * only forbid row drag when sort enable AutoSort
-     */
-    if (!(view?.sort?.shouldAutoSort && mouseState?.type !== RegionType.ColumnHeader)) {
-      onDragChange(mouseState);
+    onDragChange(mouseState);
+    if (!isInteracting && !isEqual(hoveredRegionRef.current, previousHoveredRegionRef.current)) {
+      const { type, ...rest } = hoveredRegionRef.current;
+      const { columnIndex, rowIndex } = mouseState;
+      onItemHovered?.(type, rest, [columnIndex, rowIndex]);
     }
+    previousHoveredRegionRef.current = { ...hoveredRegionRef.current };
   };
 
   const onMouseUp = () => {
@@ -449,7 +467,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   };
 
   const onMouseLeave = () => {
-    if (isSelecting || isDragging) return;
+    if (isInteracting) return;
+    const { type, ...rest } = BLANK_REGION_DATA;
+    onItemHovered?.(type, rest, [-Infinity, -Infinity]);
     setMouseState(DEFAULT_MOUSE_STATE);
   };
 
@@ -468,12 +488,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
 
-  useEventListener(
-    'mousemove',
-    onMouseMove,
-    isSelecting || isDragging || isResizing ? window : stageRef.current,
-    true
-  );
+  useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
 
   useClickAway(containerRef, () => {
     editorContainerRef.current?.saveValue?.();

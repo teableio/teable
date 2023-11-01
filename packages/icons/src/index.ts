@@ -1,4 +1,5 @@
 export { default as A } from './components/A';
+export { default as AlertCircle } from './components/AlertCircle';
 export { default as AlertTriangle } from './components/AlertTriangle';
 export { default as Apple } from './components/Apple';
 export { default as ArrowUpDown } from './components/ArrowUpDown';

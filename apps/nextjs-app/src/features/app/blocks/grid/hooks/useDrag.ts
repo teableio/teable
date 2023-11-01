@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { DEFAULT_DRAG_STATE } from '../configs';
 import type { IDragState, IMouseState, IRange, IScrollState } from '../interface';
-import { DragRegionType, RegionType } from '../interface';
+import { DragRegionType, RegionType, DraggableType } from '../interface';
 import type { CoordinateManager, CombinedSelection } from '../managers';
 import { inRange } from '../utils';
 
@@ -39,7 +39,8 @@ export const getDropTargetIndex = (
 export const useDrag = (
   coordInstance: CoordinateManager,
   scrollState: IScrollState,
-  selection: CombinedSelection
+  selection: CombinedSelection,
+  draggable?: DraggableType
 ) => {
   // Prevents Drag and Drop from Being Too Reactive
   const startPosition = useRef(0);
@@ -47,10 +48,12 @@ export const useDrag = (
   const { scrollTop, scrollLeft } = scrollState;
 
   const onDragStart = (mouseState: IMouseState) => {
+    if (draggable === DraggableType.None) return;
+
     const { type, rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex, x, y } = mouseState;
     const { isRowSelection, isColumnSelection, ranges: selectionRanges } = selection;
 
-    if (type === RegionType.RowHeaderDragHandler) {
+    if (type === RegionType.RowHeaderDragHandler && draggable !== DraggableType.Column) {
       startPosition.current = y;
       const ranges =
         isRowSelection && selection.includes([hoverRowIndex, hoverRowIndex])
@@ -64,7 +67,7 @@ export const useDrag = (
       });
     }
 
-    if (type === RegionType.ColumnHeader) {
+    if (type === RegionType.ColumnHeader && draggable !== DraggableType.Row) {
       startPosition.current = x;
       const ranges =
         isColumnSelection && selection.includes([hoverColumnIndex, hoverColumnIndex])

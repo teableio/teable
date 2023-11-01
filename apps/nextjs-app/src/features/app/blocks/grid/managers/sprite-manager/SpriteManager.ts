@@ -1,16 +1,15 @@
 import type { IGridTheme } from '../../configs';
-import type { ISpriteIconMap, ISpriteProps } from './sprites';
+import type { GridInnerIcon, ISpriteProps } from './sprites';
 import { sprites } from './sprites';
 
-export type ISpriteIcon = keyof ISpriteIconMap;
 export type ISprite = (props: ISpriteProps) => string;
-export type ISpriteMap = Record<string | ISpriteIcon, ISprite>;
+export type ISpriteMap = Record<string | GridInnerIcon, ISprite>;
 export type ISpriteVariant = 'normal' | 'selected';
 
 interface ISpriteDrawerProps {
   x: number;
   y: number;
-  sprite: ISpriteIcon | string;
+  sprite: GridInnerIcon | string;
   size: number;
   theme: IGridTheme;
   colors?: [fgColor: string, bgColor: string];
