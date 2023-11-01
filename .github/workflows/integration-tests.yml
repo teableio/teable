@@ -31,6 +31,6 @@ jobs:
 
       - name: 🧪 Run Tests
         env:
-          NODE_ENV: production
+          CI: 1
         run: |
           make ${{ matrix.database-type }}.integration.test

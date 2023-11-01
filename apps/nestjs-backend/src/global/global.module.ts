@@ -11,7 +11,6 @@ import { TeableConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
 import { TeableEventEmitterModule } from '../event-emitter/event-emitter.module';
 import { PermissionModule } from '../features/auth/permission.module';
-import { InitBootstrapProvider } from './init-bootstrap.provider';
 import { TeableKnexModule } from './knex';
 
 @Global()
@@ -41,7 +40,6 @@ import { TeableKnexModule } from './knex';
     PrismaModule,
     PermissionModule,
   ],
-  providers: [InitBootstrapProvider],
 })
 export class GlobalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

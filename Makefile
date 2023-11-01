@@ -10,6 +10,7 @@ COMPOSE_FILE_ARGS := --env-file $(DOCKER_COMPOSE_ENV_FILE) $(foreach yml,$(COMPO
 
 NETWORK_MODE ?= teablenet
 CI_JOB_ID ?= 0
+CI ?= 0
 
 # Timeout used to await services to become healthy
 TIMEOUT ?= 300
@@ -17,9 +18,6 @@ TIMEOUT ?= 300
 SCRATCH ?= /tmp
 
 UNAME_S := $(shell uname -s)
-
-NODE_ENV ?= development
-export NODE_ENV
 
 # prisma database url defaults
 SQLITE_PRISMA_DATABASE_URL ?= file:../../db/main.db
@@ -71,6 +69,10 @@ endif
 #
 ifneq ($(CI_JOB_ID),)
     NETWORK_MODE := teablenet-$(CI_JOB_ID)
+endif
+
+ifeq ($(CI),0)
+    export NODE_ENV = development
 endif
 
 
@@ -245,16 +247,14 @@ postgres-mode:		## postgres-mode
 RUN_DB_MODE ?= sqlite
 FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
 switch.prisma.env:
-ifeq ($(NODE_ENV)-$(RUN_DB_MODE),development-sqlite)
+ifeq ($(CI)-$(RUN_DB_MODE),0-sqlite)
 	@for file in $(FILE_ENV_PATHS); do \
 		sed -i~ 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
 	done
-else ifeq ($(NODE_ENV)-$(RUN_DB_MODE),development-postges)
+else ifeq ($(CI)-$(RUN_DB_MODE),0-postges)
 	@for file in $(FILE_ENV_PATHS); do \
 		sed -i~ 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
 	done
-else
-	$(error Sorry, DB mode '${RUN_DB_MODE}' is not supported yet)
 endif
 
 switch-db-mode:		## Switch Database environment
