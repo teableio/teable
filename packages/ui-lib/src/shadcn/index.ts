@@ -24,3 +24,4 @@ export * from './ui/skeleton';
 export * from './ui/form';
 export * from './ui/scroll-area';
 export * from './ui/textarea';
+export * from './ui/hover-card';
