@@ -5,20 +5,24 @@ import type {
   INumberShowAs,
   ISingleLineTextShowAs,
 } from '@teable-group/core';
-import { NumberEditor, onMixedTextClick } from '@teable-group/sdk/components';
+import type {
+  IGridColumn,
+  ICell,
+  INumberShowAs as IGridNumberShowAs,
+  ChartType,
+} from '@teable-group/sdk/components';
+import {
+  NumberEditor,
+  onMixedTextClick,
+  CellType,
+  EditorPosition,
+} from '@teable-group/sdk/components';
 import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import { getFileCover } from '@/features/app/utils';
-import type {
-  IGridColumn,
-  ICell,
-  INumberShowAs as IGridNumberShowAs,
-  ChartType,
-} from '../../../grid';
-import { CellType, EditorPosition } from '../../../grid';
 import { DateEditor, LinkEditor } from '../components';
 import { AttachmentEditor } from '../components/editor/AttachmentEditor';
 

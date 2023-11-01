@@ -1,5 +1,5 @@
+import type { CombinedSelection } from '@teable-group/sdk/components';
 import { create } from 'zustand';
-import type { CombinedSelection } from '../../../grid/managers/selection-manager';
 import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu, ITooltipInfo } from './type';
 
 interface IGridViewState {

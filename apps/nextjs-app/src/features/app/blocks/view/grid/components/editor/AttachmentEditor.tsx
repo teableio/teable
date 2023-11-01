@@ -1,8 +1,8 @@
 import type { IAttachmentCellValue } from '@teable-group/core';
 import { AttachmentEditorMain } from '@teable-group/sdk';
+import type { IEditorProps } from '@teable-group/sdk';
 import { Dialog, DialogContent } from '@teable-group/ui-lib/shadcn/ui/dialog';
 import { useRef } from 'react';
-import type { IEditorProps } from '@/features/app/blocks/grid/components';
 import type { IWrapperEditorProps } from './type';
 
 export const AttachmentEditor = (props: IWrapperEditorProps & IEditorProps) => {

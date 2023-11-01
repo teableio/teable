@@ -1,3 +1,4 @@
+export * from './grid';
 export * from './editor';
 export * from './filter';
 export * from './sort';

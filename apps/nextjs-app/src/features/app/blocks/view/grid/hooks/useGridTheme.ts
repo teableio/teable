@@ -1,6 +1,6 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
+import { hexToRGBA } from '@teable-group/sdk/components';
 import colors from 'tailwindcss/colors';
-import { hexToRGBA } from '../../../grid/utils';
 
 const lightTheme = {};
 

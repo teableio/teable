@@ -1,9 +1,9 @@
-import { useIsTouchDevice } from '@teable-group/sdk/hooks';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { Scroller } from 'scroller';
+import { useIsTouchDevice } from '../../hooks';
 import type { IGridProps } from './Grid';
 import { getHorizontalRangeInfo, getVerticalRangeInfo, useEventListener } from './hooks';
 import type { IScrollState } from './interface';

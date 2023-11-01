@@ -12,7 +12,15 @@ import {
   useTableId,
   useView,
   useViewId,
+  Grid,
+  CellType,
+  RowControlType,
+  SelectionRegionType,
+  RegionType,
+  DraggableType,
+  CombinedSelection,
 } from '@teable-group/sdk';
+import type { IRectangle, IPosition, IGridRef, ICellItem } from '@teable-group/sdk';
 import { Skeleton } from '@teable-group/ui-lib/shadcn';
 import { isEqual, keyBy } from 'lodash';
 import { useRouter } from 'next/router';
@@ -21,16 +29,6 @@ import { usePrevious, useMount } from 'react-use';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import {
-  Grid,
-  CellType,
-  RowControlType,
-  SelectionRegionType,
-  RegionType,
-  DraggableType,
-} from '../../grid';
-import type { IRectangle, IPosition, IGridRef, ICellItem } from '../../grid';
-import { CombinedSelection } from '../../grid/managers';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import {

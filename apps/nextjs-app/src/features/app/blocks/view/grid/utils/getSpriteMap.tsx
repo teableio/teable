@@ -1,5 +1,5 @@
+import type { ISpriteMap, ISpriteProps } from '@teable-group/sdk/components';
 import { renderToString } from 'react-dom/server';
-import type { ISpriteMap, ISpriteProps } from '../../../grid/managers';
 
 export const getSpriteMap = (
   iconItems: {

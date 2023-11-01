@@ -1,11 +1,9 @@
 import type { IRecord, IGetRecordsQuery } from '@teable-group/core';
-import { useRecords, useRowCount, useViewId } from '@teable-group/sdk';
+import type { ICellItem, IGridProps, IRectangle, ICell, IInnerCell } from '@teable-group/sdk';
+import { useRecords, useRowCount, useViewId, CellType } from '@teable-group/sdk';
 import type { Record } from '@teable-group/sdk/model';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import type { ICellItem, IGridProps, IRectangle } from '../../../grid';
-import type { ICell, IInnerCell } from '../../../grid/renderers';
-import { CellType } from '../../../grid/renderers';
 import { reorder } from '../utils';
 
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };

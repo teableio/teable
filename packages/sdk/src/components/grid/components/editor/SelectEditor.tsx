@@ -1,4 +1,4 @@
-import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
+import { Check } from '@teable-group/icons';
 import {
   Command,
   CommandEmpty,
@@ -6,7 +6,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@teable-group/ui-lib/shadcn/ui/command';
+} from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { isString, noop } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
@@ -58,7 +58,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
           {isEditing &&
             choices.map(({ bgColor, textColor, name }) => (
               <CommandItem key={name} value={name} onSelect={() => onSelect(name)}>
-                <SelectIcon
+                <Check
                   className={classNames(
                     'mr-2 h-4 w-4',
                     values?.includes(name) ? 'opacity-100' : 'opacity-0'
