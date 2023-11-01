@@ -40,18 +40,18 @@ export class PermissionGuard {
     let permissionsByCheck: PermissionAction[] = [];
     // before check baseId, as users can be individually invited into the base.
     if (baseId) {
-      permissionsByCheck = await this.permissionService.checkPermissionByTableId(
-        tableId,
-        permissions
-      );
-    } else if (spaceId) {
       permissionsByCheck = await this.permissionService.checkPermissionByBaseId(
         baseId,
         permissions
       );
-    } else if (tableId) {
+    } else if (spaceId) {
       permissionsByCheck = await this.permissionService.checkPermissionBySpaceId(
         spaceId,
+        permissions
+      );
+    } else if (tableId) {
+      permissionsByCheck = await this.permissionService.checkPermissionByTableId(
+        tableId,
         permissions
       );
     } else {
