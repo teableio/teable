@@ -13,7 +13,7 @@ export class AggregationOpenApiController {
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Query(new ZodValidationPipe(viewAggregationRoSchema)) query?: IViewAggregationRo
-  ): Promise<IViewAggregationVo> {
+  ): Promise<IViewAggregationVo | null> {
     return await this.aggregationOpenApiService.getViewAggregations(tableId, viewId, query);
   }
 

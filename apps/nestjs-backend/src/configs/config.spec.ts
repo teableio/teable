@@ -30,7 +30,7 @@ describe('ConfigService', () => {
     configService = app.get<ConfigService>(ConfigService);
   });
 
-  it('should be defined', async () => {
+  it('should be defined', () => {
     expect(configService).toBeDefined();
   });
 

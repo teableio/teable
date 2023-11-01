@@ -3,11 +3,20 @@
 # @link https://github.com/raineorshine/npm-check-updates
 
 # Add here exclusions on packages if any
-reject: [
-    # execa (6.0.0 is esm and does not work with ts-jest)
-    'execa',
-    # Too early cause in esm
-    'is-port-reachable',
-    'i18next',
-    'react-i18next',
+reject:
+  [
+    'vitest',
+    '@vitest/coverage-v8',
+    '@vitest/coverage-istanbul',
+    '@vitest/ui',
+
+    'vite-plugin-svgr',
+
+    '@remix-run/dev',
+    '@remix-run/eslint-config',
+    '@remix-run/node',
+    '@remix-run/react',
+    '@remix-run/serve',
+    '@vercel/remix',
+    'remix',
   ]

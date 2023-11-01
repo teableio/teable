@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable-group/core';
 import type { IMultiNumberShowAs } from '@teable-group/core';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';

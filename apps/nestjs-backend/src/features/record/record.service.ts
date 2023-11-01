@@ -64,7 +64,7 @@ export class RecordService implements IAdapterService {
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
     @Inject('DbProvider') private dbProvider: IDbProvider,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getRowOrderFieldNames(tableId: string) {
@@ -266,28 +266,14 @@ export class RecordService implements IAdapterService {
     }
 
     // All `where` condition-related construction work
-    const translatedOrderby = SortQueryTranslator.translateToOrderQuery(orderBy, fieldMap);
+    new FilterQueryTranslator(queryBuilder, fieldMap, filter).translateToSql();
+    new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).translateToSql();
 
-    const orderByRawSql = translatedOrderby
-      .map(({ column, order }) => {
-        const upperOrder = order.toUpperCase();
-        // let nulls to lowest
-        return `${this.knex.raw('??', [column]).toQuery()} ${upperOrder} NULLS ${
-          upperOrder === 'ASC' ? 'FIRST' : 'LAST'
-        }`;
-      })
-      .join();
-
-    if (orderByRawSql) {
-      queryBuilder.orderByRaw(orderByRawSql);
-    }
-
+    // view sorting added by default
     queryBuilder.orderBy(orderFieldName, 'asc').offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
-
-    new FilterQueryTranslator(queryBuilder, fieldMap, filter);
 
     return { queryBuilder };
   }

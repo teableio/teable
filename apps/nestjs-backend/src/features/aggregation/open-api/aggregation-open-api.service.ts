@@ -25,7 +25,7 @@ export class AggregationOpenApiService {
     tableId: string,
     viewId: string,
     viewAggregationRo?: IViewAggregationRo
-  ): Promise<IViewAggregationVo> {
+  ): Promise<IViewAggregationVo | null> {
     let withView: IWithView = { viewId };
 
     const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
@@ -50,10 +50,9 @@ export class AggregationOpenApiService {
       { fieldAggregation: true }
     )) as IRawAggregationVo;
 
-    return {
-      viewId: result[viewId].viewId,
-      aggregations: result[viewId].aggregations,
-    };
+    return isEmpty(result)
+      ? null
+      : { viewId: result[viewId]?.viewId, aggregations: result[viewId]?.aggregations };
   }
 
   @Permissions('view|read')

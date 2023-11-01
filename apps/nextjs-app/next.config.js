@@ -2,8 +2,8 @@
 
 const { readFileSync } = require('fs');
 const path = require('path');
-const pc = require('picocolors');
 const { createSecureHeaders } = require('next-secure-headers');
+const pc = require('picocolors');
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 /**
@@ -32,10 +32,10 @@ const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
 const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
 
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'true'
+  process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'true'
+  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
@@ -145,10 +145,6 @@ const nextConfig = {
     // emotion: true,
   },
 
-  // Standalone build
-  // @link https://nextjs.org/docs/advanced-features/output-file-tracing#automatically-copying-traced-files-experimental
-  // output: 'standalone',
-
   sentry: {
     hideSourceMaps: true,
   },
@@ -205,6 +201,7 @@ const nextConfig = {
     // dirs: [`${__dirname}/src`],
   },
 
+  // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
     const socketProxy = {
       source: '/socket/:path*',
@@ -252,16 +249,9 @@ const nextConfig = {
           loader: '@svgr/webpack',
           // https://react-svgr.com/docs/webpack/#passing-options
           options: {
-            svgo: true,
+            svgo: isProd,
             // @link https://github.com/svg/svgo#configuration
-            svgoConfig: {
-              multipass: false,
-              datauri: 'base64',
-              js2svg: {
-                indent: 2,
-                pretty: false,
-              },
-            },
+            // svgoConfig: { }
           },
         },
       ],

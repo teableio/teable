@@ -2,9 +2,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { DriverClient } from '@teable-group/core';
 import knex from 'knex';
+import { getDriverName } from '../../utils/db-helpers';
 
 knex.QueryBuilder.extend('columnList', function (tableName: string) {
-  const driverClient = this.client.config?.client as DriverClient;
+  const driverClient = getDriverName(this);
+
   switch (driverClient) {
     case DriverClient.Sqlite:
       return knex(this.client.config).raw(`PRAGMA table_info(??)`, tableName);

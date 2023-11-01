@@ -1,19 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type {
-  IColumnMeta,
-  IViewVo,
-  IManualSortRo,
-  IFieldVo,
-  IOtOperation,
-  IViewRo,
-} from '@teable-group/core';
-import { FieldOpBuilder, OpName } from '@teable-group/core';
+import type { IColumnMeta, IFieldVo, IOtOperation, IViewRo, IViewVo } from '@teable-group/core';
+import { FieldOpBuilder, IManualSortRo, OpName } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { Timing } from '../../../utils/timing';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
-import { SortQueryTranslator } from '../../record/translator/sort-query-translator';
 import { ViewService } from '../view.service';
 
 @Injectable()
@@ -25,7 +18,7 @@ export class ViewOpenApiService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   async createView(tableId: string, viewRo: IViewRo) {
@@ -89,12 +82,12 @@ export class ViewOpenApiService {
     });
   }
 
+  @Timing()
   async manualSort(tableId: string, viewId: string, viewOrderRo: IManualSortRo) {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFields(tableId, { viewId });
     const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
-    const fieldIndexName = this.viewService.getRowIndexFieldIndexName(viewId);
 
     const fieldMap = fields.reduce(
       (map, field) => {
@@ -104,50 +97,43 @@ export class ViewOpenApiService {
       {} as Record<string, IFieldVo>
     );
 
-    const orders = sortObjs.map(({ fieldId, order }) => ({
-      column: fieldMap[fieldId].dbFieldName,
-      order: order,
-    }));
+    let orderRawSql = sortObjs
+      .map((sort) => {
+        const { fieldId, order } = sort;
 
-    // ensure order stable
-    orders.push({
-      column: '__auto_number',
-      order: 'asc',
-    });
+        const field = fieldMap[fieldId];
+        if (!field) {
+          return;
+        }
 
-    const orderRawSql = orders
-      .map(({ column, order }) => {
-        const upperOrder = order.toUpperCase();
-        return `${this.knex.raw('??', [column]).toQuery()} ${upperOrder} NULLS ${
-          upperOrder === 'ASC' ? 'FIRST' : 'LAST'
-        }`;
+        const column =
+          field.dbFieldType === 'JSON'
+            ? this.knex.raw(`CAST(?? as text)`, [field.dbFieldName]).toQuery()
+            : this.knex.ref(field.dbFieldName).toQuery();
+
+        const nulls = order.toUpperCase() === 'ASC' ? 'FIRST' : 'LAST';
+
+        return `${column} ${order} NULLS ${nulls}`;
       })
       .join();
 
-    const dropIndexSQL = this.knex.schema
-      .table(dbTableName, (t) => {
-        t.dropUnique([fieldIndexId], fieldIndexName);
-      })
-      .toQuery();
-
-    const createIndexSql = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.unique([fieldIndexId], { indexName: fieldIndexName, useConstraint: true });
-      })
-      .toQuery();
+    // ensure order stable
+    orderRawSql += this.knex.raw(`, ?? ASC`, ['__auto_number']).toQuery();
 
     const updateRecordsOrderSql = this.knex
       .raw(
         `
-          UPDATE ??
-          SET ?? = ??.new_order
+          UPDATE :dbTableName:
+          SET :fieldIndexId: = temp_order.new_order
           FROM (
-            SELECT t.__id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order
-            FROM ?? AS t
+            SELECT __id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order FROM :dbTableName:
           ) AS temp_order
-          WHERE temp_order.__id = ??.__id;
+          WHERE :dbTableName:.__id = temp_order.__id AND :dbTableName:.:fieldIndexId: != temp_order.new_order;
         `,
-        [dbTableName, fieldIndexId, 'temp_order', dbTableName, dbTableName]
+        {
+          dbTableName: dbTableName,
+          fieldIndexId: fieldIndexId,
+        }
       )
       .toQuery();
 
@@ -157,14 +143,9 @@ export class ViewOpenApiService {
       shouldAutoSort: false,
     };
 
-    // execute sql to update raw order with transaction
-    await this.prismaService.$executeRawUnsafe(dropIndexSQL);
-
     await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(updateRecordsOrderSql);
       await this.viewService.updateView(tableId, viewId, newSort);
     });
-
-    await this.prismaService.$executeRawUnsafe(createIndexSql);
   }
 }

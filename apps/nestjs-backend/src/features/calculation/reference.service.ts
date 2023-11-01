@@ -94,7 +94,7 @@ export class ReferenceService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @Inject('DbProvider') private dbProvider: IDbProvider
   ) {}
 

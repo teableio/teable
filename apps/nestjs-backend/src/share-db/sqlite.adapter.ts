@@ -40,7 +40,7 @@ export class SqliteDbAdapter extends ShareDb.DB {
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
-    @InjectModel() private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {
     super();
     this.closed = false;

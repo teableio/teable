@@ -15,6 +15,7 @@ import { SpaceModule } from './features/space/space.module';
 import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
 import { UserModule } from './features/user/user.module';
 import { GlobalModule } from './global/global.module';
+import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { TeableLoggerModule } from './logger/logger.module';
 import { WsModule } from './ws/ws.module';
 
@@ -43,6 +44,6 @@ import { WsModule } from './ws/ws.module';
     InvitationModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [InitBootstrapProvider],
 })
 export class AppModule {}

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { reorder } from '../utils';
 
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
-// eslint-disable-next-line @typescript-eslint/naming-convention
+// eslint-disable-next-line
 const PAGE_SIZE = 300;
 
 export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;

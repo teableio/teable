@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs, { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
@@ -9,7 +9,7 @@ import {
   formatDateToString,
 } from '../formatting';
 
-dayjs.extend(timezone);
+extend(timezone);
 
 export const dateFieldOptionsSchema = z
   .object({

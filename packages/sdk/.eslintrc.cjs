@@ -10,9 +10,10 @@ const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/
 
 module.exports = {
   root: true,
+  parser: '@typescript-eslint/parser',
   parserOptions: {
     tsconfigRootDir: __dirname,
-    project: 'tsconfig.json',
+    project: 'tsconfig.eslint.json',
   },
   ignorePatterns: [...getDefaultIgnorePatterns()],
   extends: [
@@ -22,13 +23,19 @@ module.exports = {
     '@teable-group/eslint-config-bases/jest',
     '@teable-group/eslint-config-bases/rtl',
     '@teable-group/eslint-config-bases/react',
+    '@teable-group/eslint-config-bases/tailwind',
     // Apply prettier and disable incompatible rules
     '@teable-group/eslint-config-bases/prettier-plugin',
   ],
   rules: {
-    // optional overrides per project
+    // optional overrides per project file match
   },
   overrides: [
-    // optional overrides per project file match
+    {
+      files: ['src/components/**', 'src/context/**'],
+      rules: {
+        '@typescript-eslint/naming-convention': 'off',
+      },
+    },
   ],
 };

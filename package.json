@@ -43,13 +43,11 @@
     "nuke:node_modules": "pnpm -r exec -- rm -fr node_modules",
     "postinstall": "is-ci || pnpm husky install"
   },
-  "helpResolutions": {
-    "i18next": "https://github.com/i18next/next-i18next/pull/1966",
-    "@graphql-inspector/core": "https://github.com/kamilkisiela/graphql-inspector/issues/2175"
+  "resolutions?": {
+    "eslint-plugin-react-hooks": "https://github.com/vercel/next.js/issues/52365"
   },
   "resolutions": {
-    "@graphql-inspector/core": "3.3.0",
-    "i18next": "^22.0.0"
+    "eslint-plugin-react-hooks": "4.6.0"
   },
   "dependencies": {
     "cross-env": "7.0.3"
@@ -57,16 +55,15 @@
   "devDependencies": {
     "@changesets/changelog-github": "0.4.8",
     "@changesets/cli": "2.26.2",
-    "@commitlint/cli": "17.8.0",
-    "@commitlint/config-conventional": "17.8.0",
-    "@playwright/test": "1.27.1",
+    "@commitlint/cli": "18.2.0",
+    "@commitlint/config-conventional": "18.1.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/prettier": "2.7.3",
-    "@types/shell-quote": "1.7.2",
-    "eslint": "8.51.0",
+    "@types/shell-quote": "1.7.3",
+    "eslint": "8.52.0",
     "husky": "8.0.3",
     "is-ci": "3.0.1",
-    "lint-staged": "15.0.1",
+    "lint-staged": "15.0.2",
     "npm-run-all": "4.1.5",
     "openapi-typescript": "6.7.0",
     "prettier": "3.0.3",
@@ -75,7 +72,7 @@
     "typescript": "5.2.2"
   },
   "engines": {
-    "node": ">=18.15.0",
+    "node": ">=18.17.0",
     "pnpm": ">=8.9.0",
     "npm": "please-use-pnpm"
   },

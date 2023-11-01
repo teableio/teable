@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import type { IRectangle } from '../../interface';
 import { drawRect, drawSingleLineText } from '../base-renderer/baseRenderer';
 import { CellType } from './interface';

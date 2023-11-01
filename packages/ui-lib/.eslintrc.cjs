@@ -10,11 +10,16 @@ const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/
 
 module.exports = {
   root: true,
+  parser: '@typescript-eslint/parser',
   parserOptions: {
     tsconfigRootDir: __dirname,
-    project: 'tsconfig.json',
+    project: 'tsconfig.eslint.json',
   },
-  ignorePatterns: [...getDefaultIgnorePatterns(), '/scripts'],
+  ignorePatterns: [
+    ...getDefaultIgnorePatterns(),
+    '/storybook-static',
+    'tailwind.shadcnui.config.js',
+  ],
   extends: [
     '@teable-group/eslint-config-bases/typescript',
     '@teable-group/eslint-config-bases/regexp',
@@ -30,6 +35,11 @@ module.exports = {
     // optional overrides per project
   },
   overrides: [
-    // optional overrides per project file match
+    {
+      files: ['src/**/*.tsx'],
+      rules: {
+        '@typescript-eslint/naming-convention': 'off',
+      },
+    },
   ],
 };

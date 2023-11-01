@@ -1,7 +1,7 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const shadcnConfig = require('../components.json');
-const { execSync } = require('child_process');
 
 function fixAliases(componentName) {
   const fixFile = (filePath) => {
@@ -16,7 +16,7 @@ function fixAliases(componentName) {
 
     fs.writeFileSync(filePath, content, 'utf-8');
 
-    execSync(`yarn eslint ${filePath} --fix`, { stdio: 'inherit' });
+    execSync(`pnpm eslint ${filePath} --fix`, { stdio: 'inherit' });
 
     console.log('Fixed.');
   };
@@ -41,7 +41,7 @@ function fixAliases(componentName) {
 
 const args = process.argv.slice(2).join(' ');
 
-execSync(`yarn shadcn-ui ${args}`, { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+execSync(`pnpm shadcn-ui ${args}`, { stdio: 'inherit', cwd: path.join(__dirname, '..') });
 
 if (process.argv[2] === 'add') {
   fixAliases(process.argv[3]);

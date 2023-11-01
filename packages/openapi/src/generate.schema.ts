@@ -21,7 +21,7 @@ export function getOpenApiDocumentation(): OpenAPIObject {
   const registry = registerAllRoute();
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
-  const generated = generator.generateDocument({
+  return generator.generateDocument({
     openapi: '3.0.0',
     info: {
       version: '1.0.0',
@@ -30,6 +30,4 @@ export function getOpenApiDocumentation(): OpenAPIObject {
     },
     servers: [{ url: '/api/' }],
   });
-
-  return generated;
 }

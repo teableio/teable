@@ -7,19 +7,23 @@ import { KnexModule } from 'nest-knexjs';
 @Module({})
 export class TeableKnexModule {
   static register(): DynamicModule {
-    return KnexModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const databaseUrl = config.getOrThrow<string>('PRISMA_DATABASE_URL');
-        const { driver } = parseDsn(databaseUrl);
+    return KnexModule.forRootAsync(
+      {
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => {
+          const databaseUrl = config.getOrThrow<string>('PRISMA_DATABASE_URL');
+          const { driver } = parseDsn(databaseUrl);
 
-        return {
-          config: {
-            client: driver,
-            useNullAsDefault: true,
-          },
-        };
+          return {
+            config: {
+              client: driver,
+              useNullAsDefault: true,
+            },
+            name: 'CUSTOM_KNEX',
+          };
+        },
       },
-    });
+      'CUSTOM_KNEX'
+    );
   }
 }
