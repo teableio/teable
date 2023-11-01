@@ -74,8 +74,11 @@ export const useSelectionOperation = () => {
       });
       const ranges = selection.ranges;
       const clipboardContent = await navigator.clipboard.read();
+      const hasHtml = clipboardContent[0].types.includes('text/html');
       const text = await (await clipboardContent[0].getType('text/plain')).text();
-      const html = await (await clipboardContent[0].getType('text/html')).text();
+      const html = hasHtml
+        ? await (await clipboardContent[0].getType('text/html')).text()
+        : undefined;
       const header = extractTableHeader(html);
       if (header.error) {
         toaster.update({ id: toaster.id, title: header.error });
