@@ -498,7 +498,10 @@ describe('selectionService', () => {
         fieldKeyType: 'id',
       });
 
-      expect(fieldService.getFieldInstances).toHaveBeenCalledWith(tableId, { viewId });
+      expect(fieldService.getFieldInstances).toHaveBeenCalledWith(tableId, {
+        viewId,
+        filterHidden: true,
+      });
 
       expect(selectionService['expandColumns']).toHaveBeenCalledWith({
         tableId,

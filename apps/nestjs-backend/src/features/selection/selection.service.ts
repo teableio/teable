@@ -397,7 +397,10 @@ export class SelectionService {
       take: tableData.length,
       fieldKeyType: FieldKeyType.Id,
     });
-    const fields = await this.fieldService.getFieldInstances(tableId, { viewId });
+    const fields = await this.fieldService.getFieldInstances(tableId, {
+      viewId,
+      filterHidden: true,
+    });
     const effectFields = fields.slice(col, col + tableColCount);
 
     const tableSize: [number, number] = [fields.length, rowCountInView];
