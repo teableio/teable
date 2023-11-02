@@ -124,7 +124,11 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}
               >
-                <Button className="opacity-0 group-hover:opacity-100" variant={'ghost'} size={'sm'}>
+                <Button
+                  className="group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  variant={'ghost'}
+                  size={'sm'}
+                >
                   <MoreHorizontal />
                 </Button>
               </BaseActionTrigger>
