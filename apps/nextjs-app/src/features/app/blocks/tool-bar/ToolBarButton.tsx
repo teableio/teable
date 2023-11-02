@@ -8,6 +8,7 @@ interface IToolBarButton {
   className?: string;
   textClassName?: string;
   children: React.ReactElement | React.ReactElement[];
+  disabled?: boolean;
 }
 
 const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(

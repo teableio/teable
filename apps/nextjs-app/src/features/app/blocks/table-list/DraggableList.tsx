@@ -48,6 +48,7 @@ export const DraggableList: React.FC = () => {
   const [draggingId, setDraggingId] = useState<UniqueIdentifier | null>('');
 
   const [innerTables, setInnerTables] = useState([...tables]);
+
   useEffect(() => {
     if (!isEqual(innerTables, tables)) {
       setInnerTables([...tables]);

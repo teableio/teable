@@ -1,4 +1,4 @@
-import { useTableId } from '@teable-group/sdk/hooks';
+import { useTableId, useTablePermission } from '@teable-group/sdk/hooks';
 import type { IViewInstance } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import {
@@ -27,6 +27,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const router = useRouter();
   const baseId = router.query.baseId as string;
   const deleteView = useDeleteView(view.id);
+  const permission = useTablePermission();
 
   const ViewButton = () => {
     const ViewIcon = VIEW_ICON_MAP[view.type];
@@ -45,7 +46,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           }}
           title={view.name}
           onDoubleClick={() => {
-            setIsEditing(true);
+            permission['view|update'] && setIsEditing(true);
           }}
           shallow={true}
           onClick={(e) => {
@@ -60,12 +61,15 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       </Button>
     );
   };
+
+  const showViewMenu =
+    permission['view|delete'] || permission['view|update'] || permission['view|create'];
   return (
     <div className={'relative flex min-w-[100px] max-w-[33%] items-center justify-start'}>
       {!isEditing && (
         <>
           <DropdownMenu>
-            {isActive ? (
+            {isActive && showViewMenu ? (
               <DropdownMenuTrigger className="w-full">
                 <ViewButton />
               </DropdownMenuTrigger>
@@ -73,18 +77,24 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
               <ViewButton />
             )}
             <DropdownMenuContent side="bottom" align="start">
-              <DropdownMenuItem onSelect={() => setIsEditing(true)}>Rename view</DropdownMenuItem>
-              <DropdownMenuItem>Duplicate view</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={!removable}
-                onSelect={(e) => {
-                  e.preventDefault();
-                  deleteView();
-                }}
-              >
-                Delete view
-              </DropdownMenuItem>
+              {permission['view|update'] && (
+                <DropdownMenuItem onSelect={() => setIsEditing(true)}>Rename view</DropdownMenuItem>
+              )}
+              {permission['view|create'] && <DropdownMenuItem>Duplicate view</DropdownMenuItem>}
+              {permission['view|delete'] && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={!removable}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      deleteView();
+                    }}
+                  >
+                    Delete view
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </>

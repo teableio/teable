@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { hasPermission } from '@teable-group/core';
 import { MoreHorizontal } from '@teable-group/icons';
 import type { IGetSpaceVo, IGetBaseVo } from '@teable-group/openapi';
 import { createBase, deleteSpace, updateSpace } from '@teable-group/openapi';
@@ -93,19 +94,23 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             </CardTitle>
           )}
           <div className="flex shrink-0 items-center gap-3">
-            <Button
-              size={'xs'}
-              disabled={createBaseLoading}
-              onClick={() => createBaseMutator({ spaceId: space.id })}
-            >
-              Create Base
-            </Button>
+            {hasPermission(space.role, 'base|create') && (
+              <Button
+                size={'xs'}
+                disabled={createBaseLoading}
+                onClick={() => createBaseMutator({ spaceId: space.id })}
+              >
+                Create Base
+              </Button>
+            )}
             <SpaceCollaboratorModalTrigger space={space}>
               <Button variant={'outline'} size={'xs'} disabled={createBaseLoading}>
                 Share
               </Button>
             </SpaceCollaboratorModalTrigger>
             <SpaceActionTrigger
+              showRename={hasPermission(space.role, 'space|update')}
+              showDelete={hasPermission(space.role, 'space|delete')}
               onDelete={() => deleteSpaceMutator(space.id)}
               onRename={() => setRenaming(true)}
             >

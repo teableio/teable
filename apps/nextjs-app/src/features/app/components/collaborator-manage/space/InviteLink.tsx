@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole } from '@teable-group/core';
+import type { SpaceRole } from '@teable-group/core';
+import { getRolesWithLowerPermissions } from '@teable-group/core';
 import { Copy, X } from '@teable-group/icons';
 import {
   deleteSpaceInvitationLink,
@@ -17,6 +18,8 @@ import {
 } from '@teable-group/ui-lib';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { map } from 'lodash';
+import { useMemo } from 'react';
 import { RoleSelect } from './RoleSelect';
 dayjs.extend(relativeTime);
 
@@ -49,12 +52,12 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
     },
   });
 
-  const canManage = role === SpaceRole.Owner;
-
   const copyInviteUrl = async (url: string) => {
     await navigator.clipboard.writeText(url);
     toast({ title: 'Link copied' });
   };
+
+  const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
 
   if (!linkList?.length) {
     return <></>;
@@ -78,31 +81,30 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
             </div>
             <RoleSelect
               value={role}
-              disabled={updateInviteLinkLoading || !canManage}
+              disabled={updateInviteLinkLoading}
+              filterRoles={filterRoles}
               onChange={(role) =>
                 updateInviteLink({ spaceId, invitationId, updateSpaceInvitationLinkRo: { role } })
               }
             />
-            {canManage && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      className="absolute right-0 h-auto p-0 hover:bg-inherit"
-                      size="sm"
-                      variant="ghost"
-                      disabled={deleteInviteLinkLoading}
-                      onClick={() => deleteInviteLink({ spaceId, invitationId })}
-                    >
-                      <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Remove link</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    className="absolute right-0 h-auto p-0 hover:bg-inherit"
+                    size="sm"
+                    variant="ghost"
+                    disabled={deleteInviteLinkLoading}
+                    onClick={() => deleteInviteLink({ spaceId, invitationId })}
+                  >
+                    <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Remove link</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ))}
       </div>

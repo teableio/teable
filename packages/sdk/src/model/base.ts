@@ -1,4 +1,4 @@
-import type { ICreateTableRo } from '@teable-group/core';
+import type { ICreateTableRo, SpaceRole } from '@teable-group/core';
 import type { IGetBaseVo } from '@teable-group/openapi';
 import knex from 'knex';
 import { getDriver } from '../utils/driver';
@@ -13,14 +13,16 @@ export class Base implements IGetBaseVo {
   spaceId: string;
   order: number;
   icon: string | null;
+  role: SpaceRole;
 
   constructor(base: IGetBaseVo) {
-    const { id, name, order, spaceId, icon } = base;
+    const { id, name, order, spaceId, icon, role } = base;
     this.id = id;
     this.name = name;
     this.spaceId = spaceId;
     this.order = order;
     this.icon = icon;
+    this.role = role;
   }
 
   async sqlQuery(tableId: string, viewId: string, sql: string) {

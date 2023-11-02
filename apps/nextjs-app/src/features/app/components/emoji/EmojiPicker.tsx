@@ -7,12 +7,21 @@ import type { FC, PropsWithChildren } from 'react';
 
 interface IEmojiPicker {
   className?: string;
+  disabled?: boolean;
   onChange?: (emoji: string) => void;
 }
 
 export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
-  const { children, className, onChange } = props;
+  const { children, className, onChange, disabled } = props;
   const { theme } = useTheme();
+
+  if (disabled) {
+    return (
+      <div className={classNames('rounded transition-colors hover:bg-secondary', className)}>
+        {children}
+      </div>
+    );
+  }
 
   const onEmojiSelect = (emoji: { native: string }) => {
     onChange?.(emoji.native);
