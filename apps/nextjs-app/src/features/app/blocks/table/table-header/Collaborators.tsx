@@ -45,21 +45,32 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
+    if (!tableId || !user) {
+      return;
+    }
     const channel = getCollaboratorsChannel(tableId as string);
     setPresence(connection.getPresence(channel));
     setUsers([{ ...user }]);
   }, [connection, tableId, user]);
 
   useEffect(() => {
-    return () => {
-      presence?.unsubscribe();
-    };
-  }, [presence]);
-
-  useEffect(() => {
     if (!presence) {
       return;
     }
+
+    const [, , , , channelTableId] = presence.channel.split('_');
+
+    if (presence.subscribed && tableId !== channelTableId) {
+      return;
+    }
+
+    presence.subscribe();
+
+    const presenceKey = `${tableId}_${user.id}`;
+    const localPresence = presence.create(presenceKey);
+    localPresence.submit(user, (error) => {
+      error && console.error('submit error:', error);
+    });
 
     const receiveHandler = () => {
       let newUser;
@@ -70,29 +81,16 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
         const remoteUsers = Object.values(remotePresences);
         newUser = [{ ...user }, ...remoteUsers];
       }
-      if (!isEqual(newUser, users)) {
-        setUsers(newUser);
-      }
+      setUsers(newUser);
     };
 
-    const [, , , , channelTableId] = presence.channel.split('_');
-    if (tableId === channelTableId) {
-      presence.subscribe();
-      const localPresence = presence.create(`${tableId}_${user.id}`);
-      localPresence.submit(user, (error) => {
-        if (error) {
-          console.error('submit error:', error);
-        }
-      });
-      presence.on('receive', receiveHandler);
-    }
+    presence.on('receive', receiveHandler);
 
     return () => {
-      if (tableId === channelTableId) {
-        presence.removeListener('receive', receiveHandler);
-      }
+      presence.unsubscribe();
+      presence?.removeListener('receive', receiveHandler);
     };
-  }, [presence, tableId, user, users]);
+  }, [presence, tableId, user]);
 
   const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
