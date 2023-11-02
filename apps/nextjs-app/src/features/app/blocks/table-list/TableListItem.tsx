@@ -1,4 +1,5 @@
 import { Table2 } from '@teable-group/icons';
+import { useTablePermission } from '@teable-group/sdk/hooks';
 import type { Table } from '@teable-group/sdk/model';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
@@ -20,6 +21,8 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
   const router = useRouter();
   const { baseId } = router.query;
   const viewId = router.query.viewId;
+  const permission = useTablePermission();
+
   const navigateHandler = () => {
     router.push(
       {
@@ -49,13 +52,14 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
         )}
         onClick={navigateHandler}
         onDoubleClick={() => {
-          setIsEditing(true);
+          permission['table|update'] && setIsEditing(true);
         }}
       >
         <div>
           <EmojiPicker
             className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
             onChange={(icon: string) => table.updateIcon(icon)}
+            disabled={!permission['table|update']}
           >
             {table.icon ? (
               <Emoji emoji={table.icon} size={'1rem'} />
@@ -64,10 +68,12 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
             )}
           </EmojiPicker>
           <p className="grow truncate">{' ' + table.name}</p>
-          <DeleteTable
-            tableId={table.id}
-            className="h-4 w-4 shrink-0 sm:hidden sm:group-hover:block"
-          />
+          {permission['table|delete'] && (
+            <DeleteTable
+              tableId={table.id}
+              className="h-4 w-4 shrink-0 sm:hidden sm:group-hover:block"
+            />
+          )}
         </div>
       </Button>
       {isEditing && (

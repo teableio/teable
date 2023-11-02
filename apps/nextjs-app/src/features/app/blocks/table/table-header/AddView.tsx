@@ -1,5 +1,6 @@
 import { ViewType } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
+import { useTablePermission } from '@teable-group/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
@@ -20,12 +21,17 @@ const VIEW_INFO_LIST = [
 
 export const AddView: React.FC = () => {
   const addView = useAddView();
+  const permission = useTablePermission();
   const [isOpen, setOpen] = useState(false);
 
   const onClick = (type: ViewType, name: string) => {
     addView(type, name.split(' ')[0]);
     setOpen(false);
   };
+
+  if (!permission['view|create']) {
+    return null;
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setOpen}>

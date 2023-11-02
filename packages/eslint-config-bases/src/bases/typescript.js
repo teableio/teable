@@ -63,8 +63,8 @@ module.exports = {
     'import/namespace': 'off', // ['error'] If you want the extra check (typechecking will spot most issues already)
     // https://github.com/import-js/eslint-plugin-import/blob/main/docs/rules/no-duplicates.md
     'import/no-duplicates': ['error', { considerQueryString: true }],
-    'import/no-named-as-default-member': ['warn'],
-    'import/no-named-as-default': ['warn'],
+    'import/no-named-as-default-member': 'off',
+    'import/no-named-as-default': 'off',
     'import/order': [
       'error',
       {

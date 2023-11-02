@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { hasPermission } from '@teable-group/core';
 import { Database, MoreHorizontal } from '@teable-group/icons';
 import type { IGetBaseVo } from '@teable-group/openapi';
 import { deleteBase, updateBase } from '@teable-group/openapi';
@@ -80,6 +81,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
+  const hasUpdatePermission = hasPermission(base.role, 'base|update');
+  const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
     <Card
       className={classNames('group cursor-pointer hover:shadow-md', className)}
@@ -87,8 +90,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     >
       <CardContent className="flex h-full w-full items-center px-4 py-6">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-        <div onClick={(e) => e.stopPropagation()}>
-          <EmojiPicker onChange={iconChange}>
+        <div onClick={(e) => hasUpdatePermission && e.stopPropagation()}>
+          <EmojiPicker disabled={!hasUpdatePermission} onChange={iconChange}>
             {base.icon ? (
               <div className="h-14 w-14 min-w-[3.5rem] text-[3.5rem] leading-none">
                 <Emoji emoji={base.icon} size={56} />
@@ -115,7 +118,12 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               </h3>
             )}
             <div className="shrink-0">
-              <BaseActionTrigger onDelete={() => deleteBaseMutator(base.id)} onRename={onRename}>
+              <BaseActionTrigger
+                showRename={hasUpdatePermission}
+                showDelete={hasDeletePermission}
+                onDelete={() => deleteBaseMutator(base.id)}
+                onRename={onRename}
+              >
                 <Button
                   className="group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                   variant={'ghost'}

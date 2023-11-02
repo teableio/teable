@@ -3,12 +3,12 @@ import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 
 export function useAddTable() {
-  const space = useBase();
+  const base = useBase();
   const router = useRouter();
   const { baseId } = router.query;
 
   return useCallback(async () => {
-    const tableData = (await space.createTable()).data;
+    const tableData = (await base.createTable()).data;
     const tableId = tableData.id;
     const viewId = tableData.defaultViewId;
     router.push(
@@ -21,5 +21,5 @@ export function useAddTable() {
         shallow: Boolean(router.query.viewId),
       }
     );
-  }, [baseId, router, space]);
+  }, [baseId, router, base]);
 }

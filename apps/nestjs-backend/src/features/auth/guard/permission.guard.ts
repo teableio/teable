@@ -25,38 +25,36 @@ export class PermissionGuard {
     if (isPublic) {
       return true;
     }
-    const permissions = this.reflector.getAllAndOverride<PermissionAction[]>(PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const permissions = this.reflector.getAllAndOverride<PermissionAction[] | undefined>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()]
+    );
 
-    if (!permissions.length) {
+    if (!permissions?.length) {
       return true;
     }
     const req = context.switchToHttp().getRequest();
-    const spaceId = req.params.spaceId || req.query.spaceId;
-    const baseId = req.params.baseId || req.query.baseId;
-    const tableId = req.params.tableId || req.query.tableId;
+    const spaceId = req.params.spaceId || req.query.spaceId || req.body.spaceId;
+    const baseId = req.params.baseId || req.query.baseId || req.body.baseId;
+    const tableId = req.params.tableId || req.query.tableId || req.body.tableId;
     let permissionsByCheck: PermissionAction[] = [];
-    if (spaceId) {
-      permissionsByCheck = await this.permissionService.checkPermissionBySpaceId(
-        spaceId,
-        permissions
-      );
-    }
+    // before check baseId, as users can be individually invited into the base.
     if (baseId) {
       permissionsByCheck = await this.permissionService.checkPermissionByBaseId(
         baseId,
         permissions
       );
-    }
-    if (tableId) {
+    } else if (spaceId) {
+      permissionsByCheck = await this.permissionService.checkPermissionBySpaceId(
+        spaceId,
+        permissions
+      );
+    } else if (tableId) {
       permissionsByCheck = await this.permissionService.checkPermissionByTableId(
         tableId,
         permissions
       );
-    }
-    if (!permissionsByCheck) {
+    } else {
       throw new ForbiddenException('no check permissions method available');
     }
     this.cls.set('permissions', permissionsByCheck);

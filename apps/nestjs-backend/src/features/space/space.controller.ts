@@ -50,7 +50,6 @@ export class SpaceController {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
-  @Permissions('space|create')
   @Post()
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
@@ -75,7 +74,6 @@ export class SpaceController {
     return await this.spaceService.getSpaceById(spaceId);
   }
 
-  @Permissions('space|read')
   @Get()
   async getSpaceList(): Promise<IGetSpaceVo[]> {
     return await this.spaceService.getSpaceList();

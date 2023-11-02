@@ -1,5 +1,5 @@
 import { Plus } from '@teable-group/icons';
-import { useTable } from '@teable-group/sdk/hooks';
+import { useTable, useTablePermission } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { useCallback } from 'react';
 import { Others } from './Others';
@@ -7,6 +7,7 @@ import { ViewOperators } from './ViewOperators';
 
 export const GridToolBar: React.FC = () => {
   const table = useTable();
+  const permission = useTablePermission();
 
   const addRecord = useCallback(async () => {
     if (!table) {
@@ -22,12 +23,13 @@ export const GridToolBar: React.FC = () => {
         size={'xs'}
         variant={'outline'}
         onClick={addRecord}
+        disabled={!permission['record|create']}
       >
         <Plus className="h-4 w-4" />
       </Button>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">
-        <ViewOperators />
+        <ViewOperators disabled={!permission['view|update']} />
         <Others />
       </div>
     </div>
