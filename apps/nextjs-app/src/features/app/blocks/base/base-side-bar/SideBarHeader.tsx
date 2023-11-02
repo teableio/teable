@@ -30,7 +30,7 @@ export const SideBarHeader: React.FC = () => {
           {data?.data.icon ? (
             <Emoji emoji={data.data.icon} size={'1.5rem'} />
           ) : (
-            <TeableNew className="h-6 w-6" />
+            <TeableNew className="h-6 w-6 text-black" />
           )}
         </div>
         <ChevronsLeft className="absolute top-0 h-6 w-6 opacity-0 group-hover:opacity-100" />
