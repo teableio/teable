@@ -1,4 +1,4 @@
-import type { GridViewOptions, RatingIcon } from '@teable-group/core';
+import type { GridViewOptions, PermissionAction, RatingIcon } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
 import {
@@ -10,10 +10,11 @@ import {
   useSSRRecords,
   useTable,
   useTableId,
+  useTablePermission,
   useView,
   useViewId,
 } from '@teable-group/sdk';
-import { Skeleton } from '@teable-group/ui-lib/shadcn';
+import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
 import { isEqual, keyBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -80,6 +81,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const isAutoSort = view?.sort?.shouldAutoSort;
   const isTouchDevice = useIsTouchDevice();
   const isLoading = !view;
+  const permission = useTablePermission();
+  const { toast } = useToast();
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, recordMap } =
     useAsyncData(
@@ -288,11 +291,16 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
 
   const rowControls = useMemo(() => {
     if (isTouchDevice) return [];
+    const drag = permission['view|update']
+      ? [
+          {
+            type: RowControlType.Drag,
+            icon: RowControlType.Drag,
+          },
+        ]
+      : [];
     return [
-      {
-        type: RowControlType.Drag,
-        icon: RowControlType.Drag,
-      },
+      ...drag,
       {
         type: RowControlType.Checkbox,
         icon: RowControlType.Checkbox,
@@ -302,7 +310,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         icon: RowControlType.Expand,
       },
     ];
-  }, [isTouchDevice]);
+  }, [isTouchDevice, permission]);
 
   const gridRef = useRef<IGridRef>(null);
 
@@ -314,6 +322,9 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     copy(selection);
   };
   const onPaste = (selection: CombinedSelection) => {
+    if (!permission['record|update']) {
+      toast({ title: 'Unable to paste' });
+    }
     paste(selection);
   };
 
@@ -377,6 +388,17 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     return DraggableType.All;
   }, [isAutoSort]);
 
+  const getAuthorizedFunction = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <T extends (...args: any[]) => any>(
+      fn: T,
+      permissionAction: PermissionAction
+    ): T | undefined => {
+      return permission[permissionAction] ? fn : undefined;
+    },
+    [permission]
+  );
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
@@ -399,16 +421,16 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
             height: '100%',
           }}
           getCellContent={getCellContent}
-          onDelete={onDelete}
-          onRowAppend={onRowAppended}
-          onCellEdited={onCellEdited}
+          onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+          onRowAppend={getAuthorizedFunction(onRowAppended, 'record|create')}
+          onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
           onRowOrdered={onRowOrdered}
-          onColumnAppend={onColumnAppend}
-          onColumnResize={onColumnResize}
-          onColumnOrdered={onColumnOrdered}
+          onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
+          onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
+          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
           onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
-          onColumnStatisticClick={onColumnStatisticClick}
+          onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onSelectionChanged={onSelectionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}

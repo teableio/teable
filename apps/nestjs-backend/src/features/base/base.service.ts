@@ -18,7 +18,8 @@ export class BaseService {
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
-    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    const { spaceIds, roleMap } =
+      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
 
     const base = await this.prismaService.base.findFirst({
       select: {
@@ -39,14 +40,17 @@ export class BaseService {
     if (!base) {
       throw new NotFoundException('Base not found');
     }
-    return base;
+    return {
+      ...base,
+      role: roleMap[base.id] || roleMap[base.spaceId],
+    };
   }
 
   async getBaseList() {
     const userId = this.cls.get('user.id');
-    const { spaceIds, baseIds } =
+    const { spaceIds, baseIds, roleMap } =
       await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
-    return await this.prismaService.base.findMany({
+    const baseList = await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -70,15 +74,17 @@ export class BaseService {
         ],
       },
     });
+    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
 
   async getBaseListBySpaceId(spaceId: string) {
     const userId = this.cls.get('user.id');
-    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    const { spaceIds, roleMap } =
+      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
     if (!spaceIds.includes(spaceId)) {
       throw new ForbiddenException();
     }
-    return await this.prismaService.base.findMany({
+    const baseList = await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -91,6 +97,7 @@ export class BaseService {
         deletedTime: null,
       },
     });
+    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
 
   async createBase(createBaseRo: ICreateBaseRo) {

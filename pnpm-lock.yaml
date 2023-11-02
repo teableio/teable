@@ -546,6 +546,9 @@ importers:
       next-transpile-modules:
         specifier: 10.0.1
         version: 10.0.1
+      nprogress:
+        specifier: ^0.2.0
+        version: 0.2.0
       picocolors:
         specifier: 1.0.0
         version: 1.0.0
@@ -688,6 +691,9 @@ importers:
       '@types/node':
         specifier: 18.17.1
         version: 18.17.1
+      '@types/nprogress':
+        specifier: ^0.2.2
+        version: 0.2.2
       '@types/react':
         specifier: 18.2.33
         version: 18.2.33
@@ -11088,6 +11094,13 @@ packages:
       }
     dependencies:
       '@types/node': 18.17.1
+    dev: true
+
+  /@types/nprogress@0.2.2:
+    resolution:
+      {
+        integrity: sha512-2wLrSJXLztGmr7wXwM0hA/wuIOY9DznVdd+ZFofHOiXcj9JnVt+2ZeLRJ7v5ZVlmheSkUOSg3Q3O4Ce7yji79A==,
+      }
     dev: true
 
   /@types/parse-json@4.0.1:
@@ -24951,6 +24964,13 @@ packages:
       console-control-strings: 1.1.0
       gauge: 3.0.2
       set-blocking: 2.0.0
+
+  /nprogress@0.2.0:
+    resolution:
+      {
+        integrity: sha512-I19aIingLgR1fmhftnbWWO3dXc0hSxqHQHQb3H8m+K3TnEn/iSeTZZOyvKXWqQESMwuUVnatlCnZdLBZZt2VSA==,
+      }
+    dev: false
 
   /nth-check@2.1.1:
     resolution:

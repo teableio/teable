@@ -6,7 +6,7 @@ import type {
   ISingleLineTextShowAs,
 } from '@teable-group/core';
 import { NumberEditor, onMixedTextClick } from '@teable-group/sdk/components';
-import { useFields, useViewId } from '@teable-group/sdk/hooks';
+import { useFields, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
@@ -56,7 +56,7 @@ const generateColumns = (
 };
 
 const createCellValue2GridDisplay =
-  (fields: IFieldInstance[]) =>
+  (fields: IFieldInstance[], editable: boolean) =>
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {
     const field = fields[col];
@@ -65,6 +65,7 @@ const createCellValue2GridDisplay =
 
     const { id, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
     const cellValue = record.getCellValue(id);
+    const readonly = isComputed || !editable;
 
     switch (type) {
       case FieldType.SingleLineText: {
@@ -77,7 +78,7 @@ const createCellValue2GridDisplay =
             type: CellType.Link,
             data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
             displayData: field.cellValue2String(cellValue),
-            readonly: isComputed,
+            readonly,
             onClick: (text) => onMixedTextClick(type, text),
           };
         }
@@ -86,7 +87,7 @@ const createCellValue2GridDisplay =
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
-          readonly: isComputed,
+          readonly,
         };
       }
       case FieldType.LongText: {
@@ -94,7 +95,7 @@ const createCellValue2GridDisplay =
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
-          readonly: isComputed,
+          readonly,
           isWrap: true,
         };
       }
@@ -112,7 +113,7 @@ const createCellValue2GridDisplay =
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData,
-          readonly: isComputed,
+          readonly,
           editorPosition: EditorPosition.Below,
           customEditor: (props) => <DateEditor field={field} record={record} {...props} />,
         };
@@ -124,7 +125,7 @@ const createCellValue2GridDisplay =
           return {
             type: CellType.Boolean,
             data: (cellValue as boolean) || false,
-            readonly: isComputed,
+            readonly,
             isMultiple,
           };
         }
@@ -134,7 +135,7 @@ const createCellValue2GridDisplay =
             type: CellType.Text,
             data: (cellValue as string) || '',
             displayData: field.cellValue2String(cellValue),
-            readonly: isComputed,
+            readonly,
           };
         }
 
@@ -148,7 +149,7 @@ const createCellValue2GridDisplay =
               type: CellType.Link,
               data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
               displayData: field.cellValue2String(cellValue),
-              readonly: isComputed,
+              readonly,
               onClick: (text) => onMixedTextClick(type, text),
             };
           }
@@ -157,7 +158,7 @@ const createCellValue2GridDisplay =
             type: CellType.Text,
             data: (cellValue as string) || '',
             displayData: field.cellValue2String(cellValue),
-            readonly: isComputed,
+            readonly,
           };
         }
 
@@ -175,7 +176,7 @@ const createCellValue2GridDisplay =
             type: CellType.Chart,
             data: cellValue as number[],
             displayData: cellValue.map((v) => field.item2String(v)),
-            readonly: isComputed,
+            readonly,
             chartType: showAs.type as unknown as ChartType,
             color: showAs.color,
           };
@@ -189,7 +190,7 @@ const createCellValue2GridDisplay =
           type: CellType.Number,
           data: cellValue as number,
           displayData: field.cellValue2String(cellValue),
-          readonly: isComputed,
+          readonly,
           showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
             <NumberEditor
@@ -216,7 +217,7 @@ const createCellValue2GridDisplay =
           type: CellType.Select,
           data,
           choices,
-          readonly: isComputed,
+          readonly,
           isMultiple,
           editorPosition: EditorPosition.Below,
         };
@@ -229,7 +230,7 @@ const createCellValue2GridDisplay =
           type: CellType.Select,
           data,
           choices,
-          readonly: false,
+          readonly,
           isMultiple,
           editorPosition: EditorPosition.Below,
           customEditor: (props) => <LinkEditor field={field} record={record} {...props} />,
@@ -243,7 +244,7 @@ const createCellValue2GridDisplay =
           type: CellType.Image,
           data,
           displayData,
-          readonly: isComputed,
+          readonly,
           customEditor: (props) => <AttachmentEditor field={field} record={record} {...props} />,
         };
       }
@@ -251,7 +252,7 @@ const createCellValue2GridDisplay =
         return {
           type: CellType.Boolean,
           data: (cellValue as boolean) || false,
-          readonly: isComputed,
+          readonly,
           isMultiple,
         };
       }
@@ -263,14 +264,14 @@ const createCellValue2GridDisplay =
             type: CellType.Number,
             data: cellValue as number,
             displayData: field.cellValue2String(cellValue),
-            readonly: isComputed,
+            readonly,
           };
         }
 
         return {
           type: CellType.Rating,
           data: (cellValue as number) || 0,
-          readonly: isComputed,
+          readonly,
           icon,
           color: ColorUtils.getHexForColor(color),
           max,
@@ -285,12 +286,14 @@ const createCellValue2GridDisplay =
 export function useColumns() {
   const viewId = useViewId();
   const fields = useFields();
+  const permission = useTablePermission();
+  const editable = permission['record|update'];
 
   return useMemo(
     () => ({
       columns: generateColumns(fields, viewId),
-      cellValue2GridDisplay: createCellValue2GridDisplay(fields),
+      cellValue2GridDisplay: createCellValue2GridDisplay(fields, editable),
     }),
-    [fields, viewId]
+    [fields, viewId, editable]
   );
 }
