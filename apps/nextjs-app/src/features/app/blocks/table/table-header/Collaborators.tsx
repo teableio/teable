@@ -1,5 +1,7 @@
+import { ColorUtils } from '@teable-group/core';
 import { getCollaboratorsChannel } from '@teable-group/core/dist/models/channel';
 import { useSession } from '@teable-group/sdk';
+import type { IUser } from '@teable-group/sdk';
 import { useConnection } from '@teable-group/sdk/hooks';
 import {
   Avatar,
@@ -15,7 +17,7 @@ import {
 import classNames from 'classnames';
 import { isEmpty, isEqual, chunk } from 'lodash';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 
 interface CollaboratorsProps {
@@ -23,20 +25,30 @@ interface CollaboratorsProps {
   maxAvatarLen?: number;
 }
 
+type ICollaboratorUser = Pick<IUser, 'id' | 'avatar' | 'name'>;
+
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
-  const { user } = useSession();
-  const { nodeId } = router.query;
   const { connection } = useConnection();
+  const { nodeId: tableId } = router.query;
+  const { user: sessionUser } = useSession();
   const [presence, setPresence] = useState<Presence>();
-  const [users, setUsers] = useState<(typeof user)[]>([{ ...user }]);
+  const user = useMemo(
+    () => ({
+      id: sessionUser.id,
+      avatar: sessionUser.avatar,
+      name: sessionUser.name,
+    }),
+    [sessionUser]
+  );
+  const [users, setUsers] = useState<ICollaboratorUser[]>([{ ...user }]);
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
-    const channel = getCollaboratorsChannel(nodeId as string);
+    const channel = getCollaboratorsChannel(tableId as string);
     setPresence(connection.getPresence(channel));
     setUsers([{ ...user }]);
-  }, [connection, nodeId, user]);
+  }, [connection, tableId, user]);
 
   useEffect(() => {
     return () => {
@@ -50,8 +62,8 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
     }
 
     const receiveHandler = () => {
-      const { remotePresences } = presence;
       let newUser;
+      const { remotePresences } = presence;
       if (isEmpty(remotePresences)) {
         newUser = [{ ...user }];
       } else {
@@ -63,10 +75,10 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       }
     };
 
-    const [, , , , tableId] = presence.channel.split('_');
-    if (nodeId === tableId) {
+    const [, , , , channelTableId] = presence.channel.split('_');
+    if (tableId === channelTableId) {
       presence.subscribe();
-      const localPresence = presence.create(`${nodeId}_${user.id}`);
+      const localPresence = presence.create(`${tableId}_${user.id}`);
       localPresence.submit(user, (error) => {
         if (error) {
           console.error('submit error:', error);
@@ -76,11 +88,26 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
     }
 
     return () => {
-      if (nodeId === tableId) {
+      if (tableId === channelTableId) {
         presence.removeListener('receive', receiveHandler);
       }
     };
-  }, [presence, nodeId, user, users]);
+  }, [presence, tableId, user, users]);
+
+  const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
+    const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
+    return (
+      <Avatar
+        className="box-content h-7 w-7 cursor-pointer border"
+        style={{
+          borderColor: borderColor,
+        }}
+      >
+        <AvatarImage src={avatar as string} alt="avatar-name" />
+        <AvatarFallback className="text-sm">{name.slice(0, 1)}</AvatarFallback>
+      </Avatar>
+    );
+  };
 
   return (
     <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
@@ -88,14 +115,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
         return (
           <HoverCard key={id}>
             <HoverCardTrigger asChild>
-              <div className="relative overflow-hidden">
-                <Avatar className="box-content h-7 w-7 cursor-pointer select-none border">
-                  <AvatarImage src={avatar as string} alt="avatar-name" />
-                  <AvatarFallback className="text-sm">
-                    <span>{name.slice(0, 1)}</span>
-                  </AvatarFallback>
-                </Avatar>
-              </div>
+              <div className="relative overflow-hidden">{avatarRender({ id, name, avatar })}</div>
             </HoverCardTrigger>
             <HoverCardContent className="flex w-36 justify-center truncate p-4 text-sm">
               <span>{name}</span>
@@ -116,10 +136,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
           <PopoverContent className="max-h-64 w-36 overflow-y-auto">
             {hiddenUser.map(({ id, name, avatar }) => (
               <div key={id} className="flex items-center truncate p-1">
-                <Avatar className="box-content h-7 w-7 cursor-pointer border">
-                  <AvatarImage src={avatar as string} alt="avatar-name" />
-                  <AvatarFallback className="text-sm">{name.slice(0, 1)}</AvatarFallback>
-                </Avatar>
+                {avatarRender({ id, name, avatar })}
                 <div className="flex-1 truncate pl-1">{name}</div>
               </div>
             ))}
