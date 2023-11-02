@@ -11,7 +11,7 @@ export const Collaborators: React.FC<{ className?: string }> = ({ className }) =
               width={28}
               height={28}
               loading={'eager'}
-              src={`/shared-assets/example/${name}.png`}
+              src={`/images/example/${name}.png`}
               alt={'tailwind-ui-logo'}
               className="shrink-0 rounded-[50px] border border-slate-200 object-cover object-center"
             />

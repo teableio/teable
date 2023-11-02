@@ -6,7 +6,6 @@ import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_CONTAINER_ID } from '../configs';
 import { CellType, getCellRenderer } from '../renderers';
 
-// eslint-disable-next-line
 const SELECTION_MOVE_HOTKEYS = [
   'up',
   'down',

@@ -14,8 +14,8 @@ import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
 import { Logger } from 'nestjs-pino';
-import { RedocModule } from 'nestjs-redoc';
 import type { RedocOptions } from 'nestjs-redoc';
+import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
@@ -69,13 +69,13 @@ export async function bootstrap() {
   app.enableShutdownHooks();
 
   await setUpAppMiddleware(app, configService);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   // app.getHttpServer().on('upgrade', async function (req: any, socket: any, head: any) {
   //   if (req.url.startsWith('/_next')) {
   //     console.log('upgrade: ', req.url);
-  //     const server = app.select(NextModule.DEFAULT).get(NextService).server;
-  //     const result = await server.getUpgradeHandler()(req, socket, head);
-  //     console.log('hmr result', result);
+  //     const server = app.get(NextService).server;
+  //     return server.getUpgradeHandler()(req, socket, head);
   //   }
   // });
 
