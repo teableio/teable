@@ -4,7 +4,7 @@ import { X, Download } from '@teable-group/icons';
 import type { INotifyVo } from '@teable-group/openapi';
 import { Button, Progress } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { debounce, map, omit } from 'lodash';
+import { debounce, map } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-use';
 import { getFileCover } from '../utils';
@@ -28,8 +28,17 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
+  const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
 
   attachmentsRef.current = attachments;
+
+  useEffect(() => {
+    if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
+      onChange(attachmentsRef.current.concat(newAttachments));
+      setNewAttachments([]);
+      setUploadingFiles({});
+    }
+  }, [newAttachments, onChange, uploadingFiles]);
 
   const onDelete = (id: string) => {
     onChange(attachments.filter((attachment) => attachment.id !== id));
@@ -39,20 +48,16 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     window.open(`${url}?filename=${name}`);
   };
 
-  const handleSuccess = useCallback(
-    (file: IFile, attachment: INotifyVo) => {
-      const { id, instance } = file;
+  const handleSuccess = useCallback((file: IFile, attachment: INotifyVo) => {
+    const { id, instance } = file;
 
-      const newAttachment: IAttachmentItem = {
-        id,
-        name: instance.name,
-        ...attachment,
-      };
-      setUploadingFiles((pre) => omit(pre, file.id));
-      onChange([...attachmentsRef.current, newAttachment]);
-    },
-    [onChange]
-  );
+    const newAttachment: IAttachmentItem = {
+      id,
+      name: instance.name,
+      ...attachment,
+    };
+    setNewAttachments((pre) => [...pre, newAttachment]);
+  }, []);
 
   const uploadAttachment = useCallback(
     (files: File[]) => {
@@ -117,7 +122,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         {len > 0 && (
           <ul className="-right-2 flex h-full w-full flex-wrap">
             {attachments.map((attachment) => (
-              <li key={attachment.id} className="mb-2 mr-1 flex h-28 w-28 flex-col pr-1">
+              <li key={attachment.id} className="mb-2 flex h-28 w-1/4 flex-col pr-1">
                 <div className="group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border">
                   <img
                     className="h-full w-full"
@@ -159,7 +164,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
             {uploadingFilesList.map(({ id, progress, file }) => (
               <li
                 key={id}
-                className="mr-1 flex h-28 w-28 flex-col items-center justify-between pr-1"
+                className="mb-2 flex h-28 w-1/4 flex-col items-center justify-between pr-1"
               >
                 <div className="relative flex w-full flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-border px-2">
                   <Progress value={progress} />
