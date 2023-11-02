@@ -1,5 +1,5 @@
-import { DateEditorMain } from '@teable-group/sdk';
 import { useCallback, useMemo } from 'react';
+import { DateEditorMain } from '../editor';
 import type { IWrapperEditorProps } from './type';
 
 export const DateEditor = (props: IWrapperEditorProps) => {

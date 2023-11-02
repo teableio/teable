@@ -2,12 +2,11 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ClearRo, ICopyRo, PasteRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
-import { useTableId, useViewId } from '@teable-group/sdk';
-import { SelectionRegionType } from '@teable-group/sdk/components';
-import type { CombinedSelection } from '@teable-group/sdk/components';
+import type { CombinedSelection } from '@teable-group/sdk';
+import { SelectionRegionType, useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import { useCallback } from 'react';
-import { extractTableHeader, serializerHtml } from '@/features/app/utils/clipboard';
+import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
 
 const rangeTypes = {
   [SelectionRegionType.Columns]: RangeType.Columns,

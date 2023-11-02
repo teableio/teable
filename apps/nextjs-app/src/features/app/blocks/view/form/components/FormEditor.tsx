@@ -7,11 +7,16 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useFieldStaticGetter, useFields, useIsHydrated, useViewId } from '@teable-group/sdk/hooks';
+import {
+  useFieldStaticGetter,
+  useFields,
+  useIsHydrated,
+  useViewId,
+  useColumnOrder,
+} from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
-import { useColumnOrder } from '../../grid/hooks';
 import { reorder } from '../../grid/utils';
 import { FormEditorMain } from './FormEditorMain';
 import { FormFieldEditor } from './FormFieldEditor';

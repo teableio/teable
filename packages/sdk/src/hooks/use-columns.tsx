@@ -5,26 +5,26 @@ import type {
   INumberShowAs,
   ISingleLineTextShowAs,
 } from '@teable-group/core';
+import { LRUCache } from 'lru-cache';
+import { useMemo } from 'react';
+import colors from 'tailwindcss/colors';
 import type {
   IGridColumn,
   ICell,
   INumberShowAs as IGridNumberShowAs,
   ChartType,
-} from '@teable-group/sdk/components';
+} from '../components';
 import {
   NumberEditor,
   onMixedTextClick,
   CellType,
   EditorPosition,
-} from '@teable-group/sdk/components';
-import { useFields, useViewId } from '@teable-group/sdk/hooks';
-import type { IFieldInstance, Record } from '@teable-group/sdk/model';
-import { LRUCache } from 'lru-cache';
-import { useMemo } from 'react';
-import colors from 'tailwindcss/colors';
-import { getFileCover } from '@/features/app/utils';
-import { DateEditor, LinkEditor } from '../components';
-import { AttachmentEditor } from '../components/editor/AttachmentEditor';
+  getFileCover,
+} from '../components';
+import { AttachmentEditor, DateEditor, LinkEditor } from '../components/grid-editor';
+import type { IFieldInstance, Record } from '../model';
+import { useFields } from './use-fields';
+import { useViewId } from './use-view-id';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 

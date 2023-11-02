@@ -1,7 +1,8 @@
-import { useFields, useViewId } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useCallback } from 'react';
+import type { IFieldInstance } from '../model';
 import { reorder } from '../utils';
+import { useFields } from './use-fields';
+import { useViewId } from './use-view-id';
 
 export function useColumnOrder() {
   const fields = useFields();

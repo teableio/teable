@@ -1,9 +1,12 @@
 import type { ILinkCellValue } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
-import { AnchorProvider, SelectEditorMain, useRecords } from '@teable-group/sdk';
-import type { LinkField, IEditorProps } from '@teable-group/sdk';
 import { useMemo } from 'react';
 import type { FC } from 'react';
+import { AnchorProvider } from '../../context';
+import { useRecords } from '../../hooks';
+import type { LinkField } from '../../model';
+import { SelectEditorMain } from '../editor';
+import type { IEditorProps } from '../grid/components';
 import type { IWrapperEditorProps } from './type';
 
 const LinkEditorInner: FC<IEditorProps & IWrapperEditorProps> = (props) => {

@@ -4,8 +4,8 @@ import type {
   ISingleSelectCellValue,
 } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
-import { SelectEditorMain } from '@teable-group/sdk/components';
 import { useMemo } from 'react';
+import { SelectEditorMain } from '../editor';
 import type { IWrapperEditorProps } from './type';
 
 export const SelectEditor = (props: IWrapperEditorProps) => {

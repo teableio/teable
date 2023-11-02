@@ -19,27 +19,25 @@ import {
   RegionType,
   DraggableType,
   CombinedSelection,
+  useGridTheme,
+  useColumnResize,
+  useColumns,
+  useColumnStatistics,
+  useColumnOrder,
+  useAsyncRecords,
 } from '@teable-group/sdk';
 import type { IRectangle, IPosition, IGridRef, ICellItem } from '@teable-group/sdk';
-import { Skeleton } from '@teable-group/ui-lib/shadcn';
+import { Skeleton } from '@teable-group/ui-lib';
 import { isEqual, keyBy } from 'lodash';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount } from 'react-use';
-import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer';
-import { FieldOperator } from '@/features/app/components/field-setting/type';
-import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
+import type { IExpandRecordContainerRef } from '../../../components/ExpandRecordContainer';
+import { FieldOperator } from '../../../components/field-setting';
+import { FIELD_TYPE_ORDER } from '../../../utils/fieldTypeOrder';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import {
-  useAsyncData,
-  useColumnOrder,
-  useColumnResize,
-  useColumnStatistics,
-  useColumns,
-  useGridTheme,
-} from './hooks';
-import { useSelectionOperation } from './hooks/useSelectionOperation';
+import { useSelectionOperation } from './hooks';
 import { useGridViewStore } from './store/gridView';
 import { getSpriteMap } from './utils';
 
@@ -80,7 +78,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const isLoading = !view;
 
   const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, recordMap } =
-    useAsyncData(
+    useAsyncRecords(
       useCallback(
         (record, col) => {
           const fieldId = columns[col]?.id;
@@ -98,7 +96,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           const [col] = cell;
           const fieldId = columns[col].id;
           const { type, data } = newVal;
-          let newCellValue = null;
+          let newCellValue: unknown = null;
 
           switch (type) {
             case CellType.Select:

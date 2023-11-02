@@ -1,7 +1,8 @@
-import type { IGridColumn } from '@teable-group/sdk';
-import { useFields, useViewId } from '@teable-group/sdk/hooks';
 import { useCallback, useState, useEffect } from 'react';
 import { useDebounce } from 'react-use';
+import type { IGridColumn } from '../components';
+import { useFields } from './use-fields';
+import { useViewId } from './use-view-id';
 
 export function useColumnResize<T extends { id: string }>(_columns: T[]) {
   const fields = useFields();

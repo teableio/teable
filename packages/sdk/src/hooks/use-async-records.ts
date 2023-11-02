@@ -1,10 +1,13 @@
 import type { IRecord, IGetRecordsQuery } from '@teable-group/core';
-import type { ICellItem, IGridProps, IRectangle, ICell, IInnerCell } from '@teable-group/sdk';
-import { useRecords, useRowCount, useViewId, CellType } from '@teable-group/sdk';
-import type { Record } from '@teable-group/sdk/model';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import type { ICell, ICellItem, IGridProps, IInnerCell, IRectangle } from '../components';
+import { CellType } from '../components';
+import type { Record } from '../model';
 import { reorder } from '../utils';
+import { useRecords } from './use-records';
+import { useRowCount } from './use-row-count';
+import { useViewId } from './use-view-id';
 
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 // eslint-disable-next-line
@@ -23,13 +26,13 @@ type IRes = {
   reset: () => void;
   onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
   onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
-  getCellContent: (cell: ICellItem) => ICell;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
+  getCellContent: (cell: ICellItem) => ICell;
 };
 
 export type IRecordIndexMap = { [i: number | string]: Record };
 
-export const useAsyncData = (
+export const useAsyncRecords = (
   toCell: IRowToCell<Record>,
   onEdited: IRowEditedCallback<Record>,
   initRecords?: IRecord[]
