@@ -388,7 +388,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     return DraggableType.All;
   }, [isAutoSort]);
 
-  const hasPermissionForOperation = useCallback(
+  const getAuthorizedFunction = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <T extends (...args: any[]) => any>(
       fn: T,
@@ -421,16 +421,16 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
             height: '100%',
           }}
           getCellContent={getCellContent}
-          onDelete={hasPermissionForOperation(onDelete, 'record|update')}
-          onRowAppend={hasPermissionForOperation(onRowAppended, 'record|create')}
-          onCellEdited={hasPermissionForOperation(onCellEdited, 'record|update')}
+          onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+          onRowAppend={getAuthorizedFunction(onRowAppended, 'record|create')}
+          onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
           onRowOrdered={onRowOrdered}
-          onColumnAppend={hasPermissionForOperation(onColumnAppend, 'field|create')}
-          onColumnResize={hasPermissionForOperation(onColumnResize, 'field|update')}
-          onColumnOrdered={hasPermissionForOperation(onColumnOrdered, 'field|update')}
+          onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
+          onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
+          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
           onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
-          onColumnStatisticClick={hasPermissionForOperation(onColumnStatisticClick, 'view|update')}
+          onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onSelectionChanged={onSelectionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
