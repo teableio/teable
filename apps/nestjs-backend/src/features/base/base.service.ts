@@ -42,10 +42,7 @@ export class BaseService {
     return base;
   }
 
-  async getBaseList(spaceId?: string) {
-    if (spaceId) {
-      return await this.getBaseListBySpaceId(spaceId);
-    }
+  async getBaseList() {
     const userId = this.cls.get('user.id');
     const { spaceIds, baseIds } =
       await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);

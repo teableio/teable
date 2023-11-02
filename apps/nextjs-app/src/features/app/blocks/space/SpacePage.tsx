@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSpace, getBaseList, getSpaceList } from '@teable-group/openapi';
+import { createSpace, getBaseAll, getSpaceList } from '@teable-group/openapi';
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -16,8 +16,8 @@ export const SpacePage: FC = () => {
     queryFn: getSpaceList,
   });
   const { data: baseList } = useQuery({
-    queryKey: ['base-list'],
-    queryFn: () => getBaseList(),
+    queryKey: ['base-all'],
+    queryFn: () => getBaseAll(),
   });
 
   const { mutate: createSpaceMutator, isLoading } = useMutation({
