@@ -42,9 +42,7 @@ export class AttachmentFieldCore extends FieldCore {
 
   cellValue2String(cellValue?: unknown) {
     // TODO: The path is currently empty
-    return cellValue
-      ? (cellValue as IAttachmentCellValue).map((cv) => `${cv.name} (${cv.url})`).join(',')
-      : '';
+    return cellValue ? (cellValue as IAttachmentCellValue).map(this.item2String).join(',') : '';
   }
 
   convertStringToCellValue(_value: string, _ctx?: unknown): IAttachmentCellValue | null {
@@ -74,6 +72,7 @@ export class AttachmentFieldCore extends FieldCore {
     if (value == null) {
       return '';
     }
-    return (value as { name?: string }).name || '';
+    const { name, url } = value as IAttachmentItem;
+    return `${name} (${url})`;
   }
 }

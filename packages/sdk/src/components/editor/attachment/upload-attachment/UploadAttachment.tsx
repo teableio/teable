@@ -103,7 +103,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   }, [over]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       <div
         className={classNames('relative flex-1 overflow-y-scroll', {
           'overflow-y-scroll': !inPageOver,
@@ -115,16 +115,16 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           <DragAndCopy onChange={uploadAttachment} disabled={disabled} />
         )}
         {len > 0 && (
-          <ul className="-right-2 w-full h-full flex flex-wrap">
+          <ul className="-right-2 flex h-full w-full flex-wrap">
             {attachments.map((attachment) => (
-              <li key={attachment.id} className="w-28 h-28 pr-1 mr-1 mb-2 flex flex-col">
-                <div className="relative group flex-1 border border-border cursor-pointer rounded-md overflow-hidden">
+              <li key={attachment.id} className="mb-2 mr-1 flex h-28 w-28 flex-col pr-1">
+                <div className="group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border">
                   <img
-                    className="w-full h-full"
+                    className="h-full w-full"
                     src={getFileCover(attachment.mimetype, attachment.url)}
                     alt={attachment.name}
                   />
-                  <ul className="absolute top-0 right-0 hidden justify-end group-hover:flex space-x-1 bg-foreground/20 p-1 w-full">
+                  <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-foreground/20 p-1 group-hover:flex">
                     {/* <li>
                       <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
                         <FullscreenIcon />
@@ -142,7 +142,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     <li>
                       <Button
                         variant={'ghost'}
-                        className="h-5 w-5 p-0 rounded-full focus-visible:ring-transparent focus-visible:ring-offset-0"
+                        className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                         onClick={() => onDelete(attachment.id)}
                         disabled={disabled}
                       >
@@ -151,10 +151,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     </li>
                   </ul>
                 </div>
-                <span
-                  className="w-full text-center text-ellipsis whitespace-nowrap overflow-hidden"
-                  title={attachment.name}
-                >
+                <span className="w-full truncate text-center" title={attachment.name}>
                   {attachment.name}
                 </span>
               </li>
@@ -162,16 +159,13 @@ export const UploadAttachment = (props: IUploadAttachment) => {
             {uploadingFilesList.map(({ id, progress, file }) => (
               <li
                 key={id}
-                className="w-28 h-28 pr-1 mr-1 flex flex-col justify-between items-center"
+                className="mr-1 flex h-28 w-28 flex-col items-center justify-between pr-1"
               >
-                <div className="w-full flex-1 px-2 relative border border-border cursor-pointer rounded-md overflow-hidden flex justify-center items-center flex-col">
+                <div className="relative flex w-full flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-border px-2">
                   <Progress value={progress} />
                   {progress}%
                 </div>
-                <span
-                  className="w-full text-center text-ellipsis whitespace-nowrap overflow-hidden"
-                  title={file.name}
-                >
+                <span className="w-full truncate text-center" title={file.name}>
                   {file.name}
                 </span>
               </li>
