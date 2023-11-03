@@ -1,5 +1,7 @@
-import type { IAttachmentItem } from '@teable-group/core';
+import type { IAttachmentCellValue, IAttachmentItem } from '@teable-group/core';
 import { AttachmentFieldCore, generateAttachmentId } from '@teable-group/core';
+import { baseConfig } from '../../../../configs/base.config';
+import { getFullStorageUrl } from '../../../../utils/full-storage-url';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
@@ -11,11 +13,28 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
   }
 
   convertCellValue2DBValue(value: unknown): unknown {
-    return value && JSON.stringify(value);
+    const storagePrefix = baseConfig().storagePrefix;
+
+    return (
+      value &&
+      JSON.stringify(
+        (value as IAttachmentCellValue).map((item) => ({
+          ...item,
+          url: item.url.split(storagePrefix)[1],
+        }))
+      )
+    );
   }
 
   convertDBValue2CellValue(value: unknown): unknown {
-    return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+    const cellValue =
+      value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+    return cellValue
+      ? cellValue.map((item: IAttachmentItem) => ({
+          ...item,
+          url: getFullStorageUrl(item.url),
+        }))
+      : null;
   }
 
   override convertStringToCellValue(
