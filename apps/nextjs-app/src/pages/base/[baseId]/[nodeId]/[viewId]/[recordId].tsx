@@ -36,7 +36,7 @@ export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
     try {
       const api = ssrApi;
       const recordServerData = await api.getRecord(nodeId as string, recordId as string);
-      if (recordServerData) {
+      if (!recordServerData) {
         return {
           redirect: {
             destination: `/base/${baseId}/${nodeId}/${viewId}`,
