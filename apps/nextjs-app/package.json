@@ -147,7 +147,7 @@
     "lru-cache": "10.0.1",
     "lucide-react": "0.291.0",
     "mousetrap": "1.6.5",
-    "next": "13.4.12",
+    "next": "13.0.2",
     "next-i18next": "14.0.3",
     "next-secure-headers": "2.2.0",
     "next-seo": "6.1.0",
