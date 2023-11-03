@@ -13,7 +13,7 @@ export default function RouterProgressBar() {
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleStart = (...args: any[]) => {
-      !args?.[1].shallow && NProgress.start();
+      !args?.[1]?.shallow && NProgress.start();
     };
     const handleStop = () => NProgress.done();
 
