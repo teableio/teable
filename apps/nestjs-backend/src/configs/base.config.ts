@@ -4,8 +4,8 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
 export const baseConfig = registerAs('base', () => ({
-  assetPrefix: process.env.ASSET_PREFIX ?? '',
-  storagePrefix: process.env.STORAGE_PREFIX ?? '',
+  assetPrefix: process.env.ASSET_PREFIX ?? process.env.PUBLIC_ORIGIN!,
+  storagePrefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN!,
 }));
 
 export const BaseConfig = () => Inject(baseConfig.KEY);
