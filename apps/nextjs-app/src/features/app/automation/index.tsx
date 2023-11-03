@@ -1,44 +1,43 @@
+import { useIsHydrated } from '@teable-group/sdk/hooks';
 import { Allotment } from 'allotment';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { autoMationContext } from './context';
-import { LeftSider, FormPanel } from './left-sider';
 import { Menu } from './menu';
+import { RightSider, FormPanel } from './right-sider';
 import { WorkFlowPanel } from './workflow-panel';
-
-// interface IAutpMationProps {
-//   list: [];
-// }
 
 const AutoMationPage = () => {
   const [menuVisible, setMenuVisible] = useState(true);
-  const [leftSiderVisible, setLeftSiderVisible] = useState(true);
+  const [rightSiderVisible, setRightSiderVisible] = useState(true);
   const toggleMenu = (visible: boolean) => {
     setMenuVisible(visible);
   };
   const router = useRouter();
+
+  const isHydrated = useIsHydrated();
 
   useEffect(() => {
     const {
       query: { automationId, actionId },
     } = router;
     if (actionId && automationId) {
-      setLeftSiderVisible(true);
+      setRightSiderVisible(true);
     } else {
-      setLeftSiderVisible(false);
+      setRightSiderVisible(false);
     }
   }, [router]);
 
-  return (
+  return isHydrated ? (
     <autoMationContext.Provider
       value={{
         menuVisible,
         toggleMenu,
-        leftSiderVisible,
-        setLeftSiderVisible,
+        rightSiderVisible,
+        setRightSiderVisible,
       }}
     >
-      <div className="p-t-4 p-r-4 p-l-4 flex h-full justify-between">
+      <div className="p-t-4 p-r-4 p-l-4 flex h-full w-full justify-between">
         <>
           <Allotment>
             {menuVisible && (
@@ -46,18 +45,20 @@ const AutoMationPage = () => {
                 <Menu></Menu>
               </Allotment.Pane>
             )}
-            <WorkFlowPanel></WorkFlowPanel>
-            {leftSiderVisible && (
+            <Allotment.Pane>
+              <WorkFlowPanel></WorkFlowPanel>
+            </Allotment.Pane>
+            {rightSiderVisible && (
               <Allotment.Pane minSize={320} maxSize={370} preferredSize={300}>
-                <LeftSider>
+                <RightSider>
                   <FormPanel></FormPanel>
-                </LeftSider>
+                </RightSider>
               </Allotment.Pane>
             )}
           </Allotment>
         </>
       </div>
     </autoMationContext.Provider>
-  );
+  ) : null;
 };
 export { AutoMationPage };

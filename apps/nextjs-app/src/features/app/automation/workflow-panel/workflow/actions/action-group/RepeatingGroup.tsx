@@ -1,5 +1,5 @@
 const RepeatingGroup = () => {
-  return <></>;
+  return <div>RepeatingGroup</div>;
 };
 
 export { RepeatingGroup };

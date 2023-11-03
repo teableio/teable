@@ -1,2 +1,2 @@
-export * from './LeftSider';
+export * from './RightSider';
 export * from './form-panel';

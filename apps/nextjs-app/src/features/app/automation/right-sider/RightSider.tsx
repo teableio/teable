@@ -9,27 +9,31 @@ interface ILeftSiderProps {
   children?: React.ReactElement;
 }
 
-const LeftSider = (props: ILeftSiderProps) => {
+const RightSider = (props: ILeftSiderProps) => {
   const { title = 'title', children } = props;
   const context = useContext(autoMationContext);
-  const { leftSiderVisible, setLeftSiderVisible } = context;
+  const { rightSiderVisible, setRightSiderVisible } = context;
   const router = useRouter();
 
   const closeSider = () => {
     const {
-      query: { automationId },
-      pathname,
+      query: { automationId, baseId },
     } = router;
-    const newPathName = pathname
-      .replace(/\[automationId\]/g, automationId as string)
-      .replace(/\[actionId\]/g, '');
-    router.push(`${newPathName}`);
-    setLeftSiderVisible(false);
+
+    router.push(
+      {
+        pathname: '/base/[baseId]/automation/[automationId]',
+        query: { baseId, automationId },
+      },
+      undefined,
+      { shallow: true }
+    );
+    setRightSiderVisible(false);
   };
 
   return (
-    <div className={classnames('flex-1', leftSiderVisible ? '' : 'hidden')}>
-      <header className="flex justify-between items-center h-12 px-4 border-secondary border-b">
+    <div className={classnames('flex-1', rightSiderVisible ? '' : 'hidden')}>
+      <header className="flex h-12 items-center justify-between border-b border-secondary px-4">
         <span>{title}</span>
         <X className="h-5 w-5 cursor-pointer" onClick={() => closeSider()}></X>
       </header>
@@ -38,4 +42,4 @@ const LeftSider = (props: ILeftSiderProps) => {
   );
 };
 
-export { LeftSider };
+export { RightSider };

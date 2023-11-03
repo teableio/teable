@@ -111,6 +111,7 @@
     "@emoji-mart/react": "1.1.1",
     "@fontsource-variable/inter": "5.0.16",
     "@hookform/resolvers": "3.3.4",
+    "@uidotdev/usehooks": "2.3.1",
     "@nem035/gpt-3-encoder": "1.1.7",
     "@radix-ui/react-icons": "1.3.0",
     "@sentry/nextjs": "7.76.0",

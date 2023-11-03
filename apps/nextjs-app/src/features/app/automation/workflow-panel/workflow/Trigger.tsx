@@ -1,11 +1,17 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
+import classNames from 'classnames';
 import { Action } from './actions/Action';
 
 const Trigger = () => {
   return (
     <div className="flex px-2">
-      <div className="w-12 mr-4 flex relative before:block before:absolute before:w-0.5 before:h-full before:bg-primary/20 before:right-0 before:top-0 justify-end">
-        <div className="text-xs text-gray-400 h-4 z-10 bg-secondary">
+      <div
+        className={classNames(
+          'w-12 mr-8 flex relative justify-end',
+          'before:block before:absolute before:w-0.5 before:h-full before:bg-gray-300 before:right-0 before:top-0'
+        )}
+      >
+        <div className="z-10 h-4 bg-secondary text-xs text-gray-400">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -18,8 +24,8 @@ const Trigger = () => {
           </TooltipProvider>
         </div>
       </div>
-      <div className="py-4">
-        <Action></Action>
+      <div className="py-2">
+        <Action id="test" draggable={false}></Action>
       </div>
     </div>
   );

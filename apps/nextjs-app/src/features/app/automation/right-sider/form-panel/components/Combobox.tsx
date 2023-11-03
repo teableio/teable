@@ -5,7 +5,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  // CommandInput,
   CommandItem,
   Popover,
   PopoverContent,
@@ -30,16 +29,6 @@ const configGroups = [
     label: 'Update Record',
     icon: <Plus></Plus>,
   },
-  {
-    value: 'findRecord',
-    label: 'ReFind records',
-    icon: <Plus></Plus>,
-  },
-  {
-    value: 'runScript',
-    label: 'Run script',
-    icon: <Plus></Plus>,
-  },
 ];
 
 export function Combobox() {
@@ -53,7 +42,7 @@ export function Combobox() {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="justify-between my-2"
+          className="my-2 justify-between"
         >
           {value
             ? configGroups.find((configGroup) => configGroup.value === value)?.label
@@ -63,9 +52,8 @@ export function Combobox() {
       </PopoverTrigger>
       <PopoverContent className="p-0">
         <Command>
-          {/* <CommandInput placeholder="Search configGroup..." className="h-9" /> */}
           <CommandEmpty>No configGroup found.</CommandEmpty>
-          <CommandGroup heading="airtable">
+          <CommandGroup heading="">
             {configGroups.map((configGroup) => (
               <CommandItem
                 key={configGroup.value}

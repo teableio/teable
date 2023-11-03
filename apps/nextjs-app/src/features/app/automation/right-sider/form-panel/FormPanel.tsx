@@ -1,11 +1,5 @@
 import {
   Form,
-  // FormControl,
-  // FormDescription,
-  // FormField,
-  // FormItem,
-  // FormLabel,
-  // FormMessage,
   Button,
   Input,
   Accordion,
@@ -17,7 +11,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@teable-group/ui-lib';
-// import classNames from 'classnames';
 import { useForm } from 'react-hook-form';
 import { Collapse } from '../../components';
 import { Combobox, CollapsibleText } from './components';
@@ -28,9 +21,9 @@ const FormPanel = () => {
   return (
     <div className="overflow-auto">
       <Form {...form}>
-        <section className="p-3 flex flex-col">
+        <section className="flex flex-col p-3">
           <span className="text-xs">ACTION DETAILS</span>
-          <span className="text-xs pt-3">Action type</span>
+          <span className="pt-3 text-xs">Action type</span>
           <Combobox></Combobox>
         </section>
         <section>
@@ -52,7 +45,7 @@ const FormPanel = () => {
               <AccordionTrigger className="px-3 hover:no-underline">TEST STEP</AccordionTrigger>
               <AccordionContent>
                 <Tabs defaultValue="generatePreview" className="flex flex-col justify-center">
-                  <TabsList className="grid grid-cols-2 m-2">
+                  <TabsList className="m-2 grid grid-cols-2">
                     <TabsTrigger value="generatePreview">Generate a preview</TabsTrigger>
                     <TabsTrigger value="runConfigured">Run as configured</TabsTrigger>
                   </TabsList>
@@ -79,15 +72,15 @@ const FormPanel = () => {
                 </Button>
                 <div className="py-2 text-green-700">Step successful</div>
                 <div>Step run a few seconds ago</div>
-                <Collapse className="border rounded-md">
+                <Collapse className="rounded-md border">
                   <div className="w-full">
-                    <CollapsibleText className="hover:bg-secondary p-2 cursor-pointer w-full">
+                    <CollapsibleText className="w-full cursor-pointer p-2 hover:bg-secondary">
                       <span>
                         <span className="pr-2 font-medium">to:</span>
-                        123123123213123123123213123123123213123123123213123123123213123123123213123123123213123123123213
+                        placeholder
                       </span>
                     </CollapsibleText>
-                    <CollapsibleText className="hover:bg-secondary p-2 cursor-pointer w-full">
+                    <CollapsibleText className="w-full cursor-pointer p-2 hover:bg-secondary">
                       <span>
                         <span className="pr-2 font-medium">to:</span>
                         123
@@ -99,20 +92,6 @@ const FormPanel = () => {
             </AccordionItem>
           </Accordion>
         </section>
-        {/* <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Username</FormLabel>
-              <FormControl>
-                <Input placeholder="shadcn" {...field} />
-              </FormControl>
-              <FormDescription>This is your public display name.</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        /> */}
       </Form>
     </div>
   );

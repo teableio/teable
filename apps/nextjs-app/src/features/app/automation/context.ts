@@ -3,8 +3,8 @@ import React from 'react';
 export interface IAutoMationContext {
   menuVisible: boolean;
   toggleMenu: (visible: boolean) => void;
-  leftSiderVisible: boolean;
-  setLeftSiderVisible: (visible: boolean) => void;
+  rightSiderVisible: boolean;
+  setRightSiderVisible: (visible: boolean) => void;
 }
 
 export const autoMationContext: React.Context<IAutoMationContext> =

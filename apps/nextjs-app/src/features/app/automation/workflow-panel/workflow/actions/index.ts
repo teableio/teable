@@ -1,1 +1,1 @@
-export * from './DragableAction';
+export * from './draggable-action';
