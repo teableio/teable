@@ -1,5 +1,6 @@
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
+import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { AutoMationPage } from '@/features/app/automation';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import type { IViewPageProps } from '@/lib/view-pages-data';
@@ -10,10 +11,16 @@ const AutoMation: NextPageWithLayout = () => {
   return <AutoMationPage></AutoMationPage>;
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async () => {
+export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
+  const { baseId, automationId, actionId } = context.query;
+  const result = await ssrApi.getTables(baseId as string);
+  const base = await ssrApi.getBaseById(baseId as string);
   return {
     props: {
-      title: 'My Title',
+      tableServerData: result,
+      baseServerData: base,
+      automationId: automationId,
+      actionId,
     },
   };
 });
