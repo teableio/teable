@@ -11,7 +11,10 @@ export default function RouterProgressBar() {
   const router = useRouter();
 
   useEffect(() => {
-    const handleStart = () => NProgress.start();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleStart = (...args: any[]) => {
+      !args?.[1].shallow && NProgress.start();
+    };
     const handleStop = () => NProgress.done();
 
     router.events.on('routeChangeStart', handleStart);
