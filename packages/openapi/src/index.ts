@@ -11,3 +11,4 @@ export * from './field';
 export * from './view';
 export * from './aggregation';
 export * from './db-connection';
+export * from './invitation';
