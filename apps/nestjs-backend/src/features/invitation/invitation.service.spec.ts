@@ -148,8 +148,8 @@ describe('InvitationService', () => {
       );
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
-          inviter: mockInvitedUser.id,
-          accepter: mockUser.id,
+          inviter: mockUser.id,
+          accepter: mockInvitedUser.id,
           type: 'email',
           spaceId: mockSpace.id,
           invitationId: mockInvitationId,
