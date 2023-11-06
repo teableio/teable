@@ -45,7 +45,6 @@ export class SpaceService {
       where: {
         id: spaceId,
         deletedTime: null,
-        createdBy: userId,
       },
     });
     if (!space) {

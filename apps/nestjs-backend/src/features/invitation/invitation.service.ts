@@ -1,9 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { SpaceRole } from '@teable-group/core';
-import { generateInvitationCode, generateInvitationId } from '@teable-group/core';
+import { generateInvitationId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
+  AcceptInvitationLinkRo,
   CreateSpaceInvitationLinkRo,
   EmailInvitationVo,
   EmailSpaceInvitationRo,
@@ -15,6 +21,7 @@ import MarkdownIt from 'markdown-it';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
 import type { IClsStore } from '../../types/cls';
+import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 
@@ -89,6 +96,7 @@ export class InvitationService {
             accepter: sendUser.id,
             type: 'email',
             spaceId,
+            invitationId: id,
           },
         });
         // get email info
@@ -121,6 +129,7 @@ export class InvitationService {
       createdBy,
       createdTime: createdTime.toISOString(),
       inviteUrl: this.generateInviteUrl(id, invitationCode),
+      invitationCode,
     };
   }
 
@@ -131,10 +140,11 @@ export class InvitationService {
   ) {
     const userId = this.cls.get('user.id');
     const { role } = data;
+    const invitationId = generateInvitationId();
     return await this.prismaService.txClient().invitation.create({
       data: {
-        id: generateInvitationId(),
-        invitationCode: generateInvitationCode(),
+        id: invitationId,
+        invitationCode: generateInvitationCode(invitationId),
         spaceId,
         role,
         type,
@@ -180,5 +190,58 @@ export class InvitationService {
       invitationCode,
       inviteUrl: this.generateInviteUrl(id, invitationCode),
     }));
+  }
+
+  async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
+    const currentUserId = this.cls.get('user.id');
+    const { invitationCode, invitationId } = acceptInvitationLinkRo;
+    if (generateInvitationCode(invitationId) !== invitationCode) {
+      throw new BadRequestException('invalid code');
+    }
+    const linkInvitation = await this.prismaService.invitation.findFirst({
+      where: {
+        id: invitationId,
+        deletedTime: null,
+        type: 'link',
+      },
+    });
+    if (!linkInvitation) {
+      throw new NotFoundException(`link ${invitationId} not found`);
+    }
+    const { expiredTime, baseId, spaceId, role, createdBy } = linkInvitation;
+
+    if (expiredTime && expiredTime < new Date()) {
+      throw new ForbiddenException('link has expired');
+    }
+
+    const exist = await this.prismaService
+      .txClient()
+      .collaborator.count({ where: { userId: currentUserId, spaceId, baseId, deletedTime: null } });
+    if (!exist) {
+      await this.prismaService.$tx(async () => {
+        await this.prismaService.txClient().collaborator.create({
+          data: {
+            spaceId,
+            baseId,
+            roleName: role,
+            userId: currentUserId,
+            createdBy: createdBy,
+            lastModifiedBy: createdBy,
+          },
+        });
+        // save invitation record for audit
+        await this.prismaService.txClient().invitationRecord.create({
+          data: {
+            invitationId: linkInvitation.id,
+            inviter: createdBy,
+            accepter: currentUserId,
+            type: 'link',
+            spaceId,
+            baseId,
+          },
+        });
+      });
+    }
+    return { baseId, spaceId };
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -228,4 +229,24 @@ export async function getField(
 ): Promise<IFieldVo> {
   const result = await request.get(`/api/table/${tableId}/field/${fieldId}`).expect(200);
   return result.body;
+}
+
+export async function getUserRequest(
+  app: INestApplication,
+  user: { email: string; password: string }
+) {
+  const signupRes = await request(app.getHttpServer()).post('/api/auth/signup').send(user);
+  let cookie = null;
+  if (signupRes.status !== 201) {
+    const signinRes = await request(app.getHttpServer())
+      .post('/api/auth/signin')
+      .send(user)
+      .expect(200);
+    cookie = signinRes.headers['set-cookie'];
+  } else {
+    cookie = signupRes.headers['set-cookie'];
+  }
+  const newRequest = request.agent(app.getHttpServer());
+  newRequest.set('Cookie', cookie);
+  return newRequest;
 }

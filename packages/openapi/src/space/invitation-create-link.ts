@@ -3,6 +3,7 @@ import { spaceRolesSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { itemSpaceInvitationLinkVoSchema } from './invitation-get-link-list';
 
 export const CREATE_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link';
 
@@ -12,9 +13,7 @@ export const createSpaceInvitationLinkRoSchema = z.object({
 
 export type CreateSpaceInvitationLinkRo = z.infer<typeof createSpaceInvitationLinkRoSchema>;
 
-export const createSpaceInvitationLinkVoSchema = z.object({
-  invitationId: z.string(),
-});
+export const createSpaceInvitationLinkVoSchema = itemSpaceInvitationLinkVoSchema;
 
 export type CreateSpaceInvitationLinkVo = z.infer<typeof createSpaceInvitationLinkVoSchema>;
 

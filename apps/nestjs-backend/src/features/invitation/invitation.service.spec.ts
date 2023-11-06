@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { SpaceRole, getPermissions } from '@teable-group/core';
@@ -7,13 +8,14 @@ import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
+import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { InvitationModule } from './invitation.module';
 import { InvitationService } from './invitation.service';
 
 const mockInvitationId = 'invxxxxxxxxx';
-const mockInvitationCode = 'mockInvitationCode';
+const mockInvitationCode = generateInvitationCode(mockInvitationId);
 
 jest.mock('@teable-group/core', () => {
   const originalModule = jest.requireActual('@teable-group/core');
@@ -21,7 +23,6 @@ jest.mock('@teable-group/core', () => {
     __esModule: true,
     ...originalModule,
     generateInvitationId: () => mockInvitationId,
-    generateInvitationCode: () => mockInvitationCode,
   };
 });
 
@@ -140,12 +141,21 @@ describe('InvitationService', () => {
           })
       );
 
-      expect(collaboratorService.createSpaceCollaborator).toBeCalledWith(
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
         mockInvitedUser.id,
         mockSpace.id,
         SpaceRole.Owner
       );
-      expect(mailSenderService.sendMail).toBeCalled();
+      expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
+        data: {
+          inviter: mockInvitedUser.id,
+          accepter: mockUser.id,
+          type: 'email',
+          spaceId: mockSpace.id,
+          invitationId: mockInvitationId,
+        },
+      });
+      expect(mailSenderService.sendMail).toHaveBeenCalled();
       expect(result).toEqual({ [mockInvitedUser.email]: { invitationId: mockInvitationId } });
     });
 
@@ -160,6 +170,132 @@ describe('InvitationService', () => {
           role: SpaceRole.Owner,
         })
       ).rejects.toThrow('tx error');
+    });
+  });
+
+  describe('acceptInvitationLink', () => {
+    const acceptInvitationLinkRo = {
+      invitationCode: mockInvitationCode,
+      invitationId: mockInvitationId,
+    };
+
+    it('should throw BadRequestException for invalid code', async () => {
+      const errorAcceptInvitationLinkRo = {
+        invitationCode: generateInvitationCode('xxxxx'),
+        invitationId: mockInvitationId,
+      };
+
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () =>
+          await expect(() =>
+            invitationService.acceptInvitationLink(errorAcceptInvitationLinkRo)
+          ).rejects.toThrow(BadRequestException)
+      );
+    });
+    it('should throw NotFoundException for not found link invitation', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue(null);
+
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () =>
+          await expect(() =>
+            invitationService.acceptInvitationLink(acceptInvitationLinkRo)
+          ).rejects.toThrow(NotFoundException)
+      );
+    });
+    it('should throw ForbiddenException for expired link', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue({
+        id: mockInvitationId,
+        invitationCode: mockInvitationCode,
+        type: 'link',
+        expiredTime: new Date('2022-01-01'),
+        spaceId: mockSpace.id,
+        baseId: null,
+        deletedTime: null,
+        createdTime: new Date('2022-01-02'),
+        role: SpaceRole.Owner,
+        createdBy: mockUser.id,
+      });
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () =>
+          await expect(() =>
+            invitationService.acceptInvitationLink(acceptInvitationLinkRo)
+          ).rejects.toThrow(ForbiddenException)
+      );
+    });
+    it('exist collaborator', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue({ spaceId: mockSpace.id } as any);
+      prismaService.collaborator.count.mockResolvedValue(1);
+      const result = await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
+      );
+      expect(result.spaceId).toEqual(mockSpace.id);
+    });
+    it('should create collaborator and invitation record', async () => {
+      const mockInvitation = {
+        id: mockInvitationId,
+        invitationCode: mockInvitationCode,
+        type: 'link',
+        expiredTime: null,
+        spaceId: mockSpace.id,
+        baseId: null,
+        deletedTime: null,
+        createdTime: new Date('2022-01-02'),
+        role: SpaceRole.Owner,
+        createdBy: 'createdBy',
+      };
+      prismaService.invitation.findFirst.mockResolvedValue(mockInvitation);
+      prismaService.collaborator.count.mockResolvedValue(0);
+
+      const result = await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
+      );
+
+      expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
+        data: {
+          invitationId: mockInvitation.id,
+          inviter: mockInvitation.createdBy,
+          accepter: mockUser.id,
+          type: mockInvitation.type,
+          spaceId: mockInvitation.spaceId,
+          baseId: mockInvitation.baseId,
+        },
+      });
+      expect(prismaService.collaborator.create).toHaveBeenCalledWith({
+        data: {
+          spaceId: mockInvitation.spaceId,
+          baseId: mockInvitation.baseId,
+          roleName: mockInvitation.role,
+          userId: mockUser.id,
+          createdBy: mockInvitation.createdBy,
+          lastModifiedBy: mockInvitation.createdBy,
+        },
+      });
+      expect(result.spaceId).toEqual(mockInvitation.spaceId);
     });
   });
 });

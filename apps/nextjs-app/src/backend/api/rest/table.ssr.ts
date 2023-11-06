@@ -1,6 +1,11 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
 import { FieldKeyType, HttpError } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
+import {
+  ACCEPT_INVITATION_LINK,
+  type AcceptInvitationLinkRo,
+  type AcceptInvitationLinkVo,
+  type IGetBaseVo,
+} from '@teable-group/openapi';
 import type { IUser } from '@teable-group/sdk';
 import axios from 'axios';
 
@@ -61,6 +66,12 @@ export class SsrApi {
       .get<IUser>(`/auth/user/me`, {
         headers: { cookie },
       })
+      .then(({ data }) => data);
+  }
+
+  async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
+    return this.axios
+      .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
       .then(({ data }) => data);
   }
 }
