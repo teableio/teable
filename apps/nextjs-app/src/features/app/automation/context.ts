@@ -1,3 +1,4 @@
+import type { IWorkflowSection } from '@teable-group/core';
 import React from 'react';
 
 export interface IAutoMationContext {
@@ -5,6 +6,10 @@ export interface IAutoMationContext {
   toggleMenu: (visible: boolean) => void;
   rightSiderVisible: boolean;
   setRightSiderVisible: (visible: boolean) => void;
+
+  // menu data mack
+  menuData: IWorkflowSection;
+  setMenuData: React.Dispatch<IWorkflowSection>;
 }
 
 export const autoMationContext: React.Context<IAutoMationContext> =

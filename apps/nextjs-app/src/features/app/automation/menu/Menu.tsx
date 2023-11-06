@@ -1,33 +1,59 @@
+import type { IWorkFlowItem, IWorkflowSection } from '@teable-group/core';
+import { getRandomString } from '@teable-group/core';
 import { Menu as MenuIcon, Plus, Sheet, Network } from '@teable-group/icons';
 import { Button, Separator } from '@teable-group/ui-lib';
 import { Toggle } from '@teable-group/ui-lib/shadcn/ui/toggle';
 import classnames from 'classnames';
-import { useState, useContext } from 'react';
+import { useRouter } from 'next/router';
+import { useContext, useEffect } from 'react';
 import { autoMationContext } from '../context';
 import { DefaultMenu } from './DefaultMenu';
 import { SortableWorkflow } from './sortable-workflow/SortableWorkflow';
 
 const Menu = () => {
-  const [list, setList] = useState([
-    {
-      key: 'Section 1',
-      list: [{ key: '1-1' }, { key: '1-2' }, { key: '1-3' }],
-    },
-    {
-      key: 'Section 2',
-      list: [{ key: '2-1' }],
-    },
-    {
-      key: 'Section 3',
-      list: [{ key: '3-1' }],
-    },
-    {
-      key: 'more',
-      list: [{ key: '4-1' }, { key: '4-2' }],
-    },
-  ]);
+  const { menuData, setMenuData } = useContext(autoMationContext);
   const context = useContext(autoMationContext);
+  const router = useRouter();
+  const { baseId, automationId } = router.query;
   const { menuVisible, toggleMenu } = context;
+
+  const createSection = () => {
+    const newList = [...menuData];
+    newList.push({
+      id: getRandomString(10),
+      name: 'New Section',
+      workflowOrder: [],
+    } as unknown as IWorkflowSection[number]);
+
+    setMenuData(newList);
+  };
+  const createAction = () => {
+    const newList = [...menuData];
+    if (!newList.length) {
+      createSection();
+      return;
+    }
+    newList[0].workflowOrder.push({
+      id: getRandomString(10),
+      name: 'New Action',
+    } as IWorkFlowItem);
+
+    setMenuData(newList);
+  };
+
+  useEffect(() => {
+    if (menuData.length && !automationId) {
+      const defaultSectionId = menuData[0].workflowOrder[0].id;
+      router.push(
+        {
+          pathname: '/base/[baseId]/automation/[automationId]',
+          query: { baseId, automationId: defaultSectionId },
+        },
+        undefined,
+        { shallow: true }
+      );
+    }
+  }, [automationId, baseId, menuData, router]);
 
   return (
     <div
@@ -43,7 +69,7 @@ const Menu = () => {
         </Toggle>
       </header>
 
-      {list.length ? (
+      {menuData.length ? (
         <div className="flex h-full flex-col justify-between overflow-hidden">
           <SortableWorkflow></SortableWorkflow>
           <div className="flex min-h-fit shrink-0 flex-col p-3">
@@ -52,13 +78,7 @@ const Menu = () => {
             <Button
               variant="ghost"
               className="flex justify-between p-1"
-              onClick={() => {
-                const newList = [...list];
-                newList[newList.length - 1].list.push({
-                  key: '' + Math.random() * 1000,
-                });
-                setList(newList);
-              }}
+              onClick={() => createAction()}
             >
               <div className="flex items-center">
                 <Network />
@@ -69,14 +89,7 @@ const Menu = () => {
             <Button
               variant="ghost"
               className="flex justify-between p-1"
-              onClick={() => {
-                const newList = [...list];
-                newList.push({
-                  key: '' + Math.random() * 10000,
-                  list: [],
-                });
-                setList(newList);
-              }}
+              onClick={() => createSection()}
             >
               <div className="flex items-center">
                 <Sheet />

@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { autoMationContext } from './context';
 import { Menu } from './menu';
+import { menuData } from './mock';
 import { RightSider, FormPanel } from './right-sider';
 import { WorkFlowPanel } from './workflow-panel';
 
@@ -28,6 +29,9 @@ const AutoMationPage = () => {
     }
   }, [router]);
 
+  // TODO mock data, need to replace real data
+  const [data, setMenuData] = useState(menuData);
+
   return isHydrated ? (
     <autoMationContext.Provider
       value={{
@@ -35,6 +39,8 @@ const AutoMationPage = () => {
         toggleMenu,
         rightSiderVisible,
         setRightSiderVisible,
+        menuData: data,
+        setMenuData,
       }}
     >
       <div className="p-t-4 p-r-4 p-l-4 flex h-full w-full justify-between">
