@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
-import { isEmpty, isEqual, chunk } from 'lodash';
+import { isEmpty, chunk } from 'lodash';
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
@@ -58,7 +58,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       return;
     }
 
-    const [, , , , channelTableId] = presence.channel.split('_');
+    const channelTableId = presence.channel.split('_').pop();
 
     if (presence.subscribed && tableId !== channelTableId) {
       return;
