@@ -1,15 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Param,
-  Patch,
-  Post,
-  Get,
-  Delete,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post, Get, Delete, UseGuards } from '@nestjs/common';
 import type {
   ICreateBaseVo,
   IUpdateBaseVo,
@@ -24,6 +14,7 @@ import {
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
+import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
@@ -37,6 +28,7 @@ export class BaseController {
   ) {}
 
   @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
   @Post()
   async createBase(
     @Body(new ZodValidationPipe(createBaseRoSchema))
@@ -59,12 +51,6 @@ export class BaseController {
   @Get(':baseId')
   async getBaseById(@Param('baseId') baseId: string): Promise<IGetBaseVo> {
     return await this.baseService.getBaseById(baseId);
-  }
-
-  @Permissions('base|read')
-  @Get()
-  async getBaseList(@Query('spaceId') spaceId: string): Promise<IGetBaseVo[]> {
-    return await this.baseService.getBaseListBySpaceId(spaceId);
   }
 
   @Get('access/all')
