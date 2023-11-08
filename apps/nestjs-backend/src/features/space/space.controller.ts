@@ -19,6 +19,7 @@ import type {
   CreateSpaceInvitationLinkVo,
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
+  IGetBaseVo,
 } from '@teable-group/openapi';
 import {
   createSpaceRoSchema,
@@ -106,6 +107,12 @@ export class SpaceController {
     @Param('invitationId') invitationId: string
   ): Promise<void> {
     return await this.invitationService.deleteInvitationLinkBySpace(spaceId, invitationId);
+  }
+
+  @Permissions('base|read')
+  @Get(':spaceId/base')
+  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseVo[]> {
+    return await this.spaceService.getBaseListBySpaceId(spaceId);
   }
 
   @Permissions('space|invite_link')

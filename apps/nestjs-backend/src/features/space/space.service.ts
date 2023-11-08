@@ -149,4 +149,27 @@ export class SpaceService {
       await this.collaboratorService.deleteBySpaceId(spaceId);
     });
   }
+
+  async getBaseListBySpaceId(spaceId: string) {
+    const userId = this.cls.get('user.id');
+    const { spaceIds, roleMap } =
+      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    if (!spaceIds.includes(spaceId)) {
+      throw new ForbiddenException();
+    }
+    const baseList = await this.prismaService.base.findMany({
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        spaceId: true,
+        icon: true,
+      },
+      where: {
+        spaceId,
+        deletedTime: null,
+      },
+    });
+    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
+  }
 }
