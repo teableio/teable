@@ -25,7 +25,7 @@ interface CollaboratorsProps {
   maxAvatarLen?: number;
 }
 
-type ICollaboratorUser = Pick<IUser, 'id' | 'avatar' | 'name'>;
+type ICollaboratorUser = Omit<IUser, 'phone'>;
 
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
@@ -38,6 +38,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       id: sessionUser.id,
       avatar: sessionUser.avatar,
       name: sessionUser.name,
+      email: sessionUser.email,
     }),
     [sessionUser]
   );
@@ -96,28 +97,35 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
     return (
       <Avatar
-        className="box-content h-7 w-7 cursor-pointer border"
+        className="h-6 w-6 cursor-pointer border-2"
         style={{
           borderColor: borderColor,
         }}
       >
-        <AvatarImage src={avatar as string} alt="avatar-name" />
-        <AvatarFallback className="text-sm">{name.slice(0, 1)}</AvatarFallback>
+        <AvatarImage src={avatar as string} alt={`${name} avatar`} />
+        <AvatarFallback className="text-sm leading-6">{name.slice(0, 1)}</AvatarFallback>
       </Avatar>
     );
   };
 
   return (
     <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
-      {boardUsers?.map(({ id, name, avatar }) => {
+      {boardUsers?.map(({ id, name, avatar, email }) => {
         return (
           <HoverCard key={id}>
             <HoverCardTrigger asChild>
-              <div className="relative overflow-hidden">{avatarRender({ id, name, avatar })}</div>
+              <div className="relative overflow-hidden">
+                {avatarRender({ id, name, avatar, email })}
+              </div>
             </HoverCardTrigger>
-            <HoverCardContent className="flex w-36 justify-center truncate p-4 text-sm">
-              <span>{name}</span>
-              <span className="pl-1">{id === user.id ? '(You)' : null}</span>
+            <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center truncate p-2 text-sm">
+              <div className="truncate">
+                <span>{name}</span>
+                <span className="pl-1">{id === user.id ? '(You)' : null}</span>
+              </div>
+              <div className="truncate">
+                <span>{email}</span>
+              </div>
             </HoverCardContent>
           </HoverCard>
         );
@@ -132,9 +140,9 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
             </div>
           </PopoverTrigger>
           <PopoverContent className="max-h-64 w-36 overflow-y-auto">
-            {hiddenUser.map(({ id, name, avatar }) => (
+            {hiddenUser.map(({ id, name, avatar, email }) => (
               <div key={id} className="flex items-center truncate p-1">
-                {avatarRender({ id, name, avatar })}
+                {avatarRender({ id, name, avatar, email })}
                 <div className="flex-1 truncate pl-1">{name}</div>
               </div>
             ))}
