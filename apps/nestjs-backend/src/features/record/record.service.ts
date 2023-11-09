@@ -37,7 +37,7 @@ import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -266,7 +266,10 @@ export class RecordService implements IAdapterService {
     }
 
     // All `where` condition-related construction work
-    new FilterQueryTranslator(queryBuilder, fieldMap, filter).translateToSql();
+    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
+
+    console.log('queryBuilder-new：', queryBuilder.toQuery());
+
     new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).translateToSql();
 
     // view sorting added by default
@@ -727,11 +730,9 @@ export class RecordService implements IAdapterService {
       viewId,
     });
 
-    const sqlNative = queryBuilder.toSQL().toNative();
-
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
+      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
     return { ids };
   }

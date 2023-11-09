@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import type { IFilter } from '@teable-group/core';
 import { DriverClient, Relationship } from '@teable-group/core';
 import type { Knex } from 'knex';
 import { map } from 'lodash';
@@ -7,7 +8,9 @@ import type { ITopoLinkOrder } from '../features/calculation/reference.service';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
 import { AggregationFunctionPostgres } from './aggregation/aggregation-function.postgres';
-import type { IDbProvider } from './interface/db.provider.interface';
+import type { IDbProvider } from './db.provider.interface';
+import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
+import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 
 export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);
@@ -152,5 +155,13 @@ export class PostgresProvider implements IDbProvider {
 
   aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface {
     return new AggregationFunctionPostgres(this.knex, dbTableName, field);
+  }
+
+  filterQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fields?: { [p: string]: IFieldInstance },
+    filter?: IFilter | null
+  ): IFilterQueryInterface {
+    return new FilterQueryPostgres(originQueryBuilder, fields, filter);
   }
 }

@@ -8,6 +8,7 @@ import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
+import { HealthModule } from './features/health/health.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
@@ -21,11 +22,9 @@ import { WsModule } from './ws/ws.module';
 
 @Module({
   imports: [
-    // DevtoolsModule.register({
-    //   http: process.env.NODE_ENV !== 'production',
-    // }),
     GlobalModule,
     TeableLoggerModule.register(),
+    HealthModule,
     NextModule,
     FileTreeModule,
     TableOpenApiModule,
