@@ -9,6 +9,10 @@ import type {
   IViewVo,
   ISetViewDescriptionOpContext,
   ISort,
+  ISetViewShareMetaOpContext,
+  IOtOperation,
+  ISetViewShareIdOpContext,
+  ISetViewEnableShareOpContext,
 } from '@teable-group/core';
 import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -23,6 +27,16 @@ import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
+
+type IViewOpContext =
+  | ISetViewNameOpContext
+  | ISetViewDescriptionOpContext
+  | ISetViewFilterOpContext
+  | ISetViewOptionsOpContext
+  | ISetViewSortOpContext
+  | ISetViewShareMetaOpContext
+  | ISetViewEnableShareOpContext
+  | ISetViewShareIdOpContext;
 
 @Injectable()
 export class ViewService implements IAdapterService {
@@ -172,7 +186,7 @@ export class ViewService implements IAdapterService {
     ]);
   }
 
-  async updateView(tableId: string, viewId: string, sort: ISort) {
+  async updateViewSort(tableId: string, viewId: string, sort: ISort) {
     const viewRaw = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -215,6 +229,30 @@ export class ViewService implements IAdapterService {
     return viewRawAfter;
   }
 
+  async updateViewByOps(tableId: string, viewId: string, ops: IOtOperation[]) {
+    const { version } = await this.prismaService.txClient().view.findFirstOrThrow({
+      where: { id: viewId, tableId, deletedTime: null },
+      select: {
+        version: true,
+      },
+    });
+    const opContext = ops.map((op) => {
+      const ctx = ViewOpBuilder.detect(op);
+      if (!ctx) {
+        throw new Error('unknown field editing op');
+      }
+      return ctx as IViewOpContext;
+    });
+    await this.update(version, tableId, viewId, opContext);
+    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
+      {
+        docId: viewId,
+        version,
+        data: ops,
+      },
+    ]);
+  }
+
   async create(tableId: string, view: IViewVo) {
     await this.createDbView(tableId, view);
   }
@@ -231,18 +269,7 @@ export class ViewService implements IAdapterService {
     `);
   }
 
-  async update(
-    version: number,
-    _tableId: string,
-    viewId: string,
-    opContexts: (
-      | ISetViewNameOpContext
-      | ISetViewDescriptionOpContext
-      | ISetViewFilterOpContext
-      | ISetViewOptionsOpContext
-      | ISetViewSortOpContext
-    )[]
-  ) {
+  async update(version: number, _tableId: string, viewId: string, opContexts: IViewOpContext[]) {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
@@ -262,6 +289,15 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewOptions:
           updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
+          break;
+        case OpName.SetViewShareMeta:
+          updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
+          break;
+        case OpName.SetViewEnableShare:
+          updateData['enableShare'] = opContext.newEnableShare;
+          break;
+        case OpName.SetViewShareId:
+          updateData['shareId'] = opContext.newShareId;
           break;
         default:
           throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);

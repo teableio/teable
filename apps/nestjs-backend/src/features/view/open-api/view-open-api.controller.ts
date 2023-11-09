@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import type { IViewVo } from '@teable-group/core';
 import { viewRoSchema, manualSortRoSchema, IManualSortRo, IViewRo } from '@teable-group/core';
+import type { EnableShareViewVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -54,5 +56,23 @@ export class ViewOpenApiController {
     updateViewOrderRo: IManualSortRo
   ) {
     return await this.viewOpenApiService.manualSort(tableId, viewId, updateViewOrderRo);
+  }
+
+  @Permissions('view|update')
+  @Patch('/:viewId/enableShare')
+  async enableShare(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<EnableShareViewVo> {
+    return await this.viewOpenApiService.enableShare(tableId, viewId);
+  }
+
+  @Permissions('view|update')
+  @Patch('/:viewId/disableShare')
+  async disableShare(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<void> {
+    return await this.viewOpenApiService.disableShare(tableId, viewId);
   }
 }

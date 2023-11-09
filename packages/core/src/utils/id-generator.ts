@@ -19,6 +19,8 @@ export enum IdPrefix {
   User = 'usr',
 
   Invitation = 'inv',
+
+  Share = 'shr',
 }
 
 export function getRandomString(len: number) {
@@ -68,7 +70,7 @@ export function generateWorkflowDecisionId() {
 }
 
 export function generateUserId() {
-  return IdPrefix.User + getRandomString(10);
+  return IdPrefix.User + getRandomString(16);
 }
 
 export function identify(id: string): IdPrefix | undefined {
@@ -83,13 +85,17 @@ export function identify(id: string): IdPrefix | undefined {
 }
 
 export function generateSpaceId() {
-  return IdPrefix.Space + getRandomString(10);
+  return IdPrefix.Space + getRandomString(16);
 }
 
 export function generateBaseId() {
-  return IdPrefix.Base + getRandomString(10);
+  return IdPrefix.Base + getRandomString(16);
 }
 
 export function generateInvitationId() {
   return IdPrefix.Invitation + getRandomString(16);
+}
+
+export function generateShareId() {
+  return IdPrefix.Share + getRandomString(16);
 }
