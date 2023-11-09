@@ -59,7 +59,7 @@
     "@commitlint/config-conventional": "18.1.0",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/prettier": "2.7.3",
-    "@types/shell-quote": "1.7.3",
+    "@types/shell-quote": "1.7.4",
     "eslint": "8.52.0",
     "husky": "8.0.3",
     "is-ci": "3.0.1",

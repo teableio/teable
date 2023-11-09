@@ -22,4 +22,5 @@ reject: [
     # Too early cause in esm
     'is-port-reachable',
     'nanoid',
+    'node-fetch',
   ]

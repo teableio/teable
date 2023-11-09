@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import type {
   IConjunction,
   IDateTimeFieldOperator,
@@ -23,6 +23,7 @@ import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
 import type { IFilterQueryInterface } from './filter-query.interface';
 
 export abstract class AbstractFilterQuery implements IFilterQueryInterface {
+  private logger = new Logger(AbstractFilterQuery.name);
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fields?: { [p: string]: IFieldInstance },

@@ -34,8 +34,8 @@
   },
   "peerDependencies": {
     "@prisma/client": "^5.5.0",
-    "@nestjs/common": "^10.0.0",
-    "nestjs-cls": "^3.5.1"
+    "@nestjs/common": "^10.2.0",
+    "nestjs-cls": "^3.6.0"
   },
   "dependencies": {
     "@prisma/client": "5.5.2",
@@ -45,7 +45,7 @@
   "devDependencies": {
     "@faker-js/faker": "8.2.0",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.7",
+    "@types/jest": "29.5.8",
     "@types/node": "18.17.1",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
