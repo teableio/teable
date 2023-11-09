@@ -41,6 +41,9 @@ export function useAggregates(funcs: StatisticsFunc[]) {
     View.getViewAggregations(table.id, viewId, {
       field: statsList,
     }).then(({ data: { aggregations } }) => {
+      if (!aggregations) {
+        return;
+      }
       setAggregates(
         aggregations.map((aggregate, i) => {
           const { total } = aggregate;
