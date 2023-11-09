@@ -50,8 +50,8 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "14.0.1",
-    "@next/env": "14.0.1",
+    "@next/bundle-analyzer": "13.0.2",
+    "@next/env": "13.0.2",
     "@playwright/test": "1.39.0",
     "@size-limit/file": "10.0.2",
     "@svgr/webpack": "8.1.0",
@@ -79,7 +79,7 @@
     "dotenv-flow-cli": "1.0.0",
     "es-check": "7.1.1",
     "eslint": "8.52.0",
-    "eslint-config-next": "14.0.1",
+    "eslint-config-next": "13.0.2",
     "get-tsconfig": "4.7.2",
     "jest": "29.7.0",
     "jest-css-modules-transform": "4.4.2",
@@ -142,7 +142,7 @@
     "lru-cache": "10.0.1",
     "lucide-react": "0.291.0",
     "mousetrap": "1.6.5",
-    "next": "14.0.1",
+    "next": "13.0.2",
     "next-i18next": "14.0.3",
     "next-secure-headers": "2.2.0",
     "next-seo": "6.4.0",

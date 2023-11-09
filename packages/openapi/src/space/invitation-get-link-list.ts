@@ -10,6 +10,7 @@ export const itemSpaceInvitationLinkVoSchema = z.object({
   invitationId: z.string(),
   role: spaceRolesSchema,
   inviteUrl: z.string(),
+  invitationCode: z.string(),
   createdBy: z.string(),
   createdTime: z.string(),
 });

@@ -34,7 +34,10 @@ export const Invite: React.FC<IInvite> = (props) => {
   const sendInviteEmail = async () => {
     await emailInvitation({
       spaceId,
-      emailSpaceInvitationRo: { emails: inviteEmails, role: inviteRole },
+      emailSpaceInvitationRo: {
+        emails: inviteEmails.length ? inviteEmails : [email],
+        role: inviteRole,
+      },
     });
     initEmail();
   };
@@ -85,6 +88,8 @@ export const Invite: React.FC<IInvite> = (props) => {
 
   const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
 
+  const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
+
   const EmailInvite = (
     <div>
       <div className="flex gap-2">
@@ -115,7 +120,7 @@ export const Invite: React.FC<IInvite> = (props) => {
       <Button
         className="mt-2"
         size={'sm'}
-        disabled={inviteEmails.length === 0 || updateCollaboratorLoading}
+        disabled={(!isEmailInputValid && inviteEmails.length === 0) || updateCollaboratorLoading}
         onClick={sendInviteEmail}
       >
         Send invite

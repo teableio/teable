@@ -299,6 +299,7 @@ model Invitation {
 
 model InvitationRecord {
   id           String   @id @default(cuid())
+  invitationId String   @map("invitation_id")
   baseId       String?  @map("base_id")
   spaceId      String?  @map("space_id")
   type         String   @map("type")

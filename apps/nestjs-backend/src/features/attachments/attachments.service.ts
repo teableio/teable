@@ -8,6 +8,7 @@ import { createReadStream } from 'fs-extra';
 import mime from 'mime-types';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
 import { Storage } from './plugins/storage';
 
 @Injectable()
@@ -102,7 +103,7 @@ export class AttachmentsService {
   }
 
   async notify(token: string) {
-    return await this.prismaService.attachments.findFirst({
+    const attachment = await this.prismaService.attachments.findFirst({
       select: {
         token: true,
         size: true,
@@ -116,5 +117,12 @@ export class AttachmentsService {
         deletedTime: null,
       },
     });
+    if (!attachment) {
+      return;
+    }
+    return {
+      ...attachment,
+      url: attachment.url ? getFullStorageUrl(attachment.url) : null,
+    };
   }
 }

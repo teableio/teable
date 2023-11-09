@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
@@ -72,29 +72,6 @@ export class BaseService {
             },
           },
         ],
-      },
-    });
-    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
-  }
-
-  async getBaseListBySpaceId(spaceId: string) {
-    const userId = this.cls.get('user.id');
-    const { spaceIds, roleMap } =
-      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
-    if (!spaceIds.includes(spaceId)) {
-      throw new ForbiddenException();
-    }
-    const baseList = await this.prismaService.base.findMany({
-      select: {
-        id: true,
-        name: true,
-        order: true,
-        spaceId: true,
-        icon: true,
-      },
-      where: {
-        spaceId,
-        deletedTime: null,
       },
     });
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
