@@ -1,10 +1,32 @@
-import type { GridViewOptions, PermissionAction, RatingIcon } from '@teable-group/core';
+import type { GridViewOptions, PermissionAction } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
-import { DraggableHandle, Maximize2, Check } from '@teable-group/icons';
 import {
-  RATING_ICON_MAP,
+  Grid,
+  CellType,
+  RowControlType,
+  SelectionRegionType,
+  RegionType,
+  DraggableType,
+  CombinedSelection,
+  useGridTheme,
+  useGridColumnResize,
+  useGridColumns,
+  useColumnStatistics,
+  useGridColumnOrder,
+  useGridAsyncRecords,
+  useGridIcons,
+  useGridTooltipStore,
+} from '@teable-group/sdk';
+import type {
+  IRectangle,
+  IPosition,
+  IGridRef,
+  ICellItem,
+  ICell,
+  IInnerCell,
+} from '@teable-group/sdk';
+import {
   useFields,
-  useFieldStaticGetter,
   useIsTouchDevice,
   useRowCount,
   useSSRRecords,
@@ -13,38 +35,18 @@ import {
   useTablePermission,
   useView,
   useViewId,
-} from '@teable-group/sdk';
-import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
-import { isEqual, keyBy } from 'lodash';
+} from '@teable-group/sdk/hooks';
+import { Skeleton, useToast } from '@teable-group/ui-lib';
+import { isEqual, keyBy, uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePrevious, useMount } from 'react-use';
-import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer';
-import { FieldOperator } from '@/features/app/components/field-setting/type';
-import { FIELD_TYPE_ORDER } from '@/features/app/utils/fieldTypeOrder';
-import {
-  Grid,
-  CellType,
-  RowControlType,
-  SelectionRegionType,
-  RegionType,
-  DraggableType,
-} from '../../grid';
-import type { IRectangle, IPosition, IGridRef, ICellItem } from '../../grid';
-import { CombinedSelection } from '../../grid/managers';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePrevious, useMount, useClickAway } from 'react-use';
+import type { IExpandRecordContainerRef } from '../../../components/ExpandRecordContainer';
+import { FieldOperator } from '../../../components/field-setting';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import {
-  useAsyncData,
-  useColumnOrder,
-  useColumnResize,
-  useColumnStatistics,
-  useColumns,
-  useGridTheme,
-} from './hooks';
-import { useSelectionOperation } from './hooks/useSelectionOperation';
+import { useSelectionOperation } from './hooks';
 import { useGridViewStore } from './store/gridView';
-import { getSpriteMap } from './utils';
 
 interface IGridViewProps {
   expandRecordRef: React.RefObject<IExpandRecordContainerRef>;
@@ -62,19 +64,13 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const ssrRecords = useSSRRecords();
   const theme = useGridTheme();
   const fields = useFields();
-  const { columns: originalColumns, cellValue2GridDisplay } = useColumns();
-  const { columns, onColumnResize } = useColumnResize(originalColumns);
+  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
+  const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useColumnStatistics(columns);
-  const { onColumnOrdered } = useColumnOrder();
-  const {
-    openRecordMenu,
-    openHeaderMenu,
-    openSetting,
-    openStatisticMenu,
-    setSelection,
-    openTooltip,
-    closeTooltip,
-  } = useGridViewStore();
+  const { onColumnOrdered } = useGridColumnOrder();
+  const { openRecordMenu, openHeaderMenu, openSetting, openStatisticMenu, setSelection } =
+    useGridViewStore();
+  const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
@@ -84,52 +80,14 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const permission = useTablePermission();
   const { toast } = useToast();
 
-  const { getCellContent, onVisibleRegionChanged, onCellEdited, onRowOrdered, reset, recordMap } =
-    useAsyncData(
-      useCallback(
-        (record, col) => {
-          const fieldId = columns[col]?.id;
-          if (!fieldId) {
-            return {
-              type: CellType.Loading,
-            };
-          }
-          return cellValue2GridDisplay(record, col);
-        },
-        [cellValue2GridDisplay, columns]
-      ),
-      useCallback(
-        (cell, newVal, record) => {
-          const [col] = cell;
-          const fieldId = columns[col].id;
-          const { type, data } = newVal;
-          let newCellValue = null;
-
-          switch (type) {
-            case CellType.Select:
-              newCellValue = data?.length ? data : null;
-              break;
-            case CellType.Text:
-            case CellType.Number:
-            case CellType.Boolean:
-            default:
-              newCellValue = data === '' ? null : data;
-          }
-          const oldCellValue = record.getCellValue(fieldId) ?? null;
-          if (isEqual(newCellValue, oldCellValue)) return;
-          record.updateCell(fieldId, newCellValue);
-          return record;
-        },
-        [columns]
-      ),
-      ssrRecords
-    );
+  const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } =
+    useGridAsyncRecords(ssrRecords);
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
-      reset();
+      onReset();
     }
-  }, [reset, tableId, preTableId]);
+  }, [onReset, tableId, preTableId]);
 
   useEffect(() => {
     const recordIds = Object.keys(recordMap)
@@ -158,6 +116,49 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   }, [router.query.recordId, recordMap, isReadyToRender]);
 
   useMount(() => setReadyToRender(true));
+
+  const getCellContent = useCallback<(cell: ICellItem) => ICell>(
+    (cell) => {
+      const [colIndex, rowIndex] = cell;
+      const record = recordMap[rowIndex];
+      if (record !== undefined) {
+        const fieldId = columns[colIndex]?.id;
+        if (!fieldId) return { type: CellType.Loading };
+        return cellValue2GridDisplay(record, colIndex);
+      }
+      return { type: CellType.Loading };
+    },
+    [recordMap, columns, cellValue2GridDisplay]
+  );
+
+  const onCellEdited = useCallback(
+    (cell: ICellItem, newVal: IInnerCell) => {
+      const [, row] = cell;
+      const record = recordMap[row];
+      if (record === undefined) return;
+
+      const [col] = cell;
+      const fieldId = columns[col].id;
+      const { type, data } = newVal;
+      let newCellValue: unknown = null;
+
+      switch (type) {
+        case CellType.Select:
+          newCellValue = data?.length ? data : null;
+          break;
+        case CellType.Text:
+        case CellType.Number:
+        case CellType.Boolean:
+        default:
+          newCellValue = data === '' ? null : data;
+      }
+      const oldCellValue = record.getCellValue(fieldId) ?? null;
+      if (isEqual(newCellValue, oldCellValue)) return;
+      record.updateCell(fieldId, newCellValue);
+      return record;
+    },
+    [recordMap, columns]
+  );
 
   const onContextMenu = useCallback(
     (selection: CombinedSelection, position: IPosition) => {
@@ -241,48 +242,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     });
   };
 
-  const getFieldStatic = useFieldStaticGetter();
-  const customIcons = useMemo(() => {
-    const columnHeaderIcons = getSpriteMap(
-      FIELD_TYPE_ORDER.reduce<
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { type: string; IconComponent: React.JSXElementConstructor<any> }[]
-      >((pre, type) => {
-        const IconComponent = getFieldStatic(type, false)?.Icon;
-        const LookupIconComponent = getFieldStatic(type, true)?.Icon;
-        pre.push({ type: type, IconComponent });
-        if (LookupIconComponent) {
-          pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
-        }
-        return pre;
-      }, [])
-    );
-    const rowHeaderIcons = getSpriteMap([
-      {
-        type: RowControlType.Drag,
-        IconComponent: DraggableHandle,
-      },
-      {
-        type: RowControlType.Expand,
-        IconComponent: Maximize2,
-      },
-      {
-        type: RowControlType.Checkbox,
-        IconComponent: Check,
-      },
-    ]);
-    const ratingIcons = getSpriteMap(
-      (Object.keys(RATING_ICON_MAP) as RatingIcon[]).map((iconKey) => ({
-        type: iconKey,
-        IconComponent: RATING_ICON_MAP[iconKey],
-      }))
-    );
-    return {
-      ...columnHeaderIcons,
-      ...rowHeaderIcons,
-      ...ratingIcons,
-    };
-  }, [getFieldStatic]);
+  const customIcons = useGridIcons();
 
   const rowHeightLevel = useMemo(() => {
     if (view == null) return RowHeightLevel.Short;
@@ -362,6 +322,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     }
   };
 
+  const componentId = useMemo(() => uniqueId('grid-view-'), []);
+
   const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
     const [columnIndex] = cellItem;
     const { description } = columns[columnIndex] ?? {};
@@ -370,6 +332,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
 
     if (type === RegionType.ColumnDescription && description) {
       openTooltip({
+        id: componentId,
         text: description,
         position: bounds,
       });
@@ -377,6 +340,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
 
     if (type === RegionType.RowHeaderDragHandler) {
       openTooltip({
+        id: componentId,
         text: 'Automatic sorting is turned on, manual sorting is not available',
         position: bounds,
       });
@@ -399,6 +363,10 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     [permission]
   );
 
+  useClickAway(container, () => {
+    gridRef.current?.resetState();
+  });
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
@@ -414,6 +382,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           columns={columns}
           smoothScrollX
           smoothScrollY
+          rowCounterVisible
           customIcons={customIcons}
           rowControls={rowControls}
           style={{
@@ -450,7 +419,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           </div>
         </div>
       )}
-      <DomBox />
+      <DomBox id={componentId} />
     </div>
   );
 };

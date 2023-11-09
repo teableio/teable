@@ -1,6 +1,6 @@
+import type { IPosition, IRectangle } from '@teable-group/sdk/components';
 import type { IFieldInstance, Record } from '@teable-group/sdk/model';
 import type { FieldOperator } from '@/features/app/components/field-setting/type';
-import type { IPosition, IRectangle } from '../../../grid';
 
 export interface ISetting {
   operator: FieldOperator;
@@ -20,10 +20,5 @@ export interface IRecordMenu {
 
 export interface IStatisticMenu {
   fieldId: string;
-  position: IRectangle;
-}
-
-export interface ITooltipInfo {
-  text: string;
   position: IRectangle;
 }

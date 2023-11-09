@@ -71,6 +71,15 @@ export type IGetRecordQuery = z.infer<typeof getRecordQuerySchema>;
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
+export const filterByLinkFieldSchema = z.object({
+  recordIds: z
+    .array(z.string().startsWith(IdPrefix.Record, 'Error recordIds, recordId is illegal'))
+    .optional(),
+  nullableForeignKey: z.string().optional(),
+});
+
+export type IFilterByLinkFieldSchema = z.infer<typeof filterByLinkFieldSchema>;
+
 export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   take: z
     .string()
@@ -122,6 +131,7 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   orderBy: sortItemSchema.array().nonempty().optional().openapi({
     type: 'array',
   }),
+  filterByLinkField: filterByLinkFieldSchema.optional(),
 });
 
 export type IGetRecordsQuery = z.infer<typeof getRecordsQuerySchema>;

@@ -7,11 +7,16 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useFieldStaticGetter, useFields, useIsHydrated, useViewId } from '@teable-group/sdk/hooks';
+import {
+  useFieldStaticGetter,
+  useFields,
+  useIsHydrated,
+  useViewId,
+  useGridColumnOrder,
+} from '@teable-group/sdk';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
-import { useColumnOrder } from '../../grid/hooks';
 import { reorder } from '../../grid/utils';
 import { FormEditorMain } from './FormEditorMain';
 import { FormFieldEditor } from './FormFieldEditor';
@@ -32,7 +37,7 @@ export const FormEditor = () => {
   const activeViewId = useViewId();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
-  const { onColumnOrdered } = useColumnOrder();
+  const { onColumnOrdered } = useGridColumnOrder();
   const getFieldStatic = useFieldStaticGetter();
   const [activeField, setActiveField] = useState<IFieldInstance | null>(null);
   const [activeSidebarField, setActiveSidebarField] = useState<IFieldInstance | null>(null);

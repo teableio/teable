@@ -224,7 +224,7 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: IGetRecordsQuery & {
       select?: string | string[];
-      viewId: string;
+      viewId?: string;
     }
   ) {
     const {
@@ -234,42 +234,62 @@ export class RecordService implements IAdapterService {
       take = 10,
       select,
       filter: extraFilter,
+      filterByLinkField = {},
     } = query;
 
-    const view = await this.prismaService.txClient().view.findFirstOrThrow({
-      select: { id: true, filter: true, sort: true },
-      where: { tableId, id: viewId, deletedTime: null },
-      orderBy: { order: 'asc' },
-    });
-
-    const filter = mergeWithDefaultFilter(view.filter, extraFilter);
-    const orderBy = mergeWithDefaultSort(view.sort, extraOrderBy);
-
     const dbTableName = await this.getDbTableName(tableId);
-    const orderFieldName = getViewOrderFieldName(viewId);
 
     const queryBuilder = select ? this.knex(dbTableName).select(select) : this.knex(dbTableName);
 
-    let fieldMap;
-    if (filter || orderBy.length) {
-      // The field Meta is needed to construct the filter if it exists
-      const fields = await this.getFieldsByProjection(tableId);
-      fieldMap = fields.reduce(
-        (map, field) => {
-          map[field.id] = field;
-          map[field.name] = field;
-          return map;
-        },
-        {} as Record<string, IFieldInstance>
-      );
+    let orderFieldName = '';
+
+    if (viewId) {
+      const view = await this.prismaService.txClient().view.findFirstOrThrow({
+        select: { id: true, filter: true, sort: true },
+        where: { tableId, id: viewId, deletedTime: null },
+        orderBy: { order: 'asc' },
+      });
+
+      const filter = mergeWithDefaultFilter(view.filter, extraFilter);
+      const orderBy = mergeWithDefaultSort(view.sort, extraOrderBy);
+
+      orderFieldName = getViewOrderFieldName(viewId);
+
+      let fieldMap;
+      if (filter || orderBy.length) {
+        // The field Meta is needed to construct the filter if it exists
+        const fields = await this.getFieldsByProjection(tableId);
+        fieldMap = fields.reduce(
+          (map, field) => {
+            map[field.id] = field;
+            map[field.name] = field;
+            return map;
+          },
+          {} as Record<string, IFieldInstance>
+        );
+      }
+
+      // All `where` condition-related construction work
+      this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
+      new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
     }
 
-    // All `where` condition-related construction work
-    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
-    new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
+    const { recordIds, nullableForeignKey } = filterByLinkField;
+
+    if (recordIds?.length) {
+      queryBuilder.whereIn('__id', recordIds);
+    }
+
+    if (nullableForeignKey) {
+      queryBuilder.andWhere(nullableForeignKey, 'is', null);
+    }
+
+    if (orderFieldName) {
+      queryBuilder.orderBy(orderFieldName, 'asc');
+    }
 
     // view sorting added by default
-    queryBuilder.orderBy(orderFieldName, 'asc').offset(skip);
+    queryBuilder.offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
@@ -703,11 +723,7 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: IGetRecordsQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const { id: viewId } = await this.prismaService.txClient().view.findFirstOrThrow({
-      select: { id: true },
-      where: { tableId, ...(query.viewId ? { id: query.viewId } : {}), deletedTime: null },
-      orderBy: { order: 'asc' },
-    });
+    const { viewId } = query;
 
     const { take = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {

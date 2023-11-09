@@ -471,14 +471,7 @@ export class FieldService implements IAdapterService {
   }
 
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    let viewId = query.viewId;
-    if (!viewId) {
-      const view = await this.prismaService.txClient().view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-      viewId = view.id;
-    }
+    const { filterHidden, viewId } = query;
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
@@ -492,14 +485,18 @@ export class FieldService implements IAdapterService {
       };
     });
 
-    if (query.filterHidden) {
+    if (viewId && filterHidden) {
       fields = fields.filter((field) => !field.columnMeta[viewId as string].hidden);
     }
 
-    return {
-      ids: sortBy(fields, (field) => {
+    if (!viewId) {
+      fields = sortBy(fields, (field) => {
         return field.columnMeta[viewId as string]?.order;
-      }).map((field) => field.id),
+      });
+    }
+
+    return {
+      ids: fields.map((field) => field.id),
     };
   }
 }
