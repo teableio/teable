@@ -30,7 +30,7 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
       <Dialog open={isEditing} onOpenChange={onOpenChange}>
         <DialogContent
           container={containerRef.current}
-          className="flex h-[500px] max-w-4xl flex-col"
+          className="flex h-[520px] max-w-4xl flex-col"
         >
           <LinkEditorMain
             ref={linkEditorMainRef}

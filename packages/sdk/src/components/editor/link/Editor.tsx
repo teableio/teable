@@ -1,10 +1,11 @@
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
 import { Relationship } from '@teable-group/core';
 import { Plus, X } from '@teable-group/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger, useToast } from '@teable-group/ui-lib';
+import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable-group/ui-lib';
 import { noop } from 'lodash';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ExpandRecorder } from '../../expand-record';
+import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
 
 interface ILinkEditorProps {
@@ -18,6 +19,8 @@ interface ILinkEditorProps {
 export const LinkEditor = (props: ILinkEditorProps) => {
   const { cellValue, options, onChange, disabled, className } = props;
   const { toast } = useToast();
+  const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
+  const [isEditing, setEditing] = useState<boolean>(false);
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { foreignTableId, relationship } = options;
 
@@ -44,6 +47,11 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     onChange?.(
       isMultiple ? (cellValue as ILinkCellValue[])?.filter((cv) => cv.id !== recordId) : undefined
     );
+  };
+
+  const onOpenChange = (open: boolean) => {
+    if (open) return setEditing?.(true);
+    return linkEditorMainRef.current?.onReset();
   };
 
   return (
@@ -79,17 +87,22 @@ export const LinkEditor = (props: ILinkEditorProps) => {
         onUpdateRecordIdCallback={updateExpandRecordId}
         onClose={() => updateExpandRecordId(undefined)}
       />
-      <Popover>
-        <PopoverTrigger asChild disabled={disabled}>
+      <Dialog open={isEditing} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild disabled={disabled}>
           <Button variant="outline" size={'sm'} className={className}>
             <Plus />
             Add Record
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="p-0">
-          <LinkEditorMain {...props} />
-        </PopoverContent>
-      </Popover>
+        </DialogTrigger>
+        <DialogContent className="flex h-[520px] max-w-4xl flex-col">
+          <LinkEditorMain
+            {...props}
+            ref={linkEditorMainRef}
+            isEditing={isEditing}
+            setEditing={setEditing}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

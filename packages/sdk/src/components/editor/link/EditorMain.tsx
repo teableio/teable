@@ -301,10 +301,9 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
 ) => {
   const { options } = props;
   const tableId = options.foreignTableId;
-  const base = useBase();
 
   return (
-    <AnchorProvider tableId={tableId} baseId={base.id}>
+    <AnchorProvider tableId={tableId}>
       <LinkEditorInner ref={forwardRef} {...props} />
     </AnchorProvider>
   );

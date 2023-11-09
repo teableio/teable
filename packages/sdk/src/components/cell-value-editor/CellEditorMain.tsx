@@ -27,8 +27,8 @@ import {
   RatingEditor,
   LongTextEditor,
 } from '../editor';
+import { LinkEditor } from '../editor/link';
 import type { IEditorRef } from '../editor/type';
-import { LinkEditor } from './LinkEditor';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
