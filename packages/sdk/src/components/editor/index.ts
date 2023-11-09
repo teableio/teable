@@ -7,3 +7,4 @@ export * from './long-text';
 export * from './number';
 export * from './formula';
 export * from './rating';
+export * from './link';

@@ -25,6 +25,7 @@ export interface IRowHeaderDrawerProps extends IRectangle {
   fill?: string;
   stroke?: string;
   isChecked?: boolean;
+  rowIndexVisible?: boolean;
 }
 
 export interface IFieldHeadDrawerProps extends IRectangle {

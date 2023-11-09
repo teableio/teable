@@ -90,6 +90,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     selection,
     isSelecting,
     rowControls,
+    rowIndexVisible,
     isRowAppendEnable,
     hoverCellPosition,
     getCellContent,
@@ -159,11 +160,12 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         rowHeaderPropList.push({
           x: 0.5,
           y: y + 0.5,
-          width: columnInitSize,
+          width: columnInitSize + 0.5,
           height: rowHeight,
           displayIndex: String(rowIndex + 1),
           isHover: isRowHovered || isRowActive,
           isChecked: isRowSelection && isRowSelected,
+          rowIndexVisible,
           rowControls,
           theme,
           spriteManager,
@@ -436,7 +438,9 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
     isChecked,
     rowControls,
     spriteManager,
+    rowIndexVisible,
   } = props;
+
   const {
     cellBg,
     cellBgHovered,
@@ -476,7 +480,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   });
   const halfSize = iconSizeXS / 2;
 
-  if (isChecked || isHover) {
+  if (isChecked || isHover || !rowIndexVisible) {
     const controlSize = width / rowControls.length;
     for (let i = 0; i < rowControls.length; i++) {
       const { type, icon } = rowControls[i];
@@ -1050,7 +1054,10 @@ export const drawColumnStatistics = (
 };
 
 export const drawRowCounter = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, theme, height } = props;
+  const { coordInstance, theme, height, rowCounterVisible } = props;
+
+  if (!rowCounterVisible) return;
+
   const { pureRowCount } = coordInstance;
   const { fontSizeXS, fontFamily, rowHeaderTextColor, columnHeaderBgSelected } = theme;
   const y = height - columnStatisticHeight + 0.5;

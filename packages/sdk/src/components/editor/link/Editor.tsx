@@ -3,11 +3,9 @@ import { Relationship } from '@teable-group/core';
 import { Plus, X } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, useToast } from '@teable-group/ui-lib';
 import { noop } from 'lodash';
-import { useMemo, useState } from 'react';
-import { AnchorProvider } from '../../context';
-import { useRecords } from '../../hooks';
-import { SelectEditorMain } from '../editor';
-import { ExpandRecorder } from '../expand-record';
+import { useState } from 'react';
+import { ExpandRecorder } from '../../expand-record';
+import { LinkEditorMain } from './EditorMain';
 
 interface ILinkEditorProps {
   options: ILinkFieldOptions;
@@ -16,61 +14,6 @@ interface ILinkEditorProps {
   disabled?: boolean;
   className?: string;
 }
-
-const LinkEditorInner = (props: ILinkEditorProps) => {
-  const { cellValue, options, onChange } = props;
-
-  const { relationship } = options;
-
-  const values = useMemo(
-    () =>
-      Array.isArray(cellValue)
-        ? cellValue.map((v) => v.id)
-        : cellValue
-        ? [cellValue.id]
-        : undefined,
-    [cellValue]
-  );
-
-  // many <> one relation ship only allow select record that has not been selected
-  const isMultiple = relationship !== Relationship.ManyOne;
-  const records = useRecords();
-  const choices = records.map(({ id, name }) => ({
-    label: name,
-    value: id,
-  }));
-
-  const onChangeInner = (value?: string[] | string) => {
-    const recordIds = value ? (isMultiple ? (value as string[]) : [value as string]) : [];
-    const arrayCellValue = Array.isArray(cellValue) ? cellValue : cellValue ? [cellValue] : [];
-    const newCellValue = recordIds.map((id) => ({
-      id,
-      title:
-        arrayCellValue.find((record) => record.id === id)?.title ??
-        records.find((record) => record.id === id)?.name,
-    }));
-    onChange?.(isMultiple ? newCellValue : newCellValue?.[0]);
-  };
-
-  return (
-    <SelectEditorMain
-      value={values}
-      options={choices}
-      isMultiple={isMultiple}
-      onChange={onChangeInner}
-    />
-  );
-};
-
-export const LinkEditorMain = (props: ILinkEditorProps) => {
-  const { options } = props;
-  const { foreignTableId } = options;
-  return (
-    <AnchorProvider tableId={foreignTableId}>
-      <LinkEditorInner {...props} />
-    </AnchorProvider>
-  );
-};
 
 export const LinkEditor = (props: ILinkEditorProps) => {
   const { cellValue, options, onChange, disabled, className } = props;

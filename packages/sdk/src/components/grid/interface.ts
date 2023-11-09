@@ -167,3 +167,11 @@ export enum DraggableType {
 export enum GridCustomIcon {
   Description = 'description',
 }
+
+export enum SelectableType {
+  All = 'all',
+  None = 'none',
+  Column = 'column',
+  Row = 'row',
+  Cell = 'cell',
+}

@@ -1,2 +1,2 @@
 export * from './get';
-export * from './get-row-count';
+export * from './get-view-row-count';

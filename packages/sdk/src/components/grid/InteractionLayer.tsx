@@ -66,7 +66,7 @@ export interface IInteractionLayerProps
 }
 
 export interface IInteractionLayerRef {
-  onReset: () => void;
+  resetState: () => void;
   setSelection: (selection: CombinedSelection) => void;
 }
 
@@ -80,6 +80,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     height,
     columns,
     draggable,
+    selectable,
     rowControls,
     mouseState,
     scrollState,
@@ -88,6 +89,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     coordInstance,
     columnStatistics,
     forceRenderFlag,
+    rowIndexVisible,
+    rowCounterVisible,
+    multiSelectionEnabled: multiSelectionEnabled,
     setMouseState,
     scrollToItem,
     scrollBy,
@@ -114,7 +118,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   } = props;
 
   useImperativeHandle(ref, () => ({
-    onReset,
+    resetState,
     setSelection: (selection: CombinedSelection) => {
       const { type, ranges } = selection;
 
@@ -176,7 +180,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(coordInstance, onSelectionChanged);
+  } = useSelection(coordInstance, onSelectionChanged, selectable, multiSelectionEnabled);
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
@@ -272,9 +276,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const setCursorStyle = (regionType: RegionType) => {
     if (isScrolling) return;
-    if (isDragging) {
-      return setCursor('grabbing');
-    }
+    if (isDragging) return setCursor('grabbing');
 
     switch (regionType) {
       case RegionType.AppendRow:
@@ -480,7 +482,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionContextMenu(mouseState, (selection, position) => onContextMenu(selection, position));
   };
 
-  const onReset = () => {
+  const resetState = () => {
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
     setMouseState(DEFAULT_MOUSE_STATE);
@@ -532,6 +534,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           selection={selection}
           isSelecting={isSelecting}
           forceRenderFlag={forceRenderFlag}
+          rowIndexVisible={rowIndexVisible}
+          rowCounterVisible={rowCounterVisible}
           columnResizeState={columnResizeState}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}

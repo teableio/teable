@@ -13,6 +13,7 @@ import { NumberEditor, onMixedTextClick, CellType, EditorPosition, getFileCover 
 import { useFields } from '../../../hooks/use-fields';
 import { useViewId } from '../../../hooks/use-view-id';
 import type { IFieldInstance, Record } from '../../../model';
+import { GRID_DEFAULT } from '../../grid/configs';
 import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
@@ -30,7 +31,7 @@ const generateColumns = (
     .map((field) => {
       if (!field) return undefined;
       const columnMeta = viewId ? field.columnMeta[viewId] : null;
-      const width = columnMeta?.width || 150;
+      const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
       const { id, type, name, description, isLookup } = field;
       return {
         id,
@@ -90,7 +91,8 @@ const createCellValue2GridDisplay =
       }
       case FieldType.Date: {
         let displayData = '';
-        const cacheKey = `${id}-${cellValue}`;
+        const { date, time, timeZone } = field.options.formatting;
+        const cacheKey = `${id}-${cellValue}-${date}-${time}-${timeZone}`;
 
         if (cellValueStringCache.has(cacheKey)) {
           displayData = cellValueStringCache.get(cacheKey) || '';

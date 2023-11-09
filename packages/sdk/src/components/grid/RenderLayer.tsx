@@ -27,6 +27,8 @@ export interface IRenderLayerProps
     | 'getCellContent'
     | 'coordInstance'
     | 'columnStatistics'
+    | 'rowIndexVisible'
+    | 'rowCounterVisible'
   > {
   isEditing?: boolean;
   visibleRegion: IVisibleRegion;
@@ -66,8 +68,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     coordInstance,
     forceRenderFlag,
     getCellContent,
+    rowIndexVisible,
     columnStatistics,
     columnResizeState,
+    rowCounterVisible,
     hoveredColumnResizeIndex,
     isRowAppendEnable,
     isColumnResizable,
@@ -129,8 +133,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       coordInstance,
       forceRenderFlag,
       getCellContent,
+      rowIndexVisible,
       columnStatistics,
       columnResizeState,
+      rowCounterVisible,
       hoveredColumnResizeIndex,
       isRowAppendEnable,
       isColumnResizable,
@@ -159,8 +165,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     coordInstance,
     forceRenderFlag,
     getCellContent,
+    rowIndexVisible,
     columnStatistics,
     columnResizeState,
+    rowCounterVisible,
     hoverCellPosition,
     hoveredColumnResizeIndex,
     isRowAppendEnable,

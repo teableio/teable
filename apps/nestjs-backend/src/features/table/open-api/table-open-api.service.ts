@@ -4,6 +4,7 @@ import type {
   ICreateTablePreparedRo,
   ICreateTableRo,
   IFieldVo,
+  IGetRowCountRo,
   IGetTableQuery,
   ITableFullVo,
   ITableVo,
@@ -169,5 +170,9 @@ export class TableOpenApiService {
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
     return this.prismaService.$queryRawUnsafe(combinedQuery);
+  }
+
+  async getRowCount(tableId: string, query: IGetRowCountRo) {
+    return await this.tableService.getRowCount(tableId, query);
   }
 }

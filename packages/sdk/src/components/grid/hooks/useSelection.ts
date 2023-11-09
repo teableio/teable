@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useRafState } from 'react-use';
 import type { IGridProps } from '../Grid';
 import type { ICellItem, IMouseState, IPosition, IRange } from '../interface';
-import { RegionType, SelectionRegionType } from '../interface';
+import { RegionType, SelectionRegionType, SelectableType } from '../interface';
 import { CombinedSelection, type CoordinateManager } from '../managers';
 
 export const useSelection = (
   coordInstance: CoordinateManager,
-  onSelectionChanged: IGridProps['onSelectionChanged']
+  onSelectionChanged: IGridProps['onSelectionChanged'],
+  selectable?: SelectableType,
+  multiSelectionEnabled?: boolean
 ) => {
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [isSelecting, setSelecting] = useState(false);
@@ -21,6 +23,8 @@ export const useSelection = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
     mouseState: IMouseState
   ) => {
+    if (selectable !== SelectableType.All && selectable !== SelectableType.Cell) return;
+
     const { type, rowIndex, columnIndex } = mouseState;
     const { isRowSelection: isPrevRowSelection, ranges: prevRanges } = selection;
     const isShiftKey = event.shiftKey && !event.metaKey;
@@ -34,7 +38,7 @@ export const useSelection = (
         if (!isShiftKey || isPrevRowSelection) {
           setActiveCell(range);
         }
-        setSelecting(true);
+        multiSelectionEnabled && setSelecting(true);
         return setSelection(selection.set(SelectionRegionType.Cells, ranges));
       }
       case RegionType.RowHeaderDragHandler:
@@ -92,15 +96,31 @@ export const useSelection = (
       isRowSelection: isPrevRowSelection,
     } = selection;
 
+    const pureSelectColumnOrRow = (colOrRowIndex: number, type: SelectionRegionType) => {
+      const range = [colOrRowIndex, colOrRowIndex] as IRange;
+      const newSelection =
+        isPrevRowSelection && multiSelectionEnabled
+          ? selection.merge(range)
+          : selection.set(type, [range]);
+      if (newSelection.includes(range)) {
+        prevSelectedRowIndex.current = colOrRowIndex;
+      }
+      setActiveCell(null);
+      setSelection(newSelection);
+    };
+
     switch (type) {
       case RegionType.ColumnHeader: {
+        if (selectable !== SelectableType.All && selectable !== SelectableType.Column) return;
         const thresholdColIndex =
-          isShiftKey && isPrevColumnSelection ? prevSelectionRanges[0][0] : columnIndex;
+          multiSelectionEnabled && isShiftKey && isPrevColumnSelection
+            ? prevSelectionRanges[0][0]
+            : columnIndex;
         const ranges = [
           [Math.min(thresholdColIndex, columnIndex), Math.max(thresholdColIndex, columnIndex)],
         ] as IRange[];
         let newSelection = selection.set(SelectionRegionType.Columns, ranges);
-        if (isMetaKey && isPrevColumnSelection) {
+        if (multiSelectionEnabled && isMetaKey && isPrevColumnSelection) {
           newSelection = selection.merge([columnIndex, columnIndex]);
         }
         if (!isShiftKey || !isPrevColumnSelection) {
@@ -110,8 +130,14 @@ export const useSelection = (
         return setSelection(newSelection);
       }
       case RegionType.RowHeaderCheckbox: {
+        if (selectable !== SelectableType.All && selectable !== SelectableType.Row) return;
         const range = [rowIndex, rowIndex] as IRange;
-        if (isShiftKey && isPrevRowSelection && prevSelectedRowIndex.current != null) {
+        if (
+          multiSelectionEnabled &&
+          isShiftKey &&
+          isPrevRowSelection &&
+          prevSelectedRowIndex.current != null
+        ) {
           if (selection.includes(range)) return;
           const prevIndex = prevSelectedRowIndex.current;
           const newRange = [Math.min(rowIndex, prevIndex), Math.max(rowIndex, prevIndex)] as IRange;
@@ -120,16 +146,19 @@ export const useSelection = (
           setActiveCell(null);
           return setSelection(newSelection);
         }
-        const newSelection = isPrevRowSelection
-          ? selection.merge(range)
-          : selection.set(SelectionRegionType.Rows, [range]);
-        if (newSelection.includes(range)) {
-          prevSelectedRowIndex.current = rowIndex;
+        return pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
+      }
+      case RegionType.Cell: {
+        if (selectable === SelectableType.Row) {
+          return pureSelectColumnOrRow(rowIndex, SelectionRegionType.Rows);
         }
-        setActiveCell(null);
-        return setSelection(newSelection);
+        if (selectable === SelectableType.Column) {
+          return pureSelectColumnOrRow(columnIndex, SelectionRegionType.Columns);
+        }
+        return;
       }
       case RegionType.AllCheckbox: {
+        if (selectable !== SelectableType.All && selectable !== SelectableType.Row) return;
         const allRanges = [[0, pureRowCount - 1]] as IRange[];
         const isPrevAll = isPrevRowSelection && selection.equals(allRanges);
         const newSelection = isPrevAll

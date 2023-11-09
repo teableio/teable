@@ -1,7 +1,12 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { fieldRoSchema, fieldVoSchema } from '../field';
-import { createRecordsRoSchema, fieldKeyTypeRoSchema, recordSchema } from '../record';
+import {
+  createRecordsRoSchema,
+  fieldKeyTypeRoSchema,
+  filterByLinkFieldSchema as filterByLinkFieldSchema,
+  recordSchema,
+} from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';
 
 export const tableFullVoSchema = z
@@ -137,6 +142,12 @@ export const getGraphRoSchema = z.object({
 });
 
 export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
+
+export const getRowCountSchema = z.object({
+  filterByLinkField: filterByLinkFieldSchema.optional(),
+});
+
+export type IGetRowCountRo = z.infer<typeof getRowCountSchema>;
 
 export interface IGraphNode {
   [key: string]: unknown;

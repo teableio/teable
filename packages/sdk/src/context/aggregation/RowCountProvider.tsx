@@ -4,7 +4,7 @@ import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 import { useIsHydrated } from '../../hooks';
-import { View } from '../../model';
+import { Table, View } from '../../model';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
 import { RowCountContext } from './RowCountContext';
@@ -16,7 +16,7 @@ let referenceCount = 0;
 
 export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
-  const { tableId, viewId } = useContext(AnchorContext);
+  const { tableId, viewId, baseId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
@@ -51,12 +51,19 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   }, [connection, remotePresence, tableId, viewId]);
 
   useEffect(() => {
-    if (tableId == null || viewId == null || !isHydrated) return;
+    if (tableId == null || !isHydrated) return;
+
+    if (viewId == null) {
+      Table.getRowCount(baseId!, tableId).then((res) => {
+        setRowCount(res.data.rowCount);
+      });
+      return;
+    }
 
     View.getViewRowCount(tableId, viewId).then((res) => {
       setRowCount(res.data.rowCount);
     });
-  }, [tableId, viewId, connection, isHydrated]);
+  }, [tableId, viewId, connection, isHydrated, baseId]);
 
   return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
 };

@@ -7,7 +7,7 @@ import { z } from '../zod';
 
 export const GET_VIEW_ROW_COUNT = '/table/{tableId}/aggregation/{viewId}/rowCount';
 
-export const GetRowCountRoute: RouteConfig = registerRoute({
+export const GetViewRowCountRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_VIEW_ROW_COUNT,
   description: 'Get row count for the view',

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type {
   ICreateTableRo,
+  IGetRowCountRo,
   IOtOperation,
   ISetTableIconOpContext,
   ISetTableNameOpContext,
@@ -423,5 +424,34 @@ export class TableService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
     return { ids: tables.map((table) => table.id) };
+  }
+
+  async getRowCount(tableId: string, query: IGetRowCountRo) {
+    const { filterByLinkField = {} } = query;
+    const { nullableForeignKey, recordIds } = filterByLinkField;
+
+    const dbTableName = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+    const queryBuilder = this.knex(dbTableName);
+
+    if (recordIds?.length) {
+      queryBuilder.whereIn('__id', recordIds);
+    }
+
+    if (nullableForeignKey) {
+      queryBuilder.andWhere(nullableForeignKey, 'is', null);
+    }
+
+    const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
+    const results = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
+      sqlNative.sql,
+      ...sqlNative.bindings
+    );
+
+    return {
+      rowCount: Number(results[0]?.count ?? 0),
+    };
   }
 }

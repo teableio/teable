@@ -2,7 +2,6 @@
 import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { useClickAway } from 'react-use';
 import type { IGridTheme } from './configs';
 import {
   GRID_DEFAULT,
@@ -16,7 +15,6 @@ import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
 import type { IInteractionLayerRef } from './InteractionLayer';
 import { InteractionLayer } from './InteractionLayer';
-import { RegionType, RowControlType } from './interface';
 import type {
   IRectangle,
   IScrollState,
@@ -26,8 +24,8 @@ import type {
   IPosition,
   IRowControlItem,
   IColumnStatistics,
-  DraggableType,
 } from './interface';
+import { RegionType, RowControlType, DraggableType, SelectableType } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import type { ICell, IInnerCell } from './renderers';
@@ -39,7 +37,39 @@ export interface IGridExternalProps {
   rowControls?: IRowControlItem[];
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
+  scrollBufferX?: number;
+  scrollBufferY?: number;
+  rowCounterVisible?: boolean;
+  rowIndexVisible?: boolean;
+
+  /**
+   * Indicates which areas can be dragged, including rows, columns, cells, or no drag
+   * - 'all': Allow drag of rows, columns and cells (default)
+   * - 'none': Disable drag for all areas
+   * - 'row': Allow row drag only
+   * - 'column': Allow column drag only
+   */
   draggable?: DraggableType;
+
+  /**
+   * Indicates which areas can be selected, including row selection,
+   * column selection, cell selection, all areas, or no selection
+   * - 'all': Allow selection of rows, columns and cells (default)
+   * - 'none': Disable selection for all areas
+   * - 'row': Allow row selection only
+   * - 'column': Allow column selection only
+   * - 'cell': Allow cell selection only
+   */
+  selectable?: SelectableType;
+
+  /**
+   * Whether to allow multiple selection operations, including rows, columns and cells
+   * If true, allow multiple selection of rows/columns/cells (default)
+   * If false, disable multiple selection operations
+   * @type {boolean}
+   */
+  multiSelectionEnabled?: boolean;
+
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
   onCopy?: (selection: CombinedSelection) => void;
@@ -58,7 +88,15 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
+
+  /**
+   * Triggered when the mouse hovers over the every type of region
+   */
   onItemHovered?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
+
+  /**
+   * Triggered when the mouse clicks the every type of region
+   */
   onItemClick?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
 }
 
@@ -74,14 +112,13 @@ export interface IGridProps extends IGridExternalProps {
 }
 
 export interface IGridRef {
-  getBounds: (colIndex: number, rowIndex: number) => IRectangle | null;
+  resetState: () => void;
   forceUpdate: () => void;
   setSelection: (selection: CombinedSelection) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
 }
 
 const {
-  scrollBuffer,
   appendRowHeight,
   cellScrollBuffer,
   columnAppendBtnWidth,
@@ -94,7 +131,8 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
-    draggable,
+    draggable = DraggableType.All,
+    selectable = SelectableType.All,
     columnStatistics,
     freezeColumnCount = 1,
     rowCount: originRowCount,
@@ -104,6 +142,11 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     isTouchDevice,
     smoothScrollX,
     smoothScrollY,
+    scrollBufferX = 100,
+    scrollBufferY = 100,
+    rowCounterVisible,
+    rowIndexVisible = true,
+    multiSelectionEnabled = true,
     style,
     customIcons,
     getCellContent,
@@ -130,16 +173,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
-    getBounds: (colIndex: number, rowIndex: number) => {
-      const { scrollTop, scrollLeft } = scrollState;
-      return {
-        x: coordInstance.getColumnRelativeOffset(colIndex, scrollLeft),
-        y: coordInstance.getRowOffset(rowIndex) - scrollTop,
-        width: coordInstance.getColumnWidth(colIndex),
-        height: coordInstance.getRowHeight(rowIndex),
-      };
-    },
     scrollToItem,
+    resetState: () => interactionLayerRef.current?.resetState(),
     forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
     setSelection: (selection: CombinedSelection) => {
       interactionLayerRef.current?.setSelection(selection);
@@ -152,10 +187,10 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const rowCount = hasAppendRow ? originRowCount + 1 : originRowCount;
   const totalHeight =
     (hasAppendRow ? (rowCount - 1) * rowHeight + appendRowHeight : rowCount * rowHeight) +
-    scrollBuffer;
+    scrollBufferY;
   const totalWidth = columns.reduce(
     (prev, column) => prev + (column.width || defaultColumnWidth),
-    hasAppendColumn ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+    hasAppendColumn ? scrollBufferX + columnAppendBtnWidth : scrollBufferX
   );
 
   const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
@@ -173,6 +208,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   const { iconSizeMD } = theme;
   const coordInstance = useMemo<CoordinateManager>(() => {
+    const columnInitSize =
+      !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
+
     return new CoordinateManager({
       rowHeight,
       columnWidth: defaultColumnWidth,
@@ -183,7 +221,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       containerWidth: width,
       containerHeight,
       rowInitSize: defaultColumnHeaderHeight,
-      columnInitSize: Math.max(rowControlCount, 2) * iconSizeMD,
+      columnInitSize,
       rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
       columnWidthMap: columns.reduce(
         (acc, column, index) => ({
@@ -202,6 +240,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     originRowCount,
     freezeColumnCount,
     rowControlCount,
+    rowIndexVisible,
     hasAppendRow,
     iconSizeMD,
   ]);
@@ -264,10 +303,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   useEventListener('mousedown', onMouseDown, containerRef.current, true);
 
-  useClickAway(ref, () => {
-    interactionLayerRef.current?.onReset();
-  });
-
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
@@ -308,16 +343,20 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             theme={theme}
             columns={columns}
             draggable={draggable}
+            selectable={selectable}
             rowControls={rowControls}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
+            multiSelectionEnabled={multiSelectionEnabled}
             scrollState={scrollState}
             mouseState={mouseState}
             setMouseState={setMouseState}
             getCellContent={getCellContent}
             forceRenderFlag={forceRenderFlag}
+            rowCounterVisible={rowCounterVisible}
+            rowIndexVisible={rowIndexVisible}
             scrollToItem={scrollToItem}
             scrollBy={scrollBy}
             onCopy={onCopy}
