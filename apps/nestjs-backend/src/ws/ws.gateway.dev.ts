@@ -5,7 +5,6 @@ import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Request } from 'express';
 import type { WebSocket } from 'ws';
 import { Server } from 'ws';
-import { checkCookie } from '../share-db/auth.middleware';
 import { ShareDbService } from '../share-db/share-db.service';
 import { WsAuthService } from '../share-db/ws-auth.service';
 
@@ -25,7 +24,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
     this.logger.log('ws:on:connection');
     try {
       const cookie = request.headers.cookie;
-      await checkCookie(cookie, this.wsAuthService);
+      await this.wsAuthService.checkCookie(cookie);
       const stream = new WebSocketJSONStream(webSocket);
       this.shareDb.listen(stream, request);
     } catch (error) {

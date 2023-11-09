@@ -3,7 +3,6 @@ import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@n
 import { WebSocketGateway } from '@nestjs/websockets';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Server } from 'ws';
-import { checkCookie } from '../share-db/auth.middleware';
 import { ShareDbService } from '../share-db/share-db.service';
 import { WsAuthService } from '../share-db/ws-auth.service';
 
@@ -29,7 +28,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     server.on('connection', async (webSocket, request) => {
       try {
         const cookie = request.headers.cookie;
-        await checkCookie(cookie, this.wsAuthService);
+        await this.wsAuthService.checkCookie(cookie);
         this.logger.log('ws:on:connection');
         const stream = new WebSocketJSONStream(webSocket);
         this.shareDb.listen(stream, request);
