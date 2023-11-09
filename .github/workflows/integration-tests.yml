@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - develop
+    paths:
+      - 'apps/nestjs-backend/**'
 
 jobs:
   build:

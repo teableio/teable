@@ -10,7 +10,7 @@ import { DriverClient, parseDsn } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()

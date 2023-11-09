@@ -59,7 +59,7 @@ describe('SortQueryTranslator', () => {
   });
 
   it('should return empty array, if the fields is undefined for (translateToOrderQuery)', () => {
-    const translatedOrderBy = new SortQueryTranslator(_knex, queryBuilder).translateToSql();
+    const translatedOrderBy = new SortQueryTranslator(_knex, queryBuilder).appendQueryBuilder();
 
     expect(translatedOrderBy).toBeDefined();
     expect(translatedOrderBy.toQuery()).toStrictEqual(queryBuilder.toQuery());
@@ -86,7 +86,7 @@ describe('SortQueryTranslator', () => {
       queryBuilder,
       fieldContext,
       orderBy
-    ).translateToSql();
+    ).appendQueryBuilder();
 
     expect(rawSql.toQuery()).toMatch(`\`name_fld1\` asc NULLS FIRST`);
     expect(rawSql.toQuery()).toMatch(`\`number_fld2\` desc NULLS LAST`);

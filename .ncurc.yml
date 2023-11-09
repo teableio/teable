@@ -3,8 +3,7 @@
 # @link https://github.com/raineorshine/npm-check-updates
 
 # Add here exclusions on packages if any
-reject:
-  [
+reject: [
     'vitest',
     '@vitest/coverage-v8',
     '@vitest/coverage-istanbul',
@@ -19,4 +18,9 @@ reject:
     '@remix-run/serve',
     '@vercel/remix',
     'remix',
+
+    # Too early cause in esm
+    'is-port-reachable',
+    'nanoid',
+    'node-fetch',
   ]

@@ -50,8 +50,7 @@ If needed static resources like **images**,... can be shared by using symlinks i
 │   └── nextjs-app                (NextJS app with nestjs backend)
 │       ├── e2e/                  (E2E tests with playwright)
 │       ├── public/
-│       │   ├── shared-assets/    (possible symlink to global assets)
-│       │   └── shared-locales/   (possible symlink to global locales)
+│       │   └── images/
 │       ├── src/
 │       │   └── backend           (nestjs backend)
 │       │       └── tsconfig.json (nestjs tsconfig)
@@ -91,11 +90,7 @@ If needed static resources like **images**,... can be shared by using symlinks i
 ├── static                       (no code: images, json, locales,...)
 │   ├── assets
 │   └── locales
-├── .yarnrc.yml
-├── .dockerignore
-├── docker-compose.nextjs-app.yml   (compose specific for nextjs-app)
-├── docker-compose.yml           (general services like postgresql...)
-├── Dockerfile                   (multistage build for nextjs-app)
+├── Makefile
 ├── package.json                 (the workspace config)
 └── tsconfig.base.json           (base typescript config)
 ```
@@ -291,7 +286,7 @@ An example based on microbundle is present in each package. Versioning and publi
 and it's simple as typing:
 
 ```bash
-$ yarn g:changeset
+$ pnpm g:changeset
 ```
 
 Follow the instructions... and commit the changeset file. A "Version Packages" P/R will appear after CI checks.
@@ -312,37 +307,33 @@ Some convenience scripts can be run in any folder of this repo and will call the
 
 | Name                         | Description                                                                                                                          |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `yarn g:changeset`           | Add a changeset to declare a new version                                                                                             |
-| `yarn g:typecheck`           | Run typechecks in all workspaces                                                                                                     |
-| `yarn g:lint`                | Display linter issues in all workspaces                                                                                              |
-| `yarn g:lint --fix`          | Attempt to run linter auto-fix in all workspaces                                                                                     |
-| `yarn g:lint-styles`         | Display css stylelint issues in all workspaces                                                                                       |
-| `yarn g:lint-styles --fix`   | Attempt to run stylelint auto-fix issues in all workspaces                                                                           |
-| `yarn g:test`                | Run unit and e2e tests in all workspaces                                                                                             |
-| `yarn g:test-unit`           | Run unit tests in all workspaces                                                                                                     |
-| `yarn g:test-e2e`            | Run e2e tests in all workspaces                                                                                                      |
-| `yarn g:build`               | Run build in all workspaces                                                                                                          |
-| `yarn g:clean`               | Clean builds in all workspaces                                                                                                       |
-| `yarn g:check-dist`          | Ensure build dist files passes es2017 (run `g:build` first).                                                                         |
-| `yarn g:check-size`          | Ensure browser dist files are within size limit (run `g:build` first).                                                               |
-| `yarn clean:global-cache`    | Clean tooling caches (eslint, jest...)                                                                                               |
-| `yarn deps:check --dep dev`  | Will print what packages can be upgraded globally (see also [.ncurc.yml](https://github.com/sortlist/packages/blob/main/.ncurc.yml)) |
-| `yarn deps:update --dep dev` | Apply possible updates (run `yarn install && yarn dedupe` after)                                                                     |
-| `yarn check:install`         | Verify if there's no peer-deps missing in packages                                                                                   |
-| `yarn install:playwright`    | Install playwright for e2e                                                                                                           |
-| `yarn dedupe`                | Built-in yarn deduplication of the lock file                                                                                         |
-
-> Why using `:` to prefix scripts names ? It's convenient in yarn 3+, we can call those scripts from any folder in the monorepo.
-> `g:` is a shortcut for `global:`. See the complete list in [root package.json](./package.json).
+| `pnpm g:changeset`           | Add a changeset to declare a new version                                                                                             |
+| `pnpm g:typecheck`           | Run typechecks in all workspaces                                                                                                     |
+| `pnpm g:lint`                | Display linter issues in all workspaces                                                                                              |
+| `pnpm g:lint --fix`          | Attempt to run linter auto-fix in all workspaces                                                                                     |
+| `pnpm g:lint-styles`         | Display css stylelint issues in all workspaces                                                                                       |
+| `pnpm g:lint-styles --fix`   | Attempt to run stylelint auto-fix issues in all workspaces                                                                           |
+| `pnpm g:test`                | Run unit and e2e tests in all workspaces                                                                                             |
+| `pnpm g:test-unit`           | Run unit tests in all workspaces                                                                                                     |
+| `pnpm g:test-e2e`            | Run e2e tests in all workspaces                                                                                                      |
+| `pnpm g:build`               | Run build in all workspaces                                                                                                          |
+| `pnpm g:clean`               | Clean builds in all workspaces                                                                                                       |
+| `pnpm g:check-dist`          | Ensure build dist files passes es2017 (run `g:build` first).                                                                         |
+| `pnpm g:check-size`          | Ensure browser dist files are within size limit (run `g:build` first).                                                               |
+| `pnpm clean:global-cache`    | Clean tooling caches (eslint, jest...)                                                                                               |
+| `pnpm deps:check --dep dev`  | Will print what packages can be upgraded globally (see also [.ncurc.yml](https://github.com/sortlist/packages/blob/main/.ncurc.yml)) |
+| `pnpm deps:update --dep dev` | Apply possible updates (run `pnpm install && pnpm dedupe` after)                                                                     |
+| `pnpm install:playwright`    | Install playwright for e2e                                                                                                           |
+| `pnpm dedupe`                | Built-in pnpm deduplication of the lock file                                                                                         |
 
 ### Maintaining deps updated
 
-The global commands `yarn deps:check` and `yarn deps:update` will help to maintain the same versions across the entire monorepo.
+The global commands `pnpm deps:check` and `pnpm deps:update` will help to maintain the same versions across the entire monorepo.
 They are based on the excellent [npm-check-updates](https://github.com/raineorshine/npm-check-updates)
-(see [options](https://github.com/raineorshine/npm-check-updates#options), i.e: `yarn check:deps -t minor`).
+(see [options](https://github.com/raineorshine/npm-check-updates#options), i.e: `pnpm check:deps -t minor`).
 
-> After running `yarn deps:update`, a `yarn install` is required. To prevent
-> having duplicates in the yarn.lock, you can run `yarn dedupe --check` and `yarn dedupe` to
+> After running `pnpm deps:update`, a `pnpm install` is required. To prevent
+> having duplicates in the pnpm-lock.yaml, you can run `pnpm dedupe --check` and `pnpm dedupe` to
 > apply deduplication. The duplicate check is enforced in the example github actions.
 
 ## 5. Quality
@@ -472,7 +463,7 @@ Apps dependencies and devDependencies are pinned to exact versions. Packages dep
 For more info about this change see [reasoning here](https://docs.renovatebot.com/dependency-pinning/) and our
 [renovabot.json5](renovate.json5) configuration file.
 
-To help keeping deps up-to-date, see the `yarn deps:check && yarn deps:update` scripts and / or use the [renovatebot](https://github.com/marketplace/renovate).
+To help keeping deps up-to-date, see the `pnpm deps:check && pnpm deps:update` scripts and / or use the [renovatebot](https://github.com/marketplace/renovate).
 
 > When adding a dep through yarn cli (i.e.: yarn add something), it's possible to set the save-exact behaviour automatically
 > by setting `defaultSemverRangePrefix: ""` in [yarnrc.yml](./.yarnrc.yml). But this would make the default for packages/\* as well.

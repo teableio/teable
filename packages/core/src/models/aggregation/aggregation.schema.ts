@@ -50,7 +50,7 @@ export type IRawAggregationVo = z.infer<typeof rawAggregationSchema>;
 export type IAggregations = z.infer<typeof rawAggregationsSchema>;
 export const viewAggregationSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View),
-  aggregations: rawAggregationsSchema,
+  aggregations: rawAggregationsSchema.optional(),
 });
 
 export type IViewAggregationVo = z.infer<typeof viewAggregationSchema>;

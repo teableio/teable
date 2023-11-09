@@ -53,8 +53,7 @@ RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postg
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ];  \
     then pnpm -F "./packages/**" run build;  \
-    else pnpm -F @teable-group/app share-static-hardlink && \
-          pnpm g:build; \
+    else pnpm g:build; \
     fi
 
 
