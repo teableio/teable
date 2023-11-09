@@ -538,9 +538,9 @@ export class AggregationService {
       .clearOrder()
       .clear('limit')
       .clear('offset');
-    const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
+    const rowCountSql = queryBuilder.count({ count: '*' });
 
-    return prisma.$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+    return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
   }
 
   private getDatabaseAggFunc(

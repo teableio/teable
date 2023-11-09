@@ -10,10 +10,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ == ?)' )`, [
-      field.dbFieldName,
-      Number(value),
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @> '[?]'::jsonb`, [field.dbFieldName, Number(value)]);
     return queryBuilder;
   }
 
@@ -23,10 +20,10 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(
-      `jsonb_path_exists(COALESCE(??, '[null]')::jsonb, '$[*] \\? (@ != ?)' )`,
-      [field.dbFieldName, Number(value)]
-    );
+    queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> '[?]'::jsonb`, [
+      field.dbFieldName,
+      Number(value),
+    ]);
     return queryBuilder;
   }
 
@@ -36,10 +33,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ > ?)')`, [
-      field.dbFieldName,
-      Number(value),
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > ?)'`, [field.dbFieldName, Number(value)]);
     return queryBuilder;
   }
 
@@ -49,10 +43,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ >= ?)')`, [
-      field.dbFieldName,
-      Number(value),
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= ?)'`, [field.dbFieldName, Number(value)]);
     return queryBuilder;
   }
 
@@ -62,10 +53,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ < ?)')`, [
-      field.dbFieldName,
-      Number(value),
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < ?)'`, [field.dbFieldName, Number(value)]);
     return queryBuilder;
   }
 
@@ -75,10 +63,7 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ <= ?)')`, [
-      field.dbFieldName,
-      Number(value),
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= ?)'`, [field.dbFieldName, Number(value)]);
     return queryBuilder;
   }
 }

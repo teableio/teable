@@ -13,7 +13,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
     queryBuilder.whereRaw(
-      `jsonb_path_exists(??::jsonb, '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")')`,
+      `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
       [field.dbFieldName]
     );
     return queryBuilder;
@@ -27,7 +27,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
     queryBuilder.whereRaw(
-      `NOT jsonb_path_exists(??::jsonb, '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")')`,
+      `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
       [field.dbFieldName]
     );
     return queryBuilder;
@@ -40,7 +40,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { field, value } = params;
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ > "${dateTimeRange[1]}")')`, [
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`, [
       field.dbFieldName,
     ]);
     return queryBuilder;
@@ -53,7 +53,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { field, value } = params;
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ >= "${dateTimeRange[0]}")')`, [
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`, [
       field.dbFieldName,
     ]);
     return queryBuilder;
@@ -66,7 +66,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { field, value } = params;
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ < "${dateTimeRange[0]}")')`, [
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`, [
       field.dbFieldName,
     ]);
     return queryBuilder;
@@ -79,7 +79,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const { field, value } = params;
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ <= "${dateTimeRange[1]}")')`, [
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`, [
       field.dbFieldName,
     ]);
     return queryBuilder;
@@ -93,7 +93,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
     queryBuilder.whereRaw(
-      `jsonb_path_exists(??::jsonb, '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")')`,
+      `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
       [field.dbFieldName]
     );
     return queryBuilder;

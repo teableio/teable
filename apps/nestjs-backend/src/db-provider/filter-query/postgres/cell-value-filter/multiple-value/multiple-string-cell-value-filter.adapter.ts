@@ -10,9 +10,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(`jsonb_path_exists(??::jsonb, '$[*] \\? (@ == "${value}")' )`, [
-      field.dbFieldName,
-    ]);
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [field.dbFieldName]);
     return queryBuilder;
   }
 
@@ -22,10 +20,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(
-      `jsonb_path_exists(COALESCE(??, '[null]')::jsonb, '$[*] \\? (@ != "${value}")' )`,
-      [field.dbFieldName]
-    );
+    queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
+      field.dbFieldName,
+    ]);
     return queryBuilder;
   }
 
@@ -35,10 +32,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    queryBuilder.whereRaw(
-      `jsonb_path_exists(??::jsonb, '$[*] \\? (@ like_regex "${value}" flag "i")')`,
-      [field.dbFieldName]
-    );
+    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
+      field.dbFieldName,
+    ]);
     return queryBuilder;
   }
 
@@ -49,7 +45,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     const { field, value } = params;
 
     queryBuilder.whereRaw(
-      `NOT jsonb_path_exists(??::jsonb, '$[*] \\? (@ like_regex "${value}" flag "i")')`,
+      `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
       [field.dbFieldName]
     );
     return queryBuilder;
