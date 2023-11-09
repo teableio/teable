@@ -16,10 +16,9 @@ import { difference, groupBy, isEmpty, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { Observable } from 'rxjs';
 import { catchError, firstValueFrom, from, mergeMap, of, Subject, tap, toArray } from 'rxjs';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { FilterQueryTranslator } from '../record/translator/filter-query-translator';
 
 export type IWithView = {
   viewId?: string;
@@ -285,7 +284,7 @@ export class AggregationService {
       .with(tableAlias, (qb) => {
         qb.select('*').from(dbTableName);
         if (filter) {
-          new FilterQueryTranslator(qb, fieldInstanceMap, filter).translateToSql();
+          this.dbProvider.filterQuery(qb, fieldInstanceMap, filter).appendQueryBuilder();
         }
       })
       .from(tableAlias);
@@ -365,7 +364,7 @@ export class AggregationService {
     const queryBuilder = this.knex(dbTableName);
 
     if (filter) {
-      new FilterQueryTranslator(queryBuilder, fieldInstanceMap, filter).translateToSql();
+      this.dbProvider.filterQuery(queryBuilder, fieldInstanceMap, filter).appendQueryBuilder();
     }
 
     // Return promise that resolves to task result

@@ -12,16 +12,17 @@ export const RecordEditor = (props: {
   record: Record | undefined;
   hiddenFields?: Field[];
   onChange?: (newValue: unknown, fieldId: string) => void;
+  disabled?: boolean;
 }) => {
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const { fields, hiddenFields = [], record, onChange } = props;
+  const { fields, hiddenFields = [], record, onChange, disabled } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
   const [showHiddenFields, toggle] = useToggle(false);
 
   return (
     <div ref={ref} className="max-w-2xl">
-      <div ref={wrapRef} className="space-y-6 mx-auto">
+      <div ref={wrapRef} className="mx-auto space-y-6">
         {fields.map((field) => (
           <RecordEditorItem
             key={field.id}
@@ -29,6 +30,7 @@ export const RecordEditor = (props: {
             field={field}
             record={record}
             onChange={onChange}
+            disabled={disabled}
           />
         ))}
         {hiddenFields.length !== 0 && (
@@ -48,6 +50,7 @@ export const RecordEditor = (props: {
               field={field}
               record={record}
               onChange={onChange}
+              disabled={disabled}
             />
           ))}
       </div>

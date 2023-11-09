@@ -1,9 +1,9 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
@@ -18,7 +18,8 @@ export class BaseService {
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
-    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
+    const { spaceIds, roleMap } =
+      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
 
     const base = await this.prismaService.base.findFirst({
       select: {
@@ -39,17 +40,17 @@ export class BaseService {
     if (!base) {
       throw new NotFoundException('Base not found');
     }
-    return base;
+    return {
+      ...base,
+      role: roleMap[base.id] || roleMap[base.spaceId],
+    };
   }
 
-  async getBaseList(spaceId?: string) {
-    if (spaceId) {
-      return await this.getBaseListBySpaceId(spaceId);
-    }
+  async getBaseList() {
     const userId = this.cls.get('user.id');
-    const { spaceIds, baseIds } =
+    const { spaceIds, baseIds, roleMap } =
       await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
-    return await this.prismaService.base.findMany({
+    const baseList = await this.prismaService.base.findMany({
       select: {
         id: true,
         name: true,
@@ -73,27 +74,7 @@ export class BaseService {
         ],
       },
     });
-  }
-
-  async getBaseListBySpaceId(spaceId: string) {
-    const userId = this.cls.get('user.id');
-    const { spaceIds } = await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
-    if (!spaceIds.includes(spaceId)) {
-      throw new ForbiddenException();
-    }
-    return await this.prismaService.base.findMany({
-      select: {
-        id: true,
-        name: true,
-        order: true,
-        spaceId: true,
-        icon: true,
-      },
-      where: {
-        spaceId,
-        deletedTime: null,
-      },
-    });
+    return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
 
   async createBase(createBaseRo: ICreateBaseRo) {

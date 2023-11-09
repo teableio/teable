@@ -19,6 +19,7 @@ import type {
   CreateSpaceInvitationLinkVo,
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
+  IGetBaseVo,
 } from '@teable-group/openapi';
 import {
   createSpaceRoSchema,
@@ -50,7 +51,6 @@ export class SpaceController {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
-  @Permissions('space|create')
   @Post()
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
@@ -75,7 +75,6 @@ export class SpaceController {
     return await this.spaceService.getSpaceById(spaceId);
   }
 
-  @Permissions('space|read')
   @Get()
   async getSpaceList(): Promise<IGetSpaceVo[]> {
     return await this.spaceService.getSpaceList();
@@ -108,6 +107,12 @@ export class SpaceController {
     @Param('invitationId') invitationId: string
   ): Promise<void> {
     return await this.invitationService.deleteInvitationLinkBySpace(spaceId, invitationId);
+  }
+
+  @Permissions('base|read')
+  @Get(':spaceId/base')
+  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseVo[]> {
+    return await this.spaceService.getBaseListBySpaceId(spaceId);
   }
 
   @Permissions('space|invite_link')

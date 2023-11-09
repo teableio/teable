@@ -137,8 +137,17 @@ describe('AttachmentFieldCore', () => {
   });
 
   it('should convert item to string', () => {
-    expect(field.item2String({ id: 'actxxxxxxxx' })).toBe('');
-    expect(field.item2String({ id: 'actxxxxxxxx', name: 'test.txt' })).toBe('test.txt');
+    expect(
+      field.item2String({
+        id: 'actxxxxxxxx',
+        name: 'test.txt',
+        token: 'token',
+        size: 2333,
+        mimetype: 'text/plain',
+        path: '/attachment',
+        url: '/attachment/xxxxxx',
+      })
+    ).toBe('test.txt (/attachment/xxxxxx)');
     expect(field.item2String(null)).toBe('');
   });
 

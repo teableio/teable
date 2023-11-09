@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
-import type { ISelectFieldOptions } from '@teable-group/core';
+import type { IRatingFieldOptions, ISelectFieldOptions } from '@teable-group/core';
 import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
 import * as dotenv from 'dotenv-flow';
 import Knex from 'knex';
@@ -54,7 +54,7 @@ async function generateFieldData(params: {
         break;
       }
       case FieldType.Number: {
-        fieldData = faker.number.int({ min: 1, max: mockDataNum });
+        fieldData = faker.number.float({ min: 1, max: mockDataNum });
         break;
       }
       case FieldType.SingleSelect: {
@@ -73,9 +73,14 @@ async function generateFieldData(params: {
         fieldData = faker.date.anytime().toISOString();
         break;
       }
+      case FieldType.Rating: {
+        const ratingFieldOptions = JSON.parse(cur.options!) as IRatingFieldOptions;
+        fieldData = faker.number.int({ min: 0, max: ratingFieldOptions.max });
+        break;
+      }
     }
 
-    fieldData && (pre[cur.dbFieldName] = fieldData);
+    (fieldData || fieldData === 0) && (pre[cur.dbFieldName] = fieldData);
     return pre;
   }, {});
 }
@@ -132,7 +137,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
 
   console.time(`Table: ${tableName}, Ready Install Data`);
   const data: { [dbFieldName: string]: unknown }[] = [];
-  for (let i = 0; i <= mockDataNum; i++) {
+  for (let i = 0; i < mockDataNum; i++) {
     const fieldData = await generateFieldData({ mockDataNum, fields, selectOptions });
     const viewRowIndex = await generateViewRowIndex({ views, rowCount, i: i + 1 });
 

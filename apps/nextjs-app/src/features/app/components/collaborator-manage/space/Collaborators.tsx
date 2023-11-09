@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole } from '@teable-group/core';
+import type { SpaceRole } from '@teable-group/core';
+import { hasPermission } from '@teable-group/core';
 import { X } from '@teable-group/icons';
 import type { ListSpaceCollaboratorVo } from '@teable-group/openapi';
 import {
@@ -18,12 +19,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib';
-import dayjs from 'dayjs';
+import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
 import { useMemo, useState } from 'react';
 import { RoleSelect } from './RoleSelect';
-dayjs.extend(relativeTime);
+
+extend(relativeTime);
 
 interface ICollaborators {
   spaceId: string;
@@ -68,7 +70,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
     return filterCollaborators(search, collaborators);
   }, [search, collaborators]);
 
-  const canManage = role === SpaceRole.Owner;
+  const hasGrantRolePermission = hasPermission(role, 'space|grant_role');
 
   return (
     <div>
@@ -97,12 +99,12 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
             </div>
             <RoleSelect
               value={role}
-              disabled={updateCollaboratorLoading || userId === user.id || !canManage}
+              disabled={updateCollaboratorLoading || userId === user.id || !hasGrantRolePermission}
               onChange={(role) =>
                 updateCollaborator({ spaceId, updateSpaceCollaborateRo: { userId, role } })
               }
             />
-            {userId !== user.id && canManage && (
+            {userId !== user.id && hasGrantRolePermission && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

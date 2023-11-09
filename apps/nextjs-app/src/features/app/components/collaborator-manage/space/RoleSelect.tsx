@@ -15,15 +15,21 @@ interface IRoleSelect {
   value?: SpaceRole;
   defaultValue?: SpaceRole;
   disabled?: boolean;
+  filterRoles?: SpaceRole[];
   onChange?: (value: SpaceRole) => void;
 }
 
 export const RoleSelect: React.FC<IRoleSelect> = (props) => {
-  const { className, value, defaultValue, disabled, onChange } = props;
+  const { className, value, defaultValue, disabled, filterRoles, onChange } = props;
+  const filteredRoleList = useMemo(() => {
+    return filterRoles
+      ? SPACE_ROLE_LIST.filter(({ role }) => filterRoles.includes(role))
+      : SPACE_ROLE_LIST;
+  }, [filterRoles]);
 
   const showSelectedRoleValue = useMemo(
-    () => find(SPACE_ROLE_LIST, ({ role }) => role === value)?.name,
-    [value]
+    () => find(filteredRoleList, ({ role }) => role === value)?.name,
+    [value, filteredRoleList]
   );
 
   return (
@@ -36,7 +42,7 @@ export const RoleSelect: React.FC<IRoleSelect> = (props) => {
         <SelectValue>{showSelectedRoleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className=" w-72">
-        {SPACE_ROLE_LIST.map(({ role, name, description }) => (
+        {filteredRoleList.map(({ role, name, description }) => (
           <div key={role}>
             {role === SpaceRole.Owner && <Separator />}
             <SelectItem value={role}>

@@ -1,6 +1,6 @@
 import { Trash, Copy } from '@teable-group/icons';
 import { deleteRecords } from '@teable-group/openapi';
-import { useTableId } from '@teable-group/sdk/hooks';
+import { useTableId, useTablePermission } from '@teable-group/sdk/hooks';
 import { Command, CommandGroup, CommandItem, CommandList } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useMemo, useRef } from 'react';
@@ -29,6 +29,7 @@ export const RecordMenu = () => {
   const { copy } = useSelectionOperation();
   const recordMenuRef = useRef<HTMLDivElement>(null);
   const tableId = useTableId();
+  const permission = useTablePermission();
 
   useClickAway(recordMenuRef, () => {
     closeRecordMenu();
@@ -39,27 +40,29 @@ export const RecordMenu = () => {
   };
 
   const menuItems = useMemo(
-    () => [
-      {
-        type: MenuItemType.Copy,
-        name: 'Copy cells',
-        icon: <Copy className={iconClassName} />,
-        onClick: async () => {
-          selection && (await copy(selection));
+    () =>
+      [
+        {
+          type: MenuItemType.Copy,
+          name: 'Copy cells',
+          icon: <Copy className={iconClassName} />,
+          onClick: async () => {
+            selection && (await copy(selection));
+          },
         },
-      },
-      {
-        type: MenuItemType.Delete,
-        name: 'Delete record',
-        icon: <Trash className={iconClassName} />,
-        onClick: async () => {
-          tableId &&
-            recordMenu?.records &&
-            (await deleteRecords(tableId, recordMenu?.records.map((r) => r.id)));
+        {
+          type: MenuItemType.Delete,
+          name: 'Delete record',
+          icon: <Trash className={iconClassName} />,
+          onClick: async () => {
+            tableId &&
+              recordMenu?.records &&
+              (await deleteRecords(tableId, recordMenu?.records.map((r) => r.id)));
+          },
+          hidden: !permission['record|delete'],
         },
-      },
-    ],
-    [copy, recordMenu?.records, selection, tableId]
+      ].filter(({ hidden }) => !hidden),
+    [copy, permission, recordMenu?.records, selection, tableId]
   );
 
   return (

@@ -29,7 +29,7 @@ const modesRequiringDays: string[] = [
 export const dateFilterSchema = z
   .object({
     mode: subOperators,
-    numberOfDays: z.number().int().nonnegative().optional(),
+    numberOfDays: z.coerce.number().int().nonnegative().optional(),
     exactDate: dataFieldCellValueSchema.optional(),
     timeZone: timeZoneStringSchema,
   })

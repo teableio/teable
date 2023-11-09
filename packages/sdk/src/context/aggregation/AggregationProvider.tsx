@@ -56,9 +56,11 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
     if (tableId == null || viewId == null || !isHydrated) return;
 
     View.getViewAggregations(tableId, viewId).then((res) => {
+      const { viewId, aggregations } = res.data;
       setViewAggregation({
         [viewId]: {
-          ...res.data,
+          viewId: viewId,
+          aggregations: aggregations ?? [],
           executionTime: new Date().getTime(),
         },
       });

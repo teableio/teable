@@ -20,6 +20,8 @@ export type PermissionAction =
   | FieldActions
   | RecordActions;
 
+export type PermissionMap = Record<PermissionAction, boolean>;
+
 export const checkPermissions = (role: SpaceRole, actions: PermissionAction[]) => {
   return actions.every((action) => Boolean(spacePermissions[role][action]));
 };
@@ -27,4 +29,12 @@ export const checkPermissions = (role: SpaceRole, actions: PermissionAction[]) =
 export const getPermissions = (role: SpaceRole) => {
   const result = pickBy(spacePermissions[role], (value) => value);
   return keys(result) as PermissionAction[];
+};
+
+export const getPermissionMap = (role: SpaceRole) => {
+  return spacePermissions[role] as PermissionMap;
+};
+
+export const hasPermission = (role: SpaceRole, action: PermissionAction) => {
+  return checkPermissions(role, [action]);
 };

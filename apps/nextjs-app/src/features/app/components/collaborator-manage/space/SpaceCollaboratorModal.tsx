@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { hasPermission } from '@teable-group/core';
 import type { IGetSpaceVo } from '@teable-group/openapi';
 import { getSpaceCollaboratorList } from '@teable-group/openapi';
 import { Collaborators } from './Collaborators';
@@ -21,6 +22,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   if (!collaborators?.length) {
     return <div>Loading...</div>;
   }
+
   return (
     <div>
       <div className="pb-2 text-sm text-muted-foreground">
@@ -28,8 +30,8 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
         give them access to all bases within this space.
       </div>
       <div className="space-y-8">
-        <Invite spaceId={spaceId} />
-        <InviteLink spaceId={spaceId} role={role} />
+        <Invite spaceId={spaceId} role={role} />
+        {hasPermission(role, 'space|invite_link') && <InviteLink spaceId={spaceId} role={role} />}
         <Collaborators spaceId={spaceId} role={role} />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useConnection } from '@teable-group/sdk';
+import { useConnection, useTablePermission } from '@teable-group/sdk';
 import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { DraggableList } from './DraggableList';
@@ -8,16 +8,19 @@ import { useAddTable } from './useAddTable';
 export const TableList: React.FC = () => {
   const { connected } = useConnection();
   const addTable = useAddTable();
+  const permission = useTablePermission();
 
   return (
     <div className="flex flex-col gap-2 overflow-hidden pt-4">
       <div className="px-3">
-        <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>
-          <AddBoldIcon />
-        </Button>
+        {permission['table|create'] && (
+          <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>
+            <AddBoldIcon />
+          </Button>
+        )}
       </div>
       <div className="overflow-y-auto px-3">
-        {connected ? <DraggableList /> : <NoDraggableList />}
+        {connected && permission['table|update'] ? <DraggableList /> : <NoDraggableList />}
       </div>
     </div>
   );

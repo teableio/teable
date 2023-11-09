@@ -7,7 +7,7 @@ import { groupBy, isEmpty, keyBy, merge } from 'lodash';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';

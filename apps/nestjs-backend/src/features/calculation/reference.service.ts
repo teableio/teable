@@ -13,7 +13,7 @@ import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';

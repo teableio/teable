@@ -4,7 +4,14 @@ import classNames from 'classnames';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { useMeasure } from 'react-use';
-import { useFields, useIsTouchDevice, useRecord, useViewId, useViews } from '../../hooks';
+import {
+  useFields,
+  useIsTouchDevice,
+  useRecord,
+  useTablePermission,
+  useViewId,
+  useViews,
+} from '../../hooks';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
@@ -48,6 +55,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
   const isTouchDevice = useIsTouchDevice();
+  const permission = useTablePermission();
 
   const fields = useMemo(
     () => (viewId ? allFields.filter((field) => !field.columnMeta?.[viewId]?.hidden) : []),
@@ -98,7 +106,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       showActivity={showActivity}
       onClose={onClose}
     >
-      <div ref={containerRef} className="h-full flex flex-col overflow-x-auto">
+      <div ref={containerRef} className="flex h-full flex-col overflow-x-auto">
         <ExpandRecordHeader
           title={record?.name}
           showActivity={showActivity}
@@ -111,13 +119,14 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           onShowActivity={onShowActivity}
         />
         <div className="relative flex flex-1 overflow-y-hidden">
-          <div className="flex-1 pt-6 px-9 pb-9 min-w-[300px] overflow-y-auto">
+          <div className="min-w-[300px] flex-1 overflow-y-auto px-9 pb-9 pt-6">
             {fields.length > 0 ? (
               <RecordEditor
                 record={record}
                 fields={fields}
                 hiddenFields={hiddenFields}
                 onChange={onChange}
+                disabled={!permission['record|update']}
               />
             ) : (
               <Skeleton className="h-10 w-full rounded" />

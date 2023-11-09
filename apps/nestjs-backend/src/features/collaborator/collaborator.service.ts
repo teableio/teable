@@ -119,19 +119,28 @@ export class CollaboratorService {
         deletedTime: null,
       },
       select: {
+        roleName: true,
         baseId: true,
         spaceId: true,
       },
     });
+    const roleMap: Record<string, SpaceRole> = {};
     const baseIds = new Set<string>();
     const spaceIds = new Set<string>();
-    collaborators.forEach(({ baseId, spaceId }) => {
-      baseId && baseIds.add(baseId);
-      spaceId && spaceIds.add(spaceId);
+    collaborators.forEach(({ baseId, spaceId, roleName }) => {
+      if (baseId) {
+        baseIds.add(baseId);
+        roleMap[baseId] = roleName as SpaceRole;
+      }
+      if (spaceId) {
+        spaceIds.add(spaceId);
+        roleMap[spaceId] = roleName as SpaceRole;
+      }
     });
     return {
       baseIds: Array.from(baseIds),
       spaceIds: Array.from(spaceIds),
+      roleMap: roleMap,
     };
   }
 }

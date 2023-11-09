@@ -10,7 +10,7 @@ export class SortQueryTranslator {
     private readonly sortObjs?: ISort['sortObjs']
   ) {}
 
-  translateToSql(): Knex.QueryBuilder {
+  appendQueryBuilder(): Knex.QueryBuilder {
     return this.parseSorts(this.queryBuilder, this.sortObjs);
   }
 

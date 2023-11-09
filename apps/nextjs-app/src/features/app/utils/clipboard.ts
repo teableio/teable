@@ -24,8 +24,8 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   return `<table ${teableHtmlMarker}="1"><thead><tr>${headerContent}</tr></thead><tbody>${bodyContent}</tbody></table>`;
 };
 
-export const extractTableHeader = (html: string) => {
-  if (!isTeableHTML(html)) {
+export const extractTableHeader = (html?: string) => {
+  if (!html || !isTeableHTML(html)) {
     return { result: undefined };
   }
   const parser = new DOMParser();

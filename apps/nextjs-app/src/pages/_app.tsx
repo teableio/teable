@@ -12,6 +12,7 @@ import { appWithTranslation } from 'next-i18next';
 import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
+import RouterProgressBar from '@/components/RouterProgress';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
@@ -68,23 +69,26 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   };
 
   return (
-    <AppProviders>
-      <Head>
-        <meta
-          name="viewport"
-          content="width=device-width,viewport-fit=cover, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    <>
+      <AppProviders>
+        <Head>
+          <meta
+            name="viewport"
+            content="width=device-width,viewport-fit=cover, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          />
+          <style>{getColorsCssVariablesText(colors)}</style>
+        </Head>
+        <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__s = ${JSON.stringify(serverInfo)};`,
+          }}
         />
-        <style>{getColorsCssVariablesText(colors)}</style>
-      </Head>
-      <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.__s = ${JSON.stringify(serverInfo)};`,
-        }}
-      />
-      {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-      {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
-    </AppProviders>
+        {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
+        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
+      </AppProviders>
+      <RouterProgressBar />
+    </>
   );
 };
 

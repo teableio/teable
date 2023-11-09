@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { spaceRolesSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -11,6 +12,7 @@ export const getBaseVoSchema = z.object({
   spaceId: z.string(),
   order: z.number(),
   icon: z.string().nullable(),
+  role: spaceRolesSchema,
 });
 
 export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;

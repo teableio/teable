@@ -1,6 +1,11 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff } from '@teable-group/icons';
-import { useFields, useIsTouchDevice, useViewId } from '@teable-group/sdk/hooks';
+import {
+  useFields,
+  useIsTouchDevice,
+  useTablePermission,
+  useViewId,
+} from '@teable-group/sdk/hooks';
 import {
   Command,
   CommandGroup,
@@ -40,6 +45,7 @@ export const FieldMenu = () => {
   const activeViewId = useViewId();
   const fieldIds = headerMenu?.fields.map((f) => f.id);
   const fieldSettingRef = useRef<HTMLDivElement>(null);
+  const permission = useTablePermission();
 
   useClickAway(fieldSettingRef, () => {
     closeHeaderMenu();
@@ -81,17 +87,19 @@ export const FieldMenu = () => {
       type: MenuItemType.Edit,
       name: 'Edit field',
       icon: <Edit className={iconClassName} />,
-      filter: () => fieldIds.length === 1,
+      filter: () => fieldIds.length === 1 && permission['field|update'],
     },
     {
       type: MenuItemType.Hidden,
       name: 'Hide field',
       icon: <EyeOff className={iconClassName} />,
+      filter: () => permission['view|update'],
     },
     {
       type: MenuItemType.Delete,
       name: 'Delete field',
       icon: <Trash className={iconClassName} />,
+      filter: () => permission['field|delete'],
     },
   ].filter(({ filter }) => (filter ? filter() : true));
 

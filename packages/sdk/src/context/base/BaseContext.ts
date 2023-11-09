@@ -1,7 +1,6 @@
-import React from 'react';
+import { createContext } from 'react';
 import type { Base } from '../../model';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const BaseContext = React.createContext<{
+export const BaseContext = createContext<{
   base?: Base;
 }>({});

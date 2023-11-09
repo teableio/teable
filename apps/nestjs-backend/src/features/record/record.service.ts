@@ -36,11 +36,11 @@ import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { getViewOrderFieldName } from '../..//utils/view-order-field-name';
-import { IDbProvider } from '../../db-provider/interface/db.provider.interface';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
@@ -49,7 +49,6 @@ import { preservedFieldName } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import { FilterQueryTranslator } from './translator/filter-query-translator';
 import { SortQueryTranslator } from './translator/sort-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
@@ -271,8 +270,8 @@ export class RecordService implements IAdapterService {
       }
 
       // All `where` condition-related construction work
-      new FilterQueryTranslator(queryBuilder, fieldMap, filter).translateToSql();
-      new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).translateToSql();
+      this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
+      new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
     }
 
     const { recordIds, nullableForeignKey } = filterByLinkField;
@@ -743,12 +742,9 @@ export class RecordService implements IAdapterService {
       viewId,
     });
 
-    const sqlNative = queryBuilder.toSQL().toNative();
-
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
-
+      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
     return { ids };
   }
