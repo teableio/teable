@@ -13,7 +13,7 @@ import type { IClsStore } from '../types/cls';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
-import { ShareDBPermissionService } from './share-db-permission.service';
+import { ShareDbPermissionService } from './share-db-permission.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import { WsDerivateService } from './ws-derivate.service';
 
@@ -28,7 +28,7 @@ export class ShareDbService extends ShareDBClass {
     private readonly prismaService: PrismaService,
     private readonly clsService: ClsService<IClsStore>,
     private readonly wsDerivateService: WsDerivateService,
-    private readonly shareDBPermissionService: ShareDBPermissionService
+    private readonly shareDbPermissionService: ShareDbPermissionService
   ) {
     super({
       presence: true,
@@ -36,7 +36,7 @@ export class ShareDbService extends ShareDBClass {
       db: sqliteDbAdapter,
     });
     // auth
-    authMiddleware(this, this.shareDBPermissionService);
+    authMiddleware(this, this.shareDbPermissionService);
     derivateMiddleware(this, this.wsDerivateService);
 
     this.use('commit', this.onCommit);

@@ -24,7 +24,7 @@ export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator 
       }
       // If 'useCls' is specified, set up the CLS context
       if (args.includes('useCls')) {
-        const clsService: ClsService<IClsStore> = (this as ShareDBPermissionService).clsService;
+        const clsService: ClsService<IClsStore> = (this as ShareDbPermissionService).clsService;
         await clsService.runWith(clsService.get(), async () => {
           try {
             clsService.set('user', context.agent.custom.user);
@@ -51,7 +51,7 @@ export type IAuthMiddleContext =
   | ShareDBClass.middleware.ReadSnapshotsContext;
 
 @Injectable()
-export class ShareDBPermissionService {
+export class ShareDbPermissionService {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly wsAuthService: WsAuthService,
@@ -81,13 +81,9 @@ export class ShareDBPermissionService {
     }
   }
 
-  private async runPermissionCheck(
-    context: ShareDBClass.middleware.ApplyContext | ShareDBClass.middleware.ReadSnapshotsContext,
-    permissionAction: PermissionAction
-  ) {
+  private async runPermissionCheck(collection: string, permissionAction: PermissionAction) {
+    const [docType, collectionId] = collection.split('_');
     try {
-      const [docType, collectionId] = context.collection.split('_');
-
       if (docType === IdPrefix.Table) {
         await this.permissionService.checkPermissionByBaseId(collectionId, [permissionAction]);
       } else {
@@ -103,16 +99,15 @@ export class ShareDBPermissionService {
     context: ShareDBClass.middleware.ApplyContext,
     callback: (err?: unknown) => void
   ) {
-    const { id: docId, op } = context;
-    const [docType] = context.collection.split('_');
+    const { op, collection } = context;
+    const [docType] = collection.split('_');
     const prefixAction = getPrefixAction(docType as IdPrefix);
     const action = getAction(op);
     if (!prefixAction || !action) {
-      callback(`doc(${docId}) not allowed`);
+      callback(`unknown docType: ${docType}`);
       return;
     }
-
-    const error = await this.runPermissionCheck(context, `${prefixAction}|${action}`);
+    const error = await this.runPermissionCheck(collection, `${prefixAction}|${action}`);
     callback(error);
   }
 
@@ -124,10 +119,10 @@ export class ShareDBPermissionService {
     const [docType] = context.collection.split('_');
     const prefixAction = getPrefixAction(docType as IdPrefix);
     if (!prefixAction) {
-      callback(`doc(${context.action}) not allowed`);
+      callback(`unknown docType: ${docType}`);
       return;
     }
-    const error = await this.runPermissionCheck(context, `${prefixAction}|read`);
+    const error = await this.runPermissionCheck(context.collection, `${prefixAction}|read`);
     callback(error);
   }
 }

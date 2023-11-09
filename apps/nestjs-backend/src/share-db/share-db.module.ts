@@ -4,7 +4,7 @@ import { PermissionService } from '../features/auth/permission.service';
 import { CalculationModule } from '../features/calculation/calculation.module';
 import { TableModule } from '../features/table/table.module';
 import { UserModule } from '../features/user/user.module';
-import { ShareDBPermissionService } from './share-db-permission.service';
+import { ShareDbPermissionService } from './share-db-permission.service';
 import { ShareDbService } from './share-db.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
 import { WsAuthService } from './ws-auth.service';
@@ -18,7 +18,7 @@ import { WsDerivateService } from './ws-derivate.service';
     WsDerivateService,
     WsAuthService,
     PermissionService,
-    ShareDBPermissionService,
+    ShareDbPermissionService,
   ],
   exports: [ShareDbService, WsAuthService],
 })

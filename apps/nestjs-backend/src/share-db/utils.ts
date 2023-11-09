@@ -20,11 +20,11 @@ export const getAction = (op: CreateOp | DeleteOp | EditOp) => {
   if (op.create) {
     return 'create';
   }
-  if (op.op) {
-    return 'update';
-  }
   if (op.del) {
     return 'delete';
+  }
+  if (op.op) {
+    return 'update';
   }
   return null;
 };

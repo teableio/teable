@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import url from 'url';
 import type ShareDBClass from 'sharedb';
-import type { ShareDBPermissionService } from './share-db-permission.service';
+import type { ShareDbPermissionService } from './share-db-permission.service';
 
 export const authMiddleware = (
   shareDB: ShareDBClass,
-  shareDBPermissionService: ShareDBPermissionService
+  shareDbPermissionService: ShareDbPermissionService
 ) => {
   shareDB.use('connect', async (context, callback) => {
     if (!context.req) {
@@ -18,20 +18,20 @@ export const authMiddleware = (
 
     const newUrl = new url.URL(context.req.url, 'https://example.com');
     context.agent.custom.shareId = newUrl.searchParams.get('shareId');
-    await shareDBPermissionService.authMiddleware(context, callback);
+    await shareDbPermissionService.authMiddleware(context, callback);
   });
 
   shareDB.use('apply', (context, callback) =>
-    shareDBPermissionService.authMiddleware(context, callback)
+    shareDbPermissionService.authMiddleware(context, callback)
   );
   shareDB.use('apply', (context, callback) =>
-    shareDBPermissionService.checkApplyPermissionMiddleware(context, callback)
+    shareDbPermissionService.checkApplyPermissionMiddleware(context, callback)
   );
 
   shareDB.use('readSnapshots', (context, callback) =>
-    shareDBPermissionService.authMiddleware(context, callback)
+    shareDbPermissionService.authMiddleware(context, callback)
   );
   shareDB.use('readSnapshots', (context, callback) =>
-    shareDBPermissionService.checkReadPermissionMiddleware(context, callback)
+    shareDbPermissionService.checkReadPermissionMiddleware(context, callback)
   );
 };
