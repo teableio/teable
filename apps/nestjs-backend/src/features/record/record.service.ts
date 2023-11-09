@@ -394,11 +394,11 @@ export class RecordService implements IAdapterService {
         .clearOrder()
         .clear('limit')
         .clear('offset');
-      const sqlNative = filterQueryBuilder.count({ count: '*' }).toSQL().toNative();
+      const rowCountSql = filterQueryBuilder.count({ count: '*' });
 
       const result = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ count?: number }[]>(sqlNative.sql, ...sqlNative.bindings);
+        .$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
       return Number(result[0]?.count ?? 0);
     }
 
@@ -770,12 +770,10 @@ export class RecordService implements IAdapterService {
       orderBy,
       select: fieldNames.concat('__id'),
     });
-    const sqlNative = queryBuilder.toSQL().toNative();
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<(Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
-        sqlNative.sql,
-        ...sqlNative.bindings
+        queryBuilder.toQuery()
       );
 
     return result.map((record) => {
