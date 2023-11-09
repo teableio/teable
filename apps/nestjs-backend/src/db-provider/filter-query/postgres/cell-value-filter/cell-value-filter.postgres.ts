@@ -1,5 +1,5 @@
 import type { IFilterOperator, IFilterValue } from '@teable-group/core';
-import { literalValueListSchema } from '@teable-group/core';
+import { CellValueType, literalValueListSchema } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../../features/field/model/factory';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
@@ -10,8 +10,9 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
     params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
   ): Knex.QueryBuilder {
     const { field, value } = params;
+    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.whereRaw(`?? IS DISTINCT FROM ?`, [field.dbFieldName, value]);
+    queryBuilder.whereRaw(`?? IS DISTINCT FROM ?`, [field.dbFieldName, parseValue]);
     return queryBuilder;
   }
 

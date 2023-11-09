@@ -246,7 +246,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       expect(records).not.toMatchObject([
         expect.objectContaining({
           fields: {
-            [fieldId]: 'tom',
+            [fieldId]: value,
           },
         }),
       ]);
