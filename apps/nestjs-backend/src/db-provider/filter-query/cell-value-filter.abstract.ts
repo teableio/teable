@@ -100,8 +100,9 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
   ): Knex.QueryBuilder {
     const { field, value } = params;
+    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, value);
+    queryBuilder.where(field.dbFieldName, parseValue);
     return queryBuilder;
   }
 

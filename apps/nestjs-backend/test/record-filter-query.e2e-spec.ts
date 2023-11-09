@@ -219,12 +219,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       ]);
     });
 
-    it('should isNot value', async () => {
-      const fieldId = table.fields[0].id;
+    it.each([
+      { type: FieldType.SingleLineText, value: 'tom' },
+      { type: FieldType.Number, value: 2 },
+    ])('should isNot value - $type', async ({ type, value }) => {
+      const fieldId = getFieldByType(table.fields, type).id;
       await createRecords(request, table.id, [
         {
           fields: {
-            [fieldId]: 'tom',
+            [fieldId]: value,
           },
         },
       ]);
@@ -233,7 +236,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         filterSet: [
           {
             fieldId: fieldId,
-            value: 'tom',
+            value: value,
             operator: 'isNot',
           },
         ],
@@ -243,7 +246,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       expect(records).not.toMatchObject([
         expect.objectContaining({
           fields: {
-            [fieldId]: 'tom',
+            [fieldId]: value,
           },
         }),
       ]);
@@ -1098,11 +1101,11 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       });
 
       expect(records.length).toStrictEqual(4);
-      expect(records).toMatchObject(
+      expect(records).not.toMatchObject(
         expect.arrayContaining([
           expect.objectContaining({
             fields: expect.objectContaining({
-              [queryLookupFieldId]: expect.not.arrayContaining(['a3']),
+              [queryLookupFieldId]: expect.arrayContaining(['a3']),
             }),
           }),
         ])

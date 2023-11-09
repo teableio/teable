@@ -131,15 +131,13 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { field, value } = params;
 
     if (field.type === FieldType.Link) {
-      queryBuilder.whereRaw(
-        `jsonb_path_exists(??::jsonb, '$[*] \\? (@.title like_regex "${value}" flag "i")')`,
-        [field.dbFieldName]
-      );
+      queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@.title like_regex "${value}" flag "i")'`, [
+        field.dbFieldName,
+      ]);
     } else {
-      queryBuilder.whereRaw(
-        `jsonb_path_exists(??::jsonb, '$[*] \\? (@ like_regex "${value}" flag "i")')`,
-        [field.dbFieldName]
-      );
+      queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
+        field.dbFieldName,
+      ]);
     }
     return queryBuilder;
   }
@@ -152,12 +150,12 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
 
     if (field.type === FieldType.Link) {
       queryBuilder.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(??, '[]')::jsonb, '$[*] \\? (@.title like_regex "${value}" flag "i")')`,
+        `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@.title like_regex "${value}" flag "i")'`,
         [field.dbFieldName]
       );
     } else {
       queryBuilder.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(??, '[]')::jsonb, '$[*] \\? (@ like_regex "${value}" flag "i")')`,
+        `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
         [field.dbFieldName]
       );
     }

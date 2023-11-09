@@ -1,5 +1,11 @@
-import type { IFilter, IFilterOperator, IFilterValue } from '@teable-group/core';
-import { contains, doesNotContain, FieldType, literalValueListSchema } from '@teable-group/core';
+import type { IFilterOperator, IFilterValue } from '@teable-group/core';
+import {
+  CellValueType,
+  contains,
+  doesNotContain,
+  FieldType,
+  literalValueListSchema,
+} from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../../features/field/model/factory';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
@@ -10,8 +16,9 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
   ): Knex.QueryBuilder {
     const { field, value } = params;
+    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') != ?`, [value]);
+    queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') != ?`, [parseValue]);
     return queryBuilder;
   }
 

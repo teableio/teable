@@ -12,9 +12,7 @@ export class CellValueFilterPostgres extends AbstractCellValueFilter {
     const { field, value } = params;
     const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    // TODO:: It’s not clear which one is faster in terms of data volume
-    // queryBuilder.whereRaw(`?? IS DISTINCT FROM ?`, [field.dbFieldName, parseValue]);
-    queryBuilder.whereRaw(`COALESCE(??, '') != ?`, [field.dbFieldName, parseValue]);
+    queryBuilder.whereRaw(`?? IS DISTINCT FROM ?`, [field.dbFieldName, parseValue]);
     return queryBuilder;
   }
 
