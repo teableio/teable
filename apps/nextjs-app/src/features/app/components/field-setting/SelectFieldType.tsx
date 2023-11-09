@@ -1,9 +1,8 @@
 import { FieldType } from '@teable-group/core';
-import { useFieldStaticGetter } from '@teable-group/sdk';
+import { FIELD_TYPE_ORDER, useFieldStaticGetter } from '@teable-group/sdk';
 import { Selector } from '@teable-group/ui-lib/base';
 import SearchIcon from '@teable-group/ui-lib/icons/app/search.svg';
 import { useMemo } from 'react';
-import { FIELD_TYPE_ORDER } from '../../utils/fieldTypeOrder';
 
 export const SelectFieldType = (props: {
   value?: FieldType | 'lookup';

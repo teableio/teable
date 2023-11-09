@@ -5,10 +5,10 @@ import type {
 } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
 import { useMemo } from 'react';
-import { SelectEditorMain } from '../editor';
+import { SelectEditorMain } from '../../editor';
 import type { IWrapperEditorProps } from './type';
 
-export const SelectEditor = (props: IWrapperEditorProps) => {
+export const GridSelectEditor = (props: IWrapperEditorProps) => {
   const { field, record, style, onCancel } = props;
   const cellValue = record.getCellValue(field.id) as
     | ISingleSelectCellValue

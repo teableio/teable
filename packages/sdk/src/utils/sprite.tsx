@@ -1,5 +1,6 @@
-import type { ISpriteMap, ISpriteProps } from '@teable-group/sdk/components';
+/* eslint-disable @typescript-eslint/naming-convention */
 import { renderToString } from 'react-dom/server';
+import type { ISpriteMap, ISpriteProps } from '../components';
 
 export const getSpriteMap = (
   iconItems: {

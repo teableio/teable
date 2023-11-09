@@ -1,10 +1,10 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useDebounce } from 'react-use';
-import type { IGridColumn } from '../components';
-import { useFields } from './use-fields';
-import { useViewId } from './use-view-id';
+import type { IGridColumn } from '../..';
+import { useFields } from '../../../hooks/use-fields';
+import { useViewId } from '../../../hooks/use-view-id';
 
-export function useColumnResize<T extends { id: string }>(_columns: T[]) {
+export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
   const fields = useFields();
   const viewId = useViewId();
   const [newSize, setNewSize] = useState<number>();

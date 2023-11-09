@@ -12,8 +12,8 @@ import {
   useFields,
   useIsHydrated,
   useViewId,
-  useColumnOrder,
-} from '@teable-group/sdk/hooks';
+  useGridColumnOrder,
+} from '@teable-group/sdk';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
@@ -37,7 +37,7 @@ export const FormEditor = () => {
   const activeViewId = useViewId();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
-  const { onColumnOrdered } = useColumnOrder();
+  const { onColumnOrdered } = useGridColumnOrder();
   const getFieldStatic = useFieldStaticGetter();
   const [activeField, setActiveField] = useState<IFieldInstance | null>(null);
   const [activeSidebarField, setActiveSidebarField] = useState<IFieldInstance | null>(null);

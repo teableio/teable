@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { DateEditorMain } from '../editor';
+import { DateEditorMain } from '../../editor';
 import type { IWrapperEditorProps } from './type';
 
-export const DateEditor = (props: IWrapperEditorProps) => {
+export const GridDateEditor = (props: IWrapperEditorProps) => {
   const { record, field, style } = props;
   const dateTime = record.getCellValue(field.id) as number;
   const setDateTime = useCallback(

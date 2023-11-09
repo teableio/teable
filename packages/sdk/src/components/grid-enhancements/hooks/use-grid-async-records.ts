@@ -1,52 +1,42 @@
 import type { IRecord, IGetRecordsQuery } from '@teable-group/core';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import type { ICell, ICellItem, IGridProps, IInnerCell, IRectangle } from '../components';
-import { CellType } from '../components';
-import type { Record } from '../model';
-import { reorder } from '../utils';
-import { useRecords } from './use-records';
-import { useRowCount } from './use-row-count';
-import { useViewId } from './use-view-id';
+import type { IGridProps, IRectangle } from '../..';
+import { useRecords } from '../../../hooks/use-records';
+import { useRowCount } from '../../../hooks/use-row-count';
+import { useViewId } from '../../../hooks/use-view-id';
+import type { Record } from '../../../model';
+import { reorder } from '../../../utils';
 
-const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 // eslint-disable-next-line
-const PAGE_SIZE = 300;
-
-export type IRowCallback<T> = (range: ICellItem) => Promise<readonly T[]>;
-export type IRowToCell<T> = (row: T, col: number) => ICell;
-export type IRowEditedCallback<T> = (
-  cell: ICellItem,
-  newVal: IInnerCell,
-  record: T
-) => T | undefined;
+export const LOAD_PAGE_SIZE = 300;
+const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
 type IRes = {
   recordMap: IRecordIndexMap;
-  reset: () => void;
+  onReset: () => void;
+  onForceUpdate: () => void;
   onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
-  onCellEdited: (cell: ICellItem, newValue: IInnerCell) => void;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
-  getCellContent: (cell: ICellItem) => ICell;
 };
 
 export type IRecordIndexMap = { [i: number | string]: Record };
 
-export const useAsyncRecords = (
-  toCell: IRowToCell<Record>,
-  onEdited: IRowEditedCallback<Record>,
-  initRecords?: IRecord[]
+export const useGridAsyncRecords = (
+  initRecords?: IRecord[],
+  initQuery?: IGetRecordsQuery
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsQuery>({
     skip: 0,
-    take: PAGE_SIZE,
+    take: LOAD_PAGE_SIZE,
+    ...initQuery,
   });
   const viewId = useViewId();
   const rowCount = useRowCount();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(query, initRecords);
-  const [loadedRecords, setLoadedRecords] = useState<IRecordIndexMap>(() =>
+  const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
       acc[i] = record;
       return acc;
@@ -56,11 +46,12 @@ export const useAsyncRecords = (
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
 
-  useEffect(() => {
+  const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
+    const take = queryRef.current.take ?? LOAD_PAGE_SIZE;
     const data = records;
-    setLoadedRecords((preLoadedRecords) => {
-      const cacheLen = PAGE_SIZE * 2;
+    setLoadedRecordMap((preLoadedRecords) => {
+      const cacheLen = take * 2;
       const [cacheStartIndex, cacheEndIndex] = [
         Math.max(startIndex - cacheLen / 2, 0),
         startIndex + data.length + cacheLen / 2,
@@ -77,6 +68,8 @@ export const useAsyncRecords = (
     });
   }, [records]);
 
+  useEffect(() => onForceUpdate(), [onForceUpdate]);
+
   useEffect(() => {
     const { y, height } = visiblePages;
     setQuery((cv) => {
@@ -84,24 +77,31 @@ export const useAsyncRecords = (
         return cv;
       }
 
-      const pageOffsetSize = PAGE_SIZE / 3;
-      const pageGap = PAGE_SIZE / 3;
+      const take = initQuery?.take ?? cv.take ?? LOAD_PAGE_SIZE;
+
+      const pageOffsetSize = take / 3;
+      const pageGap = take / 3;
 
       const visibleStartIndex = cv.skip <= y ? cv.skip - pageOffsetSize : cv.skip + pageOffsetSize;
-      const visibleEndIndex = visibleStartIndex + PAGE_SIZE;
+      const visibleEndIndex = visibleStartIndex + take;
       const viewInRange =
         inRange(y, visibleStartIndex, visibleEndIndex) &&
         inRange(y + height, visibleStartIndex, visibleEndIndex);
       if (!viewInRange) {
         const skip = Math.floor(y / pageGap) * pageGap - pageGap;
         return {
-          ...cv,
+          take: cv.take,
+          ...initQuery,
           skip: Math.max(0, skip),
         };
       }
-      return cv;
+      return {
+        take: cv.take,
+        ...initQuery,
+        skip: cv.skip,
+      };
     });
-  }, [visiblePages]);
+  }, [visiblePages, initQuery]);
 
   const updateVisiblePages = useMemo(() => {
     return debounce(setVisiblePages, 30);
@@ -116,32 +116,8 @@ export const useAsyncRecords = (
     [updateVisiblePages]
   );
 
-  const onCellEdited = useCallback(
-    (cell: ICellItem, newVal: IInnerCell) => {
-      const [, row] = cell;
-      const record = loadedRecords[row];
-      if (record === undefined) return;
-      onEdited(cell, newVal, record);
-    },
-    [onEdited, loadedRecords]
-  );
-
-  const getCellContent = useCallback<(cell: ICellItem) => ICell>(
-    (cell) => {
-      const [colIndex, rowIndex] = cell;
-      const rowData = loadedRecords[rowIndex];
-      if (rowData !== undefined) {
-        return toCell(rowData, colIndex);
-      }
-      return {
-        type: CellType.Loading,
-      };
-    },
-    [toCell, loadedRecords]
-  );
-
-  const reset = useCallback(() => {
-    setLoadedRecords({});
+  const onReset = useCallback(() => {
+    setLoadedRecordMap({});
     setVisiblePages(defaultVisiblePages);
   }, []);
 
@@ -150,13 +126,13 @@ export const useAsyncRecords = (
       const operationRecords: Record[] = [];
 
       for (const rowIndex of rowIndexCollection) {
-        const record = loadedRecords[rowIndex];
+        const record = loadedRecordMap[rowIndex];
         if (!record) {
           throw new Error('Can not find record by index: ' + rowIndex);
         }
         operationRecords.push(record);
       }
-      const targetRecord = loadedRecords[newRowIndex];
+      const targetRecord = loadedRecordMap[newRowIndex];
 
       if (!targetRecord) {
         throw new Error('Can not find target record by index: ' + newRowIndex);
@@ -171,7 +147,7 @@ export const useAsyncRecords = (
         newRowIndex,
         rowCount ?? initRecords?.length ?? 0,
         (index) => {
-          return loadedRecords[index].recordOrder[viewId];
+          return loadedRecordMap[index].recordOrder[viewId];
         }
       );
 
@@ -179,15 +155,14 @@ export const useAsyncRecords = (
         record.updateRecordOrder(viewId, newOrders[index]);
       });
     },
-    [loadedRecords, viewId, rowCount, initRecords?.length]
+    [loadedRecordMap, viewId, rowCount, initRecords?.length]
   );
 
   return {
-    getCellContent,
+    recordMap: loadedRecordMap,
     onVisibleRegionChanged,
-    onCellEdited,
     onRowOrdered,
-    recordMap: loadedRecords,
-    reset,
+    onForceUpdate,
+    onReset,
   };
 };

@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import type { IFieldInstance } from '../model';
-import { reorder } from '../utils';
-import { useFields } from './use-fields';
-import { useViewId } from './use-view-id';
+import { useFields } from '../../../hooks/use-fields';
+import { useViewId } from '../../../hooks/use-view-id';
+import type { IFieldInstance } from '../../../model';
+import { reorder } from '../../../utils';
 
-export function useColumnOrder() {
+export function useGridColumnOrder() {
   const fields = useFields();
   const viewId = useViewId();
 

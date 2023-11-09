@@ -22,8 +22,3 @@ export interface IStatisticMenu {
   fieldId: string;
   position: IRectangle;
 }
-
-export interface ITooltipInfo {
-  text: string;
-  position: IRectangle;
-}

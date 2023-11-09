@@ -5,7 +5,7 @@ import type {
   Record,
   LinkField,
   SingleSelectField,
-} from '../../model';
+} from '../../../model';
 
 export interface IWrapperEditorProps {
   field: SingleSelectField | MultipleSelectField | AttachmentField | DateField | LinkField;

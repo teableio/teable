@@ -1,7 +1,7 @@
 import colors from 'tailwindcss/colors';
-import { hexToRGBA } from '../components/grid/utils';
-import { ThemeKey } from '../context';
-import { useTheme } from './use-theme';
+import { ThemeKey } from '../../../context';
+import { useTheme } from '../../../hooks/use-theme';
+import { hexToRGBA } from '../../grid/utils';
 
 const lightTheme = {};
 

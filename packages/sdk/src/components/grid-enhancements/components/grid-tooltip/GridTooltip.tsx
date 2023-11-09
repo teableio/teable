@@ -1,14 +1,15 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
-import { useGridViewStore } from '../store/gridView';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
+import type { FC } from 'react';
+import { useGridTooltipStore } from './grid-tooltip';
 
-export const GridTooltip = () => {
-  const { tooltipInfo } = useGridViewStore();
-  const visible = Boolean(tooltipInfo);
+interface IGridTooltipProps {
+  id?: string;
+}
+
+export const GridTooltip: FC<IGridTooltipProps> = (props) => {
+  const { id } = props;
+  const { tooltipInfo } = useGridTooltipStore();
+  const visible = Boolean(tooltipInfo) && tooltipInfo?.id === id;
   const { text, position } = tooltipInfo ?? {};
   const style = position
     ? {

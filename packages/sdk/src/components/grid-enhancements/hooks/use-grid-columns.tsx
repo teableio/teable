@@ -8,34 +8,20 @@ import type {
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
-import type {
-  IGridColumn,
-  ICell,
-  INumberShowAs as IGridNumberShowAs,
-  ChartType,
-} from '../components';
-import {
-  NumberEditor,
-  onMixedTextClick,
-  CellType,
-  EditorPosition,
-  getFileCover,
-} from '../components';
-import { AttachmentEditor, DateEditor, LinkEditor } from '../components/grid-editor';
-import type { IFieldInstance, Record } from '../model';
-import { useFields } from './use-fields';
-import { useViewId } from './use-view-id';
+import type { IGridColumn, ICell, INumberShowAs as IGridNumberShowAs, ChartType } from '../..';
+import { NumberEditor, onMixedTextClick, CellType, EditorPosition, getFileCover } from '../..';
+import { useFields } from '../../../hooks/use-fields';
+import { useViewId } from '../../../hooks/use-view-id';
+import type { IFieldInstance, Record } from '../../../model';
+import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
 const generateColumns = (
   fields: IFieldInstance[],
-  viewId?: string
+  viewId?: string,
+  hasMenu: boolean = true
 ): (IGridColumn & { id: string })[] => {
-  if (!viewId) {
-    return [];
-  }
-
   const iconString = (type: FieldType, isLookup: boolean | undefined) => {
     return isLookup ? `${type}_lookup` : type;
   };
@@ -43,7 +29,7 @@ const generateColumns = (
   return fields
     .map((field) => {
       if (!field) return undefined;
-      const columnMeta = field.columnMeta[viewId];
+      const columnMeta = viewId ? field.columnMeta[viewId] : null;
       const width = columnMeta?.width || 150;
       const { id, type, name, description, isLookup } = field;
       return {
@@ -52,7 +38,7 @@ const generateColumns = (
         width,
         description,
         customTheme: field.hasError ? { columnHeaderBg: colors.rose[100] } : undefined,
-        hasMenu: true,
+        hasMenu,
         icon: iconString(type, isLookup),
       };
     })
@@ -118,7 +104,7 @@ const createCellValue2GridDisplay =
           displayData,
           readonly: isComputed,
           editorPosition: EditorPosition.Below,
-          customEditor: (props) => <DateEditor field={field} record={record} {...props} />,
+          customEditor: (props) => <GridDateEditor field={field} record={record} {...props} />,
         };
       }
       case FieldType.Number:
@@ -236,7 +222,7 @@ const createCellValue2GridDisplay =
           readonly: false,
           isMultiple,
           editorPosition: EditorPosition.Below,
-          customEditor: (props) => <LinkEditor field={field} record={record} {...props} />,
+          customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
         };
       }
       case FieldType.Attachment: {
@@ -248,7 +234,9 @@ const createCellValue2GridDisplay =
           data,
           displayData,
           readonly: isComputed,
-          customEditor: (props) => <AttachmentEditor field={field} record={record} {...props} />,
+          customEditor: (props) => (
+            <GridAttachmentEditor field={field} record={record} {...props} />
+          ),
         };
       }
       case FieldType.Checkbox: {
@@ -286,15 +274,15 @@ const createCellValue2GridDisplay =
     }
   };
 
-export function useColumns() {
+export function useGridColumns(hasMenu?: boolean) {
   const viewId = useViewId();
   const fields = useFields();
 
   return useMemo(
     () => ({
-      columns: generateColumns(fields, viewId),
+      columns: generateColumns(fields, viewId, hasMenu),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
-    [fields, viewId]
+    [fields, viewId, hasMenu]
   );
 }
