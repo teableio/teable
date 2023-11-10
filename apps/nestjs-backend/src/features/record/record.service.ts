@@ -284,12 +284,8 @@ export class RecordService implements IAdapterService {
       queryBuilder.andWhere(nullableForeignKey, 'is', null);
     }
 
-    if (orderFieldName) {
-      queryBuilder.orderBy(orderFieldName, 'asc');
-    }
-
     // view sorting added by default
-    queryBuilder.offset(skip);
+    queryBuilder.orderBy(orderFieldName || '__auto_number', 'asc').offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }

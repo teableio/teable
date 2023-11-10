@@ -43,7 +43,7 @@ export interface IGridExternalProps {
   rowIndexVisible?: boolean;
 
   /**
-   * Indicates which areas can be dragged, including rows, columns, cells, or no drag
+   * Indicates which areas can be dragged, including rows, columns or no drag
    * - 'all': Allow drag of rows, columns and cells (default)
    * - 'none': Disable drag for all areas
    * - 'row': Allow row drag only
@@ -68,7 +68,7 @@ export interface IGridExternalProps {
    * If false, disable multiple selection operations
    * @type {boolean}
    */
-  multiSelectionEnabled?: boolean;
+  isMultiSelectionEnable?: boolean;
 
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
@@ -146,7 +146,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBufferY = 100,
     rowCounterVisible,
     rowIndexVisible = true,
-    multiSelectionEnabled = true,
+    isMultiSelectionEnable = true,
     style,
     customIcons,
     getCellContent,
@@ -349,7 +349,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
-            multiSelectionEnabled={multiSelectionEnabled}
+            isMultiSelectionEnable={isMultiSelectionEnable}
             scrollState={scrollState}
             mouseState={mouseState}
             setMouseState={setMouseState}

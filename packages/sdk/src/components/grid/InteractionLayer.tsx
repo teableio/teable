@@ -91,7 +91,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     forceRenderFlag,
     rowIndexVisible,
     rowCounterVisible,
-    multiSelectionEnabled: multiSelectionEnabled,
+    isMultiSelectionEnable: isMultiSelectionEnable,
     setMouseState,
     scrollToItem,
     scrollBy,
@@ -180,7 +180,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(coordInstance, onSelectionChanged, selectable, multiSelectionEnabled);
+  } = useSelection(coordInstance, onSelectionChanged, selectable, isMultiSelectionEnable);
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
@@ -261,6 +261,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       hasAppendRow,
       hasAppendColumn,
       columnStatistics,
+      isMultiSelectionEnable,
       columns,
       height,
       theme,
@@ -539,6 +540,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           columnResizeState={columnResizeState}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
+          isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
           isColumnResizable={onColumnResize != null}

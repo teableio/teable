@@ -4,3 +4,4 @@ export * from './use-grid-columns';
 export * from './use-grid-column-order';
 export * from './use-grid-column-resize';
 export * from './use-grid-async-records';
+export * from './use-grid-column-statistics';

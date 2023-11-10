@@ -21,5 +21,4 @@ export * from './use-session';
 export * from './use-driver';
 export * from './use-is-mobile';
 export * from './use-is-touch-device';
-export * from './use-column-statistics';
 export * from './use-table-permission';

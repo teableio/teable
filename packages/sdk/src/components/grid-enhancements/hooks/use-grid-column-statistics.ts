@@ -2,13 +2,13 @@ import type { IRawAggregationVo } from '@teable-group/core';
 import { statisticFunc2NameMap } from '@teable-group/core';
 import { isEmpty, keyBy } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
-import type { IColumnStatistics, IGridColumn } from '../components';
-import { statisticsValue2DisplayValue } from '../utils';
-import { useAggregation } from './use-aggregation';
-import { useFields } from './use-fields';
-import { useViewId } from './use-view-id';
+import type { IColumnStatistics, IGridColumn } from '../..';
+import { useAggregation } from '../../../hooks/use-aggregation';
+import { useFields } from '../../../hooks/use-fields';
+import { useViewId } from '../../../hooks/use-view-id';
+import { statisticsValue2DisplayValue } from '../../../utils';
 
-export function useColumnStatistics(columns: (IGridColumn & { id: string })[]) {
+export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
   const fields = useFields();
   const remoteStatistics = useAggregation();

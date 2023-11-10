@@ -29,6 +29,7 @@ export interface IRenderLayerProps
     | 'columnStatistics'
     | 'rowIndexVisible'
     | 'rowCounterVisible'
+    | 'isMultiSelectionEnable'
   > {
   isEditing?: boolean;
   visibleRegion: IVisibleRegion;
@@ -77,6 +78,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isColumnResizable,
     isColumnAppendEnable,
     isColumnHeaderMenuVisible,
+    isMultiSelectionEnable,
   } = props;
   const { isDragging } = dragState;
   const { containerWidth } = coordInstance;
@@ -142,6 +144,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isColumnResizable,
       isColumnAppendEnable,
       isColumnHeaderMenuVisible,
+      isMultiSelectionEnable,
     };
     lastPropsRef.current = props;
     drawGrid(mainCanvas, cacheCanvas, props, lastProps);
@@ -175,6 +178,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isColumnResizable,
     isColumnAppendEnable,
     isColumnHeaderMenuVisible,
+    isMultiSelectionEnable,
     cacheCanvas,
   ]);
 
