@@ -489,7 +489,7 @@ export class FieldService implements IAdapterService {
       fields = fields.filter((field) => !field.columnMeta[viewId as string].hidden);
     }
 
-    if (!viewId) {
+    if (viewId) {
       fields = sortBy(fields, (field) => {
         return field.columnMeta[viewId as string]?.order;
       });
