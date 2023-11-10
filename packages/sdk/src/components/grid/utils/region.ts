@@ -241,9 +241,21 @@ const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsCell = (props: ICheckRegionProps): IRegionData | null => {
-  const { rowIndex, columnIndex } = props.position;
+  const { coordInstance, position, scrollState } = props;
+  const { rowIndex, columnIndex } = position;
+  const { scrollLeft, scrollTop } = scrollState;
   if (rowIndex > -1 && columnIndex > -1) {
-    return { ...BLANK_REGION_DATA, type: RegionType.Cell };
+    const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+    const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+    const width = coordInstance.getColumnWidth(columnIndex);
+    const height = coordInstance.rowHeight;
+    return {
+      type: RegionType.Cell,
+      x,
+      y,
+      width,
+      height,
+    };
   }
   return null;
 };
