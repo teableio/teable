@@ -18,6 +18,7 @@ interface ICheckRegionProps
     | 'columnResizeState'
     | 'coordInstance'
     | 'columnStatistics'
+    | 'isMultiSelectionEnable'
   > {
   rowControls: IRowControlItem[];
   isOutOfBounds: boolean;
@@ -136,9 +137,10 @@ const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null =>
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, theme, rowControls, coordInstance } = props;
+  const { position, theme, rowControls, coordInstance, isMultiSelectionEnable } = props;
   const { x, y, rowIndex, columnIndex } = position;
   if (
+    !isMultiSelectionEnable ||
     rowIndex !== -1 ||
     columnIndex !== -1 ||
     !rowControls.some((item) => item.type === RowControlType.Checkbox)

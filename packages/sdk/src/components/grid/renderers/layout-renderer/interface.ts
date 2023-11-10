@@ -46,6 +46,7 @@ export interface IGridHeaderDrawerProps extends IRectangle {
   theme: IGridTheme;
   isChecked: boolean;
   rowControls: IRowControlItem[];
+  isMultiSelectionEnable?: boolean;
 }
 
 export enum RenderRegion {

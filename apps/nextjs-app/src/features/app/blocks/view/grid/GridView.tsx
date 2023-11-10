@@ -338,7 +338,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
       });
     }
 
-    if (type === RegionType.RowHeaderDragHandler) {
+    if (type === RegionType.RowHeaderDragHandler && isAutoSort) {
       openTooltip({
         id: componentId,
         text: 'Automatic sorting is turned on, manual sorting is not available',

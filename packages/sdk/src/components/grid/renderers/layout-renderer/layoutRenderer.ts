@@ -598,7 +598,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
 };
 
 export const drawGridHeader = (ctx: CanvasRenderingContext2D, props: IGridHeaderDrawerProps) => {
-  const { x, y, width, height, theme, rowControls, isChecked } = props;
+  const { x, y, width, height, theme, rowControls, isChecked, isMultiSelectionEnable } = props;
   const {
     iconSizeXS,
     staticWhite,
@@ -622,7 +622,7 @@ export const drawGridHeader = (ctx: CanvasRenderingContext2D, props: IGridHeader
     stroke: cellLineColor,
   });
 
-  if (rowControls.some((item) => item.type === RowControlType.Checkbox)) {
+  if (isMultiSelectionEnable && rowControls.some((item) => item.type === RowControlType.Checkbox)) {
     drawCheckbox(ctx, {
       x: width / 2 - halfSize + 0.5,
       y: height / 2 - halfSize + 0.5,
@@ -653,6 +653,7 @@ export const drawColumnHeaders = (
     rowControls,
     isRowAppendEnable,
     isColumnHeaderMenuVisible,
+    isMultiSelectionEnable,
   } = props;
   const { startColumnIndex: originStartColumnIndex, stopColumnIndex: originStopColumnIndex } =
     visibleRegion;
@@ -727,6 +728,7 @@ export const drawColumnHeaders = (
     theme,
     rowControls,
     isChecked,
+    isMultiSelectionEnable,
   });
 
   ctx.restore();

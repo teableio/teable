@@ -10,7 +10,7 @@ export const useSelection = (
   coordInstance: CoordinateManager,
   onSelectionChanged: IGridProps['onSelectionChanged'],
   selectable?: SelectableType,
-  multiSelectionEnabled?: boolean
+  isMultiSelectionEnable?: boolean
 ) => {
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [isSelecting, setSelecting] = useState(false);
@@ -38,7 +38,7 @@ export const useSelection = (
         if (!isShiftKey || isPrevRowSelection) {
           setActiveCell(range);
         }
-        multiSelectionEnabled && setSelecting(true);
+        isMultiSelectionEnable && setSelecting(true);
         return setSelection(selection.set(SelectionRegionType.Cells, ranges));
       }
       case RegionType.RowHeaderDragHandler:
@@ -99,7 +99,7 @@ export const useSelection = (
     const pureSelectColumnOrRow = (colOrRowIndex: number, type: SelectionRegionType) => {
       const range = [colOrRowIndex, colOrRowIndex] as IRange;
       const newSelection =
-        isPrevRowSelection && multiSelectionEnabled
+        isPrevRowSelection && isMultiSelectionEnable
           ? selection.merge(range)
           : selection.set(type, [range]);
       if (newSelection.includes(range)) {
@@ -113,14 +113,14 @@ export const useSelection = (
       case RegionType.ColumnHeader: {
         if (selectable !== SelectableType.All && selectable !== SelectableType.Column) return;
         const thresholdColIndex =
-          multiSelectionEnabled && isShiftKey && isPrevColumnSelection
+          isMultiSelectionEnable && isShiftKey && isPrevColumnSelection
             ? prevSelectionRanges[0][0]
             : columnIndex;
         const ranges = [
           [Math.min(thresholdColIndex, columnIndex), Math.max(thresholdColIndex, columnIndex)],
         ] as IRange[];
         let newSelection = selection.set(SelectionRegionType.Columns, ranges);
-        if (multiSelectionEnabled && isMetaKey && isPrevColumnSelection) {
+        if (isMultiSelectionEnable && isMetaKey && isPrevColumnSelection) {
           newSelection = selection.merge([columnIndex, columnIndex]);
         }
         if (!isShiftKey || !isPrevColumnSelection) {
@@ -133,7 +133,7 @@ export const useSelection = (
         if (selectable !== SelectableType.All && selectable !== SelectableType.Row) return;
         const range = [rowIndex, rowIndex] as IRange;
         if (
-          multiSelectionEnabled &&
+          isMultiSelectionEnable &&
           isShiftKey &&
           isPrevRowSelection &&
           prevSelectedRowIndex.current != null
