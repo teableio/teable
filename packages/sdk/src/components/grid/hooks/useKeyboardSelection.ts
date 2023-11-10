@@ -3,7 +3,9 @@ import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
 import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
+import { GRID_CONTAINER_ID } from '../configs';
 import { CellType, getCellRenderer } from '../renderers';
+import { isAncestorOfActiveElement } from '../utils';
 
 const SELECTION_MOVE_HOTKEYS = [
   'up',
@@ -130,8 +132,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
     Mousetrap.bind(['mod+c'], () => {
       if (isEditing) return;
-      // const activeElementId = document.activeElement?.id;
-      // if (activeElementId !== GRID_CONTAINER_ID) return;
+      if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
       onCopy?.(selection);
     });
 
