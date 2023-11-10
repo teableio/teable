@@ -196,6 +196,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   );
 
   const onViewShown = (type: ViewType) => {
+    if (type === viewType) return;
     onResetRecordMap();
     setViewType(type);
   };
@@ -267,7 +268,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
           customIcons={customIcons}
           draggable={DraggableType.None}
           selectable={SelectableType.Row}
-          multiSelectionEnabled={isMultiple}
+          isMultiSelectionEnable={isMultiple}
           onItemHovered={onItemHovered}
           getCellContent={getCellContent}
           onSelectionChanged={onSelectionChanged}
