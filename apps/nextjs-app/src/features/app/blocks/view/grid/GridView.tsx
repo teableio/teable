@@ -11,7 +11,7 @@ import {
   useGridTheme,
   useGridColumnResize,
   useGridColumns,
-  useColumnStatistics,
+  useGridColumnStatistics,
   useGridColumnOrder,
   useGridAsyncRecords,
   useGridIcons,
@@ -66,7 +66,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const fields = useFields();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
-  const { columnStatistics } = useColumnStatistics(columns);
+  const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
   const { openRecordMenu, openHeaderMenu, openSetting, openStatisticMenu, setSelection } =
     useGridViewStore();
