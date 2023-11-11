@@ -72,7 +72,7 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     rect: {
       x,
       y,
-      width: width - 16,
+      width: width,
       height,
     },
     rowIndex,

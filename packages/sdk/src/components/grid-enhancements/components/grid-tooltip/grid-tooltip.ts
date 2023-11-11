@@ -11,7 +11,7 @@ export interface ITooltipInfo {
   contentStyle?: React.CSSProperties;
 }
 
-export interface IGridTooltipState {
+interface IGridTooltipState {
   tooltipInfo?: ITooltipInfo;
   openTooltip: (props: ITooltipInfo) => void;
   closeTooltip: () => void;

@@ -8,22 +8,35 @@ import { useEffect, useState, useMemo } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 
 export const useCollaborate = (selection?: CombinedSelection) => {
-  const { user } = useSession();
   const tableId = useTableId();
+  const { user } = useSession();
   const { connection } = useConnection();
-  const [collaborators, setCollaborators] = useState<ICollaborator>([]);
   const [presence, setPresence] = useState<Presence>();
+  const [collaborators, setCollaborators] = useState<ICollaborator>([]);
   const activeCell = useMemo(() => {
     if (selection?.type === SelectionRegionType.Cells) {
       return selection?.ranges?.[0];
     }
     return null;
   }, [selection]);
+  const localPresence = useMemo(() => {
+    if (presence) {
+      return presence.create(`${tableId}_${user.id}`);
+    }
+    return null;
+  }, [presence, tableId, user.id]);
+
+  useEffect(() => {
+    if (tableId) {
+      const channel = getCellCollaboratorsChannel(tableId);
+      setPresence(connection.getPresence(channel));
+    }
+  }, [connection, tableId]);
 
   useEffect(() => {
     const receiveHandler = () => {
       if (presence?.remotePresences) {
-        setCollaborators(Object.values(presence?.remotePresences));
+        setCollaborators(Object.values(presence.remotePresences));
       }
     };
 
@@ -36,28 +49,17 @@ export const useCollaborate = (selection?: CombinedSelection) => {
       presence?.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
     };
-  }, [presence, setCollaborators]);
+  }, [presence]);
 
   useEffect(() => {
-    if (tableId) {
-      const channel = getCellCollaboratorsChannel(tableId);
-      setPresence(connection.getPresence(channel));
-    }
-  }, [connection, tableId]);
-
-  const localPresence = useMemo(() => {
-    if (presence) {
-      return presence.create(`${tableId}_${user.id}`);
-    }
-    return null;
-  }, [presence, tableId, user.id]);
-
-  useEffect(() => {
-    if (!presence || !localPresence) {
+    if (!localPresence) {
       return;
     }
     if (!activeCell) {
-      // if want to collaborate the same user in different tab, create with connectionId
+      /**
+       * if want to collaborate the same user in different tab, create with connectionId
+       * reset presence data to null
+       **/
       localPresence?.submit(null, (error) => {
         error && console.error('submit error:', error);
       });
@@ -74,7 +76,7 @@ export const useCollaborate = (selection?: CombinedSelection) => {
         }
       );
     }
-  }, [activeCell, connection, localPresence, presence, tableId, user]);
+  }, [activeCell, localPresence, tableId, user]);
 
   return [collaborators];
 };
