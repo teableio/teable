@@ -32,6 +32,13 @@ const darkTheme = {
   // Append Row
   appendRowBg: colors.zinc[900],
   appendRowBgHovered: colors.zinc[800],
+
+  // Avatar
+  avatarBg: colors.gray[800],
+  avatarTextColor: colors.gray[50],
+  avatarSizeXS: 16,
+  avatarSizeSM: 20,
+  avatarSizeMD: 24,
 };
 
 export function useGridTheme() {

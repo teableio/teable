@@ -24,6 +24,7 @@ import type {
   IPosition,
   IRowControlItem,
   IColumnStatistics,
+  ICollaborator,
 } from './interface';
 import { RegionType, RowControlType, DraggableType, SelectableType } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
@@ -41,6 +42,7 @@ export interface IGridExternalProps {
   scrollBufferY?: number;
   rowCounterVisible?: boolean;
   rowIndexVisible?: boolean;
+  collaborators?: ICollaborator;
 
   /**
    * Indicates which areas can be dragged, including rows, columns or no drag
@@ -149,6 +151,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     isMultiSelectionEnable = true,
     style,
     customIcons,
+    collaborators,
     getCellContent,
     onCopy,
     onPaste,
@@ -344,6 +347,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             columns={columns}
             draggable={draggable}
             selectable={selectable}
+            collaborators={collaborators}
             rowControls={rowControls}
             imageManager={imageManager}
             spriteManager={spriteManager}

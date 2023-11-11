@@ -30,6 +30,7 @@ export interface IRenderLayerProps
     | 'rowIndexVisible'
     | 'rowCounterVisible'
     | 'isMultiSelectionEnable'
+    | 'collaborators'
   > {
   isEditing?: boolean;
   visibleRegion: IVisibleRegion;
@@ -60,6 +61,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     imageManager,
     spriteManager,
     activeCell,
+    collaborators,
     dragState,
     scrollState,
     hoverCellPosition,
@@ -126,6 +128,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       imageManager,
       spriteManager,
       activeCell,
+      collaborators,
       dragState,
       scrollState,
       hoverCellPosition,
@@ -159,6 +162,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     imageManager,
     spriteManager,
     activeCell,
+    collaborators,
     dragState,
     scrollState,
     mouseState,

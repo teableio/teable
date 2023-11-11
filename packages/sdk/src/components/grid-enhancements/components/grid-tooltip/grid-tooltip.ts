@@ -5,9 +5,13 @@ export interface ITooltipInfo {
   id?: string;
   text: string;
   position: IRectangle;
+  triggerClassName?: string;
+  contentClassName?: string;
+  triggerStyle?: React.CSSProperties;
+  contentStyle?: React.CSSProperties;
 }
 
-interface IGridTooltipState {
+export interface IGridTooltipState {
   tooltipInfo?: ITooltipInfo;
   openTooltip: (props: ITooltipInfo) => void;
   closeTooltip: () => void;

@@ -6,6 +6,7 @@ import { useClickAway, useMouse } from 'react-use';
 import type { IEditorContainerRef } from './components';
 import { EditorContainer } from './components';
 import type { IGridTheme } from './configs';
+
 import {
   GRID_DEFAULT,
   DEFAULT_MOUSE_STATE,
@@ -92,6 +93,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     rowIndexVisible,
     rowCounterVisible,
     isMultiSelectionEnable: isMultiSelectionEnable,
+    collaborators,
     setMouseState,
     scrollToItem,
     scrollBy,
@@ -529,6 +531,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
           activeCell={activeCell}
+          collaborators={collaborators}
           mouseState={mouseState}
           scrollState={scrollState}
           dragState={dragState}

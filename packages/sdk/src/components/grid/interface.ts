@@ -1,3 +1,4 @@
+import type { IUser } from '../../context';
 import type { IGridTheme } from './configs';
 export * from './renderers/cell-renderer/interface';
 
@@ -149,6 +150,12 @@ export interface IRowControlItem {
 }
 
 export type ICellItem = [colIndex: number, rowIndex: number];
+
+export type ICollaborator = {
+  activeCell: ICellItem;
+  user: IUser;
+  borderColor: string;
+}[];
 
 export type ICellPosition = [x: number, y: number];
 

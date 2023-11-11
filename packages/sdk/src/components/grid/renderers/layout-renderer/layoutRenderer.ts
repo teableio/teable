@@ -4,7 +4,12 @@ import { getDropTargetIndex } from '../../hooks';
 import type { IRectangle } from '../../interface';
 import { DragRegionType, RegionType, RowControlType } from '../../interface';
 import { GridInnerIcon } from '../../managers';
-import { checkIfRowOrCellActive, checkIfRowOrCellSelected, calculateMaxRange } from '../../utils';
+import {
+  checkIfRowOrCellActive,
+  checkIfRowOrCellSelected,
+  calculateMaxRange,
+  hexToRGBA,
+} from '../../utils';
 import type { ISingleLineTextProps } from '../base-renderer';
 import {
   drawCheckbox,
@@ -12,6 +17,7 @@ import {
   drawRect,
   drawRoundPoly,
   drawSingleLineText,
+  drawAvatar,
 } from '../base-renderer';
 import { getCellRenderer } from '../cell-renderer';
 import type {
@@ -60,14 +66,13 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
 
   const cell = getCellContent([columnIndex, rowIndex]);
   const cellRenderer = getCellRenderer(cell.type);
-
   cellRenderer.draw(cell as never, {
     ctx,
     theme,
     rect: {
       x,
       y,
-      width,
+      width: width - 16,
       height,
     },
     rowIndex,
@@ -382,6 +387,51 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
   });
 
   ctx.restore();
+};
+
+export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
+  const { collaborators, scrollState, coordInstance, theme } = props;
+  const { scrollTop, scrollLeft } = scrollState;
+  const { fontFamily, avatarBg, avatarTextColor, avatarSizeXS, fontSizeXXS } = theme;
+  const avatarOffset = 4;
+  const cellOffset = 1;
+
+  if (!collaborators?.length) return;
+
+  for (let i = 0; i < collaborators.length; i++) {
+    const { activeCell, borderColor, user } = collaborators[i];
+    const [columnIndex, rowIndex] = activeCell;
+    const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+    const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+    const width = coordInstance.getColumnWidth(columnIndex);
+    const height = coordInstance.getRowHeight(rowIndex);
+
+    ctx.save();
+    ctx.beginPath();
+
+    drawRect(ctx, {
+      x: x + cellOffset,
+      y: y + cellOffset,
+      width: width - cellOffset,
+      height: height - cellOffset,
+      fill: hexToRGBA(borderColor, 0.1),
+    });
+
+    drawAvatar(ctx, {
+      x: x + width - avatarSizeXS - avatarOffset + cellOffset * 2,
+      y: y + avatarOffset,
+      width: avatarSizeXS,
+      height: avatarSizeXS,
+      fill: avatarBg,
+      stroke: borderColor,
+      textColor: avatarTextColor,
+      fontSize: fontSizeXXS,
+      fontFamily,
+      user,
+    });
+
+    ctx.restore();
+  }
 };
 
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
@@ -1216,6 +1266,9 @@ export const drawGrid = (
   mainCtx.rect(0, 0, containerWidth, originHeight);
   mainCtx.clip();
 
+  console.log('props', props);
+  console.log('cacheCanvas', cacheCanvas);
+
   drawAppendRow(mainCtx, props);
 
   drawCacheContent(cacheCanvas, {
@@ -1238,6 +1291,8 @@ export const drawGrid = (
   drawFreezeRegionDivider(mainCtx, props, DividerRegion.Top);
 
   drawActiveCell(mainCtx, props);
+
+  drawCollaborators(mainCtx, props);
 
   drawColumnStatisticsRegion(mainCtx, props);
 

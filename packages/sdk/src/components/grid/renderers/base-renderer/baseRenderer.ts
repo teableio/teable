@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { parseToRGB } from '../../utils';
+import { parseToRGB, hexToRGBA } from '../../utils';
 import type {
   ILineProps,
   IMultiLineTextProps,
@@ -14,6 +14,8 @@ import type {
   IChartLineProps,
   IChartBarProps,
   ITextInfo,
+  IAvatarProps,
+  ISingleLineBlockTextProps,
 } from './interface';
 
 const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }> = new LRUCache({
@@ -164,7 +166,11 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     }
 
     const isDisplayEllipsis = width + ellipsisWidth > maxWidth;
-    displayText = isDisplayEllipsis ? displayText.slice(0, -1) + ellipsis : text;
+    displayText = isDisplayEllipsis
+      ? ctx.direction === 'rtl'
+        ? ellipsis + displayText.slice(0, -1)
+        : displayText.slice(0, -1) + ellipsis
+      : text;
     width = isDisplayEllipsis ? maxWidth : width;
 
     singleLineTextInfoCache.set(cacheKey, { text: displayText, width });
@@ -180,7 +186,6 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     ctx.textAlign = textAlign;
     ctx.textBaseline = verticalAlign;
     ctx.fillText(displayText, finalX, y + offsetY);
-
     if (isUnderline) {
       ctx.beginPath();
       ctx.moveTo(finalX, y + offsetY + fontSize / 2 - 1);
@@ -608,4 +613,48 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
     });
     ctx.restore();
   }
+};
+
+export const drawAvatar = (ctx: CanvasRenderingContext2D, props: IAvatarProps) => {
+  const { x, y, width, height, fill, stroke, user, textColor, fontSize = 10, fontFamily } = props;
+
+  ctx.save();
+  ctx.beginPath();
+
+  // wrapper stroke
+  if (stroke) ctx.strokeStyle = stroke;
+  ctx.arc(x + width / 2, y + height / 2, width / 2, 0, Math.PI * 2, false);
+
+  if (user?.avatar) {
+    const img = new Image();
+    img.src = user.avatar;
+    ctx.clip();
+    ctx.drawImage(img, x, y, width, height);
+    if (stroke) ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  const textAbb = user.name.slice(0, 1);
+
+  if (fill) ctx.fillStyle = fill;
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+
+  ctx.beginPath();
+  if (textColor) ctx.fillStyle = textColor;
+  ctx.font = `${fontSize}px ${fontFamily}`;
+
+  drawSingleLineText(ctx, {
+    x: x + width / 2,
+    y: y + height / 2 - fontSize / 2,
+    text: textAbb,
+    textAlign: 'center',
+    fontSize: fontSize,
+  });
+
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+
+  ctx.restore();
 };
