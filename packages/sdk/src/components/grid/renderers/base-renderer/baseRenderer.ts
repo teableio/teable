@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { parseToRGB, hexToRGBA } from '../../utils';
+import { parseToRGB } from '../../utils';
 import type {
   ILineProps,
   IMultiLineTextProps,
@@ -15,7 +15,6 @@ import type {
   IChartBarProps,
   ITextInfo,
   IAvatarProps,
-  ISingleLineBlockTextProps,
 } from './interface';
 
 const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }> = new LRUCache({
