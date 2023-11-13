@@ -1266,9 +1266,6 @@ export const drawGrid = (
   mainCtx.rect(0, 0, containerWidth, originHeight);
   mainCtx.clip();
 
-  console.log('props', props);
-  console.log('cacheCanvas', cacheCanvas);
-
   drawAppendRow(mainCtx, props);
 
   drawCacheContent(cacheCanvas, {
