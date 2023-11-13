@@ -46,7 +46,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
-    if (!tableId || !user) {
+    if (!connection || !tableId || !user) {
       return;
     }
     const channel = getCollaboratorsChannel(tableId as string);

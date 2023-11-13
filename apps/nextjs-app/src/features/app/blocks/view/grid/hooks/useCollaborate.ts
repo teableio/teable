@@ -27,10 +27,11 @@ export const useCollaborate = (selection?: CombinedSelection) => {
   }, [presence, tableId, user.id]);
 
   useEffect(() => {
-    if (tableId) {
-      const channel = getCellCollaboratorsChannel(tableId);
-      setPresence(connection.getPresence(channel));
+    if (!tableId || !connection) {
+      return;
     }
+    const channel = getCellCollaboratorsChannel(tableId);
+    setPresence(connection.getPresence(channel));
   }, [connection, tableId]);
 
   useEffect(() => {
