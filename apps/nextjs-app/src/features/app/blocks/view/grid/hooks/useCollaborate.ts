@@ -67,9 +67,15 @@ export const useCollaborate = (selection?: CombinedSelection) => {
       const [col, row] = activeCell;
       localPresence.submit(
         {
-          user: user,
+          user: {
+            id: user.id,
+            name: user.name,
+            avatar: user.avatar,
+            email: user.email,
+          },
           activeCell: [col, row],
           borderColor: ColorUtils.getRandomHexFromStr(`${tableId}_${user.id}`),
+          timeStamp: Date.now(),
         },
         (error) => {
           error && console.error('submit error:', error);

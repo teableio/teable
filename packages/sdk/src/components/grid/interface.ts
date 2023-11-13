@@ -153,8 +153,9 @@ export type ICellItem = [colIndex: number, rowIndex: number];
 
 export type ICollaborator = {
   activeCell: ICellItem;
-  user: IUser;
+  user: Omit<IUser, 'phone'>;
   borderColor: string;
+  timeStamp: number;
 }[];
 
 export type ICellPosition = [x: number, y: number];

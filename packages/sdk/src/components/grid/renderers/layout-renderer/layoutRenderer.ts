@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash';
+import { isEqual, groupBy } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';
 import type { IRectangle } from '../../interface';
@@ -398,8 +398,12 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
 
   if (!collaborators?.length) return;
 
-  for (let i = 0; i < collaborators.length; i++) {
-    const { activeCell, borderColor, user } = collaborators[i];
+  const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
+
+  for (let i = 0; i < groupedCollaborators.length; i++) {
+    // for conflict cell, we'd like to show the latest collaborator
+    const conflictCollaborators = groupedCollaborators[i].sort((a, b) => b.timeStamp - a.timeStamp);
+    const { activeCell, borderColor, user } = conflictCollaborators[0];
     const [columnIndex, rowIndex] = activeCell;
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
