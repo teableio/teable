@@ -1,5 +1,5 @@
 import type { ILookupOptionsRo } from '@teable-group/core';
-import { Relationship } from '@teable-group/core';
+import { isMultiValueLink } from '@teable-group/core';
 import { useFields } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
 import { useMemo } from 'react';
@@ -22,6 +22,6 @@ export const useIsMultipleCellValue = (
 
     const relationship = linkField.options.relationship;
 
-    return relationship !== Relationship.ManyOne;
+    return isMultiValueLink(relationship);
   }, [fields, isLookup, lookupField?.isMultipleCellValue, lookupOptions]);
 };

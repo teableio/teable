@@ -14,7 +14,7 @@ import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { dbType2knexFormat } from '../field/util';
+import { SchemaType, dbType2knexFormat } from '../field/util';
 import { IOpsMap } from './reference.service';
 
 export interface IOpsData {
@@ -184,34 +184,21 @@ export class BatchService {
     }
   }
 
-  private async executeUpdateRecordsInner(
+  async batchUpdateDB(
     dbTableName: string,
-    fieldMap: { [fieldId: string]: IFieldInstance },
-    opsData: IOpsData[]
+    idFieldName: string,
+    schemas: { schemaType: SchemaType; dbFieldName: string }[],
+    data: { id: string; values: { [key: string]: unknown } }[]
   ) {
-    if (!opsData.length) {
-      return;
-    }
-
-    const userId = this.cls.get('user.id');
-    const prisma = this.prismaService.txClient();
     const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
-    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
-    const columnNames = fieldIds
-      .map((id) => fieldMap[id].dbFieldName)
-      .concat(['__version', '__last_modified_time', '__last_modified_by']);
+    const prisma = this.prismaService.txClient();
 
     // 1.create temporary table structure
     const createTempTableSchema = this.knex.schema.createTable(tempTableName, (table) => {
-      table.string('__id').primary();
-      fieldIds.forEach((id) => {
-        const { dbFieldName, dbFieldType } = fieldMap[id];
-        const typeKey = dbType2knexFormat(this.knex, dbFieldType);
-        table[typeKey](dbFieldName);
+      table.string(idFieldName).primary();
+      schemas.forEach(({ dbFieldName, schemaType }) => {
+        table[schemaType](dbFieldName);
       });
-      table.integer('__version');
-      table.dateTime('__last_modified_time');
-      table.string('__last_modified_by');
     });
 
     const createTempTableSql = createTempTableSchema
@@ -221,11 +208,10 @@ export class BatchService {
 
     const { insertTempTableSql, updateRecordSql } = this.dbProvider.executeUpdateRecordsSqlList({
       dbTableName,
-      fieldMap,
-      opsData,
       tempTableName,
-      columnNames,
-      userId,
+      idFieldName,
+      dbFieldNames: schemas.map((s) => s.dbFieldName),
+      data,
     });
 
     // 2.initialize temporary table data
@@ -237,6 +223,50 @@ export class BatchService {
     // 4.delete temporary table
     const dropTempTableSql = this.knex.schema.dropTable(tempTableName).toQuery();
     await prisma.$executeRawUnsafe(dropTempTableSql);
+  }
+
+  private async executeUpdateRecordsInner(
+    dbTableName: string,
+    fieldMap: { [fieldId: string]: IFieldInstance },
+    opsData: IOpsData[]
+  ) {
+    if (!opsData.length) {
+      return;
+    }
+
+    const userId = this.cls.get('user.id');
+    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
+    const data = opsData.map((data) => {
+      return {
+        id: data.recordId,
+        values: {
+          ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
+            (pre, [fieldId, value]) => {
+              const field = fieldMap[fieldId];
+              const { dbFieldName } = field;
+              pre[dbFieldName] = field.convertCellValue2DBValue(value);
+              return pre;
+            },
+            {}
+          ),
+          __version: data.version + 1,
+          __last_modified_time: new Date().toISOString(),
+          __last_modified_by: userId,
+        },
+      };
+    });
+
+    const schemas = [
+      ...fieldIds.map((id) => {
+        const { dbFieldName, dbFieldType } = fieldMap[id];
+        return { dbFieldName, schemaType: dbType2knexFormat(this.knex, dbFieldType) };
+      }),
+      { dbFieldName: '__version', schemaType: SchemaType.Integer },
+      { dbFieldName: '__last_modified_time', schemaType: SchemaType.Datetime },
+      { dbFieldName: '__last_modified_by', schemaType: SchemaType.String },
+    ];
+
+    await this.batchUpdateDB(dbTableName, '__id', schemas, data);
   }
 
   @Timing()

@@ -12,7 +12,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const shouldLogStack = 'getStatus' in exception && exception.getStatus?.() >= 500;
+    const shouldLogStack = !('getStatus' in exception) || exception.getStatus?.() >= 500;
 
     this.logger.error(`${exception.message}\n${shouldLogStack ? exception.stack : ''}`);
 

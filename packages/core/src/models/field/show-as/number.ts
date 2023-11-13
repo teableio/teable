@@ -12,14 +12,23 @@ export enum MultiNumberDisplayType {
 }
 
 export const singleNumberShowAsSchema = z.object({
-  type: z.nativeEnum(SingleNumberDisplayType),
+  type: z.nativeEnum(SingleNumberDisplayType).openapi({
+    description: 'can display as bar or ring in number field with single cellValue value',
+  }),
   color: z.nativeEnum(Colors),
-  showValue: z.boolean(),
-  maxValue: z.number(),
+  showValue: z.boolean().openapi({
+    description: 'whether to displays the specific value on the graph',
+  }),
+  maxValue: z.number().openapi({
+    description:
+      'the value that represents a 100% maximum value, it does not represent a hard limit on the value',
+  }),
 });
 
 export const multiNumberShowAsSchema = z.object({
-  type: z.nativeEnum(MultiNumberDisplayType),
+  type: z.nativeEnum(MultiNumberDisplayType).openapi({
+    description: 'can display as bar or line in number field with multiple cellValue value',
+  }),
   color: z.nativeEnum(Colors),
 });
 

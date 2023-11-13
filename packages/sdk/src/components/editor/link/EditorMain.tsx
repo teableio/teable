@@ -1,5 +1,5 @@
 import type { IGetRecordsQuery, ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { Relationship } from '@teable-group/core';
+import { Relationship, isMultiValueLink } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
 import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib';
 import { uniqueId } from 'lodash';
@@ -59,9 +59,11 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   forwardRef
 ) => {
   const { options, cellValue, isEditing, setEditing, onChange } = props;
-  const dbForeignKeyName = options.dbForeignKeyName;
-  const isOneMany = options.relationship === Relationship.OneMany;
-  const isMultiple = options.relationship !== Relationship.ManyOne;
+  const nullableForeignKey =
+    options.selfKeyName === '__id' ? options.foreignKeyName : options.selfKeyName;
+  const isNonDuplicate =
+    options.relationship === Relationship.OneMany || options.relationship === Relationship.OneOne;
+  const isMultiple = isMultiValueLink(options.relationship);
   const [viewType, setViewType] = useState<ViewType>(ViewType.Unselected);
   const isSelectedView = viewType === ViewType.Selected;
 
@@ -81,9 +83,9 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
       }
       return filterQuery;
     }
-    if (isOneMany) return { filterByLinkField: { nullableForeignKey: dbForeignKeyName } };
+    if (isNonDuplicate) return { filterByLinkField: { nullableForeignKey } };
     return undefined;
-  }, [cellValue, dbForeignKeyName, isOneMany, viewType]);
+  }, [cellValue, nullableForeignKey, isNonDuplicate, viewType]);
 
   const base = useBase();
   const table = useTable();

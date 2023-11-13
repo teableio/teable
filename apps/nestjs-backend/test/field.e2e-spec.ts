@@ -436,10 +436,9 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(referenceBefore[0].fromFieldId).toBe(table2PrimaryField.id);
 
       // foreignKey should be created
-      const dbTableName = table1.dbTableName;
-      const { dbForeignKeyName } = linkField.options as ILinkFieldOptions;
+      const { fkHostTableName, foreignKeyName } = linkField.options as ILinkFieldOptions;
       const linkedRecords = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        knex(dbTableName).select('*').where(dbForeignKeyName, table2.records[0].id).toQuery()
+        knex(fkHostTableName).select('*').where(foreignKeyName, table2.records[0].id).toQuery()
       );
       expect(linkedRecords.length).toBe(1);
 
@@ -460,14 +459,15 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(symLinkReferenceAfter).toBeFalsy();
 
       // foreignKey should be removed
-      const linkedRecordsAfter = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        knex(dbTableName).select('*').whereNotNull(dbForeignKeyName).toQuery()
-      );
-      expect(linkedRecordsAfter.length).toBe(0);
+      expect(
+        prisma.$queryRawUnsafe(
+          knex(fkHostTableName).select('*').whereNotNull(foreignKeyName).toQuery()
+        )
+      ).rejects.toThrow();
 
       // cell should be clean
       const linkedCellAfter = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        knex(dbTableName).select('*').whereNotNull(linkField.dbFieldName).toQuery()
+        knex(fkHostTableName).select('*').whereNotNull(linkField.dbFieldName).toQuery()
       );
       expect(linkedCellAfter.length).toBe(0);
 

@@ -27,7 +27,9 @@ export const lookupOptionsVoSchema = linkFieldOptionsSchema
     foreignTableId: true,
     lookupFieldId: true,
     relationship: true,
-    dbForeignKeyName: true,
+    fkHostTableName: true,
+    selfKeyName: true,
+    foreignKeyName: true,
   })
   .merge(
     z.object({
@@ -39,9 +41,10 @@ export const lookupOptionsVoSchema = linkFieldOptionsSchema
 
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
 
-export const lookupOptionsRoSchema = lookupOptionsVoSchema.omit({
-  relationship: true,
-  dbForeignKeyName: true,
+export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
+  foreignTableId: true,
+  lookupFieldId: true,
+  linkFieldId: true,
 });
 
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
@@ -242,17 +245,9 @@ export const getOptionsSchema = (type: FieldType) => {
       return selectFieldOptionsRoSchema;
     case FieldType.Date:
       return dateFieldOptionsSchema;
-    case FieldType.PhoneNumber:
-      return false;
-    case FieldType.Email:
-      return false;
-    case FieldType.URL:
       return false;
     case FieldType.Number:
       return numberFieldOptionsRoSchema;
-    case FieldType.Currency:
-      return false;
-    case FieldType.Percent:
       return false;
     case FieldType.Duration:
       return false;

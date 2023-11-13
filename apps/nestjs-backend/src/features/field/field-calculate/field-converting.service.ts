@@ -17,12 +17,12 @@ import {
   ColorUtils,
   generateChoiceId,
   DbFieldType,
-  Relationship,
   FieldKeyType,
   FIELD_VO_PROPERTIES,
   RecordOpBuilder,
   FieldType,
   FieldOpBuilder,
+  isMultiValueLink,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -33,13 +33,13 @@ import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
-import type { IFieldMap, IFkOpMap, IOpsMap } from '../../calculation/reference.service';
+import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { RecordCalculateService } from '../../record/record-calculate/record-calculate.service';
 import { FieldService } from '../field.service';
-import type { IFieldInstance } from '../model/factory';
+import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
@@ -108,8 +108,7 @@ export class FieldConvertingService {
       return;
     }
     const oldValue = field[key];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (field[key] as any) = value;
+    (field[key] as unknown) = value;
     return FieldOpBuilder.editor.setFieldProperty.build({ key, oldValue, newValue: value });
   }
 
@@ -145,7 +144,9 @@ export class FieldConvertingService {
         this.buildOpAndMutateField(field, 'lookupOptions', {
           ...lookupOptions,
           relationship: linkField.options.relationship,
-          dbForeignKeyName: linkField.options.dbForeignKeyName,
+          fkHostTableName: linkField.options.fkHostTableName,
+          selfKeyName: linkField.options.selfKeyName,
+          foreignKeyName: linkField.options.foreignKeyName,
         } as ILookupOptionsVo)
       );
     }
@@ -207,7 +208,7 @@ export class FieldConvertingService {
     const { cellValueType, isMultipleCellValue } = RollupFieldDto.getParsedValueType(
       field.options.expression,
       lookupField,
-      lookupField.isMultipleCellValue || relationship !== Relationship.ManyOne
+      Boolean(lookupField.isMultipleCellValue || isMultiValueLink(relationship))
     );
 
     if (field.cellValueType !== cellValueType) {
@@ -251,6 +252,7 @@ export class FieldConvertingService {
 
     for (let i = 1; i < topoOrders.length; i++) {
       const topoOrder = topoOrders[i];
+      // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
       const tableId = fieldId2TableId[curField.id];
       const dbTableName = tableId2DbTableName[tableId];
@@ -653,13 +655,12 @@ export class FieldConvertingService {
 
     const derivate = await this.linkService.getDerivateByLink(tableId, changes, true);
     const cellChanges = derivate?.cellChanges || [];
-    const fkRecordMap = derivate?.fkRecordMap || {};
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
 
     return {
       opsMapByLink,
-      fkRecordMap,
+      saveForeignKeyToDb: derivate?.saveForeignKeyToDb,
     };
   }
 
@@ -668,11 +669,10 @@ export class FieldConvertingService {
     field: IFieldInstance,
     recordOpsMap: IOpsMap
   ) {
-    let fkRecordMap: IFkOpMap = {};
+    let saveForeignKeyToDb: (() => Promise<void>) | undefined;
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
-      // console.log('getDerivateByLink:result', JSON.stringify(result, null, 2));
-      fkRecordMap = result.fkRecordMap;
+      saveForeignKeyToDb = result?.saveForeignKeyToDb;
       recordOpsMap = composeMaps([recordOpsMap, result.opsMapByLink]);
     }
 
@@ -680,7 +680,7 @@ export class FieldConvertingService {
       opsMap: calculatedOpsMap,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(recordOpsMap, fkRecordMap);
+    } = await this.referenceService.calculateOpsMap(recordOpsMap, saveForeignKeyToDb);
 
     const composedOpsMap = composeMaps([recordOpsMap, calculatedOpsMap]);
 
@@ -691,7 +691,7 @@ export class FieldConvertingService {
     await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
   }
 
-  private async getRecords(tableId: string, newField: IFieldInstance) {
+  private async getRecordMap(tableId: string, newField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -716,13 +716,13 @@ export class FieldConvertingService {
     oldField: IFieldInstance
   ) {
     const fieldId = newField.id;
-    const records = await this.getRecords(tableId, oldField);
+    const recordMap = await this.getRecordMap(tableId, oldField);
     const choices = newField.options.choices;
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
-    records.forEach((record) => {
+    Object.values(recordMap).forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -792,9 +792,9 @@ export class FieldConvertingService {
     }
 
     const fieldId = newField.id;
-    const records = await this.getRecords(tableId, oldField);
+    const records = await this.getRecordMap(tableId, oldField);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
-    records.forEach((record) => {
+    Object.values(records).forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -904,6 +904,7 @@ export class FieldConvertingService {
       await this.calculateAndSaveRecords(tableId, newField, result.recordOpsMap);
     }
 
+    // TODO: reduce unnecessary calculation
     if (newField.isComputed) {
       await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     }
@@ -943,6 +944,7 @@ export class FieldConvertingService {
 
     const oldFieldInstance = createFieldInstanceByVo(fieldVo);
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
+      tableId,
       updateFieldRo,
       oldFieldInstance
     );

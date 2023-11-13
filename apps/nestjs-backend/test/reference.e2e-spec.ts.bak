@@ -33,7 +33,6 @@ describe('Reference Service (e2e)', () => {
     }[];
     let db: Knex;
     const s = JSON.stringify;
-
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [GlobalModule, CalculationModule],
@@ -42,11 +41,9 @@ describe('Reference Service (e2e)', () => {
       prisma = module.get<PrismaService>(PrismaService);
       db = module.get('CUSTOM_KNEX');
     });
-
     afterAll(async () => {
       await prisma.$disconnect();
     });
-
     async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
       const sql = builder.toSQL();
       if (Array.isArray(sql)) {
@@ -58,7 +55,6 @@ describe('Reference Service (e2e)', () => {
         await prisma.$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
       }
     }
-
     beforeEach(async () => {
       // create tables
       await executeKnex(
@@ -85,7 +81,6 @@ describe('Reference Service (e2e)', () => {
           table.string('__fk_manyToOneB');
         })
       );
-
       initialReferences = [
         { fromFieldId: 'f1', toFieldId: 'f2' },
         { fromFieldId: 'f2', toFieldId: 'f3' },
@@ -94,14 +89,12 @@ describe('Reference Service (e2e)', () => {
         { fromFieldId: 'f5', toFieldId: 'f4' },
         { fromFieldId: 'f7', toFieldId: 'f8' },
       ];
-
       for (const data of initialReferences) {
         await prisma.reference.create({
           data,
         });
       }
     });
-
     afterEach(async () => {
       // Delete test data
       for (const data of initialReferences) {
@@ -118,23 +111,6 @@ describe('Reference Service (e2e)', () => {
       await executeKnex(db.schema.dropTable('B'));
       await executeKnex(db.schema.dropTable('C'));
     });
-
-    it('topological order with dependencies:', async () => {
-      const graph = [
-        { fromFieldId: 'a', toFieldId: 'c' },
-        { fromFieldId: 'b', toFieldId: 'c' },
-        { fromFieldId: 'c', toFieldId: 'd' },
-      ];
-
-      const sortedNodes = service['getTopologicalOrder']('a', graph);
-
-      expect(sortedNodes).toEqual([
-        { id: 'a', dependencies: [] },
-        { id: 'c', dependencies: ['a', 'b'] },
-        { id: 'd', dependencies: ['c'] },
-      ]);
-    });
-
     it('many to one link relationship order for getAffectedRecords', async () => {
       // fill data
       await executeKnex(
@@ -179,7 +155,6 @@ describe('Reference Service (e2e)', () => {
           { __id: 'idC4', fieldC: 'C4', manyToOneB: 'A2', __fk_manyToOneB: 'idB3' },
         ])
       );
-
       const topoOrder = [
         {
           dbTableName: 'B',
@@ -198,11 +173,9 @@ describe('Reference Service (e2e)', () => {
           dependencies: ['fieldB'],
         },
       ];
-
       const records = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idA1', dbTableName: 'A' },
       ]);
-
       expect(records).toEqual([
         { id: 'idA1', dbTableName: 'A' },
         { id: 'idB1', dbTableName: 'B', fieldId: 'manyToOneA', relationTo: 'idA1' },
@@ -211,12 +184,10 @@ describe('Reference Service (e2e)', () => {
         { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
         { id: 'idC3', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB2' },
       ]);
-
       const recordsWithMultiInput = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idA1', dbTableName: 'A' },
         { id: 'idA2', dbTableName: 'A' },
       ]);
-
       expect(recordsWithMultiInput).toEqual([
         { id: 'idA1', dbTableName: 'A' },
         { id: 'idA2', dbTableName: 'A' },
@@ -229,7 +200,6 @@ describe('Reference Service (e2e)', () => {
         { id: 'idC4', dbTableName: 'C', relationTo: 'idB3', fieldId: 'manyToOneB' },
       ]);
     });
-
     it('one to many link relationship order for getAffectedRecords', async () => {
       await executeKnex(
         db('A').insert([{ __id: 'idA1', fieldA: 'A1', oneToManyB: s(['C1, C2', 'C3']) }])
@@ -287,11 +257,9 @@ describe('Reference Service (e2e)', () => {
           linkedTable: 'B',
         },
       ];
-
       const records = await service['getAffectedRecordItems'](topoOrder, [
         { id: 'idC1', dbTableName: 'C' },
       ]);
-
       // manyToOneB: ['B1', 'B2']
       expect(records).toEqual([
         { id: 'idC1', dbTableName: 'C' },
@@ -300,9 +268,7 @@ describe('Reference Service (e2e)', () => {
         { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
         { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
       ]);
-
       const extraRecords = await service['getDependentRecordItems'](records);
-
       expect(extraRecords).toEqual([
         { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
         { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
@@ -310,14 +276,12 @@ describe('Reference Service (e2e)', () => {
         { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
       ]);
     });
-
     it('getDependentNodesCTE should return all dependent nodes', async () => {
       const result = await service['getDependentNodesCTE'](['f2']);
       const resultData = [...initialReferences];
       resultData.pop();
       expect(result).toEqual(expect.arrayContaining(resultData));
     });
-
     it('should filter full graph by fieldIds', async () => {
       /**
        * f1 -> f3 -> f4
@@ -349,7 +313,6 @@ describe('Reference Service (e2e)', () => {
       );
     });
   });
-
   describe('ReferenceService calculation', () => {
     let service: ReferenceService;
     let fieldMap: { [oneToMany: string]: IFieldInstance };
@@ -357,15 +320,12 @@ describe('Reference Service (e2e)', () => {
     let recordMap: { [recordId: string]: IRecord };
     let ordersWithRecords: ITopoItemWithRecords[];
     let tableId2DbTableName: { [tableId: string]: string };
-
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [GlobalModule, CalculationModule],
       }).compile();
-
       service = module.get<ReferenceService>(ReferenceService);
     });
-
     beforeEach(() => {
       fieldMap = {
         fieldA: createFieldInstanceByVo({
@@ -483,7 +443,6 @@ describe('Reference Service (e2e)', () => {
           dbFieldType: DbFieldType.Json,
         } as LinkFieldDto),
       };
-
       fieldId2TableId = {
         fieldA: 'A',
         oneToManyB: 'A',
@@ -493,13 +452,11 @@ describe('Reference Service (e2e)', () => {
         fieldC: 'C',
         manyToOneB: 'C',
       };
-
       tableId2DbTableName = {
         A: 'A',
         B: 'B',
         C: 'C',
       };
-
       recordMap = {
         // use new value fieldC: 'CX' here
         idC1: {
@@ -550,7 +507,6 @@ describe('Reference Service (e2e)', () => {
           recordOrder: {},
         },
       };
-
       // topoOrder Graph:
       // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
       //                                      -> C.manyToOneB
@@ -558,7 +514,7 @@ describe('Reference Service (e2e)', () => {
         {
           id: 'oneToManyC',
           dependencies: ['fieldC'],
-          recordItems: [
+          recordItemMap: [
             {
               record: recordMap['idB1'],
               dependencies: [recordMap['idC1'], recordMap['idC2']],
@@ -568,7 +524,7 @@ describe('Reference Service (e2e)', () => {
         {
           id: 'fieldB',
           dependencies: ['oneToManyC'],
-          recordItems: [
+          recordItemMap: [
             {
               record: recordMap['idB1'],
             },
@@ -577,7 +533,7 @@ describe('Reference Service (e2e)', () => {
         {
           id: 'oneToManyB',
           dependencies: ['fieldB'],
-          recordItems: [
+          recordItemMap: [
             {
               record: recordMap['idA1'],
               dependencies: [recordMap['idB1'], recordMap['idB2']],
@@ -587,7 +543,7 @@ describe('Reference Service (e2e)', () => {
         {
           id: 'manyToOneB',
           dependencies: ['fieldB'],
-          recordItems: [
+          recordItemMap: [
             {
               record: recordMap['idC1'],
               dependencies: recordMap['idB1'],
@@ -600,16 +556,9 @@ describe('Reference Service (e2e)', () => {
         },
       ];
     });
-
     it('should correctly collect changes for Link and Computed fields', () => {
       // 2. Act
-      const changes = service['collectChanges'](
-        ordersWithRecords,
-        fieldMap,
-        fieldId2TableId,
-        tableId2DbTableName,
-        {}
-      );
+      const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
       // 3. Assert
       // topoOrder Graph:
       // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
@@ -671,7 +620,6 @@ describe('Reference Service (e2e)', () => {
         },
       ]);
     });
-
     it('should createTopoItemWithRecords from prepared context', () => {
       const tableId2DbTableName = {
         A: 'A',
@@ -689,14 +637,12 @@ describe('Reference Service (e2e)', () => {
         { id: 'idC1', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
         { id: 'idC2', dbTableName: 'C', fieldId: 'manyToOneB', relationTo: 'idB1' },
       ];
-
       const dependentRecordItems = [
         { id: 'idB1', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
         { id: 'idB2', dbTableName: 'B', fieldId: 'oneToManyB', relationTo: 'idA1' },
         { id: 'idC1', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
         { id: 'idC2', dbTableName: 'C', fieldId: 'oneToManyC', relationTo: 'idB1' },
       ];
-
       // topoOrder Graph:
       // C.fieldC -> B.oneToManyC -> B.fieldB -> A.oneToManyB
       //                                      -> C.manyToOneB
@@ -718,32 +664,26 @@ describe('Reference Service (e2e)', () => {
           dependencies: ['fieldB'],
         },
       ];
-
       const topoItems = service['createTopoItemWithRecords']({
         tableId2DbTableName,
-        dbTableName2records,
+        dbTableName2recordMap: dbTableName2records,
         affectedRecordItems,
         dependentRecordItems,
         fieldMap,
         fieldId2TableId,
         topoOrders,
       });
-
       expect(topoItems).toEqual(ordersWithRecords);
     });
   });
-
   describe('ReferenceService simple formula calculation', () => {
     let service: ReferenceService;
-
     beforeAll(async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [GlobalModule, CalculationModule],
       }).compile();
-
       service = module.get<ReferenceService>(ReferenceService);
     });
-
     it('should correctly collect changes for Computed fields', () => {
       const fieldMap = {
         fieldA: createFieldInstanceByVo({
@@ -775,18 +715,15 @@ describe('Reference Service (e2e)', () => {
           dbFieldType: DbFieldType.Text,
         } as SingleLineTextFieldDto),
       };
-
       const fieldId2TableId = {
         fieldA: 'A',
         fieldB: 'A',
         fieldC: 'A',
       };
-
       const recordMap = {
         // use new value fieldA: 1 here
         idA1: { id: 'idA1', fields: { fieldA: 1, fieldB: null, fieldC: 'X' }, recordOrder: {} },
       };
-
       // topoOrder Graph:
       // A.fieldA -> A.fieldB
       const ordersWithRecords = [
@@ -800,13 +737,7 @@ describe('Reference Service (e2e)', () => {
           ],
         },
       ];
-      const changes = service['collectChanges'](
-        ordersWithRecords,
-        fieldMap,
-        fieldId2TableId,
-        {},
-        {}
-      );
+      const changes = service['collectChanges'](ordersWithRecords, fieldMap, fieldId2TableId);
       expect(changes).toEqual([
         {
           tableId: 'A',

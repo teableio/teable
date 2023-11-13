@@ -6,6 +6,7 @@ import {
   FieldType,
   generateRecordId,
   RecordOpBuilder,
+  isMultiValueLink,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, isEqual } from 'lodash';
@@ -32,22 +33,56 @@ export class FieldConvertingLinkService {
     private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
-  private async generateSymmetricFieldChange(linkField: LinkFieldDto) {
+  private async generateSymmetricFieldChange(
+    tableId: string,
+    oldField: LinkFieldDto,
+    newField: LinkFieldDto
+  ) {
+    // noting change
+    if (!newField.options.symmetricFieldId && !oldField.options.symmetricFieldId) {
+      return;
+    }
+
+    // delete old symmetric link
+    if (oldField.options.symmetricFieldId !== newField.options.symmetricFieldId) {
+      if (oldField.options.symmetricFieldId) {
+        await this.fieldDeletingService.delateAndCleanRef(
+          oldField.options.foreignTableId,
+          oldField.options.symmetricFieldId
+        );
+      }
+      if (newField.options.symmetricFieldId) {
+        const symmetricField = await this.fieldSupplementService.generateSymmetricField(
+          tableId,
+          newField
+        );
+        await this.fieldCreatingService.createAndCalculate(
+          newField.options.foreignTableId,
+          symmetricField
+        );
+      }
+      return;
+    }
+
+    // field options has been modified but symmetricFieldId not change
     const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
-      where: { id: linkField.options.symmetricFieldId, deletedTime: null },
+      where: { id: newField.options.symmetricFieldId, deletedTime: null },
     });
-    const oldField = createFieldInstanceByRaw(fieldRaw);
+
     const newFieldVo = rawField2FieldObj(fieldRaw);
 
     const options = newFieldVo.options as ILinkFieldOptions;
-    options.relationship = RelationshipRevert[linkField.options.relationship];
-    options.dbForeignKeyName = linkField.options.dbForeignKeyName;
-    newFieldVo.isMultipleCellValue = options.relationship !== Relationship.ManyOne || undefined;
+    options.relationship = RelationshipRevert[newField.options.relationship];
+    options.fkHostTableName = newField.options.fkHostTableName;
+    options.selfKeyName = newField.options.foreignKeyName;
+    options.foreignKeyName = newField.options.selfKeyName;
+    newFieldVo.isMultipleCellValue = isMultiValueLink(options.relationship);
 
+    // return modified changes in foreignTable
     return {
-      tableId: linkField.options.foreignTableId,
+      tableId: newField.options.foreignTableId,
       newField: createFieldInstanceByVo(newFieldVo),
-      oldField,
+      oldField: createFieldInstanceByRaw(fieldRaw),
     };
   }
 
@@ -67,9 +102,21 @@ export class FieldConvertingLinkService {
         },
       });
       await this.fieldSupplementService.createReference(newField);
-      await this.fieldSupplementService.cleanForeignKey(tableId, oldField.options);
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.fieldSupplementService.createForeignKey(newField.options);
+    } else if (newField.options.relationship !== oldField.options.relationship) {
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
       // create new symmetric link
-      await this.fieldSupplementService.createForeignKey(tableId, newField);
+      await this.fieldSupplementService.createForeignKey(newField.options);
+    }
+
+    return this.generateSymmetricFieldChange(tableId, oldField, newField);
+  }
+
+  private async otherToLink(tableId: string, newField: LinkFieldDto) {
+    await this.fieldSupplementService.createForeignKey(newField.options);
+    await this.fieldSupplementService.createReference(newField);
+    if (newField.options.symmetricFieldId) {
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
         tableId,
         newField
@@ -78,48 +125,19 @@ export class FieldConvertingLinkService {
         newField.options.foreignTableId,
         symmetricField
       );
-
-      // delete old symmetric link
-      await this.fieldDeletingService.delateAndCleanRef(
-        oldField.options.foreignTableId,
-        oldField.options.symmetricFieldId
-      );
-      return;
     }
-
-    if (newField.options.relationship !== oldField.options.relationship) {
-      await this.fieldSupplementService.cleanForeignKey(tableId, oldField.options);
-      // create new symmetric link
-      await this.fieldSupplementService.createForeignKey(tableId, newField);
-      await this.fieldDeletingService.cleanField(newField.options.foreignTableId, [
-        newField.options.symmetricFieldId,
-      ]);
-
-      return this.generateSymmetricFieldChange(newField);
-    }
-  }
-
-  private async otherToLink(tableId: string, newField: LinkFieldDto) {
-    await this.fieldSupplementService.createForeignKey(tableId, newField);
-    const symmetricField = await this.fieldSupplementService.generateSymmetricField(
-      tableId,
-      newField
-    );
-    await this.fieldSupplementService.createReference(newField);
-    await this.fieldCreatingService.createAndCalculate(
-      newField.options.foreignTableId,
-      symmetricField
-    );
   }
 
   private async linkToOther(tableId: string, oldField: LinkFieldDto) {
     await this.fieldDeletingService.cleanRef(tableId, oldField.id, true);
 
-    await this.fieldDeletingService.delateAndCleanRef(
-      oldField.options.foreignTableId,
-      oldField.options.symmetricFieldId,
-      true
-    );
+    if (oldField.options.symmetricFieldId) {
+      await this.fieldDeletingService.delateAndCleanRef(
+        oldField.options.foreignTableId,
+        oldField.options.symmetricFieldId,
+        true
+      );
+    }
   }
 
   /**
@@ -183,19 +201,22 @@ export class FieldConvertingLinkService {
 
     const records = await this.getRecords(tableId, oldField);
     // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
-    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
+    const foreignRecordMap = await this.getRecords(foreignTableId, lookupField);
 
-    const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
-      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
-      pre[str] = record.id;
-      return pre;
-    }, {});
+    const primaryNameToIdMap = Object.values(foreignRecordMap).reduce<{ [name: string]: string }>(
+      (pre, record) => {
+        const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+        pre[str] = record.id;
+        return pre;
+      },
+      {}
+    );
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
     const recordsForCreate: { [title: string]: ITinyRecord } = {};
     const checkSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
-    records.forEach((record) => {
+    Object.values(records).forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -213,12 +234,15 @@ export class FieldConvertingLinkService {
 
       const newCellValue: ILinkCellValue[] = [];
       function pushNewCellValue(linkCell: ILinkCellValue) {
-        if (newField.options.relationship !== Relationship.OneMany) {
+        // OneMany and OneOne relationship only allow link to one same recordId
+        if (
+          newField.options.relationship === Relationship.OneMany ||
+          newField.options.relationship === Relationship.OneOne
+        ) {
+          if (checkSet.has(linkCell.id)) return;
+          checkSet.add(linkCell.id);
           return newCellValue.push(linkCell);
         }
-        // OneMany relationship only allow link to one same recordId
-        if (checkSet.has(linkCell.id)) return;
-        checkSet.add(linkCell.id);
         return newCellValue.push(linkCell);
       }
 

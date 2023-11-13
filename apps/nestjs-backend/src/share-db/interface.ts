@@ -25,10 +25,6 @@ export interface IAdapterService {
   ): Promise<{ ids: string[]; extra?: unknown }>;
 }
 
-export interface ISupplementService {
-  createForeignKey(collectionId: string, snapshot: unknown): Promise<unknown>;
-}
-
 export interface IShareDbConfig {
   db: DB;
 }

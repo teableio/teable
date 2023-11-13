@@ -36,9 +36,9 @@ export const SpacePage: FC = () => {
   return (
     <div ref={ref} className="flex h-screen w-full flex-col py-8">
       <div className="flex items-center justify-between px-12">
-        <h4>All Workspaces</h4>
+        <h4>All Spaces</h4>
         <Button size={'sm'} disabled={isLoading} onClick={() => createSpaceMutator({})}>
-          {isLoading && <Spin className="h-3 w-3" />}Create a workspace
+          {isLoading && <Spin className="h-3 w-3" />}Create a space
         </Button>
       </div>
       <div className="flex-1 space-y-8 overflow-y-auto px-8 pt-8 sm:px-12">

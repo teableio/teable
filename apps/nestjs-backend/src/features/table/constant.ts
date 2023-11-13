@@ -32,7 +32,7 @@ export const DEFAULT_FIELDS: IFieldRo[] = [
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const DEFAULT_VIEWS: IViewRo[] = [
   {
-    name: 'GridView',
+    name: 'Grid view',
     type: ViewType.Grid,
   },
 ];

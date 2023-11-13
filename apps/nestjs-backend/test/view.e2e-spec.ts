@@ -6,7 +6,7 @@ import { initApp } from './utils/init-app';
 
 const defaultViews = [
   {
-    name: 'GridView',
+    name: 'Grid view',
     type: ViewType.Grid,
   },
 ];

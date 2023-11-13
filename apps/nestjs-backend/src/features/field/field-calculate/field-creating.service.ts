@@ -60,13 +60,15 @@ export class FieldCreatingService {
 
   async createField(tableId: string, field: IFieldInstance): Promise<IFieldVo> {
     if (field.type === FieldType.Link && !field.isLookup) {
-      await this.fieldSupplementService.createForeignKey(tableId, field);
-      const symmetricField = await this.fieldSupplementService.generateSymmetricField(
-        tableId,
-        field
-      );
+      await this.fieldSupplementService.createForeignKey(field.options);
+      if (field.options.symmetricFieldId) {
+        const symmetricField = await this.fieldSupplementService.generateSymmetricField(
+          tableId,
+          field
+        );
 
-      await this.createAndCalculate(field.options.foreignTableId, symmetricField);
+        await this.createAndCalculate(field.options.foreignTableId, symmetricField);
+      }
       return this.createAndCalculate(tableId, field);
     }
 

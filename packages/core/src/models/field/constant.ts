@@ -7,12 +7,7 @@ export enum FieldType {
   MultipleSelect = 'multipleSelect',
   SingleSelect = 'singleSelect',
   Date = 'date',
-  PhoneNumber = 'phoneNumber',
-  Email = 'email',
-  URL = 'url',
   Number = 'number',
-  Currency = 'currency',
-  Percent = 'percent',
   Duration = 'duration',
   Rating = 'rating',
   Formula = 'formula',
@@ -45,7 +40,8 @@ export enum CellValueType {
 }
 
 export enum Relationship {
-  // ManyMany = 'manyMany',
+  OneOne = 'oneOne',
+  ManyMany = 'manyMany',
   OneMany = 'oneMany',
   ManyOne = 'manyOne',
 }
@@ -54,5 +50,9 @@ export enum Relationship {
 export const RelationshipRevert = {
   [Relationship.OneMany]: Relationship.ManyOne,
   [Relationship.ManyOne]: Relationship.OneMany,
-  // [Relationship.ManyMany]: Relationship.ManyMany,
+  [Relationship.ManyMany]: Relationship.ManyMany,
+  [Relationship.OneOne]: Relationship.OneOne,
 };
+
+export const isMultiValueLink = (relationship: Relationship): true | undefined =>
+  relationship === Relationship.ManyMany || relationship === Relationship.OneMany || undefined;
