@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { sharePasswordSchema } from '../../share';
 import { IdPrefix } from '../../utils';
 import { ViewType } from './constant';
 
 export const shareViewMetaSchema = z.object({
   allowCopy: z.boolean().optional(),
   includeHiddenField: z.boolean().optional(),
-  password: z.string().optional(),
+  password: sharePasswordSchema.optional(),
 });
 
 export type IShareViewMeta = z.infer<typeof shareViewMetaSchema>;

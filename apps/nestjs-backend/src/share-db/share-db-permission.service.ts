@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { IdPrefix, type PermissionAction } from '@teable-group/core';
+import { IdPrefix } from '@teable-group/core';
+import type { IShareViewMeta, PermissionAction } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import ShareDBClass from 'sharedb';
 import { PermissionService } from '../features/auth/permission.service';
+import { FieldService } from '../features/field/field.service';
 import type { IClsStore } from '../types/cls';
-import { getAction, getPrefixAction } from './utils';
+import { getAction, getPrefixAction, isShareViewResourceDoc } from './utils';
 import { WsAuthService } from './ws-auth.service';
 
 type IContextDecorator = 'useCls' | 'skipIfBackend';
@@ -53,9 +56,11 @@ export type IAuthMiddleContext =
 @Injectable()
 export class ShareDbPermissionService {
   constructor(
+    readonly clsService: ClsService<IClsStore>,
     private readonly permissionService: PermissionService,
     private readonly wsAuthService: WsAuthService,
-    readonly clsService: ClsService<IClsStore>
+    private readonly prismaService: PrismaService,
+    private readonly fieldService: FieldService
   ) {}
 
   private async clsRunWith(
@@ -65,6 +70,7 @@ export class ShareDbPermissionService {
   ) {
     await this.clsService.runWith(this.clsService.get(), async () => {
       this.clsService.set('user', context.agent.custom.user);
+      this.clsService.set('shareViewId', context.agent.custom.shareViewId);
       callback(error);
     });
   }
@@ -72,7 +78,11 @@ export class ShareDbPermissionService {
   @ContextDecorator('skipIfBackend')
   async authMiddleware(context: IAuthMiddleContext, callback: (err?: unknown) => void) {
     try {
-      const { cookie } = context.agent.custom;
+      const { cookie, shareId } = context.agent.custom;
+      if (shareId) {
+        context.agent.custom.user = undefined;
+        return;
+      }
       const user = await this.wsAuthService.checkCookie(cookie);
       context.agent.custom.user = user;
       await this.clsRunWith(context, callback);
@@ -94,7 +104,7 @@ export class ShareDbPermissionService {
     }
   }
 
-  @ContextDecorator('skipIfBackend', 'useCls')
+  @ContextDecorator('skipIfBackend')
   async checkApplyPermissionMiddleware(
     context: ShareDBClass.middleware.ApplyContext,
     callback: (err?: unknown) => void
@@ -111,7 +121,7 @@ export class ShareDbPermissionService {
     callback(error);
   }
 
-  @ContextDecorator('skipIfBackend', 'useCls')
+  @ContextDecorator('skipIfBackend')
   async checkReadPermissionMiddleware(
     context: ShareDBClass.middleware.ReadSnapshotsContext,
     callback: (err?: unknown) => void
@@ -122,7 +132,58 @@ export class ShareDbPermissionService {
       callback(`unknown docType: ${docType}`);
       return;
     }
+    // view share permission validation
+    const shareId = context.agent.custom.shareId;
+    if (shareId && isShareViewResourceDoc(docType as IdPrefix)) {
+      const error = await this.checkReadViewSharePermission(
+        shareId,
+        context.collection,
+        context.snapshots
+      );
+      callback(error);
+      return;
+    }
     const error = await this.runPermissionCheck(context.collection, `${prefixAction}|read`);
     callback(error);
+  }
+
+  async checkReadViewSharePermission(
+    shareId: string,
+    collection: string,
+    snapshots: ShareDBClass.Snapshot[]
+  ) {
+    const [docType, tableId] = collection.split('_');
+    const view = await this.prismaService.txClient().view.findFirst({
+      where: { shareId, tableId, deletedTime: null, enableShare: true },
+    });
+    if (!view) {
+      return `invalid shareId: ${shareId}`;
+    }
+    const shareMeta = (JSON.parse(view.shareMeta as string) as IShareViewMeta) || {};
+    const checkSnapshot = (checkSnapshotMethod: (snapshot: ShareDBClass.Snapshot) => boolean) =>
+      snapshots.every(checkSnapshotMethod);
+
+    // share view resource (field, view in share)
+    switch (docType as IdPrefix) {
+      case IdPrefix.Field:
+        {
+          const { ids } = await this.fieldService.getDocIdsByQuery(tableId, {
+            viewId: view.id,
+            filterHidden: !shareMeta.includeHiddenField,
+          });
+          const fieldIds = new Set(...ids);
+          if (!checkSnapshot((snapshot) => fieldIds.has(snapshot.id)))
+            return 'no permission read field';
+        }
+        break;
+      case IdPrefix.View:
+        {
+          if (!checkSnapshot((snapshot) => view.id === snapshot.id))
+            return 'no permission read view';
+        }
+        break;
+      default:
+        return;
+    }
   }
 }

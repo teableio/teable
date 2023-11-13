@@ -17,6 +17,7 @@ import type {
   IRecordsVo,
   ISetRecordOpContext,
   ISetRecordOrderOpContext,
+  IShareViewMeta,
   ISnapshotBase,
 } from '@teable-group/core';
 import {
@@ -646,6 +647,42 @@ export class RecordService implements IAdapterService {
     return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
+  async projectionFormPermission(
+    tableId: string,
+    fieldKeyType: FieldKeyType,
+    projection?: { [fieldNameOrId: string]: boolean }
+  ) {
+    const shareId = this.cls.get('shareViewId');
+    const projectionInner = projection || {};
+    if (shareId) {
+      const view = await this.prismaService.txClient().view.findFirst({
+        where: { shareId: shareId, enableShare: true, deletedTime: null },
+        select: { id: true, shareMeta: true },
+      });
+      if (!view) {
+        throw new NotFoundException();
+      }
+      const fieldsPlain = await this.prismaService.txClient().field.findMany({
+        where: { tableId, deletedTime: null },
+        select: { id: true, name: true, columnMeta: true },
+      });
+
+      const fields = fieldsPlain.map((field) => {
+        return {
+          ...field,
+          columnMeta: JSON.parse(field.columnMeta),
+        };
+      });
+
+      if (!(view.shareMeta as IShareViewMeta)?.includeHiddenField) {
+        fields
+          .filter((field) => !field.columnMeta[view.id].hidden)
+          .forEach((field) => (projectionInner[field[fieldKeyType]] = true));
+      }
+    }
+    return Object.keys(projectionInner).length ? projectionInner : undefined;
+  }
+
   async getSnapshotBulk(
     tableId: string,
     recordIds: string[],
@@ -653,6 +690,7 @@ export class RecordService implements IAdapterService {
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
     cellFormat = CellFormat.Json
   ): Promise<ISnapshotBase<IRecord>[]> {
+    const projectionInner = await this.projectionFormPermission(tableId, fieldKeyType, projection);
     const dbTableName = await this.getDbTableName(tableId);
 
     const allViews = await this.prismaService.txClient().view.findMany({
@@ -661,7 +699,7 @@ export class RecordService implements IAdapterService {
     });
     const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
 
-    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
+    const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
     const fieldNames = fields
       .map((f) => f.dbFieldName)
       .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
@@ -715,11 +753,32 @@ export class RecordService implements IAdapterService {
       });
   }
 
+  async shareWithViewId(tableId: string, viewId?: string) {
+    const shareId = this.cls.get('shareViewId');
+    if (!shareId) {
+      return viewId;
+    }
+    const view = await this.prismaService.txClient().view.findFirst({
+      select: { id: true },
+      where: {
+        tableId,
+        shareId,
+        ...(viewId ? { id: viewId } : {}),
+        enableShare: true,
+        deletedTime: null,
+      },
+    });
+    if (!view) {
+      throw new BadRequestException('error shareId');
+    }
+    return view.id;
+  }
+
   async getDocIdsByQuery(
     tableId: string,
     query: IGetRecordsQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const { viewId } = query;
+    const viewId = await this.shareWithViewId(tableId, query.viewId);
 
     const { take = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {

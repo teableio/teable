@@ -243,7 +243,7 @@ export class ViewService implements IAdapterService {
       }
       return ctx as IViewOpContext;
     });
-    await this.update(version, tableId, viewId, opContext);
+    await this.update(version + 1, tableId, viewId, opContext);
     await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, [
       {
         docId: viewId,

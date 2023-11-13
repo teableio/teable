@@ -14,5 +14,6 @@ export interface IClsStore extends ClsStore {
     id?: string;
     rawOpMap?: IRawOpMap;
   };
+  shareViewId?: string;
   permissions: PermissionAction[];
 }

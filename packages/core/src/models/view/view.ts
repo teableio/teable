@@ -1,7 +1,7 @@
 import type { ViewType } from './constant';
 import type { IFilter } from './filter';
 import type { ISort } from './sort';
-import type { IViewVo } from './view.schema';
+import type { IShareViewMeta, IViewVo } from './view.schema';
 
 export abstract class ViewCore implements IViewVo {
   id!: string;
@@ -19,6 +19,12 @@ export abstract class ViewCore implements IViewVo {
   group?: unknown;
 
   order!: number;
+
+  shareId?: string;
+
+  enableShare?: boolean;
+
+  shareMeta?: IShareViewMeta;
 
   abstract options: unknown;
 

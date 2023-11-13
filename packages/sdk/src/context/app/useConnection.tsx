@@ -1,5 +1,4 @@
-import type { HttpError } from '@teable-group/core';
-import { HttpErrorCode } from '@teable-group/core';
+import { HttpError, HttpErrorCode } from '@teable-group/core';
 import { toast } from '@teable-group/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
@@ -12,7 +11,8 @@ function getWsPath() {
 }
 
 const shareDbErrorHandler = (error: unknown) => {
-  const { code, message } = error as HttpError;
+  const httpError = new HttpError(error as string, 500);
+  const { code, message } = httpError;
   if (code === HttpErrorCode.UNAUTHORIZED) {
     window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
     return;

@@ -470,8 +470,30 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
+  async shareWithViewId(tableId: string, viewId?: string) {
+    const shareId = this.cls.get('shareViewId');
+    if (!shareId) {
+      return viewId;
+    }
+    const view = await this.prismaService.txClient().view.findFirst({
+      select: { id: true },
+      where: {
+        tableId,
+        shareId,
+        ...(viewId ? { id: viewId } : {}),
+        enableShare: true,
+        deletedTime: null,
+      },
+    });
+    if (!view) {
+      throw new BadRequestException('error shareId');
+    }
+    return view.id;
+  }
+
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    const { filterHidden, viewId } = query;
+    const { filterHidden } = query;
+    const viewId = await this.shareWithViewId(tableId, query.viewId);
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },

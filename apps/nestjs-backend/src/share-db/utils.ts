@@ -28,3 +28,8 @@ export const getAction = (op: CreateOp | DeleteOp | EditOp) => {
   }
   return null;
 };
+
+export const isShareViewResourceDoc = (docType: IdPrefix) => {
+  const shareViewResource = [IdPrefix.View, IdPrefix.Field];
+  return shareViewResource.includes(docType);
+};
