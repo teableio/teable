@@ -5,7 +5,7 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
 
-function getWsPath() {
+export function getWsPath() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${wsProtocol}//${window.location.host}/socket`;
 }
@@ -20,10 +20,10 @@ const shareDbErrorHandler = (error: unknown) => {
   toast({ title: 'Socket Error', description: `${code}: ${message}` });
 };
 
-export const useConnection = () => {
+export const useConnection = (path?: string) => {
   const [connection, setConnection] = useState(() => {
     if (typeof window === 'object') {
-      const socket = new ReconnectingWebSocket(getWsPath());
+      const socket = new ReconnectingWebSocket(path || getWsPath());
       return new Connection(socket as Socket);
     }
   });
@@ -31,10 +31,10 @@ export const useConnection = () => {
 
   useEffect(() => {
     if (!connection) {
-      const socket = new ReconnectingWebSocket(getWsPath());
+      const socket = new ReconnectingWebSocket(path || getWsPath());
       setConnection(new Connection(socket as Socket));
     }
-  }, [connection]);
+  }, [connection, path]);
 
   useEffect(() => {
     if (!connection) {

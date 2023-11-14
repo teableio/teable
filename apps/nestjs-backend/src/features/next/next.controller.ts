@@ -23,6 +23,7 @@ export class NextController {
     'auth/?*',
     'base/?*',
     'invite/?*',
+    'share/?*',
   ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.nextService.server.getRequestHandler()(req, res);

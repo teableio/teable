@@ -1,3 +1,4 @@
+import url from 'url';
 import { Logger } from '@nestjs/common';
 import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
 import { WebSocketGateway } from '@nestjs/websockets';
@@ -27,8 +28,14 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     this.logger.log('WsGateway afterInit');
     server.on('connection', async (webSocket, request) => {
       try {
+        const newUrl = new url.URL(webSocket.url, 'https://example.com');
+        const shareId = newUrl.searchParams.get('shareId');
         const cookie = request.headers.cookie;
-        await this.wsAuthService.checkCookie(cookie);
+        if (shareId) {
+          await this.wsAuthService.checkShareCookie(shareId, cookie);
+        } else {
+          await this.wsAuthService.checkCookie(cookie);
+        }
         this.logger.log('ws:on:connection');
         const stream = new WebSocketJSONStream(webSocket);
         this.shareDb.listen(stream, request);

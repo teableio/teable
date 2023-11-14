@@ -8,8 +8,11 @@ import { useTheme } from './useTheme';
 
 const queryClient = createQueryClient();
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { connected, connection } = useConnection();
+export const AppProvider: React.FC<{ children: React.ReactNode; wsPath?: string }> = ({
+  wsPath,
+  children,
+}) => {
+  const { connected, connection } = useConnection(wsPath);
   const themeProps = useTheme();
 
   useEffect(() => {

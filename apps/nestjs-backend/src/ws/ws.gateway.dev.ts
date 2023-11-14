@@ -1,3 +1,4 @@
+import url from 'url';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -23,8 +24,14 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   handleConnection = async (webSocket: WebSocket, request: Request) => {
     this.logger.log('ws:on:connection');
     try {
+      const newUrl = new url.URL(request.url, 'https://example.com');
+      const shareId = newUrl.searchParams.get('shareId');
       const cookie = request.headers.cookie;
-      await this.wsAuthService.checkCookie(cookie);
+      if (shareId) {
+        await this.wsAuthService.checkShareCookie(shareId, cookie);
+      } else {
+        await this.wsAuthService.checkCookie(cookie);
+      }
       const stream = new WebSocketJSONStream(webSocket);
       this.shareDb.listen(stream, request);
     } catch (error) {

@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { FieldKeyType } from '@teable-group/core';
+import { ANONYMOUS_USER_ID, FieldKeyType } from '@teable-group/core';
 import type {
   IViewVo,
   IShareViewMeta,
@@ -9,9 +14,12 @@ import type {
   IViewRowCountVo,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { type ShareViewGetVo } from '@teable-group/openapi';
+import type { ShareViewFormSubmitRo, ShareViewGetVo } from '@teable-group/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldService } from '../field/field.service';
+import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { createViewVoByRaw } from '../view/model/factory';
 
@@ -28,8 +36,18 @@ export class ShareService {
     private readonly jwtService: JwtService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly aggregationService: AggregationService
+    private readonly aggregationService: AggregationService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
+
+  async validateJwtToken(token: string) {
+    try {
+      return await this.jwtService.verifyAsync<{ shareId: string }>(token);
+    } catch {
+      throw new UnauthorizedException();
+    }
+  }
 
   async authShareView(shareId: string, pass: string): Promise<string | null> {
     const view = await this.prismaService.view.findFirst({
@@ -118,5 +136,31 @@ export class ShareService {
     return {
       rowCount: result[viewId].rowCount,
     };
+  }
+
+  async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
+    const { tableId } = shareInfo;
+    const { fields } = shareViewFormSubmitRo;
+    return await this.cls.runWith(
+      {
+        ...this.cls.get('shareViewId'),
+        user: {
+          id: ANONYMOUS_USER_ID,
+          name: ANONYMOUS_USER_ID,
+          email: '',
+        },
+      },
+      async () => {
+        const { records } = await this.recordOpenApiService.createRecords(
+          tableId,
+          [{ fields }],
+          FieldKeyType.Id
+        );
+        if (records.length === 0) {
+          throw new InternalServerErrorException('The number of successful submit records is 0');
+        }
+        return records[0];
+      }
+    );
   }
 }

@@ -2,7 +2,9 @@ import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable-group/icon
 import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { generateUniqLocalKey } from '../view/form/util';
+import { SharePopover } from './SharePopover';
 import { FormMode, useFormModeStore } from './store';
+import { ToolBarButton } from './ToolBarButton';
 
 const FORM_MODE_BUTTON_LIST = [
   {
@@ -33,7 +35,7 @@ export const FormToolBar: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-end border-y py-2 pl-8 pr-4 sm:justify-between">
+    <div className="flex flex-wrap items-center justify-end border-y py-2 pl-8 pr-4 @container/toolbar sm:justify-between">
       <div className="hidden flex-1 sm:flex">
         {isEditable &&
           FORM_MODE_BUTTON_LIST.map((item) => {
@@ -53,10 +55,17 @@ export const FormToolBar: React.FC = () => {
           })}
       </div>
 
-      <Button variant={'ghost'} size={'xs'} className="font-normal">
+      {/* <Button variant={'ghost'} size={'xs'} className="font-normal">
         <ArrowUpRight className="h-4 w-4" />
         Share
-      </Button>
+      </Button> */}
+      <SharePopover>
+        {(text, isActive) => (
+          <ToolBarButton disabled={!isEditable} isActive={isActive} text={text}>
+            <ArrowUpRight className="h-4 w-4" />
+          </ToolBarButton>
+        )}
+      </SharePopover>
     </div>
   );
 };

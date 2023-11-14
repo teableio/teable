@@ -28,7 +28,7 @@ export const authMiddleware = (
     shareDbPermissionService.checkApplyPermissionMiddleware(context, callback)
   );
 
-  shareDB.use('readSnapshots', (context, callback) =>
+  shareDB.use('query', (context, callback) =>
     shareDbPermissionService.authMiddleware(context, callback)
   );
   shareDB.use('readSnapshots', (context, callback) =>

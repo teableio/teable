@@ -14,6 +14,8 @@ import { useTitle } from 'react-use';
 import { FailAlert } from '../table-list/FailAlert';
 import { ToolBar } from '../tool-bar/ToolBar';
 import { View } from '../view/View';
+import { useAggregationsQuery } from './hooks/use-aggregations-query';
+import { useRowCountQuery } from './hooks/use-row-count-query';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
@@ -31,19 +33,22 @@ export const Table: React.FC<ITableProps> = ({
 }) => {
   const table = useTable();
   const router = useRouter();
-  const { nodeId, viewId } = router.query;
+  const { nodeId, viewId } = router.query as { nodeId: string; viewId: string };
   useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
 
+  const aggregationView = useAggregationsQuery(nodeId, viewId);
+  const rowCountView = useRowCountQuery(nodeId, viewId);
+
   return (
-    <AnchorContext.Provider value={{ tableId: nodeId as string, viewId: viewId as string }}>
+    <AnchorContext.Provider value={{ tableId: nodeId, viewId: viewId }}>
       <ViewProvider serverData={viewServerData}>
-        <AggregationProvider>
+        <AggregationProvider aggregationWithoutConnected={aggregationView}>
           <div className="flex h-full grow basis-[500px] flex-col">
             <TableHeader />
             <FieldProvider serverSideData={fieldServerData}>
               <ToolBar />
               <RecordProvider serverData={recordsServerData}>
-                <RowCountProvider>
+                <RowCountProvider rowCountWithoutConnected={rowCountView}>
                   <ErrorBoundary
                     fallback={
                       <div className="flex h-full w-full items-center justify-center">

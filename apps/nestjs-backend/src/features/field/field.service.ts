@@ -26,6 +26,7 @@ import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
+import { createViewVoByRaw } from '../view/model/factory';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -470,13 +471,13 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async shareWithViewId(tableId: string, viewId?: string) {
+  async viewQueryWidthShare(tableId: string, query: IGetFieldsQuery): Promise<IGetFieldsQuery> {
     const shareId = this.cls.get('shareViewId');
     if (!shareId) {
-      return viewId;
+      return query;
     }
+    const { viewId } = query;
     const view = await this.prismaService.txClient().view.findFirst({
-      select: { id: true },
       where: {
         tableId,
         shareId,
@@ -488,12 +489,12 @@ export class FieldService implements IAdapterService {
     if (!view) {
       throw new BadRequestException('error shareId');
     }
-    return view.id;
+    const filterHidden = !createViewVoByRaw(view).shareMeta?.includeHiddenField;
+    return { viewId: view.id, filterHidden };
   }
 
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    const { filterHidden } = query;
-    const viewId = await this.shareWithViewId(tableId, query.viewId);
+    const { viewId, filterHidden } = await this.viewQueryWidthShare(tableId, query);
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },

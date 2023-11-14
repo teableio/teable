@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { IdPrefix } from '@teable-group/core';
+import { ANONYMOUS_USER_ID, IdPrefix } from '@teable-group/core';
 import type { IShareViewMeta, PermissionAction } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
@@ -31,6 +31,7 @@ export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator 
         await clsService.runWith(clsService.get(), async () => {
           try {
             clsService.set('user', context.agent.custom.user);
+            clsService.set('shareViewId', context.agent.custom.shareId);
             await originalMethod.apply(this, [context, callback]);
           } catch (error) {
             callback(error);
@@ -51,7 +52,8 @@ export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator 
 export type IAuthMiddleContext =
   | ShareDBClass.middleware.ConnectContext
   | ShareDBClass.middleware.ApplyContext
-  | ShareDBClass.middleware.ReadSnapshotsContext;
+  | ShareDBClass.middleware.ReadSnapshotsContext
+  | ShareDBClass.middleware.QueryContext;
 
 @Injectable()
 export class ShareDbPermissionService {
@@ -70,7 +72,7 @@ export class ShareDbPermissionService {
   ) {
     await this.clsService.runWith(this.clsService.get(), async () => {
       this.clsService.set('user', context.agent.custom.user);
-      this.clsService.set('shareViewId', context.agent.custom.shareViewId);
+      this.clsService.set('shareViewId', context.agent.custom.shareId);
       callback(error);
     });
   }
@@ -80,11 +82,12 @@ export class ShareDbPermissionService {
     try {
       const { cookie, shareId } = context.agent.custom;
       if (shareId) {
-        context.agent.custom.user = undefined;
-        return;
+        context.agent.custom.user = { id: ANONYMOUS_USER_ID, name: ANONYMOUS_USER_ID, email: '' };
+        await this.wsAuthService.checkShareCookie(shareId, cookie);
+      } else {
+        const user = await this.wsAuthService.checkCookie(cookie);
+        context.agent.custom.user = user;
       }
-      const user = await this.wsAuthService.checkCookie(cookie);
-      context.agent.custom.user = user;
       await this.clsRunWith(context, callback);
     } catch (error) {
       callback(error);
@@ -104,7 +107,7 @@ export class ShareDbPermissionService {
     }
   }
 
-  @ContextDecorator('skipIfBackend')
+  @ContextDecorator('skipIfBackend', 'useCls')
   async checkApplyPermissionMiddleware(
     context: ShareDBClass.middleware.ApplyContext,
     callback: (err?: unknown) => void
@@ -121,7 +124,7 @@ export class ShareDbPermissionService {
     callback(error);
   }
 
-  @ContextDecorator('skipIfBackend')
+  @ContextDecorator('skipIfBackend', 'useCls')
   async checkReadPermissionMiddleware(
     context: ShareDBClass.middleware.ReadSnapshotsContext,
     callback: (err?: unknown) => void
@@ -171,7 +174,7 @@ export class ShareDbPermissionService {
             viewId: view.id,
             filterHidden: !shareMeta.includeHiddenField,
           });
-          const fieldIds = new Set(...ids);
+          const fieldIds = new Set(ids);
           if (!checkSnapshot((snapshot) => fieldIds.has(snapshot.id)))
             return 'no permission read field';
         }

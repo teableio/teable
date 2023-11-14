@@ -314,8 +314,11 @@ export class ViewService implements IAdapterService {
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
+    const shareViewId = this.cls.get('shareViewId');
+    const shareWhere = shareViewId ? { shareId: shareViewId, enableShare: true } : {};
+
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, id: { in: ids } },
+      where: { tableId, id: { in: ids }, ...shareWhere },
     });
 
     return views
@@ -331,8 +334,11 @@ export class ViewService implements IAdapterService {
   }
 
   async getDocIdsByQuery(tableId: string, _query: unknown) {
+    const shareViewId = this.cls.get('shareViewId');
+    const shareWhere = shareViewId ? { shareId: shareViewId, enableShare: true } : {};
+
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
+      where: { tableId, deletedTime: null, ...shareWhere },
       select: { id: true },
       orderBy: { order: 'asc' },
     });
