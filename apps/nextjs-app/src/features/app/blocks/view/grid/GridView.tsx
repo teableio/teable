@@ -1,5 +1,13 @@
 import type { GridViewOptions, PermissionAction } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
+import type {
+  IRectangle,
+  IPosition,
+  IGridRef,
+  ICellItem,
+  ICell,
+  IInnerCell,
+} from '@teable-group/sdk';
 import {
   Grid,
   CellType,
@@ -16,14 +24,7 @@ import {
   useGridAsyncRecords,
   useGridIcons,
   useGridTooltipStore,
-} from '@teable-group/sdk';
-import type {
-  IRectangle,
-  IPosition,
-  IGridRef,
-  ICellItem,
-  ICell,
-  IInnerCell,
+  hexToRGBA,
 } from '@teable-group/sdk';
 import {
   useFields,
@@ -37,15 +38,15 @@ import {
   useViewId,
 } from '@teable-group/sdk/hooks';
 import { Skeleton, useToast } from '@teable-group/ui-lib';
-import { isEqual, keyBy, uniqueId } from 'lodash';
+import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useClickAway } from 'react-use';
 import type { IExpandRecordContainerRef } from '../../../components/ExpandRecordContainer';
 import { FieldOperator } from '../../../components/field-setting';
+import { useCollaborate, useSelectionOperation } from '../grid/hooks';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import { useSelectionOperation } from './hooks';
 import { useGridViewStore } from './store/gridView';
 
 interface IGridViewProps {
@@ -68,8 +69,14 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
-  const { openRecordMenu, openHeaderMenu, openSetting, openStatisticMenu, setSelection } =
-    useGridViewStore();
+  const {
+    selection,
+    openRecordMenu,
+    openHeaderMenu,
+    openSetting,
+    openStatisticMenu,
+    setSelection,
+  } = useGridViewStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
@@ -295,6 +302,8 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
     [setSelection]
   );
 
+  const [collaborators] = useCollaborate(selection);
+
   const onRowExpand = (rowIndex: number) => {
     const { baseId, nodeId, viewId } = router.query;
     const recordId = recordMap[rowIndex]?.id;
@@ -345,6 +354,37 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
         position: bounds,
       });
     }
+
+    if (type === RegionType.Cell && collaborators.length) {
+      const { x, y, width, height } = bounds;
+      const [rowIndex, columnIndex] = cellItem;
+      const groupedCollaborators = groupBy(collaborators, 'activeCell');
+      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`];
+      const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');
+      const hoverHeight = 24;
+
+      collaboratorText &&
+        openTooltip?.({
+          id: componentId,
+          text: collaboratorText,
+          position: {
+            x: x,
+            y: y + 8,
+            width: width,
+            height: height,
+          },
+          contentClassName: 'items-center py-0 px-2 absolute truncate',
+          contentStyle: {
+            right: `-${width / 2}px`,
+            top: `-${hoverHeight}px`,
+            maxWidth: width - 1,
+            height: `${hoverHeight}px`,
+            direction: 'rtl',
+            lineHeight: `${hoverHeight}px`,
+            backgroundColor: hexToRGBA(hoverCollaborators?.[0].borderColor, 0.5),
+          },
+        });
+    }
   };
 
   const draggable = useMemo(() => {
@@ -385,6 +425,7 @@ export const GridView: React.FC<IGridViewProps> = (props) => {
           rowCounterVisible
           customIcons={customIcons}
           rowControls={rowControls}
+          collaborators={collaborators}
           style={{
             width: '100%',
             height: '100%',

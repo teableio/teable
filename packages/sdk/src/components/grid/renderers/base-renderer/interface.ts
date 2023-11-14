@@ -1,3 +1,4 @@
+import type { IUser } from '../../../../context';
 import type { IRectangle } from '../../interface';
 
 export interface IPoint {
@@ -116,4 +117,13 @@ export type IChartBarProps = Omit<IChartLineProps, 'hoverAmount'>;
 export interface ITextInfo {
   text: string;
   width: number;
+}
+
+export interface IAvatarProps extends IRectangle {
+  user: IUser;
+  fill?: string;
+  stroke?: string;
+  fontSize?: number;
+  textColor?: string;
+  fontFamily: string;
 }

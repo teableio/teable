@@ -14,6 +14,7 @@ export interface IGridTheme {
   iconSizeSM: number;
   iconSizeMD: number;
   iconSizeLG: number;
+  fontSizeXXS: number;
   fontSizeXS: number;
   fontSizeSM: number;
   fontSizeMD: number;
@@ -40,6 +41,12 @@ export interface IGridTheme {
   rowHeaderTextColor: string;
   appendRowBg: string;
   appendRowBgHovered: string;
+
+  avatarBg: string;
+  avatarTextColor: string;
+  avatarSizeXS: number;
+  avatarSizeSM: number;
+  avatarSizeMD: number;
 }
 
 export const gridTheme: IGridTheme = {
@@ -56,6 +63,7 @@ export const gridTheme: IGridTheme = {
   iconSizeSM: 20,
   iconSizeMD: 24,
   iconSizeLG: 32,
+  fontSizeXXS: 10,
   fontSizeXS: 12,
   fontSizeSM: 13,
   fontSizeMD: 14,
@@ -91,4 +99,11 @@ export const gridTheme: IGridTheme = {
   // Append Row
   appendRowBg: colors.slate[50],
   appendRowBgHovered: colors.slate[100],
+
+  // Avatar Theme
+  avatarBg: colors.gray[100],
+  avatarTextColor: colors.gray[950],
+  avatarSizeXS: 16,
+  avatarSizeSM: 20,
+  avatarSizeMD: 24,
 };
