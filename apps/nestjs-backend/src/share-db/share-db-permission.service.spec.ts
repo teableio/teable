@@ -2,10 +2,12 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { ActionPrefix, IdPrefix } from '@teable-group/core';
-import { mockDeep } from 'jest-mock-extended';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import { PermissionService } from '../features/auth/permission.service';
+import { FieldService } from '../features/field/field.service';
 import { GlobalModule } from '../global/global.module';
 import type { IClsStore } from '../types/cls';
 import type { IAuthMiddleContext } from './share-db-permission.service';
@@ -18,18 +20,39 @@ describe('ShareDBPermissionService', () => {
   let wsAuthService: WsAuthService;
   let clsService: ClsService<IClsStore>;
   let permissionService: PermissionService;
+  const prismaService = mockDeep<PrismaService>();
+  const fieldService = mockDeep<FieldService>();
 
+  const shareId = 'shareId';
   const mockUser = { id: 'usr1', name: 'John', email: 'john@example.com' };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, ShareDbModule],
-    }).compile();
+    })
+      .overrideProvider(PrismaService)
+      .useValue(prismaService)
+      .overrideProvider(FieldService)
+      .useValue(fieldService)
+      .compile();
 
     shareDbPermissionService = module.get<ShareDbPermissionService>(ShareDbPermissionService);
     wsAuthService = module.get<WsAuthService>(WsAuthService);
     clsService = module.get<ClsService<IClsStore>>(ClsService);
     permissionService = module.get<PermissionService>(PermissionService);
+
+    prismaService.txClient.mockImplementation(() => {
+      return prismaService;
+    });
+
+    prismaService.$tx.mockImplementation(async (fn, _options) => {
+      return await fn(prismaService);
+    });
+  });
+
+  afterEach(() => {
+    mockReset(prismaService);
+    mockReset(fieldService);
   });
 
   describe('clsRunWith', () => {
@@ -49,6 +72,8 @@ describe('ShareDBPermissionService', () => {
       expect(callback).toHaveBeenCalledTimes(1);
       // expect the clsService.set to be called with 'user' and the user object
       expect(setSpy).toHaveBeenCalledWith('user', context.agent.custom.user);
+      // expect the clsService.set to be called with 'user' and the shareId
+      expect(setSpy).toHaveBeenCalledWith('shareViewId', context.agent.custom.shareId);
       // expect the clsService.get to return the user object
       expect(getSpy).toHaveBeenCalledTimes(1);
     });
@@ -57,7 +82,7 @@ describe('ShareDBPermissionService', () => {
   describe('authMiddleware', () => {
     it('should call clsRunWith and set user in the CLS context if authentication is successful', async () => {
       const context = mockDeep<IAuthMiddleContext>({
-        agent: { custom: { cookie: 'xxxx', isBackend: false } },
+        agent: { custom: { cookie: 'xxxx', isBackend: false, shareId: undefined } },
       });
 
       const callback = jest.fn();
@@ -86,7 +111,7 @@ describe('ShareDBPermissionService', () => {
 
     it('should call the callback with an error if authentication fails', async () => {
       const context = mockDeep<IAuthMiddleContext>({
-        agent: { custom: { isBackend: false, cookie: 'xxx' } },
+        agent: { custom: { isBackend: false, cookie: 'xxx', shareId: undefined } },
       });
 
       const callback = jest.fn();
@@ -100,6 +125,23 @@ describe('ShareDBPermissionService', () => {
       expect(checkCookieMock).toHaveBeenCalled();
       expect(callback).toHaveBeenCalled();
       expect(callback).toHaveBeenCalledWith(new Error('Authentication failed'));
+    });
+
+    it('should call the callback with share context', async () => {
+      const context = mockDeep<IAuthMiddleContext>({
+        agent: { custom: { cookie: 'xxxx', isBackend: false, shareId } },
+      });
+
+      const callback = jest.fn();
+
+      jest.spyOn(wsAuthService, 'checkShareCookie').mockImplementation();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      jest.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation();
+
+      await shareDbPermissionService.authMiddleware(context, callback);
+
+      expect(shareDbPermissionService['clsRunWith']).toHaveBeenCalledWith(context, callback);
+      expect(wsAuthService.checkShareCookie).toHaveBeenCalledWith(shareId, 'xxxx');
     });
   });
 
@@ -119,7 +161,7 @@ describe('ShareDBPermissionService', () => {
     };
     it('should call runPermissionCheck with the correct parameters', async () => {
       const context = mockDeep<ShareDBClass.middleware.ApplyContext>({
-        agent: { custom: { isBackend: false, user: mockUser } },
+        agent: { custom: { isBackend: false, user: mockUser, shareId: undefined } },
         id: fieldId,
         collection: `${IdPrefix.Field}_${tableId}`,
         op: fieldUpdateNameOp,
@@ -185,7 +227,7 @@ describe('ShareDBPermissionService', () => {
       const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
         collection: `${IdPrefix.Field}_${tableId}`,
         action: 'readSnapshots',
-        agent: { custom: { isBackend: false, user: mockUser } },
+        agent: { custom: { isBackend: false, user: mockUser, shareId: undefined } },
       });
 
       const callback = jest.fn();
@@ -207,7 +249,7 @@ describe('ShareDBPermissionService', () => {
       const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
         collection: `${IdPrefix.Field}_${tableId}`,
         action: 'readSnapshots',
-        agent: { custom: { isBackend: false, user: mockUser } },
+        agent: { custom: { isBackend: false, user: mockUser, shareId: undefined } },
       });
 
       const callback = jest.fn();
@@ -236,6 +278,30 @@ describe('ShareDBPermissionService', () => {
 
       expect(callback).toHaveBeenCalled();
       expect(callback).toHaveBeenCalledWith('unknown docType: xxx');
+    });
+
+    it('should call checkReadViewSharePermission with the correct parameters', async () => {
+      const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
+        collection: `${IdPrefix.Field}_${tableId}`,
+        action: 'readSnapshots',
+        agent: { custom: { isBackend: false, user: mockUser, shareId } },
+        snapshots: [{ id: 'fldxxx ' }] as any,
+      });
+
+      const callback = jest.fn();
+
+      const checkReadViewSharePermissionMock = jest
+        .spyOn(shareDbPermissionService, 'checkReadViewSharePermission')
+        .mockResolvedValue(undefined);
+
+      await shareDbPermissionService.checkReadPermissionMiddleware(context, callback);
+
+      expect(checkReadViewSharePermissionMock).toHaveBeenCalledWith(
+        shareId,
+        `${IdPrefix.Field}_${tableId}`,
+        context.snapshots
+      );
+      expect(callback).toHaveBeenCalled();
     });
   });
 
@@ -283,6 +349,87 @@ describe('ShareDBPermissionService', () => {
 
       expect(checkPermissionByBaseIdMock).toHaveBeenCalledWith('bse1', [permissionAction]);
       expect(error).toEqual(new Error(errorMessage));
+    });
+  });
+
+  describe('checkReadViewSharePermission', () => {
+    const tableId = 'tbl1';
+
+    it('should return "invalid shareId" if view is not found', async () => {
+      const collection = `${IdPrefix.Field}_${tableId}`;
+      const snapshots: any = [];
+
+      const result = await shareDbPermissionService.checkReadViewSharePermission(
+        shareId,
+        collection,
+        snapshots
+      );
+
+      prismaService.view.findFirst.mockResolvedValue(null);
+      expect(prismaService.view.findFirst).toHaveBeenCalledWith({
+        where: { shareId, tableId, deletedTime: null, enableShare: true },
+      });
+      expect(result).toEqual(`invalid shareId: ${shareId}`);
+    });
+
+    it('should return "no permission read field" if snapshots do not have permission to read fields', async () => {
+      const collection = `${IdPrefix.Field}_${tableId}`;
+      const snapshots: any = [{ id: 'fieldId1' }, { id: 'fieldId3' }];
+
+      prismaService.view.findFirst.mockResolvedValue({ id: 'viwxxx', shareMeta: null } as any);
+      fieldService.getDocIdsByQuery.mockResolvedValue({ ids: ['fieldId1'] });
+
+      const result = await shareDbPermissionService.checkReadViewSharePermission(
+        shareId,
+        collection,
+        snapshots
+      );
+      expect(result).toEqual('no permission read field');
+    });
+
+    it('should return "no permission read view" if snapshots do not have permission to read view', async () => {
+      const collection = `${IdPrefix.View}_${tableId}`;
+      const snapshots = [{ id: 'otherViewId' }] as any;
+
+      prismaService.view.findFirst.mockResolvedValue({ id: 'viwxxx', shareMeta: null } as any);
+
+      const result = await shareDbPermissionService.checkReadViewSharePermission(
+        shareId,
+        collection,
+        snapshots
+      );
+
+      expect(result).toEqual('no permission read view');
+    });
+
+    it('should return "undefined" if snapshots do not have permission to read record', async () => {
+      const collection = `${IdPrefix.Record}_${tableId}`;
+      const snapshots = [{ id: 'recordId' }] as any;
+
+      prismaService.view.findFirst.mockResolvedValue({ id: 'viwxxx', shareMeta: null } as any);
+
+      const result = await shareDbPermissionService.checkReadViewSharePermission(
+        shareId,
+        collection,
+        snapshots
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should return "unknown docType for read permission check" if docType is not recognized', async () => {
+      const collection = 'Unknown_tableId';
+      const snapshots = [] as any;
+
+      prismaService.view.findFirst.mockResolvedValue({ id: 'viwxxx', shareMeta: null } as any);
+
+      const result = await shareDbPermissionService.checkReadViewSharePermission(
+        shareId,
+        collection,
+        snapshots
+      );
+
+      expect(result).toEqual('unknown docType for read permission check');
     });
   });
 });

@@ -138,6 +138,7 @@ export class ShareDbPermissionService {
     // view share permission validation
     const shareId = context.agent.custom.shareId;
     if (shareId && isShareViewResourceDoc(docType as IdPrefix)) {
+      console.log('context.snapshots === ', context.snapshots);
       const error = await this.checkReadViewSharePermission(
         shareId,
         context.collection,
@@ -185,8 +186,10 @@ export class ShareDbPermissionService {
             return 'no permission read view';
         }
         break;
-      default:
+      case IdPrefix.Record:
         return;
+      default:
+        return 'unknown docType for read permission check';
     }
   }
 }
