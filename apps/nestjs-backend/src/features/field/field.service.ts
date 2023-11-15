@@ -374,6 +374,10 @@ export class FieldService implements IAdapterService {
       };
     }
 
+    if (key === 'columnMeta') {
+      return { [key]: JSON.stringify(newValue) ?? null };
+    }
+
     return { [key]: newValue ?? null };
   }
 
@@ -422,10 +426,10 @@ export class FieldService implements IAdapterService {
 
   private async updateStrategies(fieldId: string, opContext: IOpContext) {
     const opHandlers = {
-      [OpName.SetFieldProperty]: this.handleFieldProperty,
-      [OpName.AddColumnMeta]: this.handleColumnMeta,
-      [OpName.SetColumnMeta]: this.handleColumnMeta,
-      [OpName.DeleteColumnMeta]: this.handleColumnMeta,
+      [OpName.SetFieldProperty]: this.handleFieldProperty.bind(this),
+      [OpName.AddColumnMeta]: this.handleColumnMeta.bind(this),
+      [OpName.SetColumnMeta]: this.handleColumnMeta.bind(this),
+      [OpName.DeleteColumnMeta]: this.handleColumnMeta.bind(this),
     };
 
     const handler = opHandlers[opContext.name];
