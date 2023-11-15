@@ -55,7 +55,7 @@ export class AggregationOpenApiService {
     )) as IRawRowCountVo;
 
     return {
-      rowCount: result[viewId].rowCount,
+      rowCount: result[viewId]?.rowCount,
     };
   }
 
