@@ -202,16 +202,20 @@ export class InvitationService {
       where: {
         id: invitationId,
         deletedTime: null,
-        type: 'link',
       },
     });
     if (!linkInvitation) {
       throw new NotFoundException(`link ${invitationId} not found`);
     }
-    const { expiredTime, baseId, spaceId, role, createdBy } = linkInvitation;
+
+    const { expiredTime, baseId, spaceId, role, createdBy, type } = linkInvitation;
 
     if (expiredTime && expiredTime < new Date()) {
       throw new ForbiddenException('link has expired');
+    }
+
+    if (type === 'email') {
+      return { baseId, spaceId };
     }
 
     const exist = await this.prismaService

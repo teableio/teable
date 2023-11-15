@@ -237,6 +237,30 @@ describe('InvitationService', () => {
           ).rejects.toThrow(ForbiddenException)
       );
     });
+    it('should return success for email', async () => {
+      prismaService.invitation.findFirst.mockResolvedValue({
+        id: mockInvitationId,
+        invitationCode: mockInvitationCode,
+        type: 'email',
+        expiredTime: null,
+        spaceId: mockSpace.id,
+        baseId: null,
+        deletedTime: null,
+        createdTime: new Date(),
+        role: SpaceRole.Owner,
+        createdBy: mockUser.id,
+      });
+      prismaService.collaborator.count.mockImplementation();
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(SpaceRole.Owner),
+        },
+        async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
+      );
+      expect(prismaService.collaborator.count).toHaveBeenCalledTimes(0);
+    });
     it('exist collaborator', async () => {
       prismaService.invitation.findFirst.mockResolvedValue({ spaceId: mockSpace.id } as any);
       prismaService.collaborator.count.mockResolvedValue(1);
