@@ -2,10 +2,10 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import type { IGetBaseVo } from '../base';
 import { getBaseVoSchema } from '../base';
-import { registerRoute } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_BASE_LIST = '/space/:spaceId/base';
+export const GET_BASE_LIST = '/space/{spaceId}/base';
 
 export const getBaseListRoSchema = z.object({
   spaceId: z.string().optional(),
@@ -18,7 +18,7 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
   path: GET_BASE_LIST,
   description: 'Get base list by query',
   request: {
-    query: getBaseListRoSchema,
+    params: getBaseListRoSchema,
   },
   responses: {
     200: {
@@ -34,7 +34,5 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseList = async (query: IGetBasesListRo) => {
-  return axios.get<IGetBaseVo[]>(GET_BASE_LIST, {
-    params: query,
-  });
+  return axios.get<IGetBaseVo[]>(urlBuilder(GET_BASE_LIST, query));
 };

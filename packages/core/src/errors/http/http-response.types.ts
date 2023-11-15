@@ -16,6 +16,7 @@ export enum HttpErrorCode {
   VALIDATION_ERROR = 'validation_error',
   MESSING_VERSION = 'missing_version',
   UNAUTHORIZED = 'unauthorized',
+  UNAUTHORIZED_SHARE = 'unauthorized_share',
   RESTRICTED_RESOURCE = 'restricted_resource',
   NOT_FOUND = 'not_found',
   CONFLICT_ERROR = 'conflict_error',

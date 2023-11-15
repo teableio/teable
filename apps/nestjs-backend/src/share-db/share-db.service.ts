@@ -9,13 +9,12 @@ import ShareDBClass from 'sharedb';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
 import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
-import { PermissionService } from '../features/auth/permission.service';
 import type { IClsStore } from '../types/cls';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
+import { ShareDbPermissionService } from './share-db-permission.service';
 import { SqliteDbAdapter } from './sqlite.adapter';
-import { WsAuthService } from './ws-auth.service';
 import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
@@ -28,9 +27,8 @@ export class ShareDbService extends ShareDBClass {
     private readonly eventService: EventEmitterService,
     private readonly prismaService: PrismaService,
     private readonly clsService: ClsService<IClsStore>,
-    private readonly wsAuthService: WsAuthService,
     private readonly wsDerivateService: WsDerivateService,
-    private readonly permissionService: PermissionService
+    private readonly shareDbPermissionService: ShareDbPermissionService
   ) {
     super({
       presence: true,
@@ -38,7 +36,7 @@ export class ShareDbService extends ShareDBClass {
       db: sqliteDbAdapter,
     });
     // auth
-    authMiddleware(this, this.wsAuthService, this.clsService, this.permissionService);
+    authMiddleware(this, this.shareDbPermissionService);
     derivateMiddleware(this, this.wsDerivateService);
 
     this.use('commit', this.onCommit);

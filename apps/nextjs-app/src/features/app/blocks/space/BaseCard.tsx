@@ -29,7 +29,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     mutationFn: updateBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-list'],
+        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-all'],
       });
     },
   });
@@ -38,7 +38,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     mutationFn: deleteBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-list'],
+        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-all'],
       });
     },
   });

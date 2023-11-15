@@ -102,16 +102,17 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   const appProps = await App.getInitialProps(appContext);
   const res = appContext.ctx.res;
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
-
-  if (!res || !res?.writeHead) {
-    return appProps;
-  }
+  const isSharePage = appContext.ctx.pathname.startsWith('/share/');
 
   const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
   const initialProps = {
     ...appProps,
     driver,
   };
+
+  if (!res || !res?.writeHead || isSharePage) {
+    return initialProps;
+  }
 
   try {
     const user = await ssrApi.getUserMe(appContext.ctx.req?.headers.cookie);

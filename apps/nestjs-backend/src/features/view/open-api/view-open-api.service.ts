@@ -1,6 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IColumnMeta, IFieldVo, IOtOperation, IViewRo, IViewVo } from '@teable-group/core';
-import { FieldOpBuilder, IManualSortRo, OpName } from '@teable-group/core';
+import {
+  FieldOpBuilder,
+  IManualSortRo,
+  OpName,
+  ViewOpBuilder,
+  generateShareId,
+} from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -145,7 +151,61 @@ export class ViewOpenApiService {
 
     await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(updateRecordsOrderSql);
-      await this.viewService.updateView(tableId, viewId, newSort);
+      await this.viewService.updateViewSort(tableId, viewId, newSort);
+    });
+  }
+
+  async enableShare(tableId: string, viewId: string) {
+    const view = await this.prismaService.txClient().view.findUnique({
+      where: { id: viewId, tableId, deletedTime: null },
+      select: { shareId: true, enableShare: true },
+    });
+    if (!view) {
+      throw new NotFoundException(`View ${viewId} does not exist`);
+    }
+    const { enableShare, shareId } = view;
+    if (enableShare) {
+      throw new BadRequestException(`View ${viewId} has already been enabled share`);
+    }
+    const newShareId = generateShareId();
+    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
+      newEnableShare: true,
+      oldEnableShare: enableShare || undefined,
+    });
+    const setShareIdOp = ViewOpBuilder.editor.setViewShareId.build({
+      newShareId,
+      oldShareId: shareId || undefined,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
+    });
+    return { shareId: newShareId };
+  }
+
+  async disableShare(tableId: string, viewId: string) {
+    const view = await this.prismaService.txClient().view.findUnique({
+      where: { id: viewId, tableId, deletedTime: null },
+      select: { shareId: true, enableShare: true, shareMeta: true },
+    });
+    if (!view) {
+      throw new NotFoundException(`View ${viewId} does not exist`);
+    }
+    const { enableShare } = view;
+    if (!enableShare) {
+      throw new BadRequestException(`View ${viewId} has already been disable share`);
+    }
+    const shareMeta = JSON.parse(view.shareMeta as string) || undefined;
+    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
+      newEnableShare: false,
+      oldEnableShare: enableShare || undefined,
+    });
+
+    const shareMetaOp = ViewOpBuilder.editor.setViewShareMeta.build({
+      oldShareMeta: shareMeta || undefined,
+    });
+
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, shareMetaOp]);
     });
   }
 }

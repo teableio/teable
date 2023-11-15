@@ -1,7 +1,7 @@
 import { Loader2 } from '@teable-group/icons';
 import { LocalStorageKeys } from '@teable-group/sdk/config';
-import { useFields, useTable, useView } from '@teable-group/sdk/hooks';
-import type { FormView } from '@teable-group/sdk/model';
+import { useFields, useTableId, useView } from '@teable-group/sdk/hooks';
+import { type FormView } from '@teable-group/sdk/model';
 import { Button, cn, useToast } from '@teable-group/ui-lib/shadcn';
 import { omit } from 'lodash';
 import { useMemo, useRef, useState } from 'react';
@@ -9,12 +9,17 @@ import { useLocalStorage, useMap, useSet } from 'react-use';
 import { generateUniqLocalKey } from '../util';
 import { FormField } from './FormField';
 
-export const FormPreviewer = () => {
-  const table = useTable();
+interface IFormPreviewerProps {
+  submit?: (fields: Record<string, unknown>) => Promise<void>;
+}
+
+export const FormPreviewer = (props: IFormPreviewerProps) => {
+  const { submit } = props;
+  const tableId = useTableId();
   const view = useView();
   const fields = useFields();
   const { toast } = useToast();
-  const localKey = generateUniqLocalKey(table?.id, view?.id);
+  const localKey = generateUniqLocalKey(tableId, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
     LocalStorageKeys.ViewFromData,
     {}
@@ -88,11 +93,13 @@ export const FormPreviewer = () => {
     setFormDataMap(omit(formDataMap, [localKey]));
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!onVerify()) return;
 
     setLoading(true);
-    table?.createRecord(formData);
+    if (submit) {
+      await submit(formData);
+    }
 
     setTimeout(() => {
       onReset();

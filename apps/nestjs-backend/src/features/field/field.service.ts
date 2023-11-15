@@ -26,6 +26,7 @@ import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
+import { createViewVoByRaw } from '../view/model/factory';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -373,6 +374,10 @@ export class FieldService implements IAdapterService {
       };
     }
 
+    if (key === 'columnMeta') {
+      return { [key]: JSON.stringify(newValue) ?? null };
+    }
+
     return { [key]: newValue ?? null };
   }
 
@@ -421,10 +426,10 @@ export class FieldService implements IAdapterService {
 
   private async updateStrategies(fieldId: string, opContext: IOpContext) {
     const opHandlers = {
-      [OpName.SetFieldProperty]: this.handleFieldProperty,
-      [OpName.AddColumnMeta]: this.handleColumnMeta,
-      [OpName.SetColumnMeta]: this.handleColumnMeta,
-      [OpName.DeleteColumnMeta]: this.handleColumnMeta,
+      [OpName.SetFieldProperty]: this.handleFieldProperty.bind(this),
+      [OpName.AddColumnMeta]: this.handleColumnMeta.bind(this),
+      [OpName.SetColumnMeta]: this.handleColumnMeta.bind(this),
+      [OpName.DeleteColumnMeta]: this.handleColumnMeta.bind(this),
     };
 
     const handler = opHandlers[opContext.name];
@@ -470,8 +475,30 @@ export class FieldService implements IAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
+  async viewQueryWidthShare(tableId: string, query: IGetFieldsQuery): Promise<IGetFieldsQuery> {
+    const shareId = this.cls.get('shareViewId');
+    if (!shareId) {
+      return query;
+    }
+    const { viewId } = query;
+    const view = await this.prismaService.txClient().view.findFirst({
+      where: {
+        tableId,
+        shareId,
+        ...(viewId ? { id: viewId } : {}),
+        enableShare: true,
+        deletedTime: null,
+      },
+    });
+    if (!view) {
+      throw new BadRequestException('error shareId');
+    }
+    const filterHidden = !createViewVoByRaw(view).shareMeta?.includeHiddenField;
+    return { viewId: view.id, filterHidden };
+  }
+
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    const { filterHidden, viewId } = query;
+    const { viewId, filterHidden } = await this.viewQueryWidthShare(tableId, query);
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },

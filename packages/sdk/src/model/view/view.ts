@@ -1,9 +1,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFilter, ISort, IViewVo } from '@teable-group/core';
-import { sortSchema, filterSchema, ViewCore, ViewOpBuilder } from '@teable-group/core';
+import type { IFilter, IShareViewMeta, ISort, IViewVo } from '@teable-group/core';
+import {
+  sortSchema,
+  filterSchema,
+  ViewCore,
+  ViewOpBuilder,
+  generateShareId,
+} from '@teable-group/core';
 import {
   createView,
   deleteView,
+  disableShareView,
+  enableShareView,
   getViewAggregations,
   getViewList,
   getViewRowCount,
@@ -26,6 +34,10 @@ export abstract class View extends ViewCore {
   static getViewRowCount = requestWrap(getViewRowCount);
 
   static manualSort = requestWrap(manualSortView);
+
+  static enableShare = requestWrap(enableShareView);
+
+  static disableShare = requestWrap(disableShareView);
 
   private async submitOperation(operation: unknown) {
     try {
@@ -74,6 +86,22 @@ export abstract class View extends ViewCore {
     const viewOperation = ViewOpBuilder.editor.setViewSort.build({
       newSort: validSort,
       oldSort: this.sort,
+    });
+    return await this.submitOperation(viewOperation);
+  }
+
+  async setRefreshLink() {
+    const viewOperation = ViewOpBuilder.editor.setViewShareId.build({
+      newShareId: generateShareId(),
+      oldShareId: this.shareId,
+    });
+    return await this.submitOperation(viewOperation);
+  }
+
+  async setShareMeta(newShareMeta?: IShareViewMeta) {
+    const viewOperation = ViewOpBuilder.editor.setViewShareMeta.build({
+      newShareMeta,
+      oldShareMeta: this.shareMeta,
     });
     return await this.submitOperation(viewOperation);
   }

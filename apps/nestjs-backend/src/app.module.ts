@@ -12,6 +12,7 @@ import { HealthModule } from './features/health/health.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { SelectionModule } from './features/selection/selection.module';
+import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
 import { UserModule } from './features/user/user.module';
@@ -41,6 +42,7 @@ import { WsModule } from './ws/ws.module';
     SpaceModule,
     CollaboratorModule,
     InvitationModule,
+    ShareModule,
   ],
   controllers: [],
   providers: [InitBootstrapProvider],

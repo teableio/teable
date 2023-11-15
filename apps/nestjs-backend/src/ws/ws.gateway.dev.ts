@@ -1,3 +1,4 @@
+import url from 'url';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -5,7 +6,6 @@ import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Request } from 'express';
 import type { WebSocket } from 'ws';
 import { Server } from 'ws';
-import { checkCookie } from '../share-db/auth.middleware';
 import { ShareDbService } from '../share-db/share-db.service';
 import { WsAuthService } from '../share-db/ws-auth.service';
 
@@ -24,8 +24,14 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   handleConnection = async (webSocket: WebSocket, request: Request) => {
     this.logger.log('ws:on:connection');
     try {
+      const newUrl = new url.URL(request.url, 'https://example.com');
+      const shareId = newUrl.searchParams.get('shareId');
       const cookie = request.headers.cookie;
-      await checkCookie(cookie, this.wsAuthService);
+      if (shareId) {
+        await this.wsAuthService.checkShareCookie(shareId, cookie);
+      } else {
+        await this.wsAuthService.checkCookie(cookie);
+      }
       const stream = new WebSocketJSONStream(webSocket);
       this.shareDb.listen(stream, request);
     } catch (error) {

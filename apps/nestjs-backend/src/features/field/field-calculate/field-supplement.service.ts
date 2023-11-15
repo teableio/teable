@@ -710,7 +710,7 @@ export class FieldSupplementService implements ISupplementService {
       id: oldField.id,
       dbFieldName: oldField.dbFieldName,
       isPrimary: oldField.isPrimary,
-      columnMeta: oldField.columnMeta,
+      columnMeta: fieldVo.columnMeta ?? oldField.columnMeta,
     };
   }
 

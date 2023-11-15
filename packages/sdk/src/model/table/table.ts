@@ -89,14 +89,14 @@ export class Table extends TableCore {
   }
 
   async updateOrder(order: number) {
-    const fieldOperation = TableOpBuilder.editor.setTableOrder.build({
+    const tableOperation = TableOpBuilder.editor.setTableOrder.build({
       newOrder: order,
       oldOrder: this.order,
     });
 
     try {
       return await new Promise((resolve, reject) => {
-        this.doc.submitOp([fieldOperation], undefined, (error) => {
+        this.doc.submitOp([tableOperation], undefined, (error) => {
           error ? reject(error) : resolve(undefined);
         });
       });
