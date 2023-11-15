@@ -1,11 +1,11 @@
-import type { OnModuleInit } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import createServer from 'next';
 import type { NextServer } from 'next/dist/server/next';
 
 @Injectable()
-export class NextService implements OnModuleInit {
+export class NextService implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(NextService.name);
   public server!: NextServer;
   constructor(private configService: ConfigService) {}
@@ -29,5 +29,9 @@ export class NextService implements OnModuleInit {
 
   async onModuleInit() {
     await this.startNEXTjs();
+  }
+
+  onModuleDestroy() {
+    this.server.close();
   }
 }
