@@ -151,11 +151,13 @@ export class ShareService {
         },
       },
       async () => {
-        const { records } = await this.recordOpenApiService.createRecords(
-          tableId,
-          [{ fields }],
-          FieldKeyType.Id
-        );
+        const { records } = await this.prismaService.$tx(async () => {
+          return await this.recordOpenApiService.createRecords(
+            tableId,
+            [{ fields }],
+            FieldKeyType.Id
+          );
+        });
         if (records.length === 0) {
           throw new InternalServerErrorException('The number of successful submit records is 0');
         }
