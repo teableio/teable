@@ -101,6 +101,10 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
   const appProps = await App.getInitialProps(appContext);
   const res = appContext.ctx.res;
+  if (!res || !res?.writeHead) {
+    return appProps;
+  }
+
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
   const isSharePage = appContext.ctx.pathname.startsWith('/share/');
 
@@ -110,7 +114,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     driver,
   };
 
-  if (!res || !res?.writeHead || isSharePage) {
+  if (isSharePage) {
     return initialProps;
   }
 
@@ -133,10 +137,8 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       });
       return res.end();
     }
-    console.error(error);
+    return { ...initialProps, err: error };
   }
-
-  return initialProps;
 };
 
 export default appWithTranslation(MyApp, {
