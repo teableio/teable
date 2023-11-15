@@ -1,27 +1,27 @@
-import { type IRawRowCountVo } from '@teable-group/core';
+import type { IRawRowCountVo } from '@teable-group/core';
 import { getRowCountChannel } from '@teable-group/core/dist/models/channel';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
+import { useBase, useIsHydrated } from '../../hooks';
+import { Table, View } from '../../model';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
 import { RowCountContext } from './RowCountContext';
 
 interface IRowCountProviderProps {
-  rowCountWithoutConnected?: number;
   children: ReactNode;
 }
 let referenceCount = 0;
 
-export const RowCountProvider: FC<IRowCountProviderProps> = ({
-  children,
-  rowCountWithoutConnected,
-}) => {
+export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
+  const isHydrated = useIsHydrated();
+  const base = useBase();
   const { tableId, viewId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [rowCount, setRowCount] = useState<number>();
+  const [rowCount, setRowCount] = useState<number | null>(null);
 
   useEffect(() => {
     const canCreatePresence = tableId && viewId && connection;
@@ -51,9 +51,20 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({
     };
   }, [connection, remotePresence, tableId, viewId]);
 
-  return (
-    <RowCountContext.Provider value={rowCount ?? rowCountWithoutConnected ?? null}>
-      {children}
-    </RowCountContext.Provider>
-  );
+  useEffect(() => {
+    if (tableId == null || !isHydrated) return;
+
+    if (viewId == null) {
+      Table.getRowCount(base.id, tableId).then((res) => {
+        setRowCount(res.data.rowCount);
+      });
+      return;
+    }
+
+    View.getViewRowCount(tableId, viewId).then((res) => {
+      setRowCount(res.data.rowCount);
+    });
+  }, [tableId, viewId, connection, isHydrated, base.id]);
+
+  return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
 };
