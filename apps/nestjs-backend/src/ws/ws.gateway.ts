@@ -28,7 +28,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     this.logger.log('WsGateway afterInit');
     server.on('connection', async (webSocket, request) => {
       try {
-        const newUrl = new url.URL(webSocket.url, 'https://example.com');
+        const newUrl = new url.URL(request.url || '', 'https://example.com');
         const shareId = newUrl.searchParams.get('shareId');
         const cookie = request.headers.cookie;
         if (shareId) {
