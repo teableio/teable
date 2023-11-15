@@ -7,7 +7,7 @@ import type { Server } from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 import { WsAuthService } from '../share-db/ws-auth.service';
 
-@WebSocketGateway({ path: '/socket' })
+@WebSocketGateway({ path: '/socket', perMessageDeflate: true })
 export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   private logger = new Logger(WsGateway.name);
 
