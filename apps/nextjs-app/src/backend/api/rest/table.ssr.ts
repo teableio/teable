@@ -1,5 +1,5 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
-import { FieldKeyType, HttpError } from '@teable-group/core';
+import { FieldKeyType } from '@teable-group/core';
 import type {
   ShareViewGetVo,
   AcceptInvitationLinkRo,
@@ -7,29 +7,14 @@ import type {
   IGetBaseVo,
 } from '@teable-group/openapi';
 import { ACCEPT_INVITATION_LINK, SHARE_VIEW_GET, urlBuilder } from '@teable-group/openapi';
-import type { IUser } from '@teable-group/sdk';
-import axios from 'axios';
+import { axios } from './axios';
 
 export class SsrApi {
-  axios = axios.create({
-    baseURL: `http://localhost:${process.env.PORT}/api`,
-  });
-
-  constructor() {
-    this.axios.interceptors.response.use(
-      (response) => {
-        // Any status code that lie within the range of 2xx cause this function to trigger
-        return response;
-      },
-      (error) => {
-        const { data, status } = error?.response || {};
-        throw new HttpError(data || 'no response from server', status || 500);
-      }
-    );
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  constructor() {}
 
   async getTable(baseId: string, tableId: string, viewId?: string) {
-    return this.axios
+    return axios
       .get<ITableFullVo>(`/base/${baseId}/table/${tableId}`, {
         params: {
           includeContent: true,
@@ -41,17 +26,15 @@ export class SsrApi {
   }
 
   async getTables(baseId: string) {
-    return this.axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
+    return axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
   }
 
   async getDefaultViewId(tableId: string) {
-    return this.axios
-      .get<{ id: string }>(`/table/${tableId}/defaultViewId`)
-      .then(({ data }) => data);
+    return axios.get<{ id: string }>(`/table/${tableId}/defaultViewId`).then(({ data }) => data);
   }
 
   async getRecord(tableId: string, recordId: string) {
-    return this.axios
+    return axios
       .get<IRecord>(`/table/${tableId}/record/${recordId}`, {
         params: { fieldKeyType: FieldKeyType.Id },
       })
@@ -59,25 +42,17 @@ export class SsrApi {
   }
 
   async getBaseById(baseId: string) {
-    return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
-  }
-
-  async getUserMe(cookie?: string) {
-    return await this.axios
-      .get<IUser>(`/auth/user/me`, {
-        headers: { cookie },
-      })
-      .then(({ data }) => data);
+    return await axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
-    return this.axios
+    return axios
       .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
       .then(({ data }) => data);
   }
 
   async getShareView(shareId: string) {
-    return this.axios
+    return axios
       .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
       .then(({ data }) => data);
   }
