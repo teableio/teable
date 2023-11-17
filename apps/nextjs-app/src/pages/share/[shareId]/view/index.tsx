@@ -5,10 +5,14 @@ import { ssrApi } from '@/backend/api/rest/table.ssr';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
 import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
 
-export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async (context) => {
-  const { shareId } = context.query;
-  const req = context.req;
+export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async ({
+  res,
+  req,
+  query,
+}) => {
+  const { shareId } = query;
   try {
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *;");
     ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
     const shareViewData = await ssrApi.getShareView(shareId as string);
     return {

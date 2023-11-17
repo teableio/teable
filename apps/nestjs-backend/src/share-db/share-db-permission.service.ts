@@ -138,7 +138,6 @@ export class ShareDbPermissionService {
     // view share permission validation
     const shareId = context.agent.custom.shareId;
     if (shareId && isShareViewResourceDoc(docType as IdPrefix)) {
-      console.log('context.snapshots === ', context.snapshots);
       const error = await this.checkReadViewSharePermission(
         shareId,
         context.collection,
