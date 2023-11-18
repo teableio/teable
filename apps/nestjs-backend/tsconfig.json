@@ -12,12 +12,12 @@
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "paths": {
+      "@teable-group/core": ["../../packages/core/src"],
+      "@teable-group/openapi": ["../../packages/openapi/src"],
+      "@teable-group/db-main-prisma": ["../../packages/db-main-prisma/src"]
+    }
   },
-  "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/db-main-prisma" },
-    { "path": "../../packages/openapi" }
-  ],
   "exclude": ["**/node_modules", "**/.*/", "dist"]
 }

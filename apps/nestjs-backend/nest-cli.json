@@ -5,7 +5,7 @@
   "entryFile": "index",
   "flat": true,
   "compilerOptions": {
-    "builder": "swc",
-    "typeCheck": true
+    "webpack": true,
+    "deleteOutDir": true
   }
 }

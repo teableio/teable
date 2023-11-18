@@ -19,6 +19,8 @@ import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const module: any;
 
 const host = 'localhost';
 
@@ -62,6 +64,11 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule, { snapshot: true });
   const configService = app.get(ConfigService);
+
+  if (module.hot) {
+    module.hot.accept();
+    module.hot.dispose(() => app.close());
+  }
 
   const logger = app.get(Logger);
   app.useLogger(logger);
