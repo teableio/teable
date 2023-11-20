@@ -12,6 +12,7 @@ import { useSession } from '@teable-group/sdk';
 import {
   Avatar,
   AvatarFallback,
+  AvatarImage,
   Button,
   Input,
   Tooltip,
@@ -22,7 +23,7 @@ import {
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { RoleSelect } from './RoleSelect';
 
 extend(relativeTime);
@@ -33,9 +34,9 @@ interface ICollaborators {
 }
 
 const filterCollaborators = throttle((search: string, collaborators?: ListSpaceCollaboratorVo) => {
-  return collaborators?.filter(({ username, email }) => {
+  return collaborators?.filter(({ userName, email }) => {
     const searchLower = search.toLowerCase();
-    const usernameLower = username.toLowerCase();
+    const usernameLower = userName.toLowerCase();
     const emailLower = email.toLowerCase();
     return !search || usernameLower.includes(searchLower) || emailLower.includes(searchLower);
   });
@@ -83,14 +84,15 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
         onChange={(e) => setSearch(e.target.value)}
       />
       <div className="space-y-5">
-        {collaboratorsFiltered?.map(({ userId, username, email, role, createdTime }) => (
+        {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
               <Avatar className="h-7 w-7">
-                <AvatarFallback>{username.slice(0, 1)}</AvatarFallback>
+                <AvatarImage src={avatar as string} alt="avatar-name" />
+                <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
               </Avatar>
               <div className="ml-2 flex flex-1 flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{username}</p>
+                <p className="text-sm font-medium leading-none">{userName}</p>
                 <p className="text-xs leading-none text-muted-foreground">{email}</p>
               </div>
             </div>

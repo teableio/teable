@@ -8,7 +8,7 @@ export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
 
 export const itemSpaceCollaboratorSchema = z.object({
   userId: z.string(),
-  username: z.string(),
+  userName: z.string(),
   email: z.string(),
   role: spaceRolesSchema,
   avatar: z.string().nullable(),

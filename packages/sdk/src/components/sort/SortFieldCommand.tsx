@@ -29,7 +29,7 @@ function SortFieldCommand(props: ISortFieldCommand) {
   }, [fields, selectedFields]);
 
   return (
-    <Command className="rounded-lg shadow-md p-0 max-w-md">
+    <Command className="max-w-md rounded-lg p-0 shadow-md">
       <CommandInput placeholder="Search..." className="text-xs" containerClassName="border-none" />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
@@ -40,7 +40,7 @@ function SortFieldCommand(props: ISortFieldCommand) {
               return (
                 <CommandItem key={field.id} onSelect={() => onSelect?.(field.id)} className="flex">
                   <Icon className="shrink-0"></Icon>
-                  <span className="pl-3 truncate">{field.name}</span>
+                  <span className="truncate pl-3">{field.name}</span>
                 </CommandItem>
               );
             })

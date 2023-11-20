@@ -73,7 +73,7 @@
   },
   "dependencies": {
     "@rushstack/eslint-patch": "^1.5.1",
-    "@tanstack/eslint-plugin-query": "^4.34.1",
+    "@tanstack/eslint-plugin-query": "^4.36.1",
     "@typescript-eslint/eslint-plugin": "^6.9.0",
     "@typescript-eslint/parser": "^6.9.0",
     "eslint-config-prettier": "^9.0.0",

@@ -1,21 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import { MoreHorizontal } from '@teable-group/icons';
-import type { IGetSpaceVo, IGetBaseVo } from '@teable-group/openapi';
-import { createBase, deleteSpace, updateSpace } from '@teable-group/openapi';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from '@teable-group/ui-lib/shadcn';
-import { useRouter } from 'next/router';
-import { useState, type FC, useRef, useEffect } from 'react';
-import { SpaceCollaboratorModalTrigger } from '../../components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import type { IGetBaseVo, IGetSpaceVo } from '@teable-group/openapi';
+import { deleteSpace, updateSpace } from '@teable-group/openapi';
+import { Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
+import { type FC, useEffect, useState } from 'react';
+import { SpaceActionBar } from '../../components/space/SpaceActionBar';
+import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { BaseCard } from './BaseCard';
-import { SpaceActionTrigger } from './component/SpaceActionTrigger';
 
 interface ISpaceCard {
   space: IGetSpaceVo;
@@ -24,18 +14,8 @@ interface ISpaceCard {
 export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { space, bases } = props;
   const queryClient = useQueryClient();
-  const router = useRouter();
-  const spaceId = router.query.spaceId as string;
-  const [renaming, setRenaming] = useState<boolean>();
+  const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>(space.name);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
-    mutationFn: createBase,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: spaceId ? ['base-list', spaceId] : ['base-all'] });
-    },
-  });
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -52,15 +32,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
     },
   });
 
-  useEffect(() => {
-    if (renaming) {
-      // console.log('inputRef.current', inputRef.current)
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 200);
-      setSpaceName(space.name);
-    }
-  }, [renaming, space.name]);
+  useEffect(() => setSpaceName(space?.name), [renaming, space?.name]);
 
   const toggleUpdateSpace = async (e: React.FocusEvent<HTMLInputElement, Element>) => {
     const name = e.target.value;
@@ -80,45 +52,24 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
     <Card className="w-full">
       <CardHeader className="pt-5">
         <div className="flex items-center justify-between gap-3">
-          {renaming ? (
-            <Input
-              ref={inputRef}
-              className="h-7 flex-1"
-              value={spaceName}
-              onChange={(e) => setSpaceName(e.target.value)}
-              onBlur={(e) => toggleUpdateSpace(e)}
-            />
-          ) : (
+          <SpaceRenaming
+            spaceName={spaceName!}
+            isRenaming={renaming}
+            onChange={(e) => setSpaceName(e.target.value)}
+            onBlur={(e) => toggleUpdateSpace(e)}
+          >
             <CardTitle className="truncate" title={space.name}>
               {space.name}
             </CardTitle>
-          )}
-          <div className="flex shrink-0 items-center gap-3">
-            {hasPermission(space.role, 'base|create') && (
-              <Button
-                size={'xs'}
-                disabled={createBaseLoading}
-                onClick={() => createBaseMutator({ spaceId: space.id })}
-              >
-                Create Base
-              </Button>
-            )}
-            <SpaceCollaboratorModalTrigger space={space}>
-              <Button variant={'outline'} size={'xs'} disabled={createBaseLoading}>
-                Share
-              </Button>
-            </SpaceCollaboratorModalTrigger>
-            <SpaceActionTrigger
-              showRename={hasPermission(space.role, 'space|update')}
-              showDelete={hasPermission(space.role, 'space|delete')}
-              onDelete={() => deleteSpaceMutator(space.id)}
-              onRename={() => setRenaming(true)}
-            >
-              <Button variant={'outline'} size={'xs'}>
-                <MoreHorizontal />
-              </Button>
-            </SpaceActionTrigger>
-          </div>
+          </SpaceRenaming>
+          <SpaceActionBar
+            className="flex shrink-0 items-center gap-3"
+            buttonSize="xs"
+            space={space}
+            invQueryFilters={['base-all']}
+            onDelete={() => deleteSpaceMutator(space.id)}
+            onRename={() => setRenaming(true)}
+          />
         </div>
       </CardHeader>
       <CardContent>

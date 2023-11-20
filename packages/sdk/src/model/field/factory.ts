@@ -17,6 +17,7 @@ import { RatingField } from './rating.field';
 import { RollupField } from './rollup.field';
 import { SingleLineTextField } from './single-line-text.field';
 import { SingleSelectField } from './single-select.field';
+import { UserField } from './user.field';
 
 export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
   const instance = (() => {
@@ -51,10 +52,11 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(CreatedTimeField, field);
       case FieldType.LastModifiedTime:
         return plainToInstance(LastModifiedTimeField, field);
+      case FieldType.User:
+        return plainToInstance(UserField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.LastModifiedBy:
-      case FieldType.User:
       case FieldType.Count:
       case FieldType.Duration:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

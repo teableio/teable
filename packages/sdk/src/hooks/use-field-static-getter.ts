@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { FieldType } from '@teable-group/core';
 
 import {
@@ -7,7 +8,6 @@ import {
   Code as FormulaIcon,
   File as AttachmentIcon,
   Hash as NumberIcon,
-  HelpCircle as UnknownIcon,
   A as TextIcon,
   Layers as RollupIcon,
   Link as LinkIcon,
@@ -18,6 +18,7 @@ import {
   Clock4 as CreatedTimeIcon,
   History as LastModifiedTimeIcon,
   ListOrdered as AutoNumberIcon,
+  User as UserIcon,
 } from '@teable-group/icons';
 
 import { useCallback } from 'react';
@@ -35,12 +36,13 @@ import {
   RatingField,
   SingleLineTextField,
   SingleSelectField,
+  UserField,
 } from '../model';
 
 export interface IFieldStatic {
   title: string;
   defaultOptions: unknown;
-  // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Icon: React.FC<any>;
 }
 
@@ -49,7 +51,7 @@ export const useFieldStaticGetter = () => {
     (
       type: FieldType,
       isLookup: boolean | undefined
-      // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity
+      // eslint-disable-next-line sonarjs/cognitive-complexity
     ): IFieldStatic => {
       switch (type) {
         case FieldType.SingleLineText:
@@ -130,12 +132,13 @@ export const useFieldStaticGetter = () => {
             defaultOptions: {},
             Icon: isLookup ? SearchIcon : RollupIcon,
           };
-        case FieldType.User:
+        case FieldType.User: {
           return {
             title: 'User',
-            defaultOptions: {},
-            Icon: UnknownIcon,
+            defaultOptions: UserField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : UserIcon,
           };
+        }
         case FieldType.Rating:
           return {
             title: 'Rating',

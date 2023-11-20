@@ -11,6 +11,7 @@ import type {
   IRollupFieldOptions,
   ISelectFieldOptionsRo,
   IUpdateFieldRo,
+  IUserFieldOptions,
 } from '@teable-group/core';
 import {
   ColorUtils,
@@ -39,6 +40,7 @@ import {
   LastModifiedTimeFieldCore,
   isMultiValueLink,
   getRandomString,
+  UserFieldCore,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
@@ -683,6 +685,20 @@ export class FieldSupplementService {
     };
   }
 
+  private prepareUserField(field: IFieldRo) {
+    const { name, options } = field;
+    const { isMultiple } = options as IUserFieldOptions;
+
+    return {
+      ...field,
+      name: name ?? `Collaborator${isMultiple ? 's' : ''}`,
+      options: options ?? UserFieldCore.defaultOptions(),
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+      isMultipleCellValue: isMultiple,
+    };
+  }
+
   private prepareDateField(field: IFieldRo) {
     const { name, options } = field;
 
@@ -779,6 +795,8 @@ export class FieldSupplementService {
         return this.prepareMultipleSelectField(fieldRo);
       case FieldType.Attachment:
         return this.prepareAttachmentField(fieldRo);
+      case FieldType.User:
+        return this.prepareUserField(fieldRo);
       case FieldType.Date:
         return this.prepareDateField(fieldRo);
       case FieldType.AutoNumber:
@@ -825,6 +843,8 @@ export class FieldSupplementService {
         return this.prepareMultipleSelectField(fieldRo);
       case FieldType.Attachment:
         return this.prepareAttachmentField(fieldRo);
+      case FieldType.User:
+        return this.prepareUserField(fieldRo);
       case FieldType.Date:
         return this.prepareDateField(fieldRo);
       case FieldType.AutoNumber:

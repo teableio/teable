@@ -1,21 +1,23 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import type {
   ICreateBaseVo,
-  IUpdateBaseVo,
-  IGetBaseVo,
   IDbConnectionVo,
+  IGetBaseVo,
+  IUpdateBaseVo,
 } from '@teable-group/openapi';
 import {
   createBaseRoSchema,
   ICreateBaseRo,
-  updateBaseRoSchema,
   IUpdateBaseRo,
+  updateBaseRoSchema,
 } from '@teable-group/openapi';
+import type { ListBaseCollaboratorVo } from '@teable-group/openapi/dist/base/collaborator-get-list';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -24,7 +26,8 @@ import { DbConnectionService } from './db-connection.service';
 export class BaseController {
   constructor(
     private readonly baseService: BaseService,
-    private readonly dbConnectionService: DbConnectionService
+    private readonly dbConnectionService: DbConnectionService,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   @Permissions('base|create')
@@ -82,5 +85,11 @@ export class BaseController {
   async deleteDbConnection(@Param('baseId') baseId: string) {
     await this.dbConnectionService.remove(baseId);
     return null;
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/collaborators')
+  async listCollaborator(@Param('baseId') baseId: string): Promise<ListBaseCollaboratorVo> {
+    return await this.collaboratorService.getListByBase(baseId);
   }
 }
