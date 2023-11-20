@@ -7,14 +7,19 @@ import type {
   IGetBaseVo,
 } from '@teable-group/openapi';
 import { ACCEPT_INVITATION_LINK, SHARE_VIEW_GET, urlBuilder } from '@teable-group/openapi';
-import { axios } from './axios';
+import type { AxiosInstance } from 'axios';
+import { getAxios } from './axios';
 
 export class SsrApi {
+  axios: AxiosInstance;
+
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  constructor() {}
+  constructor() {
+    this.axios = getAxios();
+  }
 
   async getTable(baseId: string, tableId: string, viewId?: string) {
-    return axios
+    return this.axios
       .get<ITableFullVo>(`/base/${baseId}/table/${tableId}`, {
         params: {
           includeContent: true,
@@ -26,15 +31,17 @@ export class SsrApi {
   }
 
   async getTables(baseId: string) {
-    return axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
+    return this.axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
   }
 
   async getDefaultViewId(tableId: string) {
-    return axios.get<{ id: string }>(`/table/${tableId}/defaultViewId`).then(({ data }) => data);
+    return this.axios
+      .get<{ id: string }>(`/table/${tableId}/defaultViewId`)
+      .then(({ data }) => data);
   }
 
   async getRecord(tableId: string, recordId: string) {
-    return axios
+    return this.axios
       .get<IRecord>(`/table/${tableId}/record/${recordId}`, {
         params: { fieldKeyType: FieldKeyType.Id },
       })
@@ -42,17 +49,17 @@ export class SsrApi {
   }
 
   async getBaseById(baseId: string) {
-    return await axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
+    return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
-    return axios
+    return this.axios
       .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
       .then(({ data }) => data);
   }
 
   async getShareView(shareId: string) {
-    return axios
+    return this.axios
       .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
       .then(({ data }) => data);
   }
