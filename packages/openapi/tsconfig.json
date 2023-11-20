@@ -19,6 +19,11 @@
     "rootDir": "src",
     "outDir": "dist"
   },
+  "references": [
+    {
+      "path": "../core"
+    }
+  ],
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src"]
 }

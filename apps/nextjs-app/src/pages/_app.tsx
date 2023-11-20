@@ -11,7 +11,7 @@ import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import { getUserMe } from '@/backend/api/rest/get-user';
 import RouterProgressBar from '@/components/RouterProgress';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
@@ -119,7 +119,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   }
 
   try {
-    const user = await ssrApi.getUserMe(appContext.ctx.req?.headers.cookie);
+    const user = await getUserMe(appContext.ctx.req?.headers.cookie);
     // Already logged in
     if (user && isLoginPage) {
       res.writeHead(302, {

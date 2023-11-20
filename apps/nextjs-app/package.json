@@ -30,7 +30,7 @@
   "scripts": {
     "build": "next build",
     "build-fast": "cross-env NEXT_BUILD_ENV_SENTRY_ENABLED=0 NEXT_BUILD_ENV_SOURCEMAPS=0 NEXT_BUILD_ENV_TYPECHECK=0 NEXT_BUILD_ENV_LINT=0 next build",
-    "bundle-analyze": "cross-env ANALYZE=true NEXT_BUILD_ENV_SENTRY_ENABLED=1 NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN=1 NEXT_BUILD_ENV_TYPECHECK=0 NEXT_BUILD_ENV_LINT=0 yarn build",
+    "bundle-analyze": "cross-env ANALYZE=true NEXT_BUILD_ENV_SENTRY_ENABLED=1 NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN=1 NEXT_BUILD_ENV_TYPECHECK=0 NEXT_BUILD_ENV_LINT=0 pnpm build",
     "check-dist": "es-check -v",
     "check-size": "size-limit --highlight-less",
     "clean": "rimraf ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache",

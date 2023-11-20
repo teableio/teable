@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { z } from 'zod';
+import { z } from '../../../zod';
 import type { timeZoneStringSchema } from './time-zone';
 
 export enum DateFormattingPreset {
