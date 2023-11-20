@@ -5,7 +5,6 @@
   "entryFile": "index",
   "flat": true,
   "compilerOptions": {
-    "webpack": true,
-    "deleteOutDir": true
+    "builder": "webpack"
   }
 }

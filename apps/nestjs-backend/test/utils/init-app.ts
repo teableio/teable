@@ -70,7 +70,7 @@ export async function signin(app: INestApplication, email: string, password: str
     .expect(200);
   return {
     access_token: sessionResponse.body,
-    cookie: sessionResponse.headers['set-cookie'],
+    cookie: sessionResponse.get('Set-Cookie'),
   };
 }
 

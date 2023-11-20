@@ -1,5 +1,5 @@
 import type { IRawRowCountVo } from '@teable-group/core';
-import { getRowCountChannel } from '@teable-group/core/dist/models/channel';
+import { getRowCountChannel } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
