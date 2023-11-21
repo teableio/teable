@@ -1,11 +1,7 @@
 import { StatisticsFunc } from '@teable-group/core';
-import { useIsHydrated } from '@teable-group/sdk';
 import { useViewId } from '@teable-group/sdk/hooks';
 import { TabsContent, Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
-import { useRef } from 'react';
-import { GridView } from '../blocks/view/grid/GridView';
-import type { IExpandRecordContainerRef } from '../components/ExpandRecordContainer';
-import { ExpandRecordContainer } from '../components/ExpandRecordContainer';
+import { GridViewBase } from '../blocks/view/grid/GridViewBase';
 import { BarChartCard } from './components/BarChart';
 import { LineChartCard } from './components/LineChart';
 import { PieChartCard } from './components/PieChart';
@@ -20,8 +16,6 @@ const test = [
 
 export const GridContent: React.FC = () => {
   const aggs = useAggregates(test);
-  const isHydrated = useIsHydrated();
-  const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
   const viewId = useViewId();
 
   return (
@@ -68,9 +62,8 @@ export const GridContent: React.FC = () => {
         <LineChartCard />
       </div>
       <div className="grid grid-cols-1">
-        {isHydrated && <ExpandRecordContainer ref={expandRecordRef} />}
         <div className="h-[600px] w-full overflow-hidden rounded-xl border bg-card text-card-foreground shadow">
-          {viewId && <GridView expandRecordRef={expandRecordRef} />}
+          {viewId && <GridViewBase />}
         </div>
       </div>
     </TabsContent>

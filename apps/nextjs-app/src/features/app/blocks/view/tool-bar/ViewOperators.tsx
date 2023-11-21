@@ -68,24 +68,14 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     <div className="flex gap-1">
       <HideFields>
         {(text, isActive) => (
-          <ToolBarButton
-            disabled={disabled}
-            isActive={isActive}
-            text={text}
-            className="max-w-[140px]"
-          >
+          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
             <EyeOff className="h-4 w-4 text-sm" />
           </ToolBarButton>
         )}
       </HideFields>
       <Filter filters={(view?.filter || null) as IFilter} onChange={onFilterChange}>
         {(text, isActive) => (
-          <ToolBarButton
-            disabled={disabled}
-            isActive={isActive}
-            text={text}
-            className="max-w-[236px]"
-          >
+          <ToolBarButton disabled={disabled} isActive={isActive} text={text} className="max-w-xs">
             <FilterIcon className="h-4 w-4 text-sm" />
           </ToolBarButton>
         )}

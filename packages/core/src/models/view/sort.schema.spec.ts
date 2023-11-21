@@ -3,7 +3,7 @@ import { sortSchema, mergeWithDefaultSort } from './sort';
 
 describe('Sort Parse', () => {
   it('should parse sort', async () => {
-    const sort: ISort = { sortObjs: [{ fieldId: 'id', order: 'asc' }], shouldAutoSort: true };
+    const sort: ISort = { sortObjs: [{ fieldId: 'id', order: 'asc' }], manualSort: true };
 
     const parse = sortSchema.parse(sort);
 
@@ -13,7 +13,7 @@ describe('Sort Parse', () => {
 
 describe('Sort mergeWithDefaultSort function test', () => {
   const defaultViewSortString =
-    '{"sortObjs":[{"fieldId":"fieldId","order":"asc"}, {"fieldId":"fieldId2","order":"desc"}],"shouldAutoSort":false}';
+    '{"sortObjs":[{"fieldId":"fieldId","order":"asc"}, {"fieldId":"fieldId2","order":"desc"}],"manualSort":false}';
 
   const querySort: ISort['sortObjs'] = [
     {
@@ -35,7 +35,7 @@ describe('Sort mergeWithDefaultSort function test', () => {
     expect(mergedSort.length).toBe(0);
   });
 
-  it('should return empty array, when shouldAutoSort is false with empty sort query', async () => {
+  it('should return empty array, when manualSort is false with empty sort query', async () => {
     const mergedSort = mergeWithDefaultSort(defaultViewSortString, undefined);
     expect(Array.isArray(mergedSort)).toBe(true);
     expect(mergedSort.length).toBe(0);

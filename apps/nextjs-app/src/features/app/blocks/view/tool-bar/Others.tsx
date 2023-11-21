@@ -2,8 +2,8 @@ import { ArrowUpRight, Code2, Component, Database, Share2 } from '@teable-group/
 import { useDriver } from '@teable-group/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import Link from 'next/link';
-import { DbConnectionPanelTrigger } from '../db-connection/PanelTrigger';
-import { useGraphStore } from '../graph/useGraphStore';
+import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
+import { useGraphStore } from '../../graph/useGraphStore';
 import { ToolBarButton } from './ToolBarButton';
 
 export const Others: React.FC = () => {
