@@ -5,7 +5,6 @@
   "entryFile": "index",
   "flat": true,
   "compilerOptions": {
-    "builder": "swc",
-    "typeCheck": true
+    "builder": "webpack"
   }
 }

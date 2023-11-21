@@ -5,7 +5,7 @@ import type {
   IRawAggregationVo,
   IRawRowCountVo,
 } from '@teable-group/core';
-import { getAggregationChannel, getRowCountChannel } from '@teable-group/core/dist/models/channel';
+import { getAggregationChannel, getRowCountChannel } from '@teable-group/core';
 import { get } from 'lodash';
 import { IEventBase } from '../../../event-emitter/interfaces/event-base.interface';
 import type {

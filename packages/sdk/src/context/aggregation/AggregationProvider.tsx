@@ -1,5 +1,5 @@
 import type { IRawAggregationVo } from '@teable-group/core';
-import { getAggregationChannel } from '@teable-group/core/dist/models/channel';
+import { getAggregationChannel } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';

@@ -171,14 +171,14 @@ function Sort(props: ISortProps) {
         {children?.(sortButtonText, sortButtonText !== 'Sort')}
       </PopoverTrigger>
 
-      <PopoverContent side="bottom" align="start" className="max-w-screen-md p-0 w-fit">
+      <PopoverContent side="bottom" align="start" className="w-fit max-w-screen-md p-0">
         <header className="mx-3">
           <div className="border-b py-3 text-xs">Sort by</div>
         </header>
 
         {innerSorts ? (
           <div className="flex flex-col">
-            <div className="p-3 max-h-96 overflow-auto">
+            <div className="max-h-96 overflow-auto p-3">
               {
                 <DraggableSortList
                   sorts={innerSorts.sortObjs}
@@ -194,7 +194,7 @@ function Sort(props: ISortProps) {
         )}
 
         {innerSorts && (
-          <footer className="bg-muted/20 px-3 flex items-center h-11 justify-between">
+          <footer className="flex h-11 items-center justify-between bg-muted/20 px-3">
             <div className="flex items-center space-x-2">
               <Switch
                 id="airplane-mode"
@@ -202,13 +202,13 @@ function Sort(props: ISortProps) {
                 onCheckedChange={switchHandler}
                 checked={innerSorts.shouldAutoSort}
               />
-              <Label htmlFor="airplane-mode" className="text-sm cursor-pointer">
+              <Label htmlFor="airplane-mode" className="cursor-pointer text-sm">
                 Automatically sort records
               </Label>
             </div>
 
             {!innerSorts.shouldAutoSort && (
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <Button
                   size="sm"
                   disabled={isLoading}
