@@ -13,11 +13,11 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
     })
     .join('');
   const headerContent = headers
-    .map((header, index) => {
+    .map((header) => {
       const attrs = Object.entries(header)
         .map(([key, value]) => `${key}="${encodeURIComponent(JSON.stringify(value))}"`)
         .join(' ');
-      return `<td colspan="${index}" ${attrs}>${header.name}</td>`;
+      return `<td ${attrs}>${header.name}</td>`;
     })
     .join('');
 
