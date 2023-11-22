@@ -1,6 +1,8 @@
 import { StatisticsFunc } from '@teable-group/core';
-import { useViewId } from '@teable-group/sdk/hooks';
+import { ExpandRecorder } from '@teable-group/sdk/components';
+import { useTableId, useViewId } from '@teable-group/sdk/hooks';
 import { TabsContent, Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
+import { useState } from 'react';
 import { GridViewBase } from '../blocks/view/grid/GridViewBase';
 import { BarChartCard } from './components/BarChart';
 import { LineChartCard } from './components/LineChart';
@@ -17,6 +19,8 @@ const test = [
 export const GridContent: React.FC = () => {
   const aggs = useAggregates(test);
   const viewId = useViewId();
+  const tableId = useTableId();
+  const [expandRecordId, setExpandRecordId] = useState<string>();
 
   return (
     <TabsContent value="overview" className="grow space-y-4 px-8 ">
@@ -63,7 +67,15 @@ export const GridContent: React.FC = () => {
       </div>
       <div className="grid grid-cols-1">
         <div className="h-[600px] w-full overflow-hidden rounded-xl border bg-card text-card-foreground shadow">
-          {viewId && <GridViewBase />}
+          {viewId && <GridViewBase onRowExpand={setExpandRecordId} />}
+          {tableId && viewId && (
+            <ExpandRecorder
+              tableId={tableId}
+              recordId={expandRecordId}
+              recordIds={expandRecordId ? [expandRecordId] : []}
+              onClose={() => setExpandRecordId(undefined)}
+            />
+          )}
         </div>
       </div>
     </TabsContent>

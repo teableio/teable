@@ -51,9 +51,12 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useGridViewStore } from './store/gridView';
 
-interface IGridViewProps {}
+interface IGridViewProps {
+  onRowExpand?: (recordId: string) => void;
+}
 
-export const GridViewBase: React.FC<IGridViewProps> = () => {
+export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
+  const { onRowExpand } = props;
   const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
@@ -305,9 +308,13 @@ export const GridViewBase: React.FC<IGridViewProps> = () => {
 
   const [collaborators] = useCollaborate(selection);
 
-  const onRowExpand = (rowIndex: number) => {
+  const onRowExpandInner = (rowIndex: number) => {
     const recordId = recordMap[rowIndex]?.id;
     if (!recordId) {
+      return;
+    }
+    if (onRowExpand) {
+      onRowExpand(recordId);
       return;
     }
     router.push(
@@ -447,7 +454,7 @@ export const GridViewBase: React.FC<IGridViewProps> = () => {
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
           onCopy={onCopy}
           onPaste={onPaste}
-          onRowExpand={onRowExpand}
+          onRowExpand={onRowExpandInner}
           onItemClick={onItemClick}
           onItemHovered={onItemHovered}
         />
@@ -461,7 +468,7 @@ export const GridViewBase: React.FC<IGridViewProps> = () => {
         </div>
       )}
       <DomBox id={componentId} />
-      <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
+      {!onRowExpand && <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />}
     </div>
   );
 };
