@@ -20,7 +20,7 @@ export class FieldOpenApiService {
 
   async createField(tableId: string, fieldRo: IFieldRo) {
     return await this.prismaService.$tx(async () => {
-      const fieldVo = await this.fieldSupplementService.prepareCreateField(fieldRo);
+      const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
       return await this.fieldCreatingService.createField(tableId, fieldInstance);
     });

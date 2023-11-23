@@ -1,29 +1,35 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type {
   IFieldVo,
   ILinkCellValue,
   ILinkFieldOptions,
-  ILookupOptionsVo,
   IOtOperation,
   ITinyRecord,
 } from '@teable-group/core';
-import { evaluate, FieldType, RecordOpBuilder, Relationship } from '@teable-group/core';
+import {
+  evaluate,
+  FieldType,
+  isMultiValueLink,
+  RecordOpBuilder,
+  Relationship,
+} from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
+import { cloneDeep, difference, groupBy, isEmpty, keyBy, unionWith, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { preservedFieldName } from '../field/constant';
-import type { IFieldInstance } from '../field/model/factory';
+import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
+import type { IAdjacencyMap } from './utils/dfs';
+import { buildCompressedAdjacencyMap, filterDirectedGraph, getTopologicalOrder } from './utils/dfs';
+import { nameConsole } from './utils/name-console';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-
+// topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
   id: string;
   dependencies: string[];
@@ -34,24 +40,26 @@ export interface IGraphItem {
   toFieldId: string;
 }
 
-export interface IFieldMap {
-  [fieldId: string]: IFieldInstance;
+export interface IRecordMap {
+  [recordId: string]: ITinyRecord;
 }
 
 export interface IRecordItem {
   record: ITinyRecord;
-  dependencies?: ITinyRecord | ITinyRecord[];
+  dependencies?: ITinyRecord[];
 }
 
-interface IRecordData {
+export interface IRecordData {
   id: string;
   fieldId: string;
   oldValue?: unknown;
   newValue: unknown;
 }
 
-interface IRecordDataMap {
-  [tableId: string]: IRecordData[];
+export interface IRelatedRecordItem {
+  fieldId: string;
+  toId: string;
+  fromId: string;
 }
 
 export interface IOpsMap {
@@ -61,31 +69,15 @@ export interface IOpsMap {
 }
 
 export interface ITopoItemWithRecords extends ITopoItem {
-  recordItems: IRecordItem[];
-}
-
-export interface IFkOpMap {
-  [dbTableName: string]: {
-    [recordId: string]: {
-      [fkField: string]: string | null;
-    };
-  };
+  recordItemMap?: Record<string, IRecordItem>;
 }
 
 export interface ITopoLinkOrder {
-  dbTableName: string;
   fieldId: string;
-  foreignKeyField: string;
   relationship: Relationship;
-  linkedTable: string;
-}
-
-export interface IRecordRefItem {
-  id: string;
-  dbTableName: string;
-  fieldId?: string;
-  selectIn?: string;
-  relationTo?: string;
+  fkHostTableName: string;
+  selfKeyName: string;
+  foreignKeyName: string;
 }
 
 @Injectable()
@@ -94,8 +86,7 @@ export class ReferenceService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @Inject('DbProvider') private dbProvider: IDbProvider
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   /**
@@ -113,27 +104,30 @@ export class ReferenceService {
    * 2. update foreignKey
    * 3. calculate the others operation
    *
-   * fkOpMap is a map of foreignKey update operation. linkDerivation generate fkOpMap operation,
-   * but we need it do calculation, so we have to pass origin fkOpMap it to calculateOpsMap.
+   * saveForeignKeyToDb a method of foreignKey update operation. we should call it after delete operation.
    */
-  async calculateOpsMap(opsMap: IOpsMap, fkOpMap: IFkOpMap = {}) {
-    const { recordDataMapWithDelete, recordDataMapRemains } =
-      this.splitOpsMapToRecordDataMap(opsMap);
+  async calculateOpsMap(opsMap: IOpsMap, saveForeignKeyToDb?: () => Promise<void>) {
+    const { recordDataDelete, recordDataRemains } = this.splitOpsMap(opsMap);
+    // console.log('recordDataDelete', JSON.stringify(recordDataDelete, null, 2));
+    const resultBefore = await this.calculate(this.mergeDuplicateRecordData(recordDataDelete));
+    // console.log('resultBefore', JSON.stringify(resultBefore?.changes, null, 2));
 
-    // console.log('recordDataMapWithDelete', JSON.stringify(recordDataMapWithDelete, null, 2));
-    // console.log('recordDataMapRemains', JSON.stringify(recordDataMapRemains, null, 2));
-    // console.log('updateForeignKey:', JSON.stringify(fkOpMap, null, 2));
-    const resultBefore = await this.calculateRecordDataMap(recordDataMapWithDelete, fkOpMap);
-    // console.log('resultBefore', resultBefore?.cellChanges);
-    await this.updateForeignKey(fkOpMap);
-    const resultAfter = await this.calculateRecordDataMap(recordDataMapRemains, fkOpMap);
-    // console.log('resultAfter', resultAfter);
-    const changes = resultBefore.cellChanges.concat(resultAfter.cellChanges);
-    const fieldMap = Object.assign({}, resultBefore.fieldMap, resultAfter.fieldMap);
+    saveForeignKeyToDb && (await saveForeignKeyToDb());
+
+    // console.log('recordDataRemains', JSON.stringify(recordDataRemains, null, 2));
+    const resultAfter = await this.calculate(this.mergeDuplicateRecordData(recordDataRemains));
+    // console.log('resultAfter', JSON.stringify(resultAfter?.changes, null, 2));
+
+    const changes = [resultBefore?.changes, resultAfter?.changes]
+      .filter(Boolean)
+      .flat() as ICellChange[];
+
+    const fieldMap = Object.assign({}, resultBefore?.fieldMap, resultAfter?.fieldMap);
+
     const tableId2DbTableName = Object.assign(
       {},
-      resultBefore.tableId2DbTableName,
-      resultAfter.tableId2DbTableName
+      resultBefore?.tableId2DbTableName,
+      resultAfter?.tableId2DbTableName
     );
 
     return {
@@ -143,13 +137,26 @@ export class ReferenceService {
     };
   }
 
-  getTopoOrdersByFieldId(fieldIds: string[], directedGraph: IGraphItem[]) {
+  getTopoOrdersMap(fieldIds: string[], directedGraph: IGraphItem[]) {
     return fieldIds.reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, fieldId) => {
-      pre[fieldId] = this.getTopologicalOrder(fieldId, directedGraph);
+      pre[fieldId] = getTopologicalOrder(fieldId, directedGraph);
       return pre;
     }, {});
+  }
+
+  getLinkAdjacencyMap(fieldMap: IFieldMap, directedGraph: IGraphItem[]) {
+    const linkIdSet = Object.values(fieldMap).reduce((pre, field) => {
+      if (field.lookupOptions || field.type === FieldType.Link) {
+        pre.add(field.id);
+      }
+      return pre;
+    }, new Set<string>());
+    if (linkIdSet.size === 0) {
+      return {};
+    }
+    return buildCompressedAdjacencyMap(directedGraph, linkIdSet);
   }
 
   /**
@@ -177,99 +184,57 @@ export class ReferenceService {
     }, {});
   }
 
-  async prepareCalculation(tableId: string, recordData: IRecordData[]) {
+  async prepareCalculation(recordData: IRecordData[]) {
     if (!recordData.length) {
       return;
     }
-    const { directedGraph, startFieldIds, extraRecordIdItems } =
+    const { directedGraph, startFieldIds, startRecordIds } =
       await this.getDirectedGraph(recordData);
     if (!directedGraph.length) {
       return;
     }
 
-    // skip calculate when not all field in graph
-    const graphSet: Set<string> = new Set(
-      directedGraph.flatMap((item) => [item.fromFieldId, item.toFieldId])
-    );
-    for (const fieldId of startFieldIds) {
-      if (!graphSet.has(fieldId)) {
-        return;
-      }
-    }
-
     // get all related field by undirected graph
     const allFieldIds = this.flatGraph(directedGraph);
     // prepare all related data
-    const { fieldMap, fieldId2TableId, dbTableName2fields, tableId2DbTableName } =
-      await this.createAuxiliaryData(allFieldIds);
-
-    // topological sorting
-    const topoOrdersByFieldId = this.removeFirstLinkItem(
+    const {
       fieldMap,
-      this.getTopoOrdersByFieldId(startFieldIds, directedGraph)
-    );
+      fieldId2TableId,
+      dbTableName2fields,
+      tableId2DbTableName,
+      fieldId2DbTableName,
+    } = await this.createAuxiliaryData(allFieldIds);
 
-    if (isEmpty(topoOrdersByFieldId)) {
+    const topoOrdersMap = this.getTopoOrdersMap(startFieldIds, directedGraph);
+
+    const linkAdjacencyMap = this.getLinkAdjacencyMap(fieldMap, directedGraph);
+
+    if (isEmpty(topoOrdersMap)) {
       return;
     }
 
-    // nameConsole('recordData', recordData, fieldMap);
-    // nameConsole('startFieldIds', startFieldIds, fieldMap);
-    // nameConsole('allFieldIds', allFieldIds, fieldMap);
-    // nameConsole('directedGraph', directedGraph, fieldMap);
-    // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
+    // console.log('linkAdjacencyMap', linkAdjacencyMap);
 
-    // submitted changed records
-    const originRecordItems = recordData.map((record) => ({
-      dbTableName: tableId2DbTableName[tableId],
-      fieldId: record.fieldId,
-      newValue: record.newValue,
-      id: record.id,
-    }));
-    // nameConsole('originRecordItems:', originRecordItems, fieldMap);
-
-    // the origin change will lead to affected record changes
-    // console.log('fieldMap', fieldMap);
-    let affectedRecordItems: IRecordRefItem[] = [];
-    for (const fieldId in topoOrdersByFieldId) {
-      const topoOrders = topoOrdersByFieldId[fieldId];
-      // nameConsole('topoOrders:', topoOrders, fieldMap);
-      const linkOrders = this.getLinkOrderFromTopoOrders({
-        tableId2DbTableName,
-        topoOrders,
-        fieldMap,
-        fieldId2TableId,
-      });
-      // only affected records included
-      const originRecordIdItems = extraRecordIdItems
-        .map((item) => ({
-          dbTableName: tableId2DbTableName[item.tableId],
-          id: item.id,
-        }))
-        .concat(originRecordItems);
-      // nameConsole('getAffectedRecordItems:originRecordIdItems', originRecordIdItems, fieldMap);
-      // nameConsole('getAffectedRecordItems:topoOrder', linkOrders, fieldMap);
-      const items = await this.getAffectedRecordItems(linkOrders, originRecordIdItems);
-      // nameConsole('fieldId:', { fieldId }, fieldMap);
-      // nameConsole('affectedRecordItems:', items, fieldMap);
-      affectedRecordItems = affectedRecordItems.concat(items);
-    }
-    // console.log('affectedRecordItems', JSON.stringify(affectedRecordItems, null, 2));
-
-    const dependentRecordItems = await this.getDependentRecordItems(affectedRecordItems);
-    // nameConsole('dependentRecordItems', dependentRecordItems, fieldMap);
+    const relatedRecordItems = await this.getRelatedItems(
+      startFieldIds,
+      fieldMap,
+      linkAdjacencyMap,
+      startRecordIds
+    );
 
     // record data source
-    const dbTableName2records = await this.getRecordsBatch({
-      originRecordItems,
-      affectedRecordItems,
-      dependentRecordItems,
+    const dbTableName2recordMap = await this.getRecordMapBatch({
+      fieldMap,
+      fieldId2DbTableName,
       dbTableName2fields,
+      modifiedRecords: recordData,
+      relatedRecordItems,
     });
-    // nameConsole('dbTableName2records', dbTableName2records, fieldMap);
-    // nameConsole('affectedRecordItems', affectedRecordItems, fieldMap);
 
-    const orderWithRecordsByFieldId = Object.entries(topoOrdersByFieldId).reduce<{
+    const relatedRecordItemsIndexed = groupBy(relatedRecordItems, 'fieldId');
+    // console.log('relatedRecordItems', relatedRecordItems);
+    // console.log('dbTableName2recordMap', JSON.stringify(dbTableName2recordMap, null, 2));
+    const orderWithRecordsByFieldId = Object.entries(topoOrdersMap).reduce<{
       [fieldId: string]: ITopoItemWithRecords[];
     }>((pre, [fieldId, topoOrders]) => {
       const orderWithRecords = this.createTopoItemWithRecords({
@@ -277,9 +242,8 @@ export class ReferenceService {
         fieldMap,
         tableId2DbTableName,
         fieldId2TableId,
-        dbTableName2records,
-        affectedRecordItems,
-        dependentRecordItems,
+        dbTableName2recordMap,
+        relatedRecordItemsIndexed,
       });
       pre[fieldId] = orderWithRecords;
       return pre;
@@ -291,12 +255,12 @@ export class ReferenceService {
       fieldId2TableId,
       tableId2DbTableName,
       orderWithRecordsByFieldId,
-      dbTableName2records,
+      dbTableName2recordMap,
     };
   }
 
-  async calculate(tableId: string, recordData: IRecordData[], fkOpMap: IFkOpMap) {
-    const result = await this.prepareCalculation(tableId, recordData);
+  async calculate(recordData: IRecordData[]) {
+    const result = await this.prepareCalculation(recordData);
     if (!result) {
       return;
     }
@@ -305,15 +269,7 @@ export class ReferenceService {
     const changes = Object.values(orderWithRecordsByFieldId).reduce<ICellChange[]>(
       (pre, orderWithRecords) => {
         // nameConsole('orderWithRecords:', orderWithRecords, fieldMap);
-        return pre.concat(
-          this.collectChanges(
-            orderWithRecords,
-            fieldMap,
-            fieldId2TableId,
-            tableId2DbTableName,
-            fkOpMap
-          )
-        );
+        return pre.concat(this.collectChanges(orderWithRecords, fieldMap, fieldId2TableId));
       },
       []
     );
@@ -326,13 +282,10 @@ export class ReferenceService {
     };
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  private splitOpsMapToRecordDataMap(opsMap: IOpsMap) {
-    const recordDataMapWithDelete: IRecordDataMap = {};
-    const recordDataMapRemains: IRecordDataMap = {};
+  private splitOpsMap(opsMap: IOpsMap) {
+    const recordDataDelete: IRecordData[] = [];
+    const recordDataRemains: IRecordData[] = [];
     for (const tableId in opsMap) {
-      const recordDataRemains: IRecordData[] = [];
-      const recordDataWithDeleteLink: IRecordData[] = [];
       for (const recordId in opsMap[tableId]) {
         opsMap[tableId][recordId].forEach((op) => {
           const ctx = RecordOpBuilder.editor.setRecord.detect(op);
@@ -343,7 +296,7 @@ export class ReferenceService {
           }
           if (isLinkCellValue(ctx.oldValue) || isLinkCellValue(ctx.newValue)) {
             ctx.oldValue &&
-              recordDataWithDeleteLink.push({
+              recordDataDelete.push({
                 id: recordId,
                 fieldId: ctx.fieldId,
                 oldValue: ctx.oldValue,
@@ -365,138 +318,41 @@ export class ReferenceService {
           }
         });
       }
-      recordDataMapWithDelete[tableId] = recordDataWithDeleteLink;
-      recordDataMapRemains[tableId] = recordDataRemains;
     }
 
     return {
-      recordDataMapWithDelete,
-      recordDataMapRemains,
+      recordDataDelete,
+      recordDataRemains,
     };
   }
 
   private async getDirectedGraph(recordData: IRecordData[]) {
     let startFieldIds = recordData.map((data) => data.fieldId);
-    const linkedData = recordData.filter(
+    const linkData = recordData.filter(
       (data) => isLinkCellValue(data.newValue) || isLinkCellValue(data.oldValue)
     );
-    const linkFieldIds = linkedData.map((data) => data.fieldId);
-    // we need add extra record id items for lookup effect dependency update when link field change
-    // only need a single one id in one linkedData item
-    const effectedRecordIds: string[] = linkedData.reduce<string[]>((pre, data) => {
-      const linkValues = data.newValue || data.oldValue;
-      if (Array.isArray(linkValues)) {
-        pre.push((linkValues[0] as ILinkCellValue).id);
-      } else {
-        pre.push((linkValues as ILinkCellValue).id);
-      }
-      return pre;
-    }, []);
-    let foreignTableId: string | undefined;
+    // const linkIds = linkData
+    //   .map((data) => [data.newValue, data.oldValue] as ILinkCellValue[])
+    //   .flat()
+    //   .filter(Boolean)
+    //   .map((d) => d.id);
+    const startRecordIds = recordData.map((data) => data.id);
+    const linkFieldIds = linkData.map((data) => data.fieldId);
 
     // when link cell change, we need to get all lookup field
     if (linkFieldIds.length) {
       const lookupFieldRaw = await this.prismaService.txClient().field.findMany({
         where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
-        select: { id: true, lookupOptions: true },
+        select: { id: true },
       });
-      lookupFieldRaw.forEach((field) => {
-        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
-        foreignTableId = lookupOptions.foreignTableId;
-        startFieldIds.push(lookupOptions.lookupFieldId);
-      });
+      lookupFieldRaw.forEach((field) => startFieldIds.push(field.id));
     }
     startFieldIds = uniq(startFieldIds);
-    const directedGraph = await this.getDependentNodesCTE(startFieldIds);
-
+    const directedGraph = await this.getFieldGraphItems(startFieldIds);
     return {
       directedGraph,
       startFieldIds,
-      extraRecordIdItems: foreignTableId
-        ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          effectedRecordIds.map((id) => ({ id, tableId: foreignTableId! }))
-        : [],
-    };
-  }
-
-  /**
-   * Generate a directed graph.
-   *
-   * @param undirectedGraph - The elements of the undirected graph.
-   * @param fieldIds - One or more field IDs to start the DFS from.
-   * @returns Returns all relations related to the given fieldIds.
-   */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  private filterDirectedGraph(undirectedGraph: IGraphItem[], fieldIds: string[]): IGraphItem[] {
-    const result: IGraphItem[] = [];
-    const visited: Set<string> = new Set();
-
-    // Build adjacency lists for quick look-up
-    const outgoingAdjList: Record<string, IGraphItem[]> = {};
-    const incomingAdjList: Record<string, IGraphItem[]> = {};
-
-    for (const item of undirectedGraph) {
-      // Outgoing edges
-      if (!outgoingAdjList[item.fromFieldId]) {
-        outgoingAdjList[item.fromFieldId] = [];
-      }
-      outgoingAdjList[item.fromFieldId].push(item);
-
-      // Incoming edges
-      if (!incomingAdjList[item.toFieldId]) {
-        incomingAdjList[item.toFieldId] = [];
-      }
-      incomingAdjList[item.toFieldId].push(item);
-    }
-
-    function dfs(currentNode: string) {
-      visited.add(currentNode);
-
-      // Add incoming edges related to currentNode
-      if (incomingAdjList[currentNode]) {
-        result.push(...incomingAdjList[currentNode]);
-      }
-
-      // Process outgoing edges from currentNode
-      if (outgoingAdjList[currentNode]) {
-        for (const item of outgoingAdjList[currentNode]) {
-          if (!visited.has(item.toFieldId)) {
-            result.push(item);
-            dfs(item.toFieldId);
-          }
-        }
-      }
-    }
-
-    // Run DFS for each specified fieldId
-    for (const fieldId of fieldIds) {
-      if (!visited.has(fieldId)) {
-        dfs(fieldId);
-      }
-    }
-
-    return result;
-  }
-
-  private async calculateRecordDataMap(recordDataMap: IRecordDataMap, fkOpMap: IFkOpMap) {
-    const cellChanges: ICellChange[] = [];
-    const allTableId2DbTableName: { [tableId: string]: string } = {};
-    const allFieldMap: IFieldMap = {};
-    for (const tableId in recordDataMap) {
-      const recordData = this.mergeDuplicateRecordData(recordDataMap[tableId]);
-      const calculateResult = await this.calculate(tableId, recordData, fkOpMap);
-      if (calculateResult) {
-        const { changes, fieldMap, tableId2DbTableName } = calculateResult;
-        Object.assign(allTableId2DbTableName, tableId2DbTableName);
-        Object.assign(allFieldMap, fieldMap);
-        cellChanges.push(...changes);
-      }
-    }
-
-    return {
-      cellChanges,
-      fieldMap: allFieldMap,
-      tableId2DbTableName: allTableId2DbTableName,
+      startRecordIds,
     };
   }
 
@@ -523,21 +379,32 @@ export class ReferenceService {
     return lookupValues;
   }
 
+  private shouldSkipCompute(field: IFieldInstance, recordItem: IRecordItem) {
+    if (!field.isComputed && field.type !== FieldType.Link) {
+      return true;
+    }
+
+    // skip calculate when direct set link cell by input (it has no dependencies)
+    if (field.type === FieldType.Link && !field.lookupOptions && !recordItem.dependencies) {
+      return true;
+    }
+
+    if ((field.lookupOptions || field.type === FieldType.Link) && !recordItem.dependencies) {
+      // console.log('empty:field', field);
+      // console.log('empty:recordItem', JSON.stringify(recordItem, null, 2));
+      return true;
+    }
+    return false;
+  }
+
   private calculateComputeField(
     field: IFieldInstance,
     fieldMap: IFieldMap,
-    recordItem: IRecordItem,
-    fieldId2TableId: { [fieldId: string]: string },
-    tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkOpMap
+    recordItem: IRecordItem
   ) {
     const record = recordItem.record;
-    if (field.type === FieldType.Link || field.lookupOptions) {
-      if (!recordItem.dependencies) {
-        throw new Error(
-          `Dependency should not be undefined when contains a link/lookup/rollup field`
-        );
-      }
+
+    if (field.lookupOptions || field.type === FieldType.Link) {
       const lookupFieldId = field.lookupOptions
         ? field.lookupOptions.lookupFieldId
         : (field.options as ILinkFieldOptions).lookupFieldId;
@@ -555,14 +422,7 @@ export class ReferenceService {
 
       const lookedField = fieldMap[lookupFieldId];
       // nameConsole('calculateLookup:dependencies', recordItem.dependencies, fieldMap);
-      const lookupValues = this.calculateLookup(
-        field,
-        lookedField,
-        recordItem,
-        fieldId2TableId,
-        tableId2DbTableName,
-        fkRecordMap
-      );
+      const lookupValues = this.calculateLookup(field, lookedField, recordItem);
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
       // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
@@ -593,56 +453,63 @@ export class ReferenceService {
   }
 
   /**
-   * lookup values should filter by foreignKey === null
-   * because fkField is delete after calculation.
-   * checkout calculateOpsMap for detail logic.
+   * lookup values should filter by linkCellValue
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private calculateLookup(
     field: IFieldInstance,
     lookedField: IFieldInstance,
-    recordItem: IRecordItem,
-    fieldId2TableId: { [fieldId: string]: string },
-    tableId2DbTableName: { [tableId: string]: string },
-    fkRecordTableMap: IFkOpMap
+    recordItem: IRecordItem
   ) {
     const fieldId = lookedField.id;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    let dependencies = recordItem.dependencies!;
+    const dependencies = recordItem.dependencies!;
+    const lookupOptions = field.lookupOptions
+      ? field.lookupOptions
+      : (field.options as ILinkFieldOptions);
+    const { relationship } = lookupOptions;
+    const linkFieldId = field.lookupOptions ? field.lookupOptions.linkFieldId : field.id;
+    const cellValue = recordItem.record.fields[linkFieldId];
 
-    const fkFieldId = Array.isArray(dependencies) ? lookedField.id : field.id;
-    const tableId = fieldId2TableId[fkFieldId];
-    const dbTableName = tableId2DbTableName[tableId];
-    const fkRecordMap = fkRecordTableMap[dbTableName];
-    const fkFieldName = field.lookupOptions?.dbForeignKeyName || '';
-
-    if (Array.isArray(dependencies)) {
-      // sort lookup values by link cell order
-      const linkFieldId = field.lookupOptions ? field.lookupOptions.linkFieldId : field.id;
-
-      const linkCellValues = recordItem.record.fields[linkFieldId] as ILinkCellValue[];
-
-      const dependenciesIndexed = keyBy(dependencies, 'id');
-      // when delete a link cell, the link cell value will be null
-      // but dependencies will still be there in the first round calculation
-      if (linkCellValues) {
-        dependencies = linkCellValues.map((v) => {
-          return dependenciesIndexed[v.id];
-        });
+    if (relationship === Relationship.OneMany || relationship === Relationship.ManyMany) {
+      if (!dependencies) {
+        return null;
       }
 
-      return dependencies
-        .filter(
-          (depRecord) =>
-            fkRecordMap?.[depRecord.id]?.[fkFieldName] === undefined ||
-            fkRecordMap?.[depRecord.id]?.[fkFieldName] === recordItem.record.id
-        )
-        .map((depRecord) => depRecord.fields[fieldId]);
-    }
+      // console.log('dependencies', dependencies);
+      // console.log('linkCellValues', cellValue);
 
-    if (fkRecordMap?.[recordItem.record.id]?.[fkFieldName] === null) {
+      // sort lookup values by link cell order
+      const dependenciesIndexed = keyBy(dependencies, 'id');
+      const linkCellValues = cellValue as ILinkCellValue[];
+      // when reset a link cell, the link cell value will be null
+      // but dependencies will still be there in the first round calculation
+      if (linkCellValues) {
+        return linkCellValues
+          .map((v) => {
+            return dependenciesIndexed[v.id];
+          })
+          .map((depRecord) => depRecord.fields[fieldId]);
+      }
+
       return null;
     }
-    return dependencies.fields[fieldId] ?? null;
+
+    if (relationship === Relationship.ManyOne || relationship === Relationship.OneOne) {
+      if (!dependencies) {
+        return null;
+      }
+      if (dependencies.length !== 1) {
+        throw new Error(
+          'dependencies should have only 1 element when relationship is manyOne or oneOne'
+        );
+      }
+      const linkCellValue = cellValue as ILinkCellValue;
+      if (linkCellValue) {
+        return dependencies[0].fields[fieldId] ?? null;
+      }
+      return null;
+    }
   }
 
   private calculateRollup(
@@ -660,7 +527,7 @@ export class ReferenceService {
     const virtualField = createFieldInstanceByVo({
       ...fieldVo,
       id: 'values',
-      isMultipleCellValue: fieldVo.isMultipleCellValue || relationship !== Relationship.ManyOne,
+      isMultipleCellValue: fieldVo.isMultipleCellValue || isMultiValueLink(relationship),
     });
 
     if (field.type === FieldType.Rollup) {
@@ -693,27 +560,13 @@ export class ReferenceService {
     }
   }
 
-  private async updateForeignKey(fkRecordMap: IFkOpMap) {
-    for (const dbTableName in fkRecordMap) {
-      for (const recordId in fkRecordMap[dbTableName]) {
-        const updateParam = fkRecordMap[dbTableName][recordId];
-        const nativeSql = this.knex(dbTableName)
-          .update(updateParam)
-          .where('__id', recordId)
-          .toSQL()
-          .toNative();
-
-        await this.prismaService.txClient().$executeRawUnsafe(nativeSql.sql, ...nativeSql.bindings);
-      }
-    }
-  }
-
   async createAuxiliaryData(allFieldIds: string[]) {
     const prisma = this.prismaService.txClient();
     const fieldRaws = await prisma.field.findMany({
       where: { id: { in: allFieldIds }, deletedTime: null },
     });
 
+    // if a field that has been looked up  has changed, the link field should be retrieved as context
     const extraLinkFieldIds = difference(
       fieldRaws
         .filter((field) => field.lookupLinkedFieldId)
@@ -761,9 +614,15 @@ export class ReferenceService {
       {}
     );
 
+    const fieldId2DbTableName = fieldRaws.reduce<{ [fieldId: string]: string }>((pre, f) => {
+      pre[f.id] = tableId2DbTableName[f.tableId];
+      return pre;
+    }, {});
+
     return {
       fieldMap,
       fieldId2TableId,
+      fieldId2DbTableName,
       dbTableName2fields,
       tableId2DbTableName,
     };
@@ -772,33 +631,29 @@ export class ReferenceService {
   collectChanges(
     orders: ITopoItemWithRecords[],
     fieldMap: IFieldMap,
-    fieldId2TableId: { [fieldId: string]: string },
-    tableId2DbTableName: { [tableId: string]: string },
-    fkRecordMap: IFkOpMap
+    fieldId2TableId: { [fieldId: string]: string }
   ) {
     // detail changes
     const changes: ICellChange[] = [];
+    // console.log('collectChanges:orders:', JSON.stringify(orders, null, 2));
 
     orders.forEach((item) => {
-      item.recordItems.forEach((recordItem) => {
+      Object.values(item.recordItemMap || {}).forEach((recordItem) => {
         const field = fieldMap[item.id];
-        // console.log('collectChanges:recordItems:', field, recordItem);
-        if (!field.isComputed && field.type !== FieldType.Link) {
+        const record = recordItem.record;
+        if (this.shouldSkipCompute(field, recordItem)) {
           return;
         }
-        const record = recordItem.record;
-        const value = this.calculateComputeField(
-          field,
-          fieldMap,
-          recordItem,
-          fieldId2TableId,
-          tableId2DbTableName,
-          fkRecordMap
-        );
-        // console.log(`calculated: ${field.id}.${record.id}`, recordItem.record.fields, value);
+
+        const value = this.calculateComputeField(field, fieldMap, recordItem);
+        // console.log(
+        //   `calculated: ${field.type}.${field.id}.${record.id}`,
+        //   recordItem.record.fields,
+        //   value
+        // );
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
-        if (oldValue !== value) {
+        if (oldValue != value) {
           changes.push({
             tableId: fieldId2TableId[field.id],
             fieldId: field.id,
@@ -812,10 +667,7 @@ export class ReferenceService {
     return changes;
   }
 
-  private recordRaw2Record(
-    fields: IFieldInstance[],
-    raw: { [dbFieldName: string]: unknown } & { __id: string }
-  ) {
+  private recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }) {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
       return acc;
@@ -823,77 +675,119 @@ export class ReferenceService {
 
     return {
       fields: fieldsData,
-      id: raw.__id,
+      id: raw.__id as string,
       recordOrder: {},
     };
   }
 
   getLinkOrderFromTopoOrders(params: {
-    fieldId2TableId: { [fieldId: string]: string };
-    tableId2DbTableName: { [tableId: string]: string };
     topoOrders: ITopoItem[];
     fieldMap: IFieldMap;
   }): ITopoLinkOrder[] {
     const newOrder: ITopoLinkOrder[] = [];
-    const { tableId2DbTableName, fieldId2TableId, topoOrders, fieldMap } = params;
+    const { topoOrders, fieldMap } = params;
+    // one link fieldId only need to add once
+    const checkSet = new Set<string>();
     for (const item of topoOrders) {
       const field = fieldMap[item.id];
-      const tableId = fieldId2TableId[field.id];
-      const dbTableName = tableId2DbTableName[tableId];
       if (field.lookupOptions) {
-        const { dbForeignKeyName, relationship, foreignTableId, linkFieldId } = field.lookupOptions;
-        const linkedTable = tableId2DbTableName[foreignTableId];
-
+        const { fkHostTableName, selfKeyName, foreignKeyName, relationship, linkFieldId } =
+          field.lookupOptions;
+        if (checkSet.has(linkFieldId)) {
+          continue;
+        }
+        checkSet.add(linkFieldId);
         newOrder.push({
-          dbTableName,
           fieldId: linkFieldId,
-          foreignKeyField: dbForeignKeyName,
-          linkedTable,
           relationship,
+          fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
         });
         continue;
       }
 
       if (field.type === FieldType.Link) {
-        const { dbForeignKeyName, foreignTableId } = field.options;
-        const linkedTable = tableId2DbTableName[foreignTableId];
-
+        const { fkHostTableName, selfKeyName, foreignKeyName } = field.options;
+        if (checkSet.has(field.id)) {
+          continue;
+        }
+        checkSet.add(field.id);
         newOrder.push({
-          dbTableName,
           fieldId: field.id,
-          foreignKeyField: dbForeignKeyName,
-          linkedTable,
           relationship: field.options.relationship,
+          fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
         });
       }
     }
     return newOrder;
   }
 
-  async getRecordsBatch(params: {
-    originRecordItems: {
-      dbTableName: string;
-      id: string;
-      fieldId?: string;
-      newValue?: unknown;
-    }[];
-    dbTableName2fields: { [tableId: string]: IFieldInstance[] };
-    affectedRecordItems: IRecordRefItem[];
-    dependentRecordItems: IRecordRefItem[];
+  async getRecordMapBatch(params: {
+    fieldMap: IFieldMap;
+    fieldId2DbTableName: Record<string, string>;
+    dbTableName2fields: Record<string, IFieldInstance[]>;
+    initialRecordIdMap?: { [dbTableName: string]: Set<string> };
+    modifiedRecords: IRecordData[];
+    relatedRecordItems: IRelatedRecordItem[];
   }) {
-    const { originRecordItems, affectedRecordItems, dependentRecordItems, dbTableName2fields } =
-      params;
-    const recordIdsByTableName = groupBy(
-      [...affectedRecordItems, ...dependentRecordItems, ...originRecordItems],
-      'dbTableName'
-    );
+    const {
+      fieldMap,
+      fieldId2DbTableName,
+      dbTableName2fields,
+      initialRecordIdMap,
+      modifiedRecords,
+      relatedRecordItems,
+    } = params;
+    const recordIdsByTableName = cloneDeep(initialRecordIdMap) || {};
+    const insertId = (fieldId: string, id: string) => {
+      const dbTableName = fieldId2DbTableName[fieldId];
+      if (!recordIdsByTableName[dbTableName]) {
+        recordIdsByTableName[dbTableName] = new Set<string>();
+      }
+      recordIdsByTableName[dbTableName].add(id);
+    };
 
+    modifiedRecords.forEach((item) => {
+      insertId(item.fieldId, item.id);
+      const field = fieldMap[item.fieldId];
+      if (field.type !== FieldType.Link) {
+        return;
+      }
+      const lookupFieldId = field.options.lookupFieldId;
+
+      const { newValue } = item;
+      [newValue]
+        .flat()
+        .filter(Boolean)
+        .map((item) => insertId(lookupFieldId, (item as ILinkCellValue).id));
+    });
+
+    relatedRecordItems.forEach((item) => {
+      const field = fieldMap[item.fieldId];
+      const options = field.lookupOptions ?? (field.options as ILinkFieldOptions);
+
+      insertId(options.lookupFieldId, item.fromId);
+      insertId(item.fieldId, item.toId);
+    });
+    const recordMap = await this.getRecordMap(recordIdsByTableName, dbTableName2fields);
+    this.coverRecordData(fieldId2DbTableName, modifiedRecords, recordMap);
+
+    return recordMap;
+  }
+
+  async getRecordMap(
+    recordIdsByTableName: Record<string, Set<string>>,
+    dbTableName2fields: Record<string, IFieldInstance[]>
+  ) {
     const results: {
       [dbTableName: string]: { [dbFieldName: string]: unknown }[];
     } = {};
     for (const dbTableName in recordIdsByTableName) {
       // deduplication is needed
-      const recordIds = uniq(recordIdsByTableName[dbTableName].map((r) => r.id));
+      const recordIds = Array.from(recordIdsByTableName[dbTableName]);
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
         .concat([...preservedFieldName]);
@@ -907,99 +801,7 @@ export class ReferenceService {
       results[dbTableName] = result;
     }
 
-    const formattedResults = this.formatRecordQueryResult(results, dbTableName2fields);
-
-    this.coverRecordData(
-      originRecordItems.filter((item) => item.fieldId) as {
-        dbTableName: string;
-        id: string;
-        fieldId: string;
-        newValue?: unknown;
-      }[],
-      formattedResults
-    );
-
-    return formattedResults;
-  }
-
-  private getOneManyDependencies(params: {
-    linkFieldId: string;
-    record: ITinyRecord;
-    foreignTableRecords: ITinyRecord[];
-    dependentRecordItems: IRecordRefItem[];
-  }): ITinyRecord[] {
-    const { linkFieldId, dependentRecordItems, record, foreignTableRecords } = params;
-    const foreignTableRecordsIndexed = keyBy(foreignTableRecords, 'id');
-    return dependentRecordItems
-      .filter((item) => item.relationTo === record.id && item.fieldId === linkFieldId)
-      .map((item) => {
-        const record = foreignTableRecordsIndexed[item.id];
-        if (!record) {
-          throw new Error('Can not find link record');
-        }
-        return record;
-      });
-  }
-
-  private getMany2OneDependency(params: {
-    record: ITinyRecord;
-    foreignTableRecords: ITinyRecord[];
-    affectedRecordItems: IRecordRefItem[];
-  }): ITinyRecord {
-    const { record, affectedRecordItems, foreignTableRecords } = params;
-    const linkRecordRef = affectedRecordItems
-      .filter((item) => item.relationTo)
-      .find((item) => item.id === record.id);
-    if (!linkRecordRef) {
-      throw new Error('Can not find link record ref');
-    }
-
-    const linkRecord = foreignTableRecords.find((r) => r.id === linkRecordRef.relationTo);
-    if (!linkRecord) {
-      throw new Error('Can not find link record');
-    }
-    return linkRecord;
-  }
-
-  private getDependencyRecordItems(params: {
-    linkFieldId: string;
-    relationship: Relationship;
-    records: ITinyRecord[];
-    foreignTableRecords: ITinyRecord[];
-    affectedRecordItems: IRecordRefItem[];
-    dependentRecordItems: IRecordRefItem[];
-  }) {
-    const {
-      linkFieldId,
-      records,
-      relationship,
-      foreignTableRecords,
-      dependentRecordItems,
-      affectedRecordItems,
-    } = params;
-    const dependenciesArr = records.map((record) => {
-      if (relationship === Relationship.OneMany) {
-        return this.getOneManyDependencies({
-          record,
-          linkFieldId: linkFieldId,
-          foreignTableRecords,
-          dependentRecordItems,
-        });
-      }
-      if (relationship === Relationship.ManyOne) {
-        return this.getMany2OneDependency({
-          record,
-          foreignTableRecords,
-          affectedRecordItems,
-        });
-      }
-      throw new BadRequestException('Unsupported relationship');
-    });
-    return records
-      .map((record, i) => ({ record, dependencies: dependenciesArr[i] }))
-      .filter((item) =>
-        Array.isArray(item.dependencies) ? item.dependencies.length : item.dependencies
-      );
+    return this.formatRecordQueryResult(results, dbTableName2fields);
   }
 
   createTopoItemWithRecords(params: {
@@ -1007,107 +809,87 @@ export class ReferenceService {
     tableId2DbTableName: { [tableId: string]: string };
     fieldId2TableId: { [fieldId: string]: string };
     fieldMap: IFieldMap;
-    dbTableName2records: { [tableName: string]: ITinyRecord[] };
-    affectedRecordItems: IRecordRefItem[];
-    dependentRecordItems: IRecordRefItem[];
+    dbTableName2recordMap: { [tableName: string]: IRecordMap };
+    relatedRecordItemsIndexed: Record<string, IRelatedRecordItem[]>;
   }): ITopoItemWithRecords[] {
     const {
       topoOrders,
       fieldMap,
       tableId2DbTableName,
       fieldId2TableId,
-      dbTableName2records,
-      affectedRecordItems,
-      dependentRecordItems,
+      dbTableName2recordMap,
+      relatedRecordItemsIndexed,
     } = params;
-    const affectedRecordItemIndexed = groupBy(affectedRecordItems, 'dbTableName');
-    const dependentRecordItemIndexed = groupBy(dependentRecordItems, 'dbTableName');
-    return topoOrders.reduce<ITopoItemWithRecords[]>((pre, order) => {
+    return topoOrders.map<ITopoItemWithRecords>((order) => {
       const field = fieldMap[order.id];
+      const fieldId = field.id;
       const tableId = fieldId2TableId[order.id];
       const dbTableName = tableId2DbTableName[tableId];
-      const allRecords = dbTableName2records[dbTableName];
-      const affectedRecordItems = affectedRecordItemIndexed[dbTableName];
-      // only affected record need to be calculated
-      const records = intersectionBy(allRecords, affectedRecordItems, 'id');
+      const recordMap = dbTableName2recordMap[dbTableName];
+      const relatedItems = relatedRecordItemsIndexed[fieldId];
 
-      const appendRecordItems = (
-        foreignTableId: string,
-        linkFieldId: string,
-        relationship: Relationship
-      ) => {
-        const foreignTableName = tableId2DbTableName[foreignTableId];
-        const foreignTableRecords = dbTableName2records[foreignTableName];
-        const dependentRecordItems = dependentRecordItemIndexed[foreignTableName];
-        return {
-          ...order,
-          recordItems: this.getDependencyRecordItems({
-            linkFieldId,
-            relationship,
-            records,
-            foreignTableRecords,
-            affectedRecordItems,
-            dependentRecordItems,
-          }),
-        };
-      };
-
-      // update cross table dependency (from lookup or link field)
-      if (field.lookupOptions) {
-        if (
-          !affectedRecordItems?.find((item) => item.fieldId === field.lookupOptions?.linkFieldId)
-        ) {
-          return pre;
-        }
-        const { foreignTableId, linkFieldId, relationship } = field.lookupOptions;
-        pre.push(appendRecordItems(foreignTableId, linkFieldId, relationship));
-        return pre;
-      }
-
-      if (field.type === FieldType.Link) {
-        if (!affectedRecordItems?.find((item) => item.fieldId === field.id)) {
-          return pre;
-        }
-        const { foreignTableId, relationship } = field.options;
-        pre.push(appendRecordItems(foreignTableId, field.id, relationship));
-        return pre;
-      }
-
-      pre.push({
+      // console.log('withRecord:order', JSON.stringify(order, null, 2));
+      // console.log('withRecord:relatedItems', relatedItems);
+      return {
         ...order,
-        recordItems: records.map((record) => ({ record })),
-      });
-      return pre;
-    }, []);
+        recordItemMap:
+          recordMap &&
+          Object.values(recordMap).reduce<Record<string, IRecordItem>>((pre, record) => {
+            let dependencies: ITinyRecord[] | undefined;
+            if (relatedItems) {
+              const options = field.lookupOptions
+                ? field.lookupOptions
+                : (field.options as ILinkFieldOptions);
+              const foreignTableId = options.foreignTableId;
+              const foreignDbTableName = tableId2DbTableName[foreignTableId];
+              const foreignRecordMap = dbTableName2recordMap[foreignDbTableName];
+              const dependentRecordIdsIndexed = groupBy(relatedItems, 'toId');
+              const dependentRecordIds = dependentRecordIdsIndexed[record.id];
+              if (dependentRecordIds) {
+                dependencies = dependentRecordIds.map((item) => foreignRecordMap[item.fromId]);
+              }
+            }
+
+            if (dependencies) {
+              pre[record.id] = { record, dependencies };
+            } else {
+              pre[record.id] = { record };
+            }
+
+            return pre;
+          }, {}),
+      };
+    });
   }
 
   formatRecordQueryResult(
     formattedResults: {
-      [tableName: string]: { [dbFiendName: string]: unknown }[];
+      [tableName: string]: { [dbFieldName: string]: unknown }[];
     },
     dbTableName2fields: { [tableId: string]: IFieldInstance[] }
   ) {
     return Object.entries(formattedResults).reduce<{
-      [dbTableName: string]: ITinyRecord[];
-    }>((acc, e) => {
-      const [dbTableName, recordMap] = e;
+      [dbTableName: string]: IRecordMap;
+    }>((acc, [dbTableName, records]) => {
       const fields = dbTableName2fields[dbTableName];
-      acc[dbTableName] = recordMap.map((r) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return this.recordRaw2Record(fields, r as any);
-      });
+      acc[dbTableName] = records.reduce<IRecordMap>((pre, recordRaw) => {
+        const record = this.recordRaw2Record(fields, recordRaw);
+        pre[record.id] = record;
+        return pre;
+      }, {});
       return acc;
     }, {});
   }
 
   // use modified record data to cover the record data from db
   private coverRecordData(
-    newRecordData: { id: string; dbTableName: string; fieldId: string; newValue?: unknown }[],
-    allRecordByDbTableName: { [tableName: string]: ITinyRecord[] }
+    fieldId2DbTableName: Record<string, string>,
+    newRecordData: IRecordData[],
+    allRecordByDbTableName: { [tableName: string]: IRecordMap }
   ) {
     newRecordData.forEach((cover) => {
-      const records = allRecordByDbTableName[cover.dbTableName];
-      const record = records.find((r) => r.id === cover.id);
+      const dbTableName = fieldId2DbTableName[cover.fieldId];
+      const record = allRecordByDbTableName[dbTableName][cover.id];
       if (!record) {
         throw new BadRequestException(`Can not find record: ${cover.id} in database`);
       }
@@ -1115,63 +897,15 @@ export class ReferenceService {
     });
   }
 
-  /**
-   * Generate a topological order based on the starting node ID.
-   *
-   * @param startNodeId - The ID to start the search from.
-   * @param graph - The input graph.
-   * @returns An array of ITopoItem representing the topological order.
-   */
-  private getTopologicalOrder(
-    startNodeId: string,
-    graph: { toFieldId: string; fromFieldId: string }[]
-  ): ITopoItem[] {
-    const visitedNodes = new Set<string>();
-    const sortedNodes: ITopoItem[] = [];
-
-    // Build adjacency list and reverse adjacency list
-    const adjList: Record<string, string[]> = {};
-    const reverseAdjList: Record<string, string[]> = {};
-    for (const edge of graph) {
-      if (!adjList[edge.fromFieldId]) adjList[edge.fromFieldId] = [];
-      adjList[edge.fromFieldId].push(edge.toFieldId);
-
-      if (!reverseAdjList[edge.toFieldId]) reverseAdjList[edge.toFieldId] = [];
-      reverseAdjList[edge.toFieldId].push(edge.fromFieldId);
-    }
-
-    function visit(node: string) {
-      if (!visitedNodes.has(node)) {
-        visitedNodes.add(node);
-
-        // Get incoming edges (dependencies)
-        const dependencies = reverseAdjList[node] || [];
-
-        // Process outgoing edges
-        if (adjList[node]) {
-          for (const neighbor of adjList[node]) {
-            visit(neighbor);
-          }
-        }
-
-        sortedNodes.push({ id: node, dependencies: dependencies });
-      }
-    }
-
-    visit(startNodeId);
-    return sortedNodes.reverse();
-  }
-
-  async getDependentNodesCTE(startFieldIds: string[]): Promise<IGraphItem[]> {
-    let result: { fromFieldId: string; toFieldId: string }[] = [];
-    const getResult = async (startFieldId: string) => {
+  async getFieldGraphItems(startFieldIds: string[]): Promise<IGraphItem[]> {
+    const getResult = async (startFieldIds: string[]) => {
       const _knex = this.knex;
 
       const nonRecursiveQuery = _knex
         .select('from_field_id', 'to_field_id')
         .from('reference')
-        .where({ from_field_id: startFieldId })
-        .orWhere({ to_field_id: startFieldId });
+        .whereIn('from_field_id', startFieldIds)
+        .orWhereIn('to_field_id', startFieldIds);
       const recursiveQuery = _knex
         .select('deps.from_field_id', 'deps.to_field_id')
         .from('reference as deps')
@@ -1198,30 +932,23 @@ export class ReferenceService {
       const finalQuery = this.knex
         .withRecursive('connected_reference', ['from_field_id', 'to_field_id'], cteQuery)
         .distinct('from_field_id', 'to_field_id')
-        .from('connected_reference');
+        .from('connected_reference')
+        .toQuery();
 
-      // this.logger.log('getDependentNodesCTE Sql: %s', finalQuery.toQuery());
-
-      const sqlNative = finalQuery.toSQL().toNative();
       return (
         this.prismaService
           .txClient()
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(
-            sqlNative.sql,
-            ...sqlNative.bindings
-          )
+          .$queryRawUnsafe<{ from_field_id: string; to_field_id: string }[]>(finalQuery)
       );
     };
 
-    for (const fieldId of startFieldIds) {
-      const queryResult = await getResult(fieldId);
-      result = result.concat(
-        queryResult.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id }))
-      );
-    }
+    const queryResult = await getResult(startFieldIds);
 
-    return this.filterDirectedGraph(result, startFieldIds);
+    return filterDirectedGraph(
+      queryResult.map((row) => ({ fromFieldId: row.from_field_id, toFieldId: row.to_field_id })),
+      startFieldIds
+    );
   }
 
   private mergeDuplicateRecordData(recordData: IRecordData[]) {
@@ -1245,76 +972,181 @@ export class ReferenceService {
    * example: C = A + B
    * A changed, C will be affected and B is the dependent record
    */
-  async getDependentRecordItems(recordItems: IRecordRefItem[]): Promise<IRecordRefItem[]> {
-    if (!recordItems.length) {
-      return [];
-    }
+  async getDependentRecordItems(
+    fieldMap: IFieldMap,
+    recordItems: IRelatedRecordItem[]
+  ): Promise<IRelatedRecordItem[]> {
+    const indexRecordItems = groupBy(recordItems, 'fieldId');
 
-    const queries = recordItems
-      .filter((item) => item.selectIn)
-      .map((item) => {
-        const { id, fieldId, selectIn } = item;
-        const [dbTableName, selectField] = (selectIn as string)!.split('#');
+    const queries = Object.entries(indexRecordItems)
+      .filter(([fieldId]) => {
+        const options =
+          fieldMap[fieldId].lookupOptions || (fieldMap[fieldId].options as ILinkFieldOptions);
+        const relationship = options.relationship;
+        return relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
+      })
+      .map(([fieldId, recordItem]) => {
+        const options =
+          fieldMap[fieldId].lookupOptions || (fieldMap[fieldId].options as ILinkFieldOptions);
+        const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+        const ids = recordItem.map((item) => item.toId);
+
         return this.knex
           .select({
-            id: '__id',
-            relationTo: selectField,
-            dbTableName: this.knex.raw('?', dbTableName),
-            fieldId: this.knex.raw('?', fieldId ?? null),
+            fieldId: this.knex.raw('?', fieldId),
+            toId: selfKeyName,
+            fromId: foreignKeyName,
           })
-          .from(dbTableName)
-          .where(selectField, id);
+          .from(fkHostTableName)
+          .whereIn(selfKeyName, ids);
       });
+
     if (!queries.length) {
       return [];
     }
 
     const [firstQuery, ...restQueries] = queries;
-    const nativeSql = firstQuery.union(restQueries).toSQL().toNative();
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<IRecordRefItem[]>(nativeSql.sql, ...nativeSql.bindings);
+    const sqlQuery = firstQuery.unionAll(restQueries).toQuery();
+    return this.prismaService.txClient().$queryRawUnsafe<IRelatedRecordItem[]>(sqlQuery);
+  }
+
+  affectedRecordItemsQuerySql(
+    startFieldIds: string[],
+    fieldMap: IFieldMap,
+    linkAdjacencyMap: IAdjacencyMap,
+    startRecordIds: string[]
+  ): string {
+    const visited = new Set<string>();
+    const knex = this.knex;
+    const query = knex.queryBuilder();
+
+    function visit(node: string, preNode: string) {
+      if (visited.has(node)) {
+        return;
+      }
+
+      visited.add(node);
+      const options = fieldMap[node].lookupOptions || (fieldMap[node].options as ILinkFieldOptions);
+      const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+      query.with(
+        node,
+        knex
+          .distinct({
+            toId: `${fkHostTableName}.${selfKeyName}`,
+            fromId: `${preNode}.toId`,
+          })
+          .from(fkHostTableName)
+          .whereNotNull(`${fkHostTableName}.${selfKeyName}`) // toId
+          .join(preNode, `${preNode}.toId`, '=', `${fkHostTableName}.${foreignKeyName}`)
+      );
+      const nextNodes = linkAdjacencyMap[node];
+      // Process outgoing edges
+      if (nextNodes) {
+        for (const neighbor of nextNodes) {
+          visit(neighbor, node);
+        }
+      }
+    }
+
+    startFieldIds.forEach((fieldId) => {
+      const field = fieldMap[fieldId];
+      if (field.lookupOptions || field.type === FieldType.Link) {
+        const options = field.lookupOptions || (field.options as ILinkFieldOptions);
+        const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+        if (visited.has(fieldId)) {
+          return;
+        }
+        visited.add(fieldId);
+        query.with(
+          fieldId,
+          knex
+            .distinct({
+              toId: `${fkHostTableName}.${selfKeyName}`,
+              fromId: `${fkHostTableName}.${foreignKeyName}`,
+            })
+            .from(fkHostTableName)
+            .whereIn(`${fkHostTableName}.${selfKeyName}`, startRecordIds)
+            .whereNotNull(`${fkHostTableName}.${foreignKeyName}`)
+        );
+      } else {
+        query.with(
+          fieldId,
+          knex.unionAll(
+            startRecordIds.map((id) =>
+              knex.select({ toId: knex.raw('?', id), fromId: knex.raw('?', null) })
+            )
+          )
+        );
+      }
+      const nextNodes = linkAdjacencyMap[fieldId];
+
+      // start visit
+      if (nextNodes) {
+        for (const neighbor of nextNodes) {
+          visit(neighbor, fieldId);
+        }
+      }
+    });
+
+    // union all result
+    query.unionAll(
+      Array.from(visited).map((fieldId) =>
+        knex
+          .select({
+            fieldId: knex.raw('?', fieldId),
+            fromId: knex.ref(`${fieldId}.fromId`),
+            toId: knex.ref(`${fieldId}.toId`),
+          })
+          .from(fieldId)
+      )
+    );
+
+    return query.toQuery();
   }
 
   async getAffectedRecordItems(
-    topoOrder: ITopoLinkOrder[],
-    originRecordIdItems: { dbTableName: string; id: string }[]
-  ): Promise<IRecordRefItem[]> {
-    if (!topoOrder.length) {
-      return originRecordIdItems;
-    }
-
-    const affectedRecordItemsQuerySql = this.dbProvider.affectedRecordItemsQuerySql(
-      topoOrder,
-      originRecordIdItems
+    startFieldIds: string[],
+    fieldMap: IFieldMap,
+    linkAdjacencyMap: IAdjacencyMap,
+    startRecordIds: string[]
+  ): Promise<IRelatedRecordItem[]> {
+    const affectedRecordItemsQuerySql = this.affectedRecordItemsQuerySql(
+      startFieldIds,
+      fieldMap,
+      linkAdjacencyMap,
+      startRecordIds
     );
 
-    const results = await this.prismaService.txClient().$queryRawUnsafe<
-      {
-        __id: string;
-        dbTableName: string;
-        selectIn?: string;
-        fieldId?: string;
-        relationTo?: string;
-      }[]
-    >(affectedRecordItemsQuerySql);
+    return await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<IRelatedRecordItem[]>(affectedRecordItemsQuerySql);
+  }
 
-    // this.logger.log({ affectedRecordItemsResult: results });
-
-    if (!results.length) {
-      return originRecordIdItems;
+  async getRelatedItems(
+    startFieldIds: string[],
+    fieldMap: IFieldMap,
+    linkAdjacencyMap: IAdjacencyMap,
+    startRecordIds: string[]
+  ) {
+    if (isEmpty(startRecordIds) || isEmpty(linkAdjacencyMap)) {
+      return [];
     }
+    const effectedItems = await this.getAffectedRecordItems(
+      startFieldIds,
+      fieldMap,
+      linkAdjacencyMap,
+      startRecordIds
+    );
 
-    // only need to return result with relationTo or selectIn
-    return results
-      .filter((record) => record.__id)
-      .map((record) => ({
-        id: record.__id,
-        dbTableName: record.dbTableName,
-        ...(record.relationTo ? { relationTo: record.relationTo } : {}),
-        ...(record.fieldId ? { fieldId: record.fieldId } : {}),
-        ...(record.selectIn ? { selectIn: record.selectIn } : {}),
-      }));
+    const dependentItems = await this.getDependentRecordItems(fieldMap, effectedItems);
+
+    return unionWith(
+      effectedItems,
+      dependentItems,
+      (left, right) =>
+        left.toId === right.toId && left.fromId === right.fromId && left.fieldId === right.fieldId
+    );
   }
 
   flatGraph(graph: { toFieldId: string; fromFieldId: string }[]) {

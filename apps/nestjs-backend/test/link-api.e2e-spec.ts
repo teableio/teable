@@ -110,7 +110,8 @@ describe('OpenAPI link (e2e)', () => {
           relationship: Relationship.OneMany,
           foreignTableId: table2Id,
           lookupFieldId: createTable2Result.body.fields[0].id,
-          dbForeignKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          selfKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          foreignKeyName: '__id',
           symmetricFieldId: createTable2Result.body.fields[2].id,
         },
       });
@@ -121,7 +122,8 @@ describe('OpenAPI link (e2e)', () => {
           relationship: Relationship.ManyOne,
           foreignTableId: table1Id,
           lookupFieldId: getTable1FieldsResult.body[0].id,
-          dbForeignKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          foreignKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          selfKeyName: '__id',
           symmetricFieldId: getTable1FieldsResult.body[2].id,
         },
       });
@@ -177,7 +179,8 @@ describe('OpenAPI link (e2e)', () => {
           relationship: Relationship.ManyOne,
           foreignTableId: table2Id,
           lookupFieldId: createTable2Result.body.fields[0].id,
-          dbForeignKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
+          selfKeyName: '__id',
+          foreignKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
           symmetricFieldId: createTable2Result.body.fields[2].id,
         },
       });
@@ -188,7 +191,8 @@ describe('OpenAPI link (e2e)', () => {
           relationship: Relationship.OneMany,
           foreignTableId: table1Id,
           lookupFieldId: getTable1FieldsResult.body[0].id,
-          dbForeignKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
+          foreignKeyName: '__id',
+          selfKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
           symmetricFieldId: getTable1FieldsResult.body[2].id,
         },
       });
@@ -988,20 +992,27 @@ describe('OpenAPI link (e2e)', () => {
           id: table2.records[0].id,
         },
       ]);
+      const { records: table1Records1 } = await getRecords(request, table1.id);
+      expect(table1Records1[0].fields[oneManyField.id]).toEqual([
+        {
+          title: 'x',
+          id: table2.records[0].id,
+        },
+      ]);
 
       await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'y');
 
-      const { records: table1Records } = await getRecords(request, table1.id);
-      expect(table1Records[0].fields[oneManyField.id]).toEqual([
+      const { records: table1Records2 } = await getRecords(request, table1.id);
+      expect(table1Records2[0].fields[oneManyField.id]).toEqual([
         {
           title: 'y',
           id: table2.records[0].id,
         },
       ]);
-      expect(table1Records[0].fields[lookupOneManyField.id]).toEqual(['y']);
-      expect(table1Records[0].fields[rollupOneManyField.id]).toEqual(1);
-      expect(table1Records[0].fields[lookupManyOneField.id]).toEqual(undefined);
-      expect(table1Records[0].fields[rollupManyOneField.id]).toEqual(undefined);
+      expect(table1Records2[0].fields[lookupOneManyField.id]).toEqual(['y']);
+      expect(table1Records2[0].fields[rollupOneManyField.id]).toEqual(1);
+      expect(table1Records2[0].fields[lookupManyOneField.id]).toEqual(undefined);
+      expect(table1Records2[0].fields[rollupManyOneField.id]).toEqual(undefined);
     });
   });
 
@@ -1040,7 +1051,7 @@ describe('OpenAPI link (e2e)', () => {
       const symManyOneField = await getField(
         request,
         table2.id,
-        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId as string
       );
 
       await updateRecordByApi(request, table1.id, table1.records[0].id, manyOneField.id, {
@@ -1070,7 +1081,7 @@ describe('OpenAPI link (e2e)', () => {
       const symManyOneField = await getField(
         request,
         table2.id,
-        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId as string
       );
 
       await updateRecordByApi(request, table1.id, table1.records[0].id, manyOneField.id, {
@@ -1117,12 +1128,12 @@ describe('OpenAPI link (e2e)', () => {
       const symManyOneField = await getField(
         request,
         table2.id,
-        (manyOneField.options as ILinkFieldOptions).symmetricFieldId
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId as string
       );
       const symOneManyField = await getField(
         request,
         table2.id,
-        (oneManyField.options as ILinkFieldOptions).symmetricFieldId
+        (oneManyField.options as ILinkFieldOptions).symmetricFieldId as string
       );
 
       await updateRecordByApi(request, table2.id, table2.records[0].id, symOneManyField.id, {

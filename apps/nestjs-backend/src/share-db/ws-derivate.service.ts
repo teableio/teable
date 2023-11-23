@@ -37,7 +37,6 @@ export class WsDerivateService {
 
     const derivate = await this.linkService.getDerivateByLink(changes[0].tableId, changes);
     const cellChanges = derivate?.cellChanges || [];
-    const fkRecordMap = derivate?.fkRecordMap || {};
 
     const opsMapOrigin = formatChangesToOps(changes);
     const opsMapByLink = formatChangesToOps(cellChanges);
@@ -48,7 +47,7 @@ export class WsDerivateService {
       tableId2DbTableName,
     } = await this.referenceService.calculateOpsMap(
       composeMaps([opsMapOrigin, opsMapByLink]),
-      fkRecordMap
+      derivate?.saveForeignKeyToDb
     );
     opsMaps.push(opsMapByLink, opsMapByCalculate);
     const composedMap = composeMaps(opsMaps);

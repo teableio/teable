@@ -104,7 +104,7 @@ export class SpaceService {
     });
 
     const names = spaceList.map((space) => space.name);
-    const uniqName = getUniqName(createSpaceRo.name ?? 'Workspace', names);
+    const uniqName = getUniqName(createSpaceRo.name ?? 'Space', names);
     return await this.createSpaceByParams({
       id: generateSpaceId(),
       name: uniqName,

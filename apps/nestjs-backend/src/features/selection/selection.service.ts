@@ -231,7 +231,7 @@ export class SelectionService {
         : {
             type: FieldType.SingleLineText,
           };
-      const fieldVo = await this.fieldSupplementService.prepareCreateField(field);
+      const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, field);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
       const newField = await this.fieldCreatingService.createField(tableId, fieldInstance);
       res.push(newField);

@@ -92,7 +92,6 @@ export class RecordCalculateService {
     const derivate = await this.linkService.getDerivateByLink(tableId, opContexts);
 
     const cellChanges = derivate?.cellChanges || [];
-    const fkRecordMap = derivate?.fkRecordMap || {};
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     // calculate by origin ops and link derivation
@@ -102,9 +101,10 @@ export class RecordCalculateService {
       tableId2DbTableName,
     } = await this.referenceService.calculateOpsMap(
       composeMaps([opsMapOrigin, opsMapByLink]),
-      fkRecordMap
+      derivate?.saveForeignKeyToDb
     );
 
+    // console.log(JSON.stringify({ opsMapOrigin, opsMapByLink, opsMapByCalculation }, null, 2));
     return {
       opsMap: composeMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation]),
       fieldMap,
@@ -144,6 +144,8 @@ export class RecordCalculateService {
       opsMapOrigin,
       opsContexts
     );
+
+    // console.log('final:opsMap', JSON.stringify(opsMap, null, 2));
 
     // 3. save all ops
     if (!isEmpty(opsMap)) {

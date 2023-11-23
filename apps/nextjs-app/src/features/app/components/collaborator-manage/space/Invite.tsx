@@ -108,7 +108,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           ))}
           <input
             className="h-6 flex-auto bg-background text-xs outline-none"
-            placeholder="Invite more workspace collaborators via email"
+            placeholder="Invite more space collaborators via email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}

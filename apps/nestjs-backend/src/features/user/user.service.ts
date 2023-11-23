@@ -24,7 +24,7 @@ export class UserService {
 
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
-    const uniqName = createSpaceRo.name ?? 'Workspace';
+    const uniqName = createSpaceRo.name ?? 'Space';
 
     const space = await this.prismaService.txClient().space.create({
       select: {

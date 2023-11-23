@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
-  ICreateTablePreparedRo,
   ICreateTableRo,
+  IFieldRo,
   IFieldVo,
   IGetRowCountRo,
   IGetTableQuery,
@@ -11,9 +11,10 @@ import type {
   IViewRo,
   IViewVo,
 } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
+import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
@@ -29,7 +30,8 @@ export class TableOpenApiService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
-    private readonly fieldCreatingService: FieldCreatingService
+    private readonly fieldCreatingService: FieldCreatingService,
+    private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -56,7 +58,36 @@ export class TableOpenApiService {
     return this.recordOpenApiService.createRecords(tableId, data.records, data.fieldKeyType);
   }
 
-  async createTable(baseId: string, tableRo: ICreateTablePreparedRo): Promise<ITableFullVo> {
+  private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
+    const fields: IFieldVo[] = [];
+    const simpleFields: IFieldRo[] = [];
+    const computeFields: IFieldRo[] = [];
+    fieldRos.forEach((field) => {
+      if (field.type === FieldType.Link || field.type === FieldType.Formula || field.isLookup) {
+        computeFields.push(field);
+      } else {
+        simpleFields.push(field);
+      }
+    });
+
+    for (const fieldRo of simpleFields) {
+      fields.push(await this.fieldSupplementService.prepareCreateField(tableId, fieldRo));
+    }
+
+    const allFieldRos = simpleFields.concat(computeFields);
+    for (const fieldRo of computeFields) {
+      fields.push(
+        await this.fieldSupplementService.prepareCreateField(
+          tableId,
+          fieldRo,
+          allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
+        )
+      );
+    }
+    return fields;
+  }
+
+  async createTable(baseId: string, tableRo: ICreateTableRo): Promise<ITableFullVo> {
     return await this.prismaService.$tx(async () => {
       if (!tableRo.fields || !tableRo.views || !tableRo.records) {
         throw new Error('table fields views and rows are required.');
@@ -66,7 +97,8 @@ export class TableOpenApiService {
       const tableId = tableVo.id;
 
       const viewVos = await this.createView(tableId, tableRo.views);
-      const fieldVos = await this.createField(tableId, viewVos, tableRo.fields);
+      const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+      const fieldVos = await this.createField(tableId, viewVos, preparedFields);
       const { records } = await this.createRecords(tableId, {
         records: tableRo.records,
         fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,

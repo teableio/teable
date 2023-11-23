@@ -57,8 +57,8 @@ describe('OpenAPI link field reference (e2e)', () => {
     expect(field2.options.relationship).toBe(Relationship.OneMany);
     expect(field2.options.foreignTableId).toBe(table1Id);
     expect(field2.options.symmetricFieldId).toBe(field1.id);
-    expect(field1.options.dbForeignKeyName).toBe(`__fk_${field1.id}`);
-    expect(field2.options.dbForeignKeyName).toBe(`__fk_${field1.id}`);
+    expect(field1.options.foreignKeyName).toBe(`__fk_${field1.id}`);
+    expect(field2.options.selfKeyName).toBe(`__fk_${field1.id}`);
   });
 
   it('/api/table/{tableId}/field (POST) create OneMany', async () => {
@@ -85,7 +85,7 @@ describe('OpenAPI link field reference (e2e)', () => {
     expect(field2.options.relationship).toBe(Relationship.ManyOne);
     expect(field2.options.foreignTableId).toBe(table1Id);
     expect(field2.options.symmetricFieldId).toBe(field1.id);
-    expect(field1.options.dbForeignKeyName).toBe(`__fk_${field2.id}`);
-    expect(field2.options.dbForeignKeyName).toBe(`__fk_${field2.id}`);
+    expect(field1.options.selfKeyName).toBe(`__fk_${field2.id}`);
+    expect(field2.options.foreignKeyName).toBe(`__fk_${field2.id}`);
   });
 });

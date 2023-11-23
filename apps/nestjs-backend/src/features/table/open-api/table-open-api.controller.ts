@@ -5,11 +5,11 @@ import {
   getGraphRoSchema,
   IGetGraphRo,
   getTableQuerySchema,
-  ICreateTablePreparedRo,
   IGetTableQuery,
   tableRoSchema,
   getRowCountSchema,
   IGetRowCountRo,
+  ICreateTableRo,
 } from '@teable-group/core';
 import { ISqlQuerySchema, sqlQuerySchema } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -64,7 +64,7 @@ export class TableController {
   @Post()
   async createTable(
     @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTablePreparedRo
+    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
   ): Promise<ITableFullVo> {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }

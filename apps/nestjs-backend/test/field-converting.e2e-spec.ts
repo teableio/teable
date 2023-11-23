@@ -1458,7 +1458,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure symmetricField have been created
-      const symmetricField = await getField(request, table3.id, newFieldOptions.symmetricFieldId);
+      const symmetricField = await getField(
+        request,
+        table3.id,
+        newFieldOptions.symmetricFieldId as string
+      );
       expect(symmetricField).toMatchObject({
         cellValueType: CellValueType.String,
         isMultipleCellValue: true,
@@ -1533,7 +1537,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure symmetricField have been created
-      const symmetricField = await getField(request, table3.id, newFieldOptions.symmetricFieldId);
+      const symmetricField = await getField(
+        request,
+        table3.id,
+        newFieldOptions.symmetricFieldId as string
+      );
       expect(symmetricField).toMatchObject({
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Json,

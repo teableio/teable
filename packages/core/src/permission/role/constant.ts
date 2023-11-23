@@ -28,7 +28,7 @@ export const SPACE_ROLE_LIST = [
   {
     role: SpaceRole.Owner,
     name: 'Owner',
-    description: 'Can fully configure and edit bases, and manage workspace settings and billing',
+    description: 'Can fully configure and edit bases, and manage space settings and billing',
     level: 0,
   },
 ];

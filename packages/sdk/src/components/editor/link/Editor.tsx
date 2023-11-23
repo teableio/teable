@@ -1,5 +1,5 @@
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { Relationship } from '@teable-group/core';
+import { isMultiValueLink } from '@teable-group/core';
 import { Plus, X } from '@teable-group/icons';
 import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable-group/ui-lib';
 import { noop } from 'lodash';
@@ -25,7 +25,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   const { foreignTableId, relationship } = options;
 
   const cvArray = Array.isArray(cellValue) || !cellValue ? cellValue : [cellValue];
-  const isMultiple = relationship !== Relationship.ManyOne;
+  const isMultiple = isMultiValueLink(relationship);
   const recordIds = cvArray?.map((cv) => cv.id);
 
   const updateExpandRecordId = (recordId?: string) => {
