@@ -942,37 +942,38 @@ export class FieldSupplementService {
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName } = options;
 
-    let alterTableSchema: Knex.SchemaBuilder | undefined;
-
     if (relationship === Relationship.ManyMany) {
-      alterTableSchema = this.knex.schema.dropTable(fkHostTableName);
+      const alterTableSchema = this.knex.schema.dropTable(fkHostTableName);
+
+      for (const sql of alterTableSchema.toSQL()) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
+      }
+      return;
     }
 
+    const dropColumn = async (tableName: string, columnName: string) => {
+      const dropIndexSql = this.knex
+        .queryBuilder()
+        .dropIndex(tableName, `index_${columnName}`)
+        .toQuery();
+      const dropColumnSql = this.knex
+        .raw(`ALTER TABLE ?? DROP ??`, [tableName, columnName])
+        .toQuery();
+
+      await this.prismaService.txClient().$executeRawUnsafe(dropIndexSql);
+      await this.prismaService.txClient().$executeRawUnsafe(dropColumnSql);
+    };
+
     if (relationship === Relationship.ManyOne) {
-      alterTableSchema = this.knex.schema.table(fkHostTableName, (table) => {
-        table.dropColumn(foreignKeyName);
-      });
+      await dropColumn(fkHostTableName, foreignKeyName);
     }
 
     if (relationship === Relationship.OneMany) {
-      alterTableSchema = this.knex.schema.table(fkHostTableName, (table) => {
-        table.dropColumn(selfKeyName);
-      });
+      await dropColumn(fkHostTableName, selfKeyName);
     }
 
     if (relationship === Relationship.OneOne) {
-      alterTableSchema = this.knex.schema.table(fkHostTableName, (table) => {
-        const toDropKey = foreignKeyName === '__id' ? selfKeyName : foreignKeyName;
-        table.dropColumn(toDropKey);
-      });
-    }
-
-    if (!alterTableSchema) {
-      throw new Error('alterTableSchema is undefined');
-    }
-
-    for (const sql of alterTableSchema.toSQL()) {
-      await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
+      await dropColumn(fkHostTableName, foreignKeyName === '__id' ? selfKeyName : foreignKeyName);
     }
   }
 

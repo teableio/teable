@@ -390,8 +390,8 @@ export class ReferenceService {
     }
 
     if ((field.lookupOptions || field.type === FieldType.Link) && !recordItem.dependencies) {
-      console.log('empty:field', field);
-      console.log('empty:recordItem', JSON.stringify(recordItem, null, 2));
+      // console.log('empty:field', field);
+      // console.log('empty:recordItem', JSON.stringify(recordItem, null, 2));
       return true;
     }
     return false;
@@ -646,11 +646,11 @@ export class ReferenceService {
         }
 
         const value = this.calculateComputeField(field, fieldMap, recordItem);
-        console.log(
-          `calculated: ${field.type}.${field.id}.${record.id}`,
-          recordItem.record.fields,
-          value
-        );
+        // console.log(
+        //   `calculated: ${field.type}.${field.id}.${record.id}`,
+        //   recordItem.record.fields,
+        //   value
+        // );
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
         if (oldValue != value) {
@@ -1118,10 +1118,6 @@ export class ReferenceService {
       startRecordIds
     );
 
-    nameConsole('startFieldIds', startFieldIds, fieldMap);
-
-    console.log('startFieldIds', startFieldIds);
-    console.log('affectedRecordItemsQuerySql', affectedRecordItemsQuerySql);
     return await this.prismaService
       .txClient()
       .$queryRawUnsafe<IRelatedRecordItem[]>(affectedRecordItemsQuerySql);

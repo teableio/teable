@@ -52,7 +52,7 @@ export class SqliteProvider implements IDbProvider {
     });
 
     // initialize temporary table data
-    const insertTempTableSql = this.batchInsertSql(dbTableName, insertRowsData);
+    const insertTempTableSql = this.batchInsertSql(tempTableName, insertRowsData);
 
     // update data
     const updateColumns = dbFieldNames.reduce<{ [key: string]: unknown }>((pre, columnName) => {
