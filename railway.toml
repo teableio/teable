@@ -1,0 +1,11 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "/dockers/teable"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 35
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
