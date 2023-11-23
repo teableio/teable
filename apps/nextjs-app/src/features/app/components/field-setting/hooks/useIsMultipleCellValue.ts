@@ -22,6 +22,6 @@ export const useIsMultipleCellValue = (
 
     const relationship = linkField.options.relationship;
 
-    return isMultiValueLink(relationship);
+    return Boolean(isMultiValueLink(relationship));
   }, [fields, isLookup, lookupField?.isMultipleCellValue, lookupOptions]);
 };

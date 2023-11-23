@@ -22,18 +22,8 @@ export const useFieldTypeSubtitle = () => {
         return 'Add an user to a record.';
       case FieldType.Date:
         return 'Enter a date (e.g. 11/12/2023) or choose one from a calendar.';
-      case FieldType.PhoneNumber:
-        return 'Enter a telephone number (e.g. (415) 555-0000).';
-      case FieldType.Email:
-        return 'Enter an email address (e.g. bieber@example.com).';
-      case FieldType.URL:
-        return 'Enter a URL (e.g. teable.io or https://github.com/teableio).';
       case FieldType.Number:
         return 'Enter a number, or prefill each new cell with a default value.';
-      case FieldType.Currency:
-        return 'Enter a monetary amount, or prefill each new cell with a default value.';
-      case FieldType.Percent:
-        return 'Enter a percentage, or prefill each new cell with a default value.';
       case FieldType.Duration:
         return 'Enter a duration of time in hours, minutes or seconds (e.g. 1:23).';
       case FieldType.Rating:
