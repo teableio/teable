@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "dockers/teable"
+dockerfilePath = "/dockers/teable/Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"
