@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "references": [
+    {
+      "path": "../core"
+    }
+  ],
+  "exclude": ["node_modules", "test", "dist"]
+}

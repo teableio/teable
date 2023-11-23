@@ -19,10 +19,5 @@
       "@teable-group/db-main-prisma": ["../../packages/db-main-prisma/src"]
     }
   },
-  "references": [
-    { "path": "../../packages/core" },
-    { "path": "../../packages/db-main-prisma" },
-    { "path": "../../packages/openapi" }
-  ],
   "exclude": ["**/node_modules", "**/.*/", "dist"]
 }
