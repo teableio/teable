@@ -17,24 +17,13 @@
     "sourceMap": true,
     "incremental": true,
     "paths": {
-      "@teable-group/icons": ["../../../packages/icons/src/index"]
+      "@teable-group/core": ["../../../packages/core/src/index"],
+      "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
+      "@teable-group/icons": ["../../../packages/icons/src/index"],
+      "@teable-group/openapi": ["../../../packages/openapi/src/index"]
     },
     "types": ["@testing-library/jest-dom/types"]
   },
-  "references": [
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../ui-lib"
-    },
-    {
-      "path": "../icons"
-    },
-    {
-      "path": "../openapi"
-    }
-  ],
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src"]
 }

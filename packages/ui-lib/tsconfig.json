@@ -12,13 +12,11 @@
     // "jsxImportSource": "@emotion/react",
     "noEmit": false,
     "incremental": true,
-    "composite": true
-  },
-  "references": [
-    {
-      "path": "../icons"
+    "composite": true,
+    "paths": {
+      "@teable-group/icons": ["../../../packages/icons/src/index"]
     }
-  ],
+  },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
   "include": ["./src"]
 }

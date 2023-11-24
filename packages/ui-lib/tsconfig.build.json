@@ -9,5 +9,10 @@
     "jsxFactory": "",
     "jsxFragmentFactory": ""
   },
+  "references": [
+    {
+      "path": "../icons"
+    }
+  ],
   "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**"]
 }

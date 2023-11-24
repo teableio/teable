@@ -22,7 +22,7 @@
     ".": "./dist"
   },
   "scripts": {
-    "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
+    "build": "cross-env NODE_ENV=production tsc --project tsconfig.build.json",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache",
     "dev": "microbundle watch",
