@@ -6,15 +6,22 @@ import { RecordContext } from './RecordContext';
 
 export interface IRecordProviderContext {
   children: ReactNode;
-  serverData?: { records: IRecord[] };
+  serverRecords?: IRecord[];
+  serverRecord?: IRecord;
 }
 
-export const RecordProvider: React.FC<IRecordProviderContext> = ({ children, serverData }) => {
+export const RecordProvider: React.FC<IRecordProviderContext> = ({
+  children,
+  serverRecords,
+  serverRecord,
+}) => {
   const { connected } = useContext(AppContext);
 
   const value = useMemo(() => {
-    return { serverRecords: connected ? undefined : serverData?.records };
-  }, [serverData, connected]);
+    return connected
+      ? { serverRecords: undefined, serverRecord: undefined }
+      : { serverRecords, serverRecord };
+  }, [connected, serverRecords, serverRecord]);
 
   return <RecordContext.Provider value={value}>{children}</RecordContext.Provider>;
 };

@@ -1,7 +1,7 @@
 import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable-group/icons';
 import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn';
-import { generateUniqLocalKey } from '../view/form/util';
+import { generateUniqLocalKey } from '../form/util';
 import { SharePopover } from './SharePopover';
 import { FormMode, useFormModeStore } from './store';
 import { ToolBarButton } from './ToolBarButton';

@@ -8,6 +8,7 @@ export * from './use-view';
 export * from './use-views';
 export * from './use-view-id';
 export * from './use-ssr-records';
+export * from './use-ssr-record';
 export * from './use-theme';
 export * from './use-tables';
 export * from './use-table';

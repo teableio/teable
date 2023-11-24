@@ -1,18 +1,9 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
-import {
-  AggregationProvider,
-  AnchorContext,
-  FieldProvider,
-  RecordProvider,
-  useTable,
-  ViewProvider,
-} from '@teable-group/sdk';
-import { RowCountProvider } from '@teable-group/sdk/context/aggregation/RowCountProvider';
+import { AnchorContext, FieldProvider, useTable, ViewProvider } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';
 import { FailAlert } from '../table-list/FailAlert';
-import { ToolBar } from '../tool-bar/ToolBar';
 import { View } from '../view/View';
 import { TableHeader } from './table-header/TableHeader';
 
@@ -37,27 +28,20 @@ export const Table: React.FC<ITableProps> = ({
   return (
     <AnchorContext.Provider value={{ tableId: nodeId, viewId: viewId }}>
       <ViewProvider serverData={viewServerData}>
-        <AggregationProvider>
-          <div className="flex h-full grow basis-[500px] flex-col">
-            <TableHeader />
-            <FieldProvider serverSideData={fieldServerData}>
-              <ToolBar />
-              <RecordProvider serverData={recordsServerData}>
-                <RowCountProvider>
-                  <ErrorBoundary
-                    fallback={
-                      <div className="flex h-full w-full items-center justify-center">
-                        <FailAlert />
-                      </div>
-                    }
-                  >
-                    <View recordServerData={recordServerData} />
-                  </ErrorBoundary>
-                </RowCountProvider>
-              </RecordProvider>
-            </FieldProvider>
-          </div>
-        </AggregationProvider>
+        <div className="flex h-full grow basis-[500px] flex-col">
+          <TableHeader />
+          <FieldProvider serverSideData={fieldServerData}>
+            <ErrorBoundary
+              fallback={
+                <div className="flex h-full w-full items-center justify-center">
+                  <FailAlert />
+                </div>
+              }
+            >
+              <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
+            </ErrorBoundary>
+          </FieldProvider>
+        </div>
       </ViewProvider>
     </AnchorContext.Provider>
   );
