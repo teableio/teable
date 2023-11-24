@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { SVGProps } from 'react';
-const AlertTriangle = (props: SVGProps<SVGSVGElement>) => (
+const ListOrdered = (props: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="1em"
@@ -14,8 +14,8 @@ const AlertTriangle = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2.001 2.001 0 0 0 1.73-3ZM12 9v4M12 17h.01"
+      d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"
     />
   </svg>
 );
-export default AlertTriangle;
+export default ListOrdered;
