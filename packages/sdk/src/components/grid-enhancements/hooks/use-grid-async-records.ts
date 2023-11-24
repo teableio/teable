@@ -104,7 +104,7 @@ export const useGridAsyncRecords = (
   }, [visiblePages, initQuery]);
 
   const updateVisiblePages = useMemo(() => {
-    return debounce(setVisiblePages, 30);
+    return debounce(setVisiblePages, 30, { maxWait: 500 });
   }, []);
 
   const onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']> = useCallback(
