@@ -1,11 +1,24 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { IColumnMeta, IFieldVo, IOtOperation, IViewRo, IViewVo } from '@teable-group/core';
+import type {
+  IColumnMeta,
+  IFieldVo,
+  IOtOperation,
+  IViewRo,
+  IViewVo,
+  IFieldsViewVisibleRo,
+  IColumn,
+  IFilter,
+  ISort,
+  IViewOptionRo,
+  ViewType,
+} from '@teable-group/core';
 import {
   FieldOpBuilder,
   IManualSortRo,
   OpName,
   ViewOpBuilder,
   generateShareId,
+  validateOptionType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
@@ -156,6 +169,108 @@ export class ViewOpenApiService {
     await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(updateRecordsOrderSql);
       await this.viewService.updateViewSort(tableId, viewId, newSort);
+    });
+  }
+
+  async setViewFieldsVisible(tableId: string, viewId: string, fields: IFieldsViewVisibleRo) {
+    const { viewFields } = fields;
+    const field = await this.prismaService
+      .txClient()
+      .field.findMany({
+        where: { tableId },
+        select: {
+          columnMeta: true,
+          version: true,
+          id: true,
+          isPrimary: true,
+        },
+      })
+      .catch(() => {
+        throw new BadRequestException('Field found error');
+      });
+    const ops: { fieldId: string; ops: IOtOperation[] }[] = [];
+    type IMetaKey = keyof IColumn;
+    viewFields.forEach(({ fieldId, hidden }) => {
+      const item = field.find((f) => f.id === fieldId)?.columnMeta;
+      const obj = {
+        viewId,
+        metaKey: 'hidden' as IMetaKey,
+        newMetaValue: hidden as boolean,
+        oldMetaValue: item ? !!JSON.parse(item)[viewId]?.hidden : undefined,
+      };
+      const op = {
+        fieldId: fieldId,
+        ops: [FieldOpBuilder.editor.setColumnMeta.build(obj)],
+      };
+      ops.push(op);
+    });
+    await this.prismaService.$tx(async () => {
+      await this.fieldService.batchUpdateFields(tableId, ops);
+    });
+  }
+
+  async setViewFilter(tableId: string, viewId: string, filter: IFilter) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { filter: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View filter not found');
+      });
+    const { filter: oldFilter } = curView;
+    const ops = ViewOpBuilder.editor.setViewFilter.build({
+      newFilter: filter,
+      oldFilter: oldFilter ? JSON.parse(oldFilter) : oldFilter,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewSort(tableId: string, viewId: string, sort: ISort) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { sort: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View not found');
+      });
+    const { sort: oldSort } = curView;
+    const ops = ViewOpBuilder.editor.setViewSort.build({
+      newSort: sort,
+      oldSort: oldSort ? JSON.parse(oldSort) : oldSort,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewOption(tableId: string, viewId: string, viewOption: IViewOptionRo) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { options: true, type: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View option not found');
+      });
+    const { options, type: viewType } = curView;
+    validateOptionType(viewType as ViewType, viewOption);
+    const oldOptions = options ? JSON.parse(options) : options;
+    const ops = ViewOpBuilder.editor.setViewOption.build({
+      newOptions: {
+        ...oldOptions,
+        ...viewOption,
+      },
+      oldOptions: oldOptions,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 
