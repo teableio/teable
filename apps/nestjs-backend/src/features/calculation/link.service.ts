@@ -60,6 +60,20 @@ export class LinkService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
+  private validateLinkCell(cell: ILinkCellContext) {
+    if (!Array.isArray(cell.newValue)) {
+      return cell;
+    }
+    const checkSet = new Set<string>();
+    cell.newValue.forEach((v) => {
+      if (checkSet.has(v.id)) {
+        throw new BadRequestException(`Cannot set duplicate recordId: ${v.id} in the same cell`);
+      }
+      checkSet.add(v.id);
+    });
+    return cell;
+  }
+
   private filterLinkContext(contexts: ILinkCellContext[]): ILinkCellContext[] {
     return contexts
       .filter((ctx) => {
@@ -70,6 +84,7 @@ export class LinkService {
         return isLinkCellValue(ctx.oldValue);
       })
       .map((ctx) => {
+        this.validateLinkCell(ctx);
         return { ...ctx, oldValue: isLinkCellValue(ctx.oldValue) ? ctx.oldValue : undefined };
       });
   }
@@ -470,6 +485,7 @@ export class LinkService {
     });
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private parseFkRecordItem(
     field: LinkFieldDto,
     cellContexts: ILinkCellContext[],
@@ -480,7 +496,10 @@ export class LinkService {
   ): Record<string, IFkRecordItem> {
     const relationship = field.options.relationship;
     const foreignKeysIndexed = groupBy(foreignKeys, 'id');
-    const foreignKeysReverseIndexed = groupBy(foreignKeys, 'foreignId');
+    const foreignKeysReverseIndexed =
+      relationship === Relationship.OneMany || relationship === Relationship.OneOne
+        ? groupBy(foreignKeys, 'foreignId')
+        : undefined;
 
     // eslint-disable-next-line sonarjs/cognitive-complexity
     return cellContexts.reduce<IFkRecordMap['fieldId']>((acc, cellContext) => {
@@ -499,6 +518,13 @@ export class LinkService {
         if (oldKey === newKey) {
           return acc;
         }
+
+        if (newKey && foreignKeysReverseIndexed?.[newKey]) {
+          throw new BadRequestException(
+            `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${newKey}) more than once`
+          );
+        }
+
         acc[id] = { oldKey, newKey };
         return acc;
       }
@@ -511,7 +537,7 @@ export class LinkService {
         const extraKey = difference(newKey ?? [], oldKey ?? []);
 
         extraKey.forEach((key) => {
-          if (foreignKeysReverseIndexed[key]) {
+          if (foreignKeysReverseIndexed?.[key]) {
             throw new BadRequestException(
               `Consistency error, ${relationship} link field {${field.id}} unable to link a record (${key}) more than once`
             );
@@ -863,8 +889,12 @@ export class LinkService {
     field: LinkFieldDto,
     fkMap: { [recordId: string]: IFkRecordItem }
   ) {
-    const { selfKeyName, foreignKeyName, fkHostTableName } = field.options;
+    const { selfKeyName, foreignKeyName, fkHostTableName, isOneWay } = field.options;
 
+    if (isOneWay) {
+      this.saveForeignKeyForManyMany(field, fkMap);
+      return;
+    }
     const toDelete: [string, string][] = [];
     const toAdd: [string, string][] = [];
     for (const recordId in fkMap) {
@@ -936,8 +966,6 @@ export class LinkService {
         );
       }
     }
-
-    throw Error('Invalid OneOne field options');
   }
 
   private async saveForeignKeyToDb(fieldMap: IFieldMap, fkRecordMap: IFkRecordMap) {
@@ -978,7 +1006,6 @@ export class LinkService {
     if (!linkContexts.length) {
       return;
     }
-
     const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
     const fieldMapByTableId = await this.getFieldMapByTableId(fieldIds);
     const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
