@@ -7,12 +7,14 @@
     "module": "esnext",
     "jsx": "react-jsx",
     "jsxFactory": "",
-    "jsxFragmentFactory": ""
+    "jsxFragmentFactory": "",
+    "paths": {}
   },
   "references": [
     {
       "path": "../icons"
     }
   ],
-  "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**"]
+  "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**"],
+  "include": ["src"]
 }
