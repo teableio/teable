@@ -66,8 +66,19 @@ export class FieldSupplementService {
     return tableMeta.dbTableName;
   }
 
-  private getForeignKeyFieldName(fieldId: string) {
+  private getForeignKeyFieldName(fieldId: string | undefined) {
+    if (!fieldId) {
+      return `__fk_rad${getRandomString(16)}`;
+    }
     return `__fk_${fieldId}`;
+  }
+
+  private getJunctionTableName(fieldId: string, symmetricFieldId: string | undefined) {
+    if (symmetricFieldId) {
+      return `junction_${fieldId}_${symmetricFieldId}`;
+    } else {
+      return `junction_${fieldId}`;
+    }
   }
 
   private async getDefaultLinkName(foreignTableId: string) {
@@ -81,21 +92,17 @@ export class FieldSupplementService {
     return tableRaw.name;
   }
 
-  async generateNewLinkOptionsVo(
-    tableId: string,
-    fieldId: string,
-    optionsRo: ILinkFieldOptionsRo
-  ): Promise<ILinkFieldOptions> {
-    const { relationship, foreignTableId, isOneWay } = optionsRo;
-    const symmetricFieldId = isOneWay ? undefined : generateFieldId();
-    const dbTableName = await this.getDbTableName(tableId);
-    const foreignTableName = await this.getDbTableName(foreignTableId);
-
-    const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
-      where: { tableId: foreignTableId, isPrimary: true },
-      select: { id: true },
-    });
-
+  private generateLinkOptionsVo(params: {
+    optionsRo: ILinkFieldOptionsRo;
+    fieldId: string;
+    symmetricFieldId: string | undefined;
+    lookupFieldId: string;
+    dbTableName: string;
+    foreignTableName: string;
+  }): ILinkFieldOptions {
+    const { optionsRo, fieldId, symmetricFieldId, lookupFieldId, dbTableName, foreignTableName } =
+      params;
+    const { relationship, isOneWay } = optionsRo;
     const common = {
       ...optionsRo,
       symmetricFieldId,
@@ -103,18 +110,12 @@ export class FieldSupplementService {
     };
 
     if (relationship === Relationship.ManyMany) {
-      const pgMaxTableNameLength = 63;
-      const fkHostTableName = `junction_${fieldId}_${dbTableName}_${foreignTableName}`.slice(
-        0,
-        pgMaxTableNameLength
-      );
+      const fkHostTableName = this.getJunctionTableName(fieldId, symmetricFieldId);
       return {
         ...common,
         fkHostTableName,
-        selfKeyName: this.getForeignKeyFieldName(fieldId),
-        foreignKeyName: this.getForeignKeyFieldName(
-          symmetricFieldId ? symmetricFieldId : `rad${getRandomString(16)}`
-        ),
+        selfKeyName: this.getForeignKeyFieldName(symmetricFieldId),
+        foreignKeyName: this.getForeignKeyFieldName(fieldId),
       };
     }
 
@@ -130,9 +131,16 @@ export class FieldSupplementService {
     if (relationship === Relationship.OneMany) {
       return {
         ...common,
-        fkHostTableName: foreignTableName,
-        selfKeyName: this.getForeignKeyFieldName(symmetricFieldId ? symmetricFieldId : dbTableName),
-        foreignKeyName: '__id',
+        /**
+         * Semantically, one way link should not cause any side effects on the foreign table,
+         * so we should not modify the foreign table when `isOneWay` enable.
+         * Instead, we will create a junction table to store the foreign key.
+         */
+        fkHostTableName: isOneWay
+          ? this.getJunctionTableName(fieldId, symmetricFieldId)
+          : foreignTableName,
+        selfKeyName: this.getForeignKeyFieldName(symmetricFieldId),
+        foreignKeyName: isOneWay ? this.getForeignKeyFieldName(fieldId) : '__id',
       };
     }
 
@@ -148,13 +156,38 @@ export class FieldSupplementService {
     throw new BadRequestException('relationship is invalid');
   }
 
+  async generateNewLinkOptionsVo(
+    tableId: string,
+    fieldId: string,
+    optionsRo: ILinkFieldOptionsRo
+  ): Promise<ILinkFieldOptions> {
+    const { foreignTableId, isOneWay } = optionsRo;
+    const symmetricFieldId = isOneWay ? undefined : generateFieldId();
+    const dbTableName = await this.getDbTableName(tableId);
+    const foreignTableName = await this.getDbTableName(foreignTableId);
+
+    const { id: lookupFieldId } = await this.prismaService.field.findFirstOrThrow({
+      where: { tableId: foreignTableId, isPrimary: true },
+      select: { id: true },
+    });
+
+    return this.generateLinkOptionsVo({
+      optionsRo,
+      fieldId,
+      symmetricFieldId,
+      lookupFieldId,
+      dbTableName,
+      foreignTableName,
+    });
+  }
+
   async generateUpdatedLinkOptionsVo(
     tableId: string,
     fieldId: string,
     oldOptions: ILinkFieldOptions,
     newOptionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
-    const { relationship, foreignTableId, isOneWay } = newOptionsRo;
+    const { foreignTableId, isOneWay } = newOptionsRo;
 
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
@@ -175,56 +208,14 @@ export class FieldSupplementService {
             })
           ).id;
 
-    const common = {
-      ...newOptionsRo,
+    return this.generateLinkOptionsVo({
+      optionsRo: newOptionsRo,
+      fieldId,
       symmetricFieldId,
       lookupFieldId,
-    };
-
-    if (relationship === Relationship.ManyMany) {
-      const pgMaxTableNameLength = 63;
-      const fkHostTableName = `junction_${fieldId}_${dbTableName}_${foreignTableName}`.slice(
-        0,
-        pgMaxTableNameLength
-      );
-      return {
-        ...common,
-        fkHostTableName,
-        selfKeyName: this.getForeignKeyFieldName(fieldId),
-        foreignKeyName: this.getForeignKeyFieldName(
-          symmetricFieldId ? symmetricFieldId : `rad${getRandomString(16)}`
-        ),
-      };
-    }
-
-    if (relationship === Relationship.ManyOne) {
-      return {
-        ...common,
-        fkHostTableName: dbTableName,
-        selfKeyName: '__id',
-        foreignKeyName: this.getForeignKeyFieldName(fieldId),
-      };
-    }
-
-    if (relationship === Relationship.OneMany) {
-      return {
-        ...common,
-        fkHostTableName: foreignTableName,
-        selfKeyName: this.getForeignKeyFieldName(symmetricFieldId ? symmetricFieldId : dbTableName),
-        foreignKeyName: '__id',
-      };
-    }
-
-    if (relationship === Relationship.OneOne) {
-      return {
-        ...common,
-        fkHostTableName: dbTableName,
-        selfKeyName: '__id',
-        foreignKeyName: this.getForeignKeyFieldName(fieldId),
-      };
-    }
-
-    throw new BadRequestException('relationship is invalid');
+      dbTableName,
+      foreignTableName,
+    });
   }
 
   private async prepareLinkField(tableId: string, field: IFieldRo) {
@@ -887,7 +878,7 @@ export class FieldSupplementService {
   }
 
   async createForeignKey(options: ILinkFieldOptions) {
-    const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
+    const { relationship, fkHostTableName, selfKeyName, foreignKeyName, isOneWay } = options;
 
     let alterTableSchema: Knex.SchemaBuilder | undefined;
 
@@ -896,6 +887,8 @@ export class FieldSupplementService {
         table.increments('__id').primary();
         table.string(selfKeyName);
         table.string(foreignKeyName);
+
+        table.index([foreignKeyName], `index_${foreignKeyName}`);
         table.unique([selfKeyName, foreignKeyName], {
           indexName: `index_${selfKeyName}_${foreignKeyName}`,
         });
@@ -905,16 +898,28 @@ export class FieldSupplementService {
     if (relationship === Relationship.ManyOne) {
       alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
         table.string(foreignKeyName);
-        console.log('createIndex', `index_${foreignKeyName}`);
         table.index([foreignKeyName], `index_${foreignKeyName}`);
       });
     }
 
     if (relationship === Relationship.OneMany) {
-      alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
-        table.string(selfKeyName);
-        table.index([selfKeyName], `index_${selfKeyName}`);
-      });
+      if (isOneWay) {
+        alterTableSchema = this.knex.schema.createTable(fkHostTableName, (table) => {
+          table.increments('__id').primary();
+          table.string(selfKeyName);
+          table.string(foreignKeyName);
+
+          table.index([foreignKeyName], `index_${foreignKeyName}`);
+          table.unique([selfKeyName, foreignKeyName], {
+            indexName: `index_${selfKeyName}_${foreignKeyName}`,
+          });
+        });
+      } else {
+        alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
+          table.string(selfKeyName);
+          table.index([selfKeyName], `index_${selfKeyName}`);
+        });
+      }
     }
 
     // assume options is from the main field (user created one)
@@ -940,16 +945,14 @@ export class FieldSupplementService {
   }
 
   async cleanForeignKey(options: ILinkFieldOptions) {
-    const { fkHostTableName, relationship, selfKeyName, foreignKeyName } = options;
-
-    if (relationship === Relationship.ManyMany) {
-      const alterTableSchema = this.knex.schema.dropTable(fkHostTableName);
+    const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
+    const dropTable = async (tableName: string) => {
+      const alterTableSchema = this.knex.schema.dropTable(tableName);
 
       for (const sql of alterTableSchema.toSQL()) {
         await this.prismaService.txClient().$executeRawUnsafe(sql.sql);
       }
-      return;
-    }
+    };
 
     const dropColumn = async (tableName: string, columnName: string) => {
       const dropIndexSql = this.knex
@@ -964,12 +967,20 @@ export class FieldSupplementService {
       await this.prismaService.txClient().$executeRawUnsafe(dropColumnSql);
     };
 
+    if (relationship === Relationship.ManyMany) {
+      await dropTable(fkHostTableName);
+    }
+
     if (relationship === Relationship.ManyOne) {
       await dropColumn(fkHostTableName, foreignKeyName);
     }
 
     if (relationship === Relationship.OneMany) {
-      await dropColumn(fkHostTableName, selfKeyName);
+      if (isOneWay) {
+        await dropTable(fkHostTableName);
+      } else {
+        await dropColumn(fkHostTableName, selfKeyName);
+      }
     }
 
     if (relationship === Relationship.OneOne) {

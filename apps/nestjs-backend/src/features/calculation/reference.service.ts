@@ -27,7 +27,6 @@ import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 import type { IAdjacencyMap } from './utils/dfs';
 import { buildCompressedAdjacencyMap, filterDirectedGraph, getTopologicalOrder } from './utils/dfs';
-import { nameConsole } from './utils/name-console';
 
 // topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
@@ -157,31 +156,6 @@ export class ReferenceService {
       return {};
     }
     return buildCompressedAdjacencyMap(directedGraph, linkIdSet);
-  }
-
-  /**
-   * link field should not be the first item in topo order when calculate.
-   */
-  removeFirstLinkItem(
-    fieldMap: IFieldMap,
-    topoOrdersByFieldId: {
-      [fieldId: string]: ITopoItem[];
-    }
-  ) {
-    return Object.entries(topoOrdersByFieldId).reduce<{
-      [fieldId: string]: ITopoItem[];
-    }>((pre, [fieldId, topoOrder]) => {
-      const firstField = fieldMap[topoOrder[0].id];
-      if (!firstField) {
-        throw new Error(`field ${topoOrder[0].id} not found`);
-      }
-
-      if (firstField.type === FieldType.Link) {
-        topoOrder = topoOrder.slice(1);
-      }
-      pre[fieldId] = topoOrder;
-      return pre;
-    }, {});
   }
 
   async prepareCalculation(recordData: IRecordData[]) {
