@@ -7,7 +7,7 @@ import { AppContext } from '../app';
 
 let referenceCount = 0;
 
-export const useConnectionAggregation = () => {
+export const useConnectionAggregation = (onChange?: () => void) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const { connection } = useContext(AppContext);
 
@@ -27,21 +27,23 @@ export const useConnectionAggregation = () => {
 
     const receiveHandler = (_id: string, viewAggregation: IRawAggregationVo) => {
       setViewAggregation(viewAggregation);
+      onChange?.();
     };
 
-    remotePresence?.on('receive', (id, viewAggregation: IRawAggregationVo) => {
-      setViewAggregation(viewAggregation);
-    });
+    remotePresence?.on('receive', receiveHandler);
 
     return () => {
-      canCreatePresence && referenceCount--;
       remotePresence?.removeListener('receive', receiveHandler);
+      canCreatePresence && referenceCount--;
       if (referenceCount === 0) {
         remotePresence?.unsubscribe();
         remotePresence?.destroy();
       }
+      console.log('remotePresence', remotePresence);
+      console.log('referenceCount', referenceCount);
+      setRemotePresence(undefined);
     };
-  }, [connection, remotePresence, tableId, viewId]);
+  }, [connection, onChange, remotePresence, tableId, viewId]);
 
   return viewAggregation;
 };

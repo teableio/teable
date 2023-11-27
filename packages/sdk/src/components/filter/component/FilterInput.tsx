@@ -1,7 +1,8 @@
 import type { IFilterItem } from '@teable-group/core';
 import { Input } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { useEffect } from 'react';
+import { debounce } from 'lodash';
+import { useEffect, useMemo, useState } from 'react';
 
 interface InputProps {
   value: IFilterItem['value'];
@@ -12,6 +13,7 @@ interface InputProps {
 
 const FilterInput = (props: InputProps) => {
   const { onChange, placeholder = 'Enter a value', value, className } = props;
+  const [input, setInput] = useState<string>((value as string) ?? '');
 
   useEffect(() => {
     if (!['string', 'number'].includes(typeof value)) {
@@ -19,13 +21,22 @@ const FilterInput = (props: InputProps) => {
     }
   }, [onChange, value]);
 
+  const updateInput = useMemo(() => {
+    return debounce(setInput, 30);
+  }, []);
+
+  useEffect(() => {
+    updateInput((value as string) ?? '');
+  }, [updateInput, value]);
+
   return (
     <Input
       placeholder={placeholder}
-      value={(value as string) ?? ''}
+      value={input}
       onChange={(e) => {
-        onChange(e.target.value ?? null);
+        setInput(e.target.value);
       }}
+      onBlur={() => onChange(input ?? null)}
       className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );

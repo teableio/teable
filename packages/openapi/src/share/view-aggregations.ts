@@ -1,11 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IViewAggregationVo } from '@teable-group/core';
-import { viewVoSchema } from '@teable-group/core';
+import { viewAggregationRoSchema, viewVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
-import { registerRoute, urlBuilder } from '../utils';
+import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_AGGREGATIONS_LIST = '/share/{shareId}/view/aggregation';
+export const SHARE_VIEW_AGGREGATIONS_LIST = '/share/{shareId}/view/aggregations';
+
+export const shareViewAggregationsRoSchema = viewAggregationRoSchema.pick({ filter: true });
+
+export type IShareViewAggregationsRo = z.infer<typeof shareViewAggregationsRoSchema>;
 
 export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -15,6 +19,7 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
+    query: z.object({}),
   },
   responses: {
     200: {
@@ -29,6 +34,12 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewAggregations = async (shareId: string) => {
-  return axios.get<IViewAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }));
+export const getShareViewAggregations = async (
+  shareId: string,
+  query?: IShareViewAggregationsRo
+) => {
+  return axios.get<IViewAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }), {
+    params: query,
+    paramsSerializer,
+  });
 };

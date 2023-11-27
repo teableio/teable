@@ -1,6 +1,11 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import type { IViewAggregationVo, IViewRowCountVo } from '@teable-group/core';
-import { IViewAggregationRo, viewAggregationRoSchema } from '@teable-group/core';
+import {
+  IViewAggregationRo,
+  viewAggregationRoSchema,
+  viewRowCountRoSchema,
+  IViewRowCountRo,
+} from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -25,8 +30,9 @@ export class AggregationOpenApiController {
   @Permissions('view|read')
   async getViewRowCount(
     @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string
+    @Param('viewId') viewId: string,
+    @Query(new ZodValidationPipe(viewRowCountRoSchema)) query?: IViewRowCountRo
   ): Promise<IViewRowCountVo> {
-    return await this.aggregationOpenApiService.getViewRowCount(tableId, viewId);
+    return await this.aggregationOpenApiService.getViewRowCount(tableId, viewId, query);
   }
 }
