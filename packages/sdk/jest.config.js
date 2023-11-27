@@ -21,7 +21,7 @@ const getTsConfigBasePaths = (tsConfigFile) => {
   const tsPaths = parsedTsConfig.config.compilerOptions?.paths;
   return tsPaths
     ? pathsToModuleNameMapper(tsPaths, {
-        prefix: '<rootDir>/src',
+        prefix: '<rootDir>',
       })
     : {};
 };
