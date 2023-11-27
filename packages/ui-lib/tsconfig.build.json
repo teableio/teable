@@ -7,7 +7,8 @@
     "module": "esnext",
     "jsx": "react-jsx",
     "jsxFactory": "",
-    "jsxFragmentFactory": ""
+    "jsxFragmentFactory": "",
+    "paths": {}
   },
   "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**"]
 }

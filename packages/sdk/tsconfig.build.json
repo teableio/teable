@@ -5,21 +5,8 @@
     "rootDir": "./src",
     "target": "esnext",
     "module": "esnext",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {}
   },
-  "references": [
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../ui-lib"
-    },
-    {
-      "path": "../icons"
-    },
-    {
-      "path": "../openapi"
-    }
-  ],
   "exclude": ["dist", "**/__tests__/*", "**/*spec.ts"]
 }

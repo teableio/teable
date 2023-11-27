@@ -14,7 +14,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache",
     "dev": "tsc --watch",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit"
