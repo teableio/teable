@@ -39,8 +39,6 @@ export const useConnectionAggregation = (onChange?: () => void) => {
         remotePresence?.unsubscribe();
         remotePresence?.destroy();
       }
-      console.log('remotePresence', remotePresence);
-      console.log('referenceCount', referenceCount);
       setRemotePresence(undefined);
     };
   }, [connection, onChange, remotePresence, tableId, viewId]);
