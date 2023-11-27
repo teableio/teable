@@ -6,6 +6,7 @@ module.exports = function (options, webpack) {
     ...options,
     entry: ['webpack/hot/poll?100', options.entry],
     mode: 'development',
+    devtool: 'source-map',
     externals: [
       nodeExternals({
         allowlist: ['webpack/hot/poll?100', /^@teable-group/],
@@ -15,10 +16,22 @@ module.exports = function (options, webpack) {
       rules: [
         {
           test: /\.ts?$/,
-          use: ['cache-loader', 'ts-loader'],
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true,
+            happyPackMode: true,
+          },
           exclude: /node_modules/,
         },
       ],
+    },
+    cache: {
+      type: 'filesystem',
+      allowCollectingMemory: true,
+      buildDependencies: {
+        // This makes all dependencies of this file - build dependencies
+        config: [__filename],
+      },
     },
     plugins: [
       // filter default ForkTsCheckerWebpackPlugin to rewrite the ts config file path
