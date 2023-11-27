@@ -1,6 +1,6 @@
 import dayjs, { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
-import { z } from '../../../zod';
+import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import {

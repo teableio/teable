@@ -1,6 +1,6 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { filterSchema } from '../view';
+import { filterSchema } from '../view/filter/filter';
 import { StatisticsFunc } from './statistics-func.enum';
 
 export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
