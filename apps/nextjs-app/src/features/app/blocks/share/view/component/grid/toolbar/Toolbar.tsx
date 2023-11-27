@@ -1,8 +1,9 @@
 import type { GridViewOptions } from '@teable-group/core';
 import { ArrowUpDown, Filter as FilterIcon } from '@teable-group/icons';
-import { Filter, useView, RowHeight, Sort } from '@teable-group/sdk';
+import { Filter, useView, RowHeight } from '@teable-group/sdk';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
+import { Sort } from './Sort';
 
 export const Toolbar = () => {
   const view = useView();

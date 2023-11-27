@@ -5,7 +5,7 @@ import { useContext } from 'react';
 import { ShareViewPageContext } from '../../ShareViewPageContext';
 import { AggregationProvider, RowCountProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
-import { Toolbar } from './Toolbar';
+import { Toolbar } from './toolbar';
 
 export const GridView = () => {
   const { records } = useContext(ShareViewPageContext);
