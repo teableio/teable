@@ -14,10 +14,14 @@ import { Knex } from 'knex';
 import { difference, groupBy, intersectionBy, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { preservedFieldName } from '../field/constant';
+import type { IVisualTableDefaultField } from '../field/constant';
+import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';
+import type { AutoNumberFieldDto } from '../field/model/field-dto/auto-number-field.dto';
+import type { CreatedTimeFieldDto } from '../field/model/field-dto/created-time-field.dto';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import type { LastModifiedTimeFieldDto } from '../field/model/field-dto/last-modified-time-field.dto';
 import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -523,6 +527,7 @@ export class ReferenceService {
     return lookupValues;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private calculateComputeField(
     field: IFieldInstance,
     fieldMap: IFieldMap,
@@ -580,14 +585,23 @@ export class ReferenceService {
       );
     }
 
-    if (field.type === FieldType.Formula) {
+    if (
+      field.type === FieldType.Formula ||
+      field.type === FieldType.AutoNumber ||
+      field.type === FieldType.CreatedTime ||
+      field.type === FieldType.LastModifiedTime
+    ) {
       return this.calculateFormula(field, fieldMap, recordItem);
     }
 
     throw new BadRequestException(`Unsupported field type ${field.type}`);
   }
 
-  private calculateFormula(field: FormulaFieldDto, fieldMap: IFieldMap, recordItem: IRecordItem) {
+  private calculateFormula(
+    field: FormulaFieldDto | AutoNumberFieldDto | CreatedTimeFieldDto | LastModifiedTimeFieldDto,
+    fieldMap: IFieldMap,
+    recordItem: IRecordItem
+  ) {
     const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
     return typedValue.toPlain();
   }
@@ -814,7 +828,7 @@ export class ReferenceService {
 
   private recordRaw2Record(
     fields: IFieldInstance[],
-    raw: { [dbFieldName: string]: unknown } & { __id: string }
+    raw: { [dbFieldName: string]: unknown } & Omit<IVisualTableDefaultField, '__version'>
   ) {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
@@ -824,6 +838,11 @@ export class ReferenceService {
     return {
       fields: fieldsData,
       id: raw.__id,
+      autoNumber: raw.__auto_number,
+      createdTime: raw.__created_time?.toISOString(),
+      lastModifiedTime: raw.__last_modified_time?.toISOString(),
+      createdBy: raw.__created_by,
+      lastModifiedBy: raw.__last_modified_by,
       recordOrder: {},
     };
   }
@@ -896,7 +915,7 @@ export class ReferenceService {
       const recordIds = uniq(recordIdsByTableName[dbTableName].map((r) => r.id));
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat([...preservedFieldName]);
+        .concat([...preservedDbFieldNames]);
       const nativeQuery = this.knex(dbTableName)
         .select(dbFieldNames)
         .whereIn('__id', recordIds)
@@ -1088,7 +1107,7 @@ export class ReferenceService {
     dbTableName2fields: { [tableId: string]: IFieldInstance[] }
   ) {
     return Object.entries(formattedResults).reduce<{
-      [dbTableName: string]: ITinyRecord[];
+      [dbTableName: string]: (ITinyRecord & { autoNumber?: number })[];
     }>((acc, e) => {
       const [dbTableName, recordMap] = e;
       const fields = dbTableName2fields[dbTableName];

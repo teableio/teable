@@ -46,7 +46,7 @@ import { Timing } from '../../utils/timing';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
-import { preservedFieldName } from '../field/constant';
+import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
@@ -317,6 +317,7 @@ export class RecordService implements IAdapterService {
     contexts: { fieldId: string; newValue: unknown }[]
   ) {
     const userId = this.cls.get('user.id');
+    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
 
     const fieldIds = Array.from(
       contexts.reduce((acc, cur) => {
@@ -346,7 +347,12 @@ export class RecordService implements IAdapterService {
     );
 
     const updateRecordSql = this.knex(dbTableName)
-      .update({ ...recordFieldsByDbFieldName, __last_modified_by: userId, __version: version })
+      .update({
+        ...recordFieldsByDbFieldName,
+        __last_modified_by: userId,
+        __last_modified_time: timeStr,
+        __version: version,
+      })
       .where({ __id: recordId })
       .toQuery();
     return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
@@ -702,7 +708,7 @@ export class RecordService implements IAdapterService {
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
     const fieldNames = fields
       .map((f) => f.dbFieldName)
-      .concat([...preservedFieldName, ...fieldNameOfViewOrder]);
+      .concat([...preservedDbFieldNames, ...fieldNameOfViewOrder]);
 
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
@@ -743,6 +749,7 @@ export class RecordService implements IAdapterService {
           data: {
             fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
             id: record.__id,
+            autoNumber: record.__auto_number,
             createdTime: record.__created_time?.toISOString(),
             lastModifiedTime: record.__last_modified_time?.toISOString(),
             createdBy: record.__created_by,

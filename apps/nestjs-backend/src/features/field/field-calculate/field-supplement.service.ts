@@ -34,6 +34,9 @@ import {
   CheckboxFieldCore,
   RatingFieldCore,
   LongTextFieldCore,
+  CreatedTimeFieldCore,
+  AutoNumberFieldCore,
+  LastModifiedTimeFieldCore,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
@@ -556,6 +559,48 @@ export class FieldSupplementService implements ISupplementService {
     };
   }
 
+  private prepareAutoNumberField(field: IFieldRo) {
+    const { name } = field;
+    const options = field.options ?? AutoNumberFieldCore.defaultOptions();
+
+    return {
+      ...field,
+      name: name ?? 'ID',
+      options: { ...options, expression: 'AUTO_NUMBER()' },
+      cellValueType: CellValueType.Number,
+      dbFieldType: DbFieldType.Integer,
+      isComputed: true,
+    };
+  }
+
+  private prepareCreatedTimeField(field: IFieldRo) {
+    const { name } = field;
+    const options = field.options ?? CreatedTimeFieldCore.defaultOptions();
+
+    return {
+      ...field,
+      name: name ?? 'Created Time',
+      options: { ...options, expression: 'CREATED_TIME()' },
+      cellValueType: CellValueType.DateTime,
+      dbFieldType: DbFieldType.DateTime,
+      isComputed: true,
+    };
+  }
+
+  private prepareLastModifiedTimeField(field: IFieldRo) {
+    const { name } = field;
+    const options = field.options ?? LastModifiedTimeFieldCore.defaultOptions();
+
+    return {
+      ...field,
+      name: name ?? 'Last Modified Time',
+      options: { ...options, expression: 'LAST_MODIFIED_TIME()' },
+      cellValueType: CellValueType.DateTime,
+      dbFieldType: DbFieldType.DateTime,
+      isComputed: true,
+    };
+  }
+
   private prepareCheckboxField(field: IFieldRo) {
     const { name, options } = field;
 
@@ -597,6 +642,12 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareAttachmentField(fieldRo);
       case FieldType.Date:
         return this.prepareDateField(fieldRo);
+      case FieldType.AutoNumber:
+        return this.prepareAutoNumberField(fieldRo);
+      case FieldType.CreatedTime:
+        return this.prepareCreatedTimeField(fieldRo);
+      case FieldType.LastModifiedTime:
+        return this.prepareLastModifiedTimeField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
       default:
@@ -637,6 +688,12 @@ export class FieldSupplementService implements ISupplementService {
         return this.prepareAttachmentField(fieldRo);
       case FieldType.Date:
         return this.prepareDateField(fieldRo);
+      case FieldType.AutoNumber:
+        return this.prepareAutoNumberField(fieldRo);
+      case FieldType.CreatedTime:
+        return this.prepareCreatedTimeField(fieldRo);
+      case FieldType.LastModifiedTime:
+        return this.prepareLastModifiedTimeField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
       default:

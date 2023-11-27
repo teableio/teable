@@ -3,9 +3,12 @@ import { assertNever, FieldType } from '@teable-group/core';
 import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
 import { AttachmentField } from './attachment.field';
+import { AutoNumberField } from './auto-number.field';
 import { CheckboxField } from './checkbox.field';
+import { CreatedTimeField } from './created-time.field';
 import { DateField } from './date.field';
 import { FormulaField } from './formula.field';
+import { LastModifiedTimeField } from './last-modified-time.field';
 import { LinkField } from './link.field';
 import { LongTextField } from './long-text.field';
 import { MultipleSelectField } from './multiple-select.field';
@@ -42,6 +45,12 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(RollupField, field);
       case FieldType.Rating:
         return plainToInstance(RatingField, field);
+      case FieldType.AutoNumber:
+        return plainToInstance(AutoNumberField, field);
+      case FieldType.CreatedTime:
+        return plainToInstance(CreatedTimeField, field);
+      case FieldType.LastModifiedTime:
+        return plainToInstance(LastModifiedTimeField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
       case FieldType.Email:
@@ -49,11 +58,8 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
       case FieldType.PhoneNumber:
       case FieldType.URL:
       case FieldType.User:
-      case FieldType.AutoNumber:
       case FieldType.Count:
-      case FieldType.CreatedTime:
       case FieldType.Duration:
-      case FieldType.LastModifiedTime:
       case FieldType.Currency:
       case FieldType.Percent:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

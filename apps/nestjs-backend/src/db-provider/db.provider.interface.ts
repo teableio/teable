@@ -25,6 +25,7 @@ export interface IDbProvider {
     tempTableName: string;
     columnNames: string[];
     userId: string;
+    updateTimeStr: string;
   }): { insertTempTableSql: string; updateRecordSql: string };
 
   aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface;

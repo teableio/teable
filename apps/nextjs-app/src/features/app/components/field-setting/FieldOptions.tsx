@@ -9,9 +9,12 @@ import type {
   ILookupOptionsRo,
   IRatingFieldOptions,
   ISingleLineTextFieldOptions,
+  ICreatedTimeFieldOptions,
+  ILastModifiedTimeFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
+import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
 import { LinkOptions } from './options/LinkOptions';
@@ -90,6 +93,20 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <DateOptions
           options={options as IDateFieldOptions}
           isLookup={isLookup}
+          onChange={updateFieldOptions}
+        />
+      );
+    case FieldType.CreatedTime:
+      return (
+        <CreatedTimeOptions
+          options={options as ICreatedTimeFieldOptions}
+          onChange={updateFieldOptions}
+        />
+      );
+    case FieldType.LastModifiedTime:
+      return (
+        <CreatedTimeOptions
+          options={options as ILastModifiedTimeFieldOptions}
           onChange={updateFieldOptions}
         />
       );

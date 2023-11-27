@@ -12,6 +12,9 @@ export const recordSchema = z.object({
   fields: z.record(z.unknown()).openapi({
     description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
   }),
+  autoNumber: z.number().optional().openapi({
+    description: 'Auto number, a unique identifier for each record',
+  }),
   createdTime: z.string().optional().openapi({
     description: 'Created time, date ISO string (new Date().toISOString).',
   }),

@@ -20,6 +20,12 @@ import {
   selectFieldOptionsRoSchema,
   ratingFieldOptionsSchema,
   longTextFieldOptionsSchema,
+  createdTimeFieldOptionsSchema,
+  lastModifiedTimeFieldOptionsSchema,
+  autoNumberFieldOptionsSchema,
+  createdTimeFieldOptionsRoSchema,
+  lastModifiedTimeFieldOptionsRoSchema,
+  autoNumberFieldOptionsRoSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -86,6 +92,9 @@ export const unionFieldOptionsVoSchema = z.union([
   linkFieldOptionsSchema,
   selectFieldOptionsSchema,
   numberFieldOptionsSchema,
+  autoNumberFieldOptionsSchema,
+  createdTimeFieldOptionsSchema,
+  lastModifiedTimeFieldOptionsSchema,
 ]);
 
 export const unionFieldOptionsRoSchema = z.union([
@@ -93,6 +102,9 @@ export const unionFieldOptionsRoSchema = z.union([
   linkFieldOptionsRoSchema,
   selectFieldOptionsRoSchema,
   numberFieldOptionsRoSchema,
+  autoNumberFieldOptionsRoSchema,
+  createdTimeFieldOptionsRoSchema,
+  lastModifiedTimeFieldOptionsRoSchema,
 ]);
 
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
@@ -267,15 +279,15 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.Link:
       return linkFieldOptionsRoSchema;
     case FieldType.CreatedTime:
-      return false;
+      return createdTimeFieldOptionsRoSchema;
     case FieldType.LastModifiedTime:
-      return false;
+      return lastModifiedTimeFieldOptionsRoSchema;
     case FieldType.CreatedBy:
       return false;
     case FieldType.LastModifiedBy:
       return false;
     case FieldType.AutoNumber:
-      return false;
+      return autoNumberFieldOptionsRoSchema;
     case FieldType.Button:
       return false;
     default:

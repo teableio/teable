@@ -116,18 +116,20 @@ export class SqliteProvider implements IDbProvider {
     tempTableName: string;
     columnNames: string[];
     userId: string;
+    updateTimeStr: string;
   }): {
     insertTempTableSql: string;
     updateRecordSql: string;
   } {
-    const { dbTableName, fieldMap, opsData, tempTableName, columnNames, userId } = params;
+    const { dbTableName, fieldMap, opsData, tempTableName, columnNames, userId, updateTimeStr } =
+      params;
 
     // 2.initialize temporary table data
     const insertRowsData = opsData.map((data) => {
       return {
         __id: data.recordId,
         __version: data.version + 1,
-        __last_modified_time: new Date().toISOString(),
+        __last_modified_time: updateTimeStr,
         __last_modified_by: userId,
         ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
           (pre, [fieldId, value]) => {

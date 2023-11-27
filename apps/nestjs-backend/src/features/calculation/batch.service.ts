@@ -194,6 +194,7 @@ export class BatchService {
     }
 
     const userId = this.cls.get('user.id');
+    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
     const prisma = this.prismaService.txClient();
     const tempTableName = `temp_` + customAlphabet('abcdefghijklmnopqrstuvwxyz', 10)();
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
@@ -226,6 +227,7 @@ export class BatchService {
       tempTableName,
       columnNames,
       userId,
+      updateTimeStr: timeStr,
     });
 
     // 2.initialize temporary table data
