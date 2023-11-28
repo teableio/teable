@@ -17,6 +17,10 @@ const shareDbErrorHandler = (error: unknown) => {
     window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
     return;
   }
+  if (code === HttpErrorCode.UNAUTHORIZED_SHARE) {
+    window.location.reload();
+    return;
+  }
   toast({ title: 'Socket Error', description: `${code}: ${message}` });
 };
 

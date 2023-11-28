@@ -48,7 +48,8 @@ export class ShareController {
   @Post('/:shareId/view/auth')
   async auth(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const shareId = req.shareId;
-    const token = await this.shareService.authToken(shareId);
+    const password = req.password;
+    const token = await this.shareService.authToken({ shareId, password });
     res.cookie(shareId, token, {
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7,

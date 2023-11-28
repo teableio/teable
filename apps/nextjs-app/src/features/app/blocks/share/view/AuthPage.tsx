@@ -57,6 +57,7 @@ export const AuthPage = () => {
                 required
                 type="password"
                 readOnly={isLoading}
+                autoComplete={`${shareId}-password}`}
               />
             </div>
           </div>
