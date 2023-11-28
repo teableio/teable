@@ -230,7 +230,7 @@ export class FieldSupplementService {
       id: fieldId,
       name: field.name ?? (await this.getDefaultLinkName(foreignTableId)),
       options: optionsVo,
-      isMultipleCellValue: isMultiValueLink(relationship),
+      isMultipleCellValue: isMultiValueLink(relationship) || undefined,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
     };
@@ -268,7 +268,7 @@ export class FieldSupplementService {
       ...oldFieldVo,
       ...fieldRo,
       options: optionsVo,
-      isMultipleCellValue: isMultiValueLink(optionsVo.relationship),
+      isMultipleCellValue: isMultiValueLink(optionsVo.relationship) || undefined,
       dbFieldType: DbFieldType.Json,
       cellValueType: CellValueType.String,
     };
@@ -852,7 +852,7 @@ export class FieldSupplementService {
     });
 
     const relationship = RelationshipRevert[field.options.relationship];
-    const isMultipleCellValue = isMultiValueLink(relationship);
+    const isMultipleCellValue = isMultiValueLink(relationship) || undefined;
     const [dbFieldName] = this.fieldService.generateDbFieldName([
       { id: field.options.symmetricFieldId, name: tableName },
     ]);

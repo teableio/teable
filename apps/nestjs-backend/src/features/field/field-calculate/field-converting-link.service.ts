@@ -76,7 +76,7 @@ export class FieldConvertingLinkService {
     options.fkHostTableName = newField.options.fkHostTableName;
     options.selfKeyName = newField.options.foreignKeyName;
     options.foreignKeyName = newField.options.selfKeyName;
-    newFieldVo.isMultipleCellValue = isMultiValueLink(options.relationship);
+    newFieldVo.isMultipleCellValue = isMultiValueLink(options.relationship) || undefined;
 
     // return modified changes in foreignTable
     return {

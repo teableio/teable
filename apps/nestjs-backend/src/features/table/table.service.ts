@@ -427,24 +427,18 @@ export class TableService implements IAdapterService {
   }
 
   async getRowCount(tableId: string, query: IGetRowCountRo) {
-    const { filterByLinkField = {} } = query;
-    const { nullableForeignKey, recordIds } = filterByLinkField;
-
-    const dbTableName = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    const queryBuilder = this.knex(dbTableName);
-
-    if (recordIds?.length) {
-      queryBuilder.whereIn('__id', recordIds);
+    if (query.filterLinkCellSelected) {
+      // TODO: use a new method to retrieve only count
+      const { ids } = await this.recordService.getLinkSelectedRecordIds(
+        query.filterLinkCellSelected
+      );
+      return { rowCount: ids.length };
     }
 
-    if (nullableForeignKey) {
-      queryBuilder.andWhere(nullableForeignKey, 'is', null);
-    }
+    const { queryBuilder } = await this.recordService.buildFilterSortQuery(tableId, query);
 
     const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
+
     const results = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
       sqlNative.sql,
       ...sqlNative.bindings

@@ -118,7 +118,6 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
             <Switch
               className="h-5 w-9"
               classNameThumb="w-4 h-4 data-[state=checked]:translate-x-4"
-              id="airplane-mode"
               checked={Boolean(showValue)}
               onCheckedChange={updateShowValue}
             />

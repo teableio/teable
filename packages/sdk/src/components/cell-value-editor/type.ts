@@ -6,4 +6,5 @@ export interface ICellValueEditor extends Omit<ICellEditor<unknown>, 'value'> {
   wrapStyle?: React.CSSProperties;
   cellValue?: unknown;
   field: Field;
+  recordId?: string;
 }

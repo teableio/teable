@@ -25,7 +25,7 @@ export const LinkOptions = (props: {
   };
 
   const onSelect = (key: keyof ILinkFieldOptionsRo, value: unknown) => {
-    onChange?.({ ...options, [key]: value });
+    onChange?.({ foreignTableId, relationship, isOneWay, [key]: value });
   };
 
   const onRelationshipChange = (leftMulti: boolean, rightMulti: boolean) => {
@@ -68,7 +68,20 @@ export const LinkOptions = (props: {
       />
       {foreignTableId && (
         <>
-          <div className="flex h-8 items-center space-x-2">
+          <hr className="my-2" />
+          <div className="flex space-x-2 pt-1">
+            <Switch
+              id="field-options-one-way-link"
+              checked={!isOneWay}
+              onCheckedChange={(checked) => {
+                onSelect('isOneWay', checked ? undefined : true);
+              }}
+            />
+            <Label htmlFor="field-options-one-way-link" className="font-normal leading-tight">
+              Create a symmetric link field in the link table
+            </Label>
+          </div>
+          <div className="flex space-x-2 pt-1">
             <Switch
               id="field-options-self-multi"
               checked={isLeftMulti(relationship)}
@@ -80,19 +93,7 @@ export const LinkOptions = (props: {
               Allow linking to multiple records
             </Label>
           </div>
-          <div className="flex h-8 items-center space-x-2">
-            <Switch
-              id="field-options-one-way-link"
-              checked={!isOneWay}
-              onCheckedChange={(checked) => {
-                onSelect('isOneWay', checked ? undefined : true);
-              }}
-            />
-            <Label htmlFor="field-options-one-way-link" className="font-normal leading-tight">
-              Create a symmetric link field in the linked table
-            </Label>
-          </div>
-          <div className="flex h-8 items-center space-x-2">
+          <div className="flex space-x-2 pt-1">
             <Switch
               id="field-options-sym-multi"
               checked={isRightMulti(relationship)}
