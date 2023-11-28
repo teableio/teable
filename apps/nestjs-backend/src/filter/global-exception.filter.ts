@@ -11,10 +11,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: Error | HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const shouldLogStack = !('getStatus' in exception) || exception.getStatus?.() >= 500;
 
-    this.logger.error(`${exception.message}\n${shouldLogStack ? exception.stack : ''}`);
+    this.logger.error(
+      `[${request.url}]${exception.message}\n${shouldLogStack ? exception.stack : ''}`
+    );
 
     if (
       exception instanceof BadRequestException ||

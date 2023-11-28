@@ -21,7 +21,7 @@ export class SelectionController {
   constructor(private selectionService: SelectionService) {}
 
   @Permissions('view|read')
-  @Get('/getIdsFromRanges')
+  @Get('/rangeToId')
   async getIdsFromRanges(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,

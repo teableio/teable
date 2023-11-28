@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable-group/core';
@@ -10,17 +11,21 @@ import { DriverClient, parseDsn } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
+import type { IBaseConfig } from '../../configs/base.config';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class DbConnectionService {
+  private readonly baseConfig: IBaseConfig;
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     @Inject('DbProvider') private dbProvider: IDbProvider
-  ) {}
+  ) {
+    this.baseConfig = this.configService.get<IBaseConfig>('base')!;
+  }
 
   private getUrlFromDsn(dsn: IDsn): string {
     const { driver, host, port, db, user, pass, params } = dsn;
@@ -84,8 +89,11 @@ export class DbConnectionService {
     }
 
     const readOnlyRole = `read_only_role_${baseId}`;
-    const databaseUrl = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
-    const originDsn = parseDsn(databaseUrl); // Assuming parseDsn is already defined to parse the DSN
+    if (!this.baseConfig.publicDatabaseAddress) {
+      throw new NotFoundException('PUBLIC_DATABASE_ADDRESS is not found in env');
+    }
+
+    const originDsn = parseDsn(this.baseConfig.publicDatabaseAddress); // Assuming parseDsn is already defined to parse the DSN
 
     // Check if the base exists and the user is the owner
     const base = await this.prismaService.base
@@ -146,7 +154,11 @@ export class DbConnectionService {
       const readOnlyRole = `read_only_role_${baseId}`;
       const schemaName = baseId;
       const password = nanoid();
-      const databaseUrl = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+      const databaseUrl = this.baseConfig.publicDatabaseAddress;
+      if (!databaseUrl) {
+        throw new NotFoundException('PUBLIC_DATABASE_ADDRESS is not found in env');
+      }
+
       const originDsn = parseDsn(databaseUrl);
 
       return this.prismaService.$tx(async (prisma) => {

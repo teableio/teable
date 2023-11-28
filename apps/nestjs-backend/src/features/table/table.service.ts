@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -29,6 +30,7 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -53,6 +55,7 @@ export class TableService implements IAdapterService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -435,7 +438,20 @@ export class TableService implements IAdapterService {
       return { rowCount: ids.length };
     }
 
-    const { queryBuilder } = await this.recordService.buildFilterSortQuery(tableId, query);
+    const { queryBuilder, fieldMap, filter } = await this.recordService.prepareQuery(
+      tableId,
+      query
+    );
+
+    if (query.filterLinkCellCandidate) {
+      await this.recordService.buildLinkCandidateQuery(
+        queryBuilder,
+        tableId,
+        query.filterLinkCellCandidate
+      );
+    }
+
+    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
 
     const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
 

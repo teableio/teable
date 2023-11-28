@@ -137,7 +137,6 @@ export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
 
 export const getRowCountSchema = getRecordsQuerySchema.pick({
   viewId: true,
-  orderBy: true,
   filter: true,
   filterByTql: true,
   filterLinkCellCandidate: true,

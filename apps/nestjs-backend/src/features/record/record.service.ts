@@ -10,9 +10,9 @@ import type {
   IAttachmentCellValue,
   ICreateRecordsRo,
   IExtraResult,
+  IFilter,
   IGetRecordQuery,
   IGetRecordsQuery,
-  IGetRowCountRo,
   ILinkCellValue,
   IMakeRequired,
   IRecord,
@@ -21,6 +21,7 @@ import type {
   ISetRecordOrderOpContext,
   IShareViewMeta,
   ISnapshotBase,
+  ISortItem,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -348,37 +349,11 @@ export class RecordService implements IAdapterService {
     }
   }
 
-  async buildFilterSortQuery(tableId: string, query: IGetRowCountRo): Promise<Knex.QueryBuilder> {
-    const { viewId, orderBy: extraOrderBy, filter: extraFilter, filterLinkCellCandidate } = query;
-
-    const dbTableName = await this.getDbTableName(tableId);
-
-    const queryBuilder = this.knex(dbTableName);
-
-    if (filterLinkCellCandidate) {
-      await this.buildLinkCandidateQuery(queryBuilder, tableId, filterLinkCellCandidate);
-    }
-
-    const view = viewId
-      ? await this.prismaService
-          .txClient()
-          .view.findFirstOrThrow({
-            select: { id: true, filter: true, sort: true },
-            where: { tableId, id: viewId, deletedTime: null },
-          })
-          .catch(() => {
-            throw new NotFoundException(`View ${viewId} not found`);
-          })
-      : undefined;
-
-    const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
-    const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
-
-    let fieldMap;
-    if (filter || orderBy.length) {
+  private async getNecessaryFieldMap(tableId: string, filter?: IFilter, orderBy?: ISortItem[]) {
+    if (filter || orderBy?.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(tableId);
-      fieldMap = fields.reduce(
+      return fields.reduce(
         (map, field) => {
           map[field.id] = field;
           map[field.name] = field;
@@ -387,13 +362,64 @@ export class RecordService implements IAdapterService {
         {} as Record<string, IFieldInstance>
       );
     }
+  }
+
+  private async getTinyView(tableId: string, viewId?: string) {
+    if (!viewId) {
+      return;
+    }
+
+    return this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { id: true, filter: true, sort: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`View ${viewId} not found`);
+      });
+  }
+
+  async prepareQuery(
+    tableId: string,
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter'>
+  ) {
+    const { viewId, orderBy: extraOrderBy, filter: extraFilter } = query;
+
+    const dbTableName = await this.getDbTableName(tableId);
+
+    const queryBuilder = this.knex(dbTableName);
+
+    const view = await this.getTinyView(tableId, viewId);
+
+    const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
+    const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
+    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy);
+
+    return {
+      queryBuilder,
+      filter,
+      orderBy,
+      fieldMap,
+    };
+  }
+
+  async buildFilterSortQuery(
+    tableId: string,
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
+  ): Promise<Knex.QueryBuilder> {
+    const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
+
+    if (query.filterLinkCellCandidate) {
+      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
+    }
 
     // All `where` condition-related construction work
     this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
     new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
 
     // view sorting added by default
-    queryBuilder.orderBy(getViewOrderFieldName(viewId), 'asc');
+    queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
 
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here

@@ -43,7 +43,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return all ids for cell range ', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([
             [0, 0],
@@ -59,7 +59,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return all ids for row range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
@@ -73,7 +73,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return all ids for column range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Columns,
@@ -87,7 +87,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return record ids for cell range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([
             [0, 0],
@@ -103,7 +103,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return record ids for row range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
@@ -117,7 +117,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return record ids for column range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 0]]),
           type: RangeType.Columns,
@@ -131,7 +131,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return field ids for cell range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([
             [0, 0],
@@ -147,7 +147,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return field ids for row range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
@@ -161,7 +161,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
     it('should return record ids for column range', async () => {
       const viewId = table.views[0].id;
       const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/getIdsFromRanges`)
+        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
         .query({
           ranges: JSON.stringify([[0, 0]]),
           type: RangeType.Columns,
