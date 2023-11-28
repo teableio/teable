@@ -33,8 +33,8 @@ function getEslintCachePath(packageName) {
  * @param {string} packageName
  * @returns string
  */
-function getJestCachePath(packageName) {
-  return `${globalCachePath}/${sanitize(packageName)}/jest`;
+function getJestCachePath(packageName, type = 'unit') {
+  return `${globalCachePath}/${sanitize(packageName)}/jest/${type}`;
 }
 
 module.exports = {

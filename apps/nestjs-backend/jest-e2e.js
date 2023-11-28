@@ -17,8 +17,6 @@ const getTsConfigBasePaths = (tsConfigFile) => {
   return tsPaths ? pathsToModuleNameMapper(tsPaths, { prefix: '<rootDir>' }) : {};
 };
 
-console.log('getTsConfigBasePaths', getTsConfigBasePaths());
-
 module.exports = {
   bail: true,
   moduleFileExtensions: ['js', 'json', 'ts'],
@@ -35,7 +33,7 @@ module.exports = {
   moduleNameMapper: {
     ...getTsConfigBasePaths(tsConfigFile),
   },
-  cacheDirectory: getJestCachePath(packageJson.name),
+  cacheDirectory: getJestCachePath(packageJson.name, 'e2e'),
   globals: {
     testConfig: {
       email: 'test@e2e.com',
