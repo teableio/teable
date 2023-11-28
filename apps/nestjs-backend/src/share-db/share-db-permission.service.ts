@@ -10,14 +10,10 @@ import type { IClsStore } from '../types/cls';
 import { getAction, getPrefixAction, isShareViewResourceDoc } from './utils';
 import { WsAuthService } from './ws-auth.service';
 
-type IContextDecorator = 'skipIfBackend';
+type IContextDecorator = 'useCls' | 'skipIfBackend';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator {
-  return function (
-    _target: unknown,
-    _propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
-  ) {
+  return (_target: unknown, _propertyKey: string | symbol, descriptor: PropertyDescriptor) => {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (
@@ -29,6 +25,21 @@ export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator 
         callback();
         return;
       }
+      // If 'useCls' is specified, set up the CLS context
+      if (args.includes('useCls')) {
+        const clsService: ClsService<IClsStore> = (this as ShareDbPermissionService).clsService;
+        await clsService.runWith({ ...clsService.get() }, async () => {
+          try {
+            clsService.set('user', context.agent.custom.user);
+            clsService.set('shareViewId', context.agent.custom.shareId);
+            await originalMethod.apply(this, [context, callback]);
+          } catch (error) {
+            callback(error);
+          }
+        });
+        return;
+      }
+      // If 'useCls' is not specified, just call the original method
       try {
         await originalMethod.apply(this, [context, callback]);
       } catch (error) {
@@ -83,28 +94,20 @@ export class ShareDbPermissionService {
     }
   }
 
-  private async runPermissionCheck(
-    context: ShareDBClass.middleware.ApplyContext | ShareDBClass.middleware.ReadSnapshotsContext,
-    permissionAction: PermissionAction
-  ) {
-    const { collection } = context;
+  private async runPermissionCheck(collection: string, permissionAction: PermissionAction) {
     const [docType, collectionId] = collection.split('_');
-    return await this.clsService.runWith(this.clsService.get(), async () => {
-      this.clsService.set('user', { ...context.agent.custom.user });
-      this.clsService.set('shareViewId', context.agent.custom.shareId);
-      try {
-        if (docType === IdPrefix.Table) {
-          await this.permissionService.checkPermissionByBaseId(collectionId, [permissionAction]);
-        } else {
-          await this.permissionService.checkPermissionByTableId(collectionId, [permissionAction]);
-        }
-      } catch (e) {
-        return e;
+    try {
+      if (docType === IdPrefix.Table) {
+        await this.permissionService.checkPermissionByBaseId(collectionId, [permissionAction]);
+      } else {
+        await this.permissionService.checkPermissionByTableId(collectionId, [permissionAction]);
       }
-    });
+    } catch (e) {
+      return e;
+    }
   }
 
-  @ContextDecorator('skipIfBackend')
+  @ContextDecorator('skipIfBackend', 'useCls')
   async checkApplyPermissionMiddleware(
     context: ShareDBClass.middleware.ApplyContext,
     callback: (err?: unknown) => void
@@ -117,11 +120,11 @@ export class ShareDbPermissionService {
       callback(`unknown docType: ${docType}`);
       return;
     }
-    const error = await this.runPermissionCheck(context, `${prefixAction}|${action}`);
-    await this.clsRunWith(context, callback, error);
+    const error = await this.runPermissionCheck(collection, `${prefixAction}|${action}`);
+    callback(error);
   }
 
-  @ContextDecorator('skipIfBackend')
+  @ContextDecorator('skipIfBackend', 'useCls')
   async checkReadPermissionMiddleware(
     context: ShareDBClass.middleware.ReadSnapshotsContext,
     callback: (err?: unknown) => void
@@ -140,11 +143,11 @@ export class ShareDbPermissionService {
         context.collection,
         context.snapshots
       );
-      await this.clsRunWith(context, callback, error);
+      callback(error);
       return;
     }
-    const error = await this.runPermissionCheck(context, `${prefixAction}|read`);
-    await this.clsRunWith(context, callback, error);
+    const error = await this.runPermissionCheck(context.collection, `${prefixAction}|read`);
+    callback(error);
   }
 
   async checkReadViewSharePermission(
