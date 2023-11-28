@@ -175,7 +175,10 @@ describe('ShareDBPermissionService', () => {
 
       await shareDbPermissionService.checkApplyPermissionMiddleware(context, callback);
 
-      expect(runPermissionCheckMock).toHaveBeenCalledWith(context, `${ActionPrefix.Field}|update`);
+      expect(runPermissionCheckMock).toHaveBeenCalledWith(
+        `${IdPrefix.Field}_${tableId}`,
+        `${ActionPrefix.Field}|update`
+      );
       expect(callback).toHaveBeenCalled();
     });
 
@@ -235,7 +238,10 @@ describe('ShareDBPermissionService', () => {
 
       await shareDbPermissionService.checkReadPermissionMiddleware(context, callback);
 
-      expect(runPermissionCheckMock).toHaveBeenCalledWith(context, `${ActionPrefix.Field}|read`);
+      expect(runPermissionCheckMock).toHaveBeenCalledWith(
+        `${IdPrefix.Field}_${tableId}`,
+        `${ActionPrefix.Field}|read`
+      );
       expect(callback).toHaveBeenCalled();
     });
 
@@ -301,40 +307,33 @@ describe('ShareDBPermissionService', () => {
 
   describe('runPermissionCheck', () => {
     it('should call checkPermissionByBaseId if docType is IdPrefix.Table', async () => {
-      const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
-        collection: `${IdPrefix.Table}_bse1`,
-      });
-
+      const collection = `${IdPrefix.Table}_bse1`;
       const permissionAction = 'table|read';
 
       const checkPermissionByBaseIdMock = jest
         .spyOn(permissionService, 'checkPermissionByBaseId')
         .mockResolvedValue([]);
 
-      await shareDbPermissionService['runPermissionCheck'](context, permissionAction);
+      await shareDbPermissionService['runPermissionCheck'](collection, permissionAction);
 
       expect(checkPermissionByBaseIdMock).toHaveBeenCalledWith('bse1', [permissionAction]);
     });
 
     it('should call checkPermissionByTableId if docType is not IdPrefix.View', async () => {
-      const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
-        collection: `${IdPrefix.View}_tbl1`,
-      });
+      const collection = `${IdPrefix.View}_tbl1`;
       const permissionAction = 'view|read';
 
       const checkPermissionByTableIdMock = jest
         .spyOn(permissionService, 'checkPermissionByTableId')
         .mockResolvedValue([]);
 
-      await shareDbPermissionService['runPermissionCheck'](context, permissionAction);
+      await shareDbPermissionService['runPermissionCheck'](collection, permissionAction);
 
       expect(checkPermissionByTableIdMock).toHaveBeenCalledWith('tbl1', [permissionAction]);
     });
 
     it('should return the error if an exception is thrown', async () => {
-      const context = mockDeep<ShareDBClass.middleware.ReadSnapshotsContext>({
-        collection: `${IdPrefix.Table}_bse1`,
-      });
+      const collection = `${IdPrefix.Table}_bse1`;
       const permissionAction = 'table|read';
 
       const errorMessage = 'Permission denied';
@@ -343,7 +342,10 @@ describe('ShareDBPermissionService', () => {
         .spyOn(permissionService, 'checkPermissionByBaseId')
         .mockRejectedValue(new Error(errorMessage));
 
-      const error = await shareDbPermissionService['runPermissionCheck'](context, permissionAction);
+      const error = await shareDbPermissionService['runPermissionCheck'](
+        collection,
+        permissionAction
+      );
 
       expect(checkPermissionByBaseIdMock).toHaveBeenCalledWith('bse1', [permissionAction]);
       expect(error).toEqual(new Error(errorMessage));
