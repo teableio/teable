@@ -2,6 +2,7 @@ import { ViewType } from '@teable-group/core';
 import { useIsHydrated } from '@teable-group/sdk/hooks';
 import { useContext } from 'react';
 import { FormView } from './component/FormView';
+import { GridView } from './component/grid/GridView';
 import { ShareViewPageContext } from './ShareViewPageContext';
 
 export const ShareView = () => {
@@ -18,6 +19,8 @@ export const ShareView = () => {
     switch (viewType) {
       case ViewType.Form:
         return <FormView />;
+      case ViewType.Grid:
+        return <GridView />;
       default:
         return null;
     }

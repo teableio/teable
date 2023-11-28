@@ -9,13 +9,13 @@ enum ConditionAddType {
 type IFiltersPath = (string | number)[];
 
 interface IFilterProps {
-  filters: IFilter;
+  filters: IFilter | null;
   onChange?: (filters: IFilter | null) => void;
   children?: (text: string, isActive?: boolean) => React.ReactNode;
 }
 
 interface IFilterBaseProps {
-  filters: IFilter;
+  filters: IFilter | null;
   fields: IFieldInstance[];
   onChange?: (filters: IFilter | null) => void;
   children?: React.ReactNode;

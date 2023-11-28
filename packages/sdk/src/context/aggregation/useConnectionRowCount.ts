@@ -7,7 +7,7 @@ import { AppContext } from '../app';
 
 let referenceCount = 0;
 
-export const useConnectionRowCount = () => {
+export const useConnectionRowCount = (onChange?: () => void) => {
   const { connection } = useContext(AppContext);
   const { tableId, viewId } = useContext(AnchorContext);
   const [remotePresence, setRemotePresence] = useState<Presence>();
@@ -27,6 +27,7 @@ export const useConnectionRowCount = () => {
 
     const receiveHandler = (_id: string, res: IRawRowCountVo) => {
       setRowCount(res[viewId].rowCount ?? 0);
+      onChange?.();
     };
 
     remotePresence?.on('receive', receiveHandler);
@@ -38,8 +39,9 @@ export const useConnectionRowCount = () => {
         remotePresence?.unsubscribe();
         remotePresence?.destroy();
       }
+      setRemotePresence(undefined);
     };
-  }, [connection, remotePresence, tableId, viewId]);
+  }, [connection, onChange, remotePresence, tableId, viewId]);
 
   return rowCount;
 };

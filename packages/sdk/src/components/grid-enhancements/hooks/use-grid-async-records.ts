@@ -24,18 +24,20 @@ export type IRecordIndexMap = { [i: number | string]: Record };
 
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
-  initQuery?: IGetRecordsQuery
+  initQuery?: IGetRecordsQuery,
+  outerQuery?: Pick<IGetRecordsQuery, 'filter' | 'orderBy'>
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsQuery>({
     skip: 0,
     take: LOAD_PAGE_SIZE,
     ...initQuery,
   });
+  const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
   const viewId = useViewId();
   const rowCount = useRowCount();
   const queryRef = useRef(query);
   queryRef.current = query;
-  const records = useRecords(query, initRecords);
+  const records = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
       acc[i] = record;

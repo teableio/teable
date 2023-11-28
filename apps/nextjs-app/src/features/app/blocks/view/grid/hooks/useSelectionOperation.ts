@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { ClearRo, ICopyRo, PasteRo } from '@teable-group/openapi';
+import type { ClearRo, ICopyRo, ICopyVo, PasteRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
 import type { CombinedSelection } from '@teable-group/sdk';
 import { SelectionRegionType, useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
+import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
 import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
 
@@ -13,6 +15,34 @@ const rangeTypes = {
   [SelectionRegionType.Rows]: RangeType.Rows,
   [SelectionRegionType.Cells]: undefined,
   [SelectionRegionType.None]: undefined,
+};
+
+export const useCopy = (props: {
+  copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, ICopyRo, unknown>;
+}) => {
+  const { copyReq } = props;
+
+  return useCallback(
+    async (selection: CombinedSelection) => {
+      const ranges = JSON.stringify(selection.serialize());
+
+      const type = rangeTypes[selection.type];
+
+      const { data } = await copyReq({
+        ranges,
+        ...(type ? { type } : {}),
+      });
+      const { content, header } = data;
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          ['text/plain']: new Blob([content], { type: 'text/plain' }),
+          ['text/html']: new Blob([serializerHtml(content, header)], { type: 'text/html' }),
+        }),
+      ]);
+    },
+    [copyReq]
+  );
 };
 
 export const useSelectionOperation = () => {
@@ -32,6 +62,7 @@ export const useSelectionOperation = () => {
   });
 
   const { toast } = useToast();
+  const copyMethod = useCopy({ copyReq });
 
   const doCopy = useCallback(
     async (selection: CombinedSelection) => {
@@ -42,25 +73,10 @@ export const useSelectionOperation = () => {
       const toaster = toast({
         title: 'Copying...',
       });
-      const ranges = JSON.stringify(selection.serialize());
-
-      const type = rangeTypes[selection.type];
-
-      const { data } = await copyReq({
-        ranges,
-        ...(type ? { type } : {}),
-      });
-      const { content, header } = data;
-
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          ['text/plain']: new Blob([content], { type: 'text/plain' }),
-          ['text/html']: new Blob([serializerHtml(content, header)], { type: 'text/html' }),
-        }),
-      ]);
+      await copyMethod(selection);
       toaster.update({ id: toaster.id, title: 'Copied success!' });
     },
-    [tableId, toast, viewId, copyReq]
+    [tableId, toast, viewId, copyMethod]
   );
 
   const doPaste = useCallback(

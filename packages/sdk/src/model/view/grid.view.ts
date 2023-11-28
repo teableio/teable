@@ -13,14 +13,6 @@ export class GridView extends Mixin(GridViewCore, View) {
       oldOptions: this.options,
     });
 
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([viewOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+    return await this.submitOperation(viewOperation);
   }
 }

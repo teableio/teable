@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IViewRowCountVo } from '@teable-group/core';
+import type { IViewRowCountRo, IViewRowCountVo } from '@teable-group/core';
 import { viewRowCountSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -16,6 +16,7 @@ export const GetViewRowCountRoute: RouteConfig = registerRoute({
       tableId: z.string(),
       viewId: z.string(),
     }),
+    query: z.object({}),
   },
   responses: {
     200: {
@@ -30,11 +31,14 @@ export const GetViewRowCountRoute: RouteConfig = registerRoute({
   tags: ['aggregation'],
 });
 
-export const getViewRowCount = async (tableId: string, viewId: string) => {
+export const getViewRowCount = async (tableId: string, viewId: string, query?: IViewRowCountRo) => {
   return axios.get<IViewRowCountVo>(
     urlBuilder(GET_VIEW_ROW_COUNT, {
       tableId,
       viewId,
-    })
+    }),
+    {
+      params: query,
+    }
   );
 };
