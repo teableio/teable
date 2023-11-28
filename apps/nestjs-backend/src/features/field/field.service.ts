@@ -502,7 +502,7 @@ export class FieldService implements IAdapterService {
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true },
+      select: { id: true, columnMeta: true, createdTime: true, isPrimary: true },
     });
 
     let fields = fieldsPlain.map((field) => {
@@ -520,6 +520,8 @@ export class FieldService implements IAdapterService {
       fields = sortBy(fields, (field) => {
         return field.columnMeta[viewId as string]?.order;
       });
+    } else {
+      fields = sortBy(fields, 'isPrimary', 'createdTime');
     }
 
     return {

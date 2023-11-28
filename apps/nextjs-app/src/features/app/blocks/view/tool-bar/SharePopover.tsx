@@ -37,7 +37,7 @@ export const SharePopover: React.FC<{
 }> = (props) => {
   const { children } = props;
   const view = useView();
-  const ShareViewText = 'Share View';
+  const ShareViewText = 'Share';
   const [copyTooltip, setCopyTooltip] = useState<boolean>(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
