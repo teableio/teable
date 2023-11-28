@@ -9,6 +9,8 @@ import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
 
 interface ILinkEditorProps {
+  fieldId: string;
+  recordId: string | undefined;
   options: ILinkFieldOptions;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;

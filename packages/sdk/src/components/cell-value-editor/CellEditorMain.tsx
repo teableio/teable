@@ -32,10 +32,9 @@ import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
-  const { field, cellValue, onChange, disabled, className } = props;
+  const { field, recordId, cellValue, onChange, disabled, className } = props;
   const { type, options } = field;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editorRef = useRef<IEditorRef<any>>(null);
+  const editorRef = useRef<IEditorRef<unknown>>(null);
 
   useEffect(() => {
     editorRef?.current?.setValue?.(cellValue);
@@ -162,11 +161,13 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             options={options as ILinkFieldOptions}
             onChange={onChange}
             disabled={disabled}
+            fieldId={field.id}
+            recordId={recordId}
           />
         );
       }
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, className, cellValue, options, onChange, disabled, selectOptions]);
+  }, [type, className, cellValue, options, onChange, disabled, selectOptions, field.id, recordId]);
 };

@@ -1,5 +1,5 @@
 import type { IGetRecordsQuery, ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { Relationship, isMultiValueLink } from '@teable-group/core';
+import { isMultiValueLink } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
 import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib';
 import { uniqueId } from 'lodash';
@@ -29,7 +29,6 @@ import {
 import { emptySelection, CombinedSelection } from '../../grid/managers';
 import {
   GridTooltip,
-  LOAD_PAGE_SIZE,
   useGridAsyncRecords,
   useGridColumns,
   useGridIcons,
@@ -38,6 +37,8 @@ import {
 } from '../../grid-enhancements';
 
 export interface ILinkEditorMainProps {
+  fieldId: string;
+  recordId?: string;
   options: ILinkFieldOptions;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   isEditing?: boolean;
@@ -58,11 +59,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   props,
   forwardRef
 ) => {
-  const { options, cellValue, isEditing, setEditing, onChange } = props;
-  const nullableForeignKey =
-    options.selfKeyName === '__id' ? options.foreignKeyName : options.selfKeyName;
-  const isNonDuplicate =
-    options.relationship === Relationship.OneMany || options.relationship === Relationship.OneOne;
+  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange } = props;
   const isMultiple = isMultiValueLink(options.relationship);
   const [viewType, setViewType] = useState<ViewType>(ViewType.Unselected);
   const isSelectedView = viewType === ViewType.Selected;
@@ -71,21 +68,16 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     onReset,
   }));
 
-  const recordQuery = useMemo(() => {
+  const recordQuery = useMemo((): IGetRecordsQuery => {
     if (viewType === ViewType.Selected) {
-      if (cellValue == null) return undefined;
-      const linkRecords = Array.isArray(cellValue) ? cellValue : [cellValue];
-      const filterQuery: IGetRecordsQuery = {
-        filterByLinkField: { recordIds: linkRecords.map((r) => r.id) },
+      return {
+        filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,
       };
-      if (Array.isArray(cellValue) && cellValue.length > LOAD_PAGE_SIZE) {
-        filterQuery.take = cellValue.length;
-      }
-      return filterQuery;
     }
-    if (isNonDuplicate) return { filterByLinkField: { nullableForeignKey } };
-    return undefined;
-  }, [cellValue, nullableForeignKey, isNonDuplicate, viewType]);
+    return {
+      filterLinkCellCandidate: recordId ? [fieldId, recordId] : fieldId,
+    };
+  }, [fieldId, recordId, viewType]);
 
   const base = useBase();
   const table = useTable();
