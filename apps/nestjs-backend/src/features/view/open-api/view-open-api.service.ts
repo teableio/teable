@@ -146,7 +146,7 @@ export class ViewOpenApiService {
     // build ops
     const newSort = {
       sortObjs: sortObjs,
-      shouldAutoSort: false,
+      manualSort: true,
     };
 
     await this.prismaService.$tx(async (prisma) => {

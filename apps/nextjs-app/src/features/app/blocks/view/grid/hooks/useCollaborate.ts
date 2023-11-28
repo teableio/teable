@@ -1,5 +1,4 @@
-import { ColorUtils } from '@teable-group/core';
-import { getCellCollaboratorsChannel } from '@teable-group/core/dist/models/channel';
+import { ColorUtils, getCellCollaboratorsChannel } from '@teable-group/core';
 import { useSession } from '@teable-group/sdk';
 import { SelectionRegionType } from '@teable-group/sdk/components/grid';
 import type { ICollaborator, CombinedSelection } from '@teable-group/sdk/components/grid';

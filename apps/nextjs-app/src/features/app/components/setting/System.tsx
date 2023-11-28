@@ -40,7 +40,7 @@ export const System: React.FC = () => {
       <div className="space-y-2">
         <h1 className="font-semibold leading-none tracking-tight">System</h1>
         <p className="text-sm">
-          Upload your .db file here, it will auto import and replace your workspace
+          Upload your .db file here, it will auto import and replace your space
         </p>
       </div>
       <div className="space-y-4">
@@ -58,7 +58,7 @@ export const System: React.FC = () => {
         </div>
         <Separator />
         <div className="space-y-2">
-          <Label htmlFor="exportDb">Export current workspace to a .teable file</Label>
+          <Label htmlFor="exportDb">Export current space to a .teable file</Label>
 
           <Button id="exportDb" asChild>
             <a href="/api/export-import/download" target="__blank">

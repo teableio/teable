@@ -9,10 +9,10 @@ import type {
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { keyBy } from 'lodash';
-import type { IFieldMap, IRecordItem } from '../../calculation/reference.service';
+import type { IRecordItem } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { FieldService } from '../../field/field.service';
-import type { IFieldInstance } from '../../field/model/factory';
+import type { IFieldInstance, IFieldMap } from '../../field/model/factory';
 import type { FormulaFieldDto } from '../../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../../record/record.service';
 
@@ -89,16 +89,16 @@ export class GraphService {
     fieldMap: IFieldMap,
     tableMap: { [dbTableName: string]: { dbTableName: string; name: string } },
     selectedCell: { recordId: string; fieldId: string },
-    dbTableName2records: { [dbTableName: string]: ITinyRecord[] }
+    dbTableName2recordMap: { [dbTableName: string]: Record<string, ITinyRecord> }
   ) {
     const nodes: IGraphNode[] = [];
     const combos: IGraphCombo[] = [];
-    Object.entries(dbTableName2records).forEach(([dbTableName, records]) => {
+    Object.entries(dbTableName2recordMap).forEach(([dbTableName, recordMap]) => {
       combos.push({
         id: dbTableName,
         label: tableMap[dbTableName].name,
       });
-      records.forEach((record) => {
+      Object.values(recordMap).forEach((record) => {
         Object.entries(record.fields).forEach(([fieldId, cellValue]) => {
           const field = fieldMap[fieldId];
           nodes.push({
@@ -130,13 +130,13 @@ export class GraphService {
 
   async getGraph(tableId: string, cell: [number, number], viewId?: string): Promise<IGraphVo> {
     const { recordId, fieldId, cellValue } = await this.getCellInfo(tableId, cell, viewId);
-    const prepared = await this.referenceService.prepareCalculation(tableId, [
+    const prepared = await this.referenceService.prepareCalculation([
       { id: recordId, fieldId: fieldId, newValue: cellValue },
     ]);
     if (!prepared) {
       return;
     }
-    const { orderWithRecordsByFieldId, fieldMap, dbTableName2records, tableId2DbTableName } =
+    const { orderWithRecordsByFieldId, fieldMap, dbTableName2recordMap, tableId2DbTableName } =
       prepared;
     const tableMap = await this.getTableMap(tableId2DbTableName);
     const orderWithRecords = orderWithRecordsByFieldId[fieldId];
@@ -144,11 +144,11 @@ export class GraphService {
       fieldMap,
       tableMap,
       { recordId, fieldId },
-      dbTableName2records
+      dbTableName2recordMap
     );
     const edges = orderWithRecords.reduce<IGraphEdge[]>((pre, order) => {
       const field = fieldMap[order.id];
-      order.recordItems.forEach((record) => {
+      Object.values(order.recordItemMap || {}).forEach((record) => {
         if (field.lookupOptions || field.type === FieldType.Link) {
           const lookupEdge = this.getLookupEdge(field, fieldMap, record);
           lookupEdge && pre.push(...lookupEdge);

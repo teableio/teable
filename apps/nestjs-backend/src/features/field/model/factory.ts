@@ -79,15 +79,10 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(LastModifiedTimeFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
-    case FieldType.Email:
     case FieldType.LastModifiedBy:
-    case FieldType.PhoneNumber:
-    case FieldType.URL:
     case FieldType.User:
     case FieldType.Count:
     case FieldType.Duration:
-    case FieldType.Currency:
-    case FieldType.Percent:
       throw new Error('did not implement yet');
     default:
       assertNever(field.type);
@@ -95,3 +90,7 @@ export function createFieldInstanceByVo(field: IFieldVo) {
 }
 
 export type IFieldInstance = ReturnType<typeof createFieldInstanceByVo>;
+
+export interface IFieldMap {
+  [fieldId: string]: IFieldInstance;
+}

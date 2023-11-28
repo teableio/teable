@@ -15,7 +15,7 @@ export const sortItemSchema = z.object({
 
 export const sortSchema = z.object({
   sortObjs: sortItemSchema.array(),
-  shouldAutoSort: z.boolean(),
+  manualSort: z.boolean().optional(),
 });
 
 export const sortStringSchema = z.string().transform((val, ctx) => {
@@ -55,7 +55,7 @@ export function mergeWithDefaultSort(
   const viewSort = parseSort.success ? parseSort.data : undefined;
 
   // should clear sort query when sort manually
-  if (!viewSort?.shouldAutoSort && !querySort?.length) {
+  if (viewSort?.manualSort && !querySort?.length) {
     return [];
   }
 

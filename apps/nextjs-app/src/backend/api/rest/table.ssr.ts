@@ -1,5 +1,5 @@
 import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
-import { FieldKeyType, HttpError } from '@teable-group/core';
+import { FieldKeyType } from '@teable-group/core';
 import type {
   ShareViewGetVo,
   AcceptInvitationLinkRo,
@@ -7,25 +7,15 @@ import type {
   IGetBaseVo,
 } from '@teable-group/openapi';
 import { ACCEPT_INVITATION_LINK, SHARE_VIEW_GET, urlBuilder } from '@teable-group/openapi';
-import type { IUser } from '@teable-group/sdk';
-import axios from 'axios';
+import type { AxiosInstance } from 'axios';
+import { getAxios } from './axios';
 
 export class SsrApi {
-  axios = axios.create({
-    baseURL: `http://localhost:${process.env.PORT}/api`,
-  });
+  axios: AxiosInstance;
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   constructor() {
-    this.axios.interceptors.response.use(
-      (response) => {
-        // Any status code that lie within the range of 2xx cause this function to trigger
-        return response;
-      },
-      (error) => {
-        const { data, status } = error?.response || {};
-        throw new HttpError(data || 'no response from server', status || 500);
-      }
-    );
+    this.axios = getAxios();
   }
 
   async getTable(baseId: string, tableId: string, viewId?: string) {
@@ -60,14 +50,6 @@ export class SsrApi {
 
   async getBaseById(baseId: string) {
     return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
-  }
-
-  async getUserMe(cookie?: string) {
-    return await this.axios
-      .get<IUser>(`/auth/user/me`, {
-        headers: { cookie },
-      })
-      .then(({ data }) => data);
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {

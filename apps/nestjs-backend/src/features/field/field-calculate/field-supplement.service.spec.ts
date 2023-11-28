@@ -35,38 +35,17 @@ describe('FieldSupplementService', () => {
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
       };
-      const result = await service.prepareCreateField(field);
+      const result = await service.prepareCreateField('tableId', field);
       expect(result).toMatchObject(preparedField);
       expect(result.dbFieldName).toBeTruthy();
       expect(result.id).toBeTruthy();
-    });
-
-    it('should prepare the options for a link field', async () => {
-      const field: IFieldRo = {
-        name: 'link',
-        type: FieldType.Link,
-        options: {
-          relationship: Relationship.ManyOne,
-          foreignTableId: 'foreignTable',
-          // lookupFieldId
-          // dbForeignKeyName
-          // symmetricFieldId
-        },
-      };
-      const mockField = { id: 'mockFieldId' };
-      (prismaService as any).field = { findFirstOrThrow: jest.fn().mockResolvedValue(mockField) };
-
-      const result = await service.prepareCreateField(field);
-      expect(result.id).toBeDefined();
-      expect(result.options).toMatchObject({ lookupFieldId: mockField.id });
-      expect(prismaService.field.findFirstOrThrow).toHaveBeenCalled();
     });
   });
 
   describe('supplementByCreate', () => {
     it('should throw an error if the field is not a link field', async () => {
       const nonLinkField: any = { type: FieldType.SingleLineText /* other properties */ };
-      await expect(service.createForeignKey('tableId', nonLinkField)).rejects.toThrow();
+      await expect(service.createForeignKey(nonLinkField)).rejects.toThrow();
     });
   });
 

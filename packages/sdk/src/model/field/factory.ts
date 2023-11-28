@@ -53,15 +53,10 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(LastModifiedTimeField, field);
       case FieldType.Button:
       case FieldType.CreatedBy:
-      case FieldType.Email:
       case FieldType.LastModifiedBy:
-      case FieldType.PhoneNumber:
-      case FieldType.URL:
       case FieldType.User:
       case FieldType.Count:
       case FieldType.Duration:
-      case FieldType.Currency:
-      case FieldType.Percent:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });
       default:
         assertNever(field.type);

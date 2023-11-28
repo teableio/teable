@@ -1,5 +1,4 @@
-import { ColorUtils } from '@teable-group/core';
-import { getCollaboratorsChannel } from '@teable-group/core/dist/models/channel';
+import { ColorUtils, getCollaboratorsChannel } from '@teable-group/core';
 import { useSession } from '@teable-group/sdk';
 import type { IUser } from '@teable-group/sdk';
 import { useConnection } from '@teable-group/sdk/hooks';

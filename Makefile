@@ -102,7 +102,7 @@ define print_db_push_options
 @echo -e "2) postges(pg)\n"
 endef
 
-.PHONY: db-mode sqlite-mode postgres-mode gen-prisma-schema gen-sqlite-prisma-schema gen-postgres-prisma-schema
+.PHONY: db-mode sqlite.mode postgres.mode gen-prisma-schema gen-sqlite-prisma-schema gen-postgres-prisma-schema
 .DEFAULT_GOAL := help
 
 docker.create.network:
@@ -169,7 +169,7 @@ docker.images:
 
 sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/.test/main.db'; \
-	make sqlite-mode; \
+	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
 	pnpm g:test-e2e
 
@@ -180,7 +180,7 @@ postgres.integration.test: docker.create.network
 	chmod +x scripts/wait-for; \
 	scripts/wait-for 127.0.0.1:25432 --timeout=15 -- echo 'pg database started successfully' && \
 		export PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:25432/e2e_test_teable?schema=public && \
-		make postgres-mode && \
+		make postgres.mode && \
 		pnpm -F "./packages/**" run build && \
 		pnpm g:test-e2e && \
 		docker rm -fv $$TEST_PG_CONTAINER_NAME
@@ -197,23 +197,23 @@ gen-postgres-prisma-schema:
 
 gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema		## Generate 'schema.prisma' files for all versions of the system
 
-sqlite-db-push:		## db-push by sqlite
+sqlite-db.push:		## db.push by sqlite
 	@cd ./packages/db-main-prisma; \
-		pnpm prisma-db-push --schema ./prisma/sqlite/schema.prisma
+		pnpm prisma-db.push --schema ./prisma/sqlite/schema.prisma
 
-postgres-db-push:		## db-push by postgres
+postgres-db.push:		## db.push by postgres
 	@cd ./packages/db-main-prisma; \
-		pnpm prisma-db-push --schema ./prisma/postgres/schema.prisma
+		pnpm prisma-db.push --schema ./prisma/postgres/schema.prisma
 
-db-push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
+db.push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
 	$(print_db_push_options)
 	@read -p "Enter a command: " command; \
     if [ "$$command" = "1" ] || [ "$$command" = "sqlite" ]; then \
       make gen-sqlite-prisma-schema; \
-      make sqlite-db-push; \
+      make sqlite-db.push; \
     elif [ "$$command" = "2" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
       	make gen-postgres-prisma-schema; \
-		make postgres-db-push; \
+		make postgres-db.push; \
     else echo "Unknown command.";  fi
 
 sqlite-db-migration:
@@ -233,12 +233,12 @@ db-migration:		## Reruns the existing migration history in the shadow database i
   	make sqlite-db-migration _MIGRATION_NAME=$$migration_name; \
   	make postgres-db-migration _MIGRATION_NAME=$$migration_name
 
-sqlite-mode:		## sqlite-mode
+sqlite.mode:		## sqlite.mode
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-generate --schema ./prisma/sqlite/schema.prisma; \
 		pnpm prisma-migrate deploy --schema ./prisma/sqlite/schema.prisma
 
-postgres-mode:		## postgres-mode
+postgres.mode:		## postgres.mode
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
@@ -262,12 +262,12 @@ switch-db-mode:		## Switch Database environment
 	@read -p "Enter a command: " command; \
     if [ "$$command" = "1" ] || [ "$$command" = "sqlite" ]; then \
 		make switch.prisma.env RUN_DB_MODE=sqlite; \
-      	make sqlite-mode; \
+      	make sqlite.mode; \
     elif [ "$$command" = "2" ] || [ "$$command" = "postges" ] || [ "$$command" = "pg" ]; then \
       	make switch.prisma.env RUN_DB_MODE=postges; \
 		make docker.up teable-postgres; \
     	make docker.await teable-postgres; \
-    	make postgres-mode; \
+    	make postgres.mode; \
     else \
       	echo "Unknown command.";  fi
 

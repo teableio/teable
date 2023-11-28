@@ -20,12 +20,12 @@ export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
       const titles = title as string[];
       return values.map((v, i) => ({
         id: v.id,
-        title: titles[i],
+        title: titles[i] || undefined,
       }));
     }
     return {
       id: (value as ILinkCellValue).id,
-      title: title as string,
+      title: (title as string | null) || undefined,
     };
   }
 

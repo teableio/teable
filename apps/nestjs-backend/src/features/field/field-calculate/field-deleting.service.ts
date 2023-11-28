@@ -67,9 +67,11 @@ export class FieldDeletingService {
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
-      await this.fieldSupplementService.cleanForeignKey(tableId, linkFieldOptions);
+      await this.fieldSupplementService.cleanForeignKey(linkFieldOptions);
       await this.delateAndCleanRef(tableId, fieldId, true);
-      await this.delateAndCleanRef(foreignTableId, symmetricFieldId, true);
+      if (symmetricFieldId) {
+        await this.delateAndCleanRef(foreignTableId, symmetricFieldId, true);
+      }
       return;
     }
     await this.delateAndCleanRef(tableId, fieldId);

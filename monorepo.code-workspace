@@ -37,6 +37,10 @@
       "path": "packages/icons"
     },
     {
+      "name": "openapi",
+      "path": "packages/openapi"
+    },
+    {
       "name": "root",
       "path": "."
     }

@@ -23,10 +23,11 @@ export enum IdPrefix {
   Share = 'shr',
 }
 
+const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const nanoid = customAlphabet(chars);
+
 export function getRandomString(len: number) {
-  const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const nanoid = customAlphabet(chars, len);
-  return nanoid();
+  return nanoid(len);
 }
 
 export function generateTableId() {

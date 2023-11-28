@@ -133,9 +133,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             ))}
           </div>
         ) : (
-          <div className="flex h-24 w-full items-center justify-center">
-            This workspace is empty
-          </div>
+          <div className="flex h-24 w-full items-center justify-center">This space is empty</div>
         )}
       </CardContent>
     </Card>
