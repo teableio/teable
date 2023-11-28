@@ -12,6 +12,11 @@ module.exports = function (options, webpack) {
         allowlist: ['webpack/hot/poll?100', /^@teable-group/],
       }),
     ],
+    // ignore tests hot reload
+    watchOptions: {
+      ignored: ['**/test/**', '**/*.spec.ts'],
+      poll: 1000,
+    },
     module: {
       rules: [
         {
@@ -21,7 +26,7 @@ module.exports = function (options, webpack) {
             transpileOnly: true,
             happyPackMode: true,
           },
-          exclude: /node_modules/,
+          exclude: [/node_modules/, /.e2e-spec.ts$/],
         },
       ],
     },
