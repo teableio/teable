@@ -7,6 +7,7 @@ import type {
   IRecordsVo,
   IGetRecordsQuery,
   IFieldVo,
+  IViewRowCountVo,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
 import qs from 'qs';
@@ -99,6 +100,7 @@ describe('OpenAPI link Select (e2e)', () => {
           { left: { c: 3, s: 0 }, right: { c: 2, s: 0 } },
         ],
         direction: 'two way',
+        isOneWay: undefined,
       },
       {
         relationship: Relationship.OneMany,
@@ -218,8 +220,15 @@ describe('OpenAPI link Select (e2e)', () => {
               .query(qs.stringify(table1Candidate))
               .expect(200)
           ).body as IRecordsVo;
-
           expect(table1CResult.records.length).toBe(result[0].left.c);
+
+          const table1CResultRow = (
+            await request
+              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .query(qs.stringify(table1Candidate))
+              .expect(200)
+          ).body as IViewRowCountVo;
+          expect(table1CResultRow.rowCount).toBe(result[0].left.c);
 
           const table1SResult = (
             await request
@@ -227,8 +236,15 @@ describe('OpenAPI link Select (e2e)', () => {
               .query(qs.stringify(table1Selected))
               .expect(200)
           ).body as IRecordsVo;
-
           expect(table1SResult.records.length).toBe(result[0].left.s);
+
+          const table1SResultRow = (
+            await request
+              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .query(qs.stringify(table1Selected))
+              .expect(200)
+          ).body as IViewRowCountVo;
+          expect(table1SResultRow.rowCount).toBe(result[0].left.s);
 
           const table2CResult = (
             await request
@@ -236,8 +252,15 @@ describe('OpenAPI link Select (e2e)', () => {
               .query(qs.stringify(table2Candidate))
               .expect(200)
           ).body as IRecordsVo;
-
           expect(table2CResult.records.length).toBe(result[0].right.c);
+
+          const table2CResultRow = (
+            await request
+              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .query(qs.stringify(table2Candidate))
+              .expect(200)
+          ).body as IViewRowCountVo;
+          expect(table2CResultRow.rowCount).toBe(result[0].right.c);
 
           const table2SResult = (
             await request
@@ -245,8 +268,15 @@ describe('OpenAPI link Select (e2e)', () => {
               .query(qs.stringify(table2Selected))
               .expect(200)
           ).body as IRecordsVo;
-
           expect(table2SResult.records.length).toBe(result[0].right.s);
+
+          const table2SResultRow = (
+            await request
+              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .query(qs.stringify(table2Selected))
+              .expect(200)
+          ).body as IViewRowCountVo;
+          expect(table2SResultRow.rowCount).toBe(result[0].right.s);
         });
 
         it('should fetch candidate and selected records after link', async () => {

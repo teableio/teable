@@ -118,7 +118,6 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
     description:
       'A filter object used to filter results. It allows complex query conditions based on fields, operators, and values. For a more convenient experience, filterByTql is recommended',
   }),
-  arr: z.array(z.object({ x: z.string() })).optional(),
   filterLinkCellCandidate: z
     .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
     .or(z.string().startsWith(IdPrefix.Field))
