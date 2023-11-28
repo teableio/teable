@@ -34,8 +34,8 @@ export const Toolbar = () => {
         rowHeight={(view?.options as GridViewOptions)?.rowHeight || null}
         onChange={onRowHeightChange}
       >
-        {(text, isActive, Icon) => (
-          <ToolBarButton isActive={isActive} text={text}>
+        {(_, isActive, Icon) => (
+          <ToolBarButton isActive={isActive}>
             <Icon className="text-sm" />
           </ToolBarButton>
         )}

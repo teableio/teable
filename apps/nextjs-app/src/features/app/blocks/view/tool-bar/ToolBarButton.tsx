@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import React, { forwardRef } from 'react';
 
 interface IToolBarButton {
-  text: string;
+  text?: string;
   isActive?: boolean;
   className?: string;
   textClassName?: string;
@@ -28,14 +28,16 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
         {...restProps}
       >
         {children}
-        <span
-          className={classNames(
-            'hidden truncate',
-            textClassName ? textClassName : '@2xl/toolbar:inline'
-          )}
-        >
-          {text}
-        </span>
+        {text && (
+          <span
+            className={classNames(
+              'hidden truncate',
+              textClassName ? textClassName : '@2xl/toolbar:inline'
+            )}
+          >
+            {text}
+          </span>
+        )}
       </Button>
     );
   }

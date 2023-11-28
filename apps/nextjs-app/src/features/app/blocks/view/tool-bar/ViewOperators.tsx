@@ -5,12 +5,10 @@ import {
   PaintBucket,
   Filter as FilterIcon,
   EyeOff,
-  Share2,
 } from '@teable-group/icons';
 import { Filter, HideFields, RowHeight, useFields, Sort } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useToolbarChange } from '../hooks/useToolbarChange';
-import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
 
 export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
@@ -57,19 +55,12 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
         rowHeight={(view?.options as GridViewOptions)?.rowHeight || null}
         onChange={onRowHeightChange}
       >
-        {(text, isActive, Icon) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
+        {(_, isActive, Icon) => (
+          <ToolBarButton disabled={disabled} isActive={isActive}>
             <Icon className="text-sm" />
           </ToolBarButton>
         )}
       </RowHeight>
-      <SharePopover>
-        {(text, isActive) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
-            <Share2 className="text-sm" />
-          </ToolBarButton>
-        )}
-      </SharePopover>
     </div>
   );
 };
