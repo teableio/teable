@@ -16,7 +16,7 @@
         "${relativeFile}",
         "--runInBand",
         "--config",
-        "./jest-e2e.json"
+        "./jest-e2e.js"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"
