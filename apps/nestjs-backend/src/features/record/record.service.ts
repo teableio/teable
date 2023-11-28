@@ -242,6 +242,7 @@ export class RecordService implements IAdapterService {
       })
       .where('__id', recordId)
       .toQuery();
+    const field = createFieldInstanceByRaw(fieldRaw);
     const result = await prisma.$queryRawUnsafe<
       {
         id: string;
@@ -249,7 +250,10 @@ export class RecordService implements IAdapterService {
       }[]
     >(linkCellQuery);
     return result
-      .map((item) => JSON.parse(item.linkField as string) as ILinkCellValue | ILinkCellValue[])
+      .map(
+        (item) =>
+          field.convertDBValue2CellValue(item.linkField) as ILinkCellValue | ILinkCellValue[]
+      )
       .filter(Boolean)
       .flat()
       .map((item) => item.id);
