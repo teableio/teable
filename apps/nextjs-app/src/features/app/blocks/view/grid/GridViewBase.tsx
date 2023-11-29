@@ -25,6 +25,7 @@ import {
   useGridIcons,
   useGridTooltipStore,
   hexToRGBA,
+  emptySelection,
 } from '@teable-group/sdk';
 import {
   useFields,
@@ -219,6 +220,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const onColumnHeaderDblClick = useCallback(
     (colIndex: number) => {
       const fieldId = columns[colIndex].id;
+      gridRef.current?.setSelection(emptySelection);
       openSetting({ fieldId, operator: FieldOperator.Edit });
     },
     [columns, openSetting]

@@ -121,6 +121,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
     Mousetrap.bind(['del', 'backspace', 'mod+v'], (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell || isEditing) return;
+      if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
       switch (combo) {
         case 'del':
         case 'backspace':
@@ -153,11 +154,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         editorRef.current?.saveValue?.();
         isShiftEnter && onRowAppend?.();
         setTimeout(() => {
-          if (isColumnSelection) {
-            setSelection(selection.set(SelectionRegionType.Cells, [newRange, newRange]));
-          } else {
-            setSelection(selection.setRanges([newRange, newRange]));
-          }
+          setSelection(selection.set(SelectionRegionType.Cells, [newRange, newRange]));
           setActiveCell(newRange);
           setEditing(false);
           scrollToItem(newRange as IRange);
