@@ -12,11 +12,16 @@ export const useSmartClick = (
   const [startPos, setStartPos] = useState<IPosition | null>(null);
   const [dragging, setDragging] = useState(false);
   const isClickOrigin = useRef(false);
+  const lastMouseDownTime = useRef(0);
 
   const onSmartMouseDown = (mouseState: IMouseState) => {
-    const { x, y } = mouseState;
-    setStartPos({ x, y });
-    isClickOrigin.current = true;
+    const curTimestamp = Date.now();
+    if (curTimestamp - lastMouseDownTime.current > 300) {
+      const { x, y } = mouseState;
+      setStartPos({ x, y });
+      isClickOrigin.current = true;
+    }
+    lastMouseDownTime.current = Date.now();
   };
 
   const onSmartMouseUp = (mouseState: IMouseState) => {

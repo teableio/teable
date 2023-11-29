@@ -230,6 +230,7 @@ const createCellValue2GridDisplay =
           choices,
           readonly,
           isMultiple,
+          editWhenClicked: true,
           editorPosition: EditorPosition.Below,
         };
       }

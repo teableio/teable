@@ -33,7 +33,7 @@ import type {
 } from './interface';
 import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from './interface';
 import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { CellType, getCellRenderer } from './renderers';
+import { getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
@@ -465,8 +465,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     });
     onSelectionEnd(mouseState, (item: ICellItem) => {
       const cell = getCellContent(item);
-      const canEditOnClick = [CellType.Number, CellType.Text, CellType.Select].includes(cell.type);
-      canEditOnClick && setEditing(true);
+      (cell as IInnerCell)?.editWhenClicked && setEditing(true);
     });
     onColumnResizeEnd();
   };
