@@ -12,6 +12,7 @@ export class ShareAuthLocalGuard implements CanActivate {
     const password = req.body.password;
     const authShareId = await this.shareService.authShareView(shareId, password);
     req.shareId = authShareId;
+    req.password = password;
     if (!authShareId) {
       throw new BadRequestException('Incorrect password.');
     }

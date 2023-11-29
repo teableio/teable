@@ -36,6 +36,11 @@ export interface IShareViewInfo {
   view: IViewVo;
 }
 
+export interface IJwtShareInfo {
+  shareId: string;
+  password: string;
+}
+
 @Injectable()
 export class ShareService {
   constructor(
@@ -51,7 +56,7 @@ export class ShareService {
 
   async validateJwtToken(token: string) {
     try {
-      return await this.jwtService.verifyAsync<{ shareId: string }>(token);
+      return await this.jwtService.verifyAsync<IJwtShareInfo>(token);
     } catch {
       throw new UnauthorizedException();
     }
@@ -73,8 +78,8 @@ export class ShareService {
     return pass === password ? shareId : null;
   }
 
-  async authToken(shareId: string) {
-    return await this.jwtService.signAsync({ shareId });
+  async authToken(jwtShareInfo: IJwtShareInfo) {
+    return await this.jwtService.signAsync(jwtShareInfo);
   }
 
   async getShareViewInfo(shareId: string): Promise<IShareViewInfo> {

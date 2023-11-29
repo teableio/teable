@@ -21,8 +21,8 @@ export const RecordEditorItem = (props: {
   };
 
   return (
-    <div className={classNames('space-y-2', vertical && 'flex space-y-0 space-x-2')}>
-      <div className={classNames('w-36 flex items-top space-x-1', !vertical && 'w-full')}>
+    <div className={vertical ? 'flex space-x-2' : 'space-y-2'}>
+      <div className={classNames('w-36 flex items-top space-x-1', vertical ? 'pt-2' : 'w-full')}>
         <div className="flex h-5 w-5 items-center">
           <Icon />
         </div>
