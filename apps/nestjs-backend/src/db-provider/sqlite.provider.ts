@@ -20,6 +20,10 @@ export class SqliteProvider implements IDbProvider {
     return undefined;
   }
 
+  generateDbTableName(baseId: string, name: string) {
+    return `${baseId}_${name}`;
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.

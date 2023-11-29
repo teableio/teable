@@ -9,6 +9,8 @@ export interface IDbProvider {
 
   createSchema(schemaName: string): string[] | undefined;
 
+  generateDbTableName(baseId: string, name: string): string;
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
   executeUpdateRecordsSqlList(params: {

@@ -292,6 +292,13 @@ export class RecordService implements IAdapterService {
     };
   }
 
+  private isJunctionTable(dbTableName: string) {
+    if (dbTableName.includes('.')) {
+      return dbTableName.split('.')[1].startsWith('junction');
+    }
+    return dbTableName.split('_')[1].startsWith('junction');
+  }
+
   async buildLinkCandidateQuery(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
@@ -324,7 +331,7 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException('Field is not linked to current table');
     }
     if (relationship === Relationship.OneMany) {
-      if (fkHostTableName.startsWith('junction')) {
+      if (this.isJunctionTable('fkHostTableName')) {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName);
         });

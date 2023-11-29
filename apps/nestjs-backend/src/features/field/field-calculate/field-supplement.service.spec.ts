@@ -5,8 +5,8 @@ import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { GlobalModule } from '../../../global/global.module';
-import { FieldModule } from '../field.module';
 import { createFieldInstanceByVo } from '../model/factory';
+import { FieldCalculateModule } from './field-calculate.module';
 import { FieldSupplementService } from './field-supplement.service';
 
 describe('FieldSupplementService', () => {
@@ -15,7 +15,7 @@ describe('FieldSupplementService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [GlobalModule, FieldModule],
+      imports: [GlobalModule, FieldCalculateModule],
     }).compile();
 
     service = module.get<FieldSupplementService>(FieldSupplementService);

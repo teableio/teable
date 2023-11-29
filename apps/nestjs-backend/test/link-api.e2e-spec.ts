@@ -29,6 +29,7 @@ describe('OpenAPI link (e2e)', () => {
   jest.useRealTimers();
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
+  const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -185,7 +186,7 @@ describe('OpenAPI link (e2e)', () => {
       expect(getTable1FieldsResult.body).toHaveLength(3);
       table1.fields = getTable1FieldsResult.body;
 
-      const fkHostTableName = `junction_${table2.fields[2].id}_${
+      const fkHostTableName = `${baseId}${split}junction_${table2.fields[2].id}_${
         (table2.fields[2].options as ILinkFieldOptions).symmetricFieldId
       }`;
 
@@ -601,7 +602,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const linkField1 = await createField(request, table1.id, Link1FieldRo);
-      const fkHostTableName = `junction_${linkField1.id}_${
+      const fkHostTableName = `${baseId}${split}junction_${linkField1.id}_${
         (linkField1.options as ILinkFieldOptions).symmetricFieldId
       }`;
 
@@ -648,7 +649,7 @@ describe('OpenAPI link (e2e)', () => {
       };
 
       const linkField1 = await createField(request, table1.id, Link1FieldRo);
-      const fkHostTableName = `junction_${linkField1.id}`;
+      const fkHostTableName = `${baseId}${split}junction_${linkField1.id}`;
 
       expect(linkField1).toMatchObject({
         type: FieldType.Link,
