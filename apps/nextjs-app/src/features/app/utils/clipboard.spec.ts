@@ -5,10 +5,17 @@ import {
 } from '../../../../../../packages/core/src/models/field/constant';
 import { extractTableHeader, isTeableHTML, serializerHtml } from './clipboard';
 
+const stringData = 'John\t20\tlight\nTom\t30\tmedium\nBob\t40\theavy';
+const parseData = [
+  ['John', '20', 'light'],
+  ['Tom', '30', 'medium'],
+  ['Bob', '40', 'heavy'],
+];
 jest.mock('@teable-group/core', () => {
   return {
     __esModule: true,
     IFieldVo: {},
+    parseClipboardText: () => ({ data: parseData }),
     fieldVoSchema: {
       safeParse: () => ({ success: true }),
     },
@@ -98,8 +105,7 @@ describe('clipboard', () => {
   });
 
   it('serializerHtml should serializer table from data and header of table', () => {
-    const data = 'John\t20\tlight\nTom\t30\tmedium\nBob\t40\theavy';
-    const result = serializerHtml(data, expectedHeader);
+    const result = serializerHtml(stringData, expectedHeader);
     expect(result).toEqual(html);
   });
 
