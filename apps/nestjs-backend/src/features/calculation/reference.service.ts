@@ -662,6 +662,11 @@ export class ReferenceService {
     return {
       fields: fieldsData,
       id: raw.__id as string,
+      autoNumber: raw.__auto_number as number,
+      createdTime: (raw.__created_time as Date)?.toISOString(),
+      lastModifiedTime: (raw.__last_modified_time as Date)?.toISOString(),
+      createdBy: raw.__created_by as string,
+      lastModifiedBy: raw.__last_modified_by as string,
       recordOrder: {},
     };
   }

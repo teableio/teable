@@ -25,6 +25,8 @@ export const createdTimeFieldOptionsRoSchema = createdTimeFieldOptionsSchema.par
   expression: true,
 });
 
+export type ICreatedTimeFieldOptionsRo = z.infer<typeof createdTimeFieldOptionsRoSchema>;
+
 export class CreatedTimeFieldCore extends FormulaAbstractCore {
   type!: FieldType.CreatedTime;
 

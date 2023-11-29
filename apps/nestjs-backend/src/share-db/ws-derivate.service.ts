@@ -47,10 +47,7 @@ export class WsDerivateService {
       opsMap: opsMapByCalculate,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(
-      composeMaps([composedOpsMap, systemFieldOpsMap]),
-      derivate?.saveForeignKeyToDb
-    );
+    } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
     const composedMap = composeMaps([opsMapByLink, opsMapByCalculate, systemFieldOpsMap]);
 
     if (isEmpty(composedMap)) {

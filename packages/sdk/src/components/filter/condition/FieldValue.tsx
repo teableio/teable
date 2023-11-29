@@ -5,6 +5,7 @@ import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
 import { useField } from '../../../hooks';
 
+import type { DateField } from '../../../model';
 import { NumberEditor, RatingEditor } from '../../editor';
 import {
   FilterSingleSelect,
@@ -26,7 +27,7 @@ function FieldValue(props: IFieldValue) {
   const { filter, onSelect } = props;
   const field = useField(filter.fieldId);
 
-  const emptyComponent = <Input className="w-40 m-1 h-8 placeholder:text-[13px]" disabled />;
+  const emptyComponent = <Input className="m-1 h-8 w-40 placeholder:text-[13px]" disabled />;
   const showEmptyComponent = useMemo(() => {
     const showEmpty = EMPTYOPERATORS.includes(filter.operator);
     showEmpty && onSelect?.(null);
@@ -77,15 +78,18 @@ function FieldValue(props: IFieldValue) {
           />
         );
       case FieldType.Date:
+      case FieldType.CreatedTime:
+      case FieldType.LastModifiedTime:
         return (
           <FilterDatePicker
-            field={field}
+            field={field as DateField}
             value={filter.value as IDateFilter}
             onSelect={onSelect}
             operator={filter.operator}
           />
         );
       case FieldType.SingleLineText:
+      case FieldType.AutoNumber:
         return InputComponent;
       case FieldType.Checkbox:
         return <FilterCheckbox value={filter.value as boolean} onChange={onSelect} />;
@@ -106,7 +110,7 @@ function FieldValue(props: IFieldValue) {
             value={filter.value as number}
             options={field.options}
             onChange={onSelect as (value?: number) => void}
-            className="px-2 h-8 border border-input rounded-md shadow-sm"
+            className="h-8 rounded-md border border-input px-2 shadow-sm"
             iconClassName="w-4 h-4 mr-1"
           />
         );
