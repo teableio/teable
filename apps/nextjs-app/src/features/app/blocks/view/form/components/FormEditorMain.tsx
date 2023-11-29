@@ -25,6 +25,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const fileInput = useRef<HTMLInputElement>(null);
   const [coverUrl, setCoverUrl] = useState((view as FormView)?.options?.coverUrl ?? '');
   const [name, setName] = useState(view?.name ?? '');
+  const [isNameEditing, setNameEditing] = useState(false);
   const [description, setDescription] = useState(view?.description ?? '');
   const { setNodeRef } = useDroppable({ id: FORM_EDITOR_DROPPABLE_ID });
 
@@ -35,11 +36,12 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
     setName(value);
   };
 
-  const onNameInputBlur = () => {
+  const onNameInputBlur = async () => {
     if (!name) {
       return setName(view.name);
     }
-    view.updateName(name);
+    await view.updateName(name);
+    setNameEditing(false);
   };
 
   const onDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -62,6 +64,12 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
       },
     });
     e.target.value = '';
+  };
+
+  const onNameClick = () => {
+    if (!isNameEditing) {
+      setNameEditing(true);
+    }
   };
 
   return (
@@ -88,12 +96,31 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           </Button>
         </div>
 
-        <Input
-          className="mb-6 mt-8 w-1/2 border-0 text-center text-3xl shadow-none hover:border"
-          value={name}
-          onChange={onNameChange}
-          onBlur={onNameInputBlur}
-        />
+        {isNameEditing ? (
+          <Input
+            className="mb-6 mt-8 w-2/3 text-center text-3xl shadow-none"
+            value={name}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onChange={onNameChange}
+            onBlur={onNameInputBlur}
+          />
+        ) : (
+          <div
+            className="mb-6 mt-8 w-full px-6 text-center text-3xl sm:px-12"
+            style={{ overflowWrap: 'break-word' }}
+            tabIndex={0}
+            role={'button'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                onNameClick();
+              }
+            }}
+            onClick={onNameClick}
+          >
+            {name ?? 'Untitled'}
+          </div>
+        )}
 
         <div className="mb-4 w-full px-12">
           <Textarea
