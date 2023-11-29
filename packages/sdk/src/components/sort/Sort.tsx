@@ -96,6 +96,7 @@ function Sort(props: ISortProps) {
   };
 
   const onChangeInner = (sorts: ISort | null) => {
+    if (sorts == null) return setInnerSorts(null);
     if (!Object.hasOwnProperty.call(sorts, 'manualSort')) {
       setInnerSorts({
         sortObjs: sorts?.sortObjs || [],
