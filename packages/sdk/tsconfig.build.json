@@ -5,7 +5,8 @@
     "rootDir": "./src",
     "target": "esnext",
     "module": "esnext",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {}
   },
   "exclude": ["dist", "**/__tests__/*", "**/*spec.ts"]
 }

@@ -85,6 +85,6 @@ export class PermissionService {
     if (!table) {
       throw new NotFoundException(`not found ${tableId}`);
     }
-    return this.checkPermissionByBaseId(table.base.id, permissions);
+    return await this.checkPermissionByBaseId(table.base.id, permissions);
   }
 }

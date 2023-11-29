@@ -1124,12 +1124,18 @@ importers:
       '@teable-group/core':
         specifier: workspace:^
         version: link:../core
+      '@types/qs':
+        specifier: ^6.9.10
+        version: 6.9.10
       axios:
         specifier: 1.6.1
         version: 1.6.1
       openapi3-ts:
         specifier: ^4.1.2
         version: 4.1.2
+      qs:
+        specifier: ^6.11.2
+        version: 6.11.2
       zod:
         specifier: 3.22.4
         version: 3.22.4
@@ -1336,6 +1342,9 @@ importers:
       tailwindcss:
         specifier: 3.3.5
         version: 3.3.5(ts-node@10.9.1)
+      ts-jest:
+        specifier: 29.1.1
+        version: 29.1.1(@babel/core@7.23.3)(@jest/types@29.6.3)(jest@29.7.0)(typescript@5.2.2)
       typescript:
         specifier: 5.2.2
         version: 5.2.2
@@ -11296,7 +11305,6 @@ packages:
       {
         integrity: sha512-3Gnx08Ns1sEoCrWssEgTSJs/rsT2vhGP+Ja9cnnk9k4ALxinORlQneLXFeFKOTJMOeZUFD1s7w+w2AphTpvzZw==,
       }
-    dev: true
 
   /@types/range-parser@1.2.7:
     resolution:
@@ -27678,7 +27686,6 @@ packages:
     engines: { node: '>=0.6' }
     dependencies:
       side-channel: 1.0.4
-    dev: true
 
   /querystring-es3@0.2.1:
     resolution:

@@ -73,6 +73,9 @@ export class BaseService {
           },
         ],
       },
+      orderBy: {
+        createdTime: 'asc',
+      },
     });
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }

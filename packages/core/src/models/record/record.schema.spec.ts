@@ -35,14 +35,6 @@ describe('recordsRoSchema', () => {
       );
   });
 
-  it('fails for invalid recordIds', () => {
-    const data = { ...validData, recordIds: ['invalidRecordId'] };
-    const result = getRecordsQuerySchema.safeParse(data);
-    expect(result.success).toBe(false);
-    !result.success &&
-      expect(result.error.errors[0].message).toEqual('Error recordIds, recordId is illegal');
-  });
-
   it('validates successfully for empty projection', () => {
     const data = { ...validData, projection: {} };
     const result = getRecordsQuerySchema.safeParse(data);

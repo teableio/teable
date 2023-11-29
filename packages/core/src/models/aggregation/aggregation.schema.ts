@@ -1,5 +1,6 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
+import { filterSchema } from '../view/filter/filter';
 import { StatisticsFunc } from './statistics-func.enum';
 
 export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
@@ -68,6 +69,12 @@ export const rawRowCountSchema = z.record(
 
 export type IRawRowCountVo = z.infer<typeof rawRowCountSchema>;
 
+export const viewRowCountRoSchema = z.object({
+  filter: filterSchema.optional(),
+});
+
+export type IViewRowCountRo = z.infer<typeof viewRowCountRoSchema>;
+
 export const viewRowCountSchema = z.object({
   rowCount: z.number(),
 });
@@ -76,6 +83,7 @@ export type IViewRowCountVo = z.infer<typeof viewRowCountSchema>;
 
 export const viewAggregationRoSchema = z.object({
   field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
+  filter: filterSchema.optional(),
 });
 
 export type IViewAggregationRo = z.infer<typeof viewAggregationRoSchema>;

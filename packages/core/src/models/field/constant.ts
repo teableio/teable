@@ -54,5 +54,5 @@ export const RelationshipRevert = {
   [Relationship.OneOne]: Relationship.OneOne,
 };
 
-export const isMultiValueLink = (relationship: Relationship): true | undefined =>
-  relationship === Relationship.ManyMany || relationship === Relationship.OneMany || undefined;
+export const isMultiValueLink = (relationship: Relationship): boolean =>
+  relationship === Relationship.ManyMany || relationship === Relationship.OneMany;

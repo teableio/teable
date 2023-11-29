@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -29,6 +30,7 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -53,6 +55,7 @@ export class TableService implements IAdapterService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -427,24 +430,31 @@ export class TableService implements IAdapterService {
   }
 
   async getRowCount(tableId: string, query: IGetRowCountRo) {
-    const { filterByLinkField = {} } = query;
-    const { nullableForeignKey, recordIds } = filterByLinkField;
-
-    const dbTableName = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    const queryBuilder = this.knex(dbTableName);
-
-    if (recordIds?.length) {
-      queryBuilder.whereIn('__id', recordIds);
+    if (query.filterLinkCellSelected) {
+      // TODO: use a new method to retrieve only count
+      const { ids } = await this.recordService.getLinkSelectedRecordIds(
+        query.filterLinkCellSelected
+      );
+      return { rowCount: ids.length };
     }
 
-    if (nullableForeignKey) {
-      queryBuilder.andWhere(nullableForeignKey, 'is', null);
+    const { queryBuilder, fieldMap, filter } = await this.recordService.prepareQuery(
+      tableId,
+      query
+    );
+
+    if (query.filterLinkCellCandidate) {
+      await this.recordService.buildLinkCandidateQuery(
+        queryBuilder,
+        tableId,
+        query.filterLinkCellCandidate
+      );
     }
+
+    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
 
     const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
+
     const results = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
       sqlNative.sql,
       ...sqlNative.bindings

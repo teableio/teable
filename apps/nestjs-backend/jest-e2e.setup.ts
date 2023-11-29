@@ -1,6 +1,6 @@
 import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
-import { parseDsn } from '@teable-group/core';
+import { parseDsn } from '@teable-group/core/src';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv-flow';
 

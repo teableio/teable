@@ -7,6 +7,7 @@ import { useTableId, useViewId } from '../../hooks';
 import { View } from '../../model';
 import type { ISortBaseRef } from './SortBase';
 import { SortBase } from './SortBase';
+import { useSortNode } from './useSortNode';
 
 interface ISortProps {
   children: (text: string, isActive: boolean) => React.ReactElement;
@@ -24,6 +25,8 @@ function Sort(props: ISortProps) {
 
   const [innerSorts, setInnerSorts] = useState(outerSorts);
 
+  const { text, isActive } = useSortNode(outerSorts);
+
   const { mutateAsync, isLoading } = useMutation({
     mutationFn: async ({
       tableId,
@@ -40,13 +43,6 @@ function Sort(props: ISortProps) {
       sortBaseRef.current?.close();
     },
   });
-
-  const sortButtonText =
-    !innerSorts?.manualSort && innerSorts?.sortObjs?.length
-      ? `Sort By ${innerSorts?.sortObjs?.length} filed${
-          innerSorts?.sortObjs?.length > 1 ? 's' : ''
-        }`
-      : 'Sort';
 
   useEffect(() => {
     // async from sharedb
@@ -115,7 +111,7 @@ function Sort(props: ISortProps) {
       onChange={onChangeInner}
       manualSortOnClick={manualSort}
     >
-      {children?.(sortButtonText, sortButtonText !== 'Sort')}
+      {children?.(text, isActive)}
     </SortBase>
   );
 }

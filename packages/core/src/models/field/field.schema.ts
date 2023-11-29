@@ -3,7 +3,7 @@ import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types/ensure-keys';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { StatisticsFunc } from '../aggregation';
+import { StatisticsFunc } from '../aggregation/statistics-func.enum';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,

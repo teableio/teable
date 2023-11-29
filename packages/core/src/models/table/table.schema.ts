@@ -4,7 +4,7 @@ import { fieldRoSchema, fieldVoSchema } from '../field';
 import {
   createRecordsRoSchema,
   fieldKeyTypeRoSchema,
-  filterByLinkFieldSchema as filterByLinkFieldSchema,
+  getRecordsQuerySchema,
   recordSchema,
 } from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';
@@ -135,8 +135,12 @@ export const getGraphRoSchema = z.object({
 
 export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
 
-export const getRowCountSchema = z.object({
-  filterByLinkField: filterByLinkFieldSchema.optional(),
+export const getRowCountSchema = getRecordsQuerySchema.pick({
+  viewId: true,
+  filter: true,
+  filterByTql: true,
+  filterLinkCellCandidate: true,
+  filterLinkCellSelected: true,
 });
 
 export type IGetRowCountRo = z.infer<typeof getRowCountSchema>;

@@ -10,8 +10,10 @@ import type {
   IAttachmentCellValue,
   ICreateRecordsRo,
   IExtraResult,
+  IFilter,
   IGetRecordQuery,
   IGetRecordsQuery,
+  ILinkCellValue,
   IMakeRequired,
   IRecord,
   IRecordsVo,
@@ -19,6 +21,7 @@ import type {
   ISetRecordOrderOpContext,
   IShareViewMeta,
   ISnapshotBase,
+  ISortItem,
 } from '@teable-group/core';
 import {
   FieldKeyType,
@@ -30,8 +33,9 @@ import {
   mergeWithDefaultSort,
   OpName,
   CellFormat,
+  Relationship,
 } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
@@ -214,83 +218,211 @@ export class RecordService implements IAdapterService {
   }
 
   async getDbTableName(tableId: string) {
-    const tableMeta = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
+    const tableMeta = await this.prismaService
+      .txClient()
+      .tableMeta.findUniqueOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Table ${tableId} not found`);
+      });
     return tableMeta.dbTableName;
   }
 
-  async buildQuery(
-    tableId: string,
-    query: IGetRecordsQuery & {
-      select?: string | string[];
-      viewId?: string;
+  private async getLinkCellIds(fieldRaw: Field, recordId: string) {
+    const prisma = this.prismaService.txClient();
+    const dbTableName = await prisma.tableMeta.findFirstOrThrow({
+      where: { id: fieldRaw.tableId },
+      select: { dbTableName: true },
+    });
+    const linkCellQuery = this.knex(dbTableName)
+      .select({
+        id: '__id',
+        linkField: fieldRaw.dbFieldName,
+      })
+      .where('__id', recordId)
+      .toQuery();
+    const field = createFieldInstanceByRaw(fieldRaw);
+    const result = await prisma.$queryRawUnsafe<
+      {
+        id: string;
+        linkField: string | null;
+      }[]
+    >(linkCellQuery);
+    return result
+      .map(
+        (item) =>
+          field.convertDBValue2CellValue(item.linkField) as ILinkCellValue | ILinkCellValue[]
+      )
+      .filter(Boolean)
+      .flat()
+      .map((item) => item.id);
+  }
+
+  async getLinkSelectedRecordIds(
+    filterLinkCellSelected: [string, string] | string
+  ): Promise<{ ids: string[] }> {
+    const fieldId = Array.isArray(filterLinkCellSelected)
+      ? filterLinkCellSelected[0]
+      : filterLinkCellSelected;
+    const recordId = Array.isArray(filterLinkCellSelected) ? filterLinkCellSelected[1] : undefined;
+
+    if (!fieldId) {
+      throw new BadRequestException(
+        'filterByLinkFieldId is required when filterByLinkRecordId is set'
+      );
     }
+
+    const prisma = this.prismaService.txClient();
+    const fieldRaw = await prisma.field
+      .findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+
+    if (fieldRaw.type !== FieldType.Link) {
+      throw new BadRequestException('You can only filter by link field');
+    }
+
+    return {
+      ids: recordId ? await this.getLinkCellIds(fieldRaw, recordId) : [],
+    };
+  }
+
+  async buildLinkCandidateQuery(
+    queryBuilder: Knex.QueryBuilder,
+    tableId: string,
+    filterLinkCellCandidate: [string, string] | string
   ) {
-    const {
-      viewId,
-      orderBy: extraOrderBy,
-      skip = 0,
-      take = 10,
-      select,
-      filter: extraFilter,
-      filterByLinkField = {},
-    } = query;
+    const prisma = this.prismaService.txClient();
+    const fieldId = Array.isArray(filterLinkCellCandidate)
+      ? filterLinkCellCandidate[0]
+      : filterLinkCellCandidate;
+    const recordId = Array.isArray(filterLinkCellCandidate)
+      ? filterLinkCellCandidate[1]
+      : undefined;
+
+    const fieldRaw = await prisma.field
+      .findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+
+    const field = createFieldInstanceByRaw(fieldRaw);
+
+    if (field.type !== FieldType.Link) {
+      throw new BadRequestException('You can only filter by link field');
+    }
+    const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName, relationship } =
+      field.options;
+    if (foreignTableId !== tableId) {
+      throw new BadRequestException('Field is not linked to current table');
+    }
+    if (relationship === Relationship.OneMany) {
+      if (fkHostTableName.startsWith('junction')) {
+        queryBuilder.whereNotIn('__id', function () {
+          this.select(foreignKeyName).from(fkHostTableName);
+        });
+      } else {
+        queryBuilder.where(selfKeyName, null);
+      }
+    }
+    if (relationship === Relationship.OneOne) {
+      if (selfKeyName === '__id') {
+        queryBuilder.whereNotIn('__id', function () {
+          this.select(foreignKeyName).from(fkHostTableName).whereNotNull(foreignKeyName);
+        });
+      } else {
+        queryBuilder.where(selfKeyName, null);
+      }
+    }
+    if (recordId) {
+      const linkIds = await this.getLinkCellIds(fieldRaw, recordId);
+      if (linkIds.length) {
+        queryBuilder.whereNotIn('__id', linkIds);
+      }
+    }
+  }
+
+  private async getNecessaryFieldMap(tableId: string, filter?: IFilter, orderBy?: ISortItem[]) {
+    if (filter || orderBy?.length) {
+      // The field Meta is needed to construct the filter if it exists
+      const fields = await this.getFieldsByProjection(tableId);
+      return fields.reduce(
+        (map, field) => {
+          map[field.id] = field;
+          map[field.name] = field;
+          return map;
+        },
+        {} as Record<string, IFieldInstance>
+      );
+    }
+  }
+
+  private async getTinyView(tableId: string, viewId?: string) {
+    if (!viewId) {
+      return;
+    }
+
+    return this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { id: true, filter: true, sort: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`View ${viewId} not found`);
+      });
+  }
+
+  async prepareQuery(
+    tableId: string,
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter'>
+  ) {
+    const { viewId, orderBy: extraOrderBy, filter: extraFilter } = query;
 
     const dbTableName = await this.getDbTableName(tableId);
 
-    const queryBuilder = select ? this.knex(dbTableName).select(select) : this.knex(dbTableName);
+    const queryBuilder = this.knex(dbTableName);
 
-    let orderFieldName = '';
+    const view = await this.getTinyView(tableId, viewId);
 
-    if (viewId) {
-      const view = await this.prismaService.txClient().view.findFirstOrThrow({
-        select: { id: true, filter: true, sort: true },
-        where: { tableId, id: viewId, deletedTime: null },
-        orderBy: { order: 'asc' },
-      });
+    const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
+    const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
+    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy);
 
-      const filter = mergeWithDefaultFilter(view.filter, extraFilter);
-      const orderBy = mergeWithDefaultSort(view.sort, extraOrderBy);
+    return {
+      queryBuilder,
+      filter,
+      orderBy,
+      fieldMap,
+    };
+  }
 
-      orderFieldName = getViewOrderFieldName(viewId);
+  async buildFilterSortQuery(
+    tableId: string,
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
+  ): Promise<Knex.QueryBuilder> {
+    const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
 
-      let fieldMap;
-      if (filter || orderBy.length) {
-        // The field Meta is needed to construct the filter if it exists
-        const fields = await this.getFieldsByProjection(tableId);
-        fieldMap = fields.reduce(
-          (map, field) => {
-            map[field.id] = field;
-            map[field.name] = field;
-            return map;
-          },
-          {} as Record<string, IFieldInstance>
-        );
-      }
-
-      // All `where` condition-related construction work
-      this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
-      new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
+    if (query.filterLinkCellCandidate) {
+      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
     }
 
-    const { recordIds, nullableForeignKey } = filterByLinkField;
-
-    if (recordIds?.length) {
-      queryBuilder.whereIn('__id', recordIds);
-    }
-
-    if (nullableForeignKey) {
-      queryBuilder.andWhere(nullableForeignKey, 'is', null);
-    }
+    // All `where` condition-related construction work
+    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
+    new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
 
     // view sorting added by default
-    queryBuilder.orderBy(orderFieldName || '__auto_number', 'asc').offset(skip);
-    if (take !== -1) {
-      queryBuilder.limit(take);
-    }
+    queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
 
+    // If you return `queryBuilder` directly and use `await` to receive it,
+    // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder };
   }
 
@@ -427,6 +559,8 @@ export class RecordService implements IAdapterService {
       take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
+      filterLinkCellCandidate: query.filterLinkCellCandidate,
+      filterLinkCellSelected: query.filterLinkCellSelected,
     });
 
     const recordSnapshot = await this.getSnapshotBulk(
@@ -787,7 +921,7 @@ export class RecordService implements IAdapterService {
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const viewId = await this.shareWithViewId(tableId, query.viewId);
 
-    const { take = 100 } = query;
+    const { skip, take = 100 } = query;
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
@@ -796,13 +930,21 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    // If you return `queryBuilder` directly and use `await` to receive it,
-    // it will perform a query DB operation, which we obviously don't want to see here
-    const { queryBuilder } = await this.buildQuery(tableId, {
+    if (query.filterLinkCellSelected) {
+      return this.getLinkSelectedRecordIds(query.filterLinkCellSelected);
+    }
+
+    const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       ...query,
-      select: '__id',
       viewId,
     });
+
+    queryBuilder.select('__id');
+
+    queryBuilder.offset(skip);
+    if (take !== -1) {
+      queryBuilder.limit(take);
+    }
 
     const result = await this.prismaService
       .txClient()
@@ -824,14 +966,17 @@ export class RecordService implements IAdapterService {
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName);
 
-    const { queryBuilder } = await this.buildQuery(tableId, {
+    const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId: viewId,
-      skip,
-      take,
       filter,
       orderBy,
-      select: fieldNames.concat('__id'),
     });
+    queryBuilder.select(fieldNames.concat('__id'));
+    queryBuilder.offset(skip);
+    if (take !== -1) {
+      queryBuilder.limit(take);
+    }
+
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<(Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(

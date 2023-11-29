@@ -513,7 +513,8 @@ export class ReferenceService {
     const virtualField = createFieldInstanceByVo({
       ...fieldVo,
       id: 'values',
-      isMultipleCellValue: fieldVo.isMultipleCellValue || isMultiValueLink(relationship),
+      isMultipleCellValue:
+        fieldVo.isMultipleCellValue || isMultiValueLink(relationship) || undefined,
     });
 
     if (field.type === FieldType.Rollup) {

@@ -185,10 +185,10 @@ export class TableOpenApiService {
 
   async sqlQuery(tableId: string, viewId: string, sql: string) {
     this.logger.log('sqlQuery:sql: ' + sql);
-    const { queryBuilder } = await this.recordService.buildQuery(tableId, {
+    const { queryBuilder } = await this.recordService.buildFilterSortQuery(tableId, {
       viewId,
-      take: -1,
     });
+
     const baseQuery = queryBuilder.toString();
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },

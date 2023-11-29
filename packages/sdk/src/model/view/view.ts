@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFilter, IShareViewMeta, ISort, IViewVo } from '@teable-group/core';
+import type { IFilter, IOtOperation, IShareViewMeta, ISort, IViewVo } from '@teable-group/core';
 import {
   sortSchema,
   filterSchema,
@@ -39,7 +39,7 @@ export abstract class View extends ViewCore {
 
   static disableShare = requestWrap(disableShareView);
 
-  private async submitOperation(operation: unknown) {
+  async submitOperation(operation: IOtOperation) {
     try {
       return await new Promise((resolve, reject) => {
         this.doc.submitOp([operation], undefined, (error) => {

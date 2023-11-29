@@ -28,7 +28,7 @@ export function ContextDecorator(...args: IContextDecorator[]): MethodDecorator 
       // If 'useCls' is specified, set up the CLS context
       if (args.includes('useCls')) {
         const clsService: ClsService<IClsStore> = (this as ShareDbPermissionService).clsService;
-        await clsService.runWith(clsService.get(), async () => {
+        await clsService.runWith({ ...clsService.get() }, async () => {
           try {
             clsService.set('user', context.agent.custom.user);
             clsService.set('shareViewId', context.agent.custom.shareId);

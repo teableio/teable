@@ -12,21 +12,33 @@ import type {
   IRawAggregationVo,
   IRawRowCountVo,
   IViewRowCountVo,
+  IViewRowCountRo,
+  IViewAggregationRo,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ShareViewFormSubmitRo, ShareViewGetVo } from '@teable-group/openapi';
+import type {
+  IShareViewCopyRo,
+  ShareViewFormSubmitRo,
+  ShareViewGetVo,
+} from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldService } from '../field/field.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
+import { SelectionService } from '../selection/selection.service';
 import { createViewVoByRaw } from '../view/model/factory';
 
 export interface IShareViewInfo {
   shareId: string;
   tableId: string;
   view: IViewVo;
+}
+
+export interface IJwtShareInfo {
+  shareId: string;
+  password: string;
 }
 
 @Injectable()
@@ -38,12 +50,13 @@ export class ShareService {
     private readonly recordService: RecordService,
     private readonly aggregationService: AggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly selectionService: SelectionService
   ) {}
 
   async validateJwtToken(token: string) {
     try {
-      return await this.jwtService.verifyAsync<{ shareId: string }>(token);
+      return await this.jwtService.verifyAsync<IJwtShareInfo>(token);
     } catch {
       throw new UnauthorizedException();
     }
@@ -65,8 +78,8 @@ export class ShareService {
     return pass === password ? shareId : null;
   }
 
-  async authToken(shareId: string) {
-    return await this.jwtService.signAsync({ shareId });
+  async authToken(jwtShareInfo: IJwtShareInfo) {
+    return await this.jwtService.signAsync(jwtShareInfo);
   }
 
   async getShareViewInfo(shareId: string): Promise<IShareViewInfo> {
@@ -114,22 +127,27 @@ export class ShareService {
     };
   }
 
-  async getViewAggregations(shareInfo: IShareViewInfo) {
+  async getViewAggregations(shareInfo: IShareViewInfo, query: IViewAggregationRo = {}) {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
+    const { filter } = query;
     const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId } },
+      { tableId, withView: { viewId, customFilter: filter } },
       { fieldAggregation: true }
     )) as IRawAggregationVo;
 
     return { viewId: viewId, aggregations: result[viewId]?.aggregations };
   }
 
-  async getViewRowCount(shareInfo: IShareViewInfo): Promise<IViewRowCountVo> {
+  async getViewRowCount(
+    shareInfo: IShareViewInfo,
+    query: IViewRowCountRo = {}
+  ): Promise<IViewRowCountVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
+    const { filter } = query;
     const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId } },
+      { tableId, withView: { viewId, customFilter: filter } },
       { rowCount: true }
     )) as IRawRowCountVo;
 
@@ -164,5 +182,9 @@ export class ShareService {
         return records[0];
       }
     );
+  }
+
+  async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IShareViewCopyRo) {
+    return this.selectionService.copy(shareInfo.tableId, shareInfo.view.id, shareViewCopyRo);
   }
 }

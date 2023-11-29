@@ -7,6 +7,7 @@ import { AppLayout } from '@/features/app/layouts';
 import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
 import { ShareView } from './ShareView';
 import { ShareViewPageContext } from './ShareViewPageContext';
+import { ViewProxy } from './ViewProxy';
 
 export interface IShareViewPageProps {
   shareViewData: ShareViewGetVo;
@@ -35,9 +36,11 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
             }}
           >
             <ViewProvider serverData={[view]}>
-              <FieldProvider serverSideData={fields}>
-                <ShareView />
-              </FieldProvider>
+              <ViewProxy serverData={[view]}>
+                <FieldProvider serverSideData={fields}>
+                  <ShareView />
+                </FieldProvider>
+              </ViewProxy>
             </ViewProvider>
           </AnchorContext.Provider>
         </AppProvider>

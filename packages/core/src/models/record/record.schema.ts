@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { TQL_README } from '../../query/README';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { filterSchema, sortItemSchema } from '../view';
@@ -74,15 +75,6 @@ export type IGetRecordQuery = z.infer<typeof getRecordQuerySchema>;
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
-export const filterByLinkFieldSchema = z.object({
-  recordIds: z
-    .array(z.string().startsWith(IdPrefix.Record, 'Error recordIds, recordId is illegal'))
-    .optional(),
-  nullableForeignKey: z.string().optional(),
-});
-
-export type IFilterByLinkFieldSchema = z.infer<typeof filterByLinkFieldSchema>;
-
 export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   take: z
     .string()
@@ -111,30 +103,42 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
       example: 0,
       description: 'The records count you want to skip',
     }),
-  recordIds: z
-    .array(z.string().startsWith(IdPrefix.Record, 'Error recordIds, recordId is illegal'))
-    .optional()
-    .openapi({
-      example: ['recXXXXXXX'],
-      description: 'Specify the records you want to fetch',
-    }),
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     example: 'viwXXXXXXX',
     description:
       'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
   }),
+  orderBy: sortItemSchema.array().nonempty().optional().openapi({
+    type: 'array',
+    description: 'An array of sort objects that specifies how the records should be ordered.',
+  }),
   filterByTql: z.string().optional().openapi({
     example: "{field} = 'Completed' AND {field} > 5",
-    description:
-      'A Teable Query Language (TQL) string used to filter results. It allows complex query conditions based on fields, operators, and values.',
+    description: TQL_README,
   }),
   filter: filterSchema.optional().openapi({
     type: 'object',
+    description:
+      'A filter object used to filter results. It allows complex query conditions based on fields, operators, and values. For a more convenient experience, filterByTql is recommended',
   }),
-  orderBy: sortItemSchema.array().nonempty().optional().openapi({
-    type: 'array',
-  }),
-  filterByLinkField: filterByLinkFieldSchema.optional(),
+  filterLinkCellCandidate: z
+    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
+    .or(z.string().startsWith(IdPrefix.Field))
+    .optional()
+    .openapi({
+      example: ['fldXXXXXXX', 'recXXXXXXX'],
+      description:
+        'Filters out the records that can be selected by a given link cell. For example, if the specified field is one to many or one to one relationship, recordId for which the field has already been selected will not appear.',
+    }),
+  filterLinkCellSelected: z
+    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
+    .or(z.string().startsWith(IdPrefix.Field))
+    .optional()
+    .openapi({
+      example: ['fldXXXXXXX', 'recXXXXXXX'],
+      description:
+        'Filter out selected records based on this link cell. Note that viewId, filter, and orderBy will not take effect in this case.',
+    }),
 });
 
 export type IGetRecordsQuery = z.infer<typeof getRecordsQuerySchema>;

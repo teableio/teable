@@ -75,7 +75,15 @@ export class WsAuthService {
       throw new UnauthorizedException();
     }
     try {
-      return await this.shareService.validateJwtToken(token);
+      const jwtShare = await this.shareService.validateJwtToken(token);
+      const shareAuthId = await this.shareService.authShareView(
+        jwtShare.shareId,
+        jwtShare.password
+      );
+      if (!shareAuthId || shareAuthId !== shareId) {
+        throw new UnauthorizedException();
+      }
+      return { shareId };
     } catch (error) {
       throw new UnauthorizedException();
     }

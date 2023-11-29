@@ -4,6 +4,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/u
 import Link from 'next/link';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { useGraphStore } from '../../graph/useGraphStore';
+import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
 
 export const Others: React.FC = () => {
@@ -11,9 +12,17 @@ export const Others: React.FC = () => {
   const driver = useDriver();
   return (
     <div className="min-w-[100px] justify-end @container/toolbar-others @2xl/toolbar:flex @2xl/toolbar:flex-1">
-      <ToolBarButton text="Share" textClassName="@[234px]/toolbar-others:inline">
-        <ArrowUpRight className="h-4 w-4" />
-      </ToolBarButton>
+      <SharePopover>
+        {(text, isActive) => (
+          <ToolBarButton
+            isActive={isActive}
+            text={text}
+            textClassName="@[234px]/toolbar-others:inline"
+          >
+            <ArrowUpRight className="h-4 w-4" />
+          </ToolBarButton>
+        )}
+      </SharePopover>
 
       <Popover>
         <PopoverTrigger asChild>

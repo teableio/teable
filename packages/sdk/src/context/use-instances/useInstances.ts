@@ -24,7 +24,7 @@ const queryDestroy = (query: Query | undefined, cb?: () => void) => {
   query.once('ready', () => {
     query.destroy(() => {
       query.removeAllListeners();
-      query.results.forEach((doc) => doc.listenerCount('op') === 0 && doc.destroy());
+      query.results?.forEach((doc) => doc.listenerCount('op') === 0 && doc.destroy());
       cb?.();
     });
   });
@@ -53,6 +53,9 @@ export function useInstances<T, R extends { id: string }>({
 
   const handleReady = useCallback((query: Query<T>) => {
     console.log(`${query.collection}:ready:`, query.query);
+    if (!query.results) {
+      return;
+    }
     dispatch({ type: 'ready', results: query.results });
     query.results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {

@@ -6,6 +6,7 @@ import type {
   IViewRowCountVo,
   StatisticsFunc,
   IViewAggregationRo,
+  IViewRowCountRo,
 } from '@teable-group/core';
 import { getValidStatisticFunc } from '@teable-group/core';
 import { forIn, isEmpty, map } from 'lodash';
@@ -21,7 +22,7 @@ export class AggregationOpenApiService {
     viewId: string,
     viewAggregationRo?: IViewAggregationRo
   ): Promise<IViewAggregationVo> {
-    let withView: IWithView = { viewId };
+    let withView: IWithView = { viewId, customFilter: viewAggregationRo?.filter };
 
     const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
 
@@ -48,9 +49,14 @@ export class AggregationOpenApiService {
     return { viewId: viewId, aggregations: result[viewId]?.aggregations };
   }
 
-  async getViewRowCount(tableId: string, viewId: string): Promise<IViewRowCountVo> {
+  async getViewRowCount(
+    tableId: string,
+    viewId: string,
+    query?: IViewRowCountRo
+  ): Promise<IViewRowCountVo> {
+    const { filter } = query || {};
     const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId } },
+      { tableId, withView: { viewId, customFilter: filter } },
       { rowCount: true }
     )) as IRawRowCountVo;
 
