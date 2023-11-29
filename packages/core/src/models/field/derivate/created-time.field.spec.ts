@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { CellValueType, DbFieldType, FieldType } from '../constant';
-import { TimeFormatting, defaultDatetimeFormatting } from '../formatting';
+import { DateFormattingPreset, defaultDatetimeFormatting } from '../formatting';
 import { CreatedTimeFieldCore } from './created-time.field';
 
 describe('CreatedTimeFieldCore', () => {
@@ -68,8 +68,8 @@ describe('CreatedTimeFieldCore', () => {
           options: {
             ...createdTimeJson.options,
             formatting: {
-              date: 'abc',
-              time: TimeFormatting.None,
+              date: DateFormattingPreset.ISO,
+              time: 'abc',
               timeZone: 'utc',
             },
           },

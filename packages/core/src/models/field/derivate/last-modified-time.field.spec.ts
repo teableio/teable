@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { CellValueType, DbFieldType, FieldType } from '../constant';
-import { TimeFormatting, defaultDatetimeFormatting } from '../formatting';
+import { DateFormattingPreset, defaultDatetimeFormatting } from '../formatting';
 import { LastModifiedTimeFieldCore } from './last-modified-time.field';
 
 describe('LastModifiedTimeFieldCore', () => {
@@ -72,8 +72,8 @@ describe('LastModifiedTimeFieldCore', () => {
           options: {
             ...lastModifiedTimeJson.options,
             formatting: {
-              date: 'abc',
-              time: TimeFormatting.None,
+              date: DateFormattingPreset.ISO,
+              time: 'abc',
               timeZone: 'utc',
             },
           },

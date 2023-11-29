@@ -22,7 +22,7 @@ export enum TimeFormatting {
 
 export const datetimeFormattingSchema = z
   .object({
-    date: z.nativeEnum(DateFormattingPreset).openapi({
+    date: z.string().openapi({
       description: 'the display formatting of the date.',
     }),
     time: z.nativeEnum(TimeFormatting).openapi({
