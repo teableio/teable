@@ -1,15 +1,17 @@
-import { fieldVoSchema, type IFieldVo } from '@teable-group/core';
+import { fieldVoSchema, parseClipboardText, type IFieldVo } from '@teable-group/core';
 import { mapValues } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 
 const teableHtmlMarker = 'data-teable-html-marker';
 
 export const serializerHtml = (data: string, headers: IFieldVo[]) => {
-  const records = data.split('\n');
-  const bodyContent = records
-    .map((record) => {
-      const cells = record.split('\t');
-      return `<tr>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+  const { data: rows, error } = parseClipboardText(data);
+  if (error) {
+    return `<div>${error}</div>`;
+  }
+  const bodyContent = rows
+    .map((row) => {
+      return `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
     })
     .join('');
   const headerContent = headers

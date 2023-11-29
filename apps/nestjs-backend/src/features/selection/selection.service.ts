@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
-import { FieldKeyType, FieldType, nullsToUndefined } from '@teable-group/core';
+import {
+  FieldKeyType,
+  FieldType,
+  nullsToUndefined,
+  parseClipboardText,
+  stringifyClipboardText,
+} from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   ICopyRo,
@@ -130,14 +136,25 @@ export class SelectionService {
     return result.ids;
   }
 
+  private fieldsToProjection(fields: IFieldVo[], fieldKeyType: FieldKeyType) {
+    return fields.reduce(
+      (acc, field) => {
+        acc[field[fieldKeyType]] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>
+    );
+  }
+
   private async columnsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
+    const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
     const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: 0,
       take: -1,
       fieldKeyType: FieldKeyType.Id,
+      projection: this.fieldsToProjection(fields, FieldKeyType.Id),
     });
-    const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
 
     return {
       records,
@@ -156,6 +173,7 @@ export class SelectionService {
         skip: start,
         take: end + 1 - start,
         fieldKeyType: FieldKeyType.Id,
+        projection: this.fieldsToProjection(fields, FieldKeyType.Id),
       });
       records = records.concat(recordsFields);
     }
@@ -177,6 +195,7 @@ export class SelectionService {
       skip: start[1],
       take: end[1] + 1 - start[1],
       fieldKeyType: FieldKeyType.Id,
+      projection: this.fieldsToProjection(fields, FieldKeyType.Id),
     });
     return { records, fields: fields.slice(start[0], end[0] + 1) };
   }
@@ -281,8 +300,15 @@ export class SelectionService {
   }
 
   private parseCopyContent(content: string): string[][] {
-    const rows = content.split('\n');
-    return rows.map((row) => row.split('\t'));
+    const { error, data } = parseClipboardText(content);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return data;
+  }
+
+  private stringifyCopyContent(content: string[][]): string {
+    return stringifyClipboardText(content);
   }
 
   private calculateExpansion(
@@ -377,7 +403,7 @@ export class SelectionService {
       )
     );
     return {
-      content: rectangleData.map((row) => row.join('\t')).join('\n'),
+      content: this.stringifyCopyContent(rectangleData),
       header: fields,
     };
   }

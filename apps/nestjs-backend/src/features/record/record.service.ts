@@ -972,7 +972,7 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<(Pick<IRecord, 'id' | 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
+      .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
         queryBuilder.toQuery()
       );
 
