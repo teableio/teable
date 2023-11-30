@@ -22,6 +22,10 @@ export class PostgresProvider implements IDbProvider {
     ];
   }
 
+  generateDbTableName(baseId: string, name: string) {
+    return `${baseId}.${name}`;
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     return this.knex.insert(insertData).into(tableName).toQuery();
   }

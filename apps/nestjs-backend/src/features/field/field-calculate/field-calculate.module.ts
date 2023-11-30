@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DbProvider } from '../../../db-provider/db.provider';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { RecordCalculateModule } from '../../record/record-calculate/record-calculate.module';
 import { FieldModule } from '../field.module';
@@ -11,6 +12,7 @@ import { FieldSupplementService } from './field-supplement.service';
 @Module({
   imports: [FieldModule, CalculationModule, RecordCalculateModule],
   providers: [
+    DbProvider,
     FieldConvertingLinkService,
     FieldConvertingService,
     FieldCreatingService,

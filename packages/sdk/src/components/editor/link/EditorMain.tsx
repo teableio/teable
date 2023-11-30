@@ -219,7 +219,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   return (
     <>
-      <div className="text-lg">Select records to associate</div>
+      <div className="text-lg">Select records to link</div>
       <div className="flex justify-between">
         <Input className="flex-1" placeholder="Coming soon ..." disabled />
         <div className="ml-4">

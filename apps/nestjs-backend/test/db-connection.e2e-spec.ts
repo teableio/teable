@@ -18,13 +18,15 @@ describe('OpenAPI Db Connection (e2e)', () => {
     });
     return;
   }
+  console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
 
   beforeEach(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
 
-    postResult = (await request.post(`/api/base/${baseId}/connection`)).body as IDbConnectionVo;
+    postResult = (await request.post(`/api/base/${baseId}/connection`).expect(201))
+      .body as IDbConnectionVo;
     expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
     expect(postResult.dsn.driver).toEqual('postgresql');
   });

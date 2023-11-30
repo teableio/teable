@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type {
   IFieldRo,
   IFieldVo,
@@ -43,6 +43,7 @@ import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { FieldService } from '../field.service';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import type { IFieldInstance } from '../model/factory';
@@ -53,9 +54,10 @@ import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 @Injectable()
 export class FieldSupplementService {
   constructor(
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly fieldService: FieldService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getDbTableName(tableId: string) {
@@ -73,12 +75,20 @@ export class FieldSupplementService {
     return `__fk_${fieldId}`;
   }
 
-  private getJunctionTableName(fieldId: string, symmetricFieldId: string | undefined) {
-    if (symmetricFieldId) {
-      return `junction_${fieldId}_${symmetricFieldId}`;
-    } else {
-      return `junction_${fieldId}`;
-    }
+  private async getJunctionTableName(
+    tableId: string,
+    fieldId: string,
+    symmetricFieldId: string | undefined
+  ) {
+    const { baseId } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { baseId: true },
+    });
+
+    const junctionTableName = symmetricFieldId
+      ? `junction_${fieldId}_${symmetricFieldId}`
+      : `junction_${fieldId}`;
+    return this.dbProvider.generateDbTableName(baseId, junctionTableName);
   }
 
   private async getDefaultLinkName(foreignTableId: string) {
@@ -92,16 +102,24 @@ export class FieldSupplementService {
     return tableRaw.name;
   }
 
-  private generateLinkOptionsVo(params: {
+  private async generateLinkOptionsVo(params: {
+    tableId: string;
     optionsRo: ILinkFieldOptionsRo;
     fieldId: string;
     symmetricFieldId: string | undefined;
     lookupFieldId: string;
     dbTableName: string;
     foreignTableName: string;
-  }): ILinkFieldOptions {
-    const { optionsRo, fieldId, symmetricFieldId, lookupFieldId, dbTableName, foreignTableName } =
-      params;
+  }): Promise<ILinkFieldOptions> {
+    const {
+      tableId,
+      optionsRo,
+      fieldId,
+      symmetricFieldId,
+      lookupFieldId,
+      dbTableName,
+      foreignTableName,
+    } = params;
     const { relationship, isOneWay } = optionsRo;
     const common = {
       ...optionsRo,
@@ -110,7 +128,7 @@ export class FieldSupplementService {
     };
 
     if (relationship === Relationship.ManyMany) {
-      const fkHostTableName = this.getJunctionTableName(fieldId, symmetricFieldId);
+      const fkHostTableName = await this.getJunctionTableName(tableId, fieldId, symmetricFieldId);
       return {
         ...common,
         fkHostTableName,
@@ -137,7 +155,7 @@ export class FieldSupplementService {
          * Instead, we will create a junction table to store the foreign key.
          */
         fkHostTableName: isOneWay
-          ? this.getJunctionTableName(fieldId, symmetricFieldId)
+          ? await this.getJunctionTableName(tableId, fieldId, symmetricFieldId)
           : foreignTableName,
         selfKeyName: this.getForeignKeyFieldName(symmetricFieldId),
         foreignKeyName: isOneWay ? this.getForeignKeyFieldName(fieldId) : '__id',
@@ -172,6 +190,7 @@ export class FieldSupplementService {
     });
 
     return this.generateLinkOptionsVo({
+      tableId,
       optionsRo,
       fieldId,
       symmetricFieldId,
@@ -209,6 +228,7 @@ export class FieldSupplementService {
           ).id;
 
     return this.generateLinkOptionsVo({
+      tableId,
       optionsRo: newOptionsRo,
       fieldId,
       symmetricFieldId,

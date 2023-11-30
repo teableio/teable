@@ -115,6 +115,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
   const fields = await prisma.field.findMany({
     where: {
       tableId,
+      deletedTime: null,
     },
   });
 
