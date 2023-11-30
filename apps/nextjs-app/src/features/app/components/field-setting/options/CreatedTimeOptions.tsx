@@ -1,13 +1,15 @@
 import type {
   IDatetimeFormatting,
-  ICreatedTimeFieldOptions,
-  ILastModifiedTimeFieldOptions,
+  ICreatedTimeFieldOptionsRo,
+  ILastModifiedTimeFieldOptionsRo,
 } from '@teable-group/core';
 import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
 
 export const CreatedTimeOptions = (props: {
-  options: Partial<ICreatedTimeFieldOptions | ILastModifiedTimeFieldOptions> | undefined;
-  onChange?: (options: Partial<ICreatedTimeFieldOptions | ILastModifiedTimeFieldOptions>) => void;
+  options: Partial<ICreatedTimeFieldOptionsRo | ILastModifiedTimeFieldOptionsRo> | undefined;
+  onChange?: (
+    options: Partial<ICreatedTimeFieldOptionsRo | ILastModifiedTimeFieldOptionsRo>
+  ) => void;
 }) => {
   const { options = {}, onChange } = props;
 

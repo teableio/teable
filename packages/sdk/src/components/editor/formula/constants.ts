@@ -969,7 +969,7 @@ export const FORMULA_FUNCTIONS_MAP = new Map<FunctionName, IFunctionSchema<Funct
       params: [],
       definition: 'AUTO_NUMBER()',
       summary: 'Returns the unique and incremented numbers for each record.',
-      example: 'RECORD_ID() => 1',
+      example: 'AUTO_NUMBER() => 1',
     },
   ],
 ]);

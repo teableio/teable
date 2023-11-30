@@ -17,7 +17,6 @@ describe('CreatedTimeFieldCore', () => {
     },
     type: FieldType.CreatedTime,
     options: {
-      expression: 'CREATED_TIME()',
       formatting: defaultDatetimeFormatting,
     },
     dbFieldType: DbFieldType.DateTime,
@@ -79,7 +78,6 @@ describe('CreatedTimeFieldCore', () => {
 
     it('should get default options', () => {
       expect(CreatedTimeFieldCore.defaultOptions()).toEqual({
-        expression: 'CREATED_TIME()',
         formatting: defaultDatetimeFormatting,
       });
     });

@@ -17,7 +17,6 @@ describe('LastModifiedTimeFieldCore', () => {
     },
     type: FieldType.LastModifiedTime,
     options: {
-      expression: 'LAST_MODIFIED_TIME()',
       formatting: defaultDatetimeFormatting,
     },
     dbFieldType: DbFieldType.DateTime,
@@ -83,7 +82,6 @@ describe('LastModifiedTimeFieldCore', () => {
 
     it('should get default options', () => {
       expect(LastModifiedTimeFieldCore.defaultOptions()).toEqual({
-        expression: 'LAST_MODIFIED_TIME()',
         formatting: defaultDatetimeFormatting,
       });
     });

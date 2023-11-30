@@ -10,9 +10,11 @@ export const autoNumberFieldOptionsSchema = z
 
 export type IAutoNumberFieldOptions = z.infer<typeof autoNumberFieldOptionsSchema>;
 
-export const autoNumberFieldOptionsRoSchema = autoNumberFieldOptionsSchema.partial({
+export const autoNumberFieldOptionsRoSchema = autoNumberFieldOptionsSchema.omit({
   expression: true,
 });
+
+export type IAutoNumberFieldOptionsRo = z.infer<typeof autoNumberFieldOptionsRoSchema>;
 
 export const autoNumberCellValueSchema = z.number().int();
 
@@ -23,10 +25,8 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
 
   declare cellValueType: CellValueType.Number;
 
-  static defaultOptions(): IAutoNumberFieldOptions {
-    return {
-      expression: 'AUTO_NUMBER()',
-    };
+  static defaultOptions(): IAutoNumberFieldOptionsRo {
+    return {};
   }
 
   cellValue2String(cellValue?: unknown) {
@@ -48,16 +48,8 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
     return String(value);
   }
 
-  convertStringToCellValue(_value: string): null {
-    return null;
-  }
-
-  repair(_value: unknown): null {
-    return null;
-  }
-
   validateOptions() {
-    return autoNumberFieldOptionsSchema.safeParse(this.options);
+    return autoNumberFieldOptionsRoSchema.safeParse(this.options);
   }
 
   validateCellValue(value: unknown) {

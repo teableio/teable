@@ -15,9 +15,7 @@ describe('AutoNumberFieldCore', () => {
       columnIndex: 0,
     },
     type: FieldType.AutoNumber,
-    options: {
-      expression: 'AUTO_NUMBER()',
-    },
+    options: {},
     dbFieldType: DbFieldType.Integer,
     cellValueType: CellValueType.Number,
     isComputed: true,
@@ -61,9 +59,7 @@ describe('AutoNumberFieldCore', () => {
     });
 
     it('should get default options', () => {
-      expect(AutoNumberFieldCore.defaultOptions()).toEqual({
-        expression: 'AUTO_NUMBER()',
-      });
+      expect(AutoNumberFieldCore.defaultOptions()).toEqual({});
     });
   });
 });
