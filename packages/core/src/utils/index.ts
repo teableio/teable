@@ -3,3 +3,4 @@ export * from './id-generator';
 export * from './get-uniq-name';
 export * from './date';
 export * from './dsn-parser';
+export * from './clipboard';
