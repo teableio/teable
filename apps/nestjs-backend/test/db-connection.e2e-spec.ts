@@ -18,7 +18,10 @@ describe('OpenAPI Db Connection (e2e)', () => {
     });
     return;
   }
-  console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
+
+  afterAll(async () => {
+    await app.close();
+  });
 
   beforeEach(async () => {
     const appCtx = await initApp();
@@ -36,8 +39,6 @@ describe('OpenAPI Db Connection (e2e)', () => {
 
     const result = await request.get(`/api/base/${baseId}/connection`).expect(200);
     expect(result.body).toEqual({});
-
-    await app.close();
   });
 
   it('should manage a db connection', async () => {
