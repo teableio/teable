@@ -24,7 +24,8 @@ describe('OpenAPI Db Connection (e2e)', () => {
     app = appCtx.app;
     request = appCtx.request;
 
-    postResult = (await request.post(`/api/base/${baseId}/connection`)).body as IDbConnectionVo;
+    postResult = (await request.post(`/api/base/${baseId}/connection`).expect(201))
+      .body as IDbConnectionVo;
     expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
     expect(postResult.dsn.driver).toEqual('postgresql');
   });
