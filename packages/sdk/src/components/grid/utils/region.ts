@@ -25,6 +25,8 @@ interface ICheckRegionProps
   position: IRegionPosition;
   hasAppendRow: boolean;
   hasAppendColumn: boolean;
+  hasColumnHeaderMenu: boolean;
+  hasColumnResizeHandler: boolean;
 }
 
 export interface IRegionData extends IRectangle {
@@ -261,7 +263,15 @@ const checkIsCell = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, scrollState, coordInstance, columns, theme } = props;
+  const {
+    position,
+    scrollState,
+    coordInstance,
+    columns,
+    theme,
+    hasColumnHeaderMenu,
+    hasColumnResizeHandler,
+  } = props;
   const { x, y, rowIndex, columnIndex } = position;
   const { iconSizeXS } = theme;
 
@@ -277,7 +287,11 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
       ? endOffsetX - columnHeadPadding / 2 - columnHeadMenuClickableSize
       : endOffsetX;
 
-    if (hasMenu && inRange(x, columnMenuX, columnMenuX + columnHeadMenuClickableSize)) {
+    if (
+      hasMenu &&
+      hasColumnHeaderMenu &&
+      inRange(x, columnMenuX, columnMenuX + columnHeadMenuClickableSize)
+    ) {
       return {
         type: RegionType.ColumnHeaderMenu,
         x: startOffsetX,
@@ -304,9 +318,10 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
     }
 
     if (
-      (columnIndex !== 0 &&
+      hasColumnResizeHandler &&
+      ((columnIndex !== 0 &&
         inRange(x, startOffsetX, startOffsetX + columnResizeHandlerWidth / 2)) ||
-      inRange(x, endOffsetX - columnResizeHandlerWidth / 2, endOffsetX)
+        inRange(x, endOffsetX - columnResizeHandlerWidth / 2, endOffsetX))
     ) {
       return { ...BLANK_REGION_DATA, type: RegionType.ColumnResizeHandler };
     }

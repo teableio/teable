@@ -201,7 +201,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         const selectColumns = extract(start, end, columns);
         const indexedColumns = keyBy(selectColumns, 'id');
         const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        gridRef.current?.setSelection(emptySelection);
         openHeaderMenu({ position, fields: selectFields });
       }
     },

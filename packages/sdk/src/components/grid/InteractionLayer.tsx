@@ -161,6 +161,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
+  const hasColumnResizeHandler = onColumnResize != null;
+  const hasColumnHeaderMenu = onColumnHeaderMenuClick != null;
 
   const visibleRegion = useVisibleRegion(coordInstance, scrollState);
   const {
@@ -263,6 +265,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       hasAppendRow,
       hasAppendColumn,
       columnStatistics,
+      hasColumnHeaderMenu,
+      hasColumnResizeHandler,
       isMultiSelectionEnable,
       columns,
       height,
@@ -405,7 +409,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSmartMouseDown(mouseState);
     onDragStart(mouseState);
     onSelectionStart(event, mouseState);
-    onColumnResizeStart(mouseState);
+    hasColumnResizeHandler && onColumnResizeStart(mouseState);
   };
 
   const onCellPosition = (mouseState: IMouseState) => {
@@ -545,9 +549,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
-          isColumnResizable={onColumnResize != null}
+          isColumnResizable={hasColumnResizeHandler}
           isColumnAppendEnable={onColumnAppend != null}
-          isColumnHeaderMenuVisible={onColumnHeaderMenuClick != null}
+          isColumnHeaderMenuVisible={hasColumnHeaderMenu}
         />
       </div>
 
