@@ -331,7 +331,7 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException('Field is not linked to current table');
     }
     if (relationship === Relationship.OneMany) {
-      if (this.isJunctionTable('fkHostTableName')) {
+      if (this.isJunctionTable(fkHostTableName)) {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName);
         });
