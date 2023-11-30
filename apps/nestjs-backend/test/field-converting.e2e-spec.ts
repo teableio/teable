@@ -421,9 +421,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     it('should convert text to auto number', async () => {
       const newFieldRo: IFieldRo = {
         type: FieldType.AutoNumber,
-        options: {
-          expression: 'AUTO_NUMBER()',
-        },
+        options: {},
       };
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         'x',
@@ -443,7 +441,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const newFieldRo: IFieldRo = {
         type: FieldType.CreatedTime,
         options: {
-          expression: 'CREATED_TIME()',
           formatting: defaultDatetimeFormatting,
         },
       };
@@ -465,7 +462,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const newFieldRo: IFieldRo = {
         type: FieldType.LastModifiedTime,
         options: {
-          expression: 'LAST_MODIFIED_TIME()',
           formatting: defaultDatetimeFormatting,
         },
       };
