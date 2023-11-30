@@ -33,7 +33,7 @@ import type {
 } from './interface';
 import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from './interface';
 import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { CellType, getCellRenderer } from './renderers';
+import { getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
@@ -161,6 +161,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { type: regionType } = mouseState;
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
+  const hasColumnResizeHandler = onColumnResize != null;
+  const hasColumnHeaderMenu = onColumnHeaderMenuClick != null;
 
   const visibleRegion = useVisibleRegion(coordInstance, scrollState);
   const {
@@ -263,6 +265,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       hasAppendRow,
       hasAppendColumn,
       columnStatistics,
+      hasColumnHeaderMenu,
+      hasColumnResizeHandler,
       isMultiSelectionEnable,
       columns,
       height,
@@ -399,13 +403,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
     if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
-      editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
     onSmartMouseDown(mouseState);
     onDragStart(mouseState);
     onSelectionStart(event, mouseState);
-    onColumnResizeStart(mouseState);
+    hasColumnResizeHandler && onColumnResizeStart(mouseState);
   };
 
   const onCellPosition = (mouseState: IMouseState) => {
@@ -465,8 +468,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     });
     onSelectionEnd(mouseState, (item: ICellItem) => {
       const cell = getCellContent(item);
-      const canEditOnClick = [CellType.Number, CellType.Text, CellType.Select].includes(cell.type);
-      canEditOnClick && setEditing(true);
+      (cell as IInnerCell)?.editWhenClicked && setEditing(true);
     });
     onColumnResizeEnd();
   };
@@ -496,7 +498,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
 
   useClickAway(containerRef, () => {
-    editorContainerRef.current?.saveValue?.();
     setEditing(false);
   });
 
@@ -546,9 +547,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
           isRowAppendEnable={onRowAppend != null}
-          isColumnResizable={onColumnResize != null}
+          isColumnResizable={hasColumnResizeHandler}
           isColumnAppendEnable={onColumnAppend != null}
-          isColumnHeaderMenuVisible={onColumnHeaderMenuClick != null}
+          isColumnHeaderMenuVisible={hasColumnHeaderMenu}
         />
       </div>
 

@@ -27,10 +27,6 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
     onChange?.(text);
   };
 
-  const onBlur = () => {
-    onChange?.(text);
-  };
-
   return (
     <Textarea
       ref={inputRef}
@@ -38,7 +34,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
       className={cn('bg-background resize-none h-20', className)}
       value={text}
       onChange={onChangeInner}
-      onBlur={onBlur}
+      onBlur={saveValue}
       disabled={disabled}
     />
   );

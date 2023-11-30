@@ -91,7 +91,9 @@ const createCellValue2GridDisplay =
           isWrap: true,
         };
       }
-      case FieldType.Date: {
+      case FieldType.Date:
+      case FieldType.CreatedTime:
+      case FieldType.LastModifiedTime: {
         let displayData = '';
         const { date, time, timeZone } = field.options.formatting;
         const cacheKey = `${id}-${cellValue}-${date}-${time}-${timeZone}`;
@@ -102,6 +104,14 @@ const createCellValue2GridDisplay =
           displayData = field.cellValue2String(cellValue);
           cellValueStringCache.set(cacheKey, displayData);
         }
+        if (type === FieldType.CreatedTime || type === FieldType.LastModifiedTime) {
+          return {
+            type: CellType.Text,
+            data: (cellValue as string) || '',
+            displayData,
+            readonly,
+          };
+        }
         return {
           type: CellType.Text,
           data: (cellValue as string) || '',
@@ -109,6 +119,14 @@ const createCellValue2GridDisplay =
           readonly,
           editorPosition: EditorPosition.Below,
           customEditor: (props) => <GridDateEditor field={field} record={record} {...props} />,
+        };
+      }
+      case FieldType.AutoNumber: {
+        return {
+          type: CellType.Number,
+          data: cellValue as number,
+          displayData: field.cellValue2String(cellValue),
+          readonly,
         };
       }
       case FieldType.Number:
@@ -212,6 +230,7 @@ const createCellValue2GridDisplay =
           choices,
           readonly,
           isMultiple,
+          editWhenClicked: true,
           editorPosition: EditorPosition.Below,
         };
       }

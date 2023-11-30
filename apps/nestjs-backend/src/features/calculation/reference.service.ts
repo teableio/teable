@@ -18,10 +18,13 @@ import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { cloneDeep, difference, groupBy, isEmpty, keyBy, unionWith, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { preservedFieldName } from '../field/constant';
+import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../field/model/factory';
+import type { AutoNumberFieldDto } from '../field/model/field-dto/auto-number-field.dto';
+import type { CreatedTimeFieldDto } from '../field/model/field-dto/created-time-field.dto';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import type { LastModifiedTimeFieldDto } from '../field/model/field-dto/last-modified-time-field.dto';
 import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -414,14 +417,23 @@ export class ReferenceService {
       );
     }
 
-    if (field.type === FieldType.Formula) {
+    if (
+      field.type === FieldType.Formula ||
+      field.type === FieldType.AutoNumber ||
+      field.type === FieldType.CreatedTime ||
+      field.type === FieldType.LastModifiedTime
+    ) {
       return this.calculateFormula(field, fieldMap, recordItem);
     }
 
     throw new BadRequestException(`Unsupported field type ${field.type}`);
   }
 
-  private calculateFormula(field: FormulaFieldDto, fieldMap: IFieldMap, recordItem: IRecordItem) {
+  private calculateFormula(
+    field: FormulaFieldDto | AutoNumberFieldDto | CreatedTimeFieldDto | LastModifiedTimeFieldDto,
+    fieldMap: IFieldMap,
+    recordItem: IRecordItem
+  ) {
     const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
     return typedValue.toPlain();
   }
@@ -651,6 +663,11 @@ export class ReferenceService {
     return {
       fields: fieldsData,
       id: raw.__id as string,
+      autoNumber: raw.__auto_number as number,
+      createdTime: (raw.__created_time as Date)?.toISOString(),
+      lastModifiedTime: (raw.__last_modified_time as Date)?.toISOString(),
+      createdBy: raw.__created_by as string,
+      lastModifiedBy: raw.__last_modified_by as string,
       recordOrder: {},
     };
   }
@@ -765,7 +782,7 @@ export class ReferenceService {
       const recordIds = Array.from(recordIdsByTableName[dbTableName]);
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat([...preservedFieldName]);
+        .concat([...preservedDbFieldNames]);
       const nativeQuery = this.knex(dbTableName)
         .select(dbFieldNames)
         .whereIn('__id', recordIds)

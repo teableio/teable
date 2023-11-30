@@ -15,13 +15,19 @@ import {
   Search as SearchIcon,
   Star as RatingIcon,
   LongText as LongTextIcon,
+  Clock4 as CreatedTimeIcon,
+  History as LastModifiedTimeIcon,
+  ListOrdered as AutoNumberIcon,
 } from '@teable-group/icons';
 
 import { useCallback } from 'react';
 import {
   AttachmentField,
+  AutoNumberField,
   CheckboxField,
+  CreatedTimeField,
   DateField,
+  LastModifiedTimeField,
   LinkField,
   LongTextField,
   MultipleSelectField,
@@ -94,6 +100,18 @@ export const useFieldStaticGetter = () => {
             defaultOptions: DateField.defaultOptions(),
             Icon: isLookup ? SearchIcon : CalendarIcon,
           };
+        case FieldType.CreatedTime:
+          return {
+            title: 'Created time',
+            defaultOptions: CreatedTimeField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : CreatedTimeIcon,
+          };
+        case FieldType.LastModifiedTime:
+          return {
+            title: 'Last modified time',
+            defaultOptions: LastModifiedTimeField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : LastModifiedTimeIcon,
+          };
         case FieldType.Attachment:
           return {
             title: 'Attachment',
@@ -123,6 +141,12 @@ export const useFieldStaticGetter = () => {
             title: 'Rating',
             defaultOptions: RatingField.defaultOptions(),
             Icon: isLookup ? SearchIcon : RatingIcon,
+          };
+        case FieldType.AutoNumber:
+          return {
+            title: 'Auto number',
+            defaultOptions: AutoNumberField.defaultOptions(),
+            Icon: isLookup ? SearchIcon : AutoNumberIcon,
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

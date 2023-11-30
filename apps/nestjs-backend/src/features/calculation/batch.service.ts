@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Inject, Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
@@ -23,6 +24,8 @@ export interface IOpsData {
     [dbFieldName: string]: unknown;
   };
   version: number;
+  lastModifiedTime: string;
+  lastModifiedBy: string;
 }
 
 @Injectable()
@@ -126,18 +129,30 @@ export class BatchService {
     const recordIds = Object.keys(recordOpsMap);
     const querySql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
-      .select('__id', '__version')
+      .select('__id', '__version', '__last_modified_time', '__last_modified_by')
       .toQuery();
 
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __version: number; __id: string }[]>(querySql);
+    return this.prismaService.txClient().$queryRawUnsafe<
+      {
+        __version: number;
+        __id: string;
+        __last_modified_time: Date;
+        __last_modified_by: string;
+      }[]
+    >(querySql);
   }
 
   @Timing()
   private buildRecordOpsData(
     recordOpsMap: { [recordId: string]: IOtOperation[] },
-    versionGroup: { [recordId: string]: { __version: number; __id: string } }
+    versionGroup: {
+      [recordId: string]: {
+        __version: number;
+        __id: string;
+        __last_modified_time: Date;
+        __last_modified_by: string;
+      };
+    }
   ) {
     const opsData: IOpsData[] = [];
 
@@ -155,10 +170,14 @@ export class BatchService {
       );
 
       const version = versionGroup[recordId].__version;
+      const lastModifiedTime = versionGroup[recordId].__last_modified_time?.toISOString();
+      const lastModifiedBy = versionGroup[recordId].__last_modified_by;
 
       opsData.push({
         recordId,
         version,
+        lastModifiedTime,
+        lastModifiedBy,
         updateParam,
       });
     }
@@ -235,12 +254,17 @@ export class BatchService {
     }
 
     const userId = this.cls.get('user.id');
+    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
+
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
+    const shouldUpdateLastModified = fieldIds.some((id) => !fieldMap[id].isComputed);
     const data = opsData.map((data) => {
+      const { recordId, updateParam, version, lastModifiedTime, lastModifiedBy } = data;
+
       return {
-        id: data.recordId,
+        id: recordId,
         values: {
-          ...Object.entries(data.updateParam).reduce<{ [dbFieldName: string]: unknown }>(
+          ...Object.entries(updateParam).reduce<{ [dbFieldName: string]: unknown }>(
             (pre, [fieldId, value]) => {
               const field = fieldMap[fieldId];
               const { dbFieldName } = field;
@@ -249,9 +273,9 @@ export class BatchService {
             },
             {}
           ),
-          __version: data.version + 1,
-          __last_modified_time: new Date().toISOString(),
-          __last_modified_by: userId,
+          __version: version + 1,
+          __last_modified_time: shouldUpdateLastModified ? timeStr : lastModifiedTime,
+          __last_modified_by: shouldUpdateLastModified ? userId : lastModifiedBy,
         },
       };
     });

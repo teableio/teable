@@ -8,6 +8,7 @@ import { BatchService } from '../features/calculation/batch.service';
 import { LinkService } from '../features/calculation/link.service';
 import { ReferenceService } from '../features/calculation/reference.service';
 import type { IOpsMap } from '../features/calculation/reference.service';
+import { SystemFieldService } from '../features/calculation/system-field.service';
 import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
 import { composeMaps } from '../features/calculation/utils/compose-maps';
@@ -21,7 +22,8 @@ export class WsDerivateService {
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly systemFieldService: SystemFieldService
   ) {}
 
   async calculate(changes: ICellChange[]) {
@@ -33,24 +35,20 @@ export class WsDerivateService {
       return;
     }
 
-    const opsMaps: IOpsMap[] = [];
-
     const derivate = await this.linkService.getDerivateByLink(changes[0].tableId, changes);
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapOrigin = formatChangesToOps(changes);
     const opsMapByLink = formatChangesToOps(cellChanges);
+    const composedOpsMap = composeMaps([opsMapOrigin, opsMapByLink]);
+    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(composedOpsMap);
 
     const {
       opsMap: opsMapByCalculate,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(
-      composeMaps([opsMapOrigin, opsMapByLink]),
-      derivate?.saveForeignKeyToDb
-    );
-    opsMaps.push(opsMapByLink, opsMapByCalculate);
-    const composedMap = composeMaps(opsMaps);
+    } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
+    const composedMap = composeMaps([opsMapByLink, opsMapByCalculate, systemFieldOpsMap]);
 
     if (isEmpty(composedMap)) {
       return;

@@ -139,7 +139,10 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
           )}
         </div>
 
-        <div className="mb-6 mt-8 h-9 w-1/2 text-center text-3xl leading-9">
+        <div
+          className="mb-6 mt-8 w-full px-6 text-center text-3xl leading-9 sm:px-12"
+          style={{ overflowWrap: 'break-word' }}
+        >
           {name ?? 'Untitled'}
         </div>
 

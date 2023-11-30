@@ -5,7 +5,7 @@ import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../utils/timing';
-import { tinyPreservedFieldName } from '../field/constant';
+import { systemDbFieldNames } from '../field/constant';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { BatchService } from './batch.service';
 import type { IGraphItem, ITopoItem } from './reference.service';
@@ -139,7 +139,7 @@ export class FieldCalculationService {
       // deduplication is needed
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
-        .concat([...tinyPreservedFieldName]);
+        .concat([...systemDbFieldNames]);
       const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
       const result = await this.prismaService
         .txClient()

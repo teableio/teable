@@ -961,6 +961,17 @@ export const FORMULA_FUNCTIONS_MAP = new Map<FunctionName, IFunctionSchema<Funct
       example: 'RECORD_ID() => "recxxxxxx"',
     },
   ],
+  [
+    FunctionName.AutoNumber,
+    {
+      name: FunctionName.AutoNumber,
+      func: FUNCTIONS[FunctionName.AutoNumber],
+      params: [],
+      definition: 'AUTO_NUMBER()',
+      summary: 'Returns the unique and incremented numbers for each record.',
+      example: 'AUTO_NUMBER() => 1',
+    },
+  ],
 ]);
 
 export const DEFAULT_FUNCTION_GUIDE = {

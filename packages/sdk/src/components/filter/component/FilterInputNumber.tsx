@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 interface InputProps {
   value: number | null;
   onChange: (value: number | null) => void;
-  placeholder: string;
+  placeholder?: string;
   className?: string;
 }
 

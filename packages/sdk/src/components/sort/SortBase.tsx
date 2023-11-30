@@ -39,10 +39,13 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
   };
 
   const onSortObjsChange = (sorts?: ISort['sortObjs']) => {
-    onChange({
-      sortObjs: sorts?.length ? sorts : [],
-      manualSort,
-    });
+    const sortObjs = sorts?.length
+      ? {
+          sortObjs: sorts,
+          manualSort,
+        }
+      : null;
+    onChange(sortObjs);
   };
 
   return (

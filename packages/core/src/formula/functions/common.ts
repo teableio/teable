@@ -145,4 +145,5 @@ export enum FunctionName {
   // System
   TextAll = 'TEXT_ALL',
   RecordId = 'RECORD_ID',
+  AutoNumber = 'AUTO_NUMBER',
 }

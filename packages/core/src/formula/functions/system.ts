@@ -62,3 +62,22 @@ export class RecordId extends SystemFunc {
     return context.record.id;
   }
 }
+
+export class AutoNumber extends SystemFunc {
+  name = FunctionName.RecordId;
+
+  acceptValueType = new Set([CellValueType.String]);
+
+  acceptMultipleValue = true;
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  validateParams() {}
+
+  getReturnType() {
+    return { type: CellValueType.Number };
+  }
+
+  eval(_params: TypedValue<string | null>[], context: IFormulaContext): number | null {
+    return context.record.autoNumber ?? null;
+  }
+}

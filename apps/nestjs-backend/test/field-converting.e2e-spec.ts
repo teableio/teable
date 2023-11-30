@@ -16,6 +16,7 @@ import {
   FieldType,
   NumberFormattingType,
   RatingIcon,
+  defaultDatetimeFormatting,
 } from '@teable-group/core';
 import type request from 'supertest';
 import {
@@ -91,6 +92,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       newField,
       sourceField,
       values: result,
+      records,
     };
   }
 
@@ -414,6 +416,67 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
       expect(values[0]).toEqual(1);
       expect(values[1]).toEqual(1);
+    });
+
+    it('should convert text to auto number', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.AutoNumber,
+        options: {},
+      };
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.Number,
+        dbFieldType: DbFieldType.Integer,
+        type: FieldType.AutoNumber,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual(1);
+      expect(values[1]).toEqual(2);
+    });
+
+    it('should convert text to created time', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.CreatedTime,
+        options: {
+          formatting: defaultDatetimeFormatting,
+        },
+      };
+      const { newField, values, records } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        null,
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        type: FieldType.CreatedTime,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual(records[0].createdTime);
+      expect(values[1]).toEqual(records[1].createdTime);
+    });
+
+    it('should convert text to last modified time', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.LastModifiedTime,
+        options: {
+          formatting: defaultDatetimeFormatting,
+        },
+      };
+      const { newField, values, records } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        'x',
+        'y',
+      ]);
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        type: FieldType.LastModifiedTime,
+        isComputed: true,
+      });
+      expect(values[0]).toEqual(records[0].lastModifiedTime);
+      expect(values[1]).toEqual(records[1].lastModifiedTime);
     });
 
     it('should convert text to many-one rollup', async () => {

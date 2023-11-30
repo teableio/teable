@@ -3,11 +3,11 @@ import { FormViewBase } from './FormViewBase';
 
 export const FormView = () => {
   return (
-    <div>
+    <>
       <FormToolBar />
       <div className="w-full grow overflow-hidden">
         <FormViewBase />
       </div>
-    </div>
+    </>
   );
 };

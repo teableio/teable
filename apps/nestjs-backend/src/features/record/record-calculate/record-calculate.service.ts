@@ -9,6 +9,7 @@ import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
+import { SystemFieldService } from '../../calculation/system-field.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { RecordService } from '../record.service';
@@ -21,7 +22,8 @@ export class RecordCalculateService {
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
-    private readonly fieldCalculationService: FieldCalculationService
+    private readonly fieldCalculationService: FieldCalculationService,
+    private readonly systemFieldService: SystemFieldService
   ) {}
 
   async multipleCreateRecords(
@@ -94,19 +96,18 @@ export class RecordCalculateService {
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
+    const composedOpsMap = composeMaps([opsMapOrigin, opsMapByLink]);
+    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(composedOpsMap);
+
     // calculate by origin ops and link derivation
     const {
       opsMap: opsMapByCalculation,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(
-      composeMaps([opsMapOrigin, opsMapByLink]),
-      derivate?.saveForeignKeyToDb
-    );
+    } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
 
-    // console.log(JSON.stringify({ opsMapOrigin, opsMapByLink, opsMapByCalculation }, null, 2));
     return {
-      opsMap: composeMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation]),
+      opsMap: composeMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation, systemFieldOpsMap]),
       fieldMap,
       tableId2DbTableName,
     };

@@ -52,6 +52,7 @@ const TextEditorBase: ForwardRefRenderFunction<
             value={value}
             onChange={onChangeInner}
             onKeyDown={onKeyDown}
+            onBlur={saveValue}
           />
           <div className="absolute bottom-0 left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
             Shift + Enter
@@ -66,6 +67,7 @@ const TextEditorBase: ForwardRefRenderFunction<
           height={'100%'}
           className="h-full w-full border-2 px-2 shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
+          onBlur={saveValue}
         />
       )}
     </>

@@ -25,6 +25,7 @@ import {
   useGridIcons,
   useGridTooltipStore,
   hexToRGBA,
+  emptySelection,
 } from '@teable-group/sdk';
 import {
   useFields,
@@ -85,7 +86,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const preTableId = usePrevious(tableId);
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
-  const isManualSort = view?.sort?.manualSort;
+  const sort = view?.sort;
+  const isAutoSort = sort && !sort?.manualSort;
   const isTouchDevice = useIsTouchDevice();
   const isLoading = !view;
   const permission = useTablePermission();
@@ -218,6 +220,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const onColumnHeaderDblClick = useCallback(
     (colIndex: number) => {
       const fieldId = columns[colIndex].id;
+      gridRef.current?.setSelection(emptySelection);
       openSetting({ fieldId, operator: FieldOperator.Edit });
     },
     [columns, openSetting]
@@ -354,7 +357,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       });
     }
 
-    if (type === RegionType.RowHeaderDragHandler && !isManualSort) {
+    if (type === RegionType.RowHeaderDragHandler && isAutoSort) {
       openTooltip({
         id: componentId,
         text: 'Automatic sorting is turned on, manual sorting is not available',
@@ -395,9 +398,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   };
 
   const draggable = useMemo(() => {
-    if (!isManualSort) return DraggableType.Column;
+    if (isAutoSort) return DraggableType.Column;
     return DraggableType.All;
-  }, [isManualSort]);
+  }, [isAutoSort]);
 
   const getAuthorizedFunction = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

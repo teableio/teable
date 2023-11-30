@@ -7,6 +7,7 @@ import type { ClsService } from 'nestjs-cls';
 
 interface ITx {
   client?: Prisma.TransactionClient;
+  timeStr?: string;
   id?: string;
   rawOpMap?: unknown;
 }
@@ -102,9 +103,11 @@ export class PrismaService
         prisma = proxyClient(prisma);
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
+        this.cls.set('tx.timeStr', new Date().toISOString());
         const res = await fn(prisma);
         this.cls.set('tx.client', undefined);
         this.cls.set('tx.id', undefined);
+        this.cls.set('tx.timeStr', undefined);
         return res;
       }, options);
       this.afterTxCb?.();

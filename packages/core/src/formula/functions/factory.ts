@@ -58,7 +58,7 @@ import {
   Sum,
   Value,
 } from './numeric';
-import { RecordId, TextAll } from './system';
+import { AutoNumber, RecordId, TextAll } from './system';
 import {
   Concatenate,
   EncodeUrlComponent,
@@ -169,4 +169,5 @@ export const FUNCTIONS: Record<FunctionName, FormulaFunc> = {
   // System
   [FunctionName.TextAll]: new TextAll(),
   [FunctionName.RecordId]: new RecordId(),
+  [FunctionName.AutoNumber]: new AutoNumber(),
 };
