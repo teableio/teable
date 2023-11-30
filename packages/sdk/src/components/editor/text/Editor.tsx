@@ -31,10 +31,6 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
     onChange?.(text);
   };
 
-  const onBlur = () => {
-    onChange?.(text);
-  };
-
   const onJump = (type: SingleLineTextDisplayType) => {
     onMixedTextClick(type, text);
   };
@@ -60,7 +56,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
         className={cn('h-10 sm:h-8', className)}
         value={text}
         onChange={onChangeInner}
-        onBlur={onBlur}
+        onBlur={saveValue}
         disabled={disabled}
       />
       {showAs && (

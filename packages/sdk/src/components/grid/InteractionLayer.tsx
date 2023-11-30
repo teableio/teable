@@ -403,7 +403,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(mouseState);
     const { rowIndex, columnIndex } = mouseState;
     if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
-      editorContainerRef.current?.saveValue?.();
       setEditing(false);
     }
     onSmartMouseDown(mouseState);
@@ -499,7 +498,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
 
   useClickAway(containerRef, () => {
-    editorContainerRef.current?.saveValue?.();
     setEditing(false);
   });
 
