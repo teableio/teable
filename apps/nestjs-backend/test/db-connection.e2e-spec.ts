@@ -18,6 +18,7 @@ describe('OpenAPI Db Connection (e2e)', () => {
     });
     return;
   }
+  console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
 
   beforeEach(async () => {
     const appCtx = await initApp();
