@@ -19,11 +19,7 @@ describe('OpenAPI Db Connection (e2e)', () => {
     return;
   }
 
-  afterAll(async () => {
-    await app.close();
-  });
-
-  beforeEach(async () => {
+  beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
@@ -34,11 +30,15 @@ describe('OpenAPI Db Connection (e2e)', () => {
     expect(postResult.dsn.driver).toEqual('postgresql');
   });
 
-  afterEach(async () => {
-    await request.delete(`/api/base/${baseId}/connection`).expect(200);
+  afterAll(async () => {
+    try {
+      await request.delete(`/api/base/${baseId}/connection`).expect(200);
 
-    const result = await request.get(`/api/base/${baseId}/connection`).expect(200);
-    expect(result.body).toEqual({});
+      const result = await request.get(`/api/base/${baseId}/connection`).expect(200);
+      expect(result.body).toEqual({});
+    } finally {
+      await app.close();
+    }
   });
 
   it('should manage a db connection', async () => {

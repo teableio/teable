@@ -4,6 +4,8 @@ import type {
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
+  ILookupOptionsRo,
+  IRollupFieldOptions,
   ISelectFieldOptions,
   ITableFullVo,
 } from '@teable-group/core';
@@ -2079,6 +2081,146 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         name: 'y',
         color: Colors.Blue,
       });
+    });
+
+    it('should update lookup when the change lookupField', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'number',
+        type: FieldType.Number,
+      };
+
+      const textField = await createField(request, table1.id, textFieldRo);
+      const numberField = await createField(request, table1.id, numberFieldRo);
+
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField = await createField(request, table2.id, linkFieldRo);
+      await updateRecordByApi(request, table2.id, table2.records[0].id, linkField.id, [
+        {
+          id: table1.records[0].id,
+        },
+        {
+          id: table1.records[1].id,
+        },
+      ]);
+      await updateRecordByApi(request, table1.id, table1.records[0].id, textField.id, 'text1');
+      await updateRecordByApi(request, table1.id, table1.records[0].id, numberField.id, 123);
+
+      const lookupFieldRo1: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const lookupField = await createField(request, table2.id, lookupFieldRo1);
+
+      const textRecord = await getRecord(request, table2.id, table2.records[0].id);
+      expect(textRecord.fields[lookupField.id]).toEqual(['text1']);
+
+      const lookupFieldRo2: IFieldRo = {
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: numberField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const updatedLookupField = await updateField(
+        request,
+        table2.id,
+        lookupField.id,
+        lookupFieldRo2
+      );
+      expect(updatedLookupField).toMatchObject(lookupFieldRo2);
+      const numberRecord = await getRecord(request, table2.id, table2.records[0].id);
+      expect(numberRecord.fields[lookupField.id]).toEqual([123]);
+    });
+  });
+
+  describe('convert rollup field', () => {
+    bfAf();
+
+    it('should update rollup change rollup to field', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'number',
+        type: FieldType.Number,
+      };
+
+      const textField = await createField(request, table1.id, textFieldRo);
+      const numberField = await createField(request, table1.id, numberFieldRo);
+
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField = await createField(request, table2.id, linkFieldRo);
+      await updateRecordByApi(request, table2.id, table2.records[0].id, linkField.id, [
+        {
+          id: table1.records[0].id,
+        },
+        {
+          id: table1.records[1].id,
+        },
+      ]);
+
+      const rollupFieldRo1: IFieldRo = {
+        name: 'Roll up',
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+          formatting: {
+            precision: 2,
+            type: 'decimal',
+          },
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const rollupField = await createField(request, table2.id, rollupFieldRo1);
+
+      const rollupFieldRo2: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: numberField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      await updateField(request, table2.id, rollupField.id, rollupFieldRo2);
     });
   });
 });

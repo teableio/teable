@@ -346,6 +346,33 @@ export class FieldConvertingService {
     await this.submitFieldOpsMap(fieldOpsMap);
   }
 
+  private async updateFieldReferences(
+    fieldId: string,
+    oldReferenceFieldIds: string[],
+    newReferenceFieldIds: string[]
+  ) {
+    const addedReferenceFieldIds = differenceBy(newReferenceFieldIds, oldReferenceFieldIds);
+    const removedReferenceFieldIds = differenceBy(oldReferenceFieldIds, newReferenceFieldIds);
+
+    if (removedReferenceFieldIds.length) {
+      await this.prismaService.txClient().reference.deleteMany({
+        where: {
+          fromFieldId: { in: removedReferenceFieldIds },
+        },
+      });
+    }
+
+    if (addedReferenceFieldIds.length) {
+      await Promise.all(
+        addedReferenceFieldIds.map((fromFieldId) => {
+          return this.prismaService.txClient().reference.create({
+            data: { fromFieldId, toFieldId: fieldId },
+          });
+        })
+      );
+    }
+  }
+
   private async modifyFormulaOptions(
     newField: RollupFieldDto | FormulaFieldDto,
     oldField: RollupFieldDto | FormulaFieldDto
@@ -368,26 +395,7 @@ export class FieldConvertingService {
       newReferenceFieldIds.push(newField.lookupOptions.lookupFieldId);
     }
 
-    const addedReferenceFieldIds = differenceBy(newReferenceFieldIds, oldReferenceFieldIds);
-    const removedReferenceFieldIds = differenceBy(oldReferenceFieldIds, newReferenceFieldIds);
-
-    if (removedReferenceFieldIds) {
-      await this.prismaService.txClient().reference.deleteMany({
-        where: {
-          fromFieldId: { in: removedReferenceFieldIds },
-        },
-      });
-    }
-
-    if (addedReferenceFieldIds) {
-      await Promise.all(
-        addedReferenceFieldIds.map((fromFieldId) => {
-          return this.prismaService.txClient().reference.create({
-            data: { fromFieldId, toFieldId: newField.id },
-          });
-        })
-      );
-    }
+    await this.updateFieldReferences(newField.id, oldReferenceFieldIds, newReferenceFieldIds);
   }
 
   private async updateOptionsFromMultiSelectField(
@@ -529,7 +537,7 @@ export class FieldConvertingService {
       return;
     }
 
-    return await this.updateOptionsFromSelectField(tableId, updatedChoiceMap, newField);
+    return this.updateOptionsFromSelectField(tableId, updatedChoiceMap, newField);
   }
 
   private async updateOptionsFromRatingField(
@@ -590,6 +598,10 @@ export class FieldConvertingService {
     newField: IFieldInstance,
     oldField: IFieldInstance
   ): Promise<IModifiedResult | undefined> {
+    if (newField.isLookup) {
+      return;
+    }
+
     switch (newField.type) {
       case FieldType.Link:
         return this.fieldConvertingLinkService.convertLink(
@@ -619,6 +631,20 @@ export class FieldConvertingService {
         return { recordOpsMap: rawOpsMap };
       }
     }
+  }
+
+  private async modifyLookupOptions(newField: IFieldInstance, oldField: IFieldInstance) {
+    const oldReferenceRaw = await this.prismaService.txClient().reference.findMany({
+      where: { toFieldId: oldField.id },
+      select: { fromFieldId: true },
+    });
+    const oldReferenceFieldIds = oldReferenceRaw.map((item) => item.fromFieldId);
+
+    const newReferenceFieldIds = newField.lookupOptions
+      ? [newField.lookupOptions.lookupFieldId]
+      : [];
+
+    await this.updateFieldReferences(newField.id, oldReferenceFieldIds, newReferenceFieldIds);
   }
 
   private getOriginFieldOps(newField: IFieldInstance, oldField: IFieldInstance) {
@@ -667,8 +693,12 @@ export class FieldConvertingService {
   private async calculateAndSaveRecords(
     tableId: string,
     field: IFieldInstance,
-    recordOpsMap: IOpsMap
+    recordOpsMap: IOpsMap | void
   ) {
+    if (!recordOpsMap || isEmpty(recordOpsMap)) {
+      return;
+    }
+
     let saveForeignKeyToDb: (() => Promise<void>) | undefined;
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
@@ -710,6 +740,7 @@ export class FieldConvertingService {
     return records;
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async convert2Select(
     tableId: string,
     newField: SingleSelectFieldDto | MultipleSelectFieldDto,
@@ -851,16 +882,24 @@ export class FieldConvertingService {
    * 4. re-generate new cellValue type and dbFieldType to all reference field
    * 5. re-calculate from current field
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
     console.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
+    // for field type change, isLookup change, isComputed change
     if (keys.includes('type') || keys.includes('isComputed')) {
       result = await this.modifyType(tableId, newField, oldField);
-    } else if (keys.includes('options')) {
-      result = await this.modifyOptions(tableId, newField, oldField);
+    } else {
+      // for same field with options change
+      if (keys.includes('options')) {
+        result = await this.modifyOptions(tableId, newField, oldField);
+      }
+
+      // for same field with lookup options change
+      if (keys.includes('lookupOptions')) {
+        await this.modifyLookupOptions(newField, oldField);
+      }
     }
 
     const fieldChange = await this.fieldConvertingLinkService.supplementLink(
@@ -900,9 +939,7 @@ export class FieldConvertingService {
     }
 
     // calculate and submit records
-    if (result?.recordOpsMap) {
-      await this.calculateAndSaveRecords(tableId, newField, result.recordOpsMap);
-    }
+    await this.calculateAndSaveRecords(tableId, newField, result?.recordOpsMap);
 
     // TODO: reduce unnecessary calculation
     if (newField.isComputed) {
