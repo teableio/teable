@@ -11,13 +11,6 @@ describe('OpenAPI Db Connection (e2e)', () => {
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
-  if (globalThis.testConfig.driver !== DriverClient.Pg) {
-    it('should skip this test', () => {
-      expect(true).toBeTruthy();
-    });
-    return;
-  }
-
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
@@ -30,6 +23,11 @@ describe('OpenAPI Db Connection (e2e)', () => {
 
   it('should manage a db connection', async () => {
     console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
+
+    if (globalThis.testConfig.driver !== DriverClient.Pg) {
+      expect(true).toBeTruthy();
+      return;
+    }
 
     const postResult = (await request.post(`/api/base/${baseId}/connection`).expect(201))
       .body as IDbConnectionVo;

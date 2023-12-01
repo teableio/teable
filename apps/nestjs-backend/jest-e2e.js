@@ -28,7 +28,8 @@ module.exports = {
   },
   preset: 'ts-jest',
   globalSetup: '<rootDir>/jest-e2e.setup.ts',
-  coverageReporters: false,
+  collectCoverage: false,
+  coverageReporters: ['text'],
   moduleNameMapper: {
     ...getTsConfigBasePaths(tsConfigFile),
   },
