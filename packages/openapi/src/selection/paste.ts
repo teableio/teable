@@ -3,7 +3,7 @@ import { fieldVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { cellSchema } from './range';
+import { cellSchema, rangesSchema } from './range';
 
 export const PASTE_URL = '/table/{tableId}/view/{viewId}/selection/paste';
 
@@ -12,10 +12,15 @@ export const pasteRoSchema = z.object({
     description: 'Content to paste',
     example: 'John\tDoe\tjohn.doe@example.com',
   }),
-  cell: cellSchema.openapi({
-    description: 'Starting cell for paste operation, [column, row]',
-    example: [1, 2],
+  range: z.array(cellSchema).openapi({
+    description:
+      'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
+    example: [
+      [0, 0],
+      [1, 1],
+    ],
   }),
+  type: rangesSchema.shape.type,
   header: z.array(fieldVoSchema).optional().openapi({
     description: 'Table header for paste operation',
     example: [],

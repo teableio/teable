@@ -236,7 +236,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
         .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
         .send({
           content: 'table2_1\ttable2_2',
-          cell: [1, 0],
+          range: [
+            [1, 0],
+            [1, 0],
+          ],
           header: [linkField1, linkField2],
         })
         .expect(200);
@@ -273,7 +276,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
         .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
         .send({
           content: 'table2_1\ttable2_2',
-          cell: [1, 0],
+          range: [
+            [1, 0],
+            [1, 0],
+          ],
           header: [linkField1, linkField2],
         })
         .expect(200);

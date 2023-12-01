@@ -87,7 +87,6 @@ export const useSelectionOperation = () => {
       const toaster = toast({
         title: 'Pasting...',
       });
-      const ranges = selection.ranges;
       const clipboardContent = await navigator.clipboard.read();
       const hasHtml = clipboardContent[0].types.includes('text/html');
       const text = await (await clipboardContent[0].getType('text/plain')).text();
@@ -101,7 +100,8 @@ export const useSelectionOperation = () => {
       }
       await pasteReq({
         content: text,
-        cell: ranges[0],
+        range: selection.serialize(),
+        type: rangeTypes[selection.type],
         header: header.result,
       });
       toaster.update({ id: toaster.id, title: 'Pasted success!' });
@@ -117,11 +117,11 @@ export const useSelectionOperation = () => {
       const toaster = toast({
         title: 'Clearing...',
       });
-
+      const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
 
       await clearReq({
-        ranges: selection.ranges,
+        ranges,
         ...(type ? { type } : {}),
       });
 

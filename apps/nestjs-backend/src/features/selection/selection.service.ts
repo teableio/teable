@@ -408,28 +408,89 @@ export class SelectionService {
     };
   }
 
+  // If the pasted selection is twice the size of the content,
+  // the content is automatically expanded to the selection size
+  private expandPasteContent(pasteData: string[][], range: [[number, number], [number, number]]) {
+    const [start, end] = range;
+    const [startCol, startRow] = start;
+    const [endCol, endRow] = end;
+
+    const rangeRows = endRow - startRow + 1;
+    const rangeCols = endCol - startCol + 1;
+
+    const pasteRows = pasteData.length;
+    const pasteCols = pasteData[0].length;
+
+    if (rangeRows % pasteRows !== 0 || rangeCols % pasteCols !== 0) {
+      return pasteData;
+    }
+
+    return Array.from({ length: rangeRows }, (_, i) =>
+      Array.from({ length: rangeCols }, (_, j) => pasteData[i % pasteRows][j % pasteCols])
+    );
+  }
+
+  // Paste does not support non-contiguous selections,
+  // the first selection is taken by default.
+  private getRangeCell(
+    maxRange: [number, number][],
+    range: [number, number][],
+    type?: RangeType
+  ): [[number, number], [number, number]] {
+    const [maxStart, maxEnd] = maxRange;
+    const [maxStartCol, maxStartRow] = maxStart;
+    const [maxEndCol, maxEndRow] = maxEnd;
+
+    if (type === RangeType.Columns) {
+      return [
+        [range[0][0], maxStartRow],
+        [range[0][1], maxEndRow],
+      ];
+    }
+
+    if (type === RangeType.Rows) {
+      return [
+        [maxStartCol, range[0][0]],
+        [maxEndCol, range[0][1]],
+      ];
+    }
+    return [range[0], range[1]];
+  }
+
   async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
-    const { cell, content, header = [] } = pasteRo;
-    const [col, row] = cell;
-    const tableData = this.parseCopyContent(content);
+    const { range, type, content, header = [] } = pasteRo;
+
+    const rowCountInView = await this.recordService.getRowCount(tableId, viewId);
+    const fields = await this.fieldService.getFieldInstances(tableId, {
+      viewId,
+      filterHidden: true,
+    });
+
+    const tableSize: [number, number] = [fields.length, rowCountInView];
+    const rangeCell = this.getRangeCell(
+      [
+        [0, 0],
+        [tableSize[0] - 1, tableSize[1] - 1],
+      ],
+      range,
+      type
+    );
+
+    const tableData = this.expandPasteContent(this.parseCopyContent(content), rangeCell);
     const tableColCount = tableData[0].length;
     const tableRowCount = tableData.length;
 
-    const rowCountInView = await this.recordService.getRowCount(tableId, viewId);
-
+    const cell = rangeCell[0];
+    const [col, row] = cell;
     const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: row,
       take: tableData.length,
       fieldKeyType: FieldKeyType.Id,
     });
-    const fields = await this.fieldService.getFieldInstances(tableId, {
-      viewId,
-      filterHidden: true,
-    });
+
     const effectFields = fields.slice(col, col + tableColCount);
 
-    const tableSize: [number, number] = [fields.length, rowCountInView];
     const [numColsToExpand, numRowsToExpand] = this.calculateExpansion(tableSize, cell, [
       tableColCount,
       tableRowCount,
