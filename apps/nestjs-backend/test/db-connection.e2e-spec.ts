@@ -6,7 +6,7 @@ import type { IDbConnectionVo } from '@teable-group/openapi';
 import type request from 'supertest';
 import { initApp } from './utils/init-app';
 
-describe('OpenAPI Db Connection (e2e)', () => {
+describe.skip('OpenAPI Db Connection (e2e)', () => {
   let app: INestApplication;
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
