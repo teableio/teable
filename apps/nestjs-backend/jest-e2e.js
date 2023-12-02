@@ -21,7 +21,6 @@ module.exports = {
   bail: true,
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  maxWorkers: 1,
   testEnvironment: 'node',
   testRegex: '.e2e-spec.ts$',
   transform: {
@@ -29,6 +28,7 @@ module.exports = {
   },
   preset: 'ts-jest',
   globalSetup: '<rootDir>/jest-e2e.setup.ts',
+  collectCoverage: false,
   coverageReporters: ['text'],
   moduleNameMapper: {
     ...getTsConfigBasePaths(tsConfigFile),
