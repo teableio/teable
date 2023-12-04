@@ -6,8 +6,8 @@ import { ShareModule } from '../features/share/share.module';
 import { TableModule } from '../features/table/table.module';
 import { UserModule } from '../features/user/user.module';
 import { ShareDbPermissionService } from './share-db-permission.service';
+import { ShareDbAdapter } from './share-db.adapter';
 import { ShareDbService } from './share-db.service';
-import { SqliteDbAdapter } from './sqlite.adapter';
 import { WsAuthService } from './ws-auth.service';
 import { WsDerivateService } from './ws-derivate.service';
 
@@ -15,7 +15,7 @@ import { WsDerivateService } from './ws-derivate.service';
   imports: [TableModule, CalculationModule, AuthModule, UserModule, ShareModule],
   providers: [
     ShareDbService,
-    SqliteDbAdapter,
+    ShareDbAdapter,
     WsDerivateService,
     WsAuthService,
     PermissionService,
