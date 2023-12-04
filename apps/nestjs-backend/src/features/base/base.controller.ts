@@ -1,18 +1,20 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import type {
-  ICreateBaseVo,
-  IDbConnectionVo,
-  IGetBaseVo,
-  IUpdateBaseVo,
-} from '@teable-group/openapi';
 import {
   createBaseRoSchema,
   ICreateBaseRo,
   IUpdateBaseRo,
   updateBaseRoSchema,
 } from '@teable-group/openapi';
-import type { ListBaseCollaboratorVo } from '@teable-group/openapi/dist/base/collaborator-get-list';
+import type {
+  ICreateBaseVo,
+  IDbConnectionVo,
+  IGetBaseVo,
+  IUpdateBaseVo,
+  ListBaseCollaboratorVo,
+} from '@teable-group/openapi';
+import { EmitEvent } from '../../event-emitter/decorators/emit-event.decorator';
+import { Events } from '../../event-emitter/model';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
@@ -30,9 +32,10 @@ export class BaseController {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
+  @Post()
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @Post()
+  @EmitEvent(Events.BASE_CREATE)
   async createBase(
     @Body(new ZodValidationPipe(createBaseRoSchema))
     createBaseRo: ICreateBaseRo
@@ -40,8 +43,9 @@ export class BaseController {
     return await this.baseService.createBase(createBaseRo);
   }
 
-  @Permissions('base|update')
   @Patch(':baseId')
+  @Permissions('base|update')
+  @EmitEvent(Events.BASE_UPDATE)
   async updateBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(updateBaseRoSchema))
@@ -61,8 +65,9 @@ export class BaseController {
     return await this.baseService.getBaseList();
   }
 
-  @Permissions('base|delete')
   @Delete(':baseId')
+  @Permissions('base|delete')
+  @EmitEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     await this.baseService.deleteBase(baseId);
     return null;

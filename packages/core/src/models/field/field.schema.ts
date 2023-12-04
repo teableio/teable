@@ -377,6 +377,7 @@ export const getFieldsQuerySchema = z.object({
     description: 'The id of the view.',
   }),
   filterHidden: z.boolean().optional(),
+  fieldIds: z.array(z.string()).optional(),
 });
 
 export type IGetFieldsQuery = z.infer<typeof getFieldsQuerySchema>;

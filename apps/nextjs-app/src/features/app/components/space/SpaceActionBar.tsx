@@ -28,7 +28,6 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       queryClient.invalidateQueries({ queryKey: invQueryFilters });
     },
   });
-
   return (
     <div className={className}>
       {hasPermission(space.role, 'base|create') && (

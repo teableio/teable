@@ -177,6 +177,16 @@ export class FieldService implements IAdapterService {
     return rawField2FieldObj(field);
   }
 
+  async getFieldsById(tableId: string, fieldIds: string[]): Promise<IFieldVo[]> {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: fieldIds }, tableId, deletedTime: null },
+    });
+    if (!fields?.length) {
+      throw new NotFoundException(`field ${fieldIds} in table ${tableId} not found`);
+    }
+    return fields.map(rawField2FieldObj);
+  }
+
   async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
     let viewId = query.viewId;
     if (viewId) {

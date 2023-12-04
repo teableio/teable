@@ -1,12 +1,11 @@
-import type { IOpContextBase } from '@teable-group/core';
 import { instanceToPlain } from 'class-transformer';
-import type { IEventBase } from '../interfaces/event-base.interface';
-import type { EventEnums } from '../model/event.enum';
+import type { IBaseEvent, IEventContext } from '../interfaces/base-event.interface';
+import type { Events } from '../model';
 
-export abstract class EventAbstract implements IEventBase {
-  eventName!: EventEnums;
+export abstract class AbstractEvent implements IBaseEvent {
+  abstract name: Events;
 
-  ops?: IOpContextBase[];
+  abstract context: IEventContext;
 
   toJSON() {
     return instanceToPlain(this);

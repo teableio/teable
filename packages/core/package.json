@@ -46,7 +46,7 @@
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/jest-dom": "6.1.4",
     "@types/jest": "29.5.8",
-    "@types/lodash": "^4.14.201",
+    "@types/lodash": "^4.14.202",
     "@types/node": "18.17.1",
     "@types/papaparse": "^5.3.14",
     "antlr4ts-cli": "0.5.0-alpha.4",

@@ -16,7 +16,18 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
     const { ctx, rect, theme } = props;
     const { data: userSets } = cell;
     const { x: _x, y: _y, width, height } = rect;
-    const { fontSizeXS, fontSizeSM, fontFamily, iconSizeSM, cellHorizontalPadding } = theme;
+    const {
+      fontSizeXS,
+      fontSizeSM,
+      fontFamily,
+      iconSizeSM,
+      cellHorizontalPadding,
+      cellOptionBg,
+      cellOptionTextColor,
+      avatarBg,
+      avatarTextColor,
+      avatarSizeMD,
+    } = theme;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
@@ -44,15 +55,12 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
     let row = 1;
     let y = drawArea.y;
 
-    const bgColor = '#eee';
-    const textColor = '#333';
-
     for (const user of userSets) {
       const text = user.name;
 
       const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
         text,
-        fill: textColor,
+        fill: cellOptionTextColor,
         maxWidth: maxTextWidth,
         needRender: false,
         fontSize: fontSizeXS,
@@ -72,30 +80,31 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         width,
         height: iconSizeSM,
         radius: OPTION_RADIUS,
-        fill: bgColor,
+        fill: cellOptionBg,
       });
       drawSingleLineText(ctx, {
         text: displayText,
         x: x + OPTION_PADDING_HORIZONTAL,
         y: y + 4,
-        fill: textColor,
+        fill: cellOptionTextColor,
         maxWidth: maxTextWidth,
       });
 
       drawAvatar(ctx, {
         x: x - 4,
         y: y - 2,
-        width: 24,
-        height: 24,
-        fill: '#e5e9f0',
-        stroke: '#eee',
-        textColor: '#333',
+        width: avatarSizeMD,
+        height: avatarSizeMD,
+        fill: avatarBg,
+        stroke: cellOptionBg,
+        textColor: avatarTextColor,
         fontSize: fontSizeSM,
         fontFamily,
         user: {
           ...user,
           email: '',
-          avatar: '',
+          avatar:
+            'https://s1.vika.cn/space/2023/11/15/240eee94276a4afe87c7b7f56cdcbbce?imageView2/1/w/48/h/48/q/100!',
         },
       });
 

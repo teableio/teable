@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEmpty } from 'lodash';
+import { isEmpty, pick } from 'lodash';
 import type ShareDb from 'sharedb';
 import { BatchService } from '../features/calculation/batch.service';
 import { LinkService } from '../features/calculation/link.service';
@@ -13,6 +13,7 @@ import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
 import { composeMaps } from '../features/calculation/utils/compose-maps';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IRawOp, IRawOpMap } from './interface';
 
 @Injectable()
 export class WsDerivateService {
@@ -106,10 +107,29 @@ export class WsDerivateService {
       if (saveContext) {
         context.agent.custom.saveContext = saveContext;
       }
+      context.agent.custom.stashOpMap = this.stashOpMap(context);
     } catch (e) {
       return next(e);
     }
 
     next();
+  }
+
+  private stashOpMap(context: ShareDb.middleware.SubmitContext) {
+    const { collection, id, op } = context;
+    const stashOpMap: IRawOpMap = { [collection]: {} };
+
+    stashOpMap[collection][id] = pick(op, [
+      'src',
+      'seq',
+      'm',
+      'create',
+      'op',
+      'del',
+      'v',
+      'c',
+      'd',
+    ]) as IRawOp;
+    return stashOpMap;
   }
 }

@@ -1,6 +1,6 @@
 import type { ITableVo } from '@teable-group/core';
 import type { IGetBaseVo } from '@teable-group/openapi';
-import { SessionProvider } from '@teable-group/sdk';
+import { NotificationProvider, SessionProvider } from '@teable-group/sdk';
 import type { IUser } from '@teable-group/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable-group/sdk/context';
 import { useRouter } from 'next/router';
@@ -23,24 +23,26 @@ export const BaseLayout: React.FC<{
     <AppLayout>
       <AppProvider>
         <SessionProvider user={user}>
-          <AnchorContext.Provider
-            value={{
-              baseId: baseId as string,
-              tableId: nodeId as string,
-              viewId: viewId as string,
-            }}
-          >
-            <BaseProvider serverData={baseServerData}>
-              <TableProvider serverData={tableServerData}>
-                <div id="portal" className="relative flex h-screen w-full items-start">
-                  <ResizablePane>
-                    <SideBar />
-                    {children}
-                  </ResizablePane>
-                </div>
-              </TableProvider>
-            </BaseProvider>
-          </AnchorContext.Provider>
+          <NotificationProvider>
+            <AnchorContext.Provider
+              value={{
+                baseId: baseId as string,
+                tableId: nodeId as string,
+                viewId: viewId as string,
+              }}
+            >
+              <BaseProvider serverData={baseServerData}>
+                <TableProvider serverData={tableServerData}>
+                  <div id="portal" className="relative flex h-screen w-full items-start">
+                    <ResizablePane>
+                      <SideBar />
+                      {children}
+                    </ResizablePane>
+                  </div>
+                </TableProvider>
+              </BaseProvider>
+            </AnchorContext.Provider>
+          </NotificationProvider>
         </SessionProvider>
       </AppProvider>
     </AppLayout>

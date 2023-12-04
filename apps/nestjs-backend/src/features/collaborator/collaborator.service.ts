@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ListSpaceCollaboratorVo, UpdateSpaceCollaborateRo } from '@teable-group/openapi';
-import type { ListBaseCollaboratorVo } from '@teable-group/openapi/dist/base/collaborator-get-list';
+import type {
+  ListSpaceCollaboratorVo,
+  UpdateSpaceCollaborateRo,
+  ListBaseCollaboratorVo,
+} from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { isDate } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -82,7 +85,7 @@ export class CollaboratorService {
         if (baseId) {
           builder.orWhere('c.base_id', baseId);
         } else {
-          builder.orWhereNull('c.base_id');
+          builder.whereNull('c.base_id');
         }
       });
 

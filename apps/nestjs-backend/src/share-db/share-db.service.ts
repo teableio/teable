@@ -1,14 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { FieldOpBuilder, IdPrefix, RecordOpBuilder, ViewOpBuilder } from '@teable-group/core';
+import { IdPrefix, ViewOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { noop } from 'lodash';
+import { merge, noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import type { CreateOp, DeleteOp, EditOp, Error } from 'sharedb';
+import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
-import type { IEventBase } from '../event-emitter/interfaces/event-base.interface';
-import { RecordUpdatedEvent, FieldUpdatedEvent, ViewUpdatedEvent } from '../event-emitter/model';
 import type { IClsStore } from '../types/cls';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
@@ -23,8 +20,7 @@ export class ShareDbService extends ShareDBClass {
 
   constructor(
     readonly sqliteDbAdapter: SqliteDbAdapter,
-    private readonly eventEmitter: EventEmitter2,
-    private readonly eventService: EventEmitterService,
+    private readonly eventEmitterService: EventEmitterService,
     private readonly prismaService: PrismaService,
     private readonly clsService: ClsService<IClsStore>,
     private readonly wsDerivateService: WsDerivateService,
@@ -37,15 +33,17 @@ export class ShareDbService extends ShareDBClass {
     });
     // auth
     authMiddleware(this, this.shareDbPermissionService);
-    derivateMiddleware(this, this.wsDerivateService);
+    derivateMiddleware(this, this.clsService, this.wsDerivateService);
 
     this.use('commit', this.onCommit);
-    this.on('submitRequestEnd', this.onSubmitRequestEnd);
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(() => {
       const rawOpMap = this.clsService.get('tx.rawOpMap');
+      const stashOpMap = this.clsService.get('tx.stashOpMap');
+
       rawOpMap && this.publishOpsMap(rawOpMap);
+      (rawOpMap || stashOpMap) && this.eventEmitterService.ops2Event(stashOpMap, rawOpMap);
     });
   }
 
@@ -58,7 +56,6 @@ export class ShareDbService extends ShareDBClass {
 
   publishOpsMap(rawOpMap: IRawOpMap) {
     const { setViewSort } = ViewOpBuilder.editor;
-    const rawOps: (EditOp | CreateOp | DeleteOp)[] = [];
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
@@ -68,7 +65,6 @@ export class ShareDbService extends ShareDBClass {
         rawOp.c = collection;
         rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
-        rawOps.push(rawOp);
 
         /**
          * this is for some special scenarios like manual sort
@@ -80,7 +76,6 @@ export class ShareDbService extends ShareDBClass {
         }
       }
     }
-    this.eventService.ops2Event(rawOps);
   }
 
   private onCommit = (
@@ -102,53 +97,4 @@ export class ShareDbService extends ShareDBClass {
 
     next();
   };
-
-  private onSubmitRequestEnd(error: Error, context: ShareDBClass.middleware.SubmitContext) {
-    const isBackend = Boolean(context.agent.custom?.isBackend);
-    if (error) {
-      this.logger.error(error);
-      return;
-    }
-    if (isBackend) {
-      return;
-    }
-    // When the `event group` corresponding to a transaction ID completes,
-    // the `type` in the event group is analyzed to dispatch subsequent event tasks
-    this.editEvent(context);
-  }
-
-  private editEvent(context: ShareDBClass.middleware.SubmitContext): void {
-    const [docType, collectionId] = context.collection.split('_');
-    if (!context.op.op) {
-      return;
-    }
-
-    let eventValue: IEventBase | undefined;
-    if (IdPrefix.Record == docType) {
-      eventValue = new RecordUpdatedEvent(
-        collectionId,
-        context.id,
-        // context.snapshot?.data,
-        RecordOpBuilder.ops2Contexts(context.op.op)
-      );
-    } else if (IdPrefix.Field == docType) {
-      eventValue = new FieldUpdatedEvent(
-        collectionId,
-        context.id,
-        // context.snapshot?.data,
-        FieldOpBuilder.ops2Contexts(context.op.op)
-      );
-    } else if (IdPrefix.View == docType) {
-      eventValue = new ViewUpdatedEvent(
-        collectionId,
-        context.id,
-        // context.snapshot?.data,
-        ViewOpBuilder.ops2Contexts(context.op.op)
-      );
-    }
-
-    if (eventValue) {
-      this.eventEmitter.emit(eventValue.eventName, eventValue.toJSON());
-    }
-  }
 }

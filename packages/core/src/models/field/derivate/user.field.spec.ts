@@ -61,7 +61,7 @@ describe('UserFieldCore', () => {
   it('should convert cellValue to string', () => {
     const cellValue: IUserCellValue = {
       id: 'usrxxxxxxxxx',
-      name: 'anonymous',
+      title: 'anonymous',
     };
 
     expect(field.cellValue2String(null as any)).toBe('');
@@ -119,7 +119,7 @@ describe('UserFieldCore', () => {
   it('should repair invalid value', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
-      name: 'anonymous',
+      title: 'anonymous',
     };
     expect(field.repair(cellValue)).toEqual(cellValue);
     expect(field.repair([{ id: 'usr' }])).toEqual(null);
@@ -137,7 +137,7 @@ describe('UserFieldCore', () => {
   it('should validate value', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
-      name: 'anonymous',
+      title: 'anonymous',
     };
 
     expect(field.validateCellValue(null as any).success).toBe(true);

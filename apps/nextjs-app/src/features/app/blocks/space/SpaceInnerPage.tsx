@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable-group/openapi';
 import { useRouter } from 'next/router';
-import { type FC, useEffect, useRef, useState } from 'react';
-import { SpaceRenaming } from '@/features/app/components/space/SpaceRenaming';
+import { useEffect, useRef, useState } from 'react';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
+import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { BaseCard } from './BaseCard';
 
-export const SpaceInnerPage: FC = () => {
+export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
@@ -16,14 +16,14 @@ export const SpaceInnerPage: FC = () => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
 
-  const { data: spaceData } = useQuery({
+  const { data: space } = useQuery({
     queryKey: ['space', spaceId],
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then(({ data }) => data),
   });
 
-  const { data: baseList } = useQuery({
+  const { data: bases } = useQuery({
     queryKey: ['base-list', spaceId],
-    queryFn: ({ queryKey }) => getBaseList({ spaceId: queryKey[1] }),
+    queryFn: ({ queryKey }) => getBaseList({ spaceId: queryKey[1] }).then(({ data }) => data),
   });
 
   const { mutate: deleteSpaceMutator } = useMutation({
@@ -43,9 +43,6 @@ export const SpaceInnerPage: FC = () => {
       queryClient.invalidateQueries({ queryKey: ['space-list'] });
     },
   });
-
-  const space = spaceData?.data;
-  const bases = baseList?.data;
 
   useEffect(() => setSpaceName(space?.name), [renaming, space?.name]);
 
@@ -100,7 +97,7 @@ export const SpaceInnerPage: FC = () => {
           <SpaceActionBar
             className="flex items-center justify-between pb-8 text-right"
             space={space}
-            invQueryFilters={['base-list', spaceId]}
+            invQueryFilters={['base-list', space.id]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
           />

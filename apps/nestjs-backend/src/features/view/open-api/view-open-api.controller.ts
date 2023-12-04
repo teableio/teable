@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import type { IViewVo } from '@teable-group/core';
-import { viewRoSchema, manualSortRoSchema, IManualSortRo, IViewRo } from '@teable-group/core';
+import { IManualSortRo, IViewRo, manualSortRoSchema, viewRoSchema } from '@teable-group/core';
 import type { EnableShareViewVo } from '@teable-group/openapi';
-import { ZodValidationPipe } from '../../..//zod.validation.pipe';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { ViewService } from '../view.service';
@@ -32,8 +32,8 @@ export class ViewOpenApiController {
     return await this.viewService.getViews(tableId);
   }
 
-  @Permissions('view|create')
   @Post()
+  @Permissions('view|create')
   async createView(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(viewRoSchema)) viewRo: IViewRo
@@ -41,14 +41,14 @@ export class ViewOpenApiController {
     return await this.viewOpenApiService.createView(tableId, viewRo);
   }
 
-  @Permissions('view|delete')
   @Delete('/:viewId')
+  @Permissions('view|delete')
   async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
     return await this.viewOpenApiService.deleteView(tableId, viewId);
   }
 
-  @Permissions('view|update')
   @Put('/:viewId/sort')
+  @Permissions('view|update')
   async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,

@@ -17,7 +17,6 @@ import type {
   UpdateSpaceInvitationLinkRo,
 } from '@teable-group/openapi';
 import dayjs from 'dayjs';
-import MarkdownIt from 'markdown-it';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
 import type { IClsStore } from '../../types/cls';
@@ -35,7 +34,7 @@ export class InvitationService {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
-  private spaceEmailOptions(info: {
+  private inviteEmailOptions(info: {
     name: string;
     email: string;
     spaceName: string;
@@ -43,15 +42,14 @@ export class InvitationService {
   }) {
     const { name, email, inviteUrl, spaceName } = info;
     return {
-      title: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
-      content: MarkdownIt({ html: true, breaks: true }).render(`
-### Invitation to Collaborate
-
-**${name}** (${email}) has invited you to collaborate on their space **${spaceName}**.
-
-
-[Open space](${inviteUrl})
-      `),
+      subject: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
+      template: 'invite',
+      context: {
+        name,
+        email,
+        spaceName,
+        inviteUrl,
+      },
     };
   }
 
@@ -100,7 +98,7 @@ export class InvitationService {
           },
         });
         // get email info
-        const { title, content } = this.spaceEmailOptions({
+        const inviteEmailOptions = this.inviteEmailOptions({
           name: user.name,
           email: user.email,
           spaceName: space?.name,
@@ -108,8 +106,7 @@ export class InvitationService {
         });
         this.mailSenderService.sendMail({
           to: sendUser.email,
-          subject: title,
-          html: content,
+          ...inviteEmailOptions,
         });
         result[sendUser.email] = { invitationId: id };
       }

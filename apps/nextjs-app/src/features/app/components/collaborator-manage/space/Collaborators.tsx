@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib';
+import { data } from 'autoprefixer';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
@@ -48,10 +49,10 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
 
-  const collaborators = useQuery({
+  const { data: collaborators } = useQuery({
     queryKey: ['space-collaborator-list', spaceId],
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]),
-  }).data?.data;
+    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
+  });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
     mutationFn: updateSpaceCollaborator,

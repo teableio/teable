@@ -13,4 +13,5 @@ export * from './aggregation';
 export * from './db-connection';
 export * from './invitation';
 export * from './share';
+export * from './notification';
 export { urlBuilder } from './utils';

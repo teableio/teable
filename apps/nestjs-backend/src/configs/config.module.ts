@@ -1,6 +1,6 @@
 import path from 'path';
 import type { DynamicModule } from '@nestjs/common';
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { authConfig } from './auth.config';
 import { baseConfig } from './base.config';
@@ -14,6 +14,8 @@ const configurations = [...bootstrapConfigs, loggerConfig, mailConfig, authConfi
 @Module({})
 export class TeableConfigModule {
   static register(): DynamicModule {
+    const logger = new Logger();
+
     return ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
@@ -22,7 +24,7 @@ export class TeableConfigModule {
       envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
         const nextJsDir = nextJsConfig().dir;
         const envDir = nextJsDir ? path.join(process.cwd(), nextJsDir, str) : str;
-        console.log('Teable envFilePath:', envDir);
+        logger.log(`[Env File Path]: ${envDir}`);
         return envDir;
       }),
       validationSchema: envValidationSchema,

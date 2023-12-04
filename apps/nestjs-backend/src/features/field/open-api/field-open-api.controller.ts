@@ -2,12 +2,12 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
+  fieldRoSchema,
   getFieldsQuerySchema,
+  IFieldRo,
   IGetFieldsQuery,
   IUpdateFieldRo,
   updateFieldRoSchema,
-  fieldRoSchema,
-  IFieldRo,
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -41,8 +41,8 @@ export class FieldOpenApiController {
     return await this.fieldService.getFields(tableId, query);
   }
 
-  @Permissions('field|create')
   @Post()
+  @Permissions('field|create')
   async createField(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
@@ -50,8 +50,8 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.createField(tableId, fieldRo);
   }
 
-  @Permissions('field|update')
   @Put(':fieldId')
+  @Permissions('field|update')
   async updateFieldById(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
@@ -60,8 +60,8 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
   }
 
-  @Permissions('field|delete')
   @Delete(':fieldId')
+  @Permissions('field|delete')
   async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
     await this.fieldOpenApiService.deleteField(tableId, fieldId);
   }

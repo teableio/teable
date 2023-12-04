@@ -1,10 +1,12 @@
-import type { ITableFullVo, ITableListVo, IRecord } from '@teable-group/core';
+import type { IRecord, ITableFullVo, ITableListVo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type {
-  ShareViewGetVo,
   AcceptInvitationLinkRo,
   AcceptInvitationLinkVo,
   IGetBaseVo,
+  IGetSpaceVo,
+  ListSpaceCollaboratorVo,
+  ShareViewGetVo,
 } from '@teable-group/openapi';
 import { ACCEPT_INVITATION_LINK, SHARE_VIEW_GET, urlBuilder } from '@teable-group/openapi';
 import type { AxiosInstance } from 'axios';
@@ -50,6 +52,20 @@ export class SsrApi {
 
   async getBaseById(baseId: string) {
     return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
+  }
+
+  async getSpaceById(spaceId: string) {
+    return await this.axios.get<IGetSpaceVo>(`/space/${spaceId}`).then(({ data }) => data);
+  }
+
+  async getBaseListBySpaceId(spaceId: string) {
+    return await this.axios.get<IGetBaseVo[]>(`/space/${spaceId}/base`).then(({ data }) => data);
+  }
+
+  async getSpaceCollaboratorList(spaceId: string) {
+    return await this.axios
+      .get<ListSpaceCollaboratorVo>(`/space/${spaceId}/collaborators`)
+      .then(({ data }) => data);
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {

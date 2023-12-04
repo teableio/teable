@@ -3,13 +3,13 @@ import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@n
 import type { ITableFullVo, ITableListVo, ITableVo, IViewRowCountVo } from '@teable-group/core';
 import {
   getGraphRoSchema,
-  IGetGraphRo,
+  getRowCountSchema,
   getTableQuerySchema,
+  ICreateTableRo,
+  IGetGraphRo,
+  IGetRowCountRo,
   IGetTableQuery,
   tableRoSchema,
-  getRowCountSchema,
-  IGetRowCountRo,
-  ICreateTableRo,
 } from '@teable-group/core';
 import { ISqlQuerySchema, sqlQuerySchema } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -60,8 +60,8 @@ export class TableController {
     return await this.tableOpenApiService.getTables(baseId);
   }
 
-  @Permissions('table|create')
   @Post()
+  @Permissions('table|create')
   async createTable(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
@@ -69,14 +69,14 @@ export class TableController {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 
-  @Permissions('table|delete')
   @Delete(':tableId')
+  @Permissions('table|delete')
   async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
-  @Permissions('table|delete')
   @Delete('arbitrary/:tableId')
+  @Permissions('table|delete')
   deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return this.tableOpenApiService.deleteTable(baseId, tableId);
   }
