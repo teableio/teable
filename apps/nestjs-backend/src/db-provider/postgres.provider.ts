@@ -3,6 +3,7 @@ import type { IFilter } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { SchemaType } from '../features/field/util';
 import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
 import { AggregationFunctionPostgres } from './aggregation/aggregation-function.postgres';
 import type { IDbProvider } from './db.provider.interface';
@@ -17,13 +18,36 @@ export class PostgresProvider implements IDbProvider {
 
   createSchema(schemaName: string) {
     return [
-      `create schema if not exists "${schemaName}"`,
-      `revoke all on schema "${schemaName}" from public`,
+      this.knex.raw(`create schema if not exists ??`, [schemaName]).toQuery(),
+      this.knex.raw(`revoke all on schema ?? from public`, [schemaName]).toQuery(),
     ];
   }
 
   generateDbTableName(baseId: string, name: string) {
     return `${baseId}.${name}`;
+  }
+
+  renameTableName(oldTableName: string, newTableName: string) {
+    return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
+  }
+
+  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+    return this.knex.schema
+      .alterTable(tableName, (table) => {
+        table.renameColumn(oldName, newName);
+      })
+      .toSQL()
+      .map((item) => item.sql);
+  }
+
+  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
+    return this.knex.schema
+      .alterTable(tableName, (table) => {
+        table.dropColumn(columnName);
+        table[schemaType](columnName).alter();
+      })
+      .toSQL()
+      .map((item) => item.sql);
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

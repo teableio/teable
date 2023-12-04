@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
@@ -20,6 +20,7 @@ import { Knex } from 'knex';
 import { forEach, isEqual, keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -46,6 +47,7 @@ export class FieldService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -150,7 +152,7 @@ export class FieldService implements IAdapterService {
     return multiFieldData;
   }
 
-  async alterVisualTable(
+  async alterTableAddField(
     dbTableName: string,
     fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
   ) {
@@ -164,6 +166,49 @@ export class FieldService implements IAdapterService {
         })
         .toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+    }
+  }
+
+  async alterTableModifyFieldName(
+    dbTableName: string,
+    fieldInstances: { oldDbFieldName: string; newDbFieldName: string }[]
+  ) {
+    for (let i = 0; i < fieldInstances.length; i++) {
+      const { oldDbFieldName, newDbFieldName } = fieldInstances[i];
+
+      if (newDbFieldName === newDbFieldName) {
+        continue;
+      }
+
+      const alterTableSql = this.dbProvider.renameColumnName(
+        dbTableName,
+        oldDbFieldName,
+        newDbFieldName
+      );
+
+      for (const alterTableQuery of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      }
+    }
+  }
+
+  async alterTableModifyFieldType(
+    dbTableName: string,
+    fieldInstances: { dbFieldName: string; newDbFieldType: DbFieldType }[]
+  ) {
+    for (let i = 0; i < fieldInstances.length; i++) {
+      const { dbFieldName, newDbFieldType } = fieldInstances[i];
+      const schemaType = dbType2knexFormat(this.knex, newDbFieldType);
+
+      const alterTableSql = this.dbProvider.modifyColumnSchema(
+        dbTableName,
+        dbFieldName,
+        schemaType
+      );
+
+      for (const alterTableQuery of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      }
     }
   }
 
@@ -317,7 +362,7 @@ export class FieldService implements IAdapterService {
     await this.dbCreateMultipleField(tableId, fields);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(dbTableName, fields);
+    await this.alterTableAddField(dbTableName, fields);
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
@@ -334,7 +379,7 @@ export class FieldService implements IAdapterService {
     await this.dbCreateMultipleField(tableId, [fieldInstance]);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(dbTableName, [fieldInstance]);
+    await this.alterTableAddField(dbTableName, [fieldInstance]);
   }
 
   async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {

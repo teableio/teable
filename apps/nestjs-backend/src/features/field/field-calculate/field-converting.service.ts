@@ -230,10 +230,10 @@ export class FieldConvertingService {
 
     if (field.dbFieldType !== dbFieldType) {
       const op1 = this.buildOpAndMutateField(field, 'dbFieldType', dbFieldType);
-      const op2 = this.buildOpAndMutateField(field, 'dbFieldName', field.dbFieldName + '_');
       op1 && ops.push(op1);
-      op2 && ops.push(op2);
-      await this.fieldService.alterVisualTable(dbTableName, [field]);
+      await this.fieldService.alterTableModifyFieldType(dbTableName, [
+        { dbFieldName: field.dbFieldName, newDbFieldType: dbFieldType },
+      ]);
     }
     return ops;
   }
@@ -970,7 +970,7 @@ export class FieldConvertingService {
     newField.dbFieldName = newField.dbFieldName + '_';
     const dbTableName = await this.fieldService.getDbTableName(tableId);
 
-    await this.fieldService.alterVisualTable(dbTableName, [newField]);
+    await this.fieldService.alterTableAddField(dbTableName, [newField]);
   }
 
   async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {

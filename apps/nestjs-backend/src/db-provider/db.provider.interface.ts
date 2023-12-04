@@ -1,6 +1,7 @@
 import type { DriverClient, IFilter } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { SchemaType } from '../features/field/util';
 import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 
@@ -10,6 +11,12 @@ export interface IDbProvider {
   createSchema(schemaName: string): string[] | undefined;
 
   generateDbTableName(baseId: string, name: string): string;
+
+  renameTableName(oldTableName: string, newTableName: string): string[];
+
+  renameColumnName(tableName: string, oldName: string, newName: string): string[];
+
+  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
