@@ -295,11 +295,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const onCopy = async (selection: CombinedSelection) => {
     copy(selection);
   };
-  const onPaste = (selection: CombinedSelection) => {
+  const onPaste = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
       toast({ title: 'Unable to paste' });
     }
-    paste(selection);
+    paste(selection, e, recordMap);
   };
 
   const onSelectionChanged = useCallback(

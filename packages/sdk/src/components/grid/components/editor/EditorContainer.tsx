@@ -112,6 +112,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const width = coordInstance.getColumnWidth(columnIndex) + 4;
   const height = coordInstance.getRowHeight(rowIndex) + 4;
   const editorRef = useRef<IEditorRef | null>(null);
+  const defaultFocusRef = useRef<HTMLInputElement | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus?.(),
@@ -166,7 +167,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if ((cellContent as ICell).type === CellType.Loading) return;
     if (!activeCell || isEditing) return;
     editorRef.current?.setValue?.(cellContent.data);
-    requestAnimationFrame(() => editorRef.current?.focus?.());
+    requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
   }, [cellContent, activeCell, isEditing]);
 
   useKeyboardSelection({
@@ -177,7 +178,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     coordInstance,
     scrollToItem,
     onCopy,
-    onPaste,
     onDelete,
     onRowAppend,
     onRowExpand,
@@ -242,9 +242,14 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     }
   }
 
+  const onPasteInner = (e: React.ClipboardEvent) => {
+    if (!activeCell || isEditing) return;
+    onPaste?.(selection, e);
+  };
+
   return (
     <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
-      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
+      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown} onPaste={onPasteInner}>
         {!readonly && (
           <>
             {customEditor
@@ -267,6 +272,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
               : Editor()}
           </>
         )}
+        <input className="opacity-0" ref={defaultFocusRef} />
       </div>
     </div>
   );

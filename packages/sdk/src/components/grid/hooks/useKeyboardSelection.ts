@@ -45,7 +45,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     setActiveCell,
     setSelection,
     onCopy,
-    onPaste,
     onDelete,
     onRowAppend,
     onRowExpand,
@@ -126,8 +125,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         case 'del':
         case 'backspace':
           return onDelete?.(selection);
-        case 'mod+v':
-          return onPaste?.(selection);
       }
     });
 

@@ -1,14 +1,17 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
+import type { IAttachmentCellValue } from '@teable-group/core';
+import { AttachmentFieldCore } from '@teable-group/core';
 import type { ClearRo, ICopyRo, ICopyVo, PasteRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
-import type { CombinedSelection } from '@teable-group/sdk';
-import { SelectionRegionType, useTableId, useViewId } from '@teable-group/sdk';
+import type { CombinedSelection, IRecordIndexMap } from '@teable-group/sdk';
+import { SelectionRegionType, useFields, useTableId, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
 import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
+import { getSelectionCell, selectionCoverAttachments, uploadFiles } from '../utils';
 
 const rangeTypes = {
   [SelectionRegionType.Columns]: RangeType.Columns,
@@ -48,6 +51,7 @@ export const useCopy = (props: {
 export const useSelectionOperation = () => {
   const tableId = useTableId();
   const viewId = useViewId();
+  const fields = useFields();
 
   const { mutateAsync: copyReq } = useMutation({
     mutationFn: (copyRo: ICopyRo) => copy(tableId!, viewId!, copyRo),
@@ -80,13 +84,49 @@ export const useSelectionOperation = () => {
   );
 
   const doPaste = useCallback(
-    async (selection: CombinedSelection) => {
+    async (selection: CombinedSelection, e: React.ClipboardEvent, recordMap: IRecordIndexMap) => {
       if (!viewId || !tableId) {
         return;
       }
       const toaster = toast({
         title: 'Pasting...',
       });
+      const files = e.clipboardData.files;
+      const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
+      // attachment copy paste
+      if (files.length > 0 && isSelectionCoverAttachments) {
+        // upload files
+        const selectionCell = getSelectionCell(selection);
+        if (selectionCell) {
+          const attachments = await uploadFiles(files);
+          const [fieldIndex, recordIndex] = selectionCell;
+          const record = recordMap[recordIndex];
+          const field = fields[fieldIndex];
+          const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
+          await record.updateCell(field.id, [...oldCellValue, ...attachments]);
+        } else {
+          const attachments = await uploadFiles(files);
+          const attachmentsStrings = attachments
+            .map(({ name, url }) => {
+              return AttachmentFieldCore.itemString(name, url);
+            })
+            .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
+          await pasteReq({
+            content: attachmentsStrings,
+            range: selection.serialize(),
+            type: rangeTypes[selection.type],
+          });
+          toaster.update({ id: toaster.id, title: 'Pasted success!' });
+        }
+        return;
+      } else if (!isSelectionCoverAttachments) {
+        toaster.update({
+          id: toaster.id,
+          title: 'Files can only be pasted into an attachment field',
+        });
+        return;
+      }
+
       const clipboardContent = await navigator.clipboard.read();
       const hasHtml = clipboardContent[0].types.includes('text/html');
       const text = await (await clipboardContent[0].getType('text/plain')).text();
@@ -106,7 +146,7 @@ export const useSelectionOperation = () => {
       });
       toaster.update({ id: toaster.id, title: 'Pasted success!' });
     },
-    [tableId, toast, viewId, pasteReq]
+    [tableId, toast, viewId, pasteReq, fields]
   );
 
   const doClear = useCallback(
