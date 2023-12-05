@@ -36,13 +36,23 @@ export class AttachmentFieldCore extends FieldCore {
 
   isComputed = false;
 
+  static CELL_VALUE_STRING_SPLITTER = ',';
+
   static defaultOptions(): IAttachmentFieldOptions {
     return {};
   }
 
+  static itemString(name: string, url: string) {
+    return `${name} (${url})`;
+  }
+
   cellValue2String(cellValue?: unknown) {
     // TODO: The path is currently empty
-    return cellValue ? (cellValue as IAttachmentCellValue).map(this.item2String).join(',') : '';
+    return cellValue
+      ? (cellValue as IAttachmentCellValue)
+          .map(this.item2String)
+          .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER)
+      : '';
   }
 
   convertStringToCellValue(_value: string, _ctx?: unknown): IAttachmentCellValue | null {
@@ -73,6 +83,6 @@ export class AttachmentFieldCore extends FieldCore {
       return '';
     }
     const { name, url } = value as IAttachmentItem;
-    return `${name} (${url})`;
+    return AttachmentFieldCore.itemString(name, url);
   }
 }

@@ -20,7 +20,7 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBas
       JSON.stringify(
         (value as IAttachmentCellValue).map((item) => ({
           ...item,
-          url: item.url.split(storagePrefix)[1],
+          url: item.url.includes(storagePrefix) ? item.url.split(storagePrefix)[1] : item.url,
         }))
       )
     );
