@@ -16,6 +16,8 @@ export interface IDbProvider {
 
   renameColumnName(tableName: string, oldName: string, newName: string): string[];
 
+  dropColumn(tableName: string, columnName: string): string[];
+
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;

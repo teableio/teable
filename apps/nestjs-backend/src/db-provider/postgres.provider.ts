@@ -40,10 +40,18 @@ export class PostgresProvider implements IDbProvider {
       .map((item) => item.sql);
   }
 
-  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
+  dropColumn(tableName: string, columnName: string): string[] {
     return this.knex.schema
       .alterTable(tableName, (table) => {
         table.dropColumn(columnName);
+      })
+      .toSQL()
+      .map((item) => item.sql);
+  }
+
+  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
+    return this.knex.schema
+      .alterTable(tableName, (table) => {
         table[schemaType](columnName).alter();
       })
       .toSQL()

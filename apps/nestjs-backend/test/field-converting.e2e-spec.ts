@@ -113,7 +113,39 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
-      expect(newField.description).toBeUndefined();
+      expect(newField.description).toEqual('hello');
+      expect(newField.columnMeta).toMatchObject({});
+    });
+
+    it('should modify db field name', async () => {
+      const sourceFieldRo1: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        dbFieldName: 'the_db_field_name',
+        type: FieldType.SingleLineText,
+      };
+
+      const field = await createField(request, table1.id, sourceFieldRo1);
+      expect(field.dbFieldName).toEqual('the_db_field_name');
+
+      await request.post(`/api/table/${table1.id}/field`).send(sourceFieldRo1).expect(400);
+
+      const sourceFieldRo2: IFieldRo = {
+        name: 'TextField 2',
+        description: 'hello',
+        dbFieldName: 'the_db_field_name_2',
+        type: FieldType.SingleLineText,
+      };
+
+      const newFieldRo: IFieldRo = {
+        dbFieldName: 'NEW_field_name',
+        type: FieldType.SingleLineText,
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo2, newFieldRo);
+      expect(newField.dbFieldName).toEqual('NEW_field_name');
+      expect(newField.name).toEqual('TextField 2');
+      expect(newField.description).toEqual('hello');
       expect(newField.columnMeta).toMatchObject({});
     });
 

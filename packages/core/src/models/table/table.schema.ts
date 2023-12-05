@@ -17,9 +17,15 @@ export const tableFullVoSchema = z
     name: z.string().openapi({
       description: 'The name of the table.',
     }),
-    dbTableName: z.string().openapi({
-      description: 'the table name in the backend database schema.',
-    }),
+    dbTableName: z
+      .string()
+      .regex(/^[a-z]\w{0,62}$/i, {
+        message: 'Invalid name format',
+      })
+      .openapi({
+        description:
+          'Table name in backend database. Limitation: 1-63 characters, start with letter, can only contain letters, numbers and underscore, case insensitive, cannot be duplicated with existing db table name in the base.',
+      }),
     description: z.string().optional().openapi({
       description: 'The description of the table.',
     }),
@@ -62,16 +68,18 @@ export type ITableVo = z.infer<typeof tableVoSchema>;
 export const tableRoSchema = tableFullVoSchema
   .omit({
     id: true,
-    dbTableName: true,
     lastModifiedTime: true,
     defaultViewId: true,
   })
   .partial({
     name: true,
+    dbTableName: true,
     order: true,
   })
   .merge(
     z.object({
+      description: tableFullVoSchema.shape.description.nullable(),
+      icon: tableFullVoSchema.shape.icon.nullable(),
       fieldKeyType: fieldKeyTypeRoSchema,
       fields: fieldRoSchema.array().optional().openapi({
         description:
@@ -96,6 +104,16 @@ export const tableRoSchema = tableFullVoSchema
   });
 
 export type ICreateTableRo = z.infer<typeof tableRoSchema>;
+
+export const tablePropertyKeySchema = tableRoSchema.pick({
+  name: true,
+  dbTableName: true,
+  description: true,
+  icon: true,
+  order: true,
+});
+
+export type ITablePropertyKey = keyof z.infer<typeof tablePropertyKeySchema>;
 
 export type ITableOp = Pick<
   ITableVo,
