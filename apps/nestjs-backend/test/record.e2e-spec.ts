@@ -158,7 +158,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       }
 
       await request
-        .put(`/api/table/${table.id}/record`)
+        .patch(`/api/table/${table.id}/record`)
         .send({
           viewId: viewResponse.body[0].id,
           index: 1,

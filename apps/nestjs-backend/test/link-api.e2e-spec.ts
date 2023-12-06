@@ -994,7 +994,7 @@ describe('OpenAPI link (e2e)', () => {
         .expect(201);
 
       await request
-        .put(`/api/table/${table1.id}/record/${table1.records[0].id}`)
+        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
         .send({
           record: {
             fields: {
@@ -1435,7 +1435,7 @@ describe('OpenAPI link (e2e)', () => {
         .expect(201);
 
       await request
-        .put(`/api/table/${table1.id}/record/${table1.records[0].id}`)
+        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
         .send({
           record: {
             fields: {
@@ -1925,7 +1925,7 @@ describe('OpenAPI link (e2e)', () => {
         .expect(201);
 
       await request
-        .put(`/api/table/${table1.id}/record/${table1.records[0].id}`)
+        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
         .send({
           record: {
             fields: {
@@ -2464,7 +2464,7 @@ describe('OpenAPI link (e2e)', () => {
       table2.fields = getFields2Result.body;
 
       const result = await request
-        .put(`/api/table/${table1.id}/record/${table1.records[0].id}`)
+        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
           record: {
@@ -2511,7 +2511,7 @@ describe('OpenAPI link (e2e)', () => {
       table2.fields = getFields2Result.body;
 
       const result = await request
-        .put(`/api/table/${table1.id}/record/${table1.records[0].id}`)
+        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
           record: {
