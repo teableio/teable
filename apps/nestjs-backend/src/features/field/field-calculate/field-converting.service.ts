@@ -955,7 +955,7 @@ export class FieldConvertingService {
       return;
     }
     // safe property
-    const differenceKeys = difference(['name', 'description', 'dbFieldName'], keys);
+    const differenceKeys = difference(keys, ['name', 'description', 'dbFieldName']);
 
     if (!differenceKeys.length) {
       return;
