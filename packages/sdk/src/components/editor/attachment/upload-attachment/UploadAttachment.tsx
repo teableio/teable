@@ -2,7 +2,7 @@ import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
 import { X, Download } from '@teable-group/icons';
 import type { INotifyVo } from '@teable-group/openapi';
-import { Button, Progress } from '@teable-group/ui-lib';
+import { Button, FilePreviewItem, FilePreviewProvider, Progress } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { debounce, map } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -121,46 +121,55 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         )}
         {len > 0 && (
           <ul className="-right-2 flex h-full w-full flex-wrap">
-            {attachments.map((attachment) => (
-              <li key={attachment.id} className="mb-2 flex h-28 w-1/4 flex-col pr-1">
-                <div className="group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border">
-                  <img
-                    className="h-full w-full"
-                    src={getFileCover(attachment.mimetype, attachment.url)}
-                    alt={attachment.name}
-                  />
-                  <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-foreground/20 p-1 group-hover:flex">
-                    {/* <li>
+            <FilePreviewProvider>
+              {attachments.map((attachment) => (
+                <li key={attachment.id} className="mb-2 flex h-28 w-1/4 flex-col pr-1">
+                  <div className="group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border">
+                    <FilePreviewItem
+                      src={attachment.url}
+                      name={attachment.name}
+                      mimetype={attachment.mimetype}
+                      size={attachment.size}
+                    >
+                      <img
+                        className="h-full w-full"
+                        src={getFileCover(attachment.mimetype, attachment.url)}
+                        alt={attachment.name}
+                      />
+                    </FilePreviewItem>
+                    <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-foreground/20 p-1 group-hover:flex">
+                      {/* <li>
                       <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
                         <FullscreenIcon />
                       </button>
                     </li> */}
-                    <li>
-                      <Button
-                        variant={'ghost'}
-                        className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                        onClick={() => downloadFile(attachment)}
-                      >
-                        <Download />
-                      </Button>
-                    </li>
-                    <li>
-                      <Button
-                        variant={'ghost'}
-                        className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                        onClick={() => onDelete(attachment.id)}
-                        disabled={disabled}
-                      >
-                        <X />
-                      </Button>
-                    </li>
-                  </ul>
-                </div>
-                <span className="w-full truncate text-center" title={attachment.name}>
-                  {attachment.name}
-                </span>
-              </li>
-            ))}
+                      <li>
+                        <Button
+                          variant={'ghost'}
+                          className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          onClick={() => downloadFile(attachment)}
+                        >
+                          <Download />
+                        </Button>
+                      </li>
+                      <li>
+                        <Button
+                          variant={'ghost'}
+                          className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          onClick={() => onDelete(attachment.id)}
+                          disabled={disabled}
+                        >
+                          <X />
+                        </Button>
+                      </li>
+                    </ul>
+                  </div>
+                  <span className="w-full truncate text-center" title={attachment.name}>
+                    {attachment.name}
+                  </span>
+                </li>
+              ))}
+            </FilePreviewProvider>
             {uploadingFilesList.map(({ id, progress, file }) => (
               <li
                 key={id}

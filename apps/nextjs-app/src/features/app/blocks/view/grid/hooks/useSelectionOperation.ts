@@ -68,6 +68,73 @@ export const useSelectionOperation = () => {
   const { toast } = useToast();
   const copyMethod = useCopy({ copyReq });
 
+  const handleFilePaste = useCallback(
+    async (
+      files: FileList,
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      toaster: ReturnType<typeof toast>
+    ) => {
+      const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
+      if (!isSelectionCoverAttachments) {
+        toaster.update({
+          id: toaster.id,
+          title: 'Files can only be pasted into an attachment field',
+        });
+        return;
+      }
+
+      const selectionCell = getSelectionCell(selection);
+      if (selectionCell) {
+        const attachments = await uploadFiles(files);
+        const [fieldIndex, recordIndex] = selectionCell;
+        const record = recordMap[recordIndex];
+        const field = fields[fieldIndex];
+        const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
+        await record.updateCell(field.id, [...oldCellValue, ...attachments]);
+      } else {
+        const attachments = await uploadFiles(files);
+        const attachmentsStrings = attachments
+          .map(({ name, url }) => {
+            return AttachmentFieldCore.itemString(name, url);
+          })
+          .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
+        await pasteReq({
+          content: attachmentsStrings,
+          range: selection.serialize(),
+          type: rangeTypes[selection.type],
+        });
+      }
+      toaster.update({ id: toaster.id, title: 'Pasted success!' });
+    },
+    [fields, pasteReq]
+  );
+  const handleTextPaste = useCallback(
+    async (selection: CombinedSelection, toaster: ReturnType<typeof toast>) => {
+      const clipboardContent = await navigator.clipboard.read();
+      const hasHtml = clipboardContent[0].types.includes('text/html');
+      const text = await (await clipboardContent[0].getType('text/plain')).text();
+      const html = hasHtml
+        ? await (await clipboardContent[0].getType('text/html')).text()
+        : undefined;
+      const header = extractTableHeader(html);
+
+      if (header.error) {
+        toaster.update({ id: toaster.id, title: header.error });
+        return;
+      }
+
+      await pasteReq({
+        content: text,
+        range: selection.serialize(),
+        type: rangeTypes[selection.type],
+        header: header.result,
+      });
+      toaster.update({ id: toaster.id, title: 'Pasted success!' });
+    },
+    [pasteReq]
+  );
+
   const doCopy = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) {
@@ -88,65 +155,16 @@ export const useSelectionOperation = () => {
       if (!viewId || !tableId) {
         return;
       }
-      const toaster = toast({
-        title: 'Pasting...',
-      });
-      const files = e.clipboardData.files;
-      const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
-      // attachment copy paste
-      if (files.length > 0 && isSelectionCoverAttachments) {
-        // upload files
-        const selectionCell = getSelectionCell(selection);
-        if (selectionCell) {
-          const attachments = await uploadFiles(files);
-          const [fieldIndex, recordIndex] = selectionCell;
-          const record = recordMap[recordIndex];
-          const field = fields[fieldIndex];
-          const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
-          await record.updateCell(field.id, [...oldCellValue, ...attachments]);
-        } else {
-          const attachments = await uploadFiles(files);
-          const attachmentsStrings = attachments
-            .map(({ name, url }) => {
-              return AttachmentFieldCore.itemString(name, url);
-            })
-            .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
-          await pasteReq({
-            content: attachmentsStrings,
-            range: selection.serialize(),
-            type: rangeTypes[selection.type],
-          });
-          toaster.update({ id: toaster.id, title: 'Pasted success!' });
-        }
-        return;
-      } else if (!isSelectionCoverAttachments) {
-        toaster.update({
-          id: toaster.id,
-          title: 'Files can only be pasted into an attachment field',
-        });
-        return;
-      }
 
-      const clipboardContent = await navigator.clipboard.read();
-      const hasHtml = clipboardContent[0].types.includes('text/html');
-      const text = await (await clipboardContent[0].getType('text/plain')).text();
-      const html = hasHtml
-        ? await (await clipboardContent[0].getType('text/html')).text()
-        : undefined;
-      const header = extractTableHeader(html);
-      if (header.error) {
-        toaster.update({ id: toaster.id, title: header.error });
-        return;
+      const files = e.clipboardData.files;
+      const toaster = toast({ title: 'Pasting...' });
+      if (files.length > 0) {
+        await handleFilePaste(files, selection, recordMap, toaster);
+      } else {
+        await handleTextPaste(selection, toaster);
       }
-      await pasteReq({
-        content: text,
-        range: selection.serialize(),
-        type: rangeTypes[selection.type],
-        header: header.result,
-      });
-      toaster.update({ id: toaster.id, title: 'Pasted success!' });
     },
-    [tableId, toast, viewId, pasteReq, fields]
+    [viewId, tableId, toast, handleFilePaste, handleTextPaste]
   );
 
   const doClear = useCallback(
