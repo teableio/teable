@@ -86,6 +86,7 @@
       "db-main-prisma",
       "ui-lib",
       "root",
+      "openapi"
     ]
   }
 }
