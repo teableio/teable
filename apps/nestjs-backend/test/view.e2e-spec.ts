@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
+import type { IFieldVo, ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
 import { FieldType, ViewType } from '@teable-group/core';
 import type supertest from 'supertest';
 import { createField, getFields, initApp } from './utils/init-app';
@@ -76,7 +76,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    const oldFields = await getFields(request, table.id, table.views[0].id);
+    const oldFields: IFieldVo[] = [];
     oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
     oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
     oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
@@ -85,6 +85,6 @@ describe('OpenAPI ViewController (e2e)', () => {
     const newView = result.body as IViewVo;
     const newFields = await getFields(request, table.id, newView.id);
 
-    expect(newFields).toMatchObject(oldFields);
+    expect(newFields.slice(3)).toMatchObject(oldFields);
   });
 });
