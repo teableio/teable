@@ -64,7 +64,12 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
               <ChevronRight className="rotate-180 text-6xl" />
             </button>
             <div className="h-full flex items-center justify-center" onClick={closePreview}>
-              <FilePreview />
+              <div
+                className="h-full w-full flex items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <FilePreview />
+              </div>
             </div>
             <button
               className={cn(
