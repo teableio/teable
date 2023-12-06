@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
 import {
   createRecordsRoSchema,
@@ -49,7 +59,7 @@ export class RecordOpenApiController {
   }
 
   @Permissions('record|update')
-  @Put(':recordId')
+  @Patch(':recordId')
   async updateRecordById(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
@@ -59,7 +69,7 @@ export class RecordOpenApiController {
   }
 
   @Permissions('record|update')
-  @Put()
+  @Patch()
   async updateRecordByIndex(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(updateRecordByIndexRoSchema))

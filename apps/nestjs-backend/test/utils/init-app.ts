@@ -96,7 +96,7 @@ export async function updateRecordByApi(
   newValue: unknown,
   expectStatus = 200
 ): Promise<IRecord> {
-  const result = await request.put(`/api/table/${tableId}/record/${recordId}`).send({
+  const result = await request.patch(`/api/table/${tableId}/record/${recordId}`).send({
     fieldKeyType: FieldKeyType.Id,
     record: {
       fields: {
@@ -206,7 +206,7 @@ export async function updateField(
   fieldId: string,
   fieldRo: IFieldRo
 ): Promise<IFieldVo> {
-  const result = await request.put(`/api/table/${tableId}/field/${fieldId}`).send(fieldRo);
+  const result = await request.patch(`/api/table/${tableId}/field/${fieldId}`).send(fieldRo);
   if (result.status !== 200) {
     console.error(JSON.stringify(result.body, null, 2));
   }

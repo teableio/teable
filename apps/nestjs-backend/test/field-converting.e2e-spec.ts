@@ -1027,7 +1027,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
       const sourceField = await createField(request, table1.id, sourceFieldRo);
       await request
-        .put(`/api/table/${table1.id}/field/${sourceField.id}`)
+        .patch(`/api/table/${table1.id}/field/${sourceField.id}`)
         .send(newFieldRo)
         .expect(400);
     });
