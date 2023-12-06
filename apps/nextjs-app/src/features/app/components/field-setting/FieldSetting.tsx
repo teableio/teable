@@ -2,6 +2,15 @@ import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
 import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
 import { useTable } from '@teable-group/sdk/hooks';
 import { useToast } from '@teable-group/ui-lib/shadcn';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+} from '@teable-group/ui-lib/shadcn/ui/alert-dialog';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useCallback, useState } from 'react';
@@ -60,14 +69,14 @@ const FieldSettingBase = (props: IFieldSetting) => {
     isLookup: originField?.isLookup,
     lookupOptions: originField?.lookupOptions,
   });
-
+  const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
       return;
     }
-    onCancel?.();
+    onCancelInner();
   };
 
   const onFieldEditorChange = useCallback((field: IFieldRo) => {
@@ -76,8 +85,8 @@ const FieldSettingBase = (props: IFieldSetting) => {
   }, []);
 
   const onCancelInner = () => {
-    const prompt = 'Are you sure you want to discard your changes?';
-    if (updateCount > 0 && !window.confirm(prompt)) {
+    if (updateCount > 0) {
+      setAlertVisible(true);
       return;
     }
     onCancel?.();
@@ -86,7 +95,6 @@ const FieldSettingBase = (props: IFieldSetting) => {
   const onConfirmInner = () => {
     const result = updateFieldRoSchema.safeParse(field);
     if (result.success) {
-      console.log('confirmField', result.data);
       return onConfirm?.(result.data);
     }
 
@@ -116,6 +124,26 @@ const FieldSettingBase = (props: IFieldSetting) => {
               Save
             </Button>
           </div>
+          <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogDescription>
+                  Are you sure you want to discard your changes?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel className="h-8 rounded-md px-3 text-xs">
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="h-8 rounded-md px-3 text-xs"
+                  onClick={() => setTimeout(() => onCancel?.(), 200)}
+                >
+                  Continue
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </SheetContent>
     </Sheet>
