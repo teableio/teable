@@ -49,13 +49,30 @@ export class PostgresProvider implements IDbProvider {
       .map((item) => item.sql);
   }
 
-  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
-    return this.knex.schema
-      .alterTable(tableName, (table) => {
-        table[schemaType](columnName).alter();
+  columnInfo(tableName: string, columnName: string): string {
+    const [schemaName, dbTableName] = tableName.split('.');
+    return this.knex
+      .select({
+        name: 'column_name',
       })
-      .toSQL()
-      .map((item) => item.sql);
+      .from('information_schema.columns')
+      .where({
+        table_schema: schemaName,
+        table_name: dbTableName,
+        column_name: columnName,
+      })
+      .toQuery();
+  }
+
+  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
+    return [this.knex(tableName).update(columnName, null).toQuery()].concat(
+      this.knex.schema
+        .alterTable(tableName, (table) => {
+          table[schemaType](columnName).alter();
+        })
+        .toSQL()
+        .map((item) => item.sql)
+    );
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

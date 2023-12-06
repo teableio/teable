@@ -18,6 +18,9 @@ export interface IDbProvider {
 
   dropColumn(tableName: string, columnName: string): string[];
 
+  // sql response format: { name: string }[], name for columnName.
+  columnInfo(tableName: string, columnName: string): string;
+
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;

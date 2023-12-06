@@ -220,7 +220,7 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
-  private async updateDbFieldType(field: IFieldInstance) {
+  private async updateDbFieldType(dbTableName: string, field: IFieldInstance) {
     const ops: IOtOperation[] = [];
     const dbFieldType = this.fieldSupplementService.getDbFieldType(
       field.type,
@@ -230,7 +230,10 @@ export class FieldConvertingService {
 
     if (field.dbFieldType !== dbFieldType) {
       const op1 = this.buildOpAndMutateField(field, 'dbFieldType', dbFieldType);
+      const op2 = this.buildOpAndMutateField(field, 'dbFieldName', field.dbFieldName + '_');
       op1 && ops.push(op1);
+      op2 && ops.push(op2);
+      await this.fieldService.alterTableAddField(dbTableName, [field]);
     }
     return ops;
   }
@@ -238,7 +241,8 @@ export class FieldConvertingService {
   private async generateReferenceFieldOps(fieldId: string) {
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
 
-    const { fieldMap, topoOrdersByFieldId, fieldId2TableId } = topoOrdersContext;
+    const { fieldMap, topoOrdersByFieldId, fieldId2TableId, tableId2DbTableName } =
+      topoOrdersContext;
     const topoOrders = topoOrdersByFieldId[fieldId];
     if (topoOrders.length <= 1) {
       return {};
@@ -251,6 +255,7 @@ export class FieldConvertingService {
       // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
       const tableId = fieldId2TableId[curField.id];
+      const dbTableName = tableId2DbTableName[tableId];
       if (curField.isLookup) {
         pushOpsMap(tableId, curField.id, this.updateLookupField(curField, fieldMap));
       } else if (curField.type === FieldType.Formula) {
@@ -258,7 +263,7 @@ export class FieldConvertingService {
       } else if (curField.type === FieldType.Rollup) {
         pushOpsMap(tableId, curField.id, this.updateRollupField(curField, fieldMap));
       }
-      const ops = await this.updateDbFieldType(curField);
+      const ops = await this.updateDbFieldType(dbTableName, curField);
       pushOpsMap(tableId, curField.id, ops);
     }
 
@@ -989,6 +994,18 @@ export class FieldConvertingService {
     }
   }
 
+  // we should create a new field in visual db, because we can not modify a field in sqlite.
+  // so we should generate a new dbFieldName for the modified field.
+  private async updateDbFieldName(tableId: string, newField: IFieldVo, oldField: IFieldVo) {
+    if (newField.dbFieldType === oldField.dbFieldType) {
+      return;
+    }
+    newField.dbFieldName = newField.dbFieldName + '_';
+    const dbTableName = await this.fieldService.getDbTableName(tableId);
+
+    await this.fieldService.alterTableAddField(dbTableName, [newField]);
+  }
+
   async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
     const fieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!fieldVo) {
@@ -1001,6 +1018,8 @@ export class FieldConvertingService {
       updateFieldRo,
       oldFieldInstance
     );
+
+    await this.updateDbFieldName(tableId, newFieldVo, fieldVo);
 
     const newFieldInstance = createFieldInstanceByVo(newFieldVo);
 

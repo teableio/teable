@@ -53,12 +53,11 @@ export class FieldService implements IAdapterService {
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
-    const field = await this.prismaService.txClient().field.findFirst({
-      where: { tableId, dbFieldName, deletedTime: null },
-    });
 
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId), dbFieldName);
+    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
     // fallback logic
-    if (field) {
+    if (columns.some((column) => column.name === dbFieldName)) {
       dbFieldName += new Date().getTime();
     }
     return dbFieldName;
@@ -433,7 +432,7 @@ export class FieldService implements IAdapterService {
     await this.deleteMany(tableId, [{ docId: fieldId, version }]);
   }
 
-  private async handleFieldProperty(fieldId: string, opContext: IOpContext) {
+  private async handleFieldProperty(_fieldId: string, opContext: IOpContext) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
     if (key === 'options') {
       if (!newValue) {
@@ -454,13 +453,13 @@ export class FieldService implements IAdapterService {
       return { [key]: JSON.stringify(newValue) ?? null };
     }
 
-    if (key === 'dbFieldType') {
-      await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
-    }
+    // if (key === 'dbFieldType') {
+    //   await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
+    // }
 
-    if (key === 'dbFieldName') {
-      await this.alterTableModifyFieldName(fieldId, newValue as string);
-    }
+    // if (key === 'dbFieldName') {
+    //   await this.alterTableModifyFieldName(fieldId, newValue as string);
+    // }
 
     return { [key]: newValue ?? null };
   }
