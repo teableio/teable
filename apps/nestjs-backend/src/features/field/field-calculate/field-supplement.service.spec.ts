@@ -5,6 +5,7 @@ import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { GlobalModule } from '../../../global/global.module';
+import { FieldService } from '../field.service';
 import { createFieldInstanceByVo } from '../model/factory';
 import { FieldCalculateModule } from './field-calculate.module';
 import { FieldSupplementService } from './field-supplement.service';
@@ -18,8 +19,10 @@ describe('FieldSupplementService', () => {
       imports: [GlobalModule, FieldCalculateModule],
     }).compile();
 
+    const fieldService = module.get<FieldService>(FieldService);
     service = module.get<FieldSupplementService>(FieldSupplementService);
     prismaService = module.get<PrismaService>(PrismaService);
+    fieldService.generateDbFieldName = jest.fn().mockImplementation((name) => name);
   });
 
   describe('prepareFieldOptions', () => {

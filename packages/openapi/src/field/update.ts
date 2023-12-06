@@ -8,7 +8,7 @@ import { z } from '../zod';
 export const UPDATE_FIELD = '/table/{tableId}/field/{fieldId}';
 
 export const UpdateFieldRoute: RouteConfig = registerRoute({
-  method: 'put',
+  method: 'patch',
   path: UPDATE_FIELD,
   description: 'Update or convert a field',
   request: {
@@ -38,7 +38,7 @@ export const UpdateFieldRoute: RouteConfig = registerRoute({
 });
 
 export const updateField = async (tableId: string, fieldId: string, fieldRo: IUpdateFieldRo) => {
-  return axios.put<IFieldVo>(
+  return axios.patch<IFieldVo>(
     urlBuilder(UPDATE_FIELD, {
       tableId,
       fieldId,

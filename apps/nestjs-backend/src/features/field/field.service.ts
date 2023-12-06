@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IDeleteColumnMetaOpContext,
   IAddColumnMetaOpContext,
@@ -20,6 +20,7 @@ import { Knex } from 'knex';
 import { forEach, isEqual, keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -46,11 +47,20 @@ export class FieldService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
+    @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  generateDbFieldName(fields: { id: string; name: string }[]): string[] {
-    return fields.map(({ id, name }) => `${convertNameToValidCharacter(name, 12)}_${id}`);
+  async generateDbFieldName(tableId: string, name: string): Promise<string> {
+    let dbFieldName = convertNameToValidCharacter(name, 40);
+
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId), dbFieldName);
+    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
+    // fallback logic
+    if (columns.some((column) => column.name === dbFieldName)) {
+      dbFieldName += new Date().getTime();
+    }
+    return dbFieldName;
   }
 
   private async dbCreateField(tableId: string, fieldInstance: IFieldInstance) {
@@ -150,7 +160,7 @@ export class FieldService implements IAdapterService {
     return multiFieldData;
   }
 
-  async alterVisualTable(
+  async alterTableAddField(
     dbTableName: string,
     fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
   ) {
@@ -163,6 +173,61 @@ export class FieldService implements IAdapterService {
           table[typeKey](field.dbFieldName);
         })
         .toQuery();
+      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+    }
+  }
+
+  async alterTableDeleteField(dbTableName: string, dbFieldNames: string[]) {
+    for (const dbFieldName of dbFieldNames) {
+      const alterTableSql = this.dbProvider.dropColumn(dbTableName, dbFieldName);
+
+      for (const alterTableQuery of alterTableSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+      }
+    }
+  }
+
+  private async alterTableModifyFieldName(fieldId: string, newDbFieldName: string) {
+    const { dbFieldName, table } = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+      select: { dbFieldName: true, table: { select: { id: true, dbTableName: true } } },
+    });
+
+    const existingField = await this.prismaService.txClient().field.findFirst({
+      where: { tableId: table.id, dbFieldName: newDbFieldName, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (existingField) {
+      throw new BadRequestException(`Db Field name ${newDbFieldName} already exists in this table`);
+    }
+
+    const alterTableSql = this.dbProvider.renameColumnName(
+      table.dbTableName,
+      dbFieldName,
+      newDbFieldName
+    );
+
+    for (const alterTableQuery of alterTableSql) {
+      await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+    }
+  }
+
+  private async alterTableModifyFieldType(fieldId: string, newDbFieldType: DbFieldType) {
+    const { dbFieldName, table } = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+      select: { dbFieldName: true, table: { select: { dbTableName: true } } },
+    });
+
+    const schemaType = dbType2knexFormat(this.knex, newDbFieldType);
+
+    const alterTableSql = this.dbProvider.modifyColumnSchema(
+      table.dbTableName,
+      dbFieldName,
+      schemaType
+    );
+
+    for (const alterTableQuery of alterTableSql) {
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
     }
   }
@@ -317,7 +382,7 @@ export class FieldService implements IAdapterService {
     await this.dbCreateMultipleField(tableId, fields);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(dbTableName, fields);
+    await this.alterTableAddField(dbTableName, fields);
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Field, dataList);
   }
@@ -334,7 +399,7 @@ export class FieldService implements IAdapterService {
     await this.dbCreateMultipleField(tableId, [fieldInstance]);
 
     // 2. alter table with real field in visual table
-    await this.alterVisualTable(dbTableName, [fieldInstance]);
+    await this.alterTableAddField(dbTableName, [fieldInstance]);
   }
 
   async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
@@ -351,13 +416,23 @@ export class FieldService implements IAdapterService {
         data: { deletedTime: new Date(), lastModifiedBy: userId, version },
       });
     }
+    const dbTableName = await this.getDbTableName(tableId);
+    const fieldIds = fieldData.map((data) => data.docId);
+    const fieldsRaw = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: fieldIds } },
+      select: { dbFieldName: true },
+    });
+    await this.alterTableDeleteField(
+      dbTableName,
+      fieldsRaw.map((field) => field.dbFieldName)
+    );
   }
 
   async del(version: number, tableId: string, fieldId: string) {
     await this.deleteMany(tableId, [{ docId: fieldId, version }]);
   }
 
-  private handleFieldProperty(_fieldId: string, opContext: IOpContext) {
+  private async handleFieldProperty(_fieldId: string, opContext: IOpContext) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
     if (key === 'options') {
       if (!newValue) {
@@ -377,6 +452,14 @@ export class FieldService implements IAdapterService {
     if (key === 'columnMeta') {
       return { [key]: JSON.stringify(newValue) ?? null };
     }
+
+    // if (key === 'dbFieldType') {
+    //   await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
+    // }
+
+    // if (key === 'dbFieldName') {
+    //   await this.alterTableModifyFieldName(fieldId, newValue as string);
+    // }
 
     return { [key]: newValue ?? null };
   }

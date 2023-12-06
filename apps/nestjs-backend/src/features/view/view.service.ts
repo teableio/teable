@@ -154,6 +154,7 @@ export class ViewService implements IAdapterService {
   async getViews(tableId: string): Promise<IViewVo[]> {
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
+      orderBy: { order: 'asc' },
     });
 
     return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);

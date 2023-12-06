@@ -9,6 +9,7 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
+import { orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
 import { FieldService } from '../../field/field.service';
@@ -55,17 +56,20 @@ export class ViewOpenApiService {
     tableId: string,
     opName: OpName.AddColumnMeta | OpName.DeleteColumnMeta
   ) {
-    const fields = await this.prismaService.txClient().field.findMany({
+    let fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true },
+      select: { id: true, columnMeta: true, createdTime: true, isPrimary: true },
     });
+
+    // manually sort to prevent the empty value sort problem in postgres and sqlite
+    fields = orderBy(fields, ['isPrimary', 'createdTime']);
 
     for (let index = 0; index < fields.length; index++) {
       const field = fields[index];
 
       let data: IOtOperation;
       if (opName === OpName.AddColumnMeta) {
-        data = this.addColumnMeta2Op(viewId, index);
+        data = this.addColumnMeta2Op(viewId, index + 1);
       } else {
         data = this.deleteColumnMeta2Op(viewId, JSON.parse(field.columnMeta));
       }

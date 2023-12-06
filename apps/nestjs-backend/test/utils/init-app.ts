@@ -216,9 +216,15 @@ export async function updateField(
 
 export async function getFields(
   request: request.SuperAgentTest,
-  tableId: string
+  tableId: string,
+  viewId?: string
 ): Promise<IFieldVo[]> {
-  const result = await request.get(`/api/table/${tableId}/field`).expect(200);
+  const result = await request
+    .get(`/api/table/${tableId}/field`)
+    .query({
+      viewId,
+    })
+    .expect(200);
   return result.body;
 }
 

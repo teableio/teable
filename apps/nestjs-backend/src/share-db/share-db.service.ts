@@ -14,7 +14,7 @@ import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
 import { ShareDbPermissionService } from './share-db-permission.service';
-import { SqliteDbAdapter } from './sqlite.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class ShareDbService extends ShareDBClass {
   private logger = new Logger(ShareDbService.name);
 
   constructor(
-    readonly sqliteDbAdapter: SqliteDbAdapter,
+    readonly shareDbAdapter: ShareDbAdapter,
     private readonly eventEmitter: EventEmitter2,
     private readonly eventService: EventEmitterService,
     private readonly prismaService: PrismaService,
@@ -33,7 +33,7 @@ export class ShareDbService extends ShareDBClass {
     super({
       presence: true,
       doNotForwardSendPresenceErrorsToClient: true,
-      db: sqliteDbAdapter,
+      db: shareDbAdapter,
     });
     // auth
     authMiddleware(this, this.shareDbPermissionService);

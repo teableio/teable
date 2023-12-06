@@ -239,6 +239,9 @@ importers:
       sharp:
         specifier: 0.32.6
         version: 0.32.6
+      transliteration:
+        specifier: 2.3.5
+        version: 2.3.5
       ws:
         specifier: 8.14.2
         version: 8.14.2
@@ -14441,7 +14444,6 @@ packages:
       string-width: 4.2.3
       strip-ansi: 6.0.1
       wrap-ansi: 7.0.0
-    dev: true
 
   /clone-deep@4.0.1:
     resolution:
@@ -28927,7 +28929,6 @@ packages:
         integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==,
       }
     engines: { node: '>=0.10.0' }
-    dev: true
 
   /require-from-string@2.0.2:
     resolution:
@@ -31621,6 +31622,17 @@ packages:
       punycode: 2.3.1
     dev: true
 
+  /transliteration@2.3.5:
+    resolution:
+      {
+        integrity: sha512-HAGI4Lq4Q9dZ3Utu2phaWgtm3vB6PkLUFqWAScg/UW+1eZ/Tg6Exo4oC0/3VUol/w4BlefLhUUSVBr/9/ZGQOw==,
+      }
+    engines: { node: '>=6.0.0' }
+    hasBin: true
+    dependencies:
+      yargs: 17.7.2
+    dev: false
+
   /tree-kill@1.2.2:
     resolution:
       {
@@ -33657,7 +33669,6 @@ packages:
         integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==,
       }
     engines: { node: '>=10' }
-    dev: true
 
   /yallist@2.1.2:
     resolution:
@@ -33726,7 +33737,6 @@ packages:
         integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==,
       }
     engines: { node: '>=12' }
-    dev: true
 
   /yargs@15.4.1:
     resolution:
@@ -33762,7 +33772,6 @@ packages:
       string-width: 4.2.3
       y18n: 5.0.8
       yargs-parser: 21.1.1
-    dev: true
 
   /yn@3.1.1:
     resolution:

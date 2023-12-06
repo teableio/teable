@@ -159,6 +159,7 @@
     "rxjs": "7.8.1",
     "sharedb": "4.1.0",
     "sharp": "0.32.6",
+    "transliteration": "2.3.5",
     "ws": "8.14.2",
     "zod": "3.22.4",
     "zod-validation-error": "2.1.0"

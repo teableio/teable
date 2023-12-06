@@ -194,6 +194,7 @@ describe('selectionService', () => {
 
   describe('expandColumns', () => {
     it('should expand the columns and create new fields', async () => {
+      jest.spyOn(fieldService as any, 'generateDbFieldName').mockReturnValue('fieldName');
       // Mock dependencies
       const tableId = 'table1';
       // const viewId = 'view1';

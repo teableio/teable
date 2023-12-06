@@ -3,6 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ICreateRecordsRo } from '@teable-group/core';
 import type request from 'supertest';
+import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { initApp } from './utils/init-app';
 
 const assertData = {
@@ -93,11 +94,13 @@ describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let request: request.SuperAgentTest;
-  const baseId = globalThis.testConfig.baseId;
+  let dbProvider: IDbProvider;
 
+  const baseId = globalThis.testConfig.baseId;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    dbProvider = app.get('DbProvider');
     request = appCtx.request;
   });
 
@@ -142,5 +145,20 @@ describe('OpenAPI FieldController (e2e)', () => {
     const tableResult = await request.get(`/api/base/${baseId}/table/${tableId}`).expect(200);
     const currTime = tableResult.body.lastModifiedTime;
     expect(new Date(currTime).getTime() > new Date(prevTime).getTime()).toBeTruthy();
+  });
+
+  it('should create table with add a record', async () => {
+    const timeStr = new Date().getTime() + '';
+    const result = await request
+      .post(`/api/base/${baseId}/table`)
+      .send({ name: 'new table', dbTableName: 'my_awesome_table_name' + timeStr })
+      .expect(201);
+    tableId = result.body.id;
+
+    const tableResult = await request.get(`/api/base/${baseId}/table/${tableId}`).expect(200);
+
+    expect(tableResult.body.dbTableName).toEqual(
+      dbProvider.generateDbTableName(baseId, 'my_awesome_table_name' + timeStr)
+    );
   });
 });

@@ -1,15 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { OpBuilderAbstract } from '../op-builder.abstract';
 import { AddTableBuilder } from './add-table';
-import { SetTableIconBuilder } from './set-table-icon';
-import { SetTableNameBuilder } from './set-table-name';
-import { SetTableOrderBuilder } from './set-table-order';
+import { SetTablePropertyBuilder } from './set-table-property';
 
 export class TableOpBuilder {
   static editor = {
-    setTableName: new SetTableNameBuilder(),
-    setTableOrder: new SetTableOrderBuilder(),
-    setTableIcon: new SetTableIconBuilder(),
+    setTableProperty: new SetTablePropertyBuilder(),
   };
 
   static creator = new AddTableBuilder();

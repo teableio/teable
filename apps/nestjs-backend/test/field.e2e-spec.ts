@@ -465,11 +465,11 @@ describe('OpenAPI FieldController (e2e)', () => {
         )
       ).rejects.toThrow();
 
-      // cell should be clean
-      const linkedCellAfter = await prisma.$queryRawUnsafe<{ __id: string }[]>(
-        knex(fkHostTableName).select('*').whereNotNull(linkField.dbFieldName).toQuery()
-      );
-      expect(linkedCellAfter.length).toBe(0);
+      expect(
+        prisma.$queryRawUnsafe<{ __id: string }[]>(
+          knex(fkHostTableName).select('*').whereNotNull(linkField.dbFieldName).toQuery()
+        )
+      ).rejects.toThrow();
 
       // formula field should be marked as deleted
       const fieldRaw = await prisma.field.findUnique({
