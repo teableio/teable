@@ -14,7 +14,7 @@ const LayoutList = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M10 14H3v7h7v-7ZM10 3H3v7h7V3ZM14 4h7M14 9h7M14 15h7M14 20h7"
+      d="M10 14H3v7h7zM10 3H3v7h7zM14 4h7M14 9h7M14 15h7M14 20h7"
     />
   </svg>
 );

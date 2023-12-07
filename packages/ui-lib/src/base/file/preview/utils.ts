@@ -32,3 +32,7 @@ export const isPpt = (mimetype: string) => {
 export const isMarkdown = (mimetype: string) => {
   return mimetype.startsWith('text/markdown');
 };
+
+export const isPackage = (mimetype: string) => {
+  return mimetype.startsWith('application/zip');
+};

@@ -14,7 +14,7 @@ const Layers = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m2 17 10 5 10-5M2 12l10 5 10-5M12 2 2 7l10 5 10-5-10-5Z"
+      d="m2 17 10 5 10-5M2 12l10 5 10-5M12 2 2 7l10 5 10-5z"
     />
   </svg>
 );

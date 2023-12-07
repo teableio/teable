@@ -123,16 +123,17 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           <ul className="-right-2 flex h-full w-full flex-wrap">
             <FilePreviewProvider>
               {attachments.map((attachment) => (
-                <li key={attachment.id} className="mb-2 flex h-28 w-1/4 flex-col pr-1">
+                <li key={attachment.id} className="mb-2 flex h-32 w-28 flex-col pr-3">
                   <div className="group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border">
                     <FilePreviewItem
+                      className="flex items-center justify-center"
                       src={attachment.url}
                       name={attachment.name}
                       mimetype={attachment.mimetype}
                       size={attachment.size}
                     >
                       <img
-                        className="h-full w-full"
+                        className="h-full w-full object-contain"
                         src={getFileCover(attachment.mimetype, attachment.url)}
                         alt={attachment.name}
                       />
@@ -146,7 +147,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                       <li>
                         <Button
                           variant={'ghost'}
-                          className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          className="h-5 w-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
                           onClick={() => downloadFile(attachment)}
                         >
                           <Download />
@@ -155,7 +156,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                       <li>
                         <Button
                           variant={'ghost'}
-                          className="h-5 w-5 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          className="h-5 w-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
                           onClick={() => onDelete(attachment.id)}
                           disabled={disabled}
                         >
@@ -164,7 +165,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                       </li>
                     </ul>
                   </div>
-                  <span className="w-full truncate text-center" title={attachment.name}>
+                  <span className="mt-1 w-full truncate text-center" title={attachment.name}>
                     {attachment.name}
                   </span>
                 </li>

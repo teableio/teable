@@ -14,7 +14,7 @@ const Moon = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M12 3a6.364 6.364 0 0 0 9 9 9 9 0 1 1-9-9Z"
+      d="M12 3a6.364 6.364 0 0 0 9 9 9 9 0 1 1-9-9"
     />
   </svg>
 );

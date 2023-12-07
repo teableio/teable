@@ -136,7 +136,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           {showActivity && (
             <div
               className={classNames('flex', {
-                'absolute top-0 right-0 h-full bg-background w-full':
+                'absolute top-0 right-0 h-full bg-background w-80':
                   containerWidth <= MIN_SHOW_ACTIVITY_WIDTH,
               })}
             >
