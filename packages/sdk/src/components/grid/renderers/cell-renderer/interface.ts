@@ -182,9 +182,10 @@ export interface ICellMeasureResult {
 }
 
 export enum CellRegionType {
-  Update = 'update',
-  ToggleEditing = 'toggleEditing',
   Blank = 'blank',
+  Update = 'update',
+  Preview = 'preview',
+  ToggleEditing = 'toggleEditing',
 }
 
 export interface ICellRegionWithBlank {
@@ -192,7 +193,7 @@ export interface ICellRegionWithBlank {
 }
 
 export interface ICellRegionWithData {
-  type: CellRegionType.Update | CellRegionType.ToggleEditing;
+  type: CellRegionType.Update | CellRegionType.ToggleEditing | CellRegionType.Preview;
   data: unknown;
 }
 

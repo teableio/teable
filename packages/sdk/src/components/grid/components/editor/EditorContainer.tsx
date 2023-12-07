@@ -132,7 +132,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const wrapStyle = useMemo(() => {
     if (!editingEnable) return;
     const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
-    // const rowHeight = coordInstance.getRowHeight(columnIndex);
     const verticalPositionMap = {
       [EditorPosition.Overlap]: -1.5,
       [EditorPosition.Below]: height - 2.5,

@@ -209,7 +209,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     for (const position of textPositions) {
       const { x, y, width, link } = position;
       if (hoverX >= x && hoverX <= x + width && hoverY >= y && hoverY <= y + cellTextLineHeight) {
-        return { type: CellRegionType.Update, data: link };
+        return { type: CellRegionType.Preview, data: link };
       }
     }
     return { type: CellRegionType.Blank };
@@ -217,6 +217,8 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
   onClick: (cell: ILinkCell, props: ICellClickProps, _callback: ICellClickCallback) => {
     const cellRegion = linkCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
-    cell.onClick(cellRegion.data as string);
+    if (cellRegion.type === CellRegionType.Preview) {
+      cell.onClick(cellRegion.data as string);
+    }
   },
 };

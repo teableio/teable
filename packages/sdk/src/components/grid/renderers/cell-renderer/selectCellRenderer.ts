@@ -37,12 +37,12 @@ const drawLabel = (
     maxTextWidth: number;
     textColor: string;
     bgColor: string;
-    deletable?: boolean;
+    editable?: boolean;
     theme: IGridTheme;
     spriteManager: SpriteManager;
   }
 ) => {
-  const { x, y, width, text, maxTextWidth, textColor, bgColor, deletable, theme, spriteManager } =
+  const { x, y, width, text, maxTextWidth, textColor, bgColor, editable, theme, spriteManager } =
     props;
   const { fontSizeXS, iconSizeSM, iconSizeXS } = theme;
 
@@ -63,7 +63,7 @@ const drawLabel = (
     fontSize: fontSizeXS,
   });
 
-  if (deletable) {
+  if (editable) {
     spriteManager.drawSprite(ctx, {
       sprite: GridInnerIcon.Close,
       x: x + width - iconSizeXS - OPTION_PADDING_HORIZONTAL + 2,
@@ -164,8 +164,8 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const rows = isActive
       ? Infinity
       : Math.max(1, Math.floor((drawArea.height - iconSizeSM) / combinedHeight) + 1);
-    const deletable = !readonly && isActive;
-    const deleteBtnWidth = deletable ? iconSizeXS : 0;
+    const editable = !readonly && isActive;
+    const deleteBtnWidth = editable ? iconSizeXS : 0;
     const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2 - deleteBtnWidth;
     const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + deleteBtnWidth;
     const rightEdgeOfDrawArea = drawArea.x + drawArea.width;
@@ -222,7 +222,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         maxTextWidth,
         textColor,
         bgColor,
-        deletable,
+        editable,
         theme,
         spriteManager,
       });
@@ -236,8 +236,8 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   checkRegion: (cell: ISelectCell, props: ICellClickProps, shouldCalculate?: boolean) => {
     const { data, displayData, readonly } = cell;
     const { width, theme, isActive, hoverCellPosition, activeCellBound } = props;
-    const deletable = !readonly && isActive && activeCellBound;
-    if (!deletable) return { type: CellRegionType.Blank };
+    const editable = !readonly && isActive && activeCellBound;
+    if (!editable) return { type: CellRegionType.Blank };
 
     const { iconSizeXS } = theme;
     const { scrollTop } = activeCellBound;
@@ -275,7 +275,8 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const cellRegion = selectCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion) return;
     if (cellRegion.type === CellRegionType.Blank) {
-      if (!readonly && isActive) {
+      const editable = !readonly && isActive;
+      if (editable) {
         return callback({ type: CellRegionType.ToggleEditing, data: null });
       }
       return;
