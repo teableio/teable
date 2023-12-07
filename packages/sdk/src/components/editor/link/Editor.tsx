@@ -14,12 +14,12 @@ interface ILinkEditorProps {
   options: ILinkFieldOptions;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
-  disabled?: boolean;
+  readonly?: boolean;
   className?: string;
 }
 
 export const LinkEditor = (props: ILinkEditorProps) => {
-  const { cellValue, options, onChange, disabled, className } = props;
+  const { cellValue, options, onChange, readonly, className } = props;
   const { toast } = useToast();
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [isEditing, setEditing] = useState<boolean>(false);
@@ -68,18 +68,19 @@ export const LinkEditor = (props: ILinkEditorProps) => {
           onKeyDown={noop}
         >
           {title || 'Unnamed record'}
-          <Button
-            className="absolute right-0 top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full opacity-0 group-hover:opacity-100"
-            size={'icon'}
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteRecord(id);
-            }}
-            disabled={disabled}
-          >
-            <X />
-          </Button>
+          {!readonly && (
+            <Button
+              className="absolute right-0 top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full opacity-0 group-hover:opacity-100"
+              size={'icon'}
+              tabIndex={-1}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteRecord(id);
+              }}
+            >
+              <X />
+            </Button>
+          )}
         </div>
       ))}
       <ExpandRecorder
@@ -89,22 +90,24 @@ export const LinkEditor = (props: ILinkEditorProps) => {
         onUpdateRecordIdCallback={updateExpandRecordId}
         onClose={() => updateExpandRecordId(undefined)}
       />
-      <Dialog open={isEditing} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild disabled={disabled}>
-          <Button variant="outline" size={'sm'} className={className}>
-            <Plus />
-            Add Record
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="flex h-[520px] max-w-4xl flex-col">
-          <LinkEditorMain
-            {...props}
-            ref={linkEditorMainRef}
-            isEditing={isEditing}
-            setEditing={setEditing}
-          />
-        </DialogContent>
-      </Dialog>
+      {!readonly && (
+        <Dialog open={isEditing} onOpenChange={onOpenChange}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size={'sm'} className={className}>
+              <Plus />
+              Add Record
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="flex h-[520px] max-w-4xl flex-col">
+            <LinkEditorMain
+              {...props}
+              ref={linkEditorMainRef}
+              isEditing={isEditing}
+              setEditing={setEditing}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

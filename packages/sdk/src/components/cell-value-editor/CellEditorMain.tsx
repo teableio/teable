@@ -32,7 +32,7 @@ import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
-  const { field, recordId, cellValue, onChange, disabled, className } = props;
+  const { field, recordId, cellValue, onChange, readonly, className } = props;
   const { type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
 
@@ -59,7 +59,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             value={cellValue as ISingleLineTextCellValue}
             options={options as ISingleLineTextFieldOptions}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -70,7 +70,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             className={className}
             value={cellValue as ILongTextCellValue}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -82,7 +82,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             options={options as INumberFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -93,7 +93,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             options={options as IRatingFieldOptions}
             value={cellValue as INumberCellValue}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -104,7 +104,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             value={cellValue as ISingleSelectCellValue}
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -116,7 +116,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             options={selectOptions(options as ISelectFieldOptions)}
             onChange={onChange}
             isMultiple
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -128,7 +128,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
               className={className}
               value={cellValue as ICheckboxCellValue}
               onChange={onChange}
-              disabled={disabled}
+              readonly={readonly}
             />
           </div>
         );
@@ -149,7 +149,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             className={className}
             value={cellValue as IAttachmentCellValue}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }
@@ -160,7 +160,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
             options={options as ILinkFieldOptions}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
             fieldId={field.id}
             recordId={recordId}
           />
@@ -169,5 +169,5 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       default:
         throw new Error(`The field type (${type}) is not implemented editor`);
     }
-  }, [type, className, cellValue, options, onChange, disabled, selectOptions, field.id, recordId]);
+  }, [type, className, cellValue, options, onChange, readonly, selectOptions, field.id, recordId]);
 };

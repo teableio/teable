@@ -6,6 +6,6 @@ import { UploadAttachment } from './upload-attachment/UploadAttachment';
 type IAttachmentEditor = ICellEditor<IAttachmentCellValue>;
 
 export const AttachmentEditor = (props: IAttachmentEditor) => {
-  const { value, onChange = noop, disabled } = props;
-  return <UploadAttachment attachments={value || []} onChange={onChange} disabled={disabled} />;
+  const { value, onChange = noop, readonly } = props;
+  return <UploadAttachment attachments={value || []} onChange={onChange} readonly={readonly} />;
 };

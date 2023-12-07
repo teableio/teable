@@ -3,7 +3,7 @@ export interface ICellEditor<T> {
   style?: React.CSSProperties;
   value?: T;
   onChange?: (value?: T) => void;
-  disabled?: boolean;
+  readonly?: boolean;
 }
 
 export interface IEditorRef<T> {

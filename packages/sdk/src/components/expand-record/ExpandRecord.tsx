@@ -126,7 +126,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
                 fields={fields}
                 hiddenFields={hiddenFields}
                 onChange={onChange}
-                disabled={!permission['record|update']}
+                readonly={!permission['record|update']}
               />
             ) : (
               <Skeleton className="h-10 w-full rounded" />

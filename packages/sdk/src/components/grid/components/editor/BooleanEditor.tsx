@@ -25,7 +25,7 @@ const BooleanEditorBase: ForwardRefRenderFunction<
     if (e.keyCode === KeyCode.Enter) {
       const newValue = !value;
       setValue(newValue);
-      onChange?.(newValue);
+      onChange?.(newValue || null);
     }
   };
 

@@ -8,7 +8,7 @@ export interface IDateEditorMain extends ICellEditor<Date> {
 }
 
 export const DateEditorMain = (props: IDateEditorMain) => {
-  const { value, style, className, onChange, disabled } = props;
+  const { value, style, className, onChange, readonly } = props;
 
   const onSelect = (value?: Date) => {
     onChange?.(value);
@@ -38,10 +38,10 @@ export const DateEditorMain = (props: IDateEditorMain) => {
       selected={value}
       onSelect={onSelect}
       className={className}
-      disabled={disabled}
+      disabled={readonly}
       footer={
         dayjs(value).isValid() ? (
-          <div className="flex items-center py-2 px-1">
+          <div className="flex items-center px-1 py-2">
             <Input type="time" value={timeValue} onChange={onTimeChange} />
           </div>
         ) : null

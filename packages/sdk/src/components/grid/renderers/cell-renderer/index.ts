@@ -10,6 +10,7 @@ import { selectCellRenderer } from './selectCellRenderer';
 import { textCellRenderer } from './textCellRenderer';
 
 export * from './interface';
+export * from './utils';
 
 export const getCellRenderer = (cellType: CellType) => {
   switch (cellType) {

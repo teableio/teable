@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+/* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex */
 import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -10,7 +10,7 @@ import {
   DEFAULT_MOUSE_STATE,
   GRID_CONTAINER_ID,
 } from './configs';
-import { useEventListener, useResizeObserver } from './hooks';
+import { useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
 import type { IInteractionLayerRef } from './InteractionLayer';
@@ -25,6 +25,7 @@ import type {
   IRowControlItem,
   IColumnStatistics,
   ICollaborator,
+  IActiveCellBound,
 } from './interface';
 import { RegionType, RowControlType, DraggableType, SelectableType } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
@@ -199,13 +200,18 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
+  const [activeCellBound, setActiveCellBound] = useState<IActiveCellBound | null>(null);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
+  const hoverRegionType = mouseState.type;
   const hasColumnStatistics = columnStatistics != null;
   const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
+  const scrollEnable =
+    hoverRegionType !== RegionType.None &&
+    !(hoverRegionType === RegionType.ActiveCell && activeCellBound?.scrollEnable);
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
 
@@ -300,17 +306,21 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     [coordInstance, scrollState, scrollTo]
   );
 
-  const onMouseDown = useCallback(() => {
+  const onMouseDown = () => {
     containerRef.current?.focus();
-  }, []);
-
-  useEventListener('mousedown', onMouseDown, containerRef.current, true);
+  };
 
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
     <div className="h-full w-full" style={style} ref={ref}>
-      <div id={GRID_CONTAINER_ID} ref={containerRef} tabIndex={0} className="relative outline-none">
+      <div
+        id={GRID_CONTAINER_ID}
+        ref={containerRef}
+        tabIndex={0}
+        className="relative outline-none"
+        onMouseDown={onMouseDown}
+      >
         {isTouchDevice ? (
           <TouchLayer
             width={width}
@@ -354,13 +364,15 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             isMultiSelectionEnable={isMultiSelectionEnable}
-            scrollState={scrollState}
             mouseState={mouseState}
+            scrollState={scrollState}
             setMouseState={setMouseState}
             getCellContent={getCellContent}
             forceRenderFlag={forceRenderFlag}
             rowCounterVisible={rowCounterVisible}
             rowIndexVisible={rowIndexVisible}
+            activeCellBound={activeCellBound}
+            setActiveCellBound={setActiveCellBound}
             scrollToItem={scrollToItem}
             scrollBy={scrollBy}
             onCopy={onCopy}
@@ -400,7 +412,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         containerRef={containerRef}
         scrollState={scrollState}
         setScrollState={setScrollState}
-        scrollEnable={mouseState.type !== RegionType.None}
+        scrollEnable={scrollEnable}
         onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>

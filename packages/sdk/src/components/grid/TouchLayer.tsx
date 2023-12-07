@@ -163,6 +163,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
           activeCell={null}
+          activeCellBound={null}
           mouseState={mouseState}
           scrollState={scrollState}
           dragState={DEFAULT_DRAG_STATE}

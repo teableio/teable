@@ -1,18 +1,41 @@
 import { GRID_DEFAULT } from '../../configs';
 import { drawMultiLineText, drawProcessBar, drawRing } from '../base-renderer/baseRenderer';
 import { CellType, NumberDisplayType } from './interface';
-import type { IInternalCellRenderer, INumberCell, ICellRenderProps } from './interface';
+import type {
+  INumberCell,
+  ICellRenderProps,
+  ICellMeasureProps,
+  IInternalCellRenderer,
+} from './interface';
+
+const { maxRowCount, cellVerticalPadding, cellTextLineHeight } = GRID_DEFAULT;
 
 export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
   type: CellType.Number,
-  needsHover: false,
-  needsHoverPosition: false,
+  measure: (cell: INumberCell, props: ICellMeasureProps) => {
+    const { displayData, showAs } = cell;
+    const { width, height } = props;
+
+    if (!displayData || typeof displayData === 'string' || showAs != null) {
+      return { width, height, totalHeight: height };
+    }
+
+    const lineCount = displayData.length;
+    const totalHeight = cellVerticalPadding + lineCount * cellTextLineHeight;
+    const displayRowCount = Math.min(maxRowCount, lineCount);
+
+    return {
+      width,
+      height: Math.max(height, cellVerticalPadding + displayRowCount * cellTextLineHeight),
+      totalHeight,
+    };
+  },
   draw: (cell: INumberCell, props: ICellRenderProps) => {
     const { data, displayData, showAs } = cell;
 
     if (data == null || displayData == null || displayData === '') return;
 
-    const { ctx, rect, theme } = props;
+    const { ctx, rect, theme, isActive } = props;
     const { x, y, width } = rect;
     const { cellHorizontalPadding, cellVerticalPadding } = GRID_DEFAULT;
     const { cellTextColor } = theme;
@@ -57,8 +80,10 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
       }
     }
 
-    showText &&
-      drawMultiLineText(ctx, {
+    if (!showText) return;
+
+    if (typeof displayData === 'string') {
+      return drawMultiLineText(ctx, {
         x: textX,
         y: y + cellVerticalPadding,
         text: displayData,
@@ -67,5 +92,31 @@ export const numberCellRenderer: IInternalCellRenderer<INumberCell> = {
         fill: cellTextColor,
         textAlign: 'right',
       });
+    }
+    let curY = y + cellVerticalPadding;
+    if (!isActive) {
+      return drawMultiLineText(ctx, {
+        x: textX,
+        y: y + cellVerticalPadding,
+        text: displayData.join(', '),
+        maxLines: 1,
+        maxWidth: textMaxWidth,
+        fill: cellTextColor,
+        textAlign: 'right',
+      });
+    }
+    displayData.forEach((text, index) => {
+      const isLast = index === displayData.length - 1;
+      drawMultiLineText(ctx, {
+        x: textX,
+        y: curY,
+        text: isLast ? text : `${text},`,
+        maxLines: 1,
+        maxWidth: textMaxWidth,
+        fill: cellTextColor,
+        textAlign: 'right',
+      });
+      curY += cellTextLineHeight;
+    });
   },
 };

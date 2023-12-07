@@ -9,6 +9,7 @@ import type {
   IMouseState,
   IColumnResizeState,
   ICellPosition,
+  IActiveCellBound,
 } from './interface';
 import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
@@ -35,6 +36,7 @@ export interface IRenderLayerProps
   isEditing?: boolean;
   visibleRegion: IVisibleRegion;
   activeCell: ICellItem | null;
+  activeCellBound: IActiveCellBound | null;
   dragState: IDragState;
   mouseState: IMouseState;
   selection: CombinedSelection;
@@ -61,6 +63,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     imageManager,
     spriteManager,
     activeCell,
+    activeCellBound,
     collaborators,
     dragState,
     scrollState,
@@ -128,6 +131,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       imageManager,
       spriteManager,
       activeCell,
+      activeCellBound,
       collaborators,
       dragState,
       scrollState,
@@ -162,6 +166,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     imageManager,
     spriteManager,
     activeCell,
+    activeCellBound,
     collaborators,
     dragState,
     scrollState,

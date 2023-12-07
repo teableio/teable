@@ -16,7 +16,7 @@ import { AttachmentManager } from './uploadManage';
 export interface IUploadAttachment {
   attachments: IAttachmentCellValue;
   onChange: (attachment: IAttachmentCellValue) => void;
-  disabled?: boolean;
+  readonly?: boolean;
 }
 
 type IUploadFileMap = { [key: string]: { progress: number; file: File } };
@@ -24,7 +24,7 @@ type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 const attachmentManager = new AttachmentManager(2);
 
 export const UploadAttachment = (props: IUploadAttachment) => {
-  const { attachments, onChange, disabled } = props;
+  const { attachments, onChange, readonly } = props;
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
@@ -117,7 +117,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         ref={listRef}
       >
         {(len === 0 || inPageOver) && (
-          <DragAndCopy onChange={uploadAttachment} disabled={disabled} />
+          <DragAndCopy onChange={uploadAttachment} disabled={readonly} />
         )}
         {len > 0 && (
           <ul className="-right-2 flex h-full w-full flex-wrap">
@@ -158,7 +158,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                           variant={'ghost'}
                           className="h-5 w-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
                           onClick={() => onDelete(attachment.id)}
-                          disabled={disabled}
+                          disabled={readonly}
                         >
                           <X />
                         </Button>
@@ -188,7 +188,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           </ul>
         )}
       </div>
-      {!disabled && <FileInput onChange={uploadAttachment} />}
+      {!readonly && <FileInput onChange={uploadAttachment} />}
     </div>
   );
 };

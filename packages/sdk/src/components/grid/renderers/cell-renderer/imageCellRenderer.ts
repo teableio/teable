@@ -1,66 +1,118 @@
+import { GridInnerIcon } from '../../managers';
+import { isPointInsideRectangle } from '../../utils';
 import { drawRect } from '../base-renderer';
-import type { ICellRenderProps, IImageCell, IInternalCellRenderer } from './interface';
-import { CellType } from './interface';
+import type {
+  ICellClickCallback,
+  ICellClickProps,
+  ICellRenderProps,
+  IImageCell,
+  IInternalCellRenderer,
+} from './interface';
+import { CellRegionType, CellType } from './interface';
 
-const INNER_PAD = 4;
+const INNER_PADDING = 4;
+
+const getImages = (
+  urls: string[],
+  loadImg: (url: string) => HTMLImageElement | ImageBitmap | undefined
+) => {
+  const images: (HTMLImageElement | ImageBitmap)[] = [];
+
+  for (let index = 0; index < urls.length; index++) {
+    const url = urls[index];
+    const img = loadImg(url);
+
+    if (img !== undefined) {
+      images.push(img);
+    }
+  }
+
+  return images;
+};
 
 export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   type: CellType.Image,
-  needsHover: false,
-  needsHoverPosition: false,
+  needsHoverWhenActive: true,
+  needsHoverPositionWhenActive: true,
   draw: (cell: IImageCell, props: ICellRenderProps) => {
-    const { rect, columnIndex, rowIndex, theme, ctx, imageManager } = props;
-    const { cellVerticalPadding, cellHorizontalPadding } = theme;
+    const { rect, columnIndex, rowIndex, theme, ctx, imageManager, isActive, spriteManager } =
+      props;
+    const { cellVerticalPadding, cellHorizontalPadding, iconSizeSM } = theme;
+    const { displayData: urls, readonly } = cell;
     const { x, y, width, height } = rect;
-    const urls = cell.displayData;
-
+    const editable = !readonly && isActive;
+    const initPadding = editable ? iconSizeSM + 2 : 0;
     const imgHeight = height - cellVerticalPadding * 2;
-    const images: (HTMLImageElement | ImageBitmap)[] = [];
-    let totalWidth = 0;
-    for (let index = 0; index < urls.length; index++) {
-      const url = urls[index];
-      const img = imageManager.loadOrGetImage(url, columnIndex, rowIndex);
 
-      if (img !== undefined) {
-        images[index] = img;
-        const imgWidth = img.width * (imgHeight / img.height);
-        totalWidth += imgWidth + INNER_PAD;
-      }
+    const images = getImages(urls, (url) =>
+      imageManager.loadOrGetImage(url, columnIndex, rowIndex)
+    );
+
+    if (editable) {
+      spriteManager.drawSprite(ctx, {
+        sprite: GridInnerIcon.Add,
+        x: x + cellHorizontalPadding - 2,
+        y: y + (height - iconSizeSM) / 2,
+        size: iconSizeSM,
+        theme,
+      });
     }
 
-    if (totalWidth === 0) return;
-    totalWidth -= INNER_PAD;
+    if (!images.length) return;
 
-    let drawX = x + cellHorizontalPadding;
+    let drawX = x + cellHorizontalPadding + initPadding;
 
     ctx.save();
     ctx.beginPath();
-
-    if (images.length) {
-      ctx.rect(x, y, width - 0.5, height);
-      ctx.clip();
-    }
+    ctx.rect(x, y, width - 0.5, height);
+    ctx.clip();
 
     for (const img of images) {
-      if (img === undefined) continue;
+      if (drawX > x + width) break;
       const imgWidth = img.width * (imgHeight / img.height);
+
       ctx.save();
       drawRect(ctx, {
         x: drawX,
         y: y + cellVerticalPadding,
         width: imgWidth,
         height: imgHeight,
-        radius: INNER_PAD,
+        radius: INNER_PADDING,
       });
       ctx.clip();
-
       ctx.drawImage(img, drawX, y + cellVerticalPadding, imgWidth, imgHeight);
-
       ctx.restore();
 
-      drawX += imgWidth + INNER_PAD;
+      drawX += imgWidth + INNER_PADDING;
     }
 
     ctx.restore();
+  },
+  checkRegion: (cell: IImageCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
+    const { readonly } = cell;
+    const { height, theme, isActive, hoverCellPosition } = props;
+    const editable = !readonly && isActive;
+    if (!editable) return { type: CellRegionType.Blank };
+
+    const { cellHorizontalPadding, iconSizeSM } = theme;
+    const [hoverX, hoverY] = hoverCellPosition;
+    const startX = cellHorizontalPadding;
+    const startY = (height - iconSizeSM) / 2;
+
+    if (
+      isPointInsideRectangle(
+        [hoverX, hoverY],
+        [startX, startY],
+        [startX + iconSizeSM, startY + iconSizeSM]
+      )
+    ) {
+      return { type: CellRegionType.ToggleEditing, data: null };
+    }
+    return { type: CellRegionType.Blank };
+  },
+  onClick: (cell: IImageCell, props: ICellClickProps, callback: ICellClickCallback) => {
+    const cellRegion = imageCellRenderer.checkRegion?.(cell, props, true);
+    if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
+    callback(cellRegion);
   },
 };
