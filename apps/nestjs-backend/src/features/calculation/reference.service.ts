@@ -172,7 +172,7 @@ export class ReferenceService {
     }
 
     // get all related field by undirected graph
-    const allFieldIds = this.flatGraph(directedGraph);
+    const allFieldIds = uniq(this.flatGraph(directedGraph).concat(startFieldIds));
     // prepare all related data
     const {
       fieldMap,
@@ -189,8 +189,6 @@ export class ReferenceService {
     if (isEmpty(topoOrdersMap)) {
       return;
     }
-
-    // console.log('linkAdjacencyMap', linkAdjacencyMap);
 
     const relatedRecordItems = await this.getRelatedItems(
       startFieldIds,

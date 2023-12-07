@@ -196,7 +196,7 @@ describe('OpenAPI FieldController (e2e)', () => {
 
     describe('relational field', () => {
       it('should generate semantic field name for link and lookup and rollup field ', async () => {
-        const linkField = await createField(request, table1.id, {
+        const linkField = await createField(table1.id, {
           type: FieldType.Link,
           options: {
             foreignTableId: table2.id,
@@ -210,7 +210,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         const symmetricalLinkField = table2.fields.find((f) => f.type === FieldType.Link);
 
         expect(symmetricalLinkField?.name).toEqual(table1.name);
-        const lookupField = await createField(request, table1.id, {
+        const lookupField = await createField(table1.id, {
           type: FieldType.SingleLineText,
           lookupOptions: {
             foreignTableId: table2.id,
@@ -223,7 +223,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         expect(lookupField.name).toEqual(`${table2.fields[0].name} (from ${table2.name})`);
         expect(lookupField.options).toEqual({});
 
-        const rollupField = await createField(request, table1.id, {
+        const rollupField = await createField(table1.id, {
           type: FieldType.Rollup,
           options: {
             expression: 'sum({values})',
@@ -425,7 +425,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       const linkField = await createField(table1.id, linkFieldRo);
       const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
 
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -524,21 +524,9 @@ describe('OpenAPI FieldController (e2e)', () => {
       };
       const formulaField = await createField(table1.id, formulaFieldRo);
 
-      await updateRecordByApi(
-        request,
-        table2.id,
-        table2.records[0].id,
-        table2PrimaryField.id,
-        'text'
-      );
-      await updateRecordByApi(
-        request,
-        table1.id,
-        table1.records[0].id,
-        table1.fields[0].id,
-        'formula'
-      );
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table2.id, table2.records[0].id, table2PrimaryField.id, 'text');
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'formula');
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -548,7 +536,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(referenceBefore.length).toBe(2);
 
       // lookup cell and formula cell should be updated
-      const record = await getRecord(request, table1.id, table1.records[0].id);
+      const record = await getRecord(table1.id, table1.records[0].id);
       expect(record.fields[lookupField.id]).toBe('text');
       expect(record.fields[formulaField.id]).toBe('textformula');
 
@@ -561,7 +549,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(referenceAfter.length).toBe(0);
 
       // lookup cell and formula cell should be clean
-      const recordAfter = await getRecord(request, table1.id, table1.records[0].id);
+      const recordAfter = await getRecord(table1.id, table1.records[0].id);
       expect(recordAfter.fields[lookupField.id]).toBe(undefined);
       expect(recordAfter.fields[formulaField.id]).toBe('formula');
 

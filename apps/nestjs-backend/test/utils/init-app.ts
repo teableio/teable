@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
@@ -10,12 +9,21 @@ import type {
   IFieldRo,
   IFieldVo,
   IRecord,
-  IRecordsVo,
-  IUpdateRecordRo,
   CellFormat,
+  HttpError,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
-import type { ISignin } from '@teable-group/openapi';
+import {
+  axios,
+  updateRecord,
+  signin,
+  getRecord as apiGetRecord,
+  createRecords as apiCreateRecords,
+  createField as apiCreateField,
+  updateField as apiUpdateField,
+  getFields as apiGetFields,
+  getField as apiGetField,
+} from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import request from 'supertest';
@@ -51,208 +59,126 @@ export async function initApp() {
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
   await app.listen(0);
-  const { cookie } = await signin(app, globalThis.testConfig.email, globalThis.testConfig.password);
+  const nestUrl = await app.getUrl();
+  const url = `http://127.0.0.1:${new URL(nestUrl).port}`;
 
-  console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
-  console.log(`> Jest Test Ready on ${await app.getUrl()}`);
+  axios.interceptors.request.use((config) => {
+    config.baseURL = url + '/api';
+    return config;
+  });
+  const { cookie } = await getCookie(globalThis.testConfig.email, globalThis.testConfig.password);
+
+  axios.interceptors.request.use((config) => {
+    config.headers.Cookie = cookie.join(';');
+    return config;
+  });
+
   const newRequest = request.agent(app.getHttpServer());
   newRequest.set('Cookie', cookie);
+
+  console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
+  console.log(`> Jest Test Ready on ${url}`);
+
   return { app, request: newRequest, cookie: cookie.join(';') };
 }
 
-export async function signin(app: INestApplication, email: string, password: string) {
-  const sessionResponse = await request(app.getHttpServer())
-    .post('/api/auth/signin')
-    .send({
-      email,
-      password,
-    } as ISignin)
-    .expect(200);
+async function getCookie(email: string, password: string) {
+  const sessionResponse = await signin({ email, password });
   return {
-    access_token: sessionResponse.body,
-    cookie: sessionResponse.get('Set-Cookie'),
-  };
-}
-
-export async function signup(app: INestApplication, email: string, password: string) {
-  const sessionResponse = await request(app.getHttpServer())
-    .post('/api/auth/signup')
-    .send({
-      email,
-      password,
-    } as ISignin)
-    .expect(200);
-  return {
-    access_token: sessionResponse.body,
-    cookie: sessionResponse.headers['set-cookie'],
+    access_token: sessionResponse.data,
+    cookie: sessionResponse.headers['set-cookie'] as string[],
   };
 }
 
 export async function updateRecordByApi(
-  request: request.SuperAgentTest,
   tableId: string,
   recordId: string,
   fieldId: string,
   newValue: unknown,
   expectStatus = 200
-): Promise<IRecord> {
-  const result = await request.patch(`/api/table/${tableId}/record/${recordId}`).send({
-    fieldKeyType: FieldKeyType.Id,
-    record: {
-      fields: {
-        [fieldId]: newValue,
-      },
-    },
-  } as IUpdateRecordRo);
+) {
+  try {
+    const res = await updateRecord(tableId, recordId, {
+      record: { fields: { [fieldId]: newValue } },
+      fieldKeyType: FieldKeyType.Id,
+    });
+    expect(res.status).toEqual(expectStatus);
 
-  if (result.status !== 200 && result.status !== expectStatus) {
-    console.error(result.body);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
   }
-  expect(result.status).toEqual(expectStatus);
-  return result.body;
-}
-
-export async function getRecords(
-  request: request.SuperAgentTest,
-  tableId: string,
-  cellFormat?: CellFormat
-): Promise<IRecordsVo> {
-  return (
-    await request
-      .get(`/api/table/${tableId}/record`)
-      .query({
-        fieldKeyType: FieldKeyType.Id,
-        cellFormat,
-      })
-      .expect(200)
-  ).body;
 }
 
 export async function getRecord(
-  request: request.SuperAgentTest,
   tableId: string,
   recordId: string,
   cellFormat?: CellFormat
 ): Promise<IRecord> {
-  return (
-    await request
-      .get(`/api/table/${tableId}/record/${recordId}`)
-      .query({
-        fieldKeyType: FieldKeyType.Id,
-        cellFormat,
-      })
-      .expect(200)
-  ).body;
-}
-
-export async function deleteRecords(
-  request: request.SuperAgentTest,
-  tableId: string,
-  recordIds: string[]
-): Promise<IRecordsVo> {
-  return (
-    await request
-      .delete(`/api/table/${tableId}/record`)
-      .query({
-        recordIds,
-      })
-      .expect(200)
-  ).body;
+  return (await apiGetRecord(tableId, recordId, { fieldKeyType: FieldKeyType.Id, cellFormat }))
+    .data;
 }
 
 export async function createRecords(
-  request: request.SuperAgentTest,
   tableId: string,
   records: ICreateRecordsRo['records'],
   typecast = false,
-  expect = 201
+  status = 201
 ): Promise<ICreateRecordsVo> {
-  return (
-    await request
-      .post(`/api/table/${tableId}/record`)
-      .send({
-        records,
-        fieldKeyType: FieldKeyType.Id,
-        typecast: typecast,
-      })
-      .expect(expect)
-  ).body;
+  try {
+    const res = await apiCreateRecords(tableId, {
+      records,
+      fieldKeyType: FieldKeyType.Id,
+      typecast: typecast,
+    });
+
+    expect(res.status).toEqual(status);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== status) {
+      throw e;
+    }
+    return {} as ICreateRecordsVo;
+  }
 }
 
-export async function deleteRecord(
-  request: request.SuperAgentTest,
-  tableId: string,
-  recordId: string
-): Promise<IRecord> {
-  return (await request.delete(`/api/table/${tableId}/record/${recordId}`).expect(200)).body;
-}
+export async function createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
+  const result = await apiCreateField(tableId, fieldRo);
 
-export async function createField(
-  request: request.SuperAgentTest,
-  tableId: string,
-  fieldRo: IFieldRo
-): Promise<IFieldVo> {
-  const result = await request.post(`/api/table/${tableId}/field`).send(fieldRo);
   if (result.status !== 201) {
-    console.error(result.body);
+    console.error(result.data);
   }
   expect(result.status).toEqual(201);
-  return result.body;
+  return result.data;
 }
 
 export async function updateField(
-  request: request.SuperAgentTest,
   tableId: string,
   fieldId: string,
   fieldRo: IFieldRo
 ): Promise<IFieldVo> {
-  const result = await request.patch(`/api/table/${tableId}/field/${fieldId}`).send(fieldRo);
+  const result = await apiUpdateField(tableId, fieldId, fieldRo);
   if (result.status !== 200) {
-    console.error(JSON.stringify(result.body, null, 2));
+    console.error(JSON.stringify(result.data, null, 2));
   }
   expect(result.status).toEqual(200);
-  return result.body;
+  return result.data;
 }
 
 export async function getFields(
-  request: request.SuperAgentTest,
   tableId: string,
-  viewId?: string
+  viewId?: string,
+  filterHidden?: boolean
 ): Promise<IFieldVo[]> {
-  const result = await request
-    .get(`/api/table/${tableId}/field`)
-    .query({
-      viewId,
-    })
-    .expect(200);
-  return result.body;
+  const result = await apiGetFields(tableId, { viewId, filterHidden });
+
+  return result.data;
 }
 
-export async function getField(
-  request: request.SuperAgentTest,
-  tableId: string,
-  fieldId: string
-): Promise<IFieldVo> {
-  const result = await request.get(`/api/table/${tableId}/field/${fieldId}`).expect(200);
-  return result.body;
-}
-
-export async function getUserRequest(
-  app: INestApplication,
-  user: { email: string; password: string }
-) {
-  const signupRes = await request(app.getHttpServer()).post('/api/auth/signup').send(user);
-  let cookie = null;
-  if (signupRes.status !== 201) {
-    const signinRes = await request(app.getHttpServer())
-      .post('/api/auth/signin')
-      .send(user)
-      .expect(200);
-    cookie = signinRes.headers['set-cookie'];
-  } else {
-    cookie = signupRes.headers['set-cookie'];
-  }
-  const newRequest = request.agent(app.getHttpServer());
-  newRequest.set('Cookie', cookie);
-  return newRequest;
+export async function getField(tableId: string, fieldId: string): Promise<IFieldVo> {
+  const result = await apiGetField(tableId, fieldId);
+  return result.data;
 }

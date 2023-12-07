@@ -30,7 +30,7 @@ export const GetFieldRoute: RouteConfig = registerRoute({
   tags: ['field'],
 });
 
-export const getFieldById = async (tableId: string, fieldId: string) => {
+export const getField = async (tableId: string, fieldId: string) => {
   return axios.get<IFieldVo>(
     urlBuilder(GET_FIELD, {
       tableId,
