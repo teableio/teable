@@ -1,0 +1,4 @@
+{
+  "jest.coverageFormatter": "DefaultFormatter",
+  "jest.jestCommandLine": "./node_modules/jest/bin/jest.js --config ./jest-e2e.js"
+}
