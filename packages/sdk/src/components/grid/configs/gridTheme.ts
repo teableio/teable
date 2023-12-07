@@ -41,12 +41,12 @@ export interface IGridTheme {
   rowHeaderTextColor: string;
   appendRowBg: string;
   appendRowBgHovered: string;
-
   avatarBg: string;
   avatarTextColor: string;
   avatarSizeXS: number;
   avatarSizeSM: number;
   avatarSizeMD: number;
+  scrollBarBg: string;
 }
 
 export const gridTheme: IGridTheme = {
@@ -106,4 +106,7 @@ export const gridTheme: IGridTheme = {
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
+
+  // ScrollBar
+  scrollBarBg: colors.gray[400],
 };

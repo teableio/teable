@@ -1,11 +1,12 @@
 import { GRID_DEFAULT } from '../../configs';
 import { hexToRGBA, inRange } from '../../utils';
-import { CellType } from './interface';
+import { CellRegionType, CellType } from './interface';
 import type {
   IInternalCellRenderer,
   ICellRenderProps,
   IRatingCell,
   ICellClickProps,
+  ICellClickCallback,
 } from './interface';
 
 const gapSize = 3;
@@ -63,9 +64,9 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
 
     ctx.restore();
   },
-  checkWithinBound: (cell: IRatingCell, props: ICellClickProps) => {
-    const { max, readonly } = cell;
-    if (readonly) return false;
+  checkRegion: (cell: IRatingCell, props: ICellClickProps, shouldCalculate?: boolean) => {
+    const { data, max, readonly } = cell;
+    if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, height, theme } = props;
     const { cellHorizontalPadding } = GRID_DEFAULT;
     const [x, y] = hoverCellPosition;
@@ -73,20 +74,20 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     const minX = cellHorizontalPadding;
     const maxX = minX + max * (iconSizeXS + gapSize);
 
-    return Boolean(
-      inRange(x, minX, maxX) && inRange(y, height / 2 - iconSizeXS, height / 2 + iconSizeXS)
-    );
+    if (inRange(x, minX, maxX) && inRange(y, height / 2 - iconSizeXS, height / 2 + iconSizeXS)) {
+      if (!shouldCalculate) return { type: CellRegionType.Update, data: null };
+      const newData = Math.ceil((x - cellHorizontalPadding) / (iconSizeXS + gapSize));
+      return {
+        type: CellRegionType.Update,
+        data: newData !== data ? newData : null,
+      };
+    }
+    return { type: CellRegionType.Blank };
   },
-  onClick: (cell: IRatingCell, props: ICellClickProps) => {
-    if (!ratingCellRenderer.checkWithinBound?.(cell, props)) return undefined;
-
-    const { data, readonly } = cell;
-    if (readonly) return false;
-    const { hoverCellPosition, theme } = props;
-    const { cellHorizontalPadding } = GRID_DEFAULT;
-    const [x] = hoverCellPosition;
-    const { iconSizeXS } = theme;
-    const newData = Math.ceil((x - cellHorizontalPadding) / (iconSizeXS + gapSize));
-    return newData !== data ? newData : null;
+  onClick: (cell: IRatingCell, props: ICellClickProps, callback: ICellClickCallback) => {
+    const cellRegion = ratingCellRenderer.checkRegion?.(cell, props, true);
+    if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
+    console.log('cellRegion', cellRegion);
+    callback(cellRegion);
   },
 };

@@ -6,8 +6,6 @@ const INNER_PAD = 4;
 
 export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   type: CellType.Image,
-  needsHover: false,
-  needsHoverPosition: false,
   draw: (cell: IImageCell, props: ICellRenderProps) => {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager } = props;
     const { cellVerticalPadding, cellHorizontalPadding } = theme;

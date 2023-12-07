@@ -1,14 +1,16 @@
+import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';
 import { measuredCanvas } from '../../utils';
-import type { ITextInfo } from '../base-renderer';
 import { drawLine, drawMultiLineText } from '../base-renderer';
-import { CellType } from './interface';
+import { CellRegionType, CellType } from './interface';
 import type {
   IInternalCellRenderer,
   ICellRenderProps,
   ILinkCell,
   ICellClickProps,
+  ICellClickCallback,
+  ICellMeasureProps,
 } from './interface';
 
 interface ITextPosition {
@@ -21,41 +23,59 @@ interface ITextPosition {
 }
 
 interface IComputeTextPositionProps {
+  ctx: CanvasRenderingContext2D;
   data: string[];
-  bound: IRectangle;
-  getTextInfos: (text: string) => ITextInfo[];
+  rect: IRectangle;
+  theme: IGridTheme;
+  isActive: boolean;
 }
 
-const { cellHorizontalPadding, cellVerticalPadding, cellTextLineHeight } = GRID_DEFAULT;
+const { cellHorizontalPadding, cellVerticalPadding, cellTextLineHeight, maxRowCount } =
+  GRID_DEFAULT;
 
 const computeTextPositions = ({
+  ctx,
   data,
-  bound,
-  getTextInfos,
+  rect,
+  theme,
+  isActive,
 }: IComputeTextPositionProps): ITextPosition[] => {
   const positions: ITextPosition[] = [];
-  const { height } = bound;
-  let x = bound.x;
-  let y = bound.y;
-  let row = 1;
-  const maxRowCount = Math.max(
-    1,
-    Math.floor((height - cellTextLineHeight) / cellTextLineHeight) + 1
-  );
+  const { x, y, width, height } = rect;
+  const { fontSizeSM } = theme;
+  const drawWidth = width - 2 * cellHorizontalPadding;
+  const drawHeight = height - cellVerticalPadding;
+  const maxLines = isActive ? Infinity : Math.max(1, Math.floor(drawHeight / cellTextLineHeight));
 
+  let row = 1;
   let index = 0;
+  let drawX = x + cellHorizontalPadding;
+  let drawY = y + cellVerticalPadding;
 
   for (const text of data) {
-    const textLines = getTextInfos(text);
+    const textLines = drawMultiLineText(ctx, {
+      text,
+      maxLines,
+      maxWidth: drawWidth,
+      needRender: false,
+      fontSize: fontSizeSM,
+    });
 
     for (const { text: lineText, width: textWidth } of textLines) {
-      if (row > maxRowCount) break;
+      if (row > maxLines) break;
 
-      positions.push({ text: lineText, x, y, width: textWidth, link: text, key: String(index) });
+      positions.push({
+        x: drawX,
+        y: drawY,
+        text: lineText,
+        width: textWidth,
+        link: text,
+        key: String(index),
+      });
 
       row++;
-      y += cellTextLineHeight;
-      x = bound.x;
+      drawY += cellTextLineHeight;
+      drawX = x + cellHorizontalPadding;
     }
 
     index++;
@@ -64,87 +84,60 @@ const computeTextPositions = ({
   return positions;
 };
 
-const getClickedRegionDetails = (cell: ILinkCell, props: ICellClickProps) => {
-  const { hoverCellPosition, width, height, theme } = props;
-  const [hoverX, hoverY] = hoverCellPosition;
-  const { fontSizeSM } = theme;
-  const { data } = cell;
-
-  if (measuredCanvas == null) return { link: null, valid: false };
-
-  const { ctx, setFontSize } = measuredCanvas;
-
-  if (!ctx) return { link: null, valid: false };
-
-  const bound: IRectangle = {
-    x: cellHorizontalPadding,
-    y: cellVerticalPadding,
-    width: width - 2 * cellHorizontalPadding,
-    height: height - cellVerticalPadding,
-  };
-
-  setFontSize(fontSizeSM);
-
-  const textPositions = computeTextPositions({
-    data,
-    bound,
-    getTextInfos: (text) =>
-      drawMultiLineText(ctx, {
-        text,
-        maxLines: Math.floor(bound.height / cellTextLineHeight),
-        maxWidth: bound.width,
-        fontSize: fontSizeSM,
-        needRender: false,
-      }),
-  });
-
-  for (const position of textPositions) {
-    const { x, y, width, link } = position;
-    if (hoverX >= x && hoverX <= x + width && hoverY >= y && hoverY <= y + cellTextLineHeight) {
-      return { link, valid: true };
-    }
-  }
-  return { link: null, valid: false };
-};
-
 export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
   type: CellType.Link,
   needsHover: true,
   needsHoverPosition: true,
-  draw: (cell: ILinkCell, props: ICellRenderProps) => {
-    const { ctx, rect, theme, hoverCellPosition } = props;
+  measure: (cell: ILinkCell, props: ICellMeasureProps) => {
     const { data } = cell;
-    const { x: originX, y: originY, width, height } = rect;
+    const { ctx, theme, width, height } = props;
+
+    if (!data.length) {
+      return { width, height, totalHeight: height };
+    }
+
+    const textPositions = computeTextPositions({
+      ctx,
+      data,
+      rect: { x: 0, y: 0, width, height },
+      theme,
+      isActive: true,
+    });
+
+    const positionLength = textPositions.length;
+    if (!positionLength) return { width, height, totalHeight: height };
+
+    const totalHeight = textPositions[positionLength - 1].y + cellTextLineHeight;
+    const maxHeight = cellVerticalPadding + maxRowCount * cellTextLineHeight;
+    const finalHeight = Math.max(Math.min(totalHeight, maxHeight), height);
+
+    return {
+      width,
+      height: finalHeight,
+      totalHeight,
+    };
+  },
+  draw: (cell: ILinkCell, props: ICellRenderProps) => {
+    const { ctx, rect, theme, hoverCellPosition, isActive } = props;
+    const { data } = cell;
+    const { x: originX, y: originY, width: originWidth, height: originHeight } = rect;
     const [hoverX, hoverY] = hoverCellPosition || [-1, -1];
     const { fontSizeSM, cellTextColorHighlight } = theme;
-
-    const bound: IRectangle = {
-      x: originX + cellHorizontalPadding,
-      y: originY + cellVerticalPadding,
-      width: width - 2 * cellHorizontalPadding,
-      height: height - cellVerticalPadding,
-    };
 
     ctx.save();
     ctx.beginPath();
 
-    if (data.length) {
-      ctx.rect(originX, originY, width, height);
+    if (data.length && !isActive) {
+      ctx.rect(originX, originY, originWidth, originHeight);
       ctx.clip();
     }
 
     const textPositions = computeTextPositions({
+      ctx,
       data,
-      bound,
-      getTextInfos: (text) =>
-        drawMultiLineText(ctx, {
-          text,
-          fill: cellTextColorHighlight,
-          maxLines: Math.floor(bound.height / cellTextLineHeight),
-          maxWidth: bound.width,
-          needRender: false,
-          fontSize: fontSizeSM,
-        }),
+      rect,
+      theme,
+      isActive: true,
     });
 
     ctx.textAlign = 'left';
@@ -188,14 +181,42 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
 
     ctx.restore();
   },
-  checkWithinBound: (cell: ILinkCell, props: ICellClickProps) => {
-    return getClickedRegionDetails(cell, props).valid;
+  checkRegion: (cell: ILinkCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
+    const { hoverCellPosition, width, height, isActive, theme, activeCellBound } = props;
+    const [hoverX, originHoverY] = hoverCellPosition;
+    const { fontSizeSM } = theme;
+    const { data } = cell;
+
+    if (measuredCanvas == null) return { type: CellRegionType.Blank };
+
+    const { ctx, setFontSize } = measuredCanvas;
+
+    if (!ctx) return { type: CellRegionType.Blank };
+
+    const scrollTop = activeCellBound?.scrollTop ?? 0;
+    const hoverY = originHoverY + scrollTop;
+
+    setFontSize(fontSizeSM);
+
+    const textPositions = computeTextPositions({
+      ctx,
+      data,
+      rect: { x: 0, y: 0, width, height },
+      theme,
+      isActive,
+    });
+
+    for (const position of textPositions) {
+      const { x, y, width, link } = position;
+      if (hoverX >= x && hoverX <= x + width && hoverY >= y && hoverY <= y + cellTextLineHeight) {
+        return { type: CellRegionType.Update, data: link };
+      }
+    }
+    return { type: CellRegionType.Blank };
   },
-  onClick: (cell: ILinkCell, props: ICellClickProps) => {
-    const link = getClickedRegionDetails(cell, props).link;
-
-    if (link == null) return;
-
-    cell.onClick(link);
+  onClick: (cell: ILinkCell, props: ICellClickProps, _callback: ICellClickCallback) => {
+    const cellRegion = linkCellRenderer.checkRegion?.(cell, props, true);
+    if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
+    cell.onClick(cellRegion.data as string);
   },
 };

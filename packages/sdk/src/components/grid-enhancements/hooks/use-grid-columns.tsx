@@ -200,7 +200,10 @@ const createCellValue2GridDisplay =
         return {
           type: CellType.Number,
           data: cellValue as number,
-          displayData: field.cellValue2String(cellValue),
+          displayData:
+            isMultiple && Array.isArray(cellValue)
+              ? cellValue.map((v) => field.item2String(v))
+              : field.cellValue2String(cellValue),
           readonly,
           showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
@@ -227,6 +230,7 @@ const createCellValue2GridDisplay =
         return {
           type: CellType.Select,
           data,
+          displayData: data,
           choices,
           readonly,
           isMultiple,
@@ -236,11 +240,12 @@ const createCellValue2GridDisplay =
       }
       case FieldType.Link: {
         const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const data = cv.map(({ title }) => title || 'Untitled');
+        const displayData = cv.map(({ title }) => title || 'Untitled');
         const choices = cv.map(({ id, title }) => ({ id, name: title }));
         return {
           type: CellType.Select,
-          data,
+          data: cv,
+          displayData,
           choices,
           readonly,
           isMultiple,

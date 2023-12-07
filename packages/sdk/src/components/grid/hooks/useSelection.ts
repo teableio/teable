@@ -1,4 +1,3 @@
-import { isEqual } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import { useRafState } from 'react-use';
 import type { IGridProps } from '../Grid';
@@ -15,7 +14,6 @@ export const useSelection = (
   const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
-  const [prevSelection, setPrevSelection] = useState<CombinedSelection | null>(null);
   const prevSelectedRowIndex = useRef<number | null>(null);
   const { pureRowCount } = coordInstance;
 
@@ -29,10 +27,9 @@ export const useSelection = (
     const { isRowSelection: isPrevRowSelection, ranges: prevRanges } = selection;
     const isShiftKey = event.shiftKey && !event.metaKey;
 
-    setPrevSelection(selection);
-
     switch (type) {
-      case RegionType.Cell: {
+      case RegionType.Cell:
+      case RegionType.ActiveCell: {
         const range = [columnIndex, rowIndex] as IRange;
         const ranges = [isShiftKey && !isPrevRowSelection ? prevRanges[0] : range, range];
         if (!isShiftKey || isPrevRowSelection) {
@@ -63,21 +60,7 @@ export const useSelection = (
     }
   };
 
-  const onSelectionEnd = (mouseState: IMouseState, callback?: (item: ICellItem) => void) => {
-    const prev = prevSelection;
-    setPrevSelection(null);
-    const { type, ranges } = selection;
-    const { type: prevType, ranges: prevRanges } = prev || {};
-    const { type: hoverType } = mouseState;
-    if (
-      hoverType === RegionType.Cell &&
-      type === SelectionRegionType.Cells &&
-      prevType === SelectionRegionType.Cells &&
-      isEqual(ranges, prevRanges) &&
-      isEqual(ranges[0], ranges[1])
-    ) {
-      activeCell && callback?.(activeCell);
-    }
+  const onSelectionEnd = () => {
     setSelecting(false);
   };
 

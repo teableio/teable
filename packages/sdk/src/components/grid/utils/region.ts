@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { GRID_DEFAULT } from '../configs';
 import { RegionType, RowControlType } from '../interface';
-import type { IRectangle, IRegionPosition, IRowControlItem } from '../interface';
+import type {
+  IActiveCellBound,
+  ICellItem,
+  IRectangle,
+  IRegionPosition,
+  IRowControlItem,
+} from '../interface';
 import type { IRenderLayerProps } from '../RenderLayer';
 import { inRange } from './range';
 
@@ -27,10 +33,15 @@ interface ICheckRegionProps
   hasAppendColumn: boolean;
   hasColumnHeaderMenu: boolean;
   hasColumnResizeHandler: boolean;
+  activeCell: ICellItem | null;
+  activeCellBound: IActiveCellBound | null;
 }
 
 export interface IRegionData extends IRectangle {
   type: RegionType;
+  rowIndex?: number;
+  columnIndex?: number;
+  isOutOfBounds?: boolean;
 }
 
 // Define all possible row controls and their corresponding RegionTypes
@@ -59,6 +70,7 @@ const {
 
 export const getRegionData = (props: ICheckRegionProps): IRegionData => {
   return (
+    checkIsActiveCell(props) ||
     checkIsOutOfBounds(props) ||
     checkIfSelecting(props) ||
     checkIfColumnResizing(props) ||
@@ -73,6 +85,31 @@ export const getRegionData = (props: ICheckRegionProps): IRegionData => {
     checkIsColumnHeader(props) ||
     BLANK_REGION_DATA
   );
+};
+
+const checkIsActiveCell = (props: ICheckRegionProps): IRegionData | null => {
+  const { coordInstance, scrollState, position, activeCell, activeCellBound } = props;
+  if (activeCell == null || activeCellBound == null) return null;
+  const { x, y } = position;
+  const { scrollTop, scrollLeft } = scrollState;
+  const [columnIndex, rowIndex] = activeCell;
+  const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
+  const offsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+  const { width, height } = activeCellBound;
+
+  if (inRange(x, offsetX, offsetX + width) && inRange(y, offsetY, offsetY + height)) {
+    return {
+      type: RegionType.ActiveCell,
+      x: offsetX,
+      y: offsetY,
+      width,
+      height,
+      rowIndex,
+      columnIndex,
+      isOutOfBounds: false,
+    };
+  }
+  return null;
 };
 
 const checkIsOutOfBounds = (props: ICheckRegionProps): IRegionData | null => {

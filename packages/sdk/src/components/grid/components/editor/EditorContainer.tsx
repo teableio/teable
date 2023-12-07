@@ -6,7 +6,7 @@ import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
-import type { ICellItem, IScrollState } from '../../interface';
+import type { IActiveCellBound, ICellItem, IScrollState } from '../../interface';
 import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType, EditorPosition } from '../../renderers/cell-renderer/interface';
@@ -34,6 +34,7 @@ export interface IEditorContainerProps
   scrollState: IScrollState;
   activeCell: ICellItem | null;
   selection: CombinedSelection;
+  activeCellBound: IActiveCellBound | null;
   setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
   setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -83,6 +84,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     scrollState,
     activeCell,
     selection,
+    activeCellBound,
     scrollToItem,
     onCopy,
     onPaste,
@@ -110,7 +112,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   } = cellContent;
   const editingEnable = !readonly && isEditing && activeCell;
   const width = coordInstance.getColumnWidth(columnIndex) + 4;
-  const height = coordInstance.getRowHeight(rowIndex) + 4;
+  const height = (activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex)) + 4;
   const editorRef = useRef<IEditorRef | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -129,11 +131,11 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const wrapStyle = useMemo(() => {
     if (!editingEnable) return;
     const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
-    const rowHeight = coordInstance.getRowHeight(columnIndex);
+    // const rowHeight = coordInstance.getRowHeight(columnIndex);
     const verticalPositionMap = {
       [EditorPosition.Overlap]: -1.5,
-      [EditorPosition.Below]: rowHeight + 1.5,
-      [EditorPosition.Above]: -rowHeight - 1.5,
+      [EditorPosition.Below]: height - 2.5,
+      [EditorPosition.Above]: -height + 2.5,
     };
     const top = clamp(
       coordInstance.getRowOffset(rowIndex) - scrollTop + verticalPositionMap[editorPosition],
@@ -164,7 +166,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   useEffect(() => {
     if ((cellContent as ICell).type === CellType.Loading) return;
-    if (!activeCell || isEditing) return;
+    if (!activeCell) return;
     editorRef.current?.setValue?.(cellContent.data);
     requestAnimationFrame(() => editorRef.current?.focus?.());
   }, [cellContent, activeCell, isEditing]);

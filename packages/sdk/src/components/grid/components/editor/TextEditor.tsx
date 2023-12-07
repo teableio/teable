@@ -65,9 +65,10 @@ const TextEditorBase: ForwardRefRenderFunction<
           value={value}
           width={'100%'}
           height={'100%'}
-          className="h-full w-full border-2 px-2 shadow-none focus-visible:ring-transparent"
+          className="h-full w-full cursor-text border-2 px-2 shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
           onBlur={saveValue}
+          onMouseDown={(e) => e.stopPropagation()}
         />
       )}
     </>

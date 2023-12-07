@@ -34,6 +34,7 @@ export enum SelectionRegionType {
 
 export enum RegionType {
   Cell = 'Cell',
+  ActiveCell = 'ActiveCell',
   RowHeader = 'RowHeader',
   AppendRow = 'AppendRow',
   ColumnHeader = 'ColumnHeader',
@@ -182,4 +183,14 @@ export enum SelectableType {
   Column = 'column',
   Row = 'row',
   Cell = 'cell',
+}
+
+export interface IActiveCellBound {
+  rowIndex: number;
+  columnIndex: number;
+  width: number;
+  height: number;
+  totalHeight: number;
+  scrollTop: number;
+  scrollEnable: boolean;
 }
