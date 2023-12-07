@@ -230,8 +230,8 @@ describe('OpenAPI SelectionController (e2e)', () => {
         },
       };
 
-      const linkField1 = await createField(request, table1.id, table1LinkFieldRo);
-      const linkField2 = await createField(request, table1.id, table1LinkFieldRo);
+      const linkField1 = await createField(table1.id, table1LinkFieldRo);
+      const linkField2 = await createField(table1.id, table1LinkFieldRo);
       await request
         .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
         .send({
@@ -244,7 +244,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
         })
         .expect(200);
 
-      const record = await getRecord(request, table1.id, table1.records[0].id);
+      const record = await getRecord(table1.id, table1.records[0].id);
 
       console.log(record.fields);
 
@@ -270,8 +270,8 @@ describe('OpenAPI SelectionController (e2e)', () => {
         },
       };
 
-      const linkField1 = await createField(request, table1.id, table1LinkFieldRo);
-      const linkField2 = await createField(request, table1.id, table1LinkFieldRo);
+      const linkField1 = await createField(table1.id, table1LinkFieldRo);
+      const linkField2 = await createField(table1.id, table1LinkFieldRo);
       await request
         .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
         .send({
@@ -284,7 +284,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
         })
         .expect(200);
 
-      const record = await getRecord(request, table1.id, table1.records[0].id);
+      const record = await getRecord(table1.id, table1.records[0].id);
 
       expect(record.fields[linkField1.id]).toEqual([
         {

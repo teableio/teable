@@ -168,9 +168,9 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    await createField(request, table1Id, linkFieldRo);
+    await createField(table1Id, linkFieldRo);
 
-    const formulaField = await createField(request, table2.id, formulaFieldRo);
+    const formulaField = await createField(table2.id, formulaFieldRo);
 
     console.log('----------------------');
     const updateResult1 = await request

@@ -173,7 +173,7 @@ describe('OpenAPI link Select (e2e)', () => {
             },
           };
 
-          linkField1 = await createField(request, table1.id, Link1FieldRo);
+          linkField1 = await createField(table1.id, Link1FieldRo);
 
           if (isOneWay) {
             // create link field back
@@ -186,9 +186,9 @@ describe('OpenAPI link Select (e2e)', () => {
                 isOneWay: true,
               },
             };
-            linkField2 = await createField(request, table2.id, Link2FieldRo);
+            linkField2 = await createField(table2.id, Link2FieldRo);
           } else {
-            const table2Fields = await getFields(request, table2.id);
+            const table2Fields = await getFields(table2.id);
             linkField2 = table2Fields[2];
           }
         });
@@ -285,14 +285,14 @@ describe('OpenAPI link Select (e2e)', () => {
               ? [{ id: table1.records[0].id }]
               : { id: table1.records[0].id };
           // table2 link field first record link to table1 first record
-          await updateRecordByApi(request, table2.id, table2.records[0].id, linkField2.id, value);
+          await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, value);
           if (isOneWay) {
             // table1 link field first record link to table2 first record
             const value =
               relationship === Relationship.OneOne
                 ? { id: table2.records[0].id }
                 : [{ id: table2.records[0].id }];
-            await updateRecordByApi(request, table1.id, table1.records[0].id, linkField1.id, value);
+            await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, value);
           }
 
           const table1Candidate: IGetRecordsQuery = {
@@ -358,14 +358,14 @@ describe('OpenAPI link Select (e2e)', () => {
               ? [{ id: table1.records[0].id }]
               : { id: table1.records[0].id };
           // table2 link field first record link to table1 first record
-          await updateRecordByApi(request, table2.id, table2.records[0].id, linkField2.id, value);
+          await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, value);
           if (isOneWay) {
             // table1 link field first record link to table2 first record
             const value =
               relationship === Relationship.OneOne
                 ? { id: table2.records[0].id }
                 : [{ id: table2.records[0].id }];
-            await updateRecordByApi(request, table1.id, table1.records[0].id, linkField1.id, value);
+            await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, value);
           }
 
           const table1Candidate: IGetRecordsQuery = {

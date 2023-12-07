@@ -9,13 +9,13 @@ import type {
   IUpdateRecordByIndexRo,
 } from '@teable-group/core';
 import { CellFormat, FieldKeyType, FieldType } from '@teable-group/core';
+import { getRecords } from '@teable-group/openapi';
 import type request from 'supertest';
 import {
   createField,
   createRecords,
   getField,
   getRecord,
-  getRecords,
   initApp,
   updateRecordByApi,
 } from './utils/init-app';
@@ -58,7 +58,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     it('should get string records', async () => {
-      const createdRecord = await createRecords(request, table.id, [
+      const createdRecord = await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: 'text value',
@@ -67,17 +67,14 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       ]);
 
-      const { records } = await getRecords(request, table.id, CellFormat.Text);
+      const { records } = (
+        await getRecords(table.id, { cellFormat: CellFormat.Text, fieldKeyType: FieldKeyType.Id })
+      ).data;
 
       expect(records[3].fields[table.fields[0].id]).toEqual('text value');
       expect(records[3].fields[table.fields[1].id]).toEqual('123.00');
 
-      const record = await getRecord(
-        request,
-        table.id,
-        createdRecord.records[0].id,
-        CellFormat.Text
-      );
+      const record = await getRecord(table.id, createdRecord.records[0].id, CellFormat.Text);
 
       expect(record.fields[table.fields[0].id]).toEqual('text value');
       expect(record.fields[table.fields[1].id]).toEqual('123.00');
@@ -129,7 +126,6 @@ describe('OpenAPI RecordController (e2e)', () => {
 
     it('should update record', async () => {
       const record = await updateRecordByApi(
-        request,
         table.id,
         table.records[0].id,
         table.fields[0].id,
@@ -314,10 +310,10 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       };
 
-      const formulaField1 = await createField(request, table.id, formulaFieldRo1);
-      const formulaField2 = await createField(request, table.id, formulaFieldRo2);
+      const formulaField1 = await createField(table.id, formulaFieldRo1);
+      const formulaField2 = await createField(table.id, formulaFieldRo2);
 
-      const { records } = await createRecords(request, table.id, [
+      const { records } = await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: 'text value',
@@ -334,11 +330,10 @@ describe('OpenAPI RecordController (e2e)', () => {
         type: FieldType.SingleSelect,
       };
 
-      const selectField = await createField(request, table.id, selectFieldRo);
+      const selectField = await createField(table.id, selectFieldRo);
 
       // reject data when typecast is false
       await createRecords(
-        request,
         table.id,
         [
           {
@@ -352,7 +347,6 @@ describe('OpenAPI RecordController (e2e)', () => {
       );
 
       const { records } = await createRecords(
-        request,
         table.id,
         [
           {
@@ -364,7 +358,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         true
       );
 
-      const fieldAfter = await getField(request, table.id, selectField.id);
+      const fieldAfter = await getField(table.id, selectField.id);
 
       expect(records[0].fields[selectField.id]).toEqual('select value');
       expect((fieldAfter.options as ISelectFieldOptions).choices.length).toEqual(1);

@@ -77,13 +77,13 @@ describe('OpenAPI ViewController (e2e)', () => {
     };
 
     const oldFields: IFieldVo[] = [];
-    oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
-    oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
-    oldFields.push(await createField(request, table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
 
     const result = await request.post(`/api/table/${table.id}/view`).send(viewRo).expect(201);
     const newView = result.body as IViewVo;
-    const newFields = await getFields(request, table.id, newView.id);
+    const newFields = await getFields(table.id, newView.id);
 
     expect(newFields.slice(3)).toMatchObject(oldFields);
   });

@@ -205,13 +205,7 @@ describe('OpenAPI RecordController sort (e2e) base cellValueType', () => {
       const { id: fieldId } = field!;
       // write content
       for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(
-          request,
-          subTableId,
-          subTable.records[i].id,
-          fieldId,
-          valueGenerateFn()
-        );
+        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
       const ascOrders: ISortItem[] = [{ fieldId, order: 'asc' }];
@@ -268,13 +262,7 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
 
       // write content
       for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(
-          request,
-          subTableId,
-          subTable.records[i].id,
-          fieldId,
-          valueGenerateFn()
-        );
+        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const linkField = fields1.find((field) => field.type === 'link')!;
@@ -298,7 +286,7 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
 
       // link records
       for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(request, mainTableId, mainTable?.records[i]?.id, linkField.id, [
+        await updateRecordByApi(mainTableId, mainTable?.records[i]?.id, linkField.id, [
           { id: subTable?.records?.[i]?.id },
         ]);
       }
@@ -345,13 +333,7 @@ describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () =>
       const { id: fieldId } = field;
 
       for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(
-          request,
-          subTableId,
-          subTable.records[i].id,
-          fieldId,
-          valueGenerateFn()
-        );
+        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
       const ascOrders: ISortItem[] = [{ fieldId, order: 'asc' }];
@@ -409,13 +391,7 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
 
       // write content
       for (let i = 0; i < subTable.records.length; i++) {
-        await updateRecordByApi(
-          request,
-          subTableId,
-          subTable.records[i].id,
-          fieldId,
-          valueGenerateFn()
-        );
+        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const linkField = fields1.find((field) => field.type === 'link')!;
@@ -439,7 +415,7 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
 
       // link records
       for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(request, mainTableId, mainTable?.records[i]?.id, linkField.id, [
+        await updateRecordByApi(mainTableId, mainTable?.records[i]?.id, linkField.id, [
           { id: subTable?.records?.[i]?.id },
         ]);
       }
