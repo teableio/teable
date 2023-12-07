@@ -18,7 +18,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<ISelectCell>,
   IEditorProps<ISelectCell>
 > = (props, ref) => {
-  const { cell, isEditing, style, onChange } = props;
+  const { cell, isEditing, style, onChange, setEditing } = props;
   const { data, isMultiple, choices = [] } = cell;
   const [values, setValues] = useState(data);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -40,6 +40,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
         : [...values, id ? { id, title: v } : v];
     if (!isMultiple) {
       const value = newCellValue.length ? newCellValue[newCellValue.length - 1] : null;
+      setTimeout(() => setEditing?.(false));
       setValues(value ? [value] : []);
       return onChange?.(value);
     }

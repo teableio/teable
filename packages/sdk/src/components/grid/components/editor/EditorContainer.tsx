@@ -172,7 +172,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }, [cellContent, activeCell, isEditing]);
 
   useKeyboardSelection({
-    cell: cellContent,
     isEditing,
     activeCell,
     selection,
@@ -235,6 +234,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
             cell={cellContent}
             style={editorStyle}
             isEditing={isEditing}
+            setEditing={setEditing}
             onChange={onChangeInner}
           />
         );

@@ -1,10 +1,10 @@
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
-import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_CONTAINER_ID } from '../configs';
-import { CellType, getCellRenderer } from '../renderers';
+import { SelectionRegionType } from '../interface';
+import type { IRange } from '../interface';
 import { isAncestorOfActiveElement } from '../utils';
 
 const SELECTION_MOVE_HOTKEYS = [
@@ -32,13 +32,11 @@ interface ISelectionKeyboardProps
     IEditorContainerProps,
     'theme' | 'onChange' | 'scrollState' | 'activeCellBound' | 'getCellContent'
   > {
-  cell: IInnerCell;
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }
 
 export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   const {
-    cell,
     isEditing,
     activeCell,
     coordInstance,
@@ -140,9 +138,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     Mousetrap.bind(['enter', 'shift+enter'], (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell) return;
       const { isColumnSelection, ranges: selectionRanges } = selection;
-      const cellRenderer = getCellRenderer(cell.type);
       const isShiftEnter = combo === 'shift+enter';
-      if (cellRenderer.onClick && cell.type !== CellType.Link) return;
       if (isEditing) {
         let range = selectionRanges[0];
         if (isColumnSelection) {
