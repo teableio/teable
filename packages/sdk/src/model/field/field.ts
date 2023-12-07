@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
 import { FieldCore, FieldOpBuilder } from '@teable-group/core';
-import { createField, deleteField, getFieldList, updateField } from '@teable-group/openapi';
+import { createField, deleteField, getFields, updateField } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 
 export abstract class Field extends FieldCore {
   tableId!: string;
 
-  static getFields = requestWrap(getFieldList);
+  static getFields = requestWrap(getFields);
 
   static createField = requestWrap(createField);
 

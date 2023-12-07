@@ -11,7 +11,7 @@ import type {
   IUpdateRecordRo,
 } from '@teable-group/core';
 import { FieldType, Relationship, NumberFormattingType, FieldKeyType } from '@teable-group/core';
-import { deleteRecord, getRecords } from '@teable-group/openapi';
+import { deleteRecord, getRecords, updateRecord } from '@teable-group/openapi';
 import type request from 'supertest';
 import {
   initApp,
@@ -2515,6 +2515,53 @@ describe('OpenAPI link (e2e)', () => {
           title: 'table2_1',
         },
       ]);
+    });
+  });
+
+  describe('update multi cell when contains link field', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table1',
+      });
+      table1 = result1.body;
+      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table2',
+      });
+      table2 = result2.body;
+    });
+
+    afterEach(async () => {
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+    });
+
+    it('should update primary field cell with another cell', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const textFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      await createField(table1.id, manyOneFieldRo);
+      const textField = await createField(table1.id, textFieldRo);
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        record: {
+          fields: {
+            [table1.fields[0].id]: 'primary',
+            [textField.id]: 'text',
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
     });
   });
 });

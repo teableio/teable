@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
@@ -24,7 +23,6 @@ import {
   updateField as apiUpdateField,
   getFields as apiGetFields,
   getField as apiGetField,
-  signup,
 } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
@@ -81,7 +79,7 @@ export async function initApp() {
   console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
   console.log(`> Jest Test Ready on ${url}`);
 
-  return { app, request: newRequest, axios, cookie: cookie.join(';') };
+  return { app, request: newRequest, cookie: cookie.join(';') };
 }
 
 async function getCookie(email: string, password: string) {
@@ -183,21 +181,4 @@ export async function getFields(
 export async function getField(tableId: string, fieldId: string): Promise<IFieldVo> {
   const result = await apiGetField(tableId, fieldId);
   return result.data;
-}
-
-export async function getUserRequest(
-  app: INestApplication,
-  user: { email: string; password: string }
-) {
-  const signupRes = await signup(user);
-  let cookie = null;
-  if (signupRes.status !== 201) {
-    const signinRes = await signin(user);
-    cookie = signinRes.headers['set-cookie'];
-  } else {
-    cookie = signupRes.headers['set-cookie'];
-  }
-  const newRequest = request.agent(app.getHttpServer());
-  newRequest.set('Cookie', cookie as string[]);
-  return newRequest;
 }
