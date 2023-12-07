@@ -8,7 +8,7 @@ import { SelectEditorMain } from './EditorMain';
 import { SelectTag } from './SelectTag';
 
 export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain<T>) => {
-  const { value, options = [], isMultiple, onChange, className, style, disabled } = props;
+  const { value, options = [], isMultiple, onChange, className, style, readonly } = props;
   const [open, setOpen] = useState(false);
   const selectRef = useRef<HTMLButtonElement>(null);
 
@@ -29,43 +29,53 @@ export const SelectEditor = <T extends boolean = false>(props: ISelectEditorMain
     }
   };
 
-  return (
-    <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger ref={selectRef} asChild disabled={disabled}>
-        <Button
-          style={style}
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={classNames(
-            'w-full h-auto min-h-[40px] sm:min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
-            className
-          )}
+  const triggerContent = (
+    <Button
+      style={style}
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      className={classNames(
+        'w-full h-auto min-h-[40px] sm:min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
+        className
+      )}
+    >
+      {displayOptions?.map(({ value, label, backgroundColor, color }) => (
+        <SelectTag
+          className="flex items-center"
+          key={value}
+          label={label}
+          color={color}
+          backgroundColor={backgroundColor}
         >
-          {displayOptions?.map(({ value, label, backgroundColor, color }) => (
-            <SelectTag
-              className="flex items-center"
-              key={value}
-              label={label}
-              color={color}
-              backgroundColor={backgroundColor}
-            >
-              {
-                <X
-                  className="cursor-pointer opacity-50 hover:opacity-100"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onDelete(value);
-                  }}
-                />
-              }
-            </SelectTag>
-          ))}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" style={{ width: selectRef.current?.offsetWidth || 0 }}>
-        <SelectEditorMain {...props} onChange={onChangeInner} />
-      </PopoverContent>
-    </Popover>
+          {!readonly && (
+            <X
+              className="cursor-pointer opacity-50 hover:opacity-100"
+              onClick={(e) => {
+                e.preventDefault();
+                onDelete(value);
+              }}
+            />
+          )}
+        </SelectTag>
+      ))}
+    </Button>
+  );
+
+  return (
+    <>
+      {readonly ? (
+        triggerContent
+      ) : (
+        <Popover open={open} onOpenChange={setOpen} modal>
+          <PopoverTrigger ref={selectRef} asChild>
+            {triggerContent}
+          </PopoverTrigger>
+          <PopoverContent className="p-0" style={{ width: selectRef.current?.offsetWidth || 0 }}>
+            <SelectEditorMain {...props} onChange={onChangeInner} />
+          </PopoverContent>
+        </Popover>
+      )}
+    </>
   );
 };

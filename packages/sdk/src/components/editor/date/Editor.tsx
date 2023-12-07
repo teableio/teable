@@ -12,7 +12,7 @@ export interface IDateEditor extends IDateEditorMain {
 }
 
 export const DateEditor = (props: IDateEditor) => {
-  const { value, onChange, className, disabled, options } = props;
+  const { value, onChange, className, readonly, options } = props;
   const { date, time } = options?.formatting || {};
 
   const valueComponent = useMemo(() => {
@@ -27,7 +27,7 @@ export const DateEditor = (props: IDateEditor) => {
 
   return (
     <Popover>
-      <PopoverTrigger asChild disabled={disabled}>
+      <PopoverTrigger asChild disabled={readonly}>
         <Button
           variant={'outline'}
           className={classNames(

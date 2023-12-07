@@ -9,7 +9,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
   props,
   ref
 ) => {
-  const { value, onChange, className, disabled, style } = props;
+  const { value, onChange, className, readonly, style } = props;
   const [text, setText] = useState<string>(value || '');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -35,7 +35,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
       value={text}
       onChange={onChangeInner}
       onBlur={saveValue}
-      disabled={disabled}
+      disabled={readonly}
     />
   );
 };

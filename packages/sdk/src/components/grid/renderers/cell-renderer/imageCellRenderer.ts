@@ -38,16 +38,17 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager, isActive, spriteManager } =
       props;
     const { cellVerticalPadding, cellHorizontalPadding, iconSizeSM } = theme;
+    const { displayData: urls, readonly } = cell;
     const { x, y, width, height } = rect;
-    const { displayData: urls } = cell;
-    const initPadding = isActive ? iconSizeSM + 2 : 0;
+    const editable = !readonly && isActive;
+    const initPadding = editable ? iconSizeSM + 2 : 0;
     const imgHeight = height - cellVerticalPadding * 2;
 
     const images = getImages(urls, (url) =>
       imageManager.loadOrGetImage(url, columnIndex, rowIndex)
     );
 
-    if (isActive) {
+    if (editable) {
       spriteManager.drawSprite(ctx, {
         sprite: GridInnerIcon.Add,
         x: x + cellHorizontalPadding - 2,
