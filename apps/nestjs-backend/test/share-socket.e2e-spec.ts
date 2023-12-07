@@ -48,7 +48,7 @@ describe('Share (socket-e2e) (e2e)', () => {
     fieldIds = map(table.fields, 'id');
     // hidden last one field
     const field = table.fields[fieldIds.length - 1];
-    await updateField(request, tableId, field.id, {
+    await updateField(tableId, field.id, {
       columnMeta: { [viewId]: { ...field.columnMeta[viewId], hidden: true } },
       type: field.type,
     });

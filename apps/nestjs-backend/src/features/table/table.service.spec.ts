@@ -20,17 +20,22 @@ describe('TableService', () => {
   });
 
   it('should convert table name to valid db table name', () => {
-    const dbTableName = service.generateValidName('!@#$_a ha3ha 中文');
-    expect(dbTableName).toBe('_aha3ha');
+    const dbTableName = service.generateValidName('!@#$1_a ha3ha 中文');
+    expect(dbTableName).toBe('t1_a_ha3ha_Zhong_Wen');
   });
 
-  it('should limit table name to 10', () => {
-    const dbTableName = service.generateValidName('!@#$_a haha long long test for mr 中文');
-    expect(dbTableName).toBe('_ahahalong');
+  it('should limit table name to 40', () => {
+    const dbTableName = service.generateValidName('t'.repeat(50));
+    expect(dbTableName).toBe('t'.repeat(40));
+  });
+
+  it('should convert chinese to pin yin', () => {
+    const dbTableName = service.generateValidName('中文');
+    expect(dbTableName).toBe('Zhong_Wen');
   });
 
   it('should convert empty table name unnamed', () => {
-    const dbTableName = service.generateValidName('中文');
+    const dbTableName = service.generateValidName('');
     expect(dbTableName).toBe('unnamed');
   });
 });

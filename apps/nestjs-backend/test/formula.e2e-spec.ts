@@ -92,7 +92,7 @@ describe('OpenAPI formula (e2e)', () => {
     const existRecord = getResult.body.records[0];
 
     const updateResult = await request
-      .put(`/api/table/${table1Id}/record/${existRecord.id}`)
+      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
       .send({
         record: {
           fields: {
@@ -116,7 +116,7 @@ describe('OpenAPI formula (e2e)', () => {
     const existRecord = getResult.body.records[0];
 
     const updateResult1 = await request
-      .put(`/api/table/${table1Id}/record/${existRecord.id}`)
+      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
       .send({
         record: {
           fields: {
@@ -133,7 +133,7 @@ describe('OpenAPI formula (e2e)', () => {
     expect(record1.fields[formulaFieldRo.name]).toEqual('1');
 
     const updateResult2 = await request
-      .put(`/api/table/${table1Id}/record/${existRecord.id}`)
+      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
       .send({
         record: {
           fields: {
@@ -168,13 +168,13 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    await createField(request, table1Id, linkFieldRo);
+    await createField(table1Id, linkFieldRo);
 
-    const formulaField = await createField(request, table2.id, formulaFieldRo);
+    const formulaField = await createField(table2.id, formulaFieldRo);
 
     console.log('----------------------');
     const updateResult1 = await request
-      .put(`/api/table/${table2.id}/record/${table2.records[0].id}`)
+      .patch(`/api/table/${table2.id}/record/${table2.records[0].id}`)
       .send({
         record: {
           fields: {

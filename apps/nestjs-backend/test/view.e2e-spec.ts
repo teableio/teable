@@ -1,8 +1,9 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IViewRo } from '@teable-group/core';
-import { ViewType } from '@teable-group/core';
+import type { IFieldVo, ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
+import { FieldType, ViewType } from '@teable-group/core';
 import type supertest from 'supertest';
-import { initApp } from './utils/init-app';
+import { createField, getFields, initApp } from './utils/init-app';
 
 const defaultViews = [
   {
@@ -13,7 +14,7 @@ const defaultViews = [
 
 describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
-  let tableId = '';
+  let table: ITableFullVo;
   let request: supertest.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
@@ -25,18 +26,18 @@ describe('OpenAPI ViewController (e2e)', () => {
     const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
-    tableId = result.body.id;
+    table = result.body;
   });
 
   afterAll(async () => {
-    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`);
+    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
     console.log('clear table: ', result.body);
 
     await app.close();
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {
-    const viewsResult = await request.get(`/api/table/${tableId}/view`);
+    const viewsResult = await request.get(`/api/table/${table.id}/view`);
     expect(viewsResult.body).toMatchObject(defaultViews);
   });
 
@@ -47,10 +48,10 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await request.post(`/api/table/${tableId}/view`).send(viewRo).expect(201);
+    await request.post(`/api/table/${table.id}/view`).send(viewRo).expect(201);
 
     const result = await request
-      .get(`/api/table/${tableId}/view`)
+      .get(`/api/table/${table.id}/view`)
       .query({
         skip: 0,
         take: 1000,
@@ -66,5 +67,24 @@ describe('OpenAPI ViewController (e2e)', () => {
       },
     ]);
     // console.log('result: ', result.body);
+  });
+
+  it('fields in new view should sort by created time and primary field is always first', async () => {
+    const viewRo: IViewRo = {
+      name: 'New view',
+      description: 'the new view',
+      type: ViewType.Grid,
+    };
+
+    const oldFields: IFieldVo[] = [];
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+
+    const result = await request.post(`/api/table/${table.id}/view`).send(viewRo).expect(201);
+    const newView = result.body as IViewVo;
+    const newFields = await getFields(table.id, newView.id);
+
+    expect(newFields.slice(3)).toMatchObject(oldFields);
   });
 });

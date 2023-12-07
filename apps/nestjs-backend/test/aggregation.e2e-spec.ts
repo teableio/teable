@@ -61,7 +61,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
     });
 
     it('should get rowCount', async () => {
-      await createRecords(request, table.id, [
+      await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: faker.string.sample(),
@@ -93,7 +93,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, table.id, [
+      await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: faker.string.sample(),
@@ -136,7 +136,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, table.id, [
+      await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: faker.string.sample(),
@@ -180,7 +180,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
 
       const identicalStr = faker.string.sample();
-      await createRecords(request, tableId, [
+      await createRecords(tableId, [
         {
           fields: {
             [table.fields[0].id]: identicalStr,
@@ -208,7 +208,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, table.id, [
+      await createRecords(table.id, [
         {
           fields: {
             [table.fields[0].id]: faker.string.sample(),
@@ -251,7 +251,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, tableId, [
+      await createRecords(tableId, [
         {
           fields: {
             [table.fields[1].id]: 9,
@@ -299,7 +299,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, tableId, [
+      await createRecords(tableId, [
         {
           fields: {
             [table.fields[1].id]: 22,
@@ -347,7 +347,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, tableId, [
+      await createRecords(tableId, [
         {
           fields: {
             [table.fields[1].id]: 6,
@@ -395,7 +395,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(request, tableId, [
+      await createRecords(tableId, [
         {
           fields: {
             [table.fields[1].id]: 6.6,

@@ -184,9 +184,15 @@ export const fieldVoSchema = z.object({
     description: 'The field type of database that cellValue really store.',
   }),
 
-  dbFieldName: z.string().openapi({
-    description: 'The field name of database that cellValue really store.',
-  }),
+  dbFieldName: z
+    .string()
+    .regex(/^[a-z]\w{0,62}$/i, {
+      message: 'Invalid name format',
+    })
+    .openapi({
+      description:
+        'Field(column) name in backend database. Limitation: 1-63 characters, start with letter, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
+    }),
 });
 
 export type IFieldVo = z.infer<typeof fieldVoSchema>;
@@ -196,6 +202,7 @@ export type IFieldPropertyKey = keyof Omit<IFieldVo, 'id'>;
 export const FIELD_RO_PROPERTIES = [
   'type',
   'name',
+  'dbFieldName',
   'isLookup',
   'description',
   'columnMeta',
@@ -333,6 +340,7 @@ const baseFieldRoSchema = fieldVoSchema
   .pick({
     type: true,
     name: true,
+    dbFieldName: true,
     isLookup: true,
     description: true,
     columnMeta: true,

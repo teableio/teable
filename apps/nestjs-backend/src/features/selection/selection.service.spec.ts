@@ -12,6 +12,7 @@ import {
   nullsToUndefined,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { RangeType } from '@teable-group/openapi';
 import type { DeepMockProxy } from 'jest-mock-extended';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
@@ -193,6 +194,7 @@ describe('selectionService', () => {
 
   describe('expandColumns', () => {
     it('should expand the columns and create new fields', async () => {
+      jest.spyOn(fieldService as any, 'generateDbFieldName').mockReturnValue('fieldName');
       // Mock dependencies
       const tableId = 'table1';
       // const viewId = 'view1';
@@ -372,6 +374,79 @@ describe('selectionService', () => {
     });
   });
 
+  describe('expandPasteContent', () => {
+    it('should expand data when range is multiple of paste data size', () => {
+      const pasteData = [
+        ['1', '2'],
+        ['3', '4'],
+      ];
+      const range = [
+        [0, 0],
+        [3, 3],
+      ] as [[number, number], [number, number]];
+      const expected = [
+        ['1', '2', '1', '2'],
+        ['3', '4', '3', '4'],
+        ['1', '2', '1', '2'],
+        ['3', '4', '3', '4'],
+      ];
+
+      expect(selectionService['expandPasteContent'](pasteData, range)).toEqual(expected);
+    });
+
+    it('should not expand data when range is not multiple of paste data size', () => {
+      const pasteData = [
+        ['1', '2'],
+        ['3', '4'],
+      ];
+      const range = [
+        [0, 0],
+        [2, 2],
+      ] as [[number, number], [number, number]];
+
+      expect(selectionService['expandPasteContent'](pasteData, range)).toEqual(pasteData);
+    });
+  });
+
+  describe('getRangeCell', () => {
+    const maxRange = [
+      [0, 0],
+      [5, 5],
+    ] as [number, number][];
+
+    it('should return correct range for column type', () => {
+      const range = [[1, 2]] as [number, number][];
+      const type = RangeType.Columns;
+      const expected = [
+        [1, 0],
+        [2, 5],
+      ];
+
+      expect(selectionService['getRangeCell'](maxRange, range, type)).toEqual(expected);
+    });
+
+    it('should return correct range for row type', () => {
+      const range = [[1, 2]] as [number, number][];
+      const type = RangeType.Rows;
+      const expected = [
+        [0, 1],
+        [5, 2],
+      ];
+
+      expect(selectionService['getRangeCell'](maxRange, range, type)).toEqual(expected);
+    });
+
+    it('should return input range for default type', () => {
+      const range = [
+        [1, 2],
+        [3, 4],
+      ] as [number, number][];
+      const type = undefined;
+
+      expect(selectionService['getRangeCell'](maxRange, range, type)).toEqual(range);
+    });
+  });
+
   describe('paste', () => {
     const content = 'A1\tB1\tC1\nA2\tB2\tC2\nA3\tB3\tC3';
     const tableData = [
@@ -420,7 +495,10 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByVo);
 
       const pasteRo = {
-        cell: [2, 1] as [number, number],
+        range: [
+          [2, 1],
+          [2, 1],
+        ] as [number, number][],
         content,
         header: mockFields,
       };
@@ -463,7 +541,7 @@ describe('selectionService', () => {
       jest.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
       jest
         .spyOn(recordService, 'getRecordsFields')
-        .mockResolvedValue(mockRecords.slice(pasteRo.cell[1]));
+        .mockResolvedValue(mockRecords.slice(pasteRo.range[0][1]));
 
       jest.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
 

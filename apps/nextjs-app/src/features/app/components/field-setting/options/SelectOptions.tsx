@@ -76,7 +76,7 @@ export const SelectOptions = (props: {
     <ul className="space-y-2">
       {choices.map(({ color, name }, i) => {
         return (
-          <li key={name} className="flex items-center">
+          <li key={`${name}-${i}`} className="flex items-center">
             <Popover>
               <PopoverTrigger>
                 <div

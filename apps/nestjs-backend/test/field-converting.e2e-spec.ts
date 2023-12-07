@@ -4,6 +4,8 @@ import type {
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
+  ILookupOptionsRo,
+  IRollupFieldOptions,
   ISelectFieldOptions,
   ITableFullVo,
 } from '@teable-group/core';
@@ -17,13 +19,14 @@ import {
   NumberFormattingType,
   RatingIcon,
   defaultDatetimeFormatting,
+  FieldKeyType,
 } from '@teable-group/core';
+import { getRecords } from '@teable-group/openapi';
 import type request from 'supertest';
 import {
   createField,
   getField,
   getRecord,
-  getRecords,
   initApp,
   updateField,
   updateRecordByApi,
@@ -75,16 +78,16 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     newFieldRo: IFieldRo,
     values: unknown[] = []
   ) {
-    const sourceField = await createField(request, table.id, sourceFieldRo);
+    const sourceField = await createField(table.id, sourceFieldRo);
     for (const i in values) {
       const value = values[i];
       value != null &&
-        (await updateRecordByApi(request, table.id, table.records[i].id, sourceField.id, value));
+        (await updateRecordByApi(table.id, table.records[i].id, sourceField.id, value));
     }
-    await updateField(request, table.id, sourceField.id, newFieldRo);
-    const newField = await getField(request, table.id, sourceField.id);
+    await updateField(table.id, sourceField.id, newFieldRo);
+    const newField = await getField(table.id, sourceField.id);
     const records = await Promise.all(
-      values.map((_, i) => getRecord(request, table.id, table.records[i].id))
+      values.map((_, i) => getRecord(table.id, table.records[i].id))
     );
 
     const result = records.map((record) => record.fields[newField.id]);
@@ -111,7 +114,39 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
-      expect(newField.description).toBeUndefined();
+      expect(newField.description).toEqual('hello');
+      expect(newField.columnMeta).toMatchObject({});
+    });
+
+    it('should modify db field name', async () => {
+      const sourceFieldRo1: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        dbFieldName: 'the_db_field_name',
+        type: FieldType.SingleLineText,
+      };
+
+      const field = await createField(table1.id, sourceFieldRo1);
+      expect(field.dbFieldName).toEqual('the_db_field_name');
+
+      await request.post(`/api/table/${table1.id}/field`).send(sourceFieldRo1).expect(400);
+
+      const sourceFieldRo2: IFieldRo = {
+        name: 'TextField 2',
+        description: 'hello',
+        dbFieldName: 'the_db_field_name_2',
+        type: FieldType.SingleLineText,
+      };
+
+      const newFieldRo: IFieldRo = {
+        dbFieldName: 'NEW_field_name',
+        type: FieldType.SingleLineText,
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo2, newFieldRo);
+      expect(newField.dbFieldName).toEqual('NEW_field_name');
+      expect(newField.name).toEqual('TextField 2');
+      expect(newField.description).toEqual('hello');
       expect(newField.columnMeta).toMatchObject({});
     });
 
@@ -169,7 +204,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
 
       const rollupFieldRo: IFieldRo = {
         name: 'rollUpField',
@@ -211,7 +246,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
 
       const lookupFieldRo: IFieldRo = {
         name: 'lookupField',
@@ -487,14 +522,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add 2 link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
-      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -536,11 +571,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
       // add 2 link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },
@@ -770,14 +805,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add 2 link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
-      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -819,11 +854,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'gg');
       // add 2 link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },
@@ -991,9 +1026,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           ],
         },
       };
-      const sourceField = await createField(request, table1.id, sourceFieldRo);
+      const sourceField = await createField(table1.id, sourceFieldRo);
       await request
-        .put(`/api/table/${table1.id}/field/${sourceField.id}`)
+        .patch(`/api/table/${table1.id}/field/${sourceField.id}`)
         .send(newFieldRo)
         .expect(400);
     });
@@ -1130,14 +1165,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     let refField2: IFieldVo;
 
     beforeAll(async () => {
-      refField1 = await createField(request, table1.id, refField1Ro);
-      refField2 = await createField(request, table1.id, refField2Ro);
+      refField1 = await createField(table1.id, refField1Ro);
+      refField2 = await createField(table1.id, refField2Ro);
 
-      await updateRecordByApi(request, table1.id, table1.records[0].id, refField1.id, 'x');
-      await updateRecordByApi(request, table1.id, table1.records[1].id, refField1.id, 'y');
+      await updateRecordByApi(table1.id, table1.records[0].id, refField1.id, 'x');
+      await updateRecordByApi(table1.id, table1.records[1].id, refField1.id, 'y');
 
-      await updateRecordByApi(request, table1.id, table1.records[0].id, refField2.id, 1);
-      await updateRecordByApi(request, table1.id, table1.records[1].id, refField2.id, 2);
+      await updateRecordByApi(table1.id, table1.records[0].id, refField2.id, 1);
+      await updateRecordByApi(table1.id, table1.records[1].id, refField2.id, 2);
     });
 
     it('should convert formula and modify expression', async () => {
@@ -1167,9 +1202,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const newField2 = await updateField(request, table1.id, newField.id, newFieldRo2);
+      const newField2 = await updateField(table1.id, newField.id, newFieldRo2);
 
-      const records = await getRecords(request, table1.id);
+      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
 
       expect(newField2).toMatchObject({
         cellValueType: CellValueType.Number,
@@ -1200,7 +1235,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
 
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
 
@@ -1230,7 +1265,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
 
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         'x, y',
@@ -1248,7 +1283,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table2.id);
+      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       // only match 'x' in table2, because many-one link only allowed one value
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       // create a new record in table2 to match 'z' that not exist in table 2 before
@@ -1269,8 +1304,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         'x, y',
@@ -1289,7 +1324,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table2.id);
+      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual([
         { title: 'x', id: records[0].id },
         { title: 'y', id: records[1].id },
@@ -1312,8 +1347,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
       const { newField, sourceField, values } = await expectUpdate(
         table1,
@@ -1353,8 +1388,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
 
       const { newField, sourceField, values } = await expectUpdate(
         table1,
@@ -1398,8 +1433,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'xx');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'yy');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'xx');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'yy');
 
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         { id: table2.records[0].id },
@@ -1418,7 +1453,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table2.id);
+      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual([{ title: 'xx', id: records[0].id }]);
       // values[1] should by values[0] to keep link consistency
       expect(values[1]).toEqual(undefined);
@@ -1442,9 +1477,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
-      await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
 
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         [{ id: table2.records[0].id }, { id: table2.records[1].id }],
@@ -1462,7 +1497,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table2.id);
+      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
@@ -1485,13 +1520,13 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
-      await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
       // set primary key in table3
-      await updateRecordByApi(request, table3.id, table3.records[0].id, table3.fields[0].id, 'x');
-      await updateRecordByApi(request, table3.id, table3.records[1].id, table3.fields[0].id, 'y');
-      await updateRecordByApi(request, table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'x');
+      await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'y');
+      await updateRecordByApi(table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
 
       const { newField, sourceField, values } = await expectUpdate(
         table1,
@@ -1521,11 +1556,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure symmetricField have been created
-      const symmetricField = await getField(
-        request,
-        table3.id,
-        newFieldOptions.symmetricFieldId as string
-      );
+      const symmetricField = await getField(table3.id, newFieldOptions.symmetricFieldId as string);
       expect(symmetricField).toMatchObject({
         cellValueType: CellValueType.String,
         isMultipleCellValue: true,
@@ -1539,7 +1570,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table3.id);
+      const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'y', id: records[1].id });
       expect(values[2]).toEqual({ title: 'z2', id: records[records.length - 1].id });
@@ -1563,13 +1594,13 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
 
       // set primary key in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
-      await updateRecordByApi(request, table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'z2');
       // set primary key in table3
-      await updateRecordByApi(request, table3.id, table3.records[0].id, table3.fields[0].id, 'x');
-      await updateRecordByApi(request, table3.id, table3.records[1].id, table3.fields[0].id, 'y');
-      await updateRecordByApi(request, table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'x');
+      await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'y');
+      await updateRecordByApi(table3.id, table3.records[2].id, table3.fields[0].id, 'z3');
 
       const { newField, sourceField, values } = await expectUpdate(
         table1,
@@ -1600,11 +1631,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure symmetricField have been created
-      const symmetricField = await getField(
-        request,
-        table3.id,
-        newFieldOptions.symmetricFieldId as string
-      );
+      const symmetricField = await getField(table3.id, newFieldOptions.symmetricFieldId as string);
       expect(symmetricField).toMatchObject({
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Json,
@@ -1617,7 +1644,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = await getRecords(request, table3.id);
+      const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual([{ title: 'x', id: records[0].id }]);
       expect(values[1]).toEqual([{ title: 'y', id: records[1].id }]);
       expect(values[2]).toEqual([{ title: 'z2', id: records[records.length - 1].id }]);
@@ -1639,11 +1666,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add a link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -1685,12 +1712,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key 'x'/'y' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
       // add a link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },
@@ -1737,8 +1764,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
-      const sourceField = await createField(request, table2.id, sourceFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
+      const sourceField = await createField(table2.id, sourceFieldRo);
 
       const lookupFieldRo: IFieldRo = {
         name: 'lookup ' + sourceField.name,
@@ -1750,7 +1777,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           linkFieldId: linkField.id,
         },
       };
-      const lookupField = await createField(request, table1.id, lookupFieldRo);
+      const lookupField = await createField(table1.id, lookupFieldRo);
 
       expect(lookupField).toMatchObject({
         type: sourceField.type,
@@ -1766,7 +1793,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // add a link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, [
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
         {
           id: table2.records[0].id,
         },
@@ -1776,18 +1803,18 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
 
       // update source field record before convert
-      await updateRecordByApi(request, table2.id, table2.records[0].id, sourceField.id, 'text 1');
-      await updateRecordByApi(request, table2.id, table2.records[1].id, sourceField.id, 'text 2');
+      await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, 'text 1');
+      await updateRecordByApi(table2.id, table2.records[1].id, sourceField.id, 'text 2');
 
-      const recordResult1 = await getRecords(request, table1.id);
+      const recordResult1 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(recordResult1.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
 
       const newFieldRo: IFieldRo = {
         type: FieldType.SingleSelect,
       };
 
-      const newField = await updateField(request, table2.id, sourceField.id, newFieldRo);
-      const newLookupField = await getField(request, table1.id, lookupField.id);
+      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newLookupField = await getField(table1.id, lookupField.id);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1813,7 +1840,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const recordResult2 = await getRecords(request, table1.id);
+      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
     });
 
@@ -1828,8 +1855,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const linkField = await createField(request, table1.id, linkFieldRo);
-      const sourceField = await createField(request, table2.id, sourceFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
+      const sourceField = await createField(table2.id, sourceFieldRo);
 
       const lookupFieldRo: IFieldRo = {
         name: 'lookup ' + sourceField.name,
@@ -1841,7 +1868,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           linkFieldId: linkField.id,
         },
       };
-      const lookupField = await createField(request, table1.id, lookupFieldRo);
+      const lookupField = await createField(table1.id, lookupFieldRo);
 
       const formulaFieldRo: IFieldRo = {
         type: FieldType.Formula,
@@ -1849,7 +1876,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           expression: `{${lookupField.id}}`,
         },
       };
-      const formulaField = await createField(request, table1.id, formulaFieldRo);
+      const formulaField = await createField(table1.id, formulaFieldRo);
 
       expect(lookupField).toMatchObject({
         type: sourceField.type,
@@ -1871,17 +1898,17 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // add a link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
-      await updateRecordByApi(request, table1.id, table1.records[1].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField.id, {
         id: table2.records[0].id,
       });
 
       // update source field record before convert
-      await updateRecordByApi(request, table2.id, table2.records[0].id, sourceField.id, 1);
+      await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, 1);
 
-      const recordResult1 = await getRecords(request, table1.id);
+      const recordResult1 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(recordResult1.records[0].fields[lookupField.id]).toEqual(1);
       expect(recordResult1.records[1].fields[lookupField.id]).toEqual(1);
 
@@ -1889,9 +1916,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const newField = await updateField(request, table2.id, sourceField.id, newFieldRo);
-      const newLookupField = await getField(request, table1.id, lookupField.id);
-      const newFormulaField = await getField(request, table1.id, formulaField.id);
+      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newLookupField = await getField(table1.id, lookupField.id);
+      const newFormulaField = await getField(table1.id, formulaField.id);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1920,7 +1947,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         cellValueType: newField.cellValueType,
       });
 
-      const recordResult2 = await getRecords(request, table1.id);
+      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual('1.00');
       expect(recordResult2.records[1].fields[lookupField.id]).toEqual('1.00');
     });
@@ -1944,15 +1971,15 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           foreignTableId: table2.id,
         },
       };
-      const extraLinkField = await createField(request, table1.id, extraLinkFieldRo);
+      const extraLinkField = await createField(table1.id, extraLinkFieldRo);
       expect(extraLinkField).toMatchObject({
         type: FieldType.Link,
       });
-      const linkField = await createField(request, table1.id, linkFieldRo);
+      const linkField = await createField(table1.id, linkFieldRo);
       // set primary key 'x' in table2
-      await updateRecordByApi(request, table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
       // add a link record
-      await updateRecordByApi(request, table1.id, table1.records[0].id, linkField.id, {
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
         id: table2.records[0].id,
       });
 
@@ -1966,7 +1993,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const lookupField = await createField(request, table1.id, lookupFieldRo);
+      const lookupField = await createField(table1.id, lookupFieldRo);
       expect(lookupField).toMatchObject({
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
@@ -1978,11 +2005,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           linkFieldId: linkField.id,
         },
       });
-      const beforeRecord = await getRecord(request, table1.id, table1.records[0].id);
+      const beforeRecord = await getRecord(table1.id, table1.records[0].id);
       expect(beforeRecord.fields[lookupField.id]).toEqual('x');
 
       console.log('start update');
-      const newField = await updateField(request, table1.id, linkField.id, sourceFieldRo);
+      const newField = await updateField(table1.id, linkField.id, sourceFieldRo);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1990,7 +2017,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.SingleLineText,
       });
 
-      const lookupFieldAfter = await getField(request, table1.id, lookupField.id);
+      const lookupFieldAfter = await getField(table1.id, lookupField.id);
       expect(lookupFieldAfter).toMatchObject({
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Text,
@@ -2004,7 +2031,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const record = await getRecord(request, table1.id, table1.records[0].id);
+      const record = await getRecord(table1.id, table1.records[0].id);
       expect(record.fields[newField.id]).toEqual('x');
       expect(record.fields[lookupField.id]).toEqual(undefined);
     });
@@ -2018,7 +2045,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const selectField = await createField(request, table1.id, selectFieldRo);
+      const selectField = await createField(table1.id, selectFieldRo);
 
       const linkFieldRo: IFieldRo = {
         type: FieldType.Link,
@@ -2028,7 +2055,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const linkField = await createField(request, table2.id, linkFieldRo);
+      const linkField = await createField(table2.id, linkFieldRo);
 
       const lookupFieldRo: IFieldRo = {
         name: 'Lookup SelectField',
@@ -2041,7 +2068,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const lookupField = await createField(request, table2.id, lookupFieldRo);
+      const lookupField = await createField(table2.id, lookupFieldRo);
 
       expect(lookupField).toMatchObject({
         name: 'Lookup SelectField',
@@ -2067,9 +2094,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      await updateField(request, table1.id, selectField.id, selectFieldUpdateRo);
+      await updateField(table1.id, selectField.id, selectFieldUpdateRo);
 
-      const lookupFieldAfter = await getField(request, table2.id, lookupField.id);
+      const lookupFieldAfter = await getField(table2.id, lookupField.id);
       expect((lookupFieldAfter.options as ISelectFieldOptions).choices.length).toEqual(2);
       expect((lookupFieldAfter.options as ISelectFieldOptions).choices[0]).toMatchObject({
         name: 'x',
@@ -2079,6 +2106,141 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         name: 'y',
         color: Colors.Blue,
       });
+    });
+
+    it('should update lookup when the change lookupField', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'number',
+        type: FieldType.Number,
+      };
+
+      const textField = await createField(table1.id, textFieldRo);
+      const numberField = await createField(table1.id, numberFieldRo);
+
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField = await createField(table2.id, linkFieldRo);
+      await updateRecordByApi(table2.id, table2.records[0].id, linkField.id, [
+        {
+          id: table1.records[0].id,
+        },
+        {
+          id: table1.records[1].id,
+        },
+      ]);
+      await updateRecordByApi(table1.id, table1.records[0].id, textField.id, 'text1');
+      await updateRecordByApi(table1.id, table1.records[0].id, numberField.id, 123);
+
+      const lookupFieldRo1: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const lookupField = await createField(table2.id, lookupFieldRo1);
+
+      const textRecord = await getRecord(table2.id, table2.records[0].id);
+      expect(textRecord.fields[lookupField.id]).toEqual(['text1']);
+
+      const lookupFieldRo2: IFieldRo = {
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: numberField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const updatedLookupField = await updateField(table2.id, lookupField.id, lookupFieldRo2);
+      expect(updatedLookupField).toMatchObject(lookupFieldRo2);
+      const numberRecord = await getRecord(table2.id, table2.records[0].id);
+      expect(numberRecord.fields[lookupField.id]).toEqual([123]);
+    });
+  });
+
+  describe('convert rollup field', () => {
+    bfAf();
+
+    it('should update rollup change rollup to field', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'number',
+        type: FieldType.Number,
+      };
+
+      const textField = await createField(table1.id, textFieldRo);
+      const numberField = await createField(table1.id, numberFieldRo);
+
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField = await createField(table2.id, linkFieldRo);
+      await updateRecordByApi(table2.id, table2.records[0].id, linkField.id, [
+        {
+          id: table1.records[0].id,
+        },
+        {
+          id: table1.records[1].id,
+        },
+      ]);
+
+      const rollupFieldRo1: IFieldRo = {
+        name: 'Roll up',
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+          formatting: {
+            precision: 2,
+            type: 'decimal',
+          },
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      const rollupField = await createField(table2.id, rollupFieldRo1);
+
+      const rollupFieldRo2: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: numberField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      };
+
+      await updateField(table2.id, rollupField.id, rollupFieldRo2);
     });
   });
 });

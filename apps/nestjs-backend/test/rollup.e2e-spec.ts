@@ -196,7 +196,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
   ): Promise<IRecord> {
     return (
       await request
-        .put(`/api/table/${tableId}/record/${recordId}`)
+        .patch(`/api/table/${tableId}/record/${recordId}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
           record: {
@@ -494,5 +494,23 @@ describe('OpenAPI Rollup field (e2e)', () => {
     expect(record1.fields[rollupFieldVo.id]).toEqual(1);
     const record2 = await getRecord(table2.id, table2.records[2].id);
     expect(record2.fields[rollupFieldVo.id]).toEqual(1);
+  });
+
+  it('should rollup a number field in  one - many relationship', async () => {
+    const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
+    await updateRecordByApi(table2.id, table2.records[1].id, lookedUpToField.id, null);
+    // add a link record after
+    await updateRecordByApi(
+      table1.id,
+      table1.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
+    );
+
+    await rollupFrom(table1, lookedUpToField.id, 'count({values})');
+    // update a field that will be lookup by after field
+    const lookedUpToField2 = getFieldByType(table2.fields, FieldType.SingleLineText);
+
+    await rollupFrom(table1, lookedUpToField2.id, 'count({values})');
   });
 });
