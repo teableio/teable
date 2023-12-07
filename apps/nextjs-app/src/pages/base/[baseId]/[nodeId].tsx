@@ -11,7 +11,7 @@ const Node: NextPageWithLayout = () => {
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
   const { nodeId, baseId } = context.query;
   try {
-    const result = await ssrApi.getDefaultViewId(nodeId as string);
+    const result = await ssrApi.getDefaultViewId(baseId as string, nodeId as string);
     return {
       redirect: {
         destination: `/base/${baseId}/${nodeId}/${result.id}`,
