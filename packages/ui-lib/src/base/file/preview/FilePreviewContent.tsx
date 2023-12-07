@@ -21,6 +21,12 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
     return files.length < 2 || currentFile?.fileId === files[files.length - 1].fileId;
   }, [currentFile?.fileId, files]);
 
+  const clickFileBox = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if ('id' in e.target && e.target.id === 'file-box') {
+      closePreview();
+    }
+  };
+
   return (
     <Dialog open={open} modal>
       <DialogTrigger asChild />
@@ -63,13 +69,12 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
             >
               <ChevronRight className="rotate-180 text-6xl" />
             </button>
-            <div className="h-full flex items-center justify-center" onClick={closePreview}>
-              <div
-                className="h-full w-full flex items-center justify-center"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <FilePreview />
-              </div>
+            <div
+              id="file-box"
+              className="h-full flex items-center justify-center"
+              onClick={clickFileBox}
+            >
+              <FilePreview />
             </div>
             <button
               className={cn(

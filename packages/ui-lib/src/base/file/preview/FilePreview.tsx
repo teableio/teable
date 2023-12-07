@@ -35,5 +35,5 @@ export const FilePreview = (props: IFilePreviewProps) => {
     return <AudioPreview {...currentFile} />;
   }
 
-  return <FileIcon className={cn('max-w-full max-h-full w-1/2 h-1/2 bg-white', className)} />;
+  return <FileIcon className={cn('max-w-max max-h-max w-40 h-40 ', className)} />;
 };
