@@ -50,7 +50,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
       });
     }
   },
-  checkRegion: (cell: IBooleanCell, props: ICellClickProps, shouldCalculate?: boolean) => {
+  checkRegion: (cell: IBooleanCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
     const { data, readonly } = cell;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height, theme } = props;
@@ -64,7 +64,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     ) {
       return {
         type: CellRegionType.Update,
-        data: shouldCalculate ? !data : null,
+        data: !data || null,
       };
     }
     return { type: CellRegionType.Blank };
