@@ -50,7 +50,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   const bfAf = () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       const result1 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table1',
       });
@@ -60,12 +60,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
       table2 = result2.body;
       const result3 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table2',
+        name: 'table3',
       });
       table3 = result3.body;
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
       await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
       await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
@@ -652,7 +652,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField).toMatchObject({
         cellValueType: CellValueType.Number,
         dbFieldType: DbFieldType.Real,
-        name: 'LongTextField 2',
+        name: 'LongTextField',
         type: FieldType.Number,
       });
       expect(values[0]).toEqual(1);
@@ -1164,7 +1164,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     let refField1: IFieldVo;
     let refField2: IFieldVo;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       refField1 = await createField(table1.id, refField1Ro);
       refField2 = await createField(table1.id, refField2Ro);
 
@@ -1286,8 +1286,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
       // only match 'x' in table2, because many-one link only allowed one value
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
-      // create a new record in table2 to match 'z' that not exist in table 2 before
-      expect(values[1]).toEqual({ title: 'z', id: records[3].id });
+      // clean up invalid value
+      expect(values[1]).toBeUndefined();
     });
 
     it('should convert text to one-many link', async () => {
@@ -1329,8 +1329,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         { title: 'x', id: records[0].id },
         { title: 'y', id: records[1].id },
       ]);
-      // create a new record in table2 to match 'y' that not exist in table 2 before
-      expect(values[1]).toEqual([{ title: 'zz', id: records[records.length - 1].id }]);
+      // clean up invalid value
+      expect(values[1]).toBeUndefined();
     });
 
     it('should convert many-one link to text', async () => {
@@ -1573,7 +1573,216 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'y', id: records[1].id });
-      expect(values[2]).toEqual({ title: 'z2', id: records[records.length - 1].id });
+      expect(values[2]).toBeUndefined();
+    });
+
+    it('should convert link from one table to another with selected link record', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'B3');
+      // set primary key in table3
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'C1');
+      await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'C2');
+      await updateRecordByApi(table3.id, table3.records[2].id, table3.fields[0].id, 'C3');
+
+      const { sourceField } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        { id: table2.records[0].id },
+      ]);
+
+      // make sure records has been updated
+      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[sourceField.id]).toBeUndefined();
+    });
+
+    it('should mark lookupField error when convert link from one table to another', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      // set primary key in table3
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'C1');
+
+      const sourceLinkField = await createField(table1.id, sourceFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceLinkField.id,
+        },
+      };
+      const sourceLookupField = await createField(table1.id, lookupFieldRo);
+
+      const formulaLinkFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLinkField.id}}`,
+        },
+      };
+      const formulaLookupFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLookupField.id}}`,
+        },
+      };
+
+      const sourceFormulaLinkField = await createField(table1.id, formulaLinkFieldRo);
+      const sourceFormulaLookupField = await createField(table1.id, formulaLookupFieldRo);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceLinkField.id, {
+        id: table2.records[0].id,
+      });
+
+      // make sure records has been updated
+      const { records: rs } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(rs[0].fields[sourceLinkField.id]).toEqual({ id: table2.records[0].id, title: 'B1' });
+      expect(rs[0].fields[sourceLookupField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLookupField.id]).toEqual('B1');
+
+      const newLinkField = await updateField(table1.id, sourceLinkField.id, newFieldRo);
+
+      expect(newLinkField).toMatchObject({
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+          lookupFieldId: table3.fields[0].id,
+        },
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, newLinkField.id, {
+        id: table3.records[0].id,
+      });
+
+      const targetLookupField = await getField(table1.id, sourceLookupField.id);
+      const targetFormulaLinkField = await getField(table1.id, sourceFormulaLinkField.id);
+      const targetFormulaLookupField = await getField(table1.id, sourceFormulaLookupField.id);
+
+      expect(targetLookupField.hasError).toBeTruthy();
+      expect(targetFormulaLinkField.hasError).toBeUndefined();
+      expect(targetFormulaLookupField.hasError).toBeUndefined();
+
+      // make sure records has been updated
+      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[newLinkField.id]).toEqual({ id: table3.records[0].id, title: 'C1' });
+      expect(records[0].fields[targetLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
+      // calculation skipped
+      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+    });
+
+    it('should mark lookupField error when convert link to text', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+
+      const sourceLinkField = await createField(table1.id, sourceFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceLinkField.id,
+        },
+      };
+      const sourceLookupField = await createField(table1.id, lookupFieldRo);
+
+      const formulaLinkFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLinkField.id}}`,
+        },
+      };
+      const formulaLookupFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLookupField.id}}`,
+        },
+      };
+
+      const sourceFormulaLinkField = await createField(table1.id, formulaLinkFieldRo);
+      const sourceFormulaLookupField = await createField(table1.id, formulaLookupFieldRo);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceLinkField.id, {
+        id: table2.records[0].id,
+      });
+
+      // make sure records has been updated
+      const { records: rs } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(rs[0].fields[sourceLinkField.id]).toEqual({ id: table2.records[0].id, title: 'B1' });
+      expect(rs[0].fields[sourceLookupField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLookupField.id]).toEqual('B1');
+
+      const newField = await updateField(table1.id, sourceLinkField.id, newFieldRo);
+
+      expect(newField).toMatchObject({
+        type: FieldType.SingleLineText,
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, newField.id, 'txt');
+
+      const targetLookupField = await getField(table1.id, sourceLookupField.id);
+      const targetFormulaLinkField = await getField(table1.id, sourceFormulaLinkField.id);
+      const targetFormulaLookupField = await getField(table1.id, sourceFormulaLookupField.id);
+
+      expect(targetLookupField.hasError).toBeTruthy();
+      expect(targetFormulaLinkField.hasError).toBeUndefined();
+      expect(targetFormulaLookupField.hasError).toBeUndefined();
+
+      // make sure records has been updated
+      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[newField.id]).toEqual('txt');
+      expect(records[0].fields[targetLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetFormulaLinkField.id]).toEqual('txt');
+      // calculation skipped
+      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
     });
 
     it('should convert link from one table to another and change relationship', async () => {
@@ -1647,7 +1856,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(values[0]).toEqual([{ title: 'x', id: records[0].id }]);
       expect(values[1]).toEqual([{ title: 'y', id: records[1].id }]);
-      expect(values[2]).toEqual([{ title: 'z2', id: records[records.length - 1].id }]);
+      expect(values[2]).toBeUndefined();
     });
   });
 
