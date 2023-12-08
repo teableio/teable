@@ -37,6 +37,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   };
 
   const onNameInputBlur = async () => {
+    if (name === view.name) return setNameEditing(false);
     if (!name) {
       return setName(view.name);
     }
@@ -47,6 +48,11 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const onDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setDescription(value);
+  };
+
+  const onDescriptionBlur = async () => {
+    if (description === view.description) return;
+    await view.updateDescription(description);
   };
 
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +134,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             value={description}
             placeholder="Enter from description"
             onChange={onDescriptionChange}
-            onBlur={() => view.updateDescription(description)}
+            onBlur={onDescriptionBlur}
           />
         </div>
 

@@ -17,6 +17,7 @@ export const RecordEditorItem = (props: {
 
   const cellValue = record?.getCellValue(field.id);
   const onChangeInner = (value: unknown) => {
+    if (cellValue === value) return;
     onChange?.(value, field.id);
   };
 
