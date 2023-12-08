@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
-import { useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle, useMemo, useLayoutEffect } from 'react';
 import { useClickAway, useMouse } from 'react-use';
 import type { CellScrollerRef } from './CellScroller';
 import { CellScroller } from './CellScroller';
@@ -40,7 +40,7 @@ import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager 
 import { CellRegionType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
-import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange, measuredCanvas } from './utils';
+import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight, columnStatisticHeight } = GRID_DEFAULT;
 
@@ -65,8 +65,9 @@ export interface IInteractionLayerProps
   imageManager: ImageManager;
   spriteManager: SpriteManager;
   coordInstance: CoordinateManager;
+  activeCell: ICellItem | null;
   activeCellBound: IActiveCellBound | null;
-  setActiveCellBound: Dispatch<SetStateAction<IActiveCellBound | null>>;
+  setActiveCell: Dispatch<SetStateAction<ICellItem | null>>;
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
   scrollBy: (deltaX: number, deltaY: number) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
@@ -100,8 +101,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     rowCounterVisible,
     isMultiSelectionEnable,
     collaborators,
-    activeCellBound,
-    setActiveCellBound,
+    activeCellBound: _activeCellBound,
+    activeCell,
+    setActiveCell,
     setMouseState,
     scrollToItem,
     scrollBy,
@@ -113,7 +115,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowExpand,
     onRowOrdered,
     onCellEdited,
-    onCellActivated,
     onSelectionChanged,
     onColumnAppend,
     onColumnResize,
@@ -158,10 +159,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorContainerRef = useRef<IEditorContainerRef>(null);
   const cellScrollerRef = useRef<CellScrollerRef | null>(null);
+  const prevActiveCellRef = useRef<ICellItem | null>(null);
   const hoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
   const previousHoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
 
   const mousePosition = useMouse(stageRef);
+  const [cellScrollTop, setCellScrollTop] = useState(0);
   const [hoverCellPosition, setHoverCellPosition] = useState<ICellPosition | null>(null);
   const [cursor, setCursor] = useState('default');
   const [isEditing, setEditing] = useState(false);
@@ -184,17 +187,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnResizeEnd,
   } = useColumnResize(coordInstance, scrollState);
   const {
-    activeCell,
     selection,
     isSelecting,
-    setActiveCell,
     setSelection,
     onSelectionStart,
     onSelectionChange,
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(coordInstance, onSelectionChanged, selectable, isMultiSelectionEnable);
+  } = useSelection(
+    coordInstance,
+    setActiveCell,
+    onSelectionChanged,
+    selectable,
+    isMultiSelectionEnable
+  );
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
@@ -204,10 +211,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const { isDragging, type: dragType } = dragState;
   const isResizing = columnResizeState.columnIndex > -1;
-  const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
   const { isCellSelection, ranges: selectionRanges } = selection;
   const isInteracting = isSelecting || isDragging || isResizing;
-  const prevActiveCellRef = useRef<ICellItem | null>(null);
+  const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
 
   const getPosition = () => {
     const x = mousePosition.elX;
@@ -259,6 +265,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     dragType,
     scrollBy,
   });
+
+  const activeCellBound = useMemo(() => {
+    if (_activeCellBound == null) return null;
+    return {
+      ..._activeCellBound,
+      scrollTop: _activeCellBound.scrollEnable ? cellScrollTop : 0,
+    };
+  }, [_activeCellBound, cellScrollTop]);
 
   const getMouseState = () => {
     const position = getPosition();
@@ -550,47 +564,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setEditing(false);
   });
 
-  useEffect(() => {
-    if (activeColumnIndex == null || activeRowIndex == null) {
-      return setActiveCellBound(null);
-    }
-
-    const cell = getCellContent([activeColumnIndex, activeRowIndex]);
-    const cellRenderer = getCellRenderer(cell.type);
-    const originWidth = coordInstance.getColumnWidth(activeColumnIndex);
-    const originHeight = coordInstance.getRowHeight(activeRowIndex);
-
-    if (cellRenderer?.measure && measuredCanvas?.ctx != null) {
-      const { width, height, totalHeight } = cellRenderer.measure(cell as never, {
-        theme,
-        ctx: measuredCanvas.ctx,
-        width: originWidth,
-        height: originHeight,
-      });
-      setActiveCellBound({
-        rowIndex: activeRowIndex,
-        columnIndex: activeColumnIndex,
-        width,
-        height,
-        totalHeight,
-        scrollTop: 0,
-        scrollEnable: totalHeight > height,
-      });
-      requestAnimationFrame(() => {
-        cellScrollerRef.current?.reset();
-      });
-      return;
-    }
-    setActiveCellBound({
-      rowIndex: activeRowIndex,
-      columnIndex: activeColumnIndex,
-      width: originWidth,
-      height: originHeight,
-      totalHeight: originHeight,
-      scrollTop: 0,
-      scrollEnable: false,
-    });
-  }, [activeColumnIndex, activeRowIndex, coordInstance, getCellContent, setActiveCellBound, theme]);
+  useLayoutEffect(() => {
+    if (activeColumnIndex == null || activeRowIndex == null) return;
+    cellScrollerRef.current?.reset();
+  }, [activeColumnIndex, activeRowIndex]);
 
   return (
     <div
@@ -656,7 +633,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           }}
           containerRef={containerRef}
           activeCellBound={activeCellBound}
-          setActiveCellBound={setActiveCellBound}
+          setCellScrollTop={setCellScrollTop}
           scrollEnable={regionType === RegionType.ActiveCell}
         />
       )}
@@ -675,11 +652,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         getCellContent={getCellContent}
         scrollState={scrollState}
         coordInstance={coordInstance}
-        onCellActivated={onCellActivated}
-        onChange={onCellEdited}
         onCopy={onCopy}
         onPaste={onPaste}
         onDelete={onDelete}
+        onChange={onCellEdited}
         onRowAppend={onRowAppend}
         onRowExpand={onRowExpand}
       />

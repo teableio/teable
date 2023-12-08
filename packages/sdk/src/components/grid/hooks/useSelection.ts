@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useRafState } from 'react-use';
 import type { IGridProps } from '../Grid';
 import type { ICellItem, IMouseState, IPosition, IRange } from '../interface';
 import { RegionType, SelectionRegionType, SelectableType } from '../interface';
@@ -7,11 +6,11 @@ import { CombinedSelection, type CoordinateManager } from '../managers';
 
 export const useSelection = (
   coordInstance: CoordinateManager,
+  setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>,
   onSelectionChanged: IGridProps['onSelectionChanged'],
   selectable?: SelectableType,
   isMultiSelectionEnable?: boolean
 ) => {
-  const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
   const prevSelectedRowIndex = useRef<number | null>(null);
@@ -210,7 +209,6 @@ export const useSelection = (
   }, [onSelectionChanged, selection]);
 
   return {
-    activeCell,
     selection,
     isSelecting,
     setActiveCell,
