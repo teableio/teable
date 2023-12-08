@@ -18,6 +18,7 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ViewService } from '../../view/view.service';
 import { TableService } from '../table.service';
 
 @Injectable()
@@ -27,6 +28,7 @@ export class TableOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly viewService: ViewService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
     private readonly fieldCreatingService: FieldCreatingService,
@@ -92,9 +94,9 @@ export class TableOpenApiService {
 
       const tableId = tableVo.id;
 
-      const viewVos = await this.createView(tableId, tableRo.views);
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
       const fieldVos = await this.createField(tableId, preparedFields);
+      const viewVos = await this.createView(tableId, tableRo.views);
       const { records } = await this.createRecords(tableId, {
         records: tableRo.records,
         fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,

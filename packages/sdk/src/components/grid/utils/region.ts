@@ -309,6 +309,7 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
     hasColumnHeaderMenu,
     hasColumnResizeHandler,
   } = props;
+
   const { x, y, rowIndex, columnIndex } = position;
   const { iconSizeXS } = theme;
 

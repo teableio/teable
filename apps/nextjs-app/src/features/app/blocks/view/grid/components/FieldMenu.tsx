@@ -1,11 +1,13 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight } from '@teable-group/icons';
 import {
+  View,
+  useTableId,
   useFields,
   useIsTouchDevice,
   useTablePermission,
-  useViewId,
-} from '@teable-group/sdk/hooks';
+  useView,
+} from '@teable-group/sdk';
 import { insertSingle } from '@teable-group/sdk/utils';
 import {
   Command,
@@ -34,8 +36,10 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
+  const view = useView();
+  const tableId = useTableId();
+  const activeViewId = view?.id;
   const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
-  const activeViewId = useViewId();
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
@@ -68,7 +72,7 @@ export const FieldMenu = () => {
       index,
       allFields.length,
       (index: number) => {
-        return allFields[index].columnMeta[activeViewId].order;
+        return view.columnMeta[allFields[index].id].order;
       },
       isInsertAfter
     );
@@ -114,8 +118,12 @@ export const FieldMenu = () => {
       onClick: async () => {
         const fieldIdsSet = new Set(fieldIds);
         const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
-        if (filteredFields.length === 0) return;
-        filteredFields.forEach((field) => field.updateColumnHidden(activeViewId, true));
+        if (filteredFields.length === 0 || !tableId) return;
+        View.setViewColumnMeta(
+          tableId,
+          activeViewId,
+          filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
+        );
       },
     },
     {

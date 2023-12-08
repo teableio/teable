@@ -1,13 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import type { IViewOptionRo } from '@teable-group/core';
 import { viewOptionRoSchema } from '@teable-group/core';
-import { registerRoute } from '../utils';
+import { axios } from '../axios';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_SHORT = '/table/{tableId}/view/{viewId}/option';
+export const VIEW_OPTION = '/table/{tableId}/view/{viewId}/option';
 
 export const SetViewShortRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: VIEW_SHORT,
+  path: VIEW_OPTION,
   description: 'Update view option',
   request: {
     params: z.object({
@@ -29,3 +31,17 @@ export const SetViewShortRoute: RouteConfig = registerRoute({
   },
   tags: ['view'],
 });
+
+export const setViewOption = async (
+  tableId: string,
+  viewId: string,
+  viewOptionRo: IViewOptionRo
+) => {
+  return axios.put<void>(
+    urlBuilder(VIEW_OPTION, {
+      tableId,
+      viewId,
+    }),
+    viewOptionRo
+  );
+};

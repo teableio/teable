@@ -13,7 +13,6 @@ describe('AttachmentFieldCore', () => {
   const json: IFieldVo = {
     id: 'fldtestxxxxxx',
     dbFieldName: 'fldtestxxxxxx',
-    columnMeta: {},
     name: 'Test attachment Field',
     description: 'A test attachment field',
     options: {},

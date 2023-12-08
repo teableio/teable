@@ -57,7 +57,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
-    const { setViewSort } = ViewOpBuilder.editor;
+    const { setViewSort, setViewFilter } = ViewOpBuilder.editor;
     const rawOps: (EditOp | CreateOp | DeleteOp)[] = [];
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
@@ -78,6 +78,18 @@ export class ShareDbService extends ShareDBClass {
           const [, tableId] = collection.split('_');
           this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
         }
+
+        if (ops?.[0]) {
+          const [, tableId] = collection.split('_');
+
+          const detectFns = [setViewFilter, setViewSort];
+          const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
+
+          if (action) {
+            this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+            this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
+          }
+        }
       }
     }
     this.eventService.ops2Event(rawOps);
@@ -97,6 +109,7 @@ export class ShareDbService extends ShareDBClass {
 
       if (action) {
         context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+        context?.channels?.push(`${IdPrefix.Field}_${tableId}`);
       }
     }
 

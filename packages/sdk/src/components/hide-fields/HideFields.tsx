@@ -1,6 +1,7 @@
 import { difference, map } from 'lodash';
 import React from 'react';
-import { useViewId, useFields } from '../../hooks';
+import { useViewId, useFields, useTableId, useView } from '../../hooks';
+import { View } from '../../model';
 import type { IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
 
@@ -9,13 +10,16 @@ export const HideFields: React.FC<{
 }> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true });
+  const tableId = useTableId();
+  const viewId = useViewId();
+  const view = useView();
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(
-      (field) =>
+      ({ isPrimary, id }) =>
         activeViewId &&
-        !field.isPrimary &&
-        (!shouldBeHidden || field.columnMeta[activeViewId]?.hidden === shouldBeHidden)
+        !isPrimary &&
+        (!shouldBeHidden || view?.columnMeta?.[id]?.hidden === shouldBeHidden)
     );
 
   const fieldData = filterFields(fields);
@@ -28,12 +32,22 @@ export const HideFields: React.FC<{
     }
     const hiddenIds = difference(hidden, hiddenFieldIds);
     const showIds = difference(hiddenFieldIds, hidden);
-    hiddenIds.forEach(
-      (id) => fieldData.find((field) => field.id === id)?.updateColumnHidden(activeViewId, true)
-    );
-    showIds.forEach(
-      (id) => fieldData.find((field) => field.id === id)?.updateColumnHidden(activeViewId, false)
-    );
+
+    if (tableId && viewId) {
+      hiddenIds.length &&
+        View.setViewColumnMeta(
+          tableId,
+          viewId,
+          hiddenIds.map((id) => ({ fieldId: id, columnMeta: { hidden: true } }))
+        );
+
+      showIds.length &&
+        View.setViewColumnMeta(
+          tableId,
+          viewId,
+          showIds.map((id) => ({ fieldId: id, columnMeta: { hidden: false } }))
+        );
+    }
   };
 
   if (!activeViewId) {

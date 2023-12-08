@@ -4,5 +4,5 @@ export * from './constant';
 export * from './derivate';
 export * from './filter';
 export * from './sort';
-export * from './option-schema';
-export * from './fields-schema';
+export * from './option.schema';
+export * from './column-meta.schema';

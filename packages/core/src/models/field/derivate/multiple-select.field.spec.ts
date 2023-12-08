@@ -12,7 +12,6 @@ describe('MultipleSelectFieldCore', () => {
   const json: IFieldVo = {
     id: 'fldtestxxxxxx',
     dbFieldName: 'fldtestxxxxxx',
-    columnMeta: {},
     name: 'Test SingleSelect Field',
     description: 'A test SingleSelect field',
     options: {

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IFieldVo, StatisticsFunc } from '@teable-group/core';
-import { FieldCore, FieldOpBuilder } from '@teable-group/core';
+import type { IFieldRo, IFieldVo } from '@teable-group/core';
+import { FieldCore } from '@teable-group/core';
 import { createField, deleteField, getFields, updateField } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
@@ -28,63 +28,6 @@ export abstract class Field extends FieldCore {
     } catch (error) {
       return error;
     }
-  }
-
-  async updateColumnWidth(viewId: string, width: number) {
-    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
-      viewId,
-      metaKey: 'width',
-      newMetaValue: width,
-      oldMetaValue: this.columnMeta[viewId]?.width,
-    });
-
-    return this.submitOperation(fieldOperation);
-  }
-
-  async updateColumnHidden(viewId: string, hidden: boolean) {
-    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
-      viewId,
-      metaKey: 'hidden',
-      newMetaValue: hidden,
-      oldMetaValue: this.columnMeta[viewId]?.hidden,
-    });
-
-    return this.submitOperation(fieldOperation);
-  }
-
-  async updateColumnOrder(viewId: string, order: number) {
-    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
-      viewId,
-      metaKey: 'order',
-      newMetaValue: order,
-      oldMetaValue: this.columnMeta[viewId].order,
-    });
-
-    return this.submitOperation(fieldOperation);
-  }
-
-  async updateColumnRequired(viewId: string, required: boolean) {
-    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
-      viewId,
-      metaKey: 'required',
-      newMetaValue: required,
-      oldMetaValue: this.columnMeta[viewId]?.required,
-    });
-
-    return this.submitOperation(fieldOperation);
-  }
-
-  async updateColumnStatistic(viewId: string, statisticFunc?: StatisticsFunc | null) {
-    if (statisticFunc === this.columnMeta[viewId]?.statisticFunc) {
-      return;
-    }
-    const fieldOperation = FieldOpBuilder.editor.setColumnMeta.build({
-      viewId,
-      metaKey: 'statisticFunc',
-      newMetaValue: statisticFunc,
-      oldMetaValue: this.columnMeta[viewId]?.statisticFunc,
-    });
-    return this.submitOperation(fieldOperation);
   }
 
   async update(fieldRo: IFieldRo) {

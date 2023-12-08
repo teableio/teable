@@ -1,23 +1,20 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
-  IDeleteColumnMetaOpContext,
-  IAddColumnMetaOpContext,
-  IColumnMeta,
   IFieldVo,
   IGetFieldsQuery,
-  ISetColumnMetaOpContext,
   ISnapshotBase,
   ISetFieldPropertyOpContext,
   DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
+  IColumnMeta,
 } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { forEach, isEqual, keyBy, sortBy } from 'lodash';
+import { keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -32,11 +29,7 @@ import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
 
-type IOpContext =
-  | IAddColumnMetaOpContext
-  | ISetColumnMetaOpContext
-  | IDeleteColumnMetaOpContext
-  | ISetFieldPropertyOpContext;
+type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IAdapterService {
@@ -82,7 +75,7 @@ export class FieldService implements IAdapterService {
       cellValueType,
       isMultipleCellValue,
       isLookup,
-      columnMeta,
+      // columnMeta,
     } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
@@ -100,7 +93,7 @@ export class FieldService implements IAdapterService {
       unique,
       isPrimary,
       version: 1,
-      columnMeta: JSON.stringify(columnMeta),
+      // columnMeta: JSON.stringify(columnMeta),
       isComputed,
       isLookup,
       hasError,
@@ -116,37 +109,6 @@ export class FieldService implements IAdapterService {
     };
 
     return this.prismaService.txClient().field.create({ data });
-  }
-
-  async getColumnsMeta(tableId: string, fieldInstances: IFieldInstance[]): Promise<IColumnMeta[]> {
-    const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true },
-    });
-
-    const fieldsData = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true },
-    });
-
-    const maxOrder = fieldsData.reduce((max, field) => {
-      const columnMeta = JSON.parse(field.columnMeta);
-      const maxViewOrder = Object.keys(columnMeta).reduce((mx, viewId) => {
-        return Math.max(mx, columnMeta[viewId].order);
-      }, -1);
-      return Math.max(max, maxViewOrder);
-    }, -1);
-
-    return fieldInstances.map((fieldInstance) => {
-      const inputColumnMeta = fieldInstance.columnMeta ?? {};
-      const columnMeta: IColumnMeta = {};
-      for (const view of views) {
-        columnMeta[view.id] = {
-          order: maxOrder + 1,
-        };
-      }
-      return { ...columnMeta, ...inputColumnMeta };
-    });
   }
 
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
@@ -244,26 +206,20 @@ export class FieldService implements IAdapterService {
   }
 
   async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
-    let viewId = query.viewId;
+    const viewId = query.viewId;
+    let view: { id: string; columnMeta: IColumnMeta } | null = null;
     if (viewId) {
-      const view = await this.prismaService.txClient().view.findFirst({
+      const curView = await this.prismaService.txClient().view.findFirst({
         where: { id: viewId, deletedTime: null },
-        select: { id: true },
+        select: { id: true, columnMeta: true },
       });
-      if (!view) {
-        throw new NotFoundException('view not found');
+      if (!curView) {
+        throw new NotFoundException('view is not found');
       }
-    }
-
-    if (!viewId) {
-      const view = await this.prismaService.txClient().view.findFirst({
-        where: { tableId, deletedTime: null },
-        select: { id: true },
-      });
-      if (!view) {
-        throw new NotFoundException('table not found');
-      }
-      viewId = view.id;
+      view = {
+        id: viewId,
+        columnMeta: JSON.parse(curView.columnMeta),
+      };
     }
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
@@ -272,12 +228,15 @@ export class FieldService implements IAdapterService {
 
     const fields = fieldsPlain.map(rawField2FieldObj);
 
-    const result = sortBy(fields, (field) => {
-      return field.columnMeta[viewId as string].order;
-    });
+    let result = fields;
+    if (view) {
+      result = sortBy(fields, (field) => {
+        return view?.columnMeta[field.id].order;
+      });
+    }
 
-    if (query.filterHidden) {
-      return result.filter((field) => !field.columnMeta[viewId as string].hidden);
+    if (query.filterHidden && view) {
+      return result.filter((field) => !view?.columnMeta[field.id].hidden);
     }
 
     return result;
@@ -297,13 +256,29 @@ export class FieldService implements IAdapterService {
   }
 
   async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
+    let view: { id: string; columnMeta: IColumnMeta } | null = null;
+
+    const curView = await this.prismaService.txClient().view.findFirst({
+      where: { id: viewId },
+      select: { id: true, columnMeta: true },
+    });
+    if (!curView) {
+      throw new NotFoundException('view not found');
+    }
+    view = {
+      id: curView.id,
+      columnMeta: JSON.parse(curView.columnMeta),
+    };
+
     const fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true },
+      select: {
+        id: true,
+      },
     });
 
     const sortedFields = sortBy(fields, (field) => {
-      return JSON.parse(field.columnMeta)[viewId]?.order;
+      return view?.columnMeta[field.id]?.order;
     });
 
     return sortedFields[index].id;
@@ -392,10 +367,6 @@ export class FieldService implements IAdapterService {
     const fieldInstance = createFieldInstanceByVo(snapshot);
     const dbTableName = await this.getDbTableName(tableId);
 
-    // maintain columnsMeta by view
-    const [columnsMeta] = await this.getColumnsMeta(tableId, [fieldInstance]);
-    fieldInstance.columnMeta = columnsMeta;
-
     // 1. save field meta in db
     await this.dbCreateMultipleField(tableId, [fieldInstance]);
 
@@ -450,10 +421,6 @@ export class FieldService implements IAdapterService {
       };
     }
 
-    if (key === 'columnMeta') {
-      return { [key]: JSON.stringify(newValue) ?? null };
-    }
-
     // if (key === 'dbFieldType') {
     //   await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
     // }
@@ -465,55 +432,9 @@ export class FieldService implements IAdapterService {
     return { [key]: newValue ?? null };
   }
 
-  private handleColumnMeta = async (fieldId: string, opContext: IOpContext) => {
-    const fieldData = await this.prismaService.txClient().field.findUniqueOrThrow({
-      where: { id: fieldId },
-      select: { columnMeta: true },
-    });
-
-    let newColumnMeta = JSON.parse(fieldData.columnMeta);
-    if (opContext.name === OpName.AddColumnMeta) {
-      const { viewId, newMetaValue } = opContext;
-
-      newColumnMeta = {
-        ...newColumnMeta,
-        [viewId]: {
-          ...newColumnMeta[viewId],
-          ...newMetaValue,
-        },
-      };
-    } else if (opContext.name === OpName.SetColumnMeta) {
-      const { viewId, metaKey, newMetaValue } = opContext;
-
-      newColumnMeta = {
-        ...newColumnMeta,
-        [viewId]: {
-          ...newColumnMeta[viewId],
-          [metaKey]: newMetaValue,
-        },
-      };
-    } else if (opContext.name === OpName.DeleteColumnMeta) {
-      const { viewId, oldMetaValue } = opContext;
-
-      forEach(oldMetaValue, (value, key) => {
-        if (isEqual(newColumnMeta[viewId][key], value)) {
-          delete newColumnMeta[viewId][key];
-          if (Object.keys(newColumnMeta[viewId]).length === 0) {
-            delete newColumnMeta[viewId];
-          }
-        }
-      });
-    }
-
-    return { columnMeta: JSON.stringify(newColumnMeta) };
-  };
-
   private async updateStrategies(fieldId: string, opContext: IOpContext) {
     const opHandlers = {
       [OpName.SetFieldProperty]: this.handleFieldProperty.bind(this),
-      [OpName.AddColumnMeta]: this.handleColumnMeta.bind(this),
-      [OpName.SetColumnMeta]: this.handleColumnMeta.bind(this),
-      [OpName.DeleteColumnMeta]: this.handleColumnMeta.bind(this),
     };
 
     const handler = opHandlers[opContext.name];
@@ -584,28 +505,34 @@ export class FieldService implements IAdapterService {
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
     const { viewId, filterHidden } = await this.viewQueryWidthShare(tableId, query);
 
-    const fieldsPlain = await this.prismaService.txClient().field.findMany({
+    let fields = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true, createdTime: true, isPrimary: true },
+      select: { id: true, createdTime: true, isPrimary: true },
     });
 
-    let fields = fieldsPlain.map((field) => {
-      return {
-        ...field,
-        columnMeta: JSON.parse(field.columnMeta),
-      };
-    });
+    fields = sortBy(fields, 'isPrimary', 'createdTime');
 
-    if (viewId && filterHidden) {
-      fields = fields.filter((field) => !field.columnMeta[viewId as string].hidden);
-    }
+    let view: { id: string; columnMeta: IColumnMeta } | null = null;
 
     if (viewId) {
-      fields = sortBy(fields, (field) => {
-        return field.columnMeta[viewId as string]?.order;
+      const curView = await this.prismaService.txClient().view.findFirst({
+        where: { id: viewId, deletedTime: null },
+        select: { id: true, columnMeta: true },
       });
-    } else {
-      fields = sortBy(fields, 'isPrimary', 'createdTime');
+      if (!curView) {
+        throw new NotFoundException('view not found');
+      }
+      view = {
+        id: viewId,
+        columnMeta: JSON.parse(curView.columnMeta),
+      };
+    }
+
+    if (view && filterHidden) {
+      const unHiddenFields = fields.filter((field) => !view?.columnMeta[field.id].hidden);
+      fields = sortBy(unHiddenFields, (field) => {
+        return view?.columnMeta[field.id].order;
+      });
     }
 
     return {

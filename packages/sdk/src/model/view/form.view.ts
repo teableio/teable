@@ -1,17 +1,11 @@
-import { FormViewCore, ViewOpBuilder } from '@teable-group/core';
+import { FormViewCore } from '@teable-group/core';
+import { setViewOption } from '@teable-group/openapi';
 import { Mixin } from 'ts-mixer';
+import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';
 
 export class FormView extends Mixin(FormViewCore, View) {
-  async updateCover(coverUrl: string) {
-    const viewOperation = ViewOpBuilder.editor.setViewOption.build({
-      newOptions: {
-        ...(this.options || {}),
-        coverUrl,
-      },
-      oldOptions: this.options,
-    });
-
-    return await this.submitOperation(viewOperation);
+  async updateCover(tableId: string, coverUrl: string) {
+    return await requestWrap(setViewOption)(tableId, this.id, { coverUrl });
   }
 }

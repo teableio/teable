@@ -37,7 +37,6 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     cellValueType: fieldRaw.cellValueType as CellValueType,
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
-    columnMeta: fieldRaw.columnMeta && JSON.parse(fieldRaw.columnMeta as string),
   };
 }
 

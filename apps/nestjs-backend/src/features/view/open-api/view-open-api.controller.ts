@@ -6,8 +6,8 @@ import {
   manualSortRoSchema,
   IManualSortRo,
   IViewRo,
-  fieldsViewVisibleRoSchema,
-  IFieldsViewVisibleRo,
+  IColumnMetaRo,
+  columnMetaRoSchema,
   IFilter,
   filterSchema,
   ISort,
@@ -67,19 +67,19 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(manualSortRoSchema))
     updateViewOrderRo: IManualSortRo
-  ) {
+  ): Promise<void> {
     return await this.viewOpenApiService.manualSort(tableId, viewId, updateViewOrderRo);
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/field')
+  @Put('/:viewId/columnMeta')
   async updateFieldsVisible(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(fieldsViewVisibleRoSchema))
-    updateViewFieldsRo: IFieldsViewVisibleRo
-  ) {
-    return await this.viewOpenApiService.setViewFieldsVisible(tableId, viewId, updateViewFieldsRo);
+    @Body(new ZodValidationPipe(columnMetaRoSchema))
+    updateViewColumnMetaRo: IColumnMetaRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewColumnMeta(tableId, viewId, updateViewColumnMetaRo);
   }
 
   @Permissions('view|update')
@@ -89,7 +89,7 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(filterSchema))
     updateViewFilterRo: IFilter
-  ) {
+  ): Promise<void> {
     return await this.viewOpenApiService.setViewFilter(tableId, viewId, updateViewFilterRo);
   }
 
@@ -100,7 +100,7 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(sortSchema))
     updateViewSortRo: ISort
-  ) {
+  ): Promise<void> {
     return await this.viewOpenApiService.setViewSort(tableId, viewId, updateViewSortRo);
   }
 
@@ -111,7 +111,7 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(viewOptionRoSchema))
     updateViewOptionRo: IViewOptionRo
-  ) {
+  ): Promise<void> {
     return await this.viewOpenApiService.setViewOption(tableId, viewId, updateViewOptionRo);
   }
 

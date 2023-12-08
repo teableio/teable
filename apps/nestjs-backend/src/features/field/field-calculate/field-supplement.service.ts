@@ -914,7 +914,6 @@ export class FieldSupplementService {
       ...fieldVo,
       id: oldField.id,
       isPrimary: oldField.isPrimary,
-      columnMeta: fieldVo.columnMeta ?? oldField.columnMeta,
     };
   }
 

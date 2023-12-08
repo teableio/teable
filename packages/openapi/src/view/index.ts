@@ -3,7 +3,7 @@ export * from './delete';
 export * from './get-list';
 export * from './get';
 export * from './manual-sort';
-export * from './set-fields-visible';
+export * from './set-fields-column-meta';
 export * from './set-filter';
 export * from './set-sort';
 export * from './set-option';
