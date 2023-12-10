@@ -11,21 +11,17 @@ export const viewOptionRoSchema = z.union([
 export type IViewOptionRo = z.infer<typeof viewOptionRoSchema>;
 
 export const validateOptionType = (type: ViewType, optionString: IViewOptionRo): string | void => {
-  try {
-    switch (type) {
-      case ViewType.Grid:
-        gridViewOptionSchema.parse(optionString);
-        break;
-      case ViewType.Kanban:
-        kanbanViewOptionSchema.parse(optionString);
-        break;
-      case ViewType.Form:
-        formViewOptionSchema.parse(optionString);
-        break;
-      default:
-        throw new Error(`Unsupported view type: ${type}`);
-    }
-  } catch (e) {
-    throw new Error(`${e}`);
+  switch (type) {
+    case ViewType.Grid:
+      gridViewOptionSchema.parse(optionString);
+      break;
+    case ViewType.Kanban:
+      kanbanViewOptionSchema.parse(optionString);
+      break;
+    case ViewType.Form:
+      formViewOptionSchema.parse(optionString);
+      break;
+    default:
+      throw new Error(`Unsupported view type: ${type}`);
   }
 };

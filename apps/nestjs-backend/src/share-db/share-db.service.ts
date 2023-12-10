@@ -74,15 +74,10 @@ export class ShareDbService extends ShareDBClass {
          * this is for some special scenarios like manual sort
          * which only send view ops but update record too
          */
-        if (ops?.[0] && setViewSort.detect(ops?.[0])) {
-          const [, tableId] = collection.split('_');
-          this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
-        }
-
         if (ops?.[0]) {
           const [, tableId] = collection.split('_');
 
-          const detectFns = [setViewFilter, setViewSort];
+          const detectFns = [setViewFilter, setViewSort, setViewSort];
           const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
 
           if (action) {

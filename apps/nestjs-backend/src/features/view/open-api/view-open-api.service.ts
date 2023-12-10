@@ -137,8 +137,22 @@ export class ViewOpenApiService {
       .catch(() => {
         throw new BadRequestException('view found column meta error');
       });
+
+    // validate field legal
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: {
+        id: true,
+      },
+    });
+    const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
+    if (!fieldIds.every((id) => fields.map(({ id }) => id).includes(id))) {
+      throw new BadRequestException('field is not found in table');
+    }
+
     const curColumnMeta = JSON.parse(view.columnMeta);
     const ops: IOtOperation[] = [];
+
     columnMetaRo.forEach(({ fieldId, columnMeta }) => {
       const obj = {
         fieldId,
@@ -204,10 +218,11 @@ export class ViewOpenApiService {
       });
     const { options, type: viewType } = curView;
 
+    // validate option type
     try {
       validateOptionType(viewType as ViewType, viewOption);
-    } catch (result) {
-      throw new BadRequestException(result);
+    } catch (err) {
+      throw new BadRequestException(err);
     }
 
     const oldOptions = options ? JSON.parse(options) : options;

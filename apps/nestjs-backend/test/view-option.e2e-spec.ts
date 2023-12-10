@@ -48,12 +48,13 @@ describe('OpenAPI ViewController (e2e) option (PUT) update grid view option', ()
     expect(rowHeight).toBe(RowHeightLevel.Short);
   });
 
-  test(`/table/{tableId}/view/{viewId}/option (PUT) update other type options should fail`, async () => {
+  test(`/table/{tableId}/view/{viewId}/option (PUT) update other type options should return 400`, async () => {
     const [, formViewId] = viewIds;
-    await request
-      .put(`/api/table/${tableId}/view/${formViewId}/option`)
-      .send({ rowHeight: RowHeightLevel.Short })
-      .expect(400);
+    await expect(
+      setViewOption(tableId, formViewId, { rowHeight: RowHeightLevel.Short })
+    ).rejects.toMatchObject({
+      status: 400,
+    });
   });
 });
 

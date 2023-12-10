@@ -20,7 +20,7 @@ import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@t
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { maxBy, isEmpty, merge } from 'lodash';
+import { maxBy, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
@@ -87,7 +87,7 @@ export class ViewService implements IAdapterService {
 
     const orderColumnMeta = await this.generateViewOrderColumnMeta(tableId);
 
-    const mergedColumnMeta = merge(columnMeta, orderColumnMeta);
+    const mergedColumnMeta = { ...orderColumnMeta, ...columnMeta };
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,

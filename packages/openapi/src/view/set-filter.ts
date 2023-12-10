@@ -25,7 +25,7 @@ export const SetViewFilterRoute: RouteConfig = registerRoute({
             example: {
               filterSet: [
                 {
-                  fieldId: 'fieldId',
+                  fieldId: 'fldxxxxxxxxxxxxxxxx',
                   value: 'value',
                   operator: 'is',
                 },

@@ -28,13 +28,13 @@ describe('OpenAPI ViewController (e2e) columnMeta (PUT) update order', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table1' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -72,13 +72,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table2' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update hidden`, async () => {
@@ -107,13 +107,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update width', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table3' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -142,13 +142,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update statisticFunc', ()
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table4' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -177,13 +177,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update required', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table5' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -212,13 +212,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update multiple single', 
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table6' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -273,13 +273,13 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) multiple update', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
-  beforeAll(async () => {
-    const result = await createTable(baseId, { name: 'table1' });
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table7' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
   });
-  afterAll(async () => {
+  afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
@@ -308,5 +308,30 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) multiple update', () => {
     const updatedView = await getView(tableId, viewId);
     const updatedColumnMeta = updatedView.columnMeta[fieldColumnMetas[0].fieldId];
     expect(updatedColumnMeta).toEqual(assertData);
+  });
+});
+
+describe('OpenAPI ViewController (e2e) columnMeta(PUT) params validate', () => {
+  let tableId: string;
+  let viewId: string;
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'table8' });
+    tableId = result.id;
+    viewId = result.defaultViewId!;
+  });
+  afterEach(async () => {
+    await deleteTable(baseId, tableId);
+  });
+
+  test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test validate fieldId legitimacy`, async () => {
+    const columnMeta = {
+      width: 200,
+    };
+
+    await expect(
+      updateViewColumnMeta(tableId, viewId, [{ fieldId: 'fakeFieldID', columnMeta }])
+    ).rejects.toMatchObject({
+      status: 400,
+    });
   });
 });

@@ -230,15 +230,6 @@ export class AggregationService {
     return { fieldInstances, fieldInstanceMap };
   }
 
-  // async getViewColumnMeta(tableId: string, viewId: string) {
-  //   const { columnMeta: columnRawMeta } = await this.prisma.view.findFirstOrThrow({
-  //     where: { tableId, id: viewId, deletedTime: null },
-  //     select: { columnMeta: true },
-  //   });
-
-  //   return JSON.parse(columnRawMeta);
-  // }
-
   private getStatisticFields(
     viewId: string,
     columnMetaMap: IColumnMeta,

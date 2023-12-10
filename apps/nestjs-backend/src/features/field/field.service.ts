@@ -75,7 +75,6 @@ export class FieldService implements IAdapterService {
       cellValueType,
       isMultipleCellValue,
       isLookup,
-      // columnMeta,
     } = fieldInstance;
 
     const data: Prisma.FieldCreateInput = {
@@ -93,7 +92,6 @@ export class FieldService implements IAdapterService {
       unique,
       isPrimary,
       version: 1,
-      // columnMeta: JSON.stringify(columnMeta),
       isComputed,
       isLookup,
       hasError,
