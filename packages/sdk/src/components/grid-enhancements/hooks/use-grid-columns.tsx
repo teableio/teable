@@ -33,9 +33,7 @@ const generateColumns = (
   return fields
     .map((field) => {
       if (!field) return undefined;
-      // const columnMeta = viewId ? field.columnMeta[viewId] : null;
       const columnMeta = viewId ? view?.columnMeta[field.id] : null;
-      // const columnMeta = {} as IColumn;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
       const { id, type, name, description, isLookup } = field;
       return {
