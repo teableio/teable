@@ -54,7 +54,7 @@ export const GridAttachmentEditor = forwardRef<
       <Dialog open={isEditing} onOpenChange={setEditing}>
         <DialogContent
           container={containerRef.current}
-          className="click-outside-ignore h-90 flex-1 overflow-hidden"
+          className="click-outside-ignore h-96 flex-1 overflow-hidden"
         >
           <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
         </DialogContent>

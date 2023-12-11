@@ -19,6 +19,8 @@ export const Modal: FC<
         container={container}
         className={classNames('h-full block p-0 max-w-3xl', showActivity && 'max-w-5xl')}
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {children}
       </DialogContent>

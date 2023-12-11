@@ -1,12 +1,28 @@
 import classNames from 'classnames';
-import { useDropArea } from 'react-use';
+import { useDrop, useDropArea } from 'react-use';
 
-export const DragAndCopy = (props: { onChange?: (files: File[]) => void; disabled?: boolean }) => {
-  const { onChange, disabled } = props;
+interface IDragAndCopyProps {
+  onChange?: (files: File[]) => void;
+  disabled?: boolean;
+  children?: React.ReactNode;
+  className?: string;
+}
 
+export const DragAndCopy = (props: IDragAndCopyProps) => {
+  const { onChange, disabled, children } = props;
+
+  const { over: hasOver } = useDrop();
   const [bound, { over }] = useDropArea({
     onFiles: onChange,
   });
+
+  if (!hasOver && children) {
+    return (
+      <div className="min-h-full" tabIndex={0} role="button" {...bound}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full flex-col">

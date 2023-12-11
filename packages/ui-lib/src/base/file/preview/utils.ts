@@ -14,19 +14,28 @@ export const isText = (mimetype: string) => {
 };
 
 export const isPdf = (mimetype: string) => {
-  return mimetype.startsWith('application/pdf');
+  return mimetype.startsWith('application/pdf') || mimetype.startsWith('application/x-pdf');
 };
 
 export const isWord = (mimetype: string) => {
-  return mimetype.startsWith('application/msword');
+  return (
+    mimetype.startsWith('application/msword') ||
+    mimetype.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  );
 };
 
 export const isExcel = (mimetype: string) => {
-  return mimetype.startsWith('application/vnd.ms-excel');
+  return (
+    mimetype.startsWith('application/vnd.ms-excel') ||
+    mimetype.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  );
 };
 
 export const isPpt = (mimetype: string) => {
-  return mimetype.startsWith('application/vnd.ms-powerpoint');
+  return (
+    mimetype.startsWith('application/vnd.ms-powerpoint') ||
+    mimetype.startsWith('application/vnd.openxmlformats-officedocument.presentationml.presentation')
+  );
 };
 
 export const isMarkdown = (mimetype: string) => {
