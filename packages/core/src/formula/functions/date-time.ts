@@ -585,7 +585,7 @@ export class DateAdd extends DateTimeFunc {
 
   getReturnType(params?: TypedValue[]) {
     params && this.validateParams(params);
-    return { type: CellValueType.String };
+    return { type: CellValueType.DateTime };
   }
 
   eval(params: TypedValue<string | number | null>[]): string | null {

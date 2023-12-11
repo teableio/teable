@@ -793,7 +793,7 @@ export const FORMULA_FUNCTIONS_MAP = new Map<FunctionName, IFunctionSchema<Funct
     {
       name: FunctionName.DateAdd,
       func: FUNCTIONS[FunctionName.DateAdd],
-      params: ['date1', 'date2', '[unit]'],
+      params: ['date1', 'count', '[unit]'],
       definition: 'DATE_ADD(date, count, units)',
       summary: 'Adds specified "count" units to a datetime.',
       example: 'DATE_ADD("2023-09-08 18:00:00", 10, "day") => "2023-09-18 18:00:00"',
