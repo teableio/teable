@@ -1,4 +1,4 @@
-import { TimeFormatting, type IDateFieldOptions } from '@teable-group/core';
+import { TimeFormatting } from '@teable-group/core';
 import { Calendar } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
@@ -7,11 +7,7 @@ import { useMemo } from 'react';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
 
-export interface IDateEditor extends IDateEditorMain {
-  options?: IDateFieldOptions;
-}
-
-export const DateEditor = (props: IDateEditor) => {
+export const DateEditor = (props: IDateEditorMain) => {
   const { value, onChange, className, readonly, options } = props;
   const { date, time } = options?.formatting || {};
 

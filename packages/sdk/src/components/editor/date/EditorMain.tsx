@@ -1,3 +1,5 @@
+import type { IDateFieldOptions } from '@teable-group/core';
+import { TimeFormatting } from '@teable-group/core';
 import { Calendar, Input } from '@teable-group/ui-lib';
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
@@ -5,10 +7,13 @@ import type { ICellEditor } from '../type';
 
 export interface IDateEditorMain extends ICellEditor<Date> {
   style?: React.CSSProperties;
+  options?: IDateFieldOptions;
 }
 
 export const DateEditorMain = (props: IDateEditorMain) => {
-  const { value, style, className, onChange, readonly } = props;
+  const { value, style, className, onChange, readonly, options } = props;
+  const { time } = options?.formatting || {};
+  const hasTimePicker = time !== TimeFormatting.None;
 
   const onSelect = (value?: Date) => {
     onChange?.(value);
@@ -40,7 +45,7 @@ export const DateEditorMain = (props: IDateEditorMain) => {
       className={className}
       disabled={readonly}
       footer={
-        dayjs(value).isValid() ? (
+        hasTimePicker && dayjs(value).isValid() ? (
           <div className="flex items-center px-1 py-2">
             <Input type="time" value={timeValue} onChange={onTimeChange} />
           </div>
