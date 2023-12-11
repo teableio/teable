@@ -7,6 +7,7 @@ import type {
   ICellItem,
   ICell,
   IInnerCell,
+  Record,
 } from '@teable-group/sdk';
 import {
   Grid,
@@ -92,6 +93,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const isLoading = !view;
   const permission = useTablePermission();
   const { toast } = useToast();
+  const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } =
     useGridAsyncRecords(ssrRecords);
@@ -174,6 +176,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   );
 
   const onContextMenu = useCallback(
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
@@ -194,8 +197,16 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         const selectColumns = extract(colStart, colEnd, columns);
         const indexedColumns = keyBy(selectColumns, 'id');
         const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        openRecordMenu({ position, records, fields: selectFields });
+        const neighborRecords: Array<Record | null> = [];
+
+        if (records.length === 1) {
+          neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
+          neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
+        }
+
+        openRecordMenu({ position, records, fields: selectFields, neighborRecords });
       }
+
       if (isColumnSelection) {
         const [start, end] = ranges[0];
         const selectColumns = extract(start, end, columns);
@@ -204,7 +215,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         openHeaderMenu({ position, fields: selectFields });
       }
     },
-    [columns, recordMap, fields, openRecordMenu, openHeaderMenu]
+    [columns, recordMap, fields, realRowCount, openRecordMenu, openHeaderMenu]
   );
 
   const onColumnHeaderMenuClick = useCallback(
@@ -425,7 +436,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           theme={theme}
           draggable={draggable}
           isTouchDevice={isTouchDevice}
-          rowCount={rowCount ?? ssrRecords?.length ?? 0}
+          rowCount={realRowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
           columnStatistics={columnStatistics}
           freezeColumnCount={isTouchDevice ? 0 : 1}

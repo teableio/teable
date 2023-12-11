@@ -1,6 +1,6 @@
 import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
 import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
-import { useTable } from '@teable-group/sdk/hooks';
+import { useTable, useViewId } from '@teable-group/sdk/hooks';
 import { useToast } from '@teable-group/ui-lib/shadcn';
 import {
   AlertDialog,
@@ -13,7 +13,7 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/alert-dialog';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { FieldEditor } from './FieldEditor';
 import type { IFieldSetting } from './type';
@@ -21,14 +21,24 @@ import { FieldOperator } from './type';
 
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
+  const viewId = useViewId();
 
-  const { operator } = props;
+  const { operator, order } = props;
   const onCancel = () => {
     props.onCancel?.();
   };
 
   const onConfirm = async (field: IFieldRo) => {
     if (operator === FieldOperator.Add) {
+      await table?.createField(field);
+    }
+
+    if (operator === FieldOperator.Insert) {
+      if (viewId != null && order != null) {
+        field.columnMeta = {
+          [viewId]: { order },
+        };
+      }
       await table?.createField(field);
     }
 
@@ -105,7 +115,16 @@ const FieldSettingBase = (props: IFieldSetting) => {
     });
   };
 
-  const title = operator === FieldOperator.Add ? 'Add Field' : 'Edit Field';
+  const title = useMemo(() => {
+    switch (operator) {
+      case FieldOperator.Add:
+        return 'Add Field';
+      case FieldOperator.Edit:
+        return 'Edit Field';
+      case FieldOperator.Insert:
+        return 'Insert Field';
+    }
+  }, [operator]);
 
   return (
     <Sheet open={visible} onOpenChange={onOpenChange}>
