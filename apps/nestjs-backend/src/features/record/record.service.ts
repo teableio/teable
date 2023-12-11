@@ -573,7 +573,7 @@ export class RecordService implements IAdapterService {
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       queryResult.ids,
-      undefined,
+      query.projection,
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat
     );
@@ -870,6 +870,12 @@ export class RecordService implements IAdapterService {
       {} as { [recordId: string]: number }
     );
 
+    const primaryFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { tableId, isPrimary: true, deletedTime: null },
+    });
+
+    const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
+
     return result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
@@ -882,13 +888,15 @@ export class RecordService implements IAdapterService {
           },
           {}
         );
-
+        const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
+        const name = recordFields[primaryField[fieldKeyType]];
         return {
           id: record.__id,
           v: record.__version,
           type: 'json0',
           data: {
-            fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
+            fields: recordFields,
+            name: typeof name === 'string' ? name : primaryField.cellValue2String(name),
             id: record.__id,
             autoNumber: record.__auto_number,
             createdTime: record.__created_time?.toISOString(),
