@@ -31,6 +31,13 @@ export class FieldDeletingService {
     await this.fieldService.batchUpdateFields(tableId, opData);
   }
 
+  async cleanLookupRollupRef(tableId: string, fieldId: string) {
+    const errorLookupFieldIds =
+      await this.fieldSupplementService.deleteLookupFieldReference(fieldId);
+    await this.markFieldsAsError(tableId, errorLookupFieldIds);
+    await this.cleanField(tableId, errorLookupFieldIds);
+  }
+
   async cleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
     const errorRefFieldIds = await this.fieldSupplementService.deleteReference(fieldId);
     const errorLookupFieldIds =

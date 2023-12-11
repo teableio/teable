@@ -15,6 +15,7 @@ import {
   IdPrefix,
   FieldKeyType,
   tablePropertyKeySchema,
+  getRandomString,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -84,7 +85,7 @@ export class TableService implements IAdapterService {
         throw new BadRequestException(`dbTableName ${tableRo.dbTableName} is already used`);
       } else {
         // add uniqId ensure no conflict
-        dbTableName += new Date().getTime();
+        dbTableName += getRandomString(10);
       }
     }
 

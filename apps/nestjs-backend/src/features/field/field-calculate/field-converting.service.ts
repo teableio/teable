@@ -10,14 +10,12 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ISelectFieldChoice,
-  ITinyRecord,
   IUpdateFieldRo,
 } from '@teable-group/core';
 import {
   ColorUtils,
   generateChoiceId,
   DbFieldType,
-  FieldKeyType,
   FIELD_VO_PROPERTIES,
   RecordOpBuilder,
   FieldType,
@@ -37,7 +35,6 @@ import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
-import { RecordCalculateService } from '../../record/record-calculate/record-calculate.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByVo } from '../model/factory';
@@ -53,7 +50,6 @@ import { FieldSupplementService } from './field-supplement.service';
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
   fieldOps?: IOtOperation[];
-  recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
 }
 
 @Injectable()
@@ -69,7 +65,6 @@ export class FieldConvertingService {
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly recordCalculateService: RecordCalculateService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -86,18 +81,6 @@ export class FieldConvertingService {
       },
       getOpsMap: () => fieldOpsMap,
     };
-  }
-
-  private verifyLookupField(field: IFieldInstance, fieldMap: IFieldMap) {
-    const lookupOptions = field.lookupOptions as ILookupOptionsVo;
-    const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
-    if (!linkField) {
-      return false;
-    }
-    if (lookupOptions.foreignTableId !== linkField.options.foreignTableId) {
-      return false;
-    }
-    return Boolean(fieldMap[lookupOptions.lookupFieldId]);
   }
 
   /**
@@ -120,10 +103,6 @@ export class FieldConvertingService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private updateLookupField(field: IFieldInstance, fieldMap: IFieldMap): IOtOperation[] {
     const ops: (IOtOperation | undefined)[] = [];
-    if (!this.verifyLookupField(field, fieldMap)) {
-      const op = this.buildOpAndMutateField(field, 'hasError', true);
-      return op ? [op] : [];
-    }
     const lookupOptions = field.lookupOptions as ILookupOptionsVo;
     const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
@@ -922,31 +901,19 @@ export class FieldConvertingService {
       await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
     }
 
-    // 3. apply create records changes
-    if (result?.recordsForCreate) {
-      for (const tableId in result.recordsForCreate) {
-        const recordsMap = result.recordsForCreate[tableId];
-        await this.recordCalculateService.createRecords(
-          tableId,
-          Object.values(recordsMap),
-          FieldKeyType.Id
-        );
-      }
-    }
-
-    // 4. apply referenced fields changes
+    // 3. apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);
 
-    // 5. apply referenced fields from supplement(link) field changes
+    // 4. apply referenced fields from supplement(link) field changes
     if (supplementFieldChange) {
       const { newField, oldField } = supplementFieldChange;
       await this.updateReferencedFields(newField, oldField);
     }
 
-    // 6. calculate and submit records
+    // 5. calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, result?.recordOpsMap);
 
-    // 7. calculate computed fields
+    // 6. calculate computed fields
     await this.calculateField(keys, tableId, newField, oldField);
   }
 

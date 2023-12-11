@@ -1117,6 +1117,14 @@ export class FieldSupplementService {
       where: { lookupLinkedFieldId: linkFieldId, deletedTime: null },
       select: { id: true },
     });
+
+    for (const field of fieldsRaw) {
+      await prisma.field.update({
+        data: { lookupLinkedFieldId: null },
+        where: { id: field.id },
+      });
+    }
+
     const lookupFieldIds = fieldsRaw.map((field) => field.id);
 
     // just need delete to field id, because lookup field still exist

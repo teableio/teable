@@ -208,7 +208,7 @@ export class ReferenceService {
 
     const relatedRecordItemsIndexed = groupBy(relatedRecordItems, 'fieldId');
     // console.log('relatedRecordItems', relatedRecordItems);
-    // console.log('dbTableName2recordMap', JSON.stringify(dbTableName2recordMap, null, 2));
+    // console.log('fieldMap', JSON.stringify(fieldMap, null, 2));
     const orderWithRecordsByFieldId = Object.entries(topoOrdersMap).reduce<{
       [fieldId: string]: ITopoItemWithRecords[];
     }>((pre, [fieldId, topoOrders]) => {
@@ -460,9 +460,6 @@ export class ReferenceService {
         return null;
       }
 
-      // console.log('dependencies', dependencies);
-      // console.log('linkCellValues', cellValue);
-
       // sort lookup values by link cell order
       const dependenciesIndexed = keyBy(dependencies, 'id');
       const linkCellValues = cellValue as ILinkCellValue[];
@@ -488,6 +485,7 @@ export class ReferenceService {
           'dependencies should have only 1 element when relationship is manyOne or oneOne'
         );
       }
+
       const linkCellValue = cellValue as ILinkCellValue;
       if (linkCellValue) {
         return dependencies[0].fields[fieldId] ?? null;
@@ -835,6 +833,7 @@ export class ReferenceService {
               const foreignRecordMap = dbTableName2recordMap[foreignDbTableName];
               const dependentRecordIdsIndexed = groupBy(relatedItems, 'toId');
               const dependentRecordIds = dependentRecordIdsIndexed[record.id];
+
               if (dependentRecordIds) {
                 dependencies = dependentRecordIds.map((item) => foreignRecordMap[item.fromId]);
               }
@@ -1108,7 +1107,7 @@ export class ReferenceService {
       startRecordIds
     );
 
-    return await this.prismaService
+    return this.prismaService
       .txClient()
       .$queryRawUnsafe<IRelatedRecordItem[]>(affectedRecordItemsQuerySql);
   }
