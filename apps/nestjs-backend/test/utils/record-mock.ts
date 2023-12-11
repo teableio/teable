@@ -10,13 +10,12 @@ import { chunk, flatten, groupBy } from 'lodash';
 dotenv.config({ path: '../../../nextjs-app', default_node_env: 'development' });
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const databaseUrl = process.env.PRISMA_DATABASE_URL!;
-console.log('database-url: ', databaseUrl);
-const { driver } = parseDsn(databaseUrl);
-console.log('driver: ', driver);
-const prisma = new PrismaClient();
 
-async function rectifyField(fields: Field[], selectOptions: ISelectFieldOptions) {
+async function rectifyField(
+  prisma: PrismaClient,
+  fields: Field[],
+  selectOptions: ISelectFieldOptions
+) {
   const fieldByType = groupBy(fields, 'type');
 
   const rectifySelectField = [
@@ -95,6 +94,12 @@ async function generateViewRowIndex(params: { views: View[]; rowCount: number; i
 }
 
 export async function seeding(tableId: string, mockDataNum: number) {
+  const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+  console.log('database-url: ', databaseUrl);
+  const { driver } = parseDsn(databaseUrl);
+  console.log('driver: ', driver);
+  const prisma = new PrismaClient();
+
   console.log(`Start seeding ...`);
 
   const selectOptions: ISelectFieldOptions = {
@@ -119,7 +124,7 @@ export async function seeding(tableId: string, mockDataNum: number) {
     },
   });
 
-  await rectifyField(fields, selectOptions);
+  await rectifyField(prisma, fields, selectOptions);
 
   const { dbTableName, name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
     select: { dbTableName: true, name: true },
