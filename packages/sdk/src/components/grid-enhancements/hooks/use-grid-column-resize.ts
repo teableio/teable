@@ -20,8 +20,7 @@ export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
   useDebounce(
     () => {
       if (!view) {
-        // throw new Error("Can't find view");
-        return;
+        throw new Error("Can't find view");
       }
       if (!tableId) {
         throw new Error("Can't find tableId");

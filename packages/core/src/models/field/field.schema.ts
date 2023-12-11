@@ -133,10 +133,6 @@ export const fieldVoSchema = z.object({
     description: 'Whether this field is primary field.',
   }),
 
-  // columnMeta: columnMetaSchema.openapi({
-  //   description: 'A mapping of view IDs to their corresponding column metadata.',
-  // }),
-
   isComputed: z.boolean().optional().openapi({
     description:
       'Whether this field is computed field, you can not modify cellValue in computed field.',
@@ -180,7 +176,6 @@ export const FIELD_RO_PROPERTIES = [
   'dbFieldName',
   'isLookup',
   'description',
-  // 'columnMeta',
   'lookupOptions',
   'options',
 ] as const;
@@ -202,7 +197,6 @@ export const FIELD_VO_PROPERTIES = [
   'notNull',
   'unique',
   'isPrimary',
-  // 'columnMeta',
   'isComputed',
   'hasError',
   'cellValueType',
@@ -318,7 +312,6 @@ const baseFieldRoSchema = fieldVoSchema
     dbFieldName: true,
     isLookup: true,
     description: true,
-    // columnMeta: true,
   })
   .required({
     type: true,

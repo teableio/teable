@@ -16,23 +16,27 @@ export type IColumnMeta = z.infer<typeof columnMetaSchema>;
 
 export type IColumn = z.infer<typeof columnSchema>;
 
-export const columnSchema = z.object({
-  order: z.number().openapi({
-    description: 'Order is a floating number, column will sort by it in the view.',
-  }),
-  width: z.number().optional().openapi({
-    description: 'Column width in the view.',
-  }),
-  hidden: z.boolean().optional().openapi({
-    description: 'If column hidden in the view.',
-  }),
-  statisticFunc: z.nativeEnum(StatisticsFunc).nullable().optional().openapi({
-    description: 'Statistic function of the column in the view.',
-  }),
-  required: z.boolean().optional().openapi({
-    description: 'If column is required',
-  }),
-});
+export const columnSchema = z
+  .object({
+    order: z.number().openapi({
+      description: 'Order is a floating number, column will sort by it in the view.',
+    }),
+    width: z.number().optional().openapi({
+      description: 'Column width in the view.',
+    }),
+    hidden: z.boolean().optional().openapi({
+      description: 'If column hidden in the view.',
+    }),
+    statisticFunc: z.nativeEnum(StatisticsFunc).nullable().optional().openapi({
+      description: 'Statistic function of the column in the view.',
+    }),
+    required: z.boolean().optional().openapi({
+      description: 'If column is required',
+    }),
+  })
+  .openapi({
+    description: 'A mapping of view IDs to their corresponding column metadata.',
+  });
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);
 

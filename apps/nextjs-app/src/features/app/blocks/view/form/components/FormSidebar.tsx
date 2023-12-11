@@ -3,7 +3,7 @@ import type { FieldType } from '@teable-group/core';
 import { DraggableHandle, Plus } from '@teable-group/icons';
 import { View, useView, useTableId } from '@teable-group/sdk';
 import type { IFieldStatic } from '@teable-group/sdk/hooks';
-import { useFieldStaticGetter, useFields, useIsHydrated, useViewId } from '@teable-group/sdk/hooks';
+import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import {
   Button,
@@ -112,7 +112,6 @@ export const FormSidebar = () => {
           },
         },
       ]);
-    // field.updateColumnHidden(activeViewId, false);
   };
 
   const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
@@ -122,7 +121,6 @@ export const FormSidebar = () => {
       activeViewId,
       fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
     );
-    // fields.forEach((field) => field.updateColumnHidden(activeViewId, hidden));
   };
 
   return (

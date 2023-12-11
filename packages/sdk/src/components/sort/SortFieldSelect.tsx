@@ -32,11 +32,11 @@ function SortFieldSelect(props: ISortFieldSelect) {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between h-8"
+          className="h-8 w-[200px] justify-between"
         >
-          <div className="flex justify-between w-full items-center">
+          <div className="flex w-full items-center justify-between">
             <span className="truncate">{displayName}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 p-0.5" />
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 p-0.5 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
