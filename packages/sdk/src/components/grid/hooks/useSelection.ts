@@ -30,8 +30,9 @@ export const useSelection = (
       case RegionType.Cell:
       case RegionType.ActiveCell: {
         const range = [columnIndex, rowIndex] as IRange;
-        const ranges = [isShiftKey && !isPrevRowSelection ? prevRanges[0] : range, range];
-        if (!isShiftKey || isPrevRowSelection) {
+        const isExpandSelection = isShiftKey && !isPrevRowSelection && prevRanges[0] != null;
+        const ranges = [isExpandSelection ? prevRanges[0] : range, range];
+        if (!isExpandSelection) {
           setActiveCell(range);
         }
         isMultiSelectionEnable && setSelecting(true);
@@ -42,6 +43,7 @@ export const useSelection = (
       case RegionType.ColumnHeader:
       case RegionType.AllCheckbox:
       case RegionType.RowHeader:
+      case RegionType.AppendRow:
         return;
       default:
         setActiveCell(null);

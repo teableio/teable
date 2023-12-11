@@ -32,11 +32,13 @@ import type {
   ICellRegionWithData,
   IInnerCell,
   IMouseState,
+  IRange,
   IRowControlItem,
   IScrollState,
 } from './interface';
 import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from './interface';
-import type { CombinedSelection, CoordinateManager, ImageManager, SpriteManager } from './managers';
+import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
+import { CombinedSelection } from './managers';
 import { CellRegionType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
@@ -318,7 +320,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     if (isDragging) return setCursor('grabbing');
 
     switch (regionType) {
-      case RegionType.AppendRow:
+      case RegionType.AppendRow: {
+        if (activeCell != null) return;
+        return setCursor('pointer');
+      }
       case RegionType.AppendColumn:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
@@ -350,8 +355,17 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     if (regionType !== type) return;
 
     switch (type) {
-      case RegionType.AppendRow:
+      case RegionType.AppendRow: {
+        if (activeCell != null) {
+          setSelection(selection.reset());
+          return setActiveCell(null);
+        } else {
+          const range = [0, rowIndex] as IRange;
+          setActiveCell(range);
+          setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
+        }
         return onRowAppend?.();
+      }
       case RegionType.AppendColumn:
         return onColumnAppend?.();
       case RegionType.RowHeaderExpandHandler:
@@ -454,7 +468,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   );
 
   const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    event.stopPropagation();
     event.preventDefault();
     if (event.button === MouseButtonType.Right) return;
     const mouseState = getMouseState();
