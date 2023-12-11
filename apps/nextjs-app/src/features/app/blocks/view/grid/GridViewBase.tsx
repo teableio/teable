@@ -120,7 +120,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
       );
 
-      recordIndex > 0 &&
+      recordIndex >= 0 &&
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [
             [0, recordIndex],
