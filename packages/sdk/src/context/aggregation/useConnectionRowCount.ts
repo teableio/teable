@@ -11,7 +11,7 @@ export const useConnectionRowCount = (onChange?: () => void) => {
   const { connection } = useContext(AppContext);
   const { tableId, viewId } = useContext(AnchorContext);
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [rowCount, setRowCount] = useState<number>();
+  const [rowCount, setRowCount] = useState<number | null>(null);
 
   useEffect(() => {
     const canCreatePresence = tableId && viewId && connection;

@@ -67,12 +67,13 @@ export class Table extends TableCore {
     return View.deleteView(this.id, viewId);
   }
 
-  async createRecord(recordFields: IRecord['fields']) {
+  async createRecord(recordFields: IRecord['fields'], recordOrder?: { [viewId: string]: number }) {
     return Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {
           fields: recordFields,
+          recordOrder,
         },
       ],
     });

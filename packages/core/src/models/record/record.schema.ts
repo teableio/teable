@@ -184,6 +184,7 @@ export const createRecordsRoSchema = z
     records: z
       .object({
         fields: recordSchema.shape.fields,
+        recordOrder: z.record(z.number()).optional(),
       })
       .array()
       .openapi({

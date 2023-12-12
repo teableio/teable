@@ -28,7 +28,6 @@ export interface IEditorContainerProps
     | 'onDelete'
     | 'onRowAppend'
     | 'onRowExpand'
-    | 'onCellActivated'
   > {
   isEditing?: boolean;
   scrollState: IScrollState;
@@ -95,7 +94,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setEditing,
     setActiveCell,
     setSelection,
-    onCellActivated,
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
@@ -184,7 +182,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setEditing,
     setActiveCell,
     setSelection,
-    onCellActivated,
     editorRef,
   });
 
@@ -199,6 +196,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
     if (NO_EDITING_CELL_TYPES.has(cellType)) return;
+    console.log('onKeyDown');
     setEditing(true);
     editorRef.current?.setValue?.(null);
   };
@@ -219,6 +217,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
               ...editorStyle,
               ...inputStyle,
             }}
+            isEditing={isEditing}
             onChange={onChangeInner}
           />
         );

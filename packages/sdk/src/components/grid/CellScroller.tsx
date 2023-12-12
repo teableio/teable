@@ -10,7 +10,7 @@ export interface CellScrollerProps {
   style?: React.CSSProperties;
   scrollEnable?: boolean;
   activeCellBound: IActiveCellBound;
-  setActiveCellBound: React.Dispatch<React.SetStateAction<IActiveCellBound | null>>;
+  setCellScrollTop: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export interface CellScrollerRef {
@@ -23,7 +23,7 @@ const CellScrollerBase: ForwardRefRenderFunction<CellScrollerRef, CellScrollerPr
   props,
   ref
 ) => {
-  const { containerRef, style, scrollEnable, activeCellBound, setActiveCellBound } = props;
+  const { containerRef, style, scrollEnable, activeCellBound, setCellScrollTop } = props;
   const { height: containerHeight, totalHeight: scrollHeight } = activeCellBound;
 
   const verticalScrollRef = useRef<HTMLDivElement | null>(null);
@@ -34,6 +34,7 @@ const CellScrollerBase: ForwardRefRenderFunction<CellScrollerRef, CellScrollerPr
     reset: () => {
       if (verticalScrollRef.current) {
         verticalScrollRef.current.scrollTop = 0;
+        setCellScrollTop(0);
       }
     },
   }));
@@ -58,10 +59,7 @@ const CellScrollerBase: ForwardRefRenderFunction<CellScrollerRef, CellScrollerPr
     }
     const scrollTop = newScrollTop + offsetY.current;
 
-    setActiveCellBound({
-      ...activeCellBound,
-      scrollTop,
-    });
+    setCellScrollTop(scrollTop);
   };
 
   const scrollHandler = useCallback((deltaY: number) => {

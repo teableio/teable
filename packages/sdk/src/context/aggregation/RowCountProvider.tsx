@@ -20,6 +20,8 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const [rowCount, setRowCount] = useState<number | null>(null);
   const connectionRowCount = useConnectionRowCount();
 
+  useEffect(() => setRowCount(connectionRowCount), [connectionRowCount]);
+
   useEffect(() => {
     if (tableId == null || !isHydrated) return;
 
@@ -35,9 +37,5 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
     });
   }, [tableId, viewId, connection, isHydrated, base.id]);
 
-  return (
-    <RowCountContext.Provider value={connectionRowCount ?? rowCount}>
-      {children}
-    </RowCountContext.Provider>
-  );
+  return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
 };

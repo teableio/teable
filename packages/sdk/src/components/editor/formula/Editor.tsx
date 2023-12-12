@@ -174,8 +174,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   const fieldNamesReg = useMemo(() => {
     const fieldNames = fields.map((f) => {
-      const name = f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return `({${name}})`;
+      const name = f.name.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&');
+      return `(\\{${name}\\})`;
     });
     const regStr = fieldNames.join('|');
     return new RegExp(regStr, 'g');
@@ -323,7 +323,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   return (
     <div className="w-[620px]">
-      <div className="flex justify-between items-center pl-4 pr-2 w-full h-12 border-b-[1px]">
+      <div className="flex h-12 w-full items-center justify-between border-b-[1px] pl-4 pr-2">
         <h1 className="text-base">Formula Editor</h1>
       </div>
       <div className={cn('flex flex-col w-full border-b-[1px] caret-foreground', codeBg)}>
@@ -334,12 +334,10 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
           onChange={onValueChange}
           onSelectionChange={onSelectionChange}
         />
-        <div className="w-full h-5 px-2 text-xs text-destructive whitespace-nowrap overflow-hidden text-ellipsis">
-          {errMsg}
-        </div>
+        <div className="h-5 w-full truncate px-2 text-xs text-destructive">{errMsg}</div>
       </div>
-      <div className="flex justify-between items-center w-full h-[52px] px-2 border-b-[1px]">
-        <div className="flex flex-col justify-center flex-1 overflow-hidden mr-2">
+      <div className="flex h-[52px] w-full items-center justify-between border-b-[1px] px-2">
+        <div className="mr-2 flex flex-1 flex-col justify-center overflow-hidden">
           <FunctionHelper funcHelpData={funcHelpData} />
         </div>
         <div>
@@ -348,13 +346,13 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
           </Button>
         </div>
       </div>
-      <div className="w-full h-[360px] flex">
-        <div ref={listRef} className="shrink-0 overflow-y-auto w-[200px] border-r-[1px]">
+      <div className="flex h-[360px] w-full">
+        <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r-[1px]">
           {formatFunctionList.length || filteredFields.length ? (
             <>
               {filteredFields.length > 0 && (
                 <div>
-                  <h3 className="pl-2 py-1 text-[13px] font-semibold text- text-slate-500">
+                  <h3 className="text- py-1 pl-2 text-[13px] font-semibold text-slate-500">
                     Fields
                   </h3>
                   {filteredFields.map((result, index: number) => {
@@ -374,9 +372,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                         onMouseEnter={() => setSuggestionItemIndex(index)}
                       >
                         <Icon className="mr-1 shrink-0" />
-                        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-                          {name}
-                        </span>
+                        <span className="truncate">{name}</span>
                       </div>
                     );
                   })}
@@ -386,7 +382,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                 const { name: listName, list, prevCount, type } = funcDataList;
                 return (
                   <div key={listName}>
-                    <h3 className="pl-2 py-1 text-[13px] font-semibold text-slate-500">
+                    <h3 className="py-1 pl-2 text-[13px] font-semibold text-slate-500">
                       {listName}
                     </h3>
                     {list.map((item, index) => {
@@ -410,9 +406,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                           }
                         >
                           <Icon className="mr-1 shrink-0" />
-                          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-                            {funcName}
-                          </span>
+                          <span className="truncate">{funcName}</span>
                         </div>
                       );
                     })}
@@ -421,7 +415,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
               })}
             </>
           ) : (
-            <div className="pt-2 text-sm text-center">No search results</div>
+            <div className="pt-2 text-center text-sm">No search results</div>
           )}
         </div>
         <FunctionGuide data={functionGuideData} />

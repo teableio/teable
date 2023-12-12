@@ -9,7 +9,6 @@ import type {
   ITableFullVo,
   ITableVo,
   IViewRo,
-  IViewVo,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -41,12 +40,9 @@ export class TableOpenApiService {
     return await Promise.all(viewCreationPromises);
   }
 
-  private async createField(tableId: string, viewVos: IViewVo[], fieldVos: IFieldVo[]) {
+  private async createField(tableId: string, fieldVos: IFieldVo[]) {
     const fieldSnapshots: IFieldVo[] = [];
     for (const fieldVo of fieldVos) {
-      viewVos.forEach((view, index) => {
-        fieldVo['columnMeta'] = { ...fieldVo.columnMeta, [view.id]: { order: index } };
-      });
       const fieldInstance = createFieldInstanceByVo(fieldVo);
       const fieldSnapshot = await this.fieldCreatingService.createField(tableId, fieldInstance);
       fieldSnapshots.push(fieldSnapshot);
@@ -98,7 +94,7 @@ export class TableOpenApiService {
 
       const viewVos = await this.createView(tableId, tableRo.views);
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
-      const fieldVos = await this.createField(tableId, viewVos, preparedFields);
+      const fieldVos = await this.createField(tableId, preparedFields);
       const { records } = await this.createRecords(tableId, {
         records: tableRo.records,
         fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,

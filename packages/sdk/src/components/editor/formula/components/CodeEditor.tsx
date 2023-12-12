@@ -47,6 +47,7 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
       ...AUTOCOMPLETE_EXTENSIONS,
       highlight,
       updateListener,
+      EditorView.lineWrapping,
       ...extensions,
     ];
   }, [extensions, onChange, onSelectionChange]);

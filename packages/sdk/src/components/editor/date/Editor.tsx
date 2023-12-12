@@ -1,19 +1,27 @@
-import { TimeFormatting, type IDateFieldOptions } from '@teable-group/core';
+import { TimeFormatting } from '@teable-group/core';
 import { Calendar } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
-import { useMemo } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import type { IEditorRef } from '../type';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
 
-export interface IDateEditor extends IDateEditorMain {
-  options?: IDateFieldOptions;
-}
-
-export const DateEditor = (props: IDateEditor) => {
+const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
+  props,
+  ref
+) => {
   const { value, onChange, className, readonly, options } = props;
   const { date, time } = options?.formatting || {};
+  const editorRef = useRef<IEditorRef<string>>(null);
+
+  useImperativeHandle(ref, () => ({
+    setValue: (value?: string) => {
+      editorRef.current?.setValue?.(value);
+    },
+  }));
 
   const valueComponent = useMemo(() => {
     if (!value) return <span>Pick a date</span>;
@@ -41,8 +49,10 @@ export const DateEditor = (props: IDateEditor) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <DateEditorMain value={value} onChange={onChange} />
+        <DateEditorMain ref={editorRef} value={value} options={options} onChange={onChange} />
       </PopoverContent>
     </Popover>
   );
 };
+
+export const DateEditor = forwardRef(DateEditorBase);

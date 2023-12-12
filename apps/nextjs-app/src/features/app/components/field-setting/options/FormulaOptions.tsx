@@ -78,7 +78,7 @@ export const FormulaOptions = (props: {
           <span className="neutral-content label-text">Formula</span>
           <Dialog open={visible} onOpenChange={setVisible}>
             <DialogTrigger asChild>
-              <code className="flex h-8 cursor-pointer items-center rounded-md border border-input bg-background px-3 ring-offset-background">
+              <code className="block min-h-[36px] cursor-pointer items-center whitespace-pre-wrap break-words rounded-md border border-input bg-background px-3 py-2 ring-offset-background">
                 {expressionByName}
               </code>
             </DialogTrigger>

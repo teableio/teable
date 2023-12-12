@@ -137,14 +137,15 @@ export class FieldService implements IAdapterService {
       return Math.max(max, maxViewOrder);
     }, -1);
 
-    return fieldInstances.map(() => {
+    return fieldInstances.map((fieldInstance) => {
+      const inputColumnMeta = fieldInstance.columnMeta ?? {};
       const columnMeta: IColumnMeta = {};
       for (const view of views) {
         columnMeta[view.id] = {
           order: maxOrder + 1,
         };
       }
-      return columnMeta;
+      return { ...columnMeta, ...inputColumnMeta };
     });
   }
 

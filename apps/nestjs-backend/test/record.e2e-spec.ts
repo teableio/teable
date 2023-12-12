@@ -124,6 +124,25 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(res2.body.records[0].fields[table.fields[0].id]).toEqual(value2);
     });
 
+    it('should create a record with order', async () => {
+      const viewResponse = await request.get(`/api/table/${table.id}/view`).expect(200);
+      const viewId = viewResponse.body[0].id;
+      const res = await request
+        .post(`/api/table/${table.id}/record`)
+        .send({
+          records: [
+            {
+              fields: {},
+              recordOrder: {
+                [viewId]: 0.6,
+              },
+            },
+          ],
+        })
+        .expect(201);
+      expect(res.body.records[0].recordOrder[viewId]).toEqual(0.6);
+    });
+
     it('should update record', async () => {
       const record = await updateRecordByApi(
         table.id,
