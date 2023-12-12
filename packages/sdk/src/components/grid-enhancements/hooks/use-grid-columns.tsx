@@ -118,7 +118,9 @@ const createCellValue2GridDisplay =
           displayData,
           readonly,
           editorPosition: EditorPosition.Below,
-          customEditor: (props) => <GridDateEditor field={field} record={record} {...props} />,
+          customEditor: (props, editorRef) => (
+            <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
+          ),
         };
       }
       case FieldType.AutoNumber: {
