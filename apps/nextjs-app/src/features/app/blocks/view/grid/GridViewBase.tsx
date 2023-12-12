@@ -369,7 +369,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       const { x, y, width, height } = bounds;
       const [rowIndex, columnIndex] = cellItem;
       const groupedCollaborators = groupBy(collaborators, 'activeCell');
-      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`];
+      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`]?.sort(
+        (a, b) => a.timeStamp - b.timeStamp
+      );
       const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');
 
       const hoverHeight = 24;
@@ -392,7 +394,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             height: `${hoverHeight}px`,
             direction: 'rtl',
             lineHeight: `${hoverHeight}px`,
-            backgroundColor: hexToRGBA(hoverCollaborators?.[0].borderColor),
+            // multiple collaborators only display the latest one
+            backgroundColor: hexToRGBA(hoverCollaborators.slice(-1)[0].borderColor),
           },
         });
     }
