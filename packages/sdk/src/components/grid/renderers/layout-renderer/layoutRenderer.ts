@@ -430,7 +430,12 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
   const avatarOffset = 4;
   const cellOffset = 1;
 
+  const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
+    coordInstance;
+
   if (!collaborators?.length) return;
+
+  ctx.save();
 
   const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
 
@@ -446,6 +451,17 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
 
     ctx.save();
     ctx.beginPath();
+
+    const isFreezeRegion = columnIndex < freezeColumnCount;
+
+    // clip otherwise collaborator will be rendered outside the cell
+    ctx.rect(
+      isFreezeRegion ? 0 : freezeRegionWidth,
+      rowInitSize,
+      isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+      containerHeight - rowInitSize
+    );
+    ctx.clip();
 
     drawRect(ctx, {
       x: x + cellOffset,
@@ -467,9 +483,9 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
       fontFamily,
       user,
     });
-
     ctx.restore();
   }
+  ctx.restore();
 };
 
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {

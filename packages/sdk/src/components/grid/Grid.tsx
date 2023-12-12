@@ -330,6 +330,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             mouseState={mouseState}
             scrollState={scrollState}
             rowControls={rowControls}
+            collaborators={collaborators}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}

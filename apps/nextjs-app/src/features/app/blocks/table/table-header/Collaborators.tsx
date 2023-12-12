@@ -45,13 +45,13 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
-    if (!connection || !tableId || !user) {
+    if (!connection?.id || !tableId || !user) {
       return;
     }
     const channel = getCollaboratorsChannel(tableId as string);
     setPresence(connection.getPresence(channel));
     setUsers([{ ...user }]);
-  }, [connection, tableId, user]);
+  }, [connection, connection?.id, tableId, user]);
 
   useEffect(() => {
     if (!presence) {
@@ -66,7 +66,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
 
     presence.subscribe();
 
-    const presenceKey = `${tableId}_${user.id}`;
+    const presenceKey = `${tableId}_${user.id}_${connection.id}`;
     const localPresence = presence.create(presenceKey);
     localPresence.submit(user, (error) => {
       error && console.error('submit error:', error);
@@ -90,7 +90,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       presence.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
     };
-  }, [presence, tableId, user]);
+  }, [connection, presence, tableId, user, connection?.id]);
 
   const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
@@ -109,9 +109,9 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
 
   return (
     <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
-      {boardUsers?.map(({ id, name, avatar, email }) => {
+      {boardUsers?.map(({ id, name, avatar, email }, index) => {
         return (
-          <HoverCard key={id}>
+          <HoverCard key={`${id}_${index}`}>
             <HoverCardTrigger asChild>
               <div className="relative overflow-hidden">
                 {avatarRender({ id, name, avatar, email })}
@@ -132,8 +132,8 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       {hiddenUser ? (
         <Popover>
           <PopoverTrigger asChild>
-            <div className="relative shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border border-slate-200">
-              <p className="flex h-7 w-7 items-center justify-center text-center text-sm">
+            <div className="relative h-6 w-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
+              <p className="flex h-full w-full items-center justify-center rounded-full border-2 text-center text-xs">
                 +{hiddenUser.length}
               </p>
             </div>

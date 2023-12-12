@@ -365,12 +365,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       });
     }
 
-    if (type === RegionType.Cell && collaborators.length) {
+    if ([RegionType.Cell, RegionType.ActiveCell].includes(type) && collaborators.length) {
       const { x, y, width, height } = bounds;
       const [rowIndex, columnIndex] = cellItem;
       const groupedCollaborators = groupBy(collaborators, 'activeCell');
-      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`];
+      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`]?.sort(
+        (a, b) => a.timeStamp - b.timeStamp
+      );
       const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');
+
       const hoverHeight = 24;
 
       collaboratorText &&
@@ -383,7 +386,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             width: width,
             height: height,
           },
-          contentClassName: 'items-center py-0 px-2 absolute truncate',
+          contentClassName: 'items-center py-0 px-2 absolute truncate whitespace-nowrap',
           contentStyle: {
             right: `-${width / 2}px`,
             top: `-${hoverHeight}px`,
@@ -391,7 +394,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             height: `${hoverHeight}px`,
             direction: 'rtl',
             lineHeight: `${hoverHeight}px`,
-            backgroundColor: hexToRGBA(hoverCollaborators?.[0].borderColor, 0.5),
+            // multiple collaborators only display the latest one
+            backgroundColor: hexToRGBA(hoverCollaborators.slice(-1)[0].borderColor),
           },
         });
     }
