@@ -1,12 +1,18 @@
+import { LocalStorageKeys } from '@teable-group/sdk/config/local-storage-keys';
 import { AnchorProvider } from '@teable-group/sdk/context';
+import { useBase } from '@teable-group/sdk/hooks';
 import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
-import { useState } from 'react';
+import { useLocalStorage } from 'react-use';
 import { Pickers } from './components/Pickers';
 import { GridContent } from './GridContent';
 
 export function DashboardPage() {
-  const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
-  const { viewId, tableId } = anchor;
+  const base = useBase();
+
+  const [anchor, setAnchor] = useLocalStorage<{ tableId?: string; viewId?: string }>(
+    LocalStorageKeys.DashboardKey + base.id
+  );
+  const { viewId, tableId } = anchor || {};
 
   return (
     <AnchorProvider viewId={viewId} tableId={tableId}>

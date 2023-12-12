@@ -28,6 +28,7 @@ module.exports = {
   },
   preset: 'ts-jest',
   globalSetup: '<rootDir>/jest-e2e.setup.ts',
+  maxWorkers: 1,
   collectCoverage: false,
   coverageReporters: ['text'],
   moduleNameMapper: {

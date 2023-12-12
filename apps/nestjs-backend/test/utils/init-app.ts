@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import fs from 'fs';
+import path from 'path';
 import { ValidationPipe } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
@@ -33,7 +35,30 @@ import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter'
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 
+function prepareSqliteEnv() {
+  if (!process.env.PRISMA_DATABASE_URL?.startsWith('file:')) {
+    return;
+  }
+  const prevFilePath = process.env.PRISMA_DATABASE_URL.substring(5);
+  const prevDir = path.dirname(prevFilePath);
+  const baseName = path.basename(prevFilePath);
+
+  const newFileName = 'test-' + Date.now() + '-' + baseName;
+  const newFilePath = path.join(prevDir, 'test', newFileName);
+
+  process.env.PRISMA_DATABASE_URL = 'file:' + newFilePath;
+  console.log('TEST PRISMA_DATABASE_URL:', process.env.PRISMA_DATABASE_URL);
+
+  const dbPath = '../../packages/db-main-prisma/db/';
+  const testDbPath = path.join(dbPath, 'test');
+  if (!fs.existsSync(testDbPath)) {
+    fs.mkdirSync(testDbPath, { recursive: true });
+  }
+  fs.copyFileSync(path.join(dbPath, baseName), path.join(testDbPath, newFileName));
+}
+
 export async function initApp() {
+  prepareSqliteEnv();
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })

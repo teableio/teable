@@ -10,16 +10,17 @@ import { useChartData } from '../hooks/useChartData';
 
 export function PieChartCard({ className }: { className?: string }) {
   const data = useChartData();
+  if (!data.list.length) return null;
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Proportion</CardTitle>
+        <CardTitle>{data.title} (Pie)</CardTitle>
         <CardDescription>Your data distribution ratio.</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
         <ResponsiveContainer width="100%" height={350}>
           <PieChart
-            data={data}
+            data={data.list}
             margin={{
               top: 5,
               right: 10,
@@ -51,14 +52,14 @@ export function PieChartCard({ className }: { className?: string }) {
             />
 
             <Pie
-              data={data}
+              data={data.list}
               dataKey="total"
               nameKey="name"
               stroke="hsl(var(--background))"
               fill="hsl(var(--foreground))"
             >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={data[index].color} />
+              {data.list.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={data.list[index].color} />
               ))}
             </Pie>
           </PieChart>
