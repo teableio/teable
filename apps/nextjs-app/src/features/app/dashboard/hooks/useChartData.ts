@@ -15,7 +15,7 @@ export function useChartData() {
   const table = useTable();
   const view = useView();
   const base = useBase();
-  const [data, setData] = useState<IData[]>([]);
+  const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
   const groupingField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
     [fields]
@@ -45,16 +45,17 @@ export function useChartData() {
     console.log('sqlQuery:', nativeSql);
     base.sqlQuery(table.id, view.id, nativeSql).then((result) => {
       console.log('sqlQuery:', result);
-      setData(
-        (result.data as IData[]).map(({ total, name }) => ({
+      setData({
+        title: numberField.name,
+        list: (result.data as IData[]).map(({ total, name }) => ({
           name: name || 'Untitled',
           total: total || 0,
           color: ColorUtils.getHexForColor(
             (groupingField.options as ISelectFieldOptions).choices.find((c) => c.name === name)
               ?.color || Colors.TealLight1
           ),
-        }))
-      );
+        })),
+      });
     });
   }, [base, fields, groupingField, numberField, table, view]);
   return data;
