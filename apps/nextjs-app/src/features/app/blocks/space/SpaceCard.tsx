@@ -109,6 +109,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               </Button>
             </SpaceCollaboratorModalTrigger>
             <SpaceActionTrigger
+              space={space}
               showRename={hasPermission(space.role, 'space|update')}
               showDelete={hasPermission(space.role, 'space|delete')}
               onDelete={() => deleteSpaceMutator(space.id)}

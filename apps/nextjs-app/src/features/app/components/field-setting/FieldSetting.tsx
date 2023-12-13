@@ -2,7 +2,8 @@ import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
 import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
 import { View } from '@teable-group/sdk';
 import { useTable, useViewId } from '@teable-group/sdk/hooks';
-import { Dialog, DialogContent, DialogFooter, useToast } from '@teable-group/ui-lib/shadcn';
+import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import { useToast } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useCallback, useMemo, useState } from 'react';
@@ -144,23 +145,13 @@ const FieldSettingBase = (props: IFieldSetting) => {
           </div>
         </SheetContent>
       </Sheet>
-      <Dialog open={alertVisible} onOpenChange={setAlertVisible}>
-        <DialogContent
-          closeable={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <div>Are you sure you want to discard your changes?</div>
-          <DialogFooter>
-            <Button size={'sm'} variant={'ghost'} onClick={() => setAlertVisible(false)}>
-              Cancel
-            </Button>
-            <Button size={'sm'} onClick={onCancel}>
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={alertVisible}
+        onOpenChange={setAlertVisible}
+        title="Are you sure you want to discard your changes?"
+        onCancel={() => setAlertVisible(false)}
+        onConfirm={onCancel}
+      />
     </>
   );
 };
