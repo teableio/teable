@@ -34,7 +34,7 @@ import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
-import { composeMaps } from '../../calculation/utils/compose-maps';
+import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
@@ -744,7 +744,7 @@ export class FieldConvertingService {
     if (field.type === FieldType.Link && !field.isLookup) {
       const result = await this.getDerivateByLink(tableId, recordOpsMap[tableId]);
       saveForeignKeyToDb = result?.saveForeignKeyToDb;
-      recordOpsMap = composeMaps([recordOpsMap, result.opsMapByLink]);
+      recordOpsMap = composeOpMaps([recordOpsMap, result.opsMapByLink]);
     }
 
     const {
@@ -753,7 +753,7 @@ export class FieldConvertingService {
       tableId2DbTableName,
     } = await this.referenceService.calculateOpsMap(recordOpsMap, saveForeignKeyToDb);
 
-    const composedOpsMap = composeMaps([recordOpsMap, calculatedOpsMap]);
+    const composedOpsMap = composeOpMaps([recordOpsMap, calculatedOpsMap]);
 
     // console.log('recordOpsMap', JSON.stringify(recordOpsMap));
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
@@ -886,6 +886,7 @@ export class FieldConvertingService {
     // simple value type change is not need to convert
     if (
       oldField.type !== FieldType.LongText &&
+      newField.type !== FieldType.Rating &&
       newField.cellValueType === oldField.cellValueType &&
       newField.isMultipleCellValue !== true &&
       oldField.isMultipleCellValue !== true &&

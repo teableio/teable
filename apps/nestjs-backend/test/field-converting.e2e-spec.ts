@@ -431,7 +431,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         'x',
-        '2023-08-31T08:32:32.117Z',
+        '2023-08-31T08:32:32',
       ]);
       expect(newField).toMatchObject({
         cellValueType: CellValueType.DateTime,
@@ -439,7 +439,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Date,
       });
       expect(values[0]).toEqual(undefined);
-      expect(values[1]).toEqual('2023-08-31T08:32:32.117Z');
+      expect(values[1]).toEqual('2023-08-31T08:32:32.000Z');
     });
 
     it('should convert text to formula', async () => {
@@ -784,7 +784,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
         'x',
-        '2023-08-31T08:32:32.117Z',
+        '2023-08-31T08:32:32',
       ]);
       expect(newField).toMatchObject({
         cellValueType: CellValueType.DateTime,
@@ -792,7 +792,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Date,
       });
       expect(values[0]).toEqual(undefined);
-      expect(values[1]).toEqual('2023-08-31T08:32:32.117Z');
+      expect(values[1]).toEqual('2023-08-31T08:32:32.000Z');
     });
 
     it('should convert long text to formula', async () => {
@@ -1083,7 +1083,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       );
       expect(newField).toMatchObject({
         cellValueType: CellValueType.Number,
-        dbFieldType: DbFieldType.Integer,
+        dbFieldType: DbFieldType.Real,
         options: {
           icon: RatingIcon.Star,
           max: 5,
@@ -1151,7 +1151,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [2, 8]);
       expect(newField).toMatchObject({
         cellValueType: CellValueType.Number,
-        dbFieldType: DbFieldType.Integer,
+        dbFieldType: DbFieldType.Real,
         options: {
           icon: RatingIcon.Star,
           max: 5,
@@ -1719,8 +1719,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(records[0].fields[newLinkField.id]).toEqual({ id: table3.records[0].id, title: 'C1' });
       expect(records[0].fields[targetLookupField.id]).toBeUndefined();
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
-      // calculation skipped
-      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+      expect(records[0].fields[targetFormulaLookupField.id]).toBeUndefined();
     });
 
     it('should mark lookupField error when convert link to text', async () => {
@@ -1800,8 +1799,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(records[0].fields[newField.id]).toEqual('txt');
       expect(records[0].fields[targetLookupField.id]).toBeUndefined();
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('txt');
-      // calculation skipped
-      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+      expect(records[0].fields[targetFormulaLookupField.id]).toBeUndefined();
     });
 
     it('should convert link from one table to another and change relationship', async () => {

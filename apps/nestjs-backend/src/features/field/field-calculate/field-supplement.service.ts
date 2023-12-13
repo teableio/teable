@@ -623,7 +623,7 @@ export class FieldSupplementService {
       name: name ?? 'Rating',
       options: options ?? RatingFieldCore.defaultOptions(),
       cellValueType: CellValueType.Number,
-      dbFieldType: DbFieldType.Integer,
+      dbFieldType: DbFieldType.Real,
     };
   }
 

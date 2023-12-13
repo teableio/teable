@@ -1,40 +1,55 @@
-import sharedb from 'sharedb';
+import { isEmpty, isEqual } from 'lodash';
 
-export function composeMaps<T extends { p: (string | number)[] }>(
-  opsMaps: ({ [x: string]: { [y: string]: T[] } } | undefined)[]
-): {
-  [x: string]: { [y: string]: T[] };
-} {
-  return (opsMaps as { [x: string]: { [y: string]: T[] } }[])
-    .filter(Boolean)
-    .reduce<{ [x: string]: { [y: string]: T[] } }>((composedMap, currentMap) => {
-      Object.keys(currentMap).forEach((tableId) => {
-        composedMap[tableId] = composedMap[tableId] || {};
+type IOpsMap = {
+  [x: string]: { [y: string]: { p: (string | number)[]; oi?: unknown; od?: unknown }[] };
+};
 
-        Object.keys(currentMap[tableId]).forEach((recordId) => {
-          composedMap[tableId][recordId] = composedMap[tableId][recordId] || [];
+export function composeOpMaps(opsMaps: (IOpsMap | undefined)[]): IOpsMap {
+  return (opsMaps as IOpsMap[]).filter(Boolean).reduce<IOpsMap>((composedMap, currentMap) => {
+    Object.keys(currentMap).forEach((tableId) => {
+      composedMap[tableId] = composedMap[tableId] || {};
 
-          const opIndexObj: Record<string, number> = {};
-          composedMap[tableId][recordId].forEach((op, index) => {
-            opIndexObj[op.p.join()] = index;
-          });
+      Object.keys(currentMap[tableId]).forEach((recordId) => {
+        composedMap[tableId][recordId] = composedMap[tableId][recordId] || [];
 
-          currentMap[tableId][recordId].forEach((op) => {
-            const opKey = op.p.join();
-            const existingOpIndex = opIndexObj[opKey];
-            if (existingOpIndex !== undefined) {
-              const oldOp = composedMap[tableId][recordId][existingOpIndex];
-              composedMap[tableId][recordId][existingOpIndex] = sharedb.types.map['json0'].compose(
-                op,
-                oldOp
-              );
-            } else {
-              opIndexObj[opKey] = composedMap[tableId][recordId].length;
-              composedMap[tableId][recordId].push(op);
-            }
-          });
+        const opIndexObj: Record<string, number> = {};
+
+        // indexing
+        composedMap[tableId][recordId].forEach((op, index) => {
+          opIndexObj[op.p.join()] = index;
         });
+
+        // compose op that has same path
+        currentMap[tableId][recordId].forEach((op) => {
+          const opKey = op.p.join();
+          const existingOpIndex = opIndexObj[opKey];
+          if (existingOpIndex !== undefined) {
+            const oldOp = composedMap[tableId][recordId][existingOpIndex];
+            composedMap[tableId][recordId][existingOpIndex] = {
+              p: op.p,
+              od: oldOp.od,
+              oi: op.oi,
+            };
+          } else {
+            opIndexObj[opKey] = composedMap[tableId][recordId].length;
+            composedMap[tableId][recordId].push(op);
+          }
+        });
+
+        // filter op that has same oi and od
+        composedMap[tableId][recordId] = composedMap[tableId][recordId].filter(
+          (op) => !isEqual(op.oi, op.od)
+        );
+
+        if (!composedMap[tableId][recordId].length) {
+          delete composedMap[tableId][recordId];
+        }
       });
-      return composedMap;
-    }, {});
+
+      if (isEmpty(composedMap[tableId])) {
+        delete composedMap[tableId];
+      }
+    });
+    return composedMap;
+  }, {});
 }

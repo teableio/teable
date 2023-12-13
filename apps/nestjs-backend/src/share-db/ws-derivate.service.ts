@@ -12,7 +12,7 @@ import { ReferenceService } from '../features/calculation/reference.service';
 import { SystemFieldService } from '../features/calculation/system-field.service';
 import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
-import { composeMaps } from '../features/calculation/utils/compose-maps';
+import { composeOpMaps } from '../features/calculation/utils/compose-maps';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { IClsStore } from '../types/cls';
 import type { IRawOp, IRawOpMap } from './interface';
@@ -44,7 +44,7 @@ export class WsDerivateService {
 
     const opsMapOrigin = formatChangesToOps(changes);
     const opsMapByLink = formatChangesToOps(cellChanges);
-    const composedOpsMap = composeMaps([opsMapOrigin, opsMapByLink]);
+    const composedOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
     const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(composedOpsMap);
 
     const {
@@ -52,7 +52,7 @@ export class WsDerivateService {
       fieldMap,
       tableId2DbTableName,
     } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
-    const composedMap = composeMaps([opsMapByLink, opsMapByCalculate, systemFieldOpsMap]);
+    const composedMap = composeOpMaps([opsMapByLink, opsMapByCalculate, systemFieldOpsMap]);
 
     if (isEmpty(composedMap)) {
       return;
