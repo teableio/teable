@@ -10,7 +10,6 @@ import { useLineChartData } from '../hooks/useLineChartData';
 
 export function LineChartCard() {
   const data = useLineChartData();
-  if (!data.list.length) return null;
   return (
     <Card>
       <CardHeader>
