@@ -66,7 +66,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -146,7 +145,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -233,7 +231,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [numberFieldRo, textFieldRo],
         })
         .expect(201);
@@ -302,7 +299,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -366,7 +362,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -415,7 +410,6 @@ describe('OpenAPI link (e2e)', () => {
       const result1 = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -476,7 +470,6 @@ describe('OpenAPI link (e2e)', () => {
       const result1 = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -550,7 +543,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -789,7 +781,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -1194,7 +1185,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -1576,7 +1566,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -1751,7 +1740,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo, numberFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -2083,9 +2071,7 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table1',
-      });
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
       table1 = result1.body;
       const result2 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table2',
@@ -2240,9 +2226,7 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table1',
-      });
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
       table1 = result1.body;
       const result2 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table2',
@@ -2382,7 +2366,6 @@ describe('OpenAPI link (e2e)', () => {
       const createTable1Result = await request
         .post(`/api/base/${baseId}/table`)
         .send({
-          name: 'table1',
           fields: [textFieldRo],
           records: [
             { fields: { 'text field': 'table1_1' } },
@@ -2522,9 +2505,7 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table1',
-      });
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
       table1 = result1.body;
       const result2 = await request.post(`/api/base/${baseId}/table`).send({
         name: 'table2',

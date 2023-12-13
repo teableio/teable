@@ -4,7 +4,6 @@ import { useChartData } from '../hooks/useChartData';
 
 export function BarChartCard({ className }: { className?: string }) {
   const data = useChartData();
-  if (!data.list.length) return null;
   return (
     <Card className={className}>
       <CardHeader>
