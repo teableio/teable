@@ -17,7 +17,7 @@ import type {
   IViewVo,
   ICreateTableRo,
   IFilter,
-  IViewOptionRo,
+  IViewRo,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import {
@@ -35,6 +35,7 @@ import {
   createTable as apiCreateTable,
   deleteTable as apiDeleteTable,
   setViewFilter as apiSetViewFilter,
+  createView as apiCreateView,
 } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
@@ -230,6 +231,11 @@ export async function getField(tableId: string, fieldId: string): Promise<IField
 
 export async function getView(tableId: string, viewId: string): Promise<IViewVo> {
   const result = await apiGetViewById(tableId, viewId);
+  return result.data;
+}
+
+export async function creteView(tableId: string, viewRo: IViewRo) {
+  const result = await apiCreateView(tableId, viewRo);
   return result.data;
 }
 
