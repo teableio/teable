@@ -1,12 +1,11 @@
-import type { IRawAggregationVo } from '@teable-group/core';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAggregation } from '@teable-group/openapi';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useState } from 'react';
-import { useIsHydrated } from '../../hooks';
-import { View } from '../../model';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { ReactQueryKeys } from '../../config/react-query-keys';
+import { useIsHydrated, useActionTrigger } from '../../hooks';
 import { AnchorContext } from '../anchor';
-import { AppContext } from '../app';
 import { AggregationContext } from './AggregationContext';
-import { useConnectionAggregation } from './useConnectionAggregation';
 
 interface IAggregationProviderProps {
   children: ReactNode;
@@ -15,30 +14,35 @@ interface IAggregationProviderProps {
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
-  const { connection } = useContext(AppContext);
+  const queryClient = useQueryClient();
 
-  const [viewAggregation, setViewAggregation] = useState<IRawAggregationVo>({});
+  const pullAction = useActionTrigger();
 
-  const connectionAggregation = useConnectionAggregation();
+  const { data: resAggregations } = useQuery({
+    queryKey: ReactQueryKeys.aggregation(tableId as string, { viewId }),
+    queryFn: ({ queryKey }) => getAggregation(queryKey[1], queryKey[2]),
+    enabled: !!tableId && isHydrated,
+    refetchOnWindowFocus: false,
+  });
+
+  const updateAggregations = useCallback(
+    () => queryClient.invalidateQueries(ReactQueryKeys.aggregation(tableId as string, { viewId })),
+    [queryClient, tableId, viewId]
+  );
 
   useEffect(() => {
-    if (tableId == null || viewId == null || !isHydrated) return;
+    if (pullAction?.fetchAggregation) {
+      updateAggregations();
+    }
+  }, [pullAction, updateAggregations]);
 
-    View.getViewAggregations(tableId, viewId).then((res) => {
-      const { viewId, aggregations } = res.data;
-      setViewAggregation({
-        [viewId]: {
-          viewId: viewId,
-          aggregations: aggregations ?? [],
-          executionTime: new Date().getTime(),
-        },
-      });
-    });
-  }, [tableId, viewId, connection, isHydrated]);
+  const aggregations = useMemo(() => {
+    if (!resAggregations) return {};
 
-  return (
-    <AggregationContext.Provider value={connectionAggregation ?? viewAggregation}>
-      {children}
-    </AggregationContext.Provider>
-  );
+    const { aggregations } = resAggregations.data;
+    return {
+      aggregations: aggregations ?? [],
+    };
+  }, [resAggregations]);
+  return <AggregationContext.Provider value={aggregations}>{children}</AggregationContext.Provider>;
 };

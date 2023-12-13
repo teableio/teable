@@ -9,7 +9,7 @@ import { SetViewShareIdBuilder } from './set-view-share-id';
 import { SetViewShareMetaBuilder } from './set-view-share-meta';
 import { SetViewSortBuilder } from './set-view-sort';
 
-export abstract class ViewOpBuilder {
+export class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
     setViewName: new SetViewNameBuilder(),

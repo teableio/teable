@@ -5,16 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ANONYMOUS_USER_ID, FieldKeyType } from '@teable-group/core';
 import type {
-  IViewVo,
   IShareViewMeta,
-  IRawAggregationVo,
-  IRawRowCountVo,
-  IViewRowCountVo,
-  IViewRowCountRo,
-  IViewAggregationRo,
+  IAggregationRo,
+  IRowCountRo,
+  IRowCountVo,
+  IViewVo,
 } from '@teable-group/core';
+import { ANONYMOUS_USER_ID, FieldKeyType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   IShareViewCopyRo,
@@ -127,32 +125,29 @@ export class ShareService {
     };
   }
 
-  async getViewAggregations(shareInfo: IShareViewInfo, query: IViewAggregationRo = {}) {
+  async getViewAggregations(shareInfo: IShareViewInfo, query: IAggregationRo = {}) {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
     const { filter } = query;
-    const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId, customFilter: filter } },
-      { fieldAggregation: true }
-    )) as IRawAggregationVo;
+    const result = await this.aggregationService.performAggregation({
+      tableId,
+      withView: { viewId, customFilter: filter },
+    });
 
-    return { viewId: viewId, aggregations: result[viewId]?.aggregations };
+    return { viewId: viewId, aggregations: result?.aggregations };
   }
 
-  async getViewRowCount(
-    shareInfo: IShareViewInfo,
-    query: IViewRowCountRo = {}
-  ): Promise<IViewRowCountVo> {
+  async getViewRowCount(shareInfo: IShareViewInfo, query: IRowCountRo = {}): Promise<IRowCountVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
     const { filter } = query;
-    const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId, customFilter: filter } },
-      { rowCount: true }
-    )) as IRawRowCountVo;
+    const result = await this.aggregationService.performRowCount({
+      tableId,
+      withView: { viewId, customFilter: filter },
+    });
 
     return {
-      rowCount: result[viewId].rowCount,
+      rowCount: result.rowCount,
     };
   }
 

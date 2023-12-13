@@ -1,4 +1,4 @@
-export type { IOpContextBase } from './interface';
+export type { IOpBuilder, ICreateOpBuilder, IOpContextBase } from './interface';
 
 export * from './view';
 export * from './field';

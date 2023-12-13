@@ -1,8 +1,6 @@
-import { pick } from 'lodash';
 import type { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import type { IClsStore } from '../types/cls';
-import type { IRawOpMap, IRawOp } from './interface';
 import type { ShareDbService } from './share-db.service';
 import type { WsDerivateService } from './ws-derivate.service';
 
@@ -24,11 +22,9 @@ export const derivateMiddleware = (
       const saveContext = context.agent.custom?.saveContext;
       const stashOpMap = context.agent.custom?.stashOpMap;
 
-      if (stashOpMap) {
-        cls.set('tx.stashOpMap', stashOpMap);
-      }
-
       if (saveContext) {
+        stashOpMap && cls.set('tx.stashOpMap', stashOpMap);
+
         try {
           await wsDerivateService.save(saveContext);
         } catch (e) {

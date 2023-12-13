@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IViewRowCountRo } from '@teable-group/core';
+import type { IRowCountRo } from '@teable-group/core';
 import { getShareViewRowCount } from '@teable-group/openapi';
-import { useConnectionRowCount } from '@teable-group/sdk/context';
 import { RowCountContext } from '@teable-group/sdk/context/aggregation/RowCountContext';
 import { useView } from '@teable-group/sdk/hooks';
 import type { ReactNode } from 'react';
@@ -12,7 +11,7 @@ interface IRowCountProviderProps {
   children: ReactNode;
 }
 
-const useRowCountQuery = (): IViewRowCountRo => {
+const useRowCountQuery = (): IRowCountRo => {
   const view = useView();
   return useMemo(() => ({ filter: view?.filter }), [view?.filter]);
 };
@@ -24,7 +23,7 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
   const { data: shareViewRowCount } = useQuery({
     queryKey: ['shareRowCount', shareId, viewRowCountQuery],
     queryFn: ({ queryKey }) =>
-      getShareViewRowCount(queryKey[1] as string, queryKey[2] as IViewRowCountRo),
+      getShareViewRowCount(queryKey[1] as string, queryKey[2] as IRowCountRo),
     refetchOnWindowFocus: false,
   });
 
@@ -32,7 +31,6 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
     () => queryClient.invalidateQueries(['shareRowCount', shareId, viewRowCountQuery]),
     [queryClient, shareId, viewRowCountQuery]
   );
-  useConnectionRowCount(updateViewRowCount);
 
   const rowCount = useMemo(() => {
     if (!shareViewRowCount) {

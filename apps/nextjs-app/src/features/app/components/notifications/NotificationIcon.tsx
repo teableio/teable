@@ -1,5 +1,5 @@
 import type {
-  INotificationCollaboratorCellTagIcon,
+  INotificationUserIcon,
   INotificationIcon,
   INotificationSystemIcon,
 } from '@teable-group/core';
@@ -27,7 +27,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
         );
       }
       case NotificationTypeEnum.CollaboratorCellTag: {
-        const { userAvatarUrl, userName } = notifyIcon as INotificationCollaboratorCellTagIcon;
+        const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
           <Avatar className="h-9 w-9">
             <AvatarImage src={userAvatarUrl} alt={userName} />

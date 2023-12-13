@@ -3,7 +3,7 @@ import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { StatisticsFunc } from '../aggregation/statistics-func.enum';
+import { StatisticsFunc } from '../aggregation';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,
@@ -377,7 +377,6 @@ export const getFieldsQuerySchema = z.object({
     description: 'The id of the view.',
   }),
   filterHidden: z.boolean().optional(),
-  fieldIds: z.array(z.string()).optional(),
 });
 
 export type IGetFieldsQuery = z.infer<typeof getFieldsQuerySchema>;

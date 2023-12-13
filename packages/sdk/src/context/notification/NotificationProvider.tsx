@@ -1,4 +1,4 @@
-import type { INotificationSocketVo } from '@teable-group/core';
+import type { INotificationBuffer } from '@teable-group/core';
 import { getUserNotificationChannel } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
@@ -16,11 +16,10 @@ export const NotificationProvider: FC<INotificationProviderProps> = ({ children 
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [notification, setNotification] = useState<INotificationSocketVo | null>(null);
+  const [notification, setNotification] = useState<INotificationBuffer | null>(null);
 
   useEffect(() => {
-    const canCreatePresence = connection;
-    if (!canCreatePresence) {
+    if (!connection) {
       return;
     }
 
@@ -29,9 +28,8 @@ export const NotificationProvider: FC<INotificationProviderProps> = ({ children 
 
     remotePresence?.subscribe((err) => err && console.error);
 
-    const receiveHandler = (_id: string, res: INotificationSocketVo) => {
+    const receiveHandler = (_id: string, res: INotificationBuffer) => {
       setNotification(res);
-      console.log('setNotification', res);
     };
 
     remotePresence?.on('receive', receiveHandler);

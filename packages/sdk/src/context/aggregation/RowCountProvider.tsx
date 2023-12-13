@@ -1,11 +1,11 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getRowCount } from '@teable-group/openapi';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useState } from 'react';
-import { useBase, useIsHydrated } from '../../hooks';
-import { Table, View } from '../../model';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { ReactQueryKeys } from '../../config/react-query-keys';
+import { useIsHydrated, useActionTrigger } from '../../hooks';
 import { AnchorContext } from '../anchor';
-import { AppContext } from '../app';
 import { RowCountContext } from './RowCountContext';
-import { useConnectionRowCount } from './useConnectionRowCount';
 
 interface IRowCountProviderProps {
   children: ReactNode;
@@ -13,31 +13,35 @@ interface IRowCountProviderProps {
 
 export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
-  const base = useBase();
   const { tableId, viewId } = useContext(AnchorContext);
-  const { connection } = useContext(AppContext);
+  const queryClient = useQueryClient();
 
-  const [rowCount, setRowCount] = useState<number | null>(null);
-  const connectionRowCount = useConnectionRowCount();
+  const actionTrigger = useActionTrigger();
+
+  const { data: resRowCount } = useQuery({
+    queryKey: ReactQueryKeys.rowCount(tableId as string, { viewId }),
+    queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]),
+    enabled: !!tableId && isHydrated,
+    refetchOnWindowFocus: false,
+  });
+
+  const updateRowCount = useCallback(
+    () => queryClient.invalidateQueries(ReactQueryKeys.rowCount(tableId as string, { viewId })),
+    [queryClient, tableId, viewId]
+  );
 
   useEffect(() => {
-    if (tableId == null || !isHydrated) return;
-
-    if (viewId == null) {
-      Table.getRowCount(base.id, tableId).then((res) => {
-        setRowCount(res.data.rowCount);
-      });
-      return;
+    // actionTrigger?.[viewId!]?.fetchRowCount
+    if (actionTrigger?.fetchRowCount) {
+      updateRowCount();
     }
+  }, [actionTrigger, updateRowCount, viewId]);
 
-    View.getViewRowCount(tableId, viewId).then((res) => {
-      setRowCount(res.data.rowCount);
-    });
-  }, [tableId, viewId, connection, isHydrated, base.id]);
+  const rowCount = useMemo(() => {
+    if (!resRowCount) return 0;
 
-  return (
-    <RowCountContext.Provider value={connectionRowCount ?? rowCount}>
-      {children}
-    </RowCountContext.Provider>
-  );
+    const { rowCount } = resRowCount.data;
+    return rowCount;
+  }, [resRowCount]);
+  return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
 };

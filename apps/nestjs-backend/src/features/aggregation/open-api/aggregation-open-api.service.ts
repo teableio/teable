@@ -1,12 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  IRawAggregationVo,
-  IRawRowCountVo,
-  IViewAggregationVo,
-  IViewRowCountVo,
+  IAggregationRo,
+  IAggregationVo,
+  IRowCountRo,
+  IRowCountVo,
   StatisticsFunc,
-  IViewAggregationRo,
-  IViewRowCountRo,
 } from '@teable-group/core';
 import { getValidStatisticFunc } from '@teable-group/core';
 import { forIn, isEmpty, map } from 'lodash';
@@ -17,16 +15,13 @@ import { AggregationService } from '../aggregation.service';
 export class AggregationOpenApiService {
   constructor(private readonly aggregationService: AggregationService) {}
 
-  async getViewAggregations(
-    tableId: string,
-    viewId: string,
-    viewAggregationRo?: IViewAggregationRo
-  ): Promise<IViewAggregationVo> {
-    let withView: IWithView = { viewId, customFilter: viewAggregationRo?.filter };
+  async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
+    const { viewId, filter: customFilter, field: aggregationFields } = query || {};
+
+    let withView: IWithView = { viewId, customFilter };
 
     const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
 
-    const aggregationFields = viewAggregationRo?.field;
     forIn(aggregationFields, (value: string[], key) => {
       const fieldStats = map(value, (item) => ({
         fieldId: item,
@@ -41,27 +36,22 @@ export class AggregationOpenApiService {
       withView = { ...withView, customFieldStats: validFieldStats };
     }
 
-    const result = (await this.aggregationService.performAggregation(
-      { tableId: tableId, withView },
-      { fieldAggregation: true }
-    )) as IRawAggregationVo;
-
-    return { viewId: viewId, aggregations: result[viewId]?.aggregations };
+    const result = await this.aggregationService.performAggregation({ tableId: tableId, withView });
+    return { aggregations: result?.aggregations };
   }
 
-  async getViewRowCount(
-    tableId: string,
-    viewId: string,
-    query?: IViewRowCountRo
-  ): Promise<IViewRowCountVo> {
-    const { filter } = query || {};
-    const result = (await this.aggregationService.performAggregation(
-      { tableId, withView: { viewId, customFilter: filter } },
-      { rowCount: true }
-    )) as IRawRowCountVo;
+  async getRowCount(tableId: string, query?: IRowCountRo): Promise<IRowCountVo> {
+    const { viewId, filter, filterByTql, filterLinkCellCandidate, filterLinkCellSelected } =
+      query || {};
 
+    const result = await this.aggregationService.performRowCount({
+      tableId,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      withView: { viewId, customFilter: filter },
+    });
     return {
-      rowCount: result[viewId]?.rowCount,
+      rowCount: result.rowCount,
     };
   }
 

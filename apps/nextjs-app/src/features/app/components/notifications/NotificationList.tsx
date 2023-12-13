@@ -1,13 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { NotificationStatesEnum } from '@teable-group/core';
-import { CheckCircle2 as Read, Circle as Unread } from '@teable-group/icons';
+import type { NotificationStatesEnum } from '@teable-group/core';
+import { Inbox } from '@teable-group/icons';
 import type { INotificationVo } from '@teable-group/openapi';
 import { updateNotificationStatus } from '@teable-group/openapi';
 import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
+import { Button } from '@teable-group/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import React from 'react';
-import { InteractiveButton } from './InteractiveButton';
+import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationIcon } from './NotificationIcon';
 
 extend(relativeTime);
@@ -15,16 +16,25 @@ extend(relativeTime);
 interface NotificationListProps {
   notifyStatus: NotificationStatesEnum;
   data?: INotificationVo[];
+  className?: string;
+
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  onShowMoreClick?: () => void;
 }
 
 export const NotificationList: React.FC<NotificationListProps> = (props) => {
-  const { notifyStatus, data } = props;
+  const { notifyStatus, data, className, hasNextPage, isFetchingNextPage, onShowMoreClick } = props;
   const queryClient = useQueryClient();
 
   const newPagesArray = (updatedId: string) => {
-    return data?.map(({ notifications, totalCount }) => ({
-      notifications: notifications.filter(({ id }) => id !== updatedId),
-      totalCount,
+    // return data?.map(({ notifications, totalCount }) => ({
+    //   notifications: notifications.filter(({ id }) => id !== updatedId),
+    //   totalCount,
+    // }));
+    return data?.map((item) => ({
+      ...item,
+      notifications: item.notifications.filter(({ id }) => id !== updatedId),
     }));
   };
 
@@ -43,46 +53,70 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
     },
   });
 
-  if (!data || !data[0].notifications?.length) {
-    return <div className="p-6 text-center">No {notifyStatus} notifications</div>;
-  }
+  const renderNotifications = () => {
+    return data?.map(({ notifications }) => {
+      return (
+        notifications &&
+        notifications.map(({ id, isRead, url, message, notifyIcon, notifyType, createdTime }) => {
+          const fromNow = dayjs(createdTime).fromNow();
 
-  return data.map(({ notifications }) => {
-    return (
-      notifications &&
-      notifications.map(({ id, isRead, url, message, notifyIcon, notifyType, createdTime }) => {
-        const fromNow = dayjs(createdTime).fromNow();
-
-        return (
-          <div key={id} className="max-h-[80px]">
-            <a
-              className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
-              href={url}
+          return (
+            <NotificationActionBar
+              key={id}
+              notifyStatus={notifyStatus}
+              onStatusCheck={() => {
+                updateStatusMutator({
+                  notificationId: id,
+                  updateNotifyStatusRo: { isRead: !isRead },
+                });
+              }}
             >
-              <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
-              <div className="mr-3 flex-auto items-center whitespace-pre-wrap break-words text-sm font-normal">
-                <div>{message}</div>
-                <div className="truncate text-[11px] opacity-75" title={fromNow}>
-                  {fromNow}
-                </div>
+              <div className="max-h-[80px]">
+                <a
+                  className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
+                  href={url}
+                >
+                  <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
+                  <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">
+                    <div>{message}</div>
+                    <div className="truncate text-[11px] opacity-75" title={fromNow}>
+                      {fromNow}
+                    </div>
+                  </div>
+                </a>
               </div>
-              <InteractiveButton
-                defaultIcon={notifyStatus === NotificationStatesEnum.Unread ? <Unread /> : <Read />}
-                hoverIcon={notifyStatus === NotificationStatesEnum.Unread ? <Read /> : <Unread />}
-                variant="ghost"
-                size="xs"
-                className="text-sm font-normal"
-                onClick={() => {
-                  updateStatusMutator({
-                    notificationId: id,
-                    updateNotifyStatusRo: { isRead: !isRead },
-                  });
-                }}
-              />
-            </a>
+            </NotificationActionBar>
+          );
+        })
+      );
+    });
+  };
+
+  return (
+    <div className={className}>
+      {!data || !data[0].notifications?.length ? (
+        <div className="p-6">
+          <div className="flex items-center justify-center text-5xl font-normal">
+            <Inbox />
           </div>
-        );
-      })
-    );
-  });
+          <p className="text-center">No {notifyStatus} notifications</p>
+        </div>
+      ) : (
+        <>
+          {renderNotifications()}
+          {hasNextPage && (
+            <Button
+              variant="ghost"
+              size={'xs'}
+              className="flex w-full p-2 text-center text-[11px] opacity-75"
+              onClick={onShowMoreClick}
+              disabled={!hasNextPage || isFetchingNextPage}
+            >
+              Show more
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
 };

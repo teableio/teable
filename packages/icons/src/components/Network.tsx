@@ -14,7 +14,7 @@ const Network = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M15 2H9v6h6V2ZM22 16h-6v6h6v-6ZM8 16H2v6h6v-6ZM5 16v-4h14v4M12 12V8"
+      d="M15 2H9v6h6zM22 16h-6v6h6zM8 16H2v6h6zM5 16v-4h14v4M12 12V8"
     />
   </svg>
 );

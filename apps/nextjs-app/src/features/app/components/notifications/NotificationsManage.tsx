@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NotificationStatesEnum } from '@teable-group/core';
-import { Bell, CheckCircle2 as Read } from '@teable-group/icons';
+import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable-group/icons';
 import {
   getNotificationList,
   getNotificationUnreadCount,
@@ -10,17 +10,15 @@ import { useNotification } from '@teable-group/sdk';
 import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NotificationList } from './NotificationList';
 
 export const NotificationsManage: React.FC = () => {
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
-
   const queryClient = useQueryClient();
   const notification = useNotification();
 
-  console.log('notification ', notification);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
 
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
@@ -38,15 +36,11 @@ export const NotificationsManage: React.FC = () => {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
-    queryFn: ({ pageParam = 0 }) =>
-      getNotificationList({ notifyStates: notifyStatus, offset: pageParam }).then(
+    queryFn: ({ pageParam }) =>
+      getNotificationList({ notifyStates: notifyStatus, cursor: pageParam }).then(
         ({ data }) => data
       ),
-    getNextPageParam: (lastPage, allPages) => {
-      console.log('allPages,', allPages);
-      const nextOffset = allPages.length * 5;
-      return nextOffset < lastPage.totalCount ? nextOffset : undefined;
-    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 
   const { mutateAsync: markAllAsReadMutator } = useMutation({
@@ -60,6 +54,28 @@ export const NotificationsManage: React.FC = () => {
   const refresh = () => {
     queryClient.resetQueries(ReactQueryKeys.notifyList({ status: notifyStatus }), { exact: true });
   };
+
+  const renderNewButton = () => {
+    const newUnreadCount = (notification?.unreadCount ?? 0) - queryUnreadCount;
+    if (newUnreadCount < 1) {
+      return;
+    }
+    return (
+      <div>
+        <Button
+          variant="outline"
+          size="xs"
+          onClick={() => {
+            refresh();
+          }}
+        >
+          <RefreshCcw />
+          <p>{newUnreadCount} new</p>
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -82,33 +98,16 @@ export const NotificationsManage: React.FC = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="left" align="end" sideOffset={10} className="min-w-[400px] p-0">
+      <PopoverContent side="left" align="end" className="min-w-[500px] p-0">
         <div className="w-full">
-          <div className="m-2 flex items-center justify-between border-b border-solid pb-4">
-            <div className="text-sm font-normal">Notifications</div>
-            <div>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={classNames('mr-2', {
-                  'bg-secondary': notifyStatus === NotificationStatesEnum.Unread,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
-              >
-                Unread
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={classNames('mr-2', {
-                  'bg-secondary': notifyStatus === NotificationStatesEnum.Read,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
-              >
-                Read
-              </Button>
-            </div>
-          </div>
+          <NotificationList
+            className="relative mb-2 mt-3 max-h-[78vh] overflow-auto"
+            notifyStatus={notifyStatus}
+            data={notifyPage?.pages}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onShowMoreClick={() => fetchNextPage()}
+          />
           {notifyStatus === NotificationStatesEnum.Unread ? (
             <div className="mb-2 mt-4 flex justify-end">
               <Button
@@ -121,25 +120,37 @@ export const NotificationsManage: React.FC = () => {
                 }}
               >
                 <Read />
-                Read all
+                Mark all as read
               </Button>
             </div>
           ) : (
             ''
           )}
-          <div className="relative mb-3 mt-2 max-h-[744px] overflow-auto">
-            <NotificationList notifyStatus={notifyStatus} data={notifyPage?.pages} />
-            {hasNextPage && (
+          <div className="flex items-center justify-between border-t border-solid p-4">
+            <div className="text-sm font-normal">Notifications</div>
+            {renderNewButton()}
+            <div>
               <Button
                 variant="ghost"
-                size={'xs'}
-                className="flex w-full p-2 text-center text-[11px] opacity-75"
-                onClick={() => fetchNextPage()}
-                disabled={!hasNextPage || isFetchingNextPage}
+                size="xs"
+                className={classNames('ml-2', {
+                  'bg-secondary': notifyStatus === NotificationStatesEnum.Unread,
+                })}
+                onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
-                Show more
+                Unread
               </Button>
-            )}
+              <Button
+                variant="ghost"
+                size="xs"
+                className={classNames('ml-2', {
+                  'bg-secondary': notifyStatus === NotificationStatesEnum.Read,
+                })}
+                onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
+              >
+                Read
+              </Button>
+            </div>
           </div>
         </div>
       </PopoverContent>

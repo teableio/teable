@@ -1,13 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import type { ITableFullVo, ITableListVo, ITableVo, IViewRowCountVo } from '@teable-group/core';
+import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getGraphRoSchema,
-  getRowCountSchema,
   getTableQuerySchema,
   ICreateTableRo,
   IGetGraphRo,
-  IGetRowCountRo,
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
@@ -28,15 +26,6 @@ export class TableController {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService
   ) {}
-
-  @Permissions('table|read')
-  @Get(':tableId/rowCount')
-  async getRowCount(
-    @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRowCountSchema)) query: IGetRowCountRo
-  ): Promise<IViewRowCountVo> {
-    return await this.tableOpenApiService.getRowCount(tableId, query);
-  }
 
   @Permissions('table|read')
   @Get(':tableId/defaultViewId')

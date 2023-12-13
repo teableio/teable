@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { IdPrefix, ViewOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { merge, noop } from 'lodash';
+import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
@@ -22,7 +22,7 @@ export class ShareDbService extends ShareDBClass {
     readonly sqliteDbAdapter: SqliteDbAdapter,
     private readonly eventEmitterService: EventEmitterService,
     private readonly prismaService: PrismaService,
-    private readonly clsService: ClsService<IClsStore>,
+    private readonly cls: ClsService<IClsStore>,
     private readonly wsDerivateService: WsDerivateService,
     private readonly shareDbPermissionService: ShareDbPermissionService
   ) {
@@ -33,14 +33,14 @@ export class ShareDbService extends ShareDBClass {
     });
     // auth
     authMiddleware(this, this.shareDbPermissionService);
-    derivateMiddleware(this, this.clsService, this.wsDerivateService);
+    derivateMiddleware(this, this.cls, this.wsDerivateService);
 
     this.use('commit', this.onCommit);
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(() => {
-      const rawOpMap = this.clsService.get('tx.rawOpMap');
-      const stashOpMap = this.clsService.get('tx.stashOpMap');
+      const rawOpMap = this.cls.get('tx.rawOpMap');
+      const stashOpMap = this.cls.get('tx.stashOpMap');
 
       rawOpMap && this.publishOpsMap(rawOpMap);
       (rawOpMap || stashOpMap) && this.eventEmitterService.ops2Event(stashOpMap, rawOpMap);

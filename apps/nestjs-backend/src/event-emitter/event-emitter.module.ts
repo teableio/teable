@@ -2,13 +2,11 @@
 import type { DynamicModule } from '@nestjs/common';
 import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AggregationModule } from '../features/aggregation/aggregation.module';
-import { FieldModule } from '../features/field/field.module';
 import { NotificationModule } from '../features/notification/notification.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
-import { AggregationListener } from './listeners/aggregation.listener';
-import { NotificationListener } from './listeners/notification.listener';
+import { ActionTriggerListener } from './listeners/action-trigger.listener';
+import { CollaboratorNotificationListener } from './listeners/collaborator-notification.listener';
 
 export interface EventEmitterModuleOptions {
   global?: boolean;
@@ -28,10 +26,10 @@ export class TeableEventEmitterModule extends EventEmitterModuleClass {
     });
 
     return {
-      imports: [module, FieldModule, ShareDbModule, AggregationModule, NotificationModule],
+      imports: [module, ShareDbModule, NotificationModule],
       module: TeableEventEmitterModule,
       global,
-      providers: [EventEmitterService, AggregationListener, NotificationListener],
+      providers: [EventEmitterService, ActionTriggerListener, CollaboratorNotificationListener],
       exports: [EventEmitterService],
     };
   }

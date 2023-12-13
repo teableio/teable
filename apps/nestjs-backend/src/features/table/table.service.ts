@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import type {
   ICreateTableRo,
-  IGetRowCountRo,
   IOtOperation,
   ISetTableIconOpContext,
   ISetTableNameOpContext,
@@ -18,11 +17,11 @@ import type {
   ITableVo,
 } from '@teable-group/core';
 import {
-  nullsToUndefined,
+  FieldKeyType,
   generateTableId,
   getUniqName,
   IdPrefix,
-  FieldKeyType,
+  nullsToUndefined,
   OpName,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -425,41 +424,5 @@ export class TableService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
     return { ids: tables.map((table) => table.id) };
-  }
-
-  async getRowCount(tableId: string, query: IGetRowCountRo) {
-    if (query.filterLinkCellSelected) {
-      // TODO: use a new method to retrieve only count
-      const { ids } = await this.recordService.getLinkSelectedRecordIds(
-        query.filterLinkCellSelected
-      );
-      return { rowCount: ids.length };
-    }
-
-    const { queryBuilder, fieldMap, filter } = await this.recordService.prepareQuery(
-      tableId,
-      query
-    );
-
-    if (query.filterLinkCellCandidate) {
-      await this.recordService.buildLinkCandidateQuery(
-        queryBuilder,
-        tableId,
-        query.filterLinkCellCandidate
-      );
-    }
-
-    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
-
-    const sqlNative = queryBuilder.count({ count: '*' }).toSQL().toNative();
-
-    const results = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
-      sqlNative.sql,
-      ...sqlNative.bindings
-    );
-
-    return {
-      rowCount: Number(results[0]?.count ?? 0),
-    };
   }
 }

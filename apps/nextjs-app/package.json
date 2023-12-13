@@ -162,7 +162,7 @@
     "react-use": "17.4.0",
     "recharts": "2.9.3",
     "reconnecting-websocket": "4.4.0",
-    "reflect-metadata": "0.1.13",
+    "reflect-metadata": "0.1.14",
     "remark-gfm": "4.0.0",
     "sharedb": "4.1.0",
     "sharp": "0.33.0",

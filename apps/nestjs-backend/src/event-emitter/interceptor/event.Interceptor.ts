@@ -39,7 +39,7 @@ export class EventMiddleware implements NestInterceptor {
 
         const events = Array.isArray(eventInstance) ? eventInstance : [eventInstance];
         events.forEach((event) => {
-          event && this.eventEmitterService.emit(event.name, event);
+          event && this.eventEmitterService.emitAsync(event.name, event);
         });
       })
       // map((data) => {

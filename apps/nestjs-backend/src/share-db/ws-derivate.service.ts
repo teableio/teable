@@ -3,6 +3,7 @@ import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { isEmpty, pick } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import type ShareDb from 'sharedb';
 import { BatchService } from '../features/calculation/batch.service';
 import { LinkService } from '../features/calculation/link.service';
@@ -13,6 +14,7 @@ import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
 import { composeMaps } from '../features/calculation/utils/compose-maps';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IClsStore } from '../types/cls';
 import type { IRawOp, IRawOpMap } from './interface';
 
 @Injectable()
@@ -24,7 +26,8 @@ export class WsDerivateService {
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly systemFieldService: SystemFieldService
+    private readonly systemFieldService: SystemFieldService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async calculate(changes: ICellChange[]) {
@@ -80,7 +83,9 @@ export class WsDerivateService {
         pre.push({
           tableId: tableId,
           recordId: recordId,
-          ...ctx,
+          fieldId: ctx.fieldId,
+          oldValue: ctx.oldCellValue,
+          newValue: ctx.newCellValue,
         });
       }
       return pre;
@@ -91,12 +96,16 @@ export class WsDerivateService {
     const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
     const recordId = context.id;
     if (docType !== IdPrefix.Record || !context.op.op) {
+      // TODO: Capture some missed situations, which may be deleted later.
+      this.cls.set('tx.stashOpMap', this.stashOpMap(context));
       return next();
     }
 
     this.logger.log('onRecordApply: ' + JSON.stringify(context.op.op, null, 2));
     const changes = this.op2Changes(tableId, recordId, context.op.op);
     if (!changes.length) {
+      // TODO: Capture some missed situations, which may be deleted later.
+      this.cls.set('tx.stashOpMap', this.stashOpMap(context));
       return next();
     }
 
@@ -106,8 +115,10 @@ export class WsDerivateService {
       });
       if (saveContext) {
         context.agent.custom.saveContext = saveContext;
+        context.agent.custom.stashOpMap = this.stashOpMap(context);
+      } else {
+        this.cls.set('tx.stashOpMap', this.stashOpMap(context));
       }
-      context.agent.custom.stashOpMap = this.stashOpMap(context);
     } catch (e) {
       return next(e);
     }

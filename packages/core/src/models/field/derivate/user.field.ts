@@ -10,8 +10,9 @@ interface IUser {
 }
 
 interface IContext {
-  userSets: IUser[];
+  userSets?: IUser[];
 }
+
 export const userFieldOptionsSchema = z
   .object({
     isMultiple: z.boolean().openapi({
@@ -50,6 +51,10 @@ export class UserFieldCore extends FieldCore {
     }
 
     const { title } = value as IUserCellValue;
+
+    if (this.isMultipleCellValue && title.includes(',')) {
+      return `"${title}"`;
+    }
     return title || '';
   }
 
@@ -64,14 +69,30 @@ export class UserFieldCore extends FieldCore {
    * If the field matches the full name, or email of exactly one user, it will be converted to that user;
    * If the content of a cell does not match any of the users, or if the content is ambiguous (e.g., there are two collaborators with the same name), the cell will be cleared.
    */
-  convertStringToCellValue(value: string, ctx?: IContext): IUserCellValue | null {
+  convertStringToCellValue(
+    value: string,
+    ctx?: IContext
+  ): IUserCellValue | IUserCellValue[] | null {
     if (this.isLookup || !value) {
       return null;
     }
 
-    const userSets = ctx?.userSets || [];
-    let foundUser: IUser | null = null;
+    if (this.isMultipleCellValue) {
+      const cellValue = value.split(/,\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
+        return item.includes(',') ? item.slice(1, -1) : item;
+      });
 
+      return cellValue
+        .map((v) => {
+          return this.matchUser(v, ctx?.userSets);
+        })
+        .filter(Boolean) as IUserCellValue[];
+    }
+    return this.matchUser(value, ctx?.userSets);
+  }
+
+  private matchUser(value: string, userSets: IUser[] = []) {
+    let foundUser: IUser | null = null;
     for (const user of userSets) {
       const { name, email } = user;
       if (value === name || value === email) {

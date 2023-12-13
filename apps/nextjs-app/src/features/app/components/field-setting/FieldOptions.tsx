@@ -16,7 +16,6 @@ import type {
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
-import { UserOptions } from '@/features/app/components/field-setting/options/UserOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
 import { LinkOptions } from './options/LinkOptions';
@@ -25,6 +24,7 @@ import { RatingOptions } from './options/RatingOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
+import { UserOptions } from './options/UserOptions';
 
 export interface IFieldOptionsProps {
   options: IFieldInstance['options'];

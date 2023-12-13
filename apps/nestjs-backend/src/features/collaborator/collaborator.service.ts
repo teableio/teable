@@ -2,9 +2,9 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
+  ListBaseCollaboratorVo,
   ListSpaceCollaboratorVo,
   UpdateSpaceCollaborateRo,
-  ListBaseCollaboratorVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { isDate } from 'lodash';
@@ -56,6 +56,20 @@ export class CollaboratorService {
       .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
 
     return await this.getCollaborators({ spaceId: base.spaceId, baseId });
+  }
+
+  async getBaseCollabsWithPrimary(tableId: string) {
+    const { baseId } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      select: { baseId: true },
+      where: { id: tableId },
+    });
+
+    const baseCollabs = await this.getListByBase(baseId);
+    return baseCollabs.map(({ userId, userName, email }) => ({
+      id: userId,
+      name: userName,
+      email,
+    }));
   }
 
   async getListBySpace(spaceId: string): Promise<ListSpaceCollaboratorVo> {

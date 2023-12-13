@@ -14,7 +14,7 @@ const Filter = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"
+      d="M22 3H2l8 9.46V19l4 2v-8.54z"
     />
   </svg>
 );

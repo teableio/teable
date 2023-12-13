@@ -14,7 +14,7 @@ const Pencil = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m18 2 4 4M7.5 20.5 19 9l-4-4L3.5 16.5 2 22l5.5-1.5Z"
+      d="m18 2 4 4M7.5 20.5 19 9l-4-4L3.5 16.5 2 22z"
     />
   </svg>
 );

@@ -7,14 +7,14 @@ export const systemIconSchema = z.object({
 });
 export type INotificationSystemIcon = z.infer<typeof systemIconSchema>;
 
-export const collaboratorCellTagIconSchema = z.object({
+export const userIconSchema = z.object({
   userId: z.string(),
   userName: z.string(),
-  userAvatarUrl: z.string(),
+  userAvatarUrl: z.string().nullable().optional(),
 });
-export type INotificationCollaboratorCellTagIcon = z.infer<typeof collaboratorCellTagIconSchema>;
+export type INotificationUserIcon = z.infer<typeof userIconSchema>;
 
-export const notificationIconSchema = z.union([systemIconSchema, collaboratorCellTagIconSchema]);
+export const notificationIconSchema = z.union([systemIconSchema, userIconSchema]);
 export type INotificationIcon = z.infer<typeof notificationIconSchema>;
 
 export const notificationSchema = z.object({
@@ -28,8 +28,8 @@ export const notificationSchema = z.object({
 });
 export type INotification = z.infer<typeof notificationSchema>;
 
-export const notificationSocketVoSchema = z.object({
+export const notificationBufferSchema = z.object({
   notification: notificationSchema,
   unreadCount: z.number().nonnegative().int(),
 });
-export type INotificationSocketVo = z.infer<typeof notificationSocketVoSchema>;
+export type INotificationBuffer = z.infer<typeof notificationBufferSchema>;

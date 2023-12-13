@@ -61,7 +61,16 @@ export abstract class SelectFieldCore extends FieldCore {
   }
 
   item2String(value?: unknown): string {
-    return value ? String(value) : '';
+    if (value == null) {
+      return '';
+    }
+
+    const stringValue = String(value);
+
+    if (this.isMultipleCellValue && stringValue.includes(',')) {
+      return `"${stringValue}"`;
+    }
+    return stringValue;
   }
 
   validateCellValue(cellValue: unknown) {

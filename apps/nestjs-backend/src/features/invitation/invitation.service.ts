@@ -34,25 +34,6 @@ export class InvitationService {
     private readonly collaboratorService: CollaboratorService
   ) {}
 
-  private inviteEmailOptions(info: {
-    name: string;
-    email: string;
-    spaceName: string;
-    inviteUrl: string;
-  }) {
-    const { name, email, inviteUrl, spaceName } = info;
-    return {
-      subject: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
-      template: 'invite',
-      context: {
-        name,
-        email,
-        spaceName,
-        inviteUrl,
-      },
-    };
-  }
-
   private generateInviteUrl(invitationId: string, invitationCode: string) {
     const mailConfig = this.configService.get<IMailConfig>('mail');
     return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
@@ -98,7 +79,7 @@ export class InvitationService {
           },
         });
         // get email info
-        const inviteEmailOptions = this.inviteEmailOptions({
+        const inviteEmailOptions = this.mailSenderService.inviteEmailOptions({
           name: user.name,
           email: user.email,
           spaceName: space?.name,

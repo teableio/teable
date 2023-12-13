@@ -8,7 +8,7 @@ export const NOTIFICATION_LIST = '/notifications';
 
 export const getNotifyListQuerySchema = z.object({
   notifyStates: z.nativeEnum(NotificationStatesEnum),
-  offset: z.coerce.number().nonnegative().int(),
+  cursor: z.string().nullish(),
 });
 
 export type IGetNotifyListQuery = z.infer<typeof getNotifyListQuerySchema>;
@@ -18,7 +18,7 @@ export type INotificationList = z.infer<typeof notificationListVoSchema>;
 
 export const notificationVoSchema = z.object({
   notifications: notificationListVoSchema,
-  totalCount: z.number().int().nonnegative(),
+  nextCursor: z.string().nullish(),
 });
 
 export type INotificationVo = z.infer<typeof notificationVoSchema>;

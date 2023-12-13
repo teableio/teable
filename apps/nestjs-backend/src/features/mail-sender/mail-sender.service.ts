@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailerService } from '@nestjs-modules/mailer';
+import { IMailConfig, MailConfig } from '../../configs/mail.config';
 
 @Injectable()
 export class MailSenderService {
   private logger = new Logger(MailSenderService.name);
 
-  constructor(private readonly mailService: MailerService) {}
+  constructor(
+    private readonly mailService: MailerService,
+    @MailConfig() readonly config: IMailConfig
+  ) {}
 
   async sendMail(mailOptions: ISendMailOptions): Promise<boolean> {
     return this.mailService
@@ -18,5 +22,61 @@ export class MailSenderService {
         }
         return false;
       });
+  }
+
+  inviteEmailOptions(info: { name: string; email: string; spaceName: string; inviteUrl: string }) {
+    const { name, email, inviteUrl, spaceName } = info;
+    return {
+      subject: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
+      template: 'invite',
+      context: {
+        name,
+        email,
+        spaceName,
+        inviteUrl,
+      },
+    };
+  }
+
+  collaboratorCellTagEmailOptions(info: {
+    toUserName: string;
+    refRecord: {
+      baseId: string;
+      tableId: string;
+      tableName: string;
+      fieldName: string;
+      recordIds: string[];
+    };
+  }) {
+    const {
+      toUserName,
+      refRecord: { baseId, tableId, fieldName, tableName, recordIds },
+    } = info;
+    let subject, template;
+    const refLength = recordIds.length;
+
+    const viewRecordUrlPrefix = `${this.config.origin}/base/${baseId}/${tableId}`;
+
+    if (refLength <= 1) {
+      subject = `${toUserName} added you to the ${fieldName} field of a record in ${tableName}`;
+      template = 'collaborator-cell-tag';
+    } else {
+      subject = `${toUserName} added you to ${refLength} records in ${tableName}`;
+      template = 'collaborator-multi-row-tag';
+    }
+
+    return {
+      notifyMessage: subject,
+      subject: `${subject} - Teable`,
+      template,
+      context: {
+        toUserName,
+        refLength,
+        tableName,
+        fieldName,
+        recordIds,
+        viewRecordUrlPrefix,
+      },
+    };
   }
 }

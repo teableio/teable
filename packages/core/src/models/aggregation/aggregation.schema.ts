@@ -1,5 +1,6 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
+import { getRecordsQuerySchema } from '../record';
 import { filterSchema } from '../view/filter/filter';
 import { StatisticsFunc } from './statistics-func.enum';
 
@@ -30,60 +31,46 @@ export type IRawAggregations = z.infer<typeof rawAggregationsSchema>;
 
 const baseRawAggregationValueSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View),
-  executionTime: z.number(),
   aggregations: rawAggregationsSchema,
   rowCount: z.number(),
 });
 
-export const rawAggregationValueSchema = baseRawAggregationValueSchema.omit({
-  rowCount: true,
-});
+export const rawAggregationValueSchema = baseRawAggregationValueSchema
+  .pick({
+    aggregations: true,
+  })
+  .partial();
 
 export type IRawAggregationValue = z.infer<typeof rawAggregationValueSchema>;
 
-export const rawAggregationSchema = z.record(
-  z.string().startsWith(IdPrefix.View),
-  rawAggregationValueSchema
-);
+export const aggregationVoSchema = rawAggregationValueSchema;
 
-export type IRawAggregationVo = z.infer<typeof rawAggregationSchema>;
+export type IAggregationVo = z.infer<typeof aggregationVoSchema>;
 
-export type IAggregations = z.infer<typeof rawAggregationsSchema>;
-export const viewAggregationSchema = z.object({
-  viewId: z.string().startsWith(IdPrefix.View),
-  aggregations: rawAggregationsSchema.optional(),
-});
-
-export type IViewAggregationVo = z.infer<typeof viewAggregationSchema>;
-
-export const rawRowCountValueSchema = baseRawAggregationValueSchema.omit({
-  aggregations: true,
+export const rawRowCountValueSchema = baseRawAggregationValueSchema.pick({
+  rowCount: true,
 });
 
 export type IRawRowCountValue = z.infer<typeof rawRowCountValueSchema>;
 
-export const rawRowCountSchema = z.record(
-  z.string().startsWith(IdPrefix.View),
-  rawRowCountValueSchema
-);
-
-export type IRawRowCountVo = z.infer<typeof rawRowCountSchema>;
-
-export const viewRowCountRoSchema = z.object({
-  filter: filterSchema.optional(),
+export const rowCountRoSchema = getRecordsQuerySchema.pick({
+  viewId: true,
+  filter: true,
+  filterByTql: true,
+  filterLinkCellCandidate: true,
+  filterLinkCellSelected: true,
 });
 
-export type IViewRowCountRo = z.infer<typeof viewRowCountRoSchema>;
+export type IRowCountRo = z.infer<typeof rowCountRoSchema>;
 
-export const viewRowCountSchema = z.object({
-  rowCount: z.number(),
-});
+export const rowCountVoSchema = rawRowCountValueSchema;
 
-export type IViewRowCountVo = z.infer<typeof viewRowCountSchema>;
+export type IRowCountVo = z.infer<typeof rowCountVoSchema>;
 
-export const viewAggregationRoSchema = z.object({
+export const aggregationRoSchema = z.object({
+  viewId: z.string().startsWith(IdPrefix.View).optional(),
   field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
   filter: filterSchema.optional(),
 });
 
-export type IViewAggregationRo = z.infer<typeof viewAggregationRoSchema>;
+export type IAggregationRo = z.infer<typeof aggregationRoSchema>;

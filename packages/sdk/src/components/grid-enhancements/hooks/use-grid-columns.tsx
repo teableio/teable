@@ -55,7 +55,11 @@ const createCellValue2GridDisplay =
     if (field == null) return { type: CellType.Loading };
 
     const { id, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
-    const cellValue = record.getCellValue(id);
+
+    let cellValue = record.getCellValue(id);
+    const validateCellValue = field.validateCellValue(cellValue);
+    cellValue = validateCellValue.success ? validateCellValue.data : undefined;
+
     const readonly = isComputed || !editable;
 
     switch (type) {

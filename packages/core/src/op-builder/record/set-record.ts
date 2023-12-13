@@ -5,8 +5,8 @@ import type { IOpBuilder } from '../interface';
 export interface ISetRecordOpContext {
   name: OpName.SetRecord;
   fieldId: string;
-  newValue: unknown;
-  oldValue: unknown;
+  newCellValue: unknown;
+  oldCellValue: unknown;
 }
 
 export class SetRecordBuilder implements IOpBuilder {
@@ -53,8 +53,8 @@ export class SetRecordBuilder implements IOpBuilder {
     return {
       name: this.name,
       fieldId: result.fieldId,
-      newValue: oi,
-      oldValue: od,
+      newCellValue: oi,
+      oldCellValue: od,
     };
   }
 }

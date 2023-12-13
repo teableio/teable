@@ -1,4 +1,4 @@
-import type { IRawAggregationVo } from '@teable-group/core';
+import type { IAggregationVo } from '@teable-group/core';
 import { statisticFunc2NameMap } from '@teable-group/core';
 import { isEmpty, keyBy } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
@@ -13,16 +13,16 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
   const fields = useFields();
   const remoteStatistics = useAggregation();
   const [columnStatistics, setColumnStatistics] = useState<IColumnStatistics>({});
-  const lastTimeMap = useRef<Record<string, number>>({});
+  // const lastTimeMap = useRef<Record<string, number>>({});
   const previousViewId = useRef<string | null>(null);
   const columnsRef = useRef(columns);
   const fieldsRef = useRef(fields);
   columnsRef.current = columns;
   fieldsRef.current = fields;
 
-  const getColumnStatistics = (source: IRawAggregationVo | null, viewId: string) => {
-    if (source == null || source[viewId] == null) return {};
-    const { aggregations, executionTime } = source[viewId];
+  const getColumnStatistics = (source: IAggregationVo | null) => {
+    if (source == null) return {};
+    const { aggregations } = source;
     if (isEmpty(aggregations)) return {};
     const aggregationMap = keyBy(aggregations, 'fieldId');
 
@@ -30,20 +30,22 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
       const { id: columnId } = column;
 
       const columnAggregations = aggregationMap[columnId];
-      const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
-      const isNewest = executionTime > prevExecutionTime;
+      // const prevExecutionTime = lastTimeMap.current[`${viewId}-${columnId}`] ?? 0;
+      // const isNewest = executionTime > prevExecutionTime;
 
       const { total } = columnAggregations ?? {};
 
-      if ((columnAggregations === null || total === null) && isNewest) {
+      // if ((columnAggregations === null || total === null) && isNewest) {
+      if (columnAggregations === null || total === null) {
         acc[columnId] = null;
-        lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
+        // lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
         return acc;
       }
 
       const field = fieldsRef.current?.[index];
 
-      if (total != null && isNewest) {
+      // if (total != null && isNewest) {
+      if (total != null) {
         const { aggFunc, value } = total;
 
         const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
@@ -51,7 +53,7 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
           total: `${statisticFunc2NameMap[aggFunc]} ${displayValue}`,
         };
 
-        lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
+        // lastTimeMap.current[`${viewId}-${columnId}`] = executionTime;
       }
       return acc;
     }, {} as IColumnStatistics);
@@ -61,7 +63,7 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
     if (remoteStatistics == null || viewId == null) return;
 
     const isDiffViewId = previousViewId.current !== viewId;
-    const partialColumnStatistics = getColumnStatistics(remoteStatistics, viewId);
+    const partialColumnStatistics = getColumnStatistics(remoteStatistics);
 
     if (partialColumnStatistics == null) return;
 

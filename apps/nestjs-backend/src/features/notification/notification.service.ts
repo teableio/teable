@@ -1,19 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { NotificationTypeEnum, INotificationSocketVo } from '@teable-group/core';
-import { NotificationStatesEnum, getUserNotificationChannel } from '@teable-group/core';
+import { ConfigService } from '@nestjs/config';
+import type { ISendMailOptions } from '@nestjs-modules/mailer';
+import type { INotificationBuffer } from '@teable-group/core';
+import {
+  generateNotificationId,
+  getUserNotificationChannel,
+  NotificationStatesEnum,
+  NotificationTypeEnum,
+  userIconSchema,
+} from '@teable-group/core';
+import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   IGetNotifyListQuery,
+  INotificationUnreadCountVo,
   INotificationVo,
   IUpdateNotifyStatusRo,
-  INotificationUnreadCountVo,
 } from '@teable-group/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
-import { ClsService } from 'nestjs-cls';
+import { userPreferenceMetaSchema } from '@teable-group/openapi';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { IClsStore } from '../../types/cls';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class NotificationService {
@@ -23,54 +30,87 @@ export class NotificationService {
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly mailSenderService: MailSenderService,
-    private readonly cls: ClsService<IClsStore>,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly userService: UserService,
+    private readonly configService: ConfigService
   ) {}
 
-  async sendNotify(params: {
-    toUserId: string;
+  async sendCollaboratorNotify(params: {
     fromUserId: string;
-    notifyType: NotificationTypeEnum;
-    notifyTplId: string;
+    toUserId: string;
+    refRecord: {
+      baseId: string;
+      tableId: string;
+      tableName: string;
+      fieldName: string;
+      recordIds: string[];
+    };
   }) {
-    return null;
-  }
+    const { fromUserId, toUserId, refRecord } = params;
+    const toUser = await this.userService.getUserById(toUserId);
+    if (!toUser) {
+      return;
+    }
+    const userPreferenceMeta = userPreferenceMetaSchema.safeParse(toUser.preferenceMeta);
+    console.log('preferenceMeta', userPreferenceMeta);
 
-  private async sendNotifyBySocket(toUserId: string, data: INotificationSocketVo) {
-    const channel = getUserNotificationChannel(toUserId);
-
-    const presence = this.shareDbService.connect().getPresence(channel);
-    const localPresence = presence.create(data.notification.id);
-
-    localPresence.submit(data, (error) => {
-      error && this.logger.error(error);
+    const notifyId = generateNotificationId();
+    const emailOptions = this.mailSenderService.collaboratorCellTagEmailOptions({
+      toUserName: toUser.name,
+      refRecord,
     });
+
+    const userIcon = userIconSchema.parse({
+      userId: toUser.id,
+      userName: toUser.name,
+      userAvatarUrl: toUser.avatar,
+    });
+
+    const data: Prisma.NotificationCreateInput = {
+      id: notifyId,
+      fromUser: fromUserId,
+      toUser: toUserId,
+      type:
+        refRecord.recordIds.length > 1
+          ? NotificationTypeEnum.CollaboratorMultiRowTag
+          : NotificationTypeEnum.CollaboratorCellTag,
+      message: emailOptions.notifyMessage,
+      iconMeta: JSON.stringify(userIcon),
+      urlMeta: '',
+
+      createdBy: fromUserId,
+    };
+    const notifyData = await this.createNotify(data);
+
+    const socketNotification = {
+      notification: {
+        id: notifyData.id,
+        message: notifyData.message,
+        notifyIcon: JSON.parse(data.iconMeta),
+        notifyType: notifyData.type as NotificationTypeEnum,
+        url: 'https://google.com',
+        isRead: false,
+        createdTime: notifyData.createdTime.toISOString(),
+      },
+      unreadCount: (await this.unreadCount(toUser.id)).unreadCount,
+    };
+
+    this.sendNotifyBySocket(toUser.id, socketNotification);
+    // this.sendNotifyByMail(toUser.email, emailOptions);
   }
 
-  private async sendNotifyByMail() {
-    await this.mailSenderService.sendMail({});
-  }
-
-  async getNotifyList(query: IGetNotifyListQuery & { limit?: number }): Promise<INotificationVo> {
-    const currentUserId = this.cls.get('user.id');
-    const { notifyStates, offset, limit = 5 } = query;
+  async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {
+    const { notifyStates, cursor } = query;
+    const limit = 5;
 
     const data = await this.prismaService.txClient().notification.findMany({
       where: {
-        toUser: currentUserId,
+        toUser: userId,
         isRead: notifyStates === NotificationStatesEnum.Read,
       },
-      take: limit,
-      skip: offset,
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
       orderBy: {
         createdTime: 'desc',
-      },
-    });
-
-    const totalCount = await this.prismaService.txClient().notification.count({
-      where: {
-        toUser: currentUserId,
-        isRead: notifyStates === NotificationStatesEnum.Read,
       },
     });
 
@@ -87,18 +127,21 @@ export class NotificationService {
       };
     });
 
+    let nextCursor: typeof cursor | undefined = undefined;
+    if (notifications.length > limit) {
+      const nextItem = notifications.pop();
+      nextCursor = nextItem!.id;
+    }
     return {
-      notifications: notifications,
-      totalCount: totalCount,
+      notifications,
+      nextCursor,
     };
   }
 
-  async unreadCount(userId?: string): Promise<INotificationUnreadCountVo> {
-    const currentUserId = userId ?? this.cls.get('user.id');
-
+  async unreadCount(userId: string): Promise<INotificationUnreadCountVo> {
     const unreadCount = await this.prismaService.txClient().notification.count({
       where: {
-        toUser: currentUserId,
+        toUser: userId,
         isRead: false,
       },
     });
@@ -106,16 +149,16 @@ export class NotificationService {
   }
 
   async updateNotifyStatus(
+    userId: string,
     notificationId: string,
     updateNotifyStatusRo: IUpdateNotifyStatusRo
   ): Promise<void> {
     const { isRead } = updateNotifyStatusRo;
 
-    const currentUserId = this.cls.get('user.id');
     await this.prismaService.txClient().notification.updateMany({
       where: {
         id: notificationId,
-        toUser: currentUserId,
+        toUser: userId,
       },
       data: {
         isRead: isRead,
@@ -123,16 +166,37 @@ export class NotificationService {
     });
   }
 
-  async markAllAsRead(): Promise<void> {
-    const currentUserId = this.cls.get('user.id');
+  async markAllAsRead(userId: string): Promise<void> {
     await this.prismaService.txClient().notification.updateMany({
       where: {
-        toUser: currentUserId,
+        toUser: userId,
         isRead: false,
       },
       data: {
         isRead: true,
       },
+    });
+  }
+
+  private async createNotify(data: Prisma.NotificationCreateInput) {
+    return this.prismaService.notification.create({ data });
+  }
+
+  private sendNotifyBySocket(toUserId: string, data: INotificationBuffer) {
+    const channel = getUserNotificationChannel(toUserId);
+
+    const presence = this.shareDbService.connect().getPresence(channel);
+    const localPresence = presence.create(data.notification.id);
+
+    localPresence.submit(data, (error) => {
+      error && this.logger.error(error);
+    });
+  }
+
+  private async sendNotifyByMail(to: string, emailOptions: ISendMailOptions) {
+    await this.mailSenderService.sendMail({
+      to,
+      ...emailOptions,
     });
   }
 }

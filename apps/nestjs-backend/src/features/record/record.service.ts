@@ -453,7 +453,7 @@ export class RecordService implements IAdapterService {
     tableId: string,
     dbTableName: string,
     recordId: string,
-    contexts: { fieldId: string; newValue: unknown }[]
+    contexts: { fieldId: string; newCellValue: unknown }[]
   ) {
     const userId = this.cls.get('user.id');
     const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
@@ -479,7 +479,7 @@ export class RecordService implements IAdapterService {
     const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
       (pre, ctx) => {
         const fieldInstance = fieldInstanceMap[ctx.fieldId];
-        pre[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(ctx.newValue);
+        pre[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(ctx.newCellValue);
         return pre;
       },
       {}
@@ -499,15 +499,15 @@ export class RecordService implements IAdapterService {
 
   getCreateAttachments(
     fieldMap: { [key: string]: { id: string; dbFieldName: string; type: string } },
-    contexts: { fieldId: string; newValue: unknown }[]
+    contexts: { fieldId: string; newCellValue: unknown }[]
   ) {
     return contexts.reduce<
       { attachmentId: string; name: string; token: string; fieldId: string }[]
     >((pre, ctx) => {
       const { type } = fieldMap[ctx.fieldId];
 
-      if (type === FieldType.Attachment && Array.isArray(ctx.newValue)) {
-        (ctx.newValue as IAttachmentCellValue)?.forEach((attachment) => {
+      if (type === FieldType.Attachment && Array.isArray(ctx.newCellValue)) {
+        (ctx.newCellValue as IAttachmentCellValue)?.forEach((attachment) => {
           const { name, token, id } = attachment;
           pre.push({
             name,

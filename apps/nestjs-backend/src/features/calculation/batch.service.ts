@@ -163,7 +163,7 @@ export class BatchService {
           if (!opContext) {
             throw new Error(`illegal op ${JSON.stringify(op)} found`);
           }
-          pre[opContext.fieldId] = opContext.newValue;
+          pre[opContext.fieldId] = opContext.newCellValue;
           return pre;
         },
         {}

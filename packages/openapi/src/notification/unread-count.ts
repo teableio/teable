@@ -6,7 +6,7 @@ import { z } from '../zod';
 export const NOTIFICATION_UNREAD_COUNT = '/notifications/unreadCount';
 
 export const notificationUnreadCountVoSchema = z.object({
-  unreadCount: z.number().int(),
+  unreadCount: z.number().nonnegative().int(),
 });
 
 export type INotificationUnreadCountVo = z.infer<typeof notificationUnreadCountVoSchema>;

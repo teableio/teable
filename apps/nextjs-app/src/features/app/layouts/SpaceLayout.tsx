@@ -14,10 +14,12 @@ export const SpaceLayout: React.FC<{
     <AppLayout>
       <AppProvider dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
-          <div id="portal" className="relative flex h-screen w-full items-start">
-            <SideBar />
-            {children}
-          </div>
+          <NotificationProvider>
+            <div id="portal" className="relative flex h-screen w-full items-start">
+              <SideBar />
+              {children}
+            </div>
+          </NotificationProvider>
         </SessionProvider>
       </AppProvider>
     </AppLayout>

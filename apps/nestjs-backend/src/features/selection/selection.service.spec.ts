@@ -347,6 +347,7 @@ describe('selectionService', () => {
 
       // Execute the method
       const updateRecordsRo = await selectionService['fillCells']({
+        tableId,
         tableData,
         fields,
         records,

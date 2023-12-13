@@ -7,7 +7,6 @@ import { useRouter } from 'next/router';
 import React from 'react';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
-// import { ChatWindow } from '../components/ai-chat/ChatWindow';
 import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
 
 export const BaseLayout: React.FC<{
