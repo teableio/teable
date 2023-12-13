@@ -1,3 +1,3 @@
 export const ExpandRecordRight = () => {
-  return <div className="w-full sm:w-80 h-full flex justify-center items-center">coming soon</div>;
+  return <div className="flex h-full w-full items-center justify-center sm:w-80">coming soon</div>;
 };

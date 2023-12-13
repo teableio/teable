@@ -74,7 +74,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
       {showTitle && (
         <h4
           title={title}
-          className="flex-1 scroll-m-20 text-xl font-semibold tracking-tight truncate"
+          className="flex-1 scroll-m-20 truncate text-xl font-semibold tracking-tight"
         >
           {title || 'Unnamed record'}
         </h4>

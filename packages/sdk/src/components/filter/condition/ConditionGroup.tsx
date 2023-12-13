@@ -28,7 +28,7 @@ function ConditionGroup(props: IConditionGroupProps) {
 
   return (
     <>
-      <div className="flex items-start px-1 my-1">
+      <div className="my-1 flex items-start px-1">
         <Conjunction
           index={index}
           value={conjunction}
@@ -45,7 +45,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           )}
         >
           <div className="flex justify-between p-1">
-            <span className="leading-10 rounded pl-2 text-[13px] text-muted-foreground">
+            <span className="rounded pl-2 text-[13px] leading-10 text-muted-foreground">
               Any of the following are true…
             </span>
 

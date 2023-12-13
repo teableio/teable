@@ -2,17 +2,14 @@ import type { INestApplication } from '@nestjs/common';
 import type { IViewOptionRo, IGridView, IFormView } from '@teable-group/core';
 import { RowHeightLevel, ViewType } from '@teable-group/core';
 import { setViewOption as apiSetViewOption } from '@teable-group/openapi';
-import type * as supertest from 'supertest';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;
-let request: supertest.SuperAgentTest;
 const baseId = globalThis.testConfig.baseId;
 
 beforeAll(async () => {
   const appCtx = await initApp();
   app = appCtx.app;
-  request = appCtx.request;
 });
 
 afterAll(async () => {

@@ -84,7 +84,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           disabled={disabled}
           className={classNames('w-32 justify-between m-1 overflow-hidden', className)}
         >
-          <div className="shrink whitespace-nowrap overflow-hidden flex">
+          <div className="flex shrink overflow-hidden whitespace-nowrap">
             {selectedValues?.length
               ? selectedValues?.map(
                   (value, index) =>
