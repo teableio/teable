@@ -1,7 +1,7 @@
-import { CellEditor } from '@teable-group/sdk/components';
 import { useFieldStaticGetter, useViewId } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import type { FC } from 'react';
+import { FormCellEditor } from './FormCellEditor';
 
 interface IFormFieldEditorProps {
   field: IFieldInstance;
@@ -32,7 +32,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
 
       {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}
 
-      <CellEditor
+      <FormCellEditor
         cellValue={value}
         field={field}
         onChange={onChange}

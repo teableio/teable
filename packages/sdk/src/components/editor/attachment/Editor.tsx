@@ -7,5 +7,12 @@ type IAttachmentEditor = ICellEditor<IAttachmentCellValue>;
 
 export const AttachmentEditor = (props: IAttachmentEditor) => {
   const { value, onChange = noop, readonly } = props;
-  return <UploadAttachment attachments={value || []} onChange={onChange} readonly={readonly} />;
+  return (
+    <UploadAttachment
+      className="min-h-[100px]"
+      attachments={value || []}
+      onChange={onChange}
+      readonly={readonly}
+    />
+  );
 };

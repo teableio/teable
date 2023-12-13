@@ -9,7 +9,6 @@ export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/linkRecords';
 export const shareViewLinkRecordsRoSchema = getRecordsQuerySchema
   .omit({
     projection: true,
-    filterLinkCellCandidate: true,
     filterLinkCellSelected: true,
   })
   .extend({
