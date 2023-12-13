@@ -1,5 +1,4 @@
 import type { ILinkCellValue } from '@teable-group/core';
-import { isMultiValueLink } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
 import { LinkCard } from '@teable-group/sdk/components';
 import type { LinkField } from '@teable-group/sdk/model';
@@ -19,8 +18,7 @@ export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
   const { cellValue, shareId, className, field, onChange } = props;
   const [open, setOpen] = useState(false);
 
-  const { relationship } = field.options;
-  const isMultiple = isMultiValueLink(relationship);
+  const isMultiple = field.isMultipleCellValue;
 
   const cvArray = useMemo(() => {
     return isMultiple || !cellValue

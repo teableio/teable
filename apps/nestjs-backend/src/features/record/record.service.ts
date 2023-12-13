@@ -896,7 +896,7 @@ export class RecordService implements IAdapterService {
           type: 'json0',
           data: {
             fields: recordFields,
-            name: typeof name === 'string' ? name : primaryField.cellValue2String(name),
+            name: cellFormat === CellFormat.Text ? name : primaryField.cellValue2String(name),
             id: record.__id,
             autoNumber: record.__auto_number,
             createdTime: record.__created_time?.toISOString(),
