@@ -1,15 +1,19 @@
+import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
-import { useViewId } from './use-view-id';
+import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean } = {}) {
   const { withHidden } = options;
-  const { fields } = useContext(FieldContext);
-  const viewId = useViewId();
+  const { fields: fieldsOrigin } = useContext(FieldContext);
+  const view = useView();
+
+  const fields = useMemo(
+    () => sortBy(fieldsOrigin, (field) => view?.columnMeta[field.id]?.order ?? Infinity),
+    [fieldsOrigin, view?.columnMeta]
+  );
 
   return useMemo(() => {
-    return withHidden || !viewId
-      ? fields
-      : fields.filter(({ columnMeta }) => !columnMeta?.[viewId]?.hidden);
-  }, [viewId, fields, withHidden]);
+    return withHidden || !view ? fields : fields.filter(({ id }) => !view.columnMeta?.[id]?.hidden);
+  }, [view, fields, withHidden]);
 }

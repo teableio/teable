@@ -8,3 +8,4 @@ export * from './set-view-option';
 export * from './set-view-enable-share';
 export * from './set-view-share-id';
 export * from './set-view-share-meta';
+export * from './set-view-column-meta';

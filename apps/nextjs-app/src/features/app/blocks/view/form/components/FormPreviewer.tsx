@@ -40,7 +40,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
 
   if (view == null) return null;
 
-  const { id: viewId, name, description } = view;
+  const { name, description, columnMeta } = view;
 
   const onChange = (fieldId: string, value: unknown) => {
     if (errors.has(fieldId) && value != null && value != '') {
@@ -65,7 +65,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
     resetErrors();
 
     const requiredFieldIds = visibleFields.reduce((acc, field) => {
-      if (field.columnMeta[viewId].required) acc.push(field.id);
+      if (columnMeta[field.id].required) acc.push(field.id);
       return acc;
     }, [] as string[]);
 

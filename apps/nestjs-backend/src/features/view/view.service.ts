@@ -13,12 +13,14 @@ import type {
   IOtOperation,
   ISetViewShareIdOpContext,
   ISetViewEnableShareOpContext,
+  ISetViewColumnMetaOpContext,
+  IColumnMeta,
 } from '@teable-group/core';
 import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { maxBy } from 'lodash';
+import { maxBy, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IAdapterService } from '../../share-db/interface';
@@ -36,7 +38,8 @@ type IViewOpContext =
   | ISetViewSortOpContext
   | ISetViewShareMetaOpContext
   | ISetViewEnableShareOpContext
-  | ISetViewShareIdOpContext;
+  | ISetViewShareIdOpContext
+  | ISetViewColumnMetaOpContext;
 
 @Injectable()
 export class ViewService implements IAdapterService {
@@ -75,12 +78,16 @@ export class ViewService implements IAdapterService {
 
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
-    const { description, type, options, sort, filter, group } = viewRo;
+    const { description, type, options, sort, filter, group, columnMeta } = viewRo;
 
     const { name, order } = await this.polishOrderAndName(tableId, viewRo);
 
     const viewId = generateViewId();
     const prisma = this.prismaService.txClient();
+
+    const orderColumnMeta = await this.generateViewOrderColumnMeta(tableId);
+
+    const mergedColumnMeta = { ...orderColumnMeta, ...columnMeta };
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -100,6 +107,7 @@ export class ViewService implements IAdapterService {
       order,
       createdBy: userId,
       lastModifiedBy: userId,
+      columnMeta: mergedColumnMeta ? JSON.stringify(mergedColumnMeta) : JSON.stringify({}),
     };
 
     const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
@@ -115,6 +123,7 @@ export class ViewService implements IAdapterService {
 
     // 1. create a new view in view model
     const viewData = await prisma.view.create({ data });
+    // const columnMeta = await this.updateViewColumnMetaOrderByViewId(tableId, viewId);
 
     // 2. add a field for maintain row order number
     const addRowIndexColumnSql = this.knex.schema
@@ -270,6 +279,44 @@ export class ViewService implements IAdapterService {
     `);
   }
 
+  async getUpdatedColumnMeta(
+    tableId: string,
+    viewId: string,
+    opContexts: ISetViewColumnMetaOpContext
+  ) {
+    const { fieldId, newColumnMeta } = opContexts;
+    const { columnMeta: rawColumnMeta } = await this.prismaService
+      .txClient()
+      .view.findUniqueOrThrow({
+        select: { columnMeta: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      });
+    const columnMeta = JSON.parse(rawColumnMeta);
+
+    // delete column meta
+    if (!newColumnMeta) {
+      const preData = {
+        ...columnMeta,
+      };
+      delete preData[fieldId];
+      return (
+        JSON.stringify({
+          ...preData,
+        }) ?? {}
+      );
+    }
+
+    return (
+      JSON.stringify({
+        ...columnMeta,
+        [fieldId]: {
+          ...columnMeta[fieldId],
+          ...newColumnMeta,
+        },
+      }) ?? {}
+    );
+  }
+
   async update(version: number, _tableId: string, viewId: string, opContexts: IViewOpContext[]) {
     const userId = this.cls.get('user.id');
 
@@ -290,6 +337,9 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewOptions:
           updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
+          break;
+        case OpName.SetViewColumnMeta:
+          updateData['columnMeta'] = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
           break;
         case OpName.SetViewShareMeta:
           updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
@@ -345,5 +395,88 @@ export class ViewService implements IAdapterService {
     });
 
     return { ids: views.map((v) => v.id) };
+  }
+
+  async generateViewOrderColumnMeta(tableId: string) {
+    const fields = await this.prismaService.txClient().field.findMany({
+      select: {
+        id: true,
+      },
+      where: {
+        tableId,
+        deletedTime: null,
+      },
+    });
+
+    // create table first view there is no field should return
+    if (isEmpty(fields)) {
+      return;
+    }
+
+    return fields.reduce<IColumnMeta>((pre, cur, index) => {
+      pre[cur.id] = { order: index };
+      return pre;
+    }, {});
+  }
+
+  async updateViewColumnMetaOrder(tableId: string, fieldIds: string[]) {
+    // 1. get all views id and column meta by tableId
+    const view = await this.prismaService.txClient().view.findMany({
+      select: { columnMeta: true, id: true },
+      where: { tableId: tableId },
+    });
+
+    if (isEmpty(view)) {
+      return;
+    }
+
+    for (let i = 0; i < view.length; i++) {
+      const ops: IOtOperation[] = [];
+      const viewId = view[i].id;
+      const curColumnMeta: IColumnMeta = JSON.parse(view[i].columnMeta);
+      const maxOrder = isEmpty(curColumnMeta)
+        ? -1
+        : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
+      fieldIds.forEach((fieldId) => {
+        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+          fieldId: fieldId,
+          newMetaValue: { order: maxOrder + 1 },
+          oldMetaValue: undefined,
+        });
+        ops.push(op);
+      });
+
+      // 2. build update ops and emit
+      await this.updateViewByOps(tableId, viewId, ops);
+    }
+  }
+
+  async deleteColumnMetaOrder(tableId: string, fieldIds: string[]) {
+    // 1. get all views id and column meta by tableId
+    const view = await this.prismaService.view.findMany({
+      select: { columnMeta: true, id: true },
+      where: { tableId: tableId },
+    });
+
+    if (!view) {
+      throw new Error(`no view in this table`);
+    }
+
+    for (let i = 0; i < view.length; i++) {
+      const ops: IOtOperation[] = [];
+      const viewId = view[i].id;
+      const curColumnMeta: IColumnMeta = JSON.parse(view[i].columnMeta);
+      fieldIds.forEach((fieldId) => {
+        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+          fieldId: fieldId,
+          newMetaValue: null,
+          oldMetaValue: { ...curColumnMeta[fieldId] },
+        });
+        ops.push(op);
+      });
+
+      // 2. build update ops and emit
+      await this.updateViewByOps(tableId, viewId, ops);
+    }
   }
 }

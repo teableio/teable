@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type {
-  ISetColumnMetaOpContext,
+  ISetViewColumnMetaOpContext,
   IRawAggregationVo,
   IRawRowCountVo,
+  IOpContextBase,
 } from '@teable-group/core';
 import { getAggregationChannel, getRowCountChannel } from '@teable-group/core';
-import { get } from 'lodash';
+import { get, flattenDeep } from 'lodash';
 import { IEventBase } from '../../../event-emitter/interfaces/event-base.interface';
 import type {
-  FieldUpdatedEvent,
   RecordCreatedEvent,
   RecordDeletedEvent,
   RecordUpdatedEvent,
@@ -63,41 +63,36 @@ export class AggregationListener {
     }
 
     if (
-      EventEnums.FieldUpdated === event.eventName &&
-      event.ops?.some((op) => {
-        if (op.name === 'setColumnMeta') {
-          const setColumnMetaOp = op as ISetColumnMetaOpContext;
-
-          return (
-            setColumnMetaOp.metaKey === 'statisticFunc' ||
-            (setColumnMetaOp.metaKey === 'hidden' && !setColumnMetaOp.newMetaValue)
-          );
-        }
-      })
+      EventEnums.ViewUpdated === event.eventName &&
+      this.opsHasOpName(event.ops, 'setViewColumnMeta')
     ) {
-      const fieldEvent = event as FieldUpdatedEvent;
-      const { tableId, fieldId, ops } = fieldEvent;
+      // TODO remove recordId until event refactor
+      const viewEvent = event as ViewUpdatedEvent & { recordId: string };
+      const { tableId, viewId, recordId, ops } = viewEvent;
+      const flattenOps = flattenDeep(ops) as ISetViewColumnMetaOpContext[];
+      const customFieldStats = flattenOps.map((op) => ({
+        fieldId: op.fieldId,
+        statisticFunc: op.newColumnMeta?.statisticFunc,
+      })) as IWithView['customFieldStats'];
 
-      const viewId = (ops[0] as ISetColumnMetaOpContext).viewId;
-
-      calculateParams = {
-        tableId,
-        withView: {
-          viewId,
-          customFieldStats: [
-            {
-              fieldId,
-            },
-          ],
-        },
-      };
+      if (
+        flattenOps.some(
+          (op) => op?.newColumnMeta?.statisticFunc !== op?.oldColumnMeta?.statisticFunc
+        )
+      ) {
+        calculateParams = {
+          tableId,
+          withView: {
+            viewId: viewId || recordId,
+            customFieldStats,
+          },
+        };
+      }
     }
 
     if (
       EventEnums.ViewUpdated === event.eventName &&
-      event.ops?.some((op) => {
-        return op.name === 'setViewFilter';
-      })
+      this.opsHasOpName(event.ops, 'setViewFilter')
     ) {
       const viewEvent = event as ViewUpdatedEvent;
       const { tableId, viewId } = viewEvent;
@@ -116,6 +111,21 @@ export class AggregationListener {
         this.emitAggregation(tableId, data, error)
       );
     }
+  }
+
+  private opsHasOpName(ops: IOpContextBase[] | undefined, opName: string | string[]) {
+    if (!ops) {
+      return false;
+    }
+
+    // ops may be nested array, common in batch ops
+    const flattenOps = flattenDeep(ops);
+    return flattenOps.some((op) => {
+      if (Array.isArray(opName)) {
+        return opName.includes(op.name);
+      }
+      return op.name === opName;
+    });
   }
 
   private async emitAggregation(

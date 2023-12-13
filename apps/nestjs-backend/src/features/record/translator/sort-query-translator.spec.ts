@@ -27,7 +27,6 @@ describe('SortQueryTranslator', () => {
         dbFieldType: DbFieldType.Text,
         cellValueType: CellValueType.String,
         isMultipleCellValue: false,
-        columnMeta: {},
         options: {},
       },
       {
@@ -38,7 +37,6 @@ describe('SortQueryTranslator', () => {
         dbFieldType: DbFieldType.Real,
         cellValueType: CellValueType.Number,
         isMultipleCellValue: false,
-        columnMeta: {},
         options: {},
       },
       {
@@ -49,7 +47,6 @@ describe('SortQueryTranslator', () => {
         dbFieldType: DbFieldType.Json,
         cellValueType: CellValueType.String,
         isMultipleCellValue: true,
-        columnMeta: {},
         options: {},
       },
     ];

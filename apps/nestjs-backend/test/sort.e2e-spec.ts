@@ -3,11 +3,18 @@ import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 
 import type { ITableFullVo, IFieldRo, ISortItem } from '@teable-group/core';
-import { FieldType, CellValueType, TimeFormatting, NumberFormattingType } from '@teable-group/core';
+import {
+  FieldType,
+  CellValueType,
+  TimeFormatting,
+  NumberFormattingType,
+  orderTypeEnum,
+} from '@teable-group/core';
+import { setViewSort as apiSetViewSort } from '@teable-group/openapi';
 import { orderBy, isEmpty } from 'lodash';
 import qs from 'qs';
 import type * as supertest from 'supertest';
-import { initApp, updateRecordByApi } from './utils/init-app';
+import { initApp, updateRecordByApi, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;
 let request: supertest.SuperAgentTest;
@@ -436,4 +443,35 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
       expect(descOriginRecords).toEqual(descManualSortRecords);
     }
   );
+});
+
+describe('OpenAPI ViewController view order sort (e2e)', () => {
+  let tableId: string;
+  let viewId: string;
+  let fields: IFieldRo[];
+  beforeEach(async () => {
+    const result = await createTable(baseId, { name: 'Table' });
+    tableId = result.id;
+    viewId = result.defaultViewId!;
+    fields = result.fields!;
+  });
+  afterEach(async () => {
+    await deleteTable(baseId, tableId);
+  });
+
+  test('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
+    const assertSort = {
+      sortObjs: [
+        {
+          fieldId: fields[0].id as string,
+          order: orderTypeEnum.Enum.asc,
+        },
+      ],
+      manualSort: false,
+    };
+    await apiSetViewSort(tableId, viewId, assertSort);
+    const updatedView = await getView(tableId, viewId);
+    const viewSort = updatedView.sort;
+    expect(viewSort).toEqual(assertSort);
+  });
 });

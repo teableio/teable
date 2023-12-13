@@ -1,15 +1,23 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { IColumnMeta, IFieldVo, IOtOperation, IViewRo, IViewVo } from '@teable-group/core';
+import type {
+  IFieldVo,
+  IOtOperation,
+  IViewRo,
+  IViewVo,
+  IFilter,
+  ISort,
+  IViewOptionRo,
+  ViewType,
+  IColumnMetaRo,
+} from '@teable-group/core';
 import {
-  FieldOpBuilder,
   IManualSortRo,
-  OpName,
   ViewOpBuilder,
   generateShareId,
+  validateOptionType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { orderBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
 import { FieldService } from '../../field/field.service';
@@ -41,55 +49,11 @@ export class ViewOpenApiService {
   }
 
   private async createViewInner(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
-    const result = await this.viewService.createView(tableId, viewRo);
-    await this.updateColumnMetaForFields(result.id, tableId, OpName.AddColumnMeta);
-    return result;
+    return await this.viewService.createView(tableId, viewRo);
   }
 
   private async deleteViewInner(tableId: string, viewId: string) {
-    await this.updateColumnMetaForFields(viewId, tableId, OpName.DeleteColumnMeta);
     await this.viewService.deleteView(tableId, viewId);
-  }
-
-  private async updateColumnMetaForFields(
-    viewId: string,
-    tableId: string,
-    opName: OpName.AddColumnMeta | OpName.DeleteColumnMeta
-  ) {
-    let fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, columnMeta: true, createdTime: true, isPrimary: true },
-    });
-
-    // manually sort to prevent the empty value sort problem in postgres and sqlite
-    fields = orderBy(fields, ['isPrimary', 'createdTime']);
-
-    for (let index = 0; index < fields.length; index++) {
-      const field = fields[index];
-
-      let data: IOtOperation;
-      if (opName === OpName.AddColumnMeta) {
-        data = this.addColumnMeta2Op(viewId, index + 1);
-      } else {
-        data = this.deleteColumnMeta2Op(viewId, JSON.parse(field.columnMeta));
-      }
-
-      await this.fieldService.batchUpdateFields(tableId, [{ fieldId: field.id, ops: [data] }]);
-    }
-  }
-
-  private addColumnMeta2Op(viewId: string, order: number) {
-    return FieldOpBuilder.editor.addColumnMeta.build({
-      viewId,
-      newMetaValue: { order },
-    });
-  }
-
-  private deleteColumnMeta2Op(viewId: string, oldColumnMeta: IColumnMeta) {
-    return FieldOpBuilder.editor.deleteColumnMeta.build({
-      viewId,
-      oldMetaValue: oldColumnMeta[viewId],
-    });
   }
 
   @Timing()
@@ -156,6 +120,121 @@ export class ViewOpenApiService {
     await this.prismaService.$tx(async (prisma) => {
       await prisma.$executeRawUnsafe(updateRecordsOrderSql);
       await this.viewService.updateViewSort(tableId, viewId, newSort);
+    });
+  }
+
+  async setViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
+    const view = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        where: { tableId, id: viewId },
+        select: {
+          columnMeta: true,
+          version: true,
+          id: true,
+        },
+      })
+      .catch(() => {
+        throw new BadRequestException('view found column meta error');
+      });
+
+    // validate field legal
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: {
+        id: true,
+      },
+    });
+    const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
+    if (!fieldIds.every((id) => fields.map(({ id }) => id).includes(id))) {
+      throw new BadRequestException('field is not found in table');
+    }
+
+    const curColumnMeta = JSON.parse(view.columnMeta);
+    const ops: IOtOperation[] = [];
+
+    columnMetaRo.forEach(({ fieldId, columnMeta }) => {
+      const obj = {
+        fieldId,
+        newMetaValue: { ...curColumnMeta[fieldId], ...columnMeta },
+        oldMetaValue: curColumnMeta[fieldId] ? curColumnMeta[fieldId] : undefined,
+      };
+      ops.push(ViewOpBuilder.editor.setViewColumnMeta.build(obj));
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, ops);
+    });
+  }
+
+  async setViewFilter(tableId: string, viewId: string, filter: IFilter) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { filter: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View filter not found');
+      });
+    const { filter: oldFilter } = curView;
+    const ops = ViewOpBuilder.editor.setViewFilter.build({
+      newFilter: filter,
+      oldFilter: oldFilter ? JSON.parse(oldFilter) : oldFilter,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewSort(tableId: string, viewId: string, sort: ISort) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { sort: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View not found');
+      });
+    const { sort: oldSort } = curView;
+    const ops = ViewOpBuilder.editor.setViewSort.build({
+      newSort: sort,
+      oldSort: oldSort ? JSON.parse(oldSort) : oldSort,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewOption(tableId: string, viewId: string, viewOption: IViewOptionRo) {
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { options: true, type: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View option not found');
+      });
+    const { options, type: viewType } = curView;
+
+    // validate option type
+    try {
+      validateOptionType(viewType as ViewType, viewOption);
+    } catch (err) {
+      throw new BadRequestException(err);
+    }
+
+    const oldOptions = options ? JSON.parse(options) : options;
+    const ops = ViewOpBuilder.editor.setViewOption.build({
+      newOptions: {
+        ...oldOptions,
+        ...viewOption,
+      },
+      oldOptions: oldOptions,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 

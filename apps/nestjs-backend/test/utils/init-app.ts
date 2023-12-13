@@ -13,6 +13,11 @@ import type {
   IRecord,
   CellFormat,
   HttpError,
+  IColumnMetaRo,
+  IViewVo,
+  ICreateTableRo,
+  IFilter,
+  IViewRo,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import {
@@ -25,6 +30,12 @@ import {
   updateField as apiUpdateField,
   getFields as apiGetFields,
   getField as apiGetField,
+  getViewById as apiGetViewById,
+  setViewColumnMeta as apiSetViewColumnMeta,
+  createTable as apiCreateTable,
+  deleteTable as apiDeleteTable,
+  setViewFilter as apiSetViewFilter,
+  createView as apiCreateView,
 } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
@@ -105,6 +116,16 @@ export async function initApp() {
   console.log(`> Jest Test Ready on ${url}`);
 
   return { app, request: newRequest, cookie: cookie.join(';') };
+}
+
+export async function createTable(baseId: string, tableVo: ICreateTableRo) {
+  const result = await apiCreateTable(baseId, tableVo);
+  return result.data;
+}
+
+export async function deleteTable(baseId: string, tableId: string) {
+  const result = await apiDeleteTable(baseId, tableId);
+  return result.data;
 }
 
 async function getCookie(email: string, password: string) {
@@ -205,5 +226,29 @@ export async function getFields(
 
 export async function getField(tableId: string, fieldId: string): Promise<IFieldVo> {
   const result = await apiGetField(tableId, fieldId);
+  return result.data;
+}
+
+export async function getView(tableId: string, viewId: string): Promise<IViewVo> {
+  const result = await apiGetViewById(tableId, viewId);
+  return result.data;
+}
+
+export async function creteView(tableId: string, viewRo: IViewRo) {
+  const result = await apiCreateView(tableId, viewRo);
+  return result.data;
+}
+
+export async function updateViewColumnMeta(
+  tableId: string,
+  viewId: string,
+  columnMetaRo: IColumnMetaRo
+) {
+  const result = await apiSetViewColumnMeta(tableId, viewId, columnMetaRo);
+  return result.data;
+}
+
+export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilter) {
+  const result = await apiSetViewFilter(tableId, viewId, filterRo);
   return result.data;
 }

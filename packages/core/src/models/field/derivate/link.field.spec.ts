@@ -14,7 +14,6 @@ describe('LinkFieldCore', () => {
   const json: IFieldVo = {
     id: 'fldtestxxxxxx',
     dbFieldName: 'fldtestxxxxxx',
-    columnMeta: {},
     name: 'Test link Field',
     description: 'A test link field',
     options: {

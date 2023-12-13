@@ -19,7 +19,6 @@ import {
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
 import type request from 'supertest';
-import type { IFieldInstance } from '../src/features/field/model/factory';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {
@@ -79,33 +78,6 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       const fields: IFieldVo[] = result.body;
       expect(fields).toHaveLength(4);
-    });
-
-    it('should create field with column order', async () => {
-      const viewResponse = await request.get(`/api/table/${table1.id}/view`).expect(200);
-      const viewId = viewResponse.body[0].id;
-      const fieldName = 'New Order field';
-      const fieldRo: IFieldRo = {
-        name: fieldName,
-        description: 'the new field',
-        type: FieldType.SingleLineText,
-        options: SingleLineTextFieldCore.defaultOptions(),
-        columnMeta: { [viewId]: { order: 0.6 } },
-      };
-
-      await request.post(`/api/table/${table1.id}/field`).send(fieldRo).expect(201);
-
-      const result = await request
-        .get(`/api/table/${table1.id}/field`)
-        .query({
-          skip: 0,
-          take: 1000,
-        })
-        .expect(200);
-
-      const fields: IFieldVo[] = result.body;
-      const field = fields.find((f) => f.name === fieldName) as IFieldInstance;
-      expect(field.columnMeta[viewId].order).toEqual(0.6);
     });
   });
 

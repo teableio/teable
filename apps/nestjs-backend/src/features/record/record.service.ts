@@ -802,28 +802,34 @@ export class RecordService implements IAdapterService {
     const shareId = this.cls.get('shareViewId');
     const projectionInner = projection || {};
     if (shareId) {
-      const view = await this.prismaService.txClient().view.findFirst({
+      const rawView = await this.prismaService.txClient().view.findFirst({
         where: { shareId: shareId, enableShare: true, deletedTime: null },
-        select: { id: true, shareMeta: true },
+        select: { id: true, shareMeta: true, columnMeta: true },
       });
+      const view = {
+        ...rawView,
+        columnMeta: rawView?.columnMeta ? JSON.parse(rawView.columnMeta) : {},
+      };
       if (!view) {
         throw new NotFoundException();
       }
       const fieldsPlain = await this.prismaService.txClient().field.findMany({
         where: { tableId, deletedTime: null },
-        select: { id: true, name: true, columnMeta: true },
+        select: {
+          id: true,
+          name: true,
+        },
       });
 
       const fields = fieldsPlain.map((field) => {
         return {
           ...field,
-          columnMeta: JSON.parse(field.columnMeta),
         };
       });
 
       if (!(view.shareMeta as IShareViewMeta)?.includeHiddenField) {
         fields
-          .filter((field) => !field.columnMeta[view.id].hidden)
+          .filter((field) => !view.columnMeta[field.id].hidden)
           .forEach((field) => (projectionInner[field[fieldKeyType]] = true));
       }
     }

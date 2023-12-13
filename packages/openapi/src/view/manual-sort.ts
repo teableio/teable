@@ -10,7 +10,7 @@ export const VIEW_MANUAL_SORT = '/table/{tableId}/view/{viewId}/sort';
 export const ManualSortViewRoute: RouteConfig = registerRoute({
   method: 'put',
   path: VIEW_MANUAL_SORT,
-  description: 'Update or convert a view',
+  description: 'Update view raw order',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -10,10 +10,11 @@ import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { IGridColumn, ICell, INumberShowAs as IGridNumberShowAs, ChartType } from '../..';
 import { NumberEditor, onMixedTextClick, CellType, EditorPosition, getFileCover } from '../..';
-import { useTablePermission } from '../../../hooks';
+import { useTablePermission, useView } from '../../../hooks';
 import { useFields } from '../../../hooks/use-fields';
 import { useViewId } from '../../../hooks/use-view-id';
 import type { IFieldInstance, Record } from '../../../model';
+import type { IViewInstance } from '../../../model/view';
 import { GRID_DEFAULT } from '../../grid/configs';
 import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
 
@@ -22,7 +23,8 @@ const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 
 const generateColumns = (
   fields: IFieldInstance[],
   viewId?: string,
-  hasMenu: boolean = true
+  hasMenu: boolean = true,
+  view?: IViewInstance
 ): (IGridColumn & { id: string })[] => {
   const iconString = (type: FieldType, isLookup: boolean | undefined) => {
     return isLookup ? `${type}_lookup` : type;
@@ -31,7 +33,7 @@ const generateColumns = (
   return fields
     .map((field) => {
       if (!field) return undefined;
-      const columnMeta = viewId ? field.columnMeta[viewId] : null;
+      const columnMeta = viewId ? view?.columnMeta[field.id] : null;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
       const { id, type, name, description, isLookup } = field;
       return {
@@ -44,7 +46,15 @@ const generateColumns = (
         icon: iconString(type, isLookup),
       };
     })
-    .filter(Boolean) as (IGridColumn & { id: string })[];
+    .filter(Boolean)
+    .filter((field) => {
+      if (field) {
+        return !view?.columnMeta?.[field?.id]?.hidden;
+      }
+      return false;
+    }) as (IGridColumn & {
+    id: string;
+  })[];
 };
 
 const createCellValue2GridDisplay =
@@ -308,13 +318,14 @@ export function useGridColumns(hasMenu?: boolean) {
   const viewId = useViewId();
   const fields = useFields();
   const permission = useTablePermission();
+  const view = useView();
   const editable = permission['record|update'];
 
   return useMemo(
     () => ({
-      columns: generateColumns(fields, viewId, hasMenu),
+      columns: generateColumns(fields, viewId, hasMenu, view),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields, editable),
     }),
-    [fields, viewId, editable, hasMenu]
+    [fields, viewId, editable, hasMenu, view]
   );
 }

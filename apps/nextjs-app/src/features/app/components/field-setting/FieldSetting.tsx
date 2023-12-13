@@ -1,5 +1,6 @@
 import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
 import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
+import { View } from '@teable-group/sdk';
 import { useTable, useViewId } from '@teable-group/sdk/hooks';
 import { Dialog, DialogContent, DialogFooter, useToast } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -25,12 +26,11 @@ export const FieldSetting = (props: IFieldSetting) => {
     }
 
     if (operator === FieldOperator.Insert) {
-      if (viewId != null && order != null) {
-        field.columnMeta = {
-          [viewId]: { order },
-        };
+      const result = await table?.createField(field);
+      const fieldId = result?.data?.id;
+      if (viewId != null && order != null && fieldId && table?.id) {
+        await View.setViewColumnMeta(table.id, viewId, [{ fieldId, columnMeta: { order } }]);
       }
-      await table?.createField(field);
     }
 
     if (operator === FieldOperator.Edit) {

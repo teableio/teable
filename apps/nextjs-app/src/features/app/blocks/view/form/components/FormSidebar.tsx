@@ -1,8 +1,9 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import type { FieldType } from '@teable-group/core';
 import { DraggableHandle, Plus } from '@teable-group/icons';
+import { View, useView, useTableId } from '@teable-group/sdk';
 import type { IFieldStatic } from '@teable-group/sdk/hooks';
-import { useFieldStaticGetter, useFields, useIsHydrated, useViewId } from '@teable-group/sdk/hooks';
+import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import {
   Button,
@@ -65,7 +66,9 @@ export const DragItem: FC<IDragItemProps> = (props) => {
 
 export const FormSidebar = () => {
   const isHydrated = useIsHydrated();
-  const activeViewId = useViewId();
+  const view = useView();
+  const tableId = useTableId();
+  const activeViewId = view?.id;
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
   const { openSetting } = useGridViewStore();
@@ -82,11 +85,11 @@ export const FormSidebar = () => {
     const visibleFields: IFieldInstance[] = [];
     const unavailableFields: IFieldInstance[] = [];
     allFields.forEach((field) => {
-      const { isComputed, isLookup, columnMeta } = field;
+      const { isComputed, isLookup, id } = field;
       if (isComputed || isLookup) {
         return unavailableFields.push(field);
       }
-      if (!columnMeta?.[activeViewId]?.hidden) {
+      if (!view.columnMeta?.[id]?.hidden) {
         return visibleFields.push(field);
       }
       hiddenFields.push(field);
@@ -96,15 +99,28 @@ export const FormSidebar = () => {
       visibleFields,
       unavailableFields,
     };
-  }, [allFields, activeViewId]);
+  }, [activeViewId, allFields, view?.columnMeta]);
 
   const onFieldShown = (field: IFieldInstance) => {
-    activeViewId && field.updateColumnHidden(activeViewId, false);
+    activeViewId &&
+      tableId &&
+      View.setViewColumnMeta(tableId, activeViewId, [
+        {
+          fieldId: field.id,
+          columnMeta: {
+            hidden: false,
+          },
+        },
+      ]);
   };
 
   const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
-    if (!activeViewId) return;
-    fields.forEach((field) => field.updateColumnHidden(activeViewId, hidden));
+    if (!activeViewId || !tableId) return;
+    View?.setViewColumnMeta(
+      tableId,
+      activeViewId,
+      fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
+    );
   };
 
   return (

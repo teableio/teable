@@ -27,7 +27,7 @@ function FieldSelect(props: IFieldSelectProps) {
       return (
         <>
           <Icon className="shrink-0"></Icon>
-          <div className="pl-1 truncate text-[13px]">{option.label}</div>
+          <div className="truncate pl-1 text-[13px]">{option.label}</div>
         </>
       );
     },

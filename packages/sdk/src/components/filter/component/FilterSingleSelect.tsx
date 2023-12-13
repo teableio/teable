@@ -28,7 +28,7 @@ function FilterSingleSelect(props: ISingleSelect) {
       <>
         <div
           key={value}
-          className="px-2 rounded-lg truncate"
+          className="truncate rounded-lg px-2"
           style={{
             backgroundColor: ColorUtils.getHexForColor(color),
             color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
