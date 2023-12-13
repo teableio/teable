@@ -222,6 +222,7 @@ export class FieldService implements IAdapterService {
 
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
+      orderBy: { createdTime: 'asc' },
     });
 
     const fields = fieldsPlain.map(rawField2FieldObj);
