@@ -111,7 +111,7 @@ export const DraggableList: React.FC = () => {
     if (!table) {
       return null;
     }
-    return <TableListItem isActive={false} table={table} className="cursor-grabbing" />;
+    return <TableListItem isActive={false} isDragging table={table} className="cursor-grabbing" />;
   };
 
   return isHydrated ? (

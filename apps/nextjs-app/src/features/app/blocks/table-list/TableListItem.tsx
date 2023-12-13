@@ -8,15 +8,16 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
-import { DeleteTable } from './DeleteTable';
+import { TableOperation } from './TableOperation';
 
 interface IProps {
   table: Table;
   isActive: boolean;
+  isDragging?: boolean;
   className?: string;
 }
 
-export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) => {
+export const TableListItem: React.FC<IProps> = ({ table, isActive, className, isDragging }) => {
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
   const { baseId } = router.query;
@@ -56,22 +57,25 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
         }}
       >
         <div>
-          <EmojiPicker
-            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
-            onChange={(icon: string) => table.updateIcon(icon)}
-            disabled={!permission['table|update']}
-          >
-            {table.icon ? (
-              <Emoji emoji={table.icon} size={'1rem'} />
-            ) : (
-              <Table2 className="h-4 w-4 shrink-0" />
-            )}
-          </EmojiPicker>
+          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+          <div onClick={(e) => e.stopPropagation()}>
+            <EmojiPicker
+              className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
+              onChange={(icon: string) => table.updateIcon(icon)}
+              disabled={!permission['table|update']}
+            >
+              {table.icon ? (
+                <Emoji emoji={table.icon} size={'1rem'} />
+              ) : (
+                <Table2 className="h-4 w-4 shrink-0" />
+              )}
+            </EmojiPicker>
+          </div>
           <p className="grow truncate">{' ' + table.name}</p>
-          {permission['table|delete'] && (
-            <DeleteTable
-              tableId={table.id}
-              className="h-4 w-4 shrink-0 sm:hidden sm:group-hover:block"
+          {!isDragging && (
+            <TableOperation
+              table={table}
+              className="h-4 w-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
             />
           )}
         </div>
@@ -100,6 +104,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className }) 
               }
               setIsEditing(false);
             }
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
           }}
         />
       )}
