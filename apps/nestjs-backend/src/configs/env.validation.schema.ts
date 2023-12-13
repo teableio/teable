@@ -5,6 +5,8 @@ export const envValidationSchema = Joi.object({
 
   NEXTJS_DIR: Joi.string(),
 
+  NEXTJS_DISABLE: Joi.string().equal('true').optional(),
+
   SWAGGER_DISABLED: Joi.string().equal('true').optional(),
 
   // logger

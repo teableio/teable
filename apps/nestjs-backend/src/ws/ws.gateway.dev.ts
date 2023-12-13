@@ -12,8 +12,6 @@ import { WsAuthService } from '../share-db/ws-auth.service';
 @Injectable()
 export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(DevWsGateway.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private agents: any[] = [];
 
   server!: Server;
 
@@ -35,8 +33,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
         await this.wsAuthService.checkCookie(cookie);
       }
       const stream = new WebSocketJSONStream(webSocket);
-      const agent = this.shareDb.listen(stream, request);
-      this.agents.push(agent);
+      this.shareDb.listen(stream, request);
     } catch (error) {
       webSocket.send(JSON.stringify({ error }));
       webSocket.close();
@@ -65,7 +62,6 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    this.agents?.map((agent) => agent?.close());
     this.shareDb.close();
     this.server.close((err) => {
       if (err) {

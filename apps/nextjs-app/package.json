@@ -28,6 +28,7 @@
     ]
   },
   "scripts": {
+    "dev:proxy": "cross-env NODE_ENV=development NEXT_API_PROXY_ENABLE=true next dev",
     "build": "next build",
     "build-fast": "cross-env NEXT_BUILD_ENV_SENTRY_ENABLED=0 NEXT_BUILD_ENV_SOURCEMAPS=0 NEXT_BUILD_ENV_TYPECHECK=0 NEXT_BUILD_ENV_LINT=0 next build",
     "bundle-analyze": "cross-env ANALYZE=true NEXT_BUILD_ENV_SENTRY_ENABLED=1 NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN=1 NEXT_BUILD_ENV_TYPECHECK=0 NEXT_BUILD_ENV_LINT=0 pnpm build",
@@ -35,11 +36,6 @@
     "check-size": "size-limit --highlight-less",
     "clean": "rimraf ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "clean:backend": "rimraf --no-glob ./main",
-    "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
-    "dev": "yarn prebuild:electron && electron .",
-    "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
-    "pack-app": "yarn build:electron && electron-builder --dir",
-    "dist": "yarn build:electron && electron-builder",
     "dist:debug": "lldb ./dist/mac-arm64/nextjs-app.app",
     "dist:unpack": "npx asar extract ./dist/mac-arm64/nextjs-app.app/Contents/Resources/app.asar ./dist/unpack",
     "test": "run-s test-unit",
@@ -165,7 +161,6 @@
     "reflect-metadata": "0.1.13",
     "remark-gfm": "4.0.0",
     "sharedb": "4.1.0",
-    "sharp": "0.32.6",
     "tailwind-scrollbar": "3.0.5",
     "tailwindcss": "3.3.5",
     "type-fest": "4.6.0",

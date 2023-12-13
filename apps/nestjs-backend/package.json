@@ -34,6 +34,7 @@
     "build": "nest build",
     "clean": "rimraf ./out ./coverage ./main ./dist ./tsconfig.tsbuildinfo ./node_modules/.cache",
     "dev": "nest start --webpackPath ./webpack.dev.js -w",
+    "dev:local": "NEXTJS_DISABLE=true nest start --webpackPath ./webpack.dev.js -w --env local",
     "start": "nest start",
     "check-dist": "es-check -v",
     "start-debug": "nest start --webpackPath ./webpack.dev.js --debug -w",

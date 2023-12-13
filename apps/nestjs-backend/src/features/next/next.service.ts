@@ -3,11 +3,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import createServer from 'next';
 import type { NextServer } from 'next/dist/server/next';
+import type { INextJsConfig } from '../../configs/bootstrap.config';
 
 @Injectable()
 export class NextService implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(NextService.name);
-  public server!: NextServer;
+  public server?: NextServer;
   constructor(private configService: ConfigService) {}
 
   private async startNEXTjs() {
@@ -28,10 +29,14 @@ export class NextService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
+    const nextJsDisable = this.configService.get<INextJsConfig>('nextJs')?.disable;
+    if (nextJsDisable) {
+      return;
+    }
     await this.startNEXTjs();
   }
 
   onModuleDestroy() {
-    this.server.close();
+    this.server?.close();
   }
 }

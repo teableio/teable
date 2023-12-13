@@ -4,6 +4,7 @@ import { registerAs } from '@nestjs/config';
 
 export const nextJsConfig = registerAs('nextJs', () => ({
   dir: process.env.NEXTJS_DIR ?? '../nextjs-app',
+  disable: process.env.NEXTJS_DISABLE === 'true',
 }));
 
 export const securityWebConfig = registerAs('security.web', () => ({

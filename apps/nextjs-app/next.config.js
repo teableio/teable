@@ -43,6 +43,9 @@ const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
 const NEXT_BUILD_ENV_SENTRY_TRACING = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_TRACING ?? 'false'
 );
+const NEXT_API_PROXY_ENABLE = trueEnv.includes(process.env?.NEXT_API_PROXY_ENABLE ?? 'false');
+
+const NEXT_API_PROXY_ORIGIN = process.env?.NEXT_API_PROXY_ORIGIN;
 
 const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
 
@@ -186,12 +189,27 @@ const nextConfig = {
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
-    const socketProxy = {
-      source: '/socket/:path*',
-      destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
-    };
+    const proxy = [];
+    if (NEXT_API_PROXY_ENABLE && NEXT_API_PROXY_ORIGIN) {
+      const socketProxy = {
+        source: '/socket/:path*',
+        destination: `${NEXT_API_PROXY_ORIGIN}/socket/:path*`,
+      };
+      proxy.push(socketProxy);
+      const apiProxy = {
+        source: '/api/:path*',
+        destination: `${NEXT_API_PROXY_ORIGIN}/api/:path*`,
+      };
+      proxy.push(apiProxy);
+    } else {
+      const socketProxy = {
+        source: '/socket/:path*',
+        destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
+      };
+      proxy.push(socketProxy);
+    }
 
-    return isProd ? [] : [socketProxy];
+    return isProd ? [] : proxy;
   },
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
