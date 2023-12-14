@@ -56,35 +56,35 @@ export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
 
 export const unionFieldOptions = z.union([
-  rollupFieldOptionsSchema,
-  formulaFieldOptionsSchema,
-  linkFieldOptionsSchema,
-  dateFieldOptionsSchema,
-  checkboxFieldOptionsSchema,
-  attachmentFieldOptionsSchema,
-  singlelineTextFieldOptionsSchema,
-  ratingFieldOptionsSchema,
-  userFieldOptionsSchema,
+  rollupFieldOptionsSchema.strict(),
+  formulaFieldOptionsSchema.strict(),
+  linkFieldOptionsSchema.strict(),
+  dateFieldOptionsSchema.strict(),
+  checkboxFieldOptionsSchema.strict(),
+  attachmentFieldOptionsSchema.strict(),
+  singlelineTextFieldOptionsSchema.strict(),
+  ratingFieldOptionsSchema.strict(),
+  userFieldOptionsSchema.strict(),
 ]);
 
 export const unionFieldOptionsVoSchema = z.union([
   unionFieldOptions,
-  linkFieldOptionsSchema,
-  selectFieldOptionsSchema,
-  numberFieldOptionsSchema,
-  autoNumberFieldOptionsSchema,
-  createdTimeFieldOptionsSchema,
-  lastModifiedTimeFieldOptionsSchema,
+  linkFieldOptionsSchema.strict(),
+  selectFieldOptionsSchema.strict(),
+  numberFieldOptionsSchema.strict(),
+  autoNumberFieldOptionsSchema.strict(),
+  createdTimeFieldOptionsSchema.strict(),
+  lastModifiedTimeFieldOptionsSchema.strict(),
 ]);
 
 export const unionFieldOptionsRoSchema = z.union([
   unionFieldOptions,
-  linkFieldOptionsRoSchema,
-  selectFieldOptionsRoSchema,
-  numberFieldOptionsRoSchema,
-  autoNumberFieldOptionsRoSchema,
-  createdTimeFieldOptionsRoSchema,
-  lastModifiedTimeFieldOptionsRoSchema,
+  linkFieldOptionsRoSchema.strict(),
+  selectFieldOptionsRoSchema.strict(),
+  numberFieldOptionsRoSchema.strict(),
+  autoNumberFieldOptionsRoSchema.strict(),
+  createdTimeFieldOptionsRoSchema.strict(),
+  lastModifiedTimeFieldOptionsRoSchema.strict(),
 ]);
 
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
@@ -209,7 +209,7 @@ export const FIELD_VO_PROPERTIES = [
 
 /**
  * make sure FIELD_VO_PROPERTIES is exactly equals IFieldVo
- * if here throw error, you should update FIELD_VO_PROPERTIES
+ * if here shows lint error, you should update FIELD_VO_PROPERTIES
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _validator2: IEnsureKeysMatchInterface<
@@ -235,34 +235,28 @@ export const getOptionsSchema = (type: FieldType) => {
       return selectFieldOptionsRoSchema;
     case FieldType.Date:
       return dateFieldOptionsSchema;
-      return false;
     case FieldType.Number:
       return numberFieldOptionsRoSchema;
-      return false;
-    case FieldType.Duration:
-      return false;
     case FieldType.Rating:
       return ratingFieldOptionsSchema;
     case FieldType.Formula:
       return formulaFieldOptionsSchema;
     case FieldType.Rollup:
       return rollupFieldOptionsSchema;
-    case FieldType.Count:
-      return false;
     case FieldType.Link:
       return linkFieldOptionsRoSchema;
     case FieldType.CreatedTime:
       return createdTimeFieldOptionsRoSchema;
     case FieldType.LastModifiedTime:
       return lastModifiedTimeFieldOptionsRoSchema;
-    case FieldType.CreatedBy:
-      return false;
-    case FieldType.LastModifiedBy:
-      return false;
     case FieldType.AutoNumber:
       return autoNumberFieldOptionsRoSchema;
+    case FieldType.Duration:
+    case FieldType.Count:
+    case FieldType.CreatedBy:
+    case FieldType.LastModifiedBy:
     case FieldType.Button:
-      return false;
+      throw new Error('no implementation');
     default:
       assertNever(type);
   }
@@ -300,8 +294,9 @@ const refineOptions = (
 
   if (result && !result.success) {
     ctx.addIssue({
+      path: ['options'],
       code: z.ZodIssueCode.custom,
-      message: result.error.message,
+      message: `RefineOptionsError: ${result.error.message}`,
     });
   }
 };

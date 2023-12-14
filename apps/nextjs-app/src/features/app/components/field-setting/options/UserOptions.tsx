@@ -1,13 +1,10 @@
-import type { CellValueType, ILookupOptionsRo, IUserFieldOptions } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { CellValueType, IUserFieldOptions } from '@teable-group/core';
 import { Label, Switch } from '@teable-group/ui-lib';
 
 export const UserOptions = (props: {
   options: Partial<IUserFieldOptions> | undefined;
   isLookup?: boolean;
   cellValueType?: CellValueType;
-  lookupField?: IFieldInstance;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IUserFieldOptions>) => void;
 }) => {
   const { options = {}, isLookup, onChange } = props;

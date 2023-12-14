@@ -23,13 +23,11 @@ export const ROLLUP_FUNCTIONS = [
   'concatenate({values})',
 ] as const;
 
-export const rollupFieldOptionsSchema = z
-  .object({
-    expression: z.enum(ROLLUP_FUNCTIONS),
-    formatting: unionFormattingSchema.optional(),
-    showAs: unionShowAsSchema.optional(),
-  })
-  .strict();
+export const rollupFieldOptionsSchema = z.object({
+  expression: z.enum(ROLLUP_FUNCTIONS),
+  formatting: unionFormattingSchema.optional(),
+  showAs: unionShowAsSchema.optional(),
+});
 
 export type IRollupFieldOptions = z.infer<typeof rollupFieldOptionsSchema>;
 
@@ -47,14 +45,15 @@ export class RollupFieldCore extends FormulaAbstractCore {
 
   static getParsedValueType(
     expression: string,
-    dependentField: FieldCore,
+    cellValueType: CellValueType,
     isMultipleCellValue: boolean
   ) {
     const tree = this.parse(expression);
     // nly need to perform shallow copy to generate virtual field to evaluate the expression
-    const clonedInstance = { ...dependentField };
+    const clonedInstance = new RollupFieldCore();
     clonedInstance.id = 'values';
     clonedInstance.name = 'values';
+    clonedInstance.cellValueType = cellValueType;
     clonedInstance.isMultipleCellValue = isMultipleCellValue;
     // field type is not important here
     const visitor = new EvalVisitor({

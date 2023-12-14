@@ -4,46 +4,42 @@ import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';
 
-export const linkFieldOptionsSchema = z
-  .object({
-    relationship: z.nativeEnum(Relationship).openapi({
-      description: 'describe the relationship from this table to the foreign table',
-    }),
-    foreignTableId: z.string().openapi({
-      description: 'the table this field is linked to',
-    }),
-    lookupFieldId: z.string().openapi({
-      description: 'the field in the foreign table that will be displayed as the current field',
-    }),
-    isOneWay: z.boolean().optional().openapi({
-      description:
-        'whether the field is a one-way link, when true, it will not generate a symmetric field, it is generally has better performance',
-    }),
-    fkHostTableName: z.string().openapi({
-      description:
-        'the table name for storing keys, in many-to-many relationships, keys are stored in a separate intermediate table; in other relationships, keys are stored on one side as needed',
-    }),
-    selfKeyName: z.string().openapi({
-      description: 'the name of the field that stores the current table primary key',
-    }),
-    foreignKeyName: z.string().openapi({
-      description: 'The name of the field that stores the foreign table primary key',
-    }),
-    symmetricFieldId: z.string().optional().openapi({
-      description: 'the symmetric field in the foreign table, empty if the field is a one-way link',
-    }),
-  })
-  .strict();
+export const linkFieldOptionsSchema = z.object({
+  relationship: z.nativeEnum(Relationship).openapi({
+    description: 'describe the relationship from this table to the foreign table',
+  }),
+  foreignTableId: z.string().openapi({
+    description: 'the table this field is linked to',
+  }),
+  lookupFieldId: z.string().openapi({
+    description: 'the field in the foreign table that will be displayed as the current field',
+  }),
+  isOneWay: z.boolean().optional().openapi({
+    description:
+      'whether the field is a one-way link, when true, it will not generate a symmetric field, it is generally has better performance',
+  }),
+  fkHostTableName: z.string().openapi({
+    description:
+      'the table name for storing keys, in many-to-many relationships, keys are stored in a separate intermediate table; in other relationships, keys are stored on one side as needed',
+  }),
+  selfKeyName: z.string().openapi({
+    description: 'the name of the field that stores the current table primary key',
+  }),
+  foreignKeyName: z.string().openapi({
+    description: 'The name of the field that stores the foreign table primary key',
+  }),
+  symmetricFieldId: z.string().optional().openapi({
+    description: 'the symmetric field in the foreign table, empty if the field is a one-way link',
+  }),
+});
 
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
-export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
-  .pick({
-    relationship: true,
-    foreignTableId: true,
-    isOneWay: true,
-  })
-  .strict();
+export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
+  relationship: true,
+  foreignTableId: true,
+  isOneWay: true,
+});
 
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;
 

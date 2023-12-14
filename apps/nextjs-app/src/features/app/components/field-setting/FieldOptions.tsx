@@ -1,12 +1,11 @@
 import type {
+  IFieldVo,
   IDateFieldOptions,
   IFormulaFieldOptions,
   ILinkFieldOptionsRo,
   INumberFieldOptions,
   ISelectFieldOptions,
-  CellValueType,
   IRollupFieldOptions,
-  ILookupOptionsRo,
   IRatingFieldOptions,
   ISingleLineTextFieldOptions,
   ICreatedTimeFieldOptions,
@@ -14,7 +13,6 @@ import type {
   IUserFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
@@ -25,31 +23,20 @@ import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
 import { UserOptions } from './options/UserOptions';
+import type { IFieldEditorRo } from './type';
 
 export interface IFieldOptionsProps {
-  options: IFieldInstance['options'];
-  type: FieldType;
-  isLookup: boolean | undefined;
-  lookupField?: IFieldInstance;
-  lookupOptions: ILookupOptionsRo | undefined;
-  cellValueType?: CellValueType;
-  updateFieldOptions: (options: Partial<IFieldInstance['options']>) => void;
+  field: IFieldEditorRo;
+  updateFieldOptions: (options: Partial<IFieldVo['options']>) => void;
 }
 
-export const FieldOptions: React.FC<IFieldOptionsProps> = ({
-  options,
-  type,
-  isLookup,
-  lookupField,
-  lookupOptions,
-  updateFieldOptions,
-}) => {
+export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldOptions }) => {
+  const { type, isLookup, cellValueType, isMultipleCellValue, options } = field;
   switch (type) {
     case FieldType.SingleLineText:
       return (
         <SingleLineTextOptions
           options={options as ISingleLineTextFieldOptions}
-          isLookup={isLookup}
           onChange={updateFieldOptions}
         />
       );
@@ -67,8 +54,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <NumberOptions
           options={options as INumberFieldOptions}
           isLookup={isLookup}
-          lookupField={lookupField}
-          lookupOptions={lookupOptions}
+          isMultipleCellValue={isMultipleCellValue}
           onChange={updateFieldOptions}
         />
       );
@@ -85,8 +71,8 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <FormulaOptions
           options={options as IFormulaFieldOptions}
           isLookup={isLookup}
-          lookupField={lookupField}
-          lookupOptions={lookupOptions}
+          cellValueType={cellValueType}
+          isMultipleCellValue={isMultipleCellValue}
           onChange={updateFieldOptions}
         />
       );
@@ -133,8 +119,8 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
         <RollupOptions
           options={options as IRollupFieldOptions}
           isLookup={isLookup}
-          lookupField={lookupField}
-          lookupOptions={lookupOptions}
+          cellValueType={cellValueType}
+          isMultipleCellValue={isMultipleCellValue}
           onChange={updateFieldOptions}
         />
       );

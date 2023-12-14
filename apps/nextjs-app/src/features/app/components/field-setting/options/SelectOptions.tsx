@@ -10,13 +10,15 @@ import { useRef, useState } from 'react';
 
 const ChoiceInput: React.FC<{
   reRef: React.Ref<HTMLInputElement>;
+  readOnly?: boolean;
   name: string;
   onChange: (name: string) => void;
-}> = ({ name, onChange, reRef }) => {
+}> = ({ readOnly, name, onChange, reRef }) => {
   const [value, setValue] = useState<string>(name);
   return (
     <Input
       ref={reRef}
+      readOnly={readOnly}
       className="h-7"
       type="text"
       value={value}
@@ -68,17 +70,13 @@ export const SelectOptions = (props: {
     });
   };
 
-  if (isLookup) {
-    return <></>;
-  }
-
   return (
     <ul className="space-y-2">
       {choices.map(({ color, name }, i) => {
         return (
           <li key={`${name}-${i}`} className="flex items-center">
             <Popover>
-              <PopoverTrigger>
+              <PopoverTrigger disabled={isLookup}>
                 <div
                   style={{
                     backgroundColor: ColorUtils.getHexForColor(color),
@@ -96,31 +94,37 @@ export const SelectOptions = (props: {
             <div className="flex-1 px-2">
               <ChoiceInput
                 reRef={(el) => (inputRefs.current[i] = el)}
+                readOnly={isLookup}
                 name={name}
                 onChange={(value) => updateOptionChange(i, 'name', value)}
               />
             </div>
-            <Button
-              variant={'ghost'}
-              className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-              onClick={() => deleteChoice(i)}
-            >
-              <CloseIcon />
-            </Button>
+            {!isLookup && (
+              <Button
+                variant={'ghost'}
+                disabled={isLookup}
+                className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                onClick={() => deleteChoice(i)}
+              >
+                <CloseIcon />
+              </Button>
+            )}
           </li>
         );
       })}
-      <li className="mt-1">
-        <Button
-          className="w-full gap-2 font-normal"
-          size={'xs'}
-          variant={'ghost'}
-          onClick={addOption}
-        >
-          <PlusCircle className="h-4 w-4" />
-          Add option
-        </Button>
-      </li>
+      {!isLookup && (
+        <li className="mt-1">
+          <Button
+            className="w-full gap-2 font-normal"
+            size={'xs'}
+            variant={'ghost'}
+            onClick={addOption}
+          >
+            <PlusCircle className="h-4 w-4" />
+            Add option
+          </Button>
+        </li>
+      )}
     </ul>
   );
 };

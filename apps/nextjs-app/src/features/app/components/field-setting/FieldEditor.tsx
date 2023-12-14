@@ -1,4 +1,4 @@
-import type { IFieldOptionsRo, IFieldRo, ILookupOptionsRo } from '@teable-group/core';
+import type { IFieldOptionsRo, IFieldVo, ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk';
 import { useFieldStaticGetter } from '@teable-group/sdk';
@@ -7,21 +7,20 @@ import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
-import { LookupOptions } from './options/LookupOptions';
+import { LookupOptions } from './lookup-options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
+import type { IFieldEditorRo } from './type';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
-  field: IFieldRo;
-  fieldInstance?: IFieldInstance; // if fieldInstance is provided, it means this field is a been editing
-  onChange?: (field: IFieldRo) => void;
+  field: Partial<IFieldEditorRo>;
+  onChange?: (field: IFieldEditorRo) => void;
 }) => {
-  const { field, fieldInstance, onChange } = props;
-  const [lookupField, setLookupField] = useState<IFieldInstance | undefined>();
+  const { field, onChange } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
-    (field: IFieldRo) => {
+    (field: IFieldEditorRo) => {
       onChange?.(field);
     },
     [onChange]
@@ -53,7 +52,6 @@ export const FieldEditor = (props: {
       });
     }
 
-    setLookupField(undefined);
     setFieldFn({
       ...field,
       type,
@@ -77,17 +75,26 @@ export const FieldEditor = (props: {
   );
 
   const updateLookupOptions = useCallback(
-    (options: Partial<ILookupOptionsRo> & { lookupField?: IFieldInstance }) => {
-      const { lookupField, ...lookupOptions } = options;
-      lookupField && setLookupField(lookupField);
-      setFieldFn({
-        ...field,
-        type: lookupField?.type ?? field.type,
-        lookupOptions: {
-          ...field.lookupOptions,
-          ...(lookupOptions || {}),
-        } as ILookupOptionsRo,
-      });
+    (lookupOptions: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => {
+      const newLookupOptions = {
+        ...field.lookupOptions,
+        ...(lookupOptions || {}),
+      } as ILookupOptionsRo;
+
+      const newField: IFieldEditorRo = lookupField
+        ? {
+            ...field,
+            lookupOptions: newLookupOptions,
+            type: field.isLookup ? lookupField.type : field.type,
+            cellValueType: lookupField.cellValueType,
+            isMultipleCellValue: lookupField.isMultipleCellValue,
+          }
+        : {
+            ...field,
+            lookupOptions: newLookupOptions,
+          };
+
+      setFieldFn(newField);
     },
     [field, setFieldFn]
   );
@@ -97,14 +104,7 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
-          <FieldOptions
-            options={field.options as IFieldOptionsProps['options']}
-            type={field.type}
-            isLookup={field.isLookup}
-            lookupField={lookupField}
-            lookupOptions={field.lookupOptions}
-            updateFieldOptions={updateFieldOptions}
-          />
+          <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />
         </>
       );
     }
@@ -112,38 +112,15 @@ export const FieldEditor = (props: {
     if (field.type === FieldType.Rollup) {
       return (
         <>
-          <LookupOptions
-            options={field.lookupOptions}
-            onChange={(options) => {
-              // ignore type in rollup lookup options
-              const { lookupField, ...lookupOptions } = options;
-              updateLookupOptions(lookupOptions);
-              setLookupField(lookupField);
-            }}
-          />
+          <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
           {field.lookupOptions && (
-            <FieldOptions
-              options={field.options as IFieldOptionsProps['options']}
-              type={field.type}
-              isLookup={field.isLookup}
-              lookupField={lookupField}
-              lookupOptions={field.lookupOptions}
-              updateFieldOptions={updateFieldOptions}
-            />
+            <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />
           )}
         </>
       );
     }
 
-    return (
-      <FieldOptions
-        options={field.options as IFieldOptionsProps['options']}
-        type={field.type}
-        isLookup={field.isLookup}
-        lookupOptions={field.lookupOptions}
-        updateFieldOptions={updateFieldOptions}
-      />
-    );
+    return <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />;
   };
 
   return (
@@ -161,7 +138,7 @@ export const FieldEditor = (props: {
             onChange={updateFieldName}
           />
           {/* should place after the name input to make sure tab index correct */}
-          <SystemInfo fieldInstance={fieldInstance} />
+          <SystemInfo field={field as IFieldVo} />
           {!showDescription && (
             <p className="text-left text-xs font-medium text-slate-500">
               <span
@@ -206,7 +183,7 @@ export const FieldEditor = (props: {
           <p className="text-left text-xs font-medium text-slate-500">
             {field.isLookup
               ? 'See values from a field in a linked record.'
-              : getFieldSubtitle(field.type)}
+              : getFieldSubtitle(field.type as FieldType)}
           </p>
         </div>
         <hr className="border-slate-200" />

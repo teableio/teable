@@ -189,7 +189,7 @@ export class FieldConvertingService {
     const lookupField = fieldMap[lookupFieldId];
     const { cellValueType, isMultipleCellValue } = RollupFieldDto.getParsedValueType(
       field.options.expression,
-      lookupField,
+      lookupField.cellValueType,
       lookupField.isMultipleCellValue || isMultiValueLink(relationship)
     );
 

@@ -1,5 +1,4 @@
-import type { IFieldRo } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { CellValueType, IFieldRo, IFieldVo } from '@teable-group/core';
 
 export enum FieldOperator {
   Add,
@@ -10,8 +9,13 @@ export enum FieldOperator {
 export interface IFieldSetting {
   visible?: boolean;
   order?: number;
-  field?: IFieldInstance;
+  field?: IFieldVo;
   operator: FieldOperator;
   onConfirm?: (field: IFieldRo) => void;
   onCancel?: () => void;
 }
+
+export type IFieldEditorRo = Partial<IFieldRo> & {
+  cellValueType?: CellValueType;
+  isMultipleCellValue?: boolean;
+};

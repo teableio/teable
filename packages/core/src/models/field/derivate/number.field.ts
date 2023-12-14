@@ -9,12 +9,10 @@ import {
 } from '../formatting';
 import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 
-export const numberFieldOptionsSchema = z
-  .object({
-    formatting: numberFormattingSchema,
-    showAs: numberShowAsSchema.optional(),
-  })
-  .strict();
+export const numberFieldOptionsSchema = z.object({
+  formatting: numberFormattingSchema,
+  showAs: numberShowAsSchema.optional(),
+});
 
 export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({
   formatting: true,
