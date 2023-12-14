@@ -82,7 +82,7 @@ export const ResizablePane: React.FC<{
         defaultSizes={size}
       >
         {!isMobile ? (
-          <Allotment.Pane snap minSize={minSize} preferredSize={300} visible={leftVisible}>
+          <Allotment.Pane snap minSize={240} preferredSize={300} visible={leftVisible}>
             {left}
           </Allotment.Pane>
         ) : null}

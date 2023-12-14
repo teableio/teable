@@ -26,7 +26,7 @@ export const SheetWraper = (props: SheetWraperProps) => {
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="left" className="px-0">
+      <SheetContent side="left" className="p-0" closeable={false}>
         {children}
       </SheetContent>
     </Sheet>
