@@ -7,6 +7,7 @@ import type {
   ICellItem,
   ICell,
   IInnerCell,
+  Record,
 } from '@teable-group/sdk';
 import {
   Grid,
@@ -92,6 +93,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const isLoading = !view;
   const permission = useTablePermission();
   const { toast } = useToast();
+  const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } =
     useGridAsyncRecords(ssrRecords);
@@ -118,7 +120,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
       );
 
-      recordIndex > 0 &&
+      recordIndex >= 0 &&
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [
             [0, recordIndex],
@@ -174,6 +176,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   );
 
   const onContextMenu = useCallback(
+    // eslint-disable-next-line sonarjs/cognitive-complexity
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
@@ -194,8 +197,16 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         const selectColumns = extract(colStart, colEnd, columns);
         const indexedColumns = keyBy(selectColumns, 'id');
         const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        openRecordMenu({ position, records, fields: selectFields });
+        const neighborRecords: Array<Record | null> = [];
+
+        if (records.length === 1) {
+          neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
+          neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
+        }
+
+        openRecordMenu({ position, records, fields: selectFields, neighborRecords });
       }
+
       if (isColumnSelection) {
         const [start, end] = ranges[0];
         const selectColumns = extract(start, end, columns);
@@ -204,7 +215,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         openHeaderMenu({ position, fields: selectFields });
       }
     },
-    [columns, recordMap, fields, openRecordMenu, openHeaderMenu]
+    [columns, recordMap, fields, realRowCount, openRecordMenu, openHeaderMenu]
   );
 
   const onColumnHeaderMenuClick = useCallback(
@@ -295,11 +306,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const onCopy = async (selection: CombinedSelection) => {
     copy(selection);
   };
-  const onPaste = (selection: CombinedSelection) => {
+  const onPaste = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
       toast({ title: 'Unable to paste' });
     }
-    paste(selection);
+    paste(selection, e, recordMap);
   };
 
   const onSelectionChanged = useCallback(
@@ -365,12 +376,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       });
     }
 
-    if (type === RegionType.Cell && collaborators.length) {
+    if ([RegionType.Cell, RegionType.ActiveCell].includes(type) && collaborators.length) {
       const { x, y, width, height } = bounds;
       const [rowIndex, columnIndex] = cellItem;
       const groupedCollaborators = groupBy(collaborators, 'activeCell');
-      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`];
+      const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`]?.sort(
+        (a, b) => a.timeStamp - b.timeStamp
+      );
       const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');
+
       const hoverHeight = 24;
 
       collaboratorText &&
@@ -383,7 +397,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             width: width,
             height: height,
           },
-          contentClassName: 'items-center py-0 px-2 absolute truncate',
+          contentClassName: 'items-center py-0 px-2 absolute truncate whitespace-nowrap',
           contentStyle: {
             right: `-${width / 2}px`,
             top: `-${hoverHeight}px`,
@@ -391,7 +405,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             height: `${hoverHeight}px`,
             direction: 'rtl',
             lineHeight: `${hoverHeight}px`,
-            backgroundColor: hexToRGBA(hoverCollaborators?.[0].borderColor, 0.5),
+            // multiple collaborators only display the latest one
+            backgroundColor: hexToRGBA(hoverCollaborators.slice(-1)[0].borderColor),
           },
         });
     }
@@ -425,7 +440,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           theme={theme}
           draggable={draggable}
           isTouchDevice={isTouchDevice}
-          rowCount={rowCount ?? ssrRecords?.length ?? 0}
+          rowCount={realRowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
           columnStatistics={columnStatistics}
           freezeColumnCount={isTouchDevice ? 0 : 1}

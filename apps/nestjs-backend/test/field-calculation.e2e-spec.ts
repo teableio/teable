@@ -39,7 +39,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
   ): Promise<IRecord> {
     return (
       await request
-        .put(`/api/table/${tableId}/record/${recordId}`)
+        .patch(`/api/table/${tableId}/record/${recordId}`)
         .send({
           fieldKeyType: FieldKeyType.Id,
           record: {

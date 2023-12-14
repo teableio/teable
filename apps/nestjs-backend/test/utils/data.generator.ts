@@ -27,8 +27,8 @@ describe('Performance test data generator', () => {
     console.log('createTable', result.body);
   });
 
-  afterAll(() => {
-    app.close();
+  afterAll(async () => {
+    await app.close();
   });
 
   function addRecords(count: number) {

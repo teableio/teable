@@ -8,11 +8,13 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
+  View,
+  useView,
   useFieldStaticGetter,
   useFields,
   useIsHydrated,
-  useViewId,
   useGridColumnOrder,
+  useTableId,
 } from '@teable-group/sdk';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
@@ -33,8 +35,10 @@ const dropAnimation: DropAnimation = {
 };
 
 export const FormEditor = () => {
+  const view = useView();
+  const tableId = useTableId();
+  const activeViewId = view?.id;
   const isHydrated = useIsHydrated();
-  const activeViewId = useViewId();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
   const { onColumnOrdered } = useGridColumnOrder();
@@ -107,17 +111,32 @@ export const FormEditor = () => {
 
     if (activeSidebarField && (targetIndex != null || isContainer)) {
       const sourceDragId = activeSidebarField.id;
-      if (activeViewId) {
+      if (activeViewId && tableId) {
         const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
         const draggingField = allFields[sourceIndex];
-        await draggingField.updateColumnHidden(activeViewId, false);
+        await View.setViewColumnMeta(tableId, activeViewId, [
+          {
+            fieldId: draggingField.id,
+            columnMeta: {
+              hidden: false,
+            },
+          },
+        ]);
 
         const finalIndex = targetIndex ?? 0;
         if (sourceIndex === finalIndex) return;
         const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
-          return visibleFields[index].columnMeta[activeViewId].order;
+          const fieldId = visibleFields[index].id;
+          return view?.columnMeta[fieldId].order;
         });
-        draggingField.updateColumnOrder(activeViewId, newOrders[0]);
+        await View.setViewColumnMeta(tableId, activeViewId, [
+          {
+            fieldId: draggingField.id,
+            columnMeta: {
+              order: newOrders[0],
+            },
+          },
+        ]);
       }
     }
 

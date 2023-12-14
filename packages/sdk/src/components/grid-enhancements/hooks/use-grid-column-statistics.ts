@@ -61,7 +61,6 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
 
   useEffect(() => {
     if (remoteStatistics == null || viewId == null) return;
-
     const isDiffViewId = previousViewId.current !== viewId;
     const partialColumnStatistics = getColumnStatistics(remoteStatistics);
 

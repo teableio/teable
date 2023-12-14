@@ -39,6 +39,9 @@ const darkTheme = {
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
+
+  // ScrollBar
+  scrollBarBg: colors.gray[600],
 };
 
 export function useGridTheme() {

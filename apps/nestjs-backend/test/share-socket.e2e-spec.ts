@@ -6,7 +6,7 @@ import { map } from 'lodash';
 import { logger, type Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
 import { ShareDbService } from '../src/share-db/share-db.service';
-import { initApp, updateField } from './utils/init-app';
+import { initApp, updateViewColumnMeta } from './utils/init-app';
 
 describe('Share (socket-e2e) (e2e)', () => {
   let app: INestApplication;
@@ -48,10 +48,9 @@ describe('Share (socket-e2e) (e2e)', () => {
     fieldIds = map(table.fields, 'id');
     // hidden last one field
     const field = table.fields[fieldIds.length - 1];
-    await updateField(request, tableId, field.id, {
-      columnMeta: { [viewId]: { ...field.columnMeta[viewId], hidden: true } },
-      type: field.type,
-    });
+    await updateViewColumnMeta(tableId, viewId, [
+      { fieldId: field.id, columnMeta: { hidden: true } },
+    ]);
     shareId = shareResult.body.shareId;
   });
 

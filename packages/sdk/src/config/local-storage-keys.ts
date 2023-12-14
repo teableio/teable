@@ -5,4 +5,5 @@ export enum LocalStorageKeys {
   ShowActivity = 'ls_show_activity',
   ExpandRecordPanelSize = 'ls_expand_record_panel_size',
   ViewFromData = 'ls_view_form_data',
+  DashboardKey = 'ls_dashboard_key',
 }

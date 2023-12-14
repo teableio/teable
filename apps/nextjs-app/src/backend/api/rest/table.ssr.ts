@@ -36,9 +36,9 @@ export class SsrApi {
     return this.axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
   }
 
-  async getDefaultViewId(tableId: string) {
+  async getDefaultViewId(baseId: string, tableId: string) {
     return this.axios
-      .get<{ id: string }>(`/table/${tableId}/defaultViewId`)
+      .get<{ id: string }>(`/base/${baseId}/table/${tableId}/defaultViewId`)
       .then(({ data }) => data);
   }
 

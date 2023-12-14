@@ -1,11 +1,12 @@
 import { inRange } from '../../utils';
 import { drawCheckbox } from '../base-renderer';
-import { CellType } from './interface';
+import { CellRegionType, CellType } from './interface';
 import type {
   IInternalCellRenderer,
   ICellRenderProps,
   IBooleanCell,
   ICellClickProps,
+  ICellClickCallback,
 } from './interface';
 
 export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
@@ -49,22 +50,28 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
       });
     }
   },
-  checkWithinBound: (cell: IBooleanCell, props: ICellClickProps) => {
-    const { readonly } = cell;
-    if (readonly) return false;
+  checkRegion: (cell: IBooleanCell, props: ICellClickProps, _shouldCalculate?: boolean) => {
+    const { data, readonly } = cell;
+    if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, width, height, theme } = props;
     const [x, y] = hoverCellPosition;
     const { iconSizeSM } = theme;
     const halfIconSize = iconSizeSM / 2;
 
-    return Boolean(
+    if (
       inRange(x, width / 2 - halfIconSize, width / 2 + halfIconSize) &&
-        inRange(y, height / 2 - halfIconSize, height / 2 + halfIconSize)
-    );
+      inRange(y, height / 2 - halfIconSize, height / 2 + halfIconSize)
+    ) {
+      return {
+        type: CellRegionType.Update,
+        data: !data || null,
+      };
+    }
+    return { type: CellRegionType.Blank };
   },
-  onClick: (cell: IBooleanCell, props: ICellClickProps) => {
-    const { data, readonly } = cell;
-    if (readonly) return;
-    return booleanCellRenderer.checkWithinBound?.(cell, props) ? !data : undefined;
+  onClick: (cell: IBooleanCell, props: ICellClickProps, callback: ICellClickCallback) => {
+    const cellRegion = booleanCellRenderer.checkRegion?.(cell, props, true);
+    if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
+    callback(cellRegion);
   },
 };

@@ -192,7 +192,11 @@ export class RecordCalculateService {
 
   async createRecords(
     tableId: string,
-    recordsRo: { id?: string; fields: Record<string, unknown> }[],
+    recordsRo: {
+      id?: string;
+      fields: Record<string, unknown>;
+      recordOrder?: Record<string, number>;
+    }[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) {
@@ -201,7 +205,11 @@ export class RecordCalculateService {
 
     const emptyRecords = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
-      return RecordOpBuilder.creator.build({ id: recordId, fields: {}, recordOrder: {} });
+      return RecordOpBuilder.creator.build({
+        id: recordId,
+        fields: {},
+        recordOrder: record.recordOrder ?? {},
+      });
     });
 
     await this.recordService.batchCreateRecords(tableId, emptyRecords);

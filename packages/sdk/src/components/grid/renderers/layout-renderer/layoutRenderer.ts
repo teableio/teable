@@ -19,7 +19,7 @@ import {
   drawSingleLineText,
   drawAvatar,
 } from '../base-renderer';
-import { getCellRenderer } from '../cell-renderer';
+import { getCellRenderer, getCellScrollState } from '../cell-renderer';
 import type {
   ICacheDrawerProps,
   ICellDrawerProps,
@@ -46,6 +46,9 @@ const {
   columnHeadMenuSize,
   columnAppendBtnWidth,
   columnResizeHandlerWidth,
+  cellScrollBarWidth,
+  cellScrollBarPaddingX,
+  cellScrollBarPaddingY,
 } = GRID_DEFAULT;
 
 export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps) => {
@@ -60,8 +63,8 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     hoverCellPosition,
     imageManager,
     spriteManager,
-    isActive,
     getCellContent,
+    isActive,
   } = props;
 
   const cell = getCellContent([columnIndex, rowIndex]);
@@ -180,7 +183,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       if (isFreezeRegion && freezeColumnCount === 0) continue;
 
       cellPropList.push({
-        x: isFirstColumn ? x : x + 0.5,
+        x: x + 0.5,
         y: y + 0.5,
         width: isFirstColumn ? columnWidth + 0.5 : columnWidth,
         height: rowHeight,
@@ -324,29 +327,28 @@ export const drawCells = (
 
 export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
   const {
-    activeCell,
     mouseState,
     scrollState,
     coordInstance,
+    activeCellBound,
     hoverCellPosition,
     getCellContent,
     imageManager,
     spriteManager,
     theme,
   } = props;
+
+  if (activeCellBound == null) return;
+
   const { scrollTop, scrollLeft } = scrollState;
+  const { width, height, columnIndex, rowIndex } = activeCellBound;
   const { rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex } = mouseState;
+  const { cellBg, cellLineColorActived, fontSizeSM, fontFamily, scrollBarBg } = theme;
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
-
-  if (activeCell == null) return;
-  const { cellBg, cellLineColorActived, fontSizeSM, fontFamily } = theme;
-  const [columnIndex, rowIndex] = activeCell;
   const isFreezeRegion = columnIndex < freezeColumnCount;
   const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
-  const width = coordInstance.getColumnWidth(columnIndex);
-  const height = coordInstance.getRowHeight(rowIndex);
 
   ctx.save();
   ctx.beginPath();
@@ -370,11 +372,39 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     radius: 2,
   });
 
+  if (activeCellBound) {
+    const cellScrollState = getCellScrollState(activeCellBound);
+    const { scrollBarHeight, scrollBarScrollTop, contentScrollTop } = cellScrollState;
+
+    ctx.save();
+    ctx.beginPath();
+
+    if (activeCellBound.scrollEnable) {
+      ctx.translate(0, scrollBarScrollTop);
+
+      drawRect(ctx, {
+        x: x + width - cellScrollBarWidth - cellScrollBarPaddingX,
+        y: y + cellScrollBarPaddingY,
+        width: cellScrollBarWidth,
+        height: scrollBarHeight,
+        fill: scrollBarBg,
+        radius: cellScrollBarWidth / 2,
+      });
+
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y + 1, width, height - 1);
+      ctx.clip();
+      ctx.translate(0, -contentScrollTop);
+    }
+  }
+
   drawCellContent(ctx, {
     x: x + 0.5,
     y: y + 0.5,
-    width: width,
-    height: height,
+    width,
+    height,
     rowIndex,
     columnIndex,
     hoverCellPosition:
@@ -386,6 +416,10 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     theme,
   });
 
+  if (activeCellBound) {
+    ctx.restore();
+  }
+
   ctx.restore();
 };
 
@@ -396,7 +430,12 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
   const avatarOffset = 4;
   const cellOffset = 1;
 
+  const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
+    coordInstance;
+
   if (!collaborators?.length) return;
+
+  ctx.save();
 
   const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
 
@@ -412,6 +451,17 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
 
     ctx.save();
     ctx.beginPath();
+
+    const isFreezeRegion = columnIndex < freezeColumnCount;
+
+    // clip otherwise collaborator will be rendered outside the cell
+    ctx.rect(
+      isFreezeRegion ? 0 : freezeRegionWidth,
+      rowInitSize,
+      isFreezeRegion ? freezeRegionWidth + 1 : containerWidth - freezeRegionWidth,
+      containerHeight - rowInitSize
+    );
+    ctx.clip();
 
     drawRect(ctx, {
       x: x + cellOffset,
@@ -433,9 +483,9 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
       fontFamily,
       user,
     });
-
     ctx.restore();
   }
+  ctx.restore();
 };
 
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {

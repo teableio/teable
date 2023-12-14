@@ -24,7 +24,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   }
 
   return (
-    <div>
+    <div className="overflow-y-auto">
       <div className="pb-2 text-sm text-muted-foreground">
         This space has <b>{collaborators.length} collaborators</b>. Adding a space collaborator will
         give them access to all bases within this space.

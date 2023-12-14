@@ -3,6 +3,7 @@ import type { IFilter } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { SchemaType } from '../features/field/util';
 import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
 import { AggregationFunctionSqlite } from './aggregation/aggregation-function.sqlite';
 import type { IDbProvider } from './db.provider.interface';
@@ -22,6 +23,35 @@ export class SqliteProvider implements IDbProvider {
 
   generateDbTableName(baseId: string, name: string) {
     return `${baseId}_${name}`;
+  }
+
+  renameTableName(oldTableName: string, newTableName: string) {
+    return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
+  }
+
+  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+    return [
+      this.knex
+        .raw('ALTER TABLE ?? RENAME COLUMN ?? TO ??', [tableName, oldName, newName])
+        .toQuery(),
+    ];
+  }
+
+  modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
+    return [
+      this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery(),
+      this.knex
+        .raw(`ALTER TABLE ?? ADD COLUMN ?? ??`, [tableName, columnName, schemaType])
+        .toQuery(),
+    ];
+  }
+
+  dropColumn(tableName: string, columnName: string): string[] {
+    return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
+  }
+
+  columnInfo(tableName: string, _columnName: string): string {
+    return this.knex.raw(`PRAGMA table_info(??)`, [tableName]).toQuery();
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

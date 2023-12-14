@@ -11,7 +11,7 @@ import {
 import type { IGridProps } from './Grid';
 import { useSelection, useVisibleRegion } from './hooks';
 import { RegionType, SelectionRegionType } from './interface';
-import type { IMouseState, IRange, IRowControlItem, IScrollState } from './interface';
+import type { ICellItem, IMouseState, IRange, IRowControlItem, IScrollState } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { emptySelection } from './managers';
 import { RenderLayer } from './RenderLayer';
@@ -45,6 +45,7 @@ export interface ITouchLayerProps
   coordInstance: CoordinateManager;
   rowControls: IRowControlItem[];
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
+  setActiveCell: Dispatch<SetStateAction<ICellItem | null>>;
 }
 
 const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
@@ -58,12 +59,14 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     columnStatistics,
     coordInstance,
     scrollState,
+    collaborators,
     mouseState,
     rowControls,
     imageManager,
     spriteManager,
     forceRenderFlag,
     getCellContent,
+    setActiveCell,
     setMouseState,
     onRowAppend,
     onRowExpand,
@@ -80,8 +83,9 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
 
   const visibleRegion = useVisibleRegion(coordInstance, scrollState);
 
-  const { selection, setActiveCell, setSelection } = useSelection(
+  const { selection, setSelection } = useSelection(
     coordInstance,
+    setActiveCell,
     onSelectionChanged
   );
 
@@ -157,12 +161,14 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           height={height}
           columns={columns}
           columnStatistics={columnStatistics}
+          collaborators={collaborators}
           coordInstance={coordInstance}
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
           activeCell={null}
+          activeCellBound={null}
           mouseState={mouseState}
           scrollState={scrollState}
           dragState={DEFAULT_DRAG_STATE}

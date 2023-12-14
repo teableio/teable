@@ -64,7 +64,7 @@ function Condition(props: IConditionProps) {
   };
 
   return (
-    <div className="flex items-center px-1 my-1">
+    <div className="my-1 flex items-center px-1">
       <Conjunction
         index={index}
         value={conjunction}

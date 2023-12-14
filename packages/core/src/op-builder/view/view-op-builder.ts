@@ -1,5 +1,6 @@
 import type { IOtOperation } from '../../models/op';
 import { AddViewBuilder } from './add-view';
+import { SetViewColumnMetaBuilder } from './set-view-column-meta';
 import { SetViewDescriptionBuilder } from './set-view-description';
 import { SetViewEnableShareBuilder } from './set-view-enable-share';
 import { SetViewFilterBuilder } from './set-view-filter';
@@ -17,6 +18,7 @@ export class ViewOpBuilder {
     setViewFilter: new SetViewFilterBuilder(),
     setViewSort: new SetViewSortBuilder(),
     setViewOption: new SetViewOptionBuilder(),
+    setViewColumnMeta: new SetViewColumnMetaBuilder(),
     setViewEnableShare: new SetViewEnableShareBuilder(),
     setViewShareId: new SetViewShareIdBuilder(),
     setViewShareMeta: new SetViewShareMetaBuilder(),

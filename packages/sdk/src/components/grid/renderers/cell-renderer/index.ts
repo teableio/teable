@@ -11,6 +11,7 @@ import { textCellRenderer } from './textCellRenderer';
 import { userCellRenderer } from './userCellRenderer';
 
 export * from './interface';
+export * from './utils';
 
 export const getCellRenderer = (cellType: CellType) => {
   switch (cellType) {

@@ -10,7 +10,7 @@ const TextEditorBase: ForwardRefRenderFunction<
   IEditorRef<ITextCell | INumberCell>,
   IEditorProps<ITextCell | INumberCell | ILinkCell>
 > = (props, ref) => {
-  const { cell, onChange, style } = props;
+  const { cell, onChange, style, isEditing } = props;
   const { displayData, type } = cell;
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [value, setValueInner] = useState(displayData);
@@ -22,7 +22,7 @@ const TextEditorBase: ForwardRefRenderFunction<
   }));
 
   const saveValue = () => {
-    if (value === displayData) return;
+    if (value === displayData || !isEditing) return;
     onChange?.(type === CellType.Number ? Number(value) : value);
   };
 
@@ -65,9 +65,10 @@ const TextEditorBase: ForwardRefRenderFunction<
           value={value}
           width={'100%'}
           height={'100%'}
-          className="h-full w-full border-2 px-2 shadow-none focus-visible:ring-transparent"
+          className="h-full w-full cursor-text border-2 px-2 shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
           onBlur={saveValue}
+          onMouseDown={(e) => e.stopPropagation()}
         />
       )}
     </>

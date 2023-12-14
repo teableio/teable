@@ -10,6 +10,7 @@ export const recordSchema = z.object({
   id: z.string().startsWith(IdPrefix.Record).openapi({
     description: 'The record id.',
   }),
+  name: z.string().optional().openapi({ description: 'primary field value' }),
   fields: z.record(z.unknown()).openapi({
     description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
   }),
@@ -184,6 +185,7 @@ export const createRecordsRoSchema = z
     records: z
       .object({
         fields: recordSchema.shape.fields,
+        recordOrder: z.record(z.number()).optional(),
       })
       .array()
       .openapi({

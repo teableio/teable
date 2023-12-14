@@ -5,6 +5,7 @@ import type { FieldOperator } from '@/features/app/components/field-setting/type
 export interface ISetting {
   operator: FieldOperator;
   fieldId?: string;
+  order?: number;
 }
 
 export interface IHeaderMenu {
@@ -15,6 +16,7 @@ export interface IHeaderMenu {
 export interface IRecordMenu {
   fields: IFieldInstance[];
   records: Record[];
+  neighborRecords: (Record | null)[];
   position: IPosition;
 }
 

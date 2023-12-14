@@ -30,7 +30,7 @@ export interface ICollectionSnapshot {
 type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
-export class SqliteDbAdapter extends ShareDb.DB {
+export class ShareDbAdapter extends ShareDb.DB {
   closed: boolean;
 
   constructor(

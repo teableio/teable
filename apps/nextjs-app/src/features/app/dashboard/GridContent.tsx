@@ -52,14 +52,7 @@ export const GridContent: React.FC = () => {
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-8">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <BarChartCard />
-          </CardContent>
-        </Card>
+        <BarChartCard className="col-span-4" />
         <PieChartCard className="col-span-4" />
       </div>
       <div className="grid grid-cols-1">

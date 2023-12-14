@@ -1,4 +1,6 @@
 import { Pencil, Trash2 } from '@teable-group/icons';
+import type { IGetSpaceVo } from '@teable-group/openapi';
+import { ConfirmDialog } from '@teable-group/ui-lib/base';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +11,7 @@ import {
 import React from 'react';
 
 interface ISpaceActionTrigger {
+  space: IGetSpaceVo;
   showRename?: boolean;
   showDelete?: boolean;
   onRename?: () => void;
@@ -18,27 +21,40 @@ interface ISpaceActionTrigger {
 export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTrigger>> = (
   props
 ) => {
-  const { children, showDelete, showRename, onDelete, onRename } = props;
+  const { space, children, showDelete, showRename, onDelete, onRename } = props;
+  const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  if (!showDelete && !showRename) {
+    return null;
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {showRename && (
-          <DropdownMenuItem onClick={onRename}>
-            <Pencil className="mr-2" />
-            Rename
-          </DropdownMenuItem>
-        )}
-        {showDelete && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={onDelete}>
-              <Trash2 className="mr-2" />
-              Delete
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {showRename && (
+            <DropdownMenuItem onClick={onRename}>
+              <Pencil className="mr-2" />
+              Rename
             </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          )}
+          {showDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
+                <Trash2 className="mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={deleteConfirm}
+        onOpenChange={setDeleteConfirm}
+        title={`Are you sure you want to delete ${space.name}?`}
+        onCancel={() => setDeleteConfirm(false)}
+        onConfirm={onDelete}
+      />
+    </>
   );
 };

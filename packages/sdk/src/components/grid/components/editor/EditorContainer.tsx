@@ -6,7 +6,7 @@ import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
-import type { ICellItem, IScrollState } from '../../interface';
+import type { IActiveCellBound, ICellItem, IScrollState } from '../../interface';
 import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType, EditorPosition } from '../../renderers/cell-renderer/interface';
@@ -28,12 +28,12 @@ export interface IEditorContainerProps
     | 'onDelete'
     | 'onRowAppend'
     | 'onRowExpand'
-    | 'onCellActivated'
   > {
   isEditing?: boolean;
   scrollState: IScrollState;
   activeCell: ICellItem | null;
   selection: CombinedSelection;
+  activeCellBound: IActiveCellBound | null;
   setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
   setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
   setEditing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -83,6 +83,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     scrollState,
     activeCell,
     selection,
+    activeCellBound,
     scrollToItem,
     onCopy,
     onPaste,
@@ -93,7 +94,6 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setEditing,
     setActiveCell,
     setSelection,
-    onCellActivated,
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
@@ -110,8 +110,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   } = cellContent;
   const editingEnable = !readonly && isEditing && activeCell;
   const width = coordInstance.getColumnWidth(columnIndex) + 4;
-  const height = coordInstance.getRowHeight(rowIndex) + 4;
+  const height = (activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex)) + 4;
   const editorRef = useRef<IEditorRef | null>(null);
+  const defaultFocusRef = useRef<HTMLInputElement | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus?.(),
@@ -129,11 +130,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const wrapStyle = useMemo(() => {
     if (!editingEnable) return;
     const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
-    const rowHeight = coordInstance.getRowHeight(columnIndex);
     const verticalPositionMap = {
       [EditorPosition.Overlap]: -1.5,
-      [EditorPosition.Below]: rowHeight + 1.5,
-      [EditorPosition.Above]: -rowHeight - 1.5,
+      [EditorPosition.Below]: height - 2.5,
+      [EditorPosition.Above]: -height + 2.5,
     };
     const top = clamp(
       coordInstance.getRowOffset(rowIndex) - scrollTop + verticalPositionMap[editorPosition],
@@ -164,27 +164,24 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   useEffect(() => {
     if ((cellContent as ICell).type === CellType.Loading) return;
-    if (!activeCell || isEditing) return;
+    if (!activeCell) return;
     editorRef.current?.setValue?.(cellContent.data);
-    requestAnimationFrame(() => editorRef.current?.focus?.());
+    requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
   }, [cellContent, activeCell, isEditing]);
 
   useKeyboardSelection({
-    cell: cellContent,
     isEditing,
     activeCell,
     selection,
     coordInstance,
     scrollToItem,
     onCopy,
-    onPaste,
     onDelete,
     onRowAppend,
     onRowExpand,
     setEditing,
     setActiveCell,
     setSelection,
-    onCellActivated,
     editorRef,
   });
 
@@ -199,6 +196,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (!activeCell || isEditing) return;
     if (!isPrintableKey(event.nativeEvent)) return;
     if (NO_EDITING_CELL_TYPES.has(cellType)) return;
+    console.log('onKeyDown');
     setEditing(true);
     editorRef.current?.setValue?.(null);
   };
@@ -219,6 +217,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
               ...editorStyle,
               ...inputStyle,
             }}
+            isEditing={isEditing}
             onChange={onChangeInner}
           />
         );
@@ -234,6 +233,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
             cell={cellContent}
             style={editorStyle}
             isEditing={isEditing}
+            setEditing={setEditing}
             onChange={onChangeInner}
           />
         );
@@ -242,9 +242,14 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     }
   }
 
+  const onPasteInner = (e: React.ClipboardEvent) => {
+    if (!activeCell || isEditing) return;
+    onPaste?.(selection, e);
+  };
+
   return (
     <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
-      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown}>
+      <div className="absolute z-10" style={wrapStyle} onKeyDown={onKeyDown} onPaste={onPasteInner}>
         {!readonly && (
           <>
             {customEditor
@@ -267,6 +272,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
               : Editor()}
           </>
         )}
+        <input className="opacity-0" ref={defaultFocusRef} />
       </div>
     </div>
   );

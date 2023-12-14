@@ -573,7 +573,7 @@ export class RecordService implements IAdapterService {
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       queryResult.ids,
-      undefined,
+      query.projection,
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat
     );
@@ -802,28 +802,34 @@ export class RecordService implements IAdapterService {
     const shareId = this.cls.get('shareViewId');
     const projectionInner = projection || {};
     if (shareId) {
-      const view = await this.prismaService.txClient().view.findFirst({
+      const rawView = await this.prismaService.txClient().view.findFirst({
         where: { shareId: shareId, enableShare: true, deletedTime: null },
-        select: { id: true, shareMeta: true },
+        select: { id: true, shareMeta: true, columnMeta: true },
       });
+      const view = {
+        ...rawView,
+        columnMeta: rawView?.columnMeta ? JSON.parse(rawView.columnMeta) : {},
+      };
       if (!view) {
         throw new NotFoundException();
       }
       const fieldsPlain = await this.prismaService.txClient().field.findMany({
         where: { tableId, deletedTime: null },
-        select: { id: true, name: true, columnMeta: true },
+        select: {
+          id: true,
+          name: true,
+        },
       });
 
       const fields = fieldsPlain.map((field) => {
         return {
           ...field,
-          columnMeta: JSON.parse(field.columnMeta),
         };
       });
 
       if (!(view.shareMeta as IShareViewMeta)?.includeHiddenField) {
         fields
-          .filter((field) => !field.columnMeta[view.id].hidden)
+          .filter((field) => !view.columnMeta[field.id].hidden)
           .forEach((field) => (projectionInner[field[fieldKeyType]] = true));
       }
     }
@@ -870,6 +876,12 @@ export class RecordService implements IAdapterService {
       {} as { [recordId: string]: number }
     );
 
+    const primaryFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { tableId, isPrimary: true, deletedTime: null },
+    });
+
+    const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
+
     return result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
@@ -882,13 +894,18 @@ export class RecordService implements IAdapterService {
           },
           {}
         );
-
+        const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
+        const name = recordFields[primaryField[fieldKeyType]];
         return {
           id: record.__id,
           v: record.__version,
           type: 'json0',
           data: {
-            fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
+            fields: recordFields,
+            name:
+              cellFormat === CellFormat.Text
+                ? (name as string)
+                : primaryField.cellValue2String(name),
             id: record.__id,
             autoNumber: record.__auto_number,
             createdTime: record.__created_time?.toISOString(),

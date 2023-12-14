@@ -1,8 +1,8 @@
 import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
-import { parseDsn } from '@teable-group/core/src';
-import * as bcrypt from 'bcrypt';
-import * as dotenv from 'dotenv-flow';
+import { DriverClient, parseDsn } from '@teable-group/core';
+import bcrypt from 'bcrypt';
+import dotenv from 'dotenv-flow';
 
 interface ITestConfig {
   driver: string;
@@ -76,7 +76,7 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
       });
     }
     if (!existsBase) {
-      if (driver !== 'sqlite3') {
+      if (driver !== DriverClient.Sqlite) {
         await prisma.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
         await prisma.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
       }

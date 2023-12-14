@@ -43,6 +43,7 @@ export function createViewVoByRaw(viewRaw: View): IViewVo {
     lastModifiedBy: viewRaw.lastModifiedBy,
     createdTime: viewRaw.createdTime.toISOString(),
     lastModifiedTime: viewRaw.lastModifiedTime.toISOString(),
+    columnMeta: JSON.parse(viewRaw.columnMeta as string) || undefined,
   };
 }
 

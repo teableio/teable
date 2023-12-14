@@ -8,9 +8,12 @@ import { useGridViewStore } from '../store/gridView';
 export const FieldSetting = () => {
   const { setting, closeSetting } = useGridViewStore();
   const field = useField(setting?.fieldId);
+  const order = setting?.order;
+
   const onCancel = () => {
     closeSetting();
   };
+
   const onConfirm = () => {
     closeSetting();
   };
@@ -24,6 +27,7 @@ export const FieldSetting = () => {
     <FieldSettingInner
       visible={visible}
       field={field}
+      order={order}
       operator={setting?.operator || FieldOperator.Add}
       onCancel={onCancel}
       onConfirm={onConfirm}

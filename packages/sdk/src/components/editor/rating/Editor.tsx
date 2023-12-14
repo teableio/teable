@@ -22,14 +22,19 @@ export const RATING_ICON_MAP = {
 };
 
 export const RatingEditor: FC<IRatingEditor> = (props) => {
-  const { value, options, disabled, className, iconClassName, onChange } = props;
+  const { value, options, readonly, className, iconClassName, onChange } = props;
   const { icon, color: colorKey, max } = options;
   const [hoverIndex, setHoverIndex] = useState(-1);
 
   const onChangeInner = (index: number) => {
-    if (disabled) return;
+    if (readonly) return;
     const finalValue = index + 1 === value ? undefined : index + 1;
     onChange?.(finalValue);
+  };
+
+  const onHoverIndexChange = (index: number) => {
+    if (readonly) return;
+    setHoverIndex(index);
   };
 
   const Icon = RATING_ICON_MAP[icon];
@@ -54,8 +59,8 @@ export const RatingEditor: FC<IRatingEditor> = (props) => {
               iconClassName
             )}
             style={style}
-            onMouseEnter={() => setHoverIndex(index)}
-            onMouseLeave={() => setHoverIndex(-1)}
+            onMouseEnter={() => onHoverIndexChange(index)}
+            onMouseLeave={() => onHoverIndexChange(-1)}
             onClick={() => onChangeInner(index)}
           />
         );

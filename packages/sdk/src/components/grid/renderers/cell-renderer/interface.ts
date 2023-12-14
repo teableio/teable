@@ -1,7 +1,7 @@
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import type { IEditorProps, IEditorRef } from '../../components';
 import type { IGridTheme } from '../../configs';
-import type { ICellPosition, IRectangle } from '../../interface';
+import type { IActiveCellBound, ICellPosition, IRectangle } from '../../interface';
 import type { ImageManager, SpriteManager } from '../../managers';
 
 export enum CellType {
@@ -79,7 +79,7 @@ export interface INumberShowAs {
 export interface INumberCell extends IEditableCell {
   type: CellType.Number;
   data: number | null | undefined;
-  displayData: string;
+  displayData: string | string[];
   showAs?: INumberShowAs;
 }
 
@@ -119,9 +119,9 @@ export interface ISelectChoice {
 
 export interface ISelectCell extends IEditableCell {
   type: CellType.Select;
-  data: string[];
+  data: (string | { title: string; id: string })[];
+  displayData: string[];
   choices?: ISelectChoice[];
-  displayData?: string;
   isMultiple?: boolean;
 }
 
@@ -175,15 +175,44 @@ export type ICellRenderProps = {
 export interface ICellClickProps {
   width: number;
   height: number;
-  hoverCellPosition: ICellPosition;
   theme: IGridTheme;
+  isActive: boolean;
+  activeCellBound: IActiveCellBound | null;
+  hoverCellPosition: ICellPosition;
 }
 
 export interface ICellMeasureProps {
   ctx: CanvasRenderingContext2D;
   theme: IGridTheme;
   width: number;
+  height: number;
 }
+
+export interface ICellMeasureResult {
+  width: number;
+  height: number;
+  totalHeight: number;
+}
+
+export enum CellRegionType {
+  Blank = 'blank',
+  Update = 'update',
+  Preview = 'preview',
+  ToggleEditing = 'toggleEditing',
+}
+
+export interface ICellRegionWithBlank {
+  type: CellRegionType.Blank;
+}
+
+export interface ICellRegionWithData {
+  type: CellRegionType.Update | CellRegionType.ToggleEditing | CellRegionType.Preview;
+  data: unknown;
+}
+
+export type ICellRegion = ICellRegionWithData | ICellRegionWithBlank;
+
+export type ICellClickCallback = (cellRegion: ICellRegionWithData) => void;
 
 export interface IBaseCellRenderer<T extends ICell> {
   // Rendering
@@ -191,11 +220,13 @@ export interface IBaseCellRenderer<T extends ICell> {
   draw: (cell: T, props: ICellRenderProps) => void;
   needsHover?: boolean;
   needsHoverPosition?: boolean;
-  measure?: (cell: T, props: ICellMeasureProps) => number | null;
+  needsHoverWhenActive?: boolean;
+  needsHoverPositionWhenActive?: boolean;
+  measure?: (cell: T, props: ICellMeasureProps) => ICellMeasureResult;
 
   // Interaction
-  checkWithinBound?: (cell: T, props: ICellClickProps) => boolean;
-  onClick?: (cell: T, props: ICellClickProps) => void;
+  checkRegion?: (cell: T, props: ICellClickProps, shouldCalculate?: boolean) => ICellRegion;
+  onClick?: (cell: T, props: ICellClickProps, callback: ICellClickCallback) => void;
 
   // Editing
   provideEditor?: IProvideEditorCallback<T>;

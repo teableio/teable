@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   ICreateTableRo,
   IOtOperation,
-  ISetTableIconOpContext,
-  ISetTableNameOpContext,
-  ISetTableOrderOpContext,
+  ISetTablePropertyOpContext,
   ISnapshotBase,
   ITableFullVo,
   ITableVo,
@@ -22,13 +13,15 @@ import {
   getUniqName,
   IdPrefix,
   nullsToUndefined,
-  OpName,
+  tablePropertyKeySchema,
+  getRandomString,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { fromZodError } from 'zod-validation-error';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -58,7 +51,7 @@ export class TableService implements IAdapterService {
   ) {}
 
   generateValidName(name: string) {
-    return convertNameToValidCharacter(name, 10);
+    return convertNameToValidCharacter(name, 40);
   }
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo) {
@@ -70,14 +63,30 @@ export class TableService implements IAdapterService {
     const tableId = generateTableId();
     const names = tableRaws.map((table) => table.name);
     const uniqName = getUniqName(tableRo.name ?? 'New table', names);
-
     const order =
       tableRaws.reduce((acc, cur) => {
         return acc > cur.order ? acc : cur.order;
       }, 0) + 1;
 
     const validTableName = this.generateValidName(uniqName);
-    const dbTableName = this.dbProvider.generateDbTableName(baseId, `${validTableName}_${tableId}`);
+    let dbTableName = this.dbProvider.generateDbTableName(
+      baseId,
+      tableRo.dbTableName || validTableName
+    );
+
+    const existTable = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { dbTableName: tableRo.dbTableName },
+      select: { id: true },
+    });
+
+    if (existTable) {
+      if (tableRo.dbTableName) {
+        throw new BadRequestException(`dbTableName ${tableRo.dbTableName} is already used`);
+      } else {
+        // add uniqId ensure no conflict
+        dbTableName += getRandomString(10);
+      }
+    }
 
     const data: Prisma.TableMetaCreateInput = {
       id: tableId,
@@ -356,39 +365,27 @@ export class TableService implements IAdapterService {
     version: number,
     baseId: string,
     tableId: string,
-    opContexts: (ISetTableNameOpContext | ISetTableOrderOpContext | ISetTableIconOpContext)[]
+    opContexts: ISetTablePropertyOpContext[]
   ) {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
-      switch (opContext.name) {
-        case OpName.SetTableName: {
-          const { newName } = opContext;
-          await this.prismaService.txClient().tableMeta.update({
-            where: { id: tableId, baseId },
-            data: { name: newName, version, lastModifiedBy: userId },
-          });
-          return;
-        }
-        case OpName.SetTableOrder: {
-          const { newOrder } = opContext;
-          await this.prismaService.txClient().tableMeta.update({
-            where: { id: tableId, baseId },
-            data: { order: newOrder, version, lastModifiedBy: userId },
-          });
-          return;
-        }
-        case OpName.SetTableIcon: {
-          const { newIcon } = opContext;
-          await this.prismaService.txClient().tableMeta.update({
-            where: { id: tableId, baseId },
-            data: { icon: newIcon, version, lastModifiedBy: userId },
-          });
-          return;
-        }
-        default:
-          throw new InternalServerErrorException(`Unknown context ${opContext} for table update`);
+      const { key, newValue } = opContext;
+      const result = tablePropertyKeySchema.safeParse({ [key]: newValue });
+      if (!result.success) {
+        throw new BadRequestException(fromZodError(result.error).message);
       }
+
+      // skip undefined value
+      const parsedValue = result.data[key];
+      if (parsedValue === undefined) {
+        continue;
+      }
+
+      await this.prismaService.txClient().tableMeta.update({
+        where: { id: tableId, baseId },
+        data: { [key]: parsedValue, version, lastModifiedBy: userId },
+      });
     }
   }
 

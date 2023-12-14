@@ -1,7 +1,8 @@
-/* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+/* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex */
 import { uniqueId } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useRafState } from 'react-use';
 import type { IGridTheme } from './configs';
 import {
   GRID_DEFAULT,
@@ -10,7 +11,7 @@ import {
   DEFAULT_MOUSE_STATE,
   GRID_CONTAINER_ID,
 } from './configs';
-import { useEventListener, useResizeObserver } from './hooks';
+import { useResizeObserver } from './hooks';
 import type { ScrollerRef } from './InfiniteScroller';
 import { InfiniteScroller } from './InfiniteScroller';
 import type { IInteractionLayerRef } from './InteractionLayer';
@@ -29,8 +30,9 @@ import type {
 import { RegionType, RowControlType, DraggableType, SelectableType } from './interface';
 import type { ISpriteMap, CombinedSelection } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
-import type { ICell, IInnerCell } from './renderers';
+import { getCellRenderer, type ICell, type IInnerCell } from './renderers';
 import { TouchLayer } from './TouchLayer';
+import { measuredCanvas } from './utils';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
@@ -75,12 +77,11 @@ export interface IGridExternalProps {
   onRowAppend?: () => void;
   onColumnAppend?: () => void;
   onCopy?: (selection: CombinedSelection) => void;
-  onPaste?: (selection: CombinedSelection) => void;
+  onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onSelectionChanged?: (selection: CombinedSelection) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
-  onCellActivated?: (cell: ICellItem) => void;
   onRowExpand?: (rowIndex: number) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
@@ -160,7 +161,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onRowExpand,
     onRowOrdered,
     onCellEdited,
-    onCellActivated,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -199,17 +199,20 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const [forceRenderFlag, setForceRenderFlag] = useState(uniqueId('grid_'));
   const [mouseState, setMouseState] = useState<IMouseState>(DEFAULT_MOUSE_STATE);
   const [scrollState, setScrollState] = useState<IScrollState>(DEFAULT_SCROLL_STATE);
+  const [activeCell, setActiveCell] = useRafState<ICellItem | null>(null);
   const scrollerRef = useRef<ScrollerRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const interactionLayerRef = useRef<IInteractionLayerRef | null>(null);
   const { ref, width, height } = useResizeObserver<HTMLDivElement>();
 
+  const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
+  const hoverRegionType = mouseState.type;
   const hasColumnStatistics = columnStatistics != null;
   const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
-
   const { iconSizeMD } = theme;
+
   const coordInstance = useMemo<CoordinateManager>(() => {
     const columnInitSize =
       !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
@@ -247,6 +250,48 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     hasAppendRow,
     iconSizeMD,
   ]);
+
+  const activeCellBound = useMemo(() => {
+    if (activeColumnIndex == null || activeRowIndex == null) {
+      return null;
+    }
+
+    const cell = getCellContent([activeColumnIndex, activeRowIndex]);
+    const cellRenderer = getCellRenderer(cell.type);
+    const originWidth = coordInstance.getColumnWidth(activeColumnIndex);
+    const originHeight = coordInstance.getRowHeight(activeRowIndex);
+
+    if (cellRenderer?.measure && measuredCanvas?.ctx != null) {
+      const { width, height, totalHeight } = cellRenderer.measure(cell as never, {
+        theme,
+        ctx: measuredCanvas.ctx,
+        width: originWidth,
+        height: originHeight,
+      });
+      return {
+        rowIndex: activeRowIndex,
+        columnIndex: activeColumnIndex,
+        width,
+        height,
+        totalHeight,
+        scrollTop: 0,
+        scrollEnable: totalHeight > height,
+      };
+    }
+    return {
+      rowIndex: activeRowIndex,
+      columnIndex: activeColumnIndex,
+      width: originWidth,
+      height: originHeight,
+      totalHeight: originHeight,
+      scrollTop: 0,
+      scrollEnable: false,
+    };
+  }, [activeColumnIndex, activeRowIndex, coordInstance, getCellContent, theme]);
+
+  const scrollEnable =
+    hoverRegionType !== RegionType.None &&
+    !(hoverRegionType === RegionType.ActiveCell && activeCellBound?.scrollEnable);
 
   const spriteManager = useMemo(
     () => new SpriteManager(customIcons, () => setForceRenderFlag(uniqueId('grid_'))),
@@ -300,17 +345,21 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     [coordInstance, scrollState, scrollTo]
   );
 
-  const onMouseDown = useCallback(() => {
+  const onMouseDown = () => {
     containerRef.current?.focus();
-  }, []);
-
-  useEventListener('mousedown', onMouseDown, containerRef.current, true);
+  };
 
   const { rowInitSize, columnInitSize } = coordInstance;
 
   return (
     <div className="h-full w-full" style={style} ref={ref}>
-      <div id={GRID_CONTAINER_ID} ref={containerRef} tabIndex={0} className="relative outline-none">
+      <div
+        id={GRID_CONTAINER_ID}
+        ref={containerRef}
+        tabIndex={0}
+        className="relative outline-none"
+        onMouseDown={onMouseDown}
+      >
         {isTouchDevice ? (
           <TouchLayer
             width={width}
@@ -320,18 +369,19 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             mouseState={mouseState}
             scrollState={scrollState}
             rowControls={rowControls}
+            collaborators={collaborators}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
-            getCellContent={getCellContent}
             forceRenderFlag={forceRenderFlag}
+            getCellContent={getCellContent}
             setMouseState={setMouseState}
+            setActiveCell={setActiveCell}
             onDelete={onDelete}
             onRowAppend={onRowAppend}
             onRowExpand={onRowExpand}
             onCellEdited={onCellEdited}
-            onCellActivated={onCellActivated}
             onSelectionChanged={onSelectionChanged}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
@@ -354,13 +404,16 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             isMultiSelectionEnable={isMultiSelectionEnable}
-            scrollState={scrollState}
+            activeCell={activeCell}
             mouseState={mouseState}
-            setMouseState={setMouseState}
-            getCellContent={getCellContent}
+            scrollState={scrollState}
+            activeCellBound={activeCellBound}
             forceRenderFlag={forceRenderFlag}
             rowCounterVisible={rowCounterVisible}
             rowIndexVisible={rowIndexVisible}
+            getCellContent={getCellContent}
+            setMouseState={setMouseState}
+            setActiveCell={setActiveCell}
             scrollToItem={scrollToItem}
             scrollBy={scrollBy}
             onCopy={onCopy}
@@ -370,7 +423,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onRowExpand={onRowExpand}
             onRowOrdered={onRowOrdered}
             onCellEdited={onCellEdited}
-            onCellActivated={onCellActivated}
             onSelectionChanged={onSelectionChanged}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
@@ -400,7 +452,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         containerRef={containerRef}
         scrollState={scrollState}
         setScrollState={setScrollState}
-        scrollEnable={mouseState.type !== RegionType.None}
+        scrollEnable={scrollEnable}
         onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>

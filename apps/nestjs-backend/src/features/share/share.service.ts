@@ -1,21 +1,25 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import type {
-  IShareViewMeta,
-  IAggregationRo,
-  IRowCountRo,
-  IRowCountVo,
   IViewVo,
+  IShareViewMeta,
+  IRowCountVo,
+  IRowCountRo,
+  IAggregationRo,
+  ILinkFieldOptions,
 } from '@teable-group/core';
 import { ANONYMOUS_USER_ID, FieldKeyType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   IShareViewCopyRo,
+  IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,
 } from '@teable-group/openapi';
@@ -181,5 +185,31 @@ export class ShareService {
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IShareViewCopyRo) {
     return this.selectionService.copy(shareInfo.tableId, shareInfo.view.id, shareViewCopyRo);
+  }
+
+  async getLinkRecords(shareInfo: IShareViewInfo, shareViewLinkRecordsRo: IShareViewLinkRecordsRo) {
+    const linkTableId = shareViewLinkRecordsRo.tableId;
+
+    const fields = await this.fieldService.getFields(shareInfo.tableId, {});
+    const field = fields
+      .filter((field) => field.type === FieldType.Link)
+      .find((field) => (field.options as ILinkFieldOptions).foreignTableId === linkTableId);
+
+    if (!field) {
+      throw new ForbiddenException('tableId is not allowed');
+    }
+    const linkField = await this.fieldService.getField(
+      linkTableId,
+      (field.options as ILinkFieldOptions).lookupFieldId
+    );
+    const fieldKeyType = shareViewLinkRecordsRo.fieldKeyType ?? FieldKeyType.Name;
+    const projection = {
+      [linkField[fieldKeyType]]: true,
+    };
+    return this.recordService.getRecords(linkTableId, {
+      ...shareViewLinkRecordsRo,
+      projection,
+      fieldKeyType,
+    });
   }
 }

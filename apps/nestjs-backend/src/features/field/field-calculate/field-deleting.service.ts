@@ -3,6 +3,7 @@ import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import { FieldSupplementService } from './field-supplement.service';
 
@@ -14,7 +15,8 @@ export class FieldDeletingService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldBatchCalculationService: FieldCalculationService
+    private readonly fieldBatchCalculationService: FieldCalculationService,
+    private readonly viewService: ViewService
   ) {}
 
   private async markFieldsAsError(tableId: string, fieldIds: string[]) {
@@ -29,6 +31,13 @@ export class FieldDeletingService {
       ],
     }));
     await this.fieldService.batchUpdateFields(tableId, opData);
+  }
+
+  async cleanLookupRollupRef(tableId: string, fieldId: string) {
+    const errorLookupFieldIds =
+      await this.fieldSupplementService.deleteLookupFieldReference(fieldId);
+    await this.markFieldsAsError(tableId, errorLookupFieldIds);
+    await this.cleanField(tableId, errorLookupFieldIds);
   }
 
   async cleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
@@ -74,6 +83,8 @@ export class FieldDeletingService {
       }
       return;
     }
+
     await this.delateAndCleanRef(tableId, fieldId);
+    await this.viewService.deleteColumnMetaOrder(tableId, [fieldId]);
   }
 }

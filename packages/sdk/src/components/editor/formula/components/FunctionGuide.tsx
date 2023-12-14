@@ -19,7 +19,7 @@ export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
 
   return (
     <div className="w-full overflow-y-auto">
-      <div className="flex-grow px-4 py-2">
+      <div className="grow px-4 py-2">
         <h2 className="text-lg">{data.name}</h2>
         <div className="text-[13px] text-gray-400">{data.summary}</div>
         {data.definition && (

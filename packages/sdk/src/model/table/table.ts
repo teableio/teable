@@ -32,9 +32,10 @@ export class Table extends TableCore {
   }
 
   async updateName(name: string) {
-    const fieldOperation = TableOpBuilder.editor.setTableName.build({
-      newName: name,
-      oldName: this.name,
+    const fieldOperation = TableOpBuilder.editor.setTableProperty.build({
+      key: 'name',
+      newValue: name,
+      oldValue: this.name,
     });
 
     try {
@@ -49,9 +50,10 @@ export class Table extends TableCore {
   }
 
   async updateIcon(icon: string) {
-    const tableOperation = TableOpBuilder.editor.setTableIcon.build({
-      newIcon: icon,
-      oldIcon: this.icon,
+    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
+      key: 'icon',
+      newValue: icon,
+      oldValue: this.icon,
     });
 
     try {
@@ -73,12 +75,13 @@ export class Table extends TableCore {
     return View.deleteView(this.id, viewId);
   }
 
-  async createRecord(recordFields: IRecord['fields']) {
+  async createRecord(recordFields: IRecord['fields'], recordOrder?: { [viewId: string]: number }) {
     return Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {
           fields: recordFields,
+          recordOrder,
         },
       ],
     });
@@ -97,9 +100,10 @@ export class Table extends TableCore {
   }
 
   async updateOrder(order: number) {
-    const tableOperation = TableOpBuilder.editor.setTableOrder.build({
-      newOrder: order,
-      oldOrder: this.order,
+    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
+      key: 'order',
+      newValue: order,
+      oldValue: this.order,
     });
 
     try {

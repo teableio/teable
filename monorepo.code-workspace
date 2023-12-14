@@ -49,6 +49,7 @@
     "recommendations": [
       "dbaeumer.vscode-eslint",
       "esbenp.prettier-vscode",
+      "orta.vscode-jest",
     ]
   },
   "settings": {
@@ -74,6 +75,18 @@
       "./packages/eslint-config-bases",
       "./packages/ui-lib"
     ],
-    "cSpell.words": ["sharedb", "Teable"]
+    "cSpell.words": [
+      "sharedb",
+      "Teable"
+    ],
+    "jest.disabledWorkspaceFolders": [
+      "eslint-config-bases",
+      "icons",
+      "common-i18n",
+      "db-main-prisma",
+      "ui-lib",
+      "root",
+      "openapi"
+    ]
   }
 }

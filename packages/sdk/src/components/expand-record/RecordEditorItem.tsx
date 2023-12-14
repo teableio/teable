@@ -8,15 +8,16 @@ export const RecordEditorItem = (props: {
   record: Record | undefined;
   vertical?: boolean;
   onChange?: (newValue: unknown, fieldId: string) => void;
-  disabled?: boolean;
+  readonly?: boolean;
 }) => {
-  const { field, record, vertical, onChange, disabled } = props;
+  const { field, record, vertical, onChange, readonly } = props;
   const { type, isLookup } = field;
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, isLookup);
 
   const cellValue = record?.getCellValue(field.id);
   const onChangeInner = (value: unknown) => {
+    if (cellValue === value) return;
     onChange?.(value, field.id);
   };
 
@@ -41,7 +42,7 @@ export const RecordEditorItem = (props: {
         onChange={onChangeInner}
         field={field}
         recordId={record?.id}
-        disabled={!record || disabled}
+        readonly={!record || readonly}
       />
     </div>
   );

@@ -8,6 +8,7 @@ export const GRID_DEFAULT = {
   rowHeadWidth: 70,
   rowHeadIconPaddingTop: 8,
   appendRowHeight: 32,
+  maxRowCount: 5,
 
   // Column
   columnWidth: 150,
@@ -30,6 +31,10 @@ export const GRID_DEFAULT = {
   // Others
   scrollBuffer: 100,
   cellScrollBuffer: 16,
+  cellScrollBarWidth: 5,
+  cellScrollBarMinHeight: 16,
+  cellScrollBarPaddingX: 1,
+  cellScrollBarPaddingY: 4,
 };
 
 export const DEFAULT_MOUSE_STATE = {

@@ -8,7 +8,7 @@ import { z } from '../zod';
 export const UPDATE_RECORD = '/table/{tableId}/record/{recordId}';
 
 export const UpdateRecordRoute: RouteConfig = registerRoute({
-  method: 'put',
+  method: 'patch',
   path: UPDATE_RECORD,
   description: 'Update a record',
   request: {
@@ -42,7 +42,7 @@ export const updateRecord = async (
   recordId: string,
   recordRo: IUpdateRecordRo
 ) => {
-  return axios.put<IRecord>(
+  return axios.patch<IRecord>(
     urlBuilder(UPDATE_RECORD, {
       tableId,
       recordId,

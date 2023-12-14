@@ -1,3 +1,4 @@
+import type { IColumnMeta } from './column-meta.schema';
 import type { ViewType } from './constant';
 import type { IFilter } from './filter';
 import type { ISort } from './sort';
@@ -35,4 +36,6 @@ export abstract class ViewCore implements IViewVo {
   createdTime!: string;
 
   lastModifiedTime!: string;
+
+  columnMeta!: IColumnMeta;
 }

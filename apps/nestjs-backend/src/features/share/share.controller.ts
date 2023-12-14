@@ -24,15 +24,19 @@ import {
   IShareViewCopyRo,
   shareViewAggregationsRoSchema,
   IShareViewAggregationsRo,
+  shareViewLinkRecordsRoSchema,
+  IShareViewLinkRecordsRo,
 } from '@teable-group/openapi';
 import type {
   IShareViewCopyVo,
+  IShareViewLinkRecordsVo,
   ShareViewFormSubmitVo,
   ShareViewGetVo,
 } from '@teable-group/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
+import { RecordPipe } from '../record/open-api/record.pipe';
 import { AuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
 import type { IShareViewInfo } from './share.service';
@@ -102,5 +106,16 @@ export class ShareController {
   ): Promise<IShareViewCopyVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareService.copy(shareInfo, shareViewCopyRo);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/view/linkRecords')
+  async linkRecords(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewLinkRecordsRoSchema), RecordPipe)
+    shareViewLinkRecordsRo: IShareViewLinkRecordsRo
+  ): Promise<IShareViewLinkRecordsVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareService.getLinkRecords(shareInfo, shareViewLinkRecordsRo);
   }
 }

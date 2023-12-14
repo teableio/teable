@@ -1,10 +1,10 @@
 import Mousetrap from 'mousetrap';
 import type { ExtendedKeyboardEvent } from 'mousetrap';
 import { useEffect } from 'react';
-import { SelectionRegionType, type IInnerCell, type IRange } from '..';
 import type { IEditorContainerProps, IEditorRef } from '../components';
 import { GRID_CONTAINER_ID } from '../configs';
-import { CellType, getCellRenderer } from '../renderers';
+import { SelectionRegionType } from '../interface';
+import type { IRange } from '../interface';
 import { isAncestorOfActiveElement } from '../utils';
 
 const SELECTION_MOVE_HOTKEYS = [
@@ -24,18 +24,18 @@ const SELECTION_MOVE_HOTKEYS = [
   'mod+shift+down',
   'mod+shift+left',
   'mod+shift+right',
-  'tab',
 ];
 
 interface ISelectionKeyboardProps
-  extends Omit<IEditorContainerProps, 'theme' | 'onChange' | 'scrollState' | 'getCellContent'> {
-  cell: IInnerCell;
+  extends Omit<
+    IEditorContainerProps,
+    'theme' | 'onChange' | 'scrollState' | 'activeCellBound' | 'getCellContent' | 'onCellActivated'
+  > {
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }
 
 export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   const {
-    cell,
     isEditing,
     activeCell,
     coordInstance,
@@ -45,7 +45,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     setActiveCell,
     setSelection,
     onCopy,
-    onPaste,
     onDelete,
     onRowAppend,
     onRowExpand,
@@ -78,7 +77,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
         case 'shift+left':
           columnIndex = Math.max(columnIndex - 1, 0);
           break;
-        case 'tab':
         case 'right':
         case 'shift+right':
           columnIndex = Math.min(columnIndex + 1, columnCount - 1);
@@ -109,6 +107,21 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
+    Mousetrap.bind(['tab'], (e: ExtendedKeyboardEvent) => {
+      if (!activeCell) return;
+      if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
+      e.preventDefault();
+      const [columnIndex, rowIndex] = selection.ranges[0];
+      const newColumnIndex = Math.min(columnIndex + 1, columnCount - 1);
+      const newRange = <IRange>[newColumnIndex, rowIndex];
+      const ranges = [newRange, newRange];
+
+      scrollToItem([newColumnIndex, rowIndex]);
+      setEditing(false);
+      setActiveCell(newRange);
+      setSelection(selection.setRanges(ranges));
+    });
+
     Mousetrap.bind('mod+a', (e: ExtendedKeyboardEvent) => {
       if (!activeCell || isEditing) return;
       e.preventDefault();
@@ -119,17 +132,20 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       setSelection(selection.setRanges(ranges));
     });
 
-    Mousetrap.bind(['del', 'backspace', 'mod+v'], (e: ExtendedKeyboardEvent, combo: string) => {
-      if (!activeCell || isEditing) return;
-      if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
-      switch (combo) {
-        case 'del':
-        case 'backspace':
-          return onDelete?.(selection);
-        case 'mod+v':
-          return onPaste?.(selection);
+    Mousetrap.bind(
+      ['del', 'backspace', 'mod+v', 'f2'],
+      (e: ExtendedKeyboardEvent, combo: string) => {
+        if (!activeCell || isEditing) return;
+        if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
+        switch (combo) {
+          case 'f2':
+            return setEditing(true);
+          case 'del':
+          case 'backspace':
+            return onDelete?.(selection);
+        }
       }
-    });
+    );
 
     Mousetrap.bind(['mod+c'], () => {
       if (isEditing) return;
@@ -140,9 +156,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     Mousetrap.bind(['enter', 'shift+enter'], (e: ExtendedKeyboardEvent, combo: string) => {
       if (!activeCell) return;
       const { isColumnSelection, ranges: selectionRanges } = selection;
-      const cellRenderer = getCellRenderer(cell.type);
       const isShiftEnter = combo === 'shift+enter';
-      if (cellRenderer.onClick && cell.type !== CellType.Link) return;
       if (isEditing) {
         let range = selectionRanges[0];
         if (isColumnSelection) {

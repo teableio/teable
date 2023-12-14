@@ -13,7 +13,7 @@ export function useLineChartData() {
   const base = useBase();
   const table = useTable();
   const viewId = useViewId();
-  const [data, setData] = useState<IData[]>([]);
+  const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
   const selectField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
     [fields]
@@ -45,12 +45,13 @@ export function useLineChartData() {
     console.log('useLineChartData:sqlQuery:', nativeSql);
     base.sqlQuery(table.id, viewId, nativeSql).then((result) => {
       console.log('useLineChartData:sqlQuery:', result);
-      setData(
-        (result.data as IData[]).map(({ total, average }) => ({
+      setData({
+        title: numberField.name,
+        list: (result.data as IData[]).map(({ total, average }) => ({
           total: total || 0,
           average: average || 0,
-        }))
-      );
+        })),
+      });
     });
   }, [fields, selectField, numberField, table, viewId, base]);
   return data;

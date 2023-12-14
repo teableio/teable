@@ -1,12 +1,12 @@
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
 import { isMultiValueLink } from '@teable-group/core';
-import { Plus, X } from '@teable-group/icons';
+import { Plus } from '@teable-group/icons';
 import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable-group/ui-lib';
-import { noop } from 'lodash';
 import { useState, useRef } from 'react';
 import { ExpandRecorder } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
+import { LinkCard } from './LinkCard';
 
 interface ILinkEditorProps {
   fieldId: string;
@@ -14,12 +14,12 @@ interface ILinkEditorProps {
   options: ILinkFieldOptions;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
-  disabled?: boolean;
+  readonly?: boolean;
   className?: string;
 }
 
 export const LinkEditor = (props: ILinkEditorProps) => {
-  const { cellValue, options, onChange, disabled, className } = props;
+  const { cellValue, options, onChange, readonly, className } = props;
   const { toast } = useToast();
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [isEditing, setEditing] = useState<boolean>(false);
@@ -59,28 +59,13 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   return (
     <div className="space-y-3">
       {cvArray?.map(({ id, title }) => (
-        <div
+        <LinkCard
           key={id}
-          tabIndex={-1}
-          role={'button'}
-          className="group relative cursor-pointer rounded-md border px-4 py-2 font-mono text-sm shadow-sm"
+          title={title}
+          readonly={readonly}
           onClick={() => onRecordClick(id)}
-          onKeyDown={noop}
-        >
-          {title || 'Unnamed record'}
-          <Button
-            className="absolute right-0 top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full opacity-0 group-hover:opacity-100"
-            size={'icon'}
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteRecord(id);
-            }}
-            disabled={disabled}
-          >
-            <X />
-          </Button>
-        </div>
+          onDelete={() => onDeleteRecord(id)}
+        />
       ))}
       <ExpandRecorder
         tableId={foreignTableId}
@@ -89,22 +74,24 @@ export const LinkEditor = (props: ILinkEditorProps) => {
         onUpdateRecordIdCallback={updateExpandRecordId}
         onClose={() => updateExpandRecordId(undefined)}
       />
-      <Dialog open={isEditing} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild disabled={disabled}>
-          <Button variant="outline" size={'sm'} className={className}>
-            <Plus />
-            Add Record
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="flex h-[520px] max-w-4xl flex-col">
-          <LinkEditorMain
-            {...props}
-            ref={linkEditorMainRef}
-            isEditing={isEditing}
-            setEditing={setEditing}
-          />
-        </DialogContent>
-      </Dialog>
+      {!readonly && (
+        <Dialog open={isEditing} onOpenChange={onOpenChange}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size={'sm'} className={className}>
+              <Plus />
+              Add Record
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="flex h-[520px] max-w-4xl flex-col">
+            <LinkEditorMain
+              {...props}
+              ref={linkEditorMainRef}
+              isEditing={isEditing}
+              setEditing={setEditing}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

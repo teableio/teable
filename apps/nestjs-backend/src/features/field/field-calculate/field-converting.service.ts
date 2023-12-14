@@ -10,7 +10,6 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ISelectFieldChoice,
-  ITinyRecord,
   IUpdateFieldRo,
 } from '@teable-group/core';
 import {
@@ -38,7 +37,6 @@ import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
-import { RecordCalculateService } from '../../record/record-calculate/record-calculate.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByVo } from '../model/factory';
@@ -55,7 +53,6 @@ import { FieldSupplementService } from './field-supplement.service';
 interface IModifiedResult {
   recordOpsMap?: IOpsMap;
   fieldOps?: IOtOperation[];
-  recordsForCreate?: { [tableId: string]: { [title: string]: ITinyRecord } };
 }
 
 @Injectable()
@@ -71,7 +68,6 @@ export class FieldConvertingService {
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly recordCalculateService: RecordCalculateService,
     private readonly collaboratorService: CollaboratorService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -89,18 +85,6 @@ export class FieldConvertingService {
       },
       getOpsMap: () => fieldOpsMap,
     };
-  }
-
-  private verifyLookupField(field: IFieldInstance, fieldMap: IFieldMap) {
-    const lookupOptions = field.lookupOptions as ILookupOptionsVo;
-    const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
-    if (!linkField) {
-      return false;
-    }
-    if (lookupOptions.foreignTableId !== linkField.options.foreignTableId) {
-      return false;
-    }
-    return Boolean(fieldMap[lookupOptions.lookupFieldId]);
   }
 
   /**
@@ -123,10 +107,6 @@ export class FieldConvertingService {
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private updateLookupField(field: IFieldInstance, fieldMap: IFieldMap): IOtOperation[] {
     const ops: (IOtOperation | undefined)[] = [];
-    if (!this.verifyLookupField(field, fieldMap)) {
-      const op = this.buildOpAndMutateField(field, 'hasError', true);
-      return op ? [op] : [];
-    }
     const lookupOptions = field.lookupOptions as ILookupOptionsVo;
     const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
@@ -236,7 +216,7 @@ export class FieldConvertingService {
       const op2 = this.buildOpAndMutateField(field, 'dbFieldName', field.dbFieldName + '_');
       op1 && ops.push(op1);
       op2 && ops.push(op2);
-      await this.fieldService.alterVisualTable(dbTableName, [field]);
+      await this.fieldService.alterTableAddField(dbTableName, [field]);
     }
     return ops;
   }
@@ -927,8 +907,9 @@ export class FieldConvertingService {
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
-    // for field type change, isLookup change, isComputed change
+    // 0.1. collect changes effect by the updated field
     if (keys.includes('type') || keys.includes('isComputed')) {
+      // for field type change, isLookup change, isComputed change
       result = await this.modifyType(tableId, newField, oldField);
     } else {
       // for same field with options change
@@ -942,49 +923,69 @@ export class FieldConvertingService {
       }
     }
 
-    const fieldChange = await this.fieldConvertingLinkService.supplementLink(
+    // 0.2. collect changes effect by the supplement(link) field
+    const supplementFieldChange = await this.fieldConvertingLinkService.supplementLink(
       tableId,
       newField,
       oldField
     );
 
+    // 1. apply current field changes
     await this.fieldService.batchUpdateFields(tableId, [
       { fieldId: newField.id, ops: ops.concat(result?.fieldOps || []) },
     ]);
 
-    // apply supplement(link) field change
-    if (fieldChange) {
-      const { tableId, newField, oldField } = fieldChange;
+    // 2. apply supplement(link) field changes
+    if (supplementFieldChange) {
+      const { tableId, newField, oldField } = supplementFieldChange;
       const { ops } = this.getOriginFieldOps(newField, oldField);
       await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
     }
 
-    // create and submit records
-    if (result?.recordsForCreate) {
-      for (const tableId in result.recordsForCreate) {
-        const recordsMap = result.recordsForCreate[tableId];
-        await this.recordCalculateService.createRecords(
-          tableId,
-          Object.values(recordsMap),
-          FieldKeyType.Id
-        );
-      }
-    }
-
-    // update & submit referenced fields
+    // 3. apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);
-    if (fieldChange) {
-      const { newField, oldField } = fieldChange;
+
+    // 4. apply referenced fields from supplement(link) field changes
+    if (supplementFieldChange) {
+      const { newField, oldField } = supplementFieldChange;
       await this.updateReferencedFields(newField, oldField);
     }
 
-    // calculate and submit records
+    // 5. calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, result?.recordOpsMap);
 
-    // TODO: reduce unnecessary calculation
-    if (newField.isComputed) {
-      await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
+    // 6. calculate computed fields
+    await this.calculateField(keys, tableId, newField, oldField);
+  }
+
+  private async calculateField(
+    keys: string[],
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ) {
+    if (!newField.isComputed) {
+      return;
     }
+    // safe property
+    const differenceKeys = difference(keys, ['name', 'description', 'dbFieldName']);
+
+    if (!differenceKeys.length) {
+      return;
+    }
+
+    // expression not change
+    if (
+      differenceKeys.length === 1 &&
+      differenceKeys[0] === 'options' &&
+      (oldField.options as { expression: string }).expression ===
+        (newField.options as { expression: string }).expression
+    ) {
+      return;
+    }
+
+    console.log('calculating field:', newField.name);
+    await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
   }
 
   private async submitFieldOpsMap(fieldOpsMap: IOpsMap | undefined) {
@@ -1010,7 +1011,7 @@ export class FieldConvertingService {
     newField.dbFieldName = newField.dbFieldName + '_';
     const dbTableName = await this.fieldService.getDbTableName(tableId);
 
-    await this.fieldService.alterVisualTable(dbTableName, [newField]);
+    await this.fieldService.alterTableAddField(dbTableName, [newField]);
   }
 
   async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {

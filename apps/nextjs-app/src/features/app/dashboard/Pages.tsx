@@ -1,12 +1,32 @@
+import { LocalStorageKeys } from '@teable-group/sdk/config/local-storage-keys';
 import { AnchorProvider } from '@teable-group/sdk/context';
+import { useBase, useTables } from '@teable-group/sdk/hooks';
 import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
-import { useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useLocalStorage } from 'react-use';
 import { Pickers } from './components/Pickers';
 import { GridContent } from './GridContent';
 
 export function DashboardPage() {
-  const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
-  const { viewId, tableId } = anchor;
+  const base = useBase();
+  const tables = useTables();
+  const [anchor, setAnchor] = useLocalStorage<{ tableId?: string; viewId?: string }>(
+    LocalStorageKeys.DashboardKey + base.id
+  );
+
+  const existTable = useMemo(
+    () => tables.find((t) => t.id === anchor?.tableId),
+    [anchor?.tableId, tables]
+  );
+
+  useEffect(() => {
+    if (!existTable) {
+      setAnchor({});
+    }
+  }, [existTable, setAnchor, tables]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { viewId, tableId } = existTable && anchor ? anchor : ({} as any);
 
   return (
     <AnchorProvider viewId={viewId} tableId={tableId}>

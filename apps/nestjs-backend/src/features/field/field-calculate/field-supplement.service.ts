@@ -18,7 +18,6 @@ import {
   generateChoiceId,
   getFormattingSchema,
   getShowAsSchema,
-  FIELD_RO_PROPERTIES,
   CellValueType,
   getDefaultFormatting,
   FieldType,
@@ -893,9 +892,18 @@ export class FieldSupplementService {
 
     const fieldId = field.id || generateFieldId();
 
-    const dbFieldName = this.fieldService.generateDbFieldName([
-      { id: fieldId, name: field.name },
-    ])[0];
+    const dbFieldName =
+      fieldRo.dbFieldName ?? (await this.fieldService.generateDbFieldName(tableId, field.name));
+
+    if (fieldRo.dbFieldName) {
+      const existField = await this.prismaService.txClient().field.findFirst({
+        where: { tableId, dbFieldName: fieldRo.dbFieldName },
+        select: { id: true },
+      });
+      if (existField) {
+        throw new BadRequestException(`dbFieldName ${fieldRo.dbFieldName} is duplicated`);
+      }
+    }
 
     const fieldVo = {
       ...field,
@@ -909,14 +917,14 @@ export class FieldSupplementService {
   }
 
   async prepareUpdateField(tableId: string, fieldRo: IUpdateFieldRo, oldField: IFieldInstance) {
-    // make sure all keys in FIELD_RO_PROPERTIES are define, so we can override old value.
-    FIELD_RO_PROPERTIES.forEach(
-      (key) => !fieldRo[key] && ((fieldRo as Record<string, unknown>)[key] = undefined)
-    );
-
     const fieldVo = (await this.prepareUpdateFieldInner(
       tableId,
-      { ...fieldRo, name: fieldRo.name ?? oldField.name }, // for convenience, we fallback name when it be undefined
+      {
+        ...fieldRo,
+        name: fieldRo.name ?? oldField.name,
+        dbFieldName: fieldRo.dbFieldName ?? oldField.dbFieldName,
+        description: fieldRo.description === undefined ? oldField.description : fieldRo.description,
+      }, // for convenience, we fallback name adn dbFieldName when it be undefined
       oldField
     )) as IFieldVo;
 
@@ -925,9 +933,7 @@ export class FieldSupplementService {
     return {
       ...fieldVo,
       id: oldField.id,
-      dbFieldName: oldField.dbFieldName,
       isPrimary: oldField.isPrimary,
-      columnMeta: fieldVo.columnMeta ?? oldField.columnMeta,
     };
   }
 
@@ -950,9 +956,10 @@ export class FieldSupplementService {
 
     const relationship = RelationshipRevert[field.options.relationship];
     const isMultipleCellValue = isMultiValueLink(relationship) || undefined;
-    const [dbFieldName] = this.fieldService.generateDbFieldName([
-      { id: field.options.symmetricFieldId, name: tableName },
-    ]);
+    const dbFieldName = await this.fieldService.generateDbFieldName(
+      field.options.foreignTableId,
+      tableName
+    );
 
     return createFieldInstanceByVo({
       id: field.options.symmetricFieldId,
@@ -1129,6 +1136,14 @@ export class FieldSupplementService {
       where: { lookupLinkedFieldId: linkFieldId, deletedTime: null },
       select: { id: true },
     });
+
+    for (const field of fieldsRaw) {
+      await prisma.field.update({
+        data: { lookupLinkedFieldId: null },
+        where: { id: field.id },
+      });
+    }
+
     const lookupFieldIds = fieldsRaw.map((field) => field.id);
 
     // just need delete to field id, because lookup field still exist

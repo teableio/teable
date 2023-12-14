@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { Public } from '../auth/decorators/public.decorator';
 import { AttachmentsService } from './attachments.service';
 
 @Controller('api/attachments')
@@ -25,6 +26,7 @@ export class AttachmentsController {
     return null;
   }
 
+  @Public()
   @Get(':token')
   async read(
     @Res({ passthrough: true }) res: Response,
@@ -33,6 +35,13 @@ export class AttachmentsController {
   ) {
     const { fileStream, headers } = await this.attachmentsService.readLocalFile(token, filename);
     res.set(headers);
+    // one years
+    const maxAge = 60 * 60 * 24 * 365;
+    res.set({
+      ...headers,
+      'Cache-Control': `public, max-age=${maxAge}`,
+    });
+
     return new StreamableFile(fileStream);
   }
 

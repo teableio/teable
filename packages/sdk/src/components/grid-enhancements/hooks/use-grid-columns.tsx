@@ -10,8 +10,9 @@ import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
 import { CellType, EditorPosition, getFileCover, NumberEditor, onMixedTextClick } from '../..';
-import { useTablePermission, useFields, useViewId } from '../../../hooks';
+import { useTablePermission, useFields, useViewId, useView } from '../../../hooks';
 import type { IFieldInstance, Record } from '../../../model';
+import type { IViewInstance } from '../../../model/view';
 import { GRID_DEFAULT } from '../../grid/configs';
 import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
@@ -21,7 +22,8 @@ const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 
 const generateColumns = (
   fields: IFieldInstance[],
   viewId?: string,
-  hasMenu: boolean = true
+  hasMenu: boolean = true,
+  view?: IViewInstance
 ): (IGridColumn & { id: string })[] => {
   const iconString = (type: FieldType, isLookup: boolean | undefined) => {
     return isLookup ? `${type}_lookup` : type;
@@ -30,7 +32,7 @@ const generateColumns = (
   return fields
     .map((field) => {
       if (!field) return undefined;
-      const columnMeta = viewId ? field.columnMeta[viewId] : null;
+      const columnMeta = viewId ? view?.columnMeta[field.id] : null;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
       const { id, type, name, description, isLookup } = field;
       return {
@@ -43,7 +45,15 @@ const generateColumns = (
         icon: iconString(type, isLookup),
       };
     })
-    .filter(Boolean) as (IGridColumn & { id: string })[];
+    .filter(Boolean)
+    .filter((field) => {
+      if (field) {
+        return !view?.columnMeta?.[field?.id]?.hidden;
+      }
+      return false;
+    }) as (IGridColumn & {
+    id: string;
+  })[];
 };
 
 const createCellValue2GridDisplay =
@@ -121,7 +131,9 @@ const createCellValue2GridDisplay =
           displayData,
           readonly,
           editorPosition: EditorPosition.Below,
-          customEditor: (props) => <GridDateEditor field={field} record={record} {...props} />,
+          customEditor: (props, editorRef) => (
+            <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
+          ),
         };
       }
       case FieldType.AutoNumber: {
@@ -203,7 +215,10 @@ const createCellValue2GridDisplay =
         return {
           type: CellType.Number,
           data: cellValue as number,
-          displayData: field.cellValue2String(cellValue),
+          displayData:
+            isMultiple && Array.isArray(cellValue)
+              ? cellValue.map((v) => field.item2String(v))
+              : field.cellValue2String(cellValue),
           readonly,
           showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
@@ -230,6 +245,7 @@ const createCellValue2GridDisplay =
         return {
           type: CellType.Select,
           data,
+          displayData: data,
           choices,
           readonly,
           isMultiple,
@@ -239,11 +255,12 @@ const createCellValue2GridDisplay =
       }
       case FieldType.Link: {
         const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const data = cv.map(({ title }) => title || 'Untitled');
+        const displayData = cv.map(({ title }) => title || 'Untitled');
         const choices = cv.map(({ id, title }) => ({ id, name: title }));
         return {
           type: CellType.Select,
-          data,
+          data: cv,
+          displayData,
           choices,
           readonly,
           isMultiple,
@@ -316,13 +333,14 @@ export function useGridColumns(hasMenu?: boolean) {
   const viewId = useViewId();
   const fields = useFields();
   const permission = useTablePermission();
+  const view = useView();
   const editable = permission['record|update'];
 
   return useMemo(
     () => ({
-      columns: generateColumns(fields, viewId, hasMenu),
+      columns: generateColumns(fields, viewId, hasMenu, view),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields, editable),
     }),
-    [fields, viewId, editable, hasMenu]
+    [fields, viewId, editable, hasMenu, view]
   );
 }

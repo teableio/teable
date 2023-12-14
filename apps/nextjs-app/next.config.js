@@ -76,35 +76,14 @@ const secureHeaders = createSecureHeaders({
     directives: NEXT_BUILD_ENV_CSP
       ? {
           defaultSrc: "'self'",
-          styleSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            'https://unpkg.com/@graphql-yoga/graphiql/dist/style.css',
-            'https://meet.jitsi.si',
-            'https://8x8.vc',
-          ],
-          scriptSrc: [
-            "'self'",
-            "'unsafe-eval'",
-            "'unsafe-inline'",
-            'https://unpkg.com/@graphql-yoga/graphiql',
-            // 'https://meet.jit.si/external_api.js',
-            // 'https://8x8.vc/external_api.js',
-          ],
-          frameSrc: [
-            "'self'",
-            // 'https://meet.jit.si',
-            // 'https://8x8.vc',
-          ],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+          frameSrc: ["'self'"],
           connectSrc: [
             "'self'",
             'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
             'https://*.teable.io',
-            // 'wss://ws.pusherapp.com',
-            // 'wss://ws-eu.pusher.com',
-            // 'https://sockjs.pusher.com',
-            // 'https://sockjs-eu.pusher.com',
           ],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],

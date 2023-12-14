@@ -11,7 +11,7 @@ import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
 import { ShareDbPermissionService } from './share-db-permission.service';
-import { SqliteDbAdapter } from './sqlite.adapter';
+import { ShareDbAdapter } from './share-db.adapter';
 import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
@@ -19,7 +19,7 @@ export class ShareDbService extends ShareDBClass {
   private logger = new Logger(ShareDbService.name);
 
   constructor(
-    readonly sqliteDbAdapter: SqliteDbAdapter,
+    readonly shareDbAdapter: ShareDbAdapter,
     private readonly eventEmitterService: EventEmitterService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
@@ -29,7 +29,7 @@ export class ShareDbService extends ShareDBClass {
     super({
       presence: true,
       doNotForwardSendPresenceErrorsToClient: true,
-      db: sqliteDbAdapter,
+      db: shareDbAdapter,
     });
     // auth
     authMiddleware(this, this.shareDbPermissionService);
@@ -55,7 +55,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
-    const { setViewSort } = ViewOpBuilder.editor;
+    const { setViewSort, setViewFilter } = ViewOpBuilder.editor;
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
@@ -70,9 +70,16 @@ export class ShareDbService extends ShareDBClass {
          * this is for some special scenarios like manual sort
          * which only send view ops but update record too
          */
-        if (ops?.[0] && setViewSort.detect(ops?.[0])) {
+        if (ops?.[0]) {
           const [, tableId] = collection.split('_');
-          this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+
+          const detectFns = [setViewFilter, setViewSort, setViewSort];
+          const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
+
+          if (action) {
+            this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+            this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
+          }
         }
       }
     }
@@ -92,6 +99,7 @@ export class ShareDbService extends ShareDBClass {
 
       if (action) {
         context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
+        context?.channels?.push(`${IdPrefix.Field}_${tableId}`);
       }
     }
 

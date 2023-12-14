@@ -51,6 +51,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   } = props;
   const defaultViewId = useViews()?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
+  const view = useViews()?.[0];
   const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
@@ -58,13 +59,13 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const permission = useTablePermission();
 
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => !field.columnMeta?.[viewId]?.hidden) : []),
-    [allFields, viewId]
+    () => (viewId ? allFields.filter((field) => !view.columnMeta?.[field.id]?.hidden) : []),
+    [allFields, view.columnMeta, viewId]
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => field.columnMeta?.[viewId]?.hidden) : []),
-    [allFields, viewId]
+    () => (viewId ? allFields.filter((field) => view.columnMeta?.[field.id]?.hidden) : []),
+    [allFields, view.columnMeta, viewId]
   );
 
   const nextRecordIndex = useMemo(() => {
@@ -126,7 +127,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
                 fields={fields}
                 hiddenFields={hiddenFields}
                 onChange={onChange}
-                disabled={!permission['record|update']}
+                readonly={!permission['record|update']}
               />
             ) : (
               <Skeleton className="h-10 w-full rounded" />
@@ -136,7 +137,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           {showActivity && (
             <div
               className={classNames('flex', {
-                'absolute top-0 right-0 h-full bg-background w-full':
+                'absolute top-0 right-0 h-full bg-background w-80':
                   containerWidth <= MIN_SHOW_ACTIVITY_WIDTH,
               })}
             >

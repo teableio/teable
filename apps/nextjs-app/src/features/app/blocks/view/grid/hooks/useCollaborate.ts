@@ -2,13 +2,14 @@ import { ColorUtils, getCellCollaboratorsChannel } from '@teable-group/core';
 import { useSession } from '@teable-group/sdk';
 import { SelectionRegionType } from '@teable-group/sdk/components/grid';
 import type { ICollaborator, CombinedSelection } from '@teable-group/sdk/components/grid';
-import { useConnection, useTableId } from '@teable-group/sdk/hooks';
+import { useConnection, useTableId, useViewId } from '@teable-group/sdk/hooks';
 import { useEffect, useState, useMemo } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
 
 export const useCollaborate = (selection?: CombinedSelection) => {
   const tableId = useTableId();
   const { user } = useSession();
+  const viewId = useViewId();
   const { connection } = useConnection();
   const [presence, setPresence] = useState<Presence>();
   const [collaborators, setCollaborators] = useState<ICollaborator>([]);
@@ -18,20 +19,23 @@ export const useCollaborate = (selection?: CombinedSelection) => {
     }
     return null;
   }, [selection]);
+
   const localPresence = useMemo(() => {
-    if (presence) {
-      return presence.create(`${tableId}_${user.id}`);
+    if (presence && connection?.id) {
+      return presence.create(`${tableId}_${user.id}_${connection.id}`);
     }
     return null;
-  }, [presence, tableId, user.id]);
+  }, [connection.id, presence, tableId, user.id]);
 
   useEffect(() => {
-    if (!tableId || !connection) {
+    if (!tableId || !connection || !viewId) {
       return;
     }
-    const channel = getCellCollaboratorsChannel(tableId);
+    // reset collaborators when table or view have been changed
+    setCollaborators([]);
+    const channel = getCellCollaboratorsChannel(tableId, viewId);
     setPresence(connection.getPresence(channel));
-  }, [connection, tableId]);
+  }, [connection, tableId, viewId]);
 
   useEffect(() => {
     const receiveHandler = () => {

@@ -2,8 +2,28 @@
 import type { INestApplication } from '@nestjs/common';
 import { SpaceRole } from '@teable-group/core';
 import type { CreateSpaceInvitationLinkVo, ListSpaceCollaboratorVo } from '@teable-group/openapi';
-import type request from 'supertest';
-import { getUserRequest, initApp } from './utils/init-app';
+import request from 'supertest';
+import { initApp } from './utils/init-app';
+
+export async function getUserRequest(
+  app: INestApplication,
+  user: { email: string; password: string }
+) {
+  const signupRes = await request(app.getHttpServer()).post('/api/auth/signup').send(user);
+  let cookie = null;
+  if (signupRes.status !== 201) {
+    const signinRes = await request(app.getHttpServer())
+      .post('/api/auth/signin')
+      .send(user)
+      .expect(200);
+    cookie = signinRes.headers['set-cookie'];
+  } else {
+    cookie = signupRes.headers['set-cookie'];
+  }
+  const newRequest = request.agent(app.getHttpServer());
+  newRequest.set('Cookie', cookie);
+  return newRequest;
+}
 
 describe('OpenAPI InvitationController (e2e)', () => {
   let app: INestApplication;

@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
   fieldRoSchema,
@@ -52,6 +62,7 @@ export class FieldOpenApiController {
 
   @Put(':fieldId')
   @Permissions('field|update')
+  @Patch(':fieldId')
   async updateFieldById(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,

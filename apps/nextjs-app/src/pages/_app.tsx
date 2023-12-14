@@ -100,7 +100,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
 MyApp.getInitialProps = async (appContext: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
   const appProps = await App.getInitialProps(appContext);
-
   const res = appContext.ctx.res;
   if (!res || !res?.writeHead) {
     return appProps;
@@ -126,7 +125,8 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       res.writeHead(302, {
         Location: `/space`,
       });
-      return res.end();
+      res.end();
+      return {};
     }
     return { ...initialProps, user };
   } catch (error) {
@@ -136,7 +136,8 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       res.writeHead(302, {
         Location: `/auth/login?${query}`,
       });
-      return res.end();
+      res.end();
+      return {};
     }
     return { ...initialProps, err: error };
   }

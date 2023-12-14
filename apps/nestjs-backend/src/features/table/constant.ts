@@ -34,6 +34,7 @@ export const DEFAULT_VIEWS: IViewRo[] = [
   {
     name: 'Grid view',
     type: ViewType.Grid,
+    columnMeta: {},
   },
 ];
 

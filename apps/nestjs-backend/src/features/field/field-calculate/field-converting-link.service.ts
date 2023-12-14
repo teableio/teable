@@ -1,15 +1,14 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions, ITinyRecord } from '@teable-group/core';
+import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
 import {
   Relationship,
   RelationshipRevert,
   FieldType,
-  generateRecordId,
   RecordOpBuilder,
   isMultiValueLink,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEmpty, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import type { IFieldInstance } from '../model/factory';
@@ -103,6 +102,8 @@ export class FieldConvertingLinkService {
       });
       await this.fieldSupplementService.createReference(newField);
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.fieldDeletingService.cleanLookupRollupRef(tableId, newField.id);
+
       await this.fieldSupplementService.createForeignKey(newField.options);
     } else if (newField.options.relationship !== oldField.options.relationship) {
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
@@ -129,7 +130,7 @@ export class FieldConvertingLinkService {
   }
 
   private async linkToOther(tableId: string, oldField: LinkFieldDto) {
-    await this.fieldDeletingService.cleanRef(tableId, oldField.id, true);
+    await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
 
     if (oldField.options.symmetricFieldId) {
       await this.fieldDeletingService.delateAndCleanRef(
@@ -213,7 +214,6 @@ export class FieldConvertingLinkService {
     );
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
-    const recordsForCreate: { [title: string]: ITinyRecord } = {};
     const checkSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
     Object.values(records).forEach((record) => {
@@ -249,35 +249,7 @@ export class FieldConvertingLinkService {
       newCellValueTitle.forEach((title) => {
         if (primaryNameToIdMap[title]) {
           pushNewCellValue({ id: primaryNameToIdMap[title], title });
-          return;
         }
-
-        // do not create record if lookup field is computed
-        if (lookupField.isComputed) {
-          return;
-        }
-
-        const cv = lookupField.convertStringToCellValue(title);
-
-        // do not create record if title string in lookup field is not valid
-        if (cv == null) {
-          return;
-        }
-
-        // convert cv back to string make sure it display well
-        // example: '1.03' convertStringToCellValue 1.0 cellValue2String '1.0'
-        title = lookupField.cellValue2String(cv);
-
-        if (!recordsForCreate[title]) {
-          const newRecordId = generateRecordId();
-          recordsForCreate[title] = {
-            id: newRecordId,
-            fields: {
-              [lookupField.id]: cv,
-            },
-          };
-        }
-        pushNewCellValue({ id: recordsForCreate[title].id, title });
       });
 
       if (!recordOpsMap[tableId][record.id]) {
@@ -294,9 +266,6 @@ export class FieldConvertingLinkService {
 
     return {
       recordOpsMap,
-      recordsForCreate: isEmpty(recordsForCreate)
-        ? undefined
-        : { [foreignTableId]: recordsForCreate },
     };
   }
 }

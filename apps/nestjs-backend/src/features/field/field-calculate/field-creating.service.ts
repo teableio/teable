@@ -4,6 +4,7 @@ import { FieldOpBuilder, getUniqName, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
@@ -16,7 +17,8 @@ export class FieldCreatingService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldCalculationService: FieldCalculationService
+    private readonly fieldCalculationService: FieldCalculationService,
+    private readonly viewService: ViewService
   ) {}
 
   async uniqFieldName(tableId: string, fieldName: string) {
@@ -37,10 +39,8 @@ export class FieldCreatingService {
     const fieldId = field.id;
 
     const uniqName = await this.uniqFieldName(tableId, field.name);
-    const [columnMeta] = await this.fieldService.getColumnsMeta(tableId, [field]);
 
     field.name = uniqName;
-    field.columnMeta = columnMeta;
 
     await this.fieldSupplementService.createReference(field);
 
@@ -55,6 +55,7 @@ export class FieldCreatingService {
       await this.fieldCalculationService.calculateFields(tableId, [fieldId]);
     }
 
+    await this.viewService.updateViewColumnMetaOrder(tableId, [fieldId]);
     return this.createField2Ops(field);
   }
 

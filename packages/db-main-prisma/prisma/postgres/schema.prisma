@@ -79,7 +79,6 @@ model Field {
   lookupLinkedFieldId String?   @map("lookup_linked_field_id")
   lookupOptions       String?   @map("lookup_options")
   tableId             String    @map("table_id")
-  columnMeta          String    @map("column_meta")
   version             Int
   createdTime         DateTime  @default(now()) @map("created_time")
   lastModifiedTime    DateTime  @updatedAt @map("last_modified_time")
@@ -104,6 +103,7 @@ model View {
   options          String?
   order            Float
   version          Int
+  columnMeta       String    @map("column_meta")
   enableShare      Boolean?  @map("enable_share")
   shareId          String?   @map("share_id")
   shareMeta        String?   @map("share_meta")
