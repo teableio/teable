@@ -47,7 +47,9 @@ export const ResizablePane: React.FC<{
         >
           {left}
         </SheetWraper>
-      ) : leftVisible ? (
+      ) : null}
+
+      {leftVisible && !isMobile ? (
         <CloseLeftSide
           left={size?.[0] || 0}
           onClick={() => {
@@ -61,6 +63,7 @@ export const ResizablePane: React.FC<{
           }}
         />
       )}
+
       {right && !rightVisible && (
         <OpenRightSide
           onClick={() => {
@@ -82,7 +85,13 @@ export const ResizablePane: React.FC<{
         defaultSizes={size}
       >
         {!isMobile ? (
-          <Allotment.Pane snap minSize={240} preferredSize={300} visible={leftVisible}>
+          <Allotment.Pane
+            snap
+            minSize={240}
+            preferredSize={300}
+            visible={leftVisible}
+            maxSize={400}
+          >
             {left}
           </Allotment.Pane>
         ) : null}
