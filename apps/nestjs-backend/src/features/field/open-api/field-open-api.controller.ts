@@ -47,7 +47,7 @@ export class FieldOpenApiController {
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
   ): Promise<IFieldVo[]> {
-    return await this.fieldService.getFields(tableId, query);
+    return await this.fieldService.getFieldsByQuery(tableId, query);
   }
 
   @Permissions('field|create')

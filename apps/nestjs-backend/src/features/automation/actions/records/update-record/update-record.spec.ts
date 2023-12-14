@@ -66,7 +66,7 @@ describe('Update-Record Action Test', () => {
       })
     );
 
-    jest.spyOn(fieldService, 'getFields').mockImplementation((tableId, _query) =>
+    jest.spyOn(fieldService, 'getFieldsByQuery').mockImplementation((tableId, _query) =>
       Promise.resolve([
         {
           id: fieldId,
@@ -117,7 +117,7 @@ describe('Update-Record Action Test', () => {
   };
 
   it('should call onSuccess and update records', async () => {
-    const fields: IFieldVo[] = await fieldService.getFields(tableId, { viewId: undefined });
+    const fields: IFieldVo[] = await fieldService.getFieldsByQuery(tableId, { viewId: undefined });
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
