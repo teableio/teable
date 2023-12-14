@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -63,15 +63,20 @@ export class FieldDeletingService {
   }
 
   async deleteField(tableId: string, fieldId: string) {
-    const { type, isLookup, options } = await this.prismaService
+    const { type, isLookup, options, isPrimary } = await this.prismaService
       .txClient()
       .field.findUniqueOrThrow({
         where: { id: fieldId },
-        select: { type: true, isLookup: true, options: true },
+        select: { type: true, isLookup: true, options: true, isPrimary: true },
       })
       .catch(() => {
         throw new NotFoundException(`field ${fieldId} not found`);
       });
+
+    // forbid delete primary field
+    if (isPrimary) {
+      throw new ForbiddenException(`forbid delete primary field`);
+    }
 
     if (type === FieldType.Link && !isLookup) {
       const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);

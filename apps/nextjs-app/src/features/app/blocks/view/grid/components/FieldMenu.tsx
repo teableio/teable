@@ -115,6 +115,7 @@ export const FieldMenu = () => {
       name: 'Hide field',
       icon: <EyeOff className={iconClassName} />,
       hidden: !permission['view|update'],
+      disabled: fields.some((f) => f.isPrimary),
       onClick: async () => {
         const fieldIdsSet = new Set(fieldIds);
         const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
@@ -131,6 +132,7 @@ export const FieldMenu = () => {
       name: fieldIds.length > 1 ? 'Delete all selected fields' : 'Delete field',
       icon: <Trash className={iconClassName} />,
       hidden: !permission['field|delete'],
+      disabled: fields.some((f) => f.isPrimary),
       onClick: async () => {
         const fieldIdsSet = new Set(fieldIds);
         const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
@@ -148,12 +150,18 @@ export const FieldMenu = () => {
             <SheetHeader className="h-16 justify-center border-b text-2xl">
               {allFields.find((f) => f.id === fieldIds[0])?.name ?? 'Untitled'}
             </SheetHeader>
-            {menuItems.map(({ type, name, icon, onClick }) => {
+            {menuItems.map(({ type, name, icon, onClick, disabled }) => {
               return (
                 <div
-                  className="flex w-full items-center border-b py-3"
+                  className={classNames('flex w-full items-center border-b py-3', {
+                    'cursor-not-allowed': disabled,
+                    'opacity-50': disabled,
+                  })}
                   key={type}
                   onSelect={async () => {
+                    if (disabled) {
+                      return;
+                    }
                     await onClick();
                     closeHeaderMenu();
                   }}
@@ -175,12 +183,18 @@ export const FieldMenu = () => {
         >
           <CommandList>
             <CommandGroup className="p-0" aria-valuetext="name">
-              {menuItems.map(({ type, name, icon, onClick }) => (
+              {menuItems.map(({ type, name, icon, onClick, disabled }) => (
                 <CommandItem
-                  className="px-4 py-2"
+                  className={classNames('px-4 py-2', {
+                    'cursor-not-allowed': disabled,
+                    'opacity-50': disabled,
+                  })}
                   key={type}
                   value={name}
                   onSelect={async () => {
+                    if (disabled) {
+                      return;
+                    }
                     await onClick();
                     closeHeaderMenu();
                   }}

@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import type {
   IFieldVo,
   IOtOperation,
@@ -60,7 +66,7 @@ export class ViewOpenApiService {
   async manualSort(tableId: string, viewId: string, viewOrderRo: IManualSortRo) {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
-    const fields = await this.fieldService.getFields(tableId, { viewId });
+    const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
     const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
 
     const fieldMap = fields.reduce(
@@ -143,11 +149,23 @@ export class ViewOpenApiService {
       where: { tableId, deletedTime: null },
       select: {
         id: true,
+        isPrimary: true,
       },
     });
+    const primaryFields = fields.filter((field) => field.isPrimary).map((field) => field.id);
+
+    const isHiddenPrimaryField = columnMetaRo.some(
+      (f) => primaryFields.includes(f.fieldId) && f.columnMeta.hidden
+    );
     const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
+
     if (!fieldIds.every((id) => fields.map(({ id }) => id).includes(id))) {
       throw new BadRequestException('field is not found in table');
+    }
+
+    // validate whether hidden primary field
+    if (isHiddenPrimaryField) {
+      throw new ForbiddenException('primary field can not be hidden');
     }
 
     const curColumnMeta = JSON.parse(view.columnMeta);
