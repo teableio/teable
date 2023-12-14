@@ -3,8 +3,8 @@ import type { ISort, IManualSortRo } from '@teable-group/core';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
-import { useTableId, useViewId } from '../../hooks';
-import { View } from '../../model';
+import { useView } from '../../hooks';
+import type { View } from '../../model';
 import type { ISortBaseRef } from './SortBase';
 import { SortBase } from './SortBase';
 import { useSortNode } from './useSortNode';
@@ -19,25 +19,15 @@ function Sort(props: ISortProps) {
   const { children, onChange, sorts: outerSorts } = props;
   const sortBaseRef = useRef<ISortBaseRef>(null);
 
-  const tableId = useTableId();
-
-  const viewId = useViewId();
+  const view = useView();
 
   const [innerSorts, setInnerSorts] = useState(outerSorts);
 
   const { text, isActive } = useSortNode(outerSorts);
 
   const { mutateAsync, isLoading } = useMutation({
-    mutationFn: async ({
-      tableId,
-      viewId,
-      viewRo,
-    }: {
-      tableId: string;
-      viewId: string;
-      viewRo: IManualSortRo;
-    }) => {
-      return (await View.manualSort(tableId, viewId, viewRo)).data;
+    mutationFn: async ({ view, viewRo }: { view: View; viewRo: IManualSortRo }) => {
+      return (await view.manualSort(viewRo)).data;
     },
     onSuccess: () => {
       sortBaseRef.current?.close();
@@ -85,9 +75,7 @@ function Sort(props: ISortProps) {
       const viewRo: IManualSortRo = {
         sortObjs: innerSorts.sortObjs,
       };
-      if (tableId && viewId) {
-        mutateAsync({ tableId, viewId, viewRo });
-      }
+      view && mutateAsync({ view, viewRo });
     }
   };
 

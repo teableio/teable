@@ -102,7 +102,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
     expect(fieldVisible).toBe(true);
   });
 
-  test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) should not hidden primary field`, async () => {
+  test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) should not hidden primary field for grid view`, async () => {
     const { fields } = tableMeta;
     const primaryFieldId = fields.find((field) => field.isPrimary)?.id;
     const fieldColumnMetas = [

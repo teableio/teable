@@ -28,6 +28,7 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;
   temp.doc = doc;
+  temp.tableId = doc?.collection.split('_')[1];
   return instance;
 }
 

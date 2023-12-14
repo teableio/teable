@@ -1,7 +1,6 @@
 import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
 import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
-import { View } from '@teable-group/sdk';
-import { useTable, useViewId } from '@teable-group/sdk/hooks';
+import { useTable, useView } from '@teable-group/sdk/hooks';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
 import { useToast } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
@@ -14,7 +13,7 @@ import { FieldOperator } from './type';
 
 export const FieldSetting = (props: IFieldSetting) => {
   const table = useTable();
-  const viewId = useViewId();
+  const view = useView();
 
   const { operator, order } = props;
   const onCancel = () => {
@@ -29,8 +28,8 @@ export const FieldSetting = (props: IFieldSetting) => {
     if (operator === FieldOperator.Insert) {
       const result = await table?.createField(field);
       const fieldId = result?.data?.id;
-      if (viewId != null && order != null && fieldId && table?.id) {
-        await View.setViewColumnMeta(table.id, viewId, [{ fieldId, columnMeta: { order } }]);
+      if (view && order != null && fieldId && table?.id) {
+        await view.setViewColumnMeta([{ fieldId, columnMeta: { order } }]);
       }
     }
 

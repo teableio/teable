@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import type { FieldType } from '@teable-group/core';
 import { DraggableHandle, Plus } from '@teable-group/icons';
-import { View, useView, useTableId } from '@teable-group/sdk';
+import { useView } from '@teable-group/sdk';
 import type { IFieldStatic } from '@teable-group/sdk/hooks';
 import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -67,7 +67,6 @@ export const DragItem: FC<IDragItemProps> = (props) => {
 export const FormSidebar = () => {
   const isHydrated = useIsHydrated();
   const view = useView();
-  const tableId = useTableId();
   const activeViewId = view?.id;
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
@@ -102,9 +101,8 @@ export const FormSidebar = () => {
   }, [activeViewId, allFields, view?.columnMeta]);
 
   const onFieldShown = (field: IFieldInstance) => {
-    activeViewId &&
-      tableId &&
-      View.setViewColumnMeta(tableId, activeViewId, [
+    view &&
+      view.setViewColumnMeta([
         {
           fieldId: field.id,
           columnMeta: {
@@ -115,12 +113,10 @@ export const FormSidebar = () => {
   };
 
   const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
-    if (!activeViewId || !tableId) return;
-    View?.setViewColumnMeta(
-      tableId,
-      activeViewId,
-      fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
-    );
+    view &&
+      view.setViewColumnMeta(
+        fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
+      );
   };
 
   return (

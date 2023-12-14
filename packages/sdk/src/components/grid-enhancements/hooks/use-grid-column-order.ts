@@ -1,14 +1,11 @@
 import { useCallback } from 'react';
-import { useTableId } from '../../../hooks';
 import { useFields } from '../../../hooks/use-fields';
 import { useView } from '../../../hooks/use-view';
 import type { IFieldInstance } from '../../../model';
-import { View } from '../../../model';
 import { reorder } from '../../../utils';
 
 export function useGridColumnOrder() {
   const fields = useFields();
-  const tableId = useTableId();
   const view = useView();
 
   const onColumnOrdered = useCallback(
@@ -23,8 +20,8 @@ export function useGridColumnOrder() {
         operationFields.push(field);
       }
 
-      if (!view || !tableId) {
-        throw new Error('Can not find view or tableId');
+      if (!view) {
+        throw new Error('Can not find view');
       }
 
       const newOrders = reorder(colIndexCollection.length, newColIndex, fields.length, (index) => {
@@ -32,16 +29,14 @@ export function useGridColumnOrder() {
         return view?.columnMeta[fieldId].order;
       });
 
-      View.setViewColumnMeta(
-        tableId,
-        view.id,
+      view.setViewColumnMeta(
         operationFields.map((field, index) => ({
           fieldId: field.id,
           columnMeta: { order: newOrders[index] },
         }))
       );
     },
-    [fields, tableId, view]
+    [fields, view]
   );
 
   return { onColumnOrdered };

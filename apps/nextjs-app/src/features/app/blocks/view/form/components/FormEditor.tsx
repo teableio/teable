@@ -8,13 +8,11 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
-  View,
   useView,
   useFieldStaticGetter,
   useFields,
   useIsHydrated,
   useGridColumnOrder,
-  useTableId,
 } from '@teable-group/sdk';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
@@ -36,8 +34,6 @@ const dropAnimation: DropAnimation = {
 
 export const FormEditor = () => {
   const view = useView();
-  const tableId = useTableId();
-  const activeViewId = view?.id;
   const isHydrated = useIsHydrated();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
@@ -109,35 +105,33 @@ export const FormEditor = () => {
 
     onClean();
 
-    if (activeSidebarField && (targetIndex != null || isContainer)) {
+    if (activeSidebarField && (targetIndex != null || isContainer) && view) {
       const sourceDragId = activeSidebarField.id;
-      if (activeViewId && tableId) {
-        const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
-        const draggingField = allFields[sourceIndex];
-        await View.setViewColumnMeta(tableId, activeViewId, [
-          {
-            fieldId: draggingField.id,
-            columnMeta: {
-              hidden: false,
-            },
+      const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
+      const draggingField = allFields[sourceIndex];
+      await view.setViewColumnMeta([
+        {
+          fieldId: draggingField.id,
+          columnMeta: {
+            hidden: false,
           },
-        ]);
+        },
+      ]);
 
-        const finalIndex = targetIndex ?? 0;
-        if (sourceIndex === finalIndex) return;
-        const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
-          const fieldId = visibleFields[index].id;
-          return view?.columnMeta[fieldId].order;
-        });
-        await View.setViewColumnMeta(tableId, activeViewId, [
-          {
-            fieldId: draggingField.id,
-            columnMeta: {
-              order: newOrders[0],
-            },
+      const finalIndex = targetIndex ?? 0;
+      if (sourceIndex === finalIndex) return;
+      const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
+        const fieldId = visibleFields[index].id;
+        return view?.columnMeta[fieldId].order;
+      });
+      await view.setViewColumnMeta([
+        {
+          fieldId: draggingField.id,
+          columnMeta: {
+            order: newOrders[0],
           },
-        ]);
-      }
+        },
+      ]);
     }
 
     if (activeField && targetIndex != null) {

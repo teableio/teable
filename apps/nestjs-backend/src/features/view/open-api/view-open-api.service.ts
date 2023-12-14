@@ -13,10 +13,10 @@ import type {
   IFilter,
   ISort,
   IViewOptionRo,
-  ViewType,
   IColumnMetaRo,
 } from '@teable-group/core';
 import {
+  ViewType,
   IManualSortRo,
   ViewOpBuilder,
   generateShareId,
@@ -138,6 +138,7 @@ export class ViewOpenApiService {
           columnMeta: true,
           version: true,
           id: true,
+          type: true,
         },
       })
       .catch(() => {
@@ -163,8 +164,12 @@ export class ViewOpenApiService {
       throw new BadRequestException('field is not found in table');
     }
 
-    // validate whether hidden primary field
-    if (isHiddenPrimaryField) {
+    const allowHiddenPrimaryType = [ViewType.Calendar, ViewType.Form];
+    /**
+     * validate whether hidden primary field
+     * only form view or list view(todo) can hidden primary field
+     */
+    if (isHiddenPrimaryField && !allowHiddenPrimaryType.includes(view.type as ViewType)) {
       throw new ForbiddenException('primary field can not be hidden');
     }
 
