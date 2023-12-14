@@ -81,6 +81,7 @@ export class FieldDeletingService {
       if (symmetricFieldId) {
         await this.delateAndCleanRef(foreignTableId, symmetricFieldId, true);
       }
+      await this.viewService.deleteColumnMetaOrder(tableId, [fieldId]);
       return;
     }
 
