@@ -2398,6 +2398,145 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const numberRecord = await getRecord(table2.id, table2.records[0].id);
       expect(numberRecord.fields[lookupField.id]).toEqual([123]);
     });
+
+    it('should change lookupField from link to text', async () => {
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField = await createField(table1.id, linkFieldRo);
+      const symmetricLinkField = await getField(
+        table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: symmetricLinkField.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const lookupField = await createField(table1.id, lookupFieldRo);
+      // add a link record
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, [
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+
+      const newLookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      await updateField(table1.id, lookupField.id, newLookupFieldRo);
+
+      const linkFieldAfter = await getField(table1.id, linkField.id);
+      expect(linkFieldAfter).toMatchObject(linkField);
+      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data.records;
+      expect(records[0].fields[linkField.id]).toEqual([
+        {
+          id: table2.records[0].id,
+        },
+        {
+          id: table2.records[1].id,
+        },
+      ]);
+      expect(records[0].fields[lookupField.id]).toBeUndefined();
+    });
+
+    it('should change lookupField from link to other link', async () => {
+      const linkFieldRo1: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkFieldRo2: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+      const linkField1 = await createField(table1.id, linkFieldRo1);
+      const linkField2 = await createField(table1.id, linkFieldRo2);
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: (linkField1.options as ILinkFieldOptions).symmetricFieldId as string,
+          linkFieldId: linkField1.id,
+        },
+      };
+
+      const lookupField = await createField(table1.id, lookupFieldRo);
+      // add a link record
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      await updateRecordByApi(table1.id, table1.records[1].id, linkField2.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      const lookupFieldRo2: IFieldRo = {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: (linkField2.options as ILinkFieldOptions).symmetricFieldId as string,
+          linkFieldId: linkField2.id,
+        },
+      };
+      const recordsPre = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data
+        .records;
+      expect(recordsPre[0].fields[lookupField.id]).toEqual([
+        { id: table1.records[0].id },
+        { id: table1.records[0].id },
+      ]);
+
+      await updateField(table1.id, lookupField.id, lookupFieldRo2);
+      const linkField1After = await getField(table1.id, linkField1.id);
+      expect(linkField1After).toMatchObject(linkField1);
+      const linkField2After = await getField(table1.id, linkField2.id);
+      expect(linkField2After).toMatchObject(linkField2);
+
+      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data.records;
+      expect(records[0].fields[linkField1.id]).toEqual([
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      expect(records[0].fields[linkField2.id]).toBeUndefined();
+      expect(records[1].fields[linkField2.id]).toEqual([
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      expect(records[0].fields[lookupField.id]).toBeUndefined();
+      expect(records[1].fields[lookupField.id]).toEqual([
+        { id: table1.records[1].id },
+        { id: table1.records[1].id },
+      ]);
+    });
   });
 
   describe('convert rollup field', () => {

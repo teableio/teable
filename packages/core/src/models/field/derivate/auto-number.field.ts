@@ -47,6 +47,7 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
   }
 
   validateOptions() {
+    console.log('this.options', this.options);
     return autoNumberFieldOptionsRoSchema.safeParse(this.options);
   }
 

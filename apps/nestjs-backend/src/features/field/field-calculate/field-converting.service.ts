@@ -967,7 +967,11 @@ export class FieldConvertingService {
 
     let result: IModifiedResult | undefined;
     // 0.1. collect changes effect by the updated field
-    if (keys.includes('type') || keys.includes('isComputed')) {
+    if (newField.isLookup && oldField.isLookup) {
+      if (keys.includes('lookupOptions')) {
+        await this.modifyLookupOptions(newField, oldField);
+      }
+    } else if (keys.includes('type') || keys.includes('isComputed') || keys.includes('isLookup')) {
       // for field type change, isLookup change, isComputed change
       result = await this.modifyType(tableId, newField, oldField);
     } else {
@@ -1044,7 +1048,12 @@ export class FieldConvertingService {
     }
 
     console.log('calculating field:', newField.name);
-    await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
+
+    if (newField.lookupOptions) {
+      await this.fieldCalculationService.resetAndCalculateFields(tableId, [newField.id]);
+    } else {
+      await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
+    }
   }
 
   private async submitFieldOpsMap(fieldOpsMap: IOpsMap | undefined) {

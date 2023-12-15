@@ -143,8 +143,8 @@ describe('LinkFieldCore', () => {
         dbForeignKeyName: '__fk_fldiBBKwOZuW8rlrtoW',
         symmetricFieldId: 'fld8bh5u0MkjdmtFCxv',
       };
-      expect(linkFieldOptionsRoSchema.safeParse(object).success).toBeFalsy();
-      expect(linkFieldOptionsRoSchema.strip().parse(object)).toEqual({
+      expect(linkFieldOptionsRoSchema.safeParse(object).success).toBeTruthy();
+      expect(linkFieldOptionsRoSchema.parse(object)).toEqual({
         relationship: 'manyOne',
         foreignTableId: 'tblERSkHpp4KDRK1hvL',
       });

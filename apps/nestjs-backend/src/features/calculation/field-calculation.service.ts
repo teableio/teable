@@ -65,10 +65,25 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async calculateFields(tableId: string, fieldIds: string[], reset?: boolean) {
-    const result = reset
-      ? await this.getChangedOpsMapByReset(tableId, fieldIds)
-      : await this.getChangedOpsMap(tableId, fieldIds);
+  async resetFields(tableId: string, fieldIds: string[]) {
+    const result = await this.getChangedOpsMapByReset(tableId, fieldIds);
+
+    if (!result) {
+      return;
+    }
+    const { opsMap, fieldMap, tableId2DbTableName } = result;
+    await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
+  }
+
+  @Timing()
+  async resetAndCalculateFields(tableId: string, fieldIds: string[]) {
+    await this.resetFields(tableId, fieldIds);
+    await this.calculateFields(tableId, fieldIds);
+  }
+
+  @Timing()
+  async calculateFields(tableId: string, fieldIds: string[]) {
+    const result = await this.getChangedOpsMap(tableId, fieldIds);
 
     if (!result) {
       return;

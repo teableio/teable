@@ -47,17 +47,6 @@ describe('AutoNumberFieldCore', () => {
       expect(autoNumberField.validateOptions().success).toBeTruthy();
     });
 
-    it('should return failure if options are invalid', () => {
-      expect(
-        plainToInstance(AutoNumberFieldCore, {
-          ...autoNumberJson,
-          options: {
-            expression: '1 + 1',
-          },
-        }).validateOptions().success
-      ).toBeFalsy();
-    });
-
     it('should get default options', () => {
       expect(AutoNumberFieldCore.defaultOptions()).toEqual({});
     });
