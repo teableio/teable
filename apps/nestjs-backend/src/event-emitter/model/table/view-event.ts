@@ -48,9 +48,9 @@ export class ViewDeleteEvent extends BaseOpEvent {
 export class ViewUpdateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_VIEW_UPDATE;
   @Expose() tableId: string;
-  @Expose() view: IChangeView | IChangeView[] | undefined;
+  @Expose() view: IChangeView;
 
-  constructor(tableId: string, view: IChangeView | undefined, context: IEventContext) {
+  constructor(tableId: string, view: IChangeView, context: IEventContext) {
     super(RawOpType.Edit, false, context);
 
     this.tableId = tableId;

@@ -30,7 +30,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
           <Avatar className="h-9 w-9">
-            <AvatarImage src={userAvatarUrl} alt={userName} />
+            <AvatarImage src={userAvatarUrl as string} alt={userName} />
             <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
           </Avatar>
         );

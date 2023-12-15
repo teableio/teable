@@ -7,8 +7,8 @@ import { ClsService } from 'nestjs-cls';
 import type ShareDb from 'sharedb';
 import { BatchService } from '../features/calculation/batch.service';
 import { LinkService } from '../features/calculation/link.service';
-import { ReferenceService } from '../features/calculation/reference.service';
 import type { IOpsMap } from '../features/calculation/reference.service';
+import { ReferenceService } from '../features/calculation/reference.service';
 import { SystemFieldService } from '../features/calculation/system-field.service';
 import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
@@ -97,7 +97,7 @@ export class WsDerivateService {
     const recordId = context.id;
     if (docType !== IdPrefix.Record || !context.op.op) {
       // TODO: Capture some missed situations, which may be deleted later.
-      this.cls.set('tx.stashOpMap', this.stashOpMap(context));
+      this.stashOpMap(context, true);
       return next();
     }
 
@@ -105,7 +105,7 @@ export class WsDerivateService {
     const changes = this.op2Changes(tableId, recordId, context.op.op);
     if (!changes.length) {
       // TODO: Capture some missed situations, which may be deleted later.
-      this.cls.set('tx.stashOpMap', this.stashOpMap(context));
+      this.stashOpMap(context, true);
       return next();
     }
 
@@ -117,7 +117,7 @@ export class WsDerivateService {
         context.agent.custom.saveContext = saveContext;
         context.agent.custom.stashOpMap = this.stashOpMap(context);
       } else {
-        this.cls.set('tx.stashOpMap', this.stashOpMap(context));
+        this.stashOpMap(context, true);
       }
     } catch (e) {
       return next(e);
@@ -126,7 +126,7 @@ export class WsDerivateService {
     next();
   }
 
-  private stashOpMap(context: ShareDb.middleware.SubmitContext) {
+  private stashOpMap(context: ShareDb.middleware.SubmitContext, preSave: boolean = false) {
     const { collection, id, op } = context;
     const stashOpMap: IRawOpMap = { [collection]: {} };
 
@@ -141,6 +141,10 @@ export class WsDerivateService {
       'c',
       'd',
     ]) as IRawOp;
+
+    if (preSave) {
+      this.cls.set('tx.stashOpMap', stashOpMap);
+    }
     return stashOpMap;
   }
 }

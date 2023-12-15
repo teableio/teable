@@ -1,4 +1,5 @@
 import type { IOtOperation } from '../../models/op';
+import { OpName } from '../common';
 import { AddViewBuilder } from './add-view';
 import { SetViewColumnMetaBuilder } from './set-view-column-meta';
 import { SetViewDescriptionBuilder } from './set-view-description';
@@ -13,15 +14,15 @@ import { SetViewSortBuilder } from './set-view-sort';
 export class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
-    setViewName: new SetViewNameBuilder(),
-    setViewDescription: new SetViewDescriptionBuilder(),
-    setViewFilter: new SetViewFilterBuilder(),
-    setViewSort: new SetViewSortBuilder(),
-    setViewOption: new SetViewOptionBuilder(),
-    setViewColumnMeta: new SetViewColumnMetaBuilder(),
-    setViewEnableShare: new SetViewEnableShareBuilder(),
-    setViewShareId: new SetViewShareIdBuilder(),
-    setViewShareMeta: new SetViewShareMetaBuilder(),
+    [OpName.SetViewName]: new SetViewNameBuilder(),
+    [OpName.SetViewDescription]: new SetViewDescriptionBuilder(),
+    [OpName.SetViewFilter]: new SetViewFilterBuilder(),
+    [OpName.SetViewSort]: new SetViewSortBuilder(),
+    [OpName.SetViewOptions]: new SetViewOptionBuilder(),
+    [OpName.SetViewColumnMeta]: new SetViewColumnMetaBuilder(),
+    [OpName.SetViewEnableShare]: new SetViewEnableShareBuilder(),
+    [OpName.SetViewShareId]: new SetViewShareIdBuilder(),
+    [OpName.SetViewShareMeta]: new SetViewShareMetaBuilder(),
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention

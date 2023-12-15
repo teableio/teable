@@ -94,11 +94,11 @@ describe('UserFieldCore', () => {
 
     expect(field.convertStringToCellValue('anonymous', ctx)).toEqual({
       id: 'usr1234567',
-      name: 'anonymous',
+      title: 'anonymous',
     });
     expect(field.convertStringToCellValue('anonymous@teable.io', ctx)).toEqual({
       id: 'usr1234567',
-      name: 'anonymous',
+      title: 'anonymous',
     });
 
     ctx.userSets.push({
@@ -112,7 +112,7 @@ describe('UserFieldCore', () => {
 
   it('should convert item to string', () => {
     expect(field.item2String({ id: 'usr' })).toBe('');
-    expect(field.item2String({ id: 'usr', name: 'anonymous' })).toBe('anonymous');
+    expect(field.item2String({ id: 'usr', title: 'anonymous' })).toBe('anonymous');
     expect(field.item2String(null)).toBe('');
   });
 

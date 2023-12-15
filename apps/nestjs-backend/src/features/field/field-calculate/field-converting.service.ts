@@ -16,7 +16,6 @@ import {
   ColorUtils,
   DbFieldType,
   FIELD_VO_PROPERTIES,
-  FieldKeyType,
   FieldOpBuilder,
   FieldType,
   generateChoiceId,

@@ -78,7 +78,7 @@ export class UserFieldCore extends FieldCore {
     }
 
     if (this.isMultipleCellValue) {
-      const cellValue = value.split(/,\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
+      const cellValue = value.split(/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
         return item.includes(',') ? item.slice(1, -1) : item;
       });
 

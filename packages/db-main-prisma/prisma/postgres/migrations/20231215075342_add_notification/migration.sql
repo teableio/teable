@@ -1,9 +1,12 @@
 -- AlterTable
-ALTER TABLE "users" ADD COLUMN "preference_meta" TEXT;
+ALTER TABLE "users" ADD COLUMN     "notify_meta" TEXT;
+
+-- AlterTable
+ALTER TABLE "view" ALTER COLUMN "column_meta" DROP DEFAULT;
 
 -- CreateTable
 CREATE TABLE "notification" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "from_user" TEXT NOT NULL,
     "to_user" TEXT NOT NULL,
     "icon_meta" TEXT NOT NULL,
@@ -11,8 +14,10 @@ CREATE TABLE "notification" (
     "message" TEXT NOT NULL,
     "url_meta" TEXT NOT NULL,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
-    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "created_by" TEXT NOT NULL
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT NOT NULL,
+
+    CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

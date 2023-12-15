@@ -3,10 +3,12 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { IActionTriggerBuffer } from '@teable-group/core';
 import { getActionTriggerChannel } from '@teable-group/core';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { RecordDeleteEvent, ViewUpdateEvent } from '../model';
-import { Events, RecordCreateEvent, RecordUpdateEvent } from '../model';
+import type { RecordCreateEvent, RecordDeleteEvent, ViewUpdateEvent } from '../model';
+import { Events, RecordUpdateEvent } from '../model';
 
-type IListenerEvent = ViewUpdateEvent | RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
+type IViewEvent = ViewUpdateEvent;
+type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
+type IListenerEvent = IViewEvent | IRecordEvent;
 
 @Injectable()
 export class ActionTriggerListener {
@@ -17,52 +19,63 @@ export class ActionTriggerListener {
   @OnEvent('table.view.update', { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
-    if (Events.TABLE_VIEW_UPDATE === listenerEvent.name) {
-      const viewUpdateEvent = listenerEvent as ViewUpdateEvent;
-      if (
-        viewUpdateEvent.context.opName &&
-        !['setViewFilter', 'setViewColumnMeta'].includes(viewUpdateEvent.context.opName)
-      ) {
-        return;
-      }
-      const { tableId, view } = viewUpdateEvent;
+    // Handling table view update events
+    if (this.isTableViewUpdateEvent(listenerEvent)) {
+      await this.handleTableViewUpdate(listenerEvent as ViewUpdateEvent);
+    }
 
-      const normalizedViews = Array.isArray(view) ? view : [view];
-      const viewIds = normalizedViews.map((v) => v?.id).filter(Boolean) as string[];
+    // Handling table record events (create, delete, update)
+    if (this.isTableRecordEvent(listenerEvent)) {
+      await this.handleTableRecordEvent(listenerEvent as IRecordEvent);
+    }
+  }
 
+  private async handleTableViewUpdate(event: ViewUpdateEvent): Promise<void> {
+    const {
+      tableId,
+      view: { id: viewId },
+    } = event;
+    if (!this.isValidViewUpdateOperation(event)) {
+      return;
+    }
+
+    this.emitTablePullAction(tableId, {
+      fetchRowCount: [viewId],
+      fetchAggregation: [viewId],
+    });
+  }
+
+  private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
+    const { tableId } = event;
+
+    if (event instanceof RecordUpdateEvent) {
       this.emitTablePullAction(tableId, {
-        fetchRowCount: viewIds,
-        fetchAggregation: viewIds,
+        fetchAggregation: [tableId],
+      });
+    } else {
+      this.emitTablePullAction(tableId, {
+        fetchRowCount: [tableId],
+        fetchAggregation: [tableId],
       });
     }
+  }
 
-    if (
-      [Events.TABLE_RECORD_CREATE, Events.TABLE_RECORD_DELETE, Events.TABLE_RECORD_UPDATE].includes(
-        listenerEvent.name
-      )
-    ) {
-      const recordEvent = listenerEvent as
-        | RecordCreateEvent
-        | RecordDeleteEvent
-        | RecordUpdateEvent;
-      const { tableId } = recordEvent;
+  private isTableViewUpdateEvent(event: IListenerEvent): boolean {
+    return Events.TABLE_VIEW_UPDATE === event.name;
+  }
 
-      if (recordEvent instanceof RecordCreateEvent) {
-        this.emitTablePullAction(tableId, {
-          fetchRowCount: [tableId],
-          fetchAggregation: [tableId],
-        });
-      } else if (recordEvent instanceof RecordUpdateEvent) {
-        this.emitTablePullAction(tableId, {
-          fetchAggregation: [tableId],
-        });
-      } else {
-        this.emitTablePullAction(tableId, {
-          fetchRowCount: [tableId],
-          fetchAggregation: [tableId],
-        });
-      }
-    }
+  private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
+    const operationNames = ['setViewFilter', 'setViewColumnMeta'];
+    return event.context.opName && operationNames.includes(event.context.opName);
+  }
+
+  private isTableRecordEvent(event: IListenerEvent): boolean {
+    const recordEvents = [
+      Events.TABLE_RECORD_CREATE,
+      Events.TABLE_RECORD_DELETE,
+      Events.TABLE_RECORD_UPDATE,
+    ];
+    return recordEvents.includes(event.name);
   }
 
   private emitTablePullAction(tableId: string, data: IActionTriggerBuffer) {

@@ -124,9 +124,6 @@ describe('InvitationService', () => {
       jest
         .spyOn(invitationService, 'generateInvitationBySpace')
         .mockResolvedValue({ id: mockInvitationId, invitationCode: mockInvitationCode } as any);
-      jest
-        .spyOn(invitationService as any, 'inviteEmailOptions')
-        .mockResolvedValue({ subject: '', template: '', context: {} });
 
       const result = await clsService.runWith(
         {

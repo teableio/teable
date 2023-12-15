@@ -20,7 +20,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib';
-import { data } from 'autoprefixer';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';

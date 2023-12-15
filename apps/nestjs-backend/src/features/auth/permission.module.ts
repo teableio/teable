@@ -5,6 +5,6 @@ import { PermissionService } from './permission.service';
 @Global()
 @Module({
   providers: [PermissionService, PermissionGuard],
-  exports: [PermissionGuard, PermissionService],
+  exports: [PermissionService, PermissionGuard],
 })
 export class PermissionModule {}

@@ -646,6 +646,7 @@ describe('selectionService', () => {
         undefined
       );
       expect(selectionService['fillCells']).toHaveBeenCalledWith({
+        tableId,
         tableData: [],
         fields,
         records,

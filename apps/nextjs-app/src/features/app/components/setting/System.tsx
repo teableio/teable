@@ -23,29 +23,6 @@ export const System: React.FC = () => {
           }}
         >
           <div>
-            <RadioGroupItem value="system" id="system" className="peer sr-only" />
-            <Label
-              htmlFor="system"
-              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
-            >
-              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
-                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
-                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
-                    <div className="h-2 w-[80px] rounded-lg bg-[#ecedef]" />
-                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
-                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
-                  </div>
-                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
-                    <div className="h-2 w-[80px] rounded-lg bg-slate-400" />
-                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
-                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
-                  </div>
-                </div>
-              </div>
-            </Label>
-            <span className="block w-full p-2 text-center font-normal">System</span>
-          </div>
-          <div>
             <RadioGroupItem value={ThemeKey.Light} id={ThemeKey.Light} className="peer sr-only" />
             <Label
               htmlFor={ThemeKey.Light}
@@ -94,6 +71,29 @@ export const System: React.FC = () => {
               </div>
             </Label>
             <span className="block w-full p-2 text-center font-normal">Dark</span>
+          </div>
+          <div>
+            <RadioGroupItem value="system" id="system" className="peer sr-only" />
+            <Label
+              htmlFor="system"
+              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+            >
+              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
+                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
+                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                  </div>
+                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                  </div>
+                </div>
+              </div>
+            </Label>
+            <span className="block w-full p-2 text-center font-normal">System</span>
           </div>
         </RadioGroup>
       </div>

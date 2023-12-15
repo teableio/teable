@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../features/auth/auth.module';
-import { PermissionService } from '../features/auth/permission.service';
 import { CalculationModule } from '../features/calculation/calculation.module';
 import { ShareModule } from '../features/share/share.module';
 import { TableModule } from '../features/table/table.module';
@@ -18,7 +17,6 @@ import { WsDerivateService } from './ws-derivate.service';
     ShareDbAdapter,
     WsDerivateService,
     WsAuthService,
-    PermissionService,
     ShareDbPermissionService,
   ],
   exports: [ShareDbService, WsAuthService],

@@ -224,7 +224,7 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table1CResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .get(`/api/table/${table1.id}/aggregation/rowCount`)
               .query(qs.stringify(table1Candidate))
               .expect(200)
           ).body as IRowCountVo;
@@ -240,7 +240,7 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table1SResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .get(`/api/table/${table1.id}/aggregation/rowCount`)
               .query(qs.stringify(table1Selected))
               .expect(200)
           ).body as IRowCountVo;
@@ -256,7 +256,7 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table2CResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .get(`/api/table/${table2.id}/aggregation/rowCount`)
               .query(qs.stringify(table2Candidate))
               .expect(200)
           ).body as IRowCountVo;
@@ -272,7 +272,7 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table2SResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .get(`/api/table/${table2.id}/aggregation/rowCount`)
               .query(qs.stringify(table2Selected))
               .expect(200)
           ).body as IRowCountVo;

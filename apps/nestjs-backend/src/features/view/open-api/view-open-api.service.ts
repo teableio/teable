@@ -226,7 +226,7 @@ export class ViewOpenApiService {
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewOption.build({
+    const ops = ViewOpBuilder.editor.setViewOptions.build({
       newOptions: {
         ...oldOptions,
         ...viewOption,

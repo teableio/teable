@@ -90,7 +90,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
                   </Avatar>
                   <div>
                     <p className="text-sm font-medium leading-none">{userName}</p>
-                    <p className="text-muted-foreground text-sm">{email}</p>
+                    <p className="text-sm text-muted-foreground">{email}</p>
                   </div>
                 </div>
               </CommandItem>
