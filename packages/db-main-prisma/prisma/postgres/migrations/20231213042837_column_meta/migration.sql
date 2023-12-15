@@ -24,12 +24,24 @@ WITH cet AS (
 
 UPDATE view
 SET column_meta = (
-  SELECT jsonb_object_agg(key, value)::text AS column_meta
-  FROM cet
-  CROSS JOIN LATERAL jsonb_each(column_meta) AS x(key, value)
-  WHERE view.id = cet.id
-  GROUP BY id
-);
+SELECT jsonb_object_agg(key, value) AS merged_column_meta
+FROM (
+  SELECT id, key, jsonb_object_agg(subkey, subvalue) AS value
+  FROM (
+    SELECT id, key, subkey, subvalue,
+           ROW_NUMBER() OVER (PARTITION BY id, key, subkey ORDER BY subvalue DESC) AS rn
+    FROM (
+      SELECT id, key, subkey, subvalue
+      FROM cet,
+           LATERAL jsonb_each(column_meta) AS meta(key, value),
+           LATERAL jsonb_each(value) AS submeta(subkey, subvalue)
+    ) subquery1
+  ) subquery2
+  WHERE rn = 1
+  GROUP BY id, key
+) subquery3
+where id = view.id
+GROUP BY id);
 
 -- AlterTable
 ALTER TABLE "field" DROP COLUMN "column_meta";
