@@ -1,7 +1,8 @@
-import { LocalStorageKeys, useIsHydrated } from '@teable-group/sdk';
+import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable-group/sdk';
 import { Allotment } from 'allotment';
 import React, { useState } from 'react';
 import { useLocalStorage } from 'react-use';
+import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { CloseLeftSide } from './CloseLeftSide';
 import 'allotment/dist/style.css';
 import { OpenLeftSide } from './OpenLeftSide';
@@ -14,8 +15,12 @@ export const ResizablePane: React.FC<{
 }> = ({ children }) => {
   const [size, setSize] = useLocalStorage<number[]>(LocalStorageKeys.SideBarSize);
   const [left, center, right] = children;
+  const isMobile = useIsMobile();
 
-  const [leftVisible, setLeftVisible] = useState<boolean>(Boolean(size?.[0] && size[0] > minSize));
+  const [leftVisible, setLeftVisible] = useState<boolean>(
+    isMobile ? false : Boolean(size?.[0] && size[0] > minSize)
+  );
+
   const [rightVisible, setRightVisible] = useState<boolean>(
     Boolean(size?.[2] && size[2] > minSize)
   );
@@ -33,7 +38,18 @@ export const ResizablePane: React.FC<{
 
   return (
     <>
-      {leftVisible ? (
+      {isMobile ? (
+        <SheetWraper
+          open={leftVisible}
+          onOpenChange={(open) => {
+            setLeftVisible(open);
+          }}
+        >
+          {left}
+        </SheetWraper>
+      ) : null}
+
+      {leftVisible && !isMobile ? (
         <CloseLeftSide
           left={size?.[0] || 0}
           onClick={() => {
@@ -47,6 +63,7 @@ export const ResizablePane: React.FC<{
           }}
         />
       )}
+
       {right && !rightVisible && (
         <OpenRightSide
           onClick={() => {
@@ -54,18 +71,30 @@ export const ResizablePane: React.FC<{
           }}
         />
       )}
+
       <Allotment
         minSize={0}
         onChange={(newSize) => {
-          newSize[0] !== size?.[0] && setLeftVisible(newSize[0] >= minSize);
+          if (!isMobile && newSize.length > 1) {
+            newSize[0] !== size?.[0] && setLeftVisible(newSize[0] >= minSize);
+          }
+
           newSize[2] !== size?.[2] && setRightVisible(newSize[2] >= minSize);
           setSize(newSize.map((s) => (s < minSize ? minSize : s)));
         }}
         defaultSizes={size}
       >
-        <Allotment.Pane snap minSize={minSize} preferredSize={300} visible={leftVisible}>
-          {left}
-        </Allotment.Pane>
+        {!isMobile ? (
+          <Allotment.Pane
+            snap
+            minSize={240}
+            preferredSize={300}
+            visible={leftVisible}
+            maxSize={400}
+          >
+            {left}
+          </Allotment.Pane>
+        ) : null}
         <Allotment.Pane minSize={320}>{center}</Allotment.Pane>
         {right && (
           <Allotment.Pane minSize={minSize} preferredSize={100} snap visible={rightVisible}>
