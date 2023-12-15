@@ -183,6 +183,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const {
     columnResizeState,
     hoveredColumnResizeIndex,
+    setHoveredColumnResizeIndex,
     setColumnResizeState,
     onColumnResizeStart,
     onColumnResizeChange,
@@ -239,9 +240,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const getHoverCellPosition = (mouseState: IMouseState) => {
     const { rowIndex, columnIndex, x, y } = mouseState;
-    const offsetX = coordInstance.getColumnOffset(columnIndex);
     const isCellRange = columnIndex > -1 && rowIndex > -1;
-    let position: ICellPosition | null = null;
 
     if (isCellRange) {
       const cell = getCellContent([columnIndex, rowIndex]);
@@ -249,15 +248,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
       if (
         cellRenderer.needsHoverPosition ||
-        (cellRenderer.needsHoverPositionWhenActive && isEqual(activeCell, [columnIndex, rowIndex]))
+        (cellRenderer.needsHoverPositionWhenActive &&
+          activeCell &&
+          isEqual(activeCell, [columnIndex, rowIndex]))
       ) {
-        position = [
+        const offsetX = coordInstance.getColumnOffset(columnIndex);
+        return [
           columnIndex < freezeColumnCount ? x - offsetX : x - offsetX + scrollLeft,
           y - coordInstance.getRowOffset(rowIndex) + scrollTop,
-        ];
+        ] as ICellPosition;
       }
     }
-    return position;
+    return null;
   };
 
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
@@ -554,6 +556,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { type, ...rest } = BLANK_REGION_DATA;
     onItemHovered?.(type, rest, [-Infinity, -Infinity]);
     setMouseState(DEFAULT_MOUSE_STATE);
+    setHoveredColumnResizeIndex(-1);
   };
 
   const onContextMenuInner = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -568,6 +571,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setDragState(DEFAULT_DRAG_STATE);
     setMouseState(DEFAULT_MOUSE_STATE);
     setSelection(selection.reset());
+    setHoveredColumnResizeIndex(-1);
     setColumnResizeState(DEFAULT_COLUMN_RESIZE_STATE);
   };
 

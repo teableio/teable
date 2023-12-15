@@ -68,6 +68,7 @@ export const useColumnResize = (coordInstance: CoordinateManager, scrollState: I
   return {
     columnResizeState,
     hoveredColumnResizeIndex,
+    setHoveredColumnResizeIndex,
     setColumnResizeState,
     onColumnResizeStart,
     onColumnResizeChange,

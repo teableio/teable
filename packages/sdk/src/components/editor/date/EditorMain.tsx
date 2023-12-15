@@ -40,7 +40,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
 
   const timeValue = useMemo(() => {
     const datetime = dayjs(date);
-    if (!datetime.isValid()) return;
+    if (!datetime.isValid()) return '';
     return datetime.format('HH:mm');
   }, [date]);
 
