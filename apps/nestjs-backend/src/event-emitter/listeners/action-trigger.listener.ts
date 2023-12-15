@@ -3,15 +3,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { IActionTriggerBuffer } from '@teable-group/core';
 import { getActionTriggerChannel } from '@teable-group/core';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { FieldUpdateEvent, RecordDeleteEvent, ViewUpdateEvent } from '../model';
+import type { RecordDeleteEvent, ViewUpdateEvent } from '../model';
 import { Events, RecordCreateEvent, RecordUpdateEvent } from '../model';
 
-type IListenerEvent =
-  | ViewUpdateEvent
-  | FieldUpdateEvent
-  | RecordCreateEvent
-  | RecordDeleteEvent
-  | RecordUpdateEvent;
+type IListenerEvent = ViewUpdateEvent | RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
 
 @Injectable()
 export class ActionTriggerListener {
@@ -20,31 +15,24 @@ export class ActionTriggerListener {
   constructor(private readonly shareDbService: ShareDbService) {}
 
   @OnEvent('table.view.update', { async: true })
-  @OnEvent('table.field.update', { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
-    if (Events.TABLE_FIELD_UPDATE === listenerEvent.name) {
-      const fieldEvent = listenerEvent as FieldUpdateEvent;
-      if (fieldEvent.context.opName !== 'setColumnMeta') {
-        return;
-      }
-      const { tableId } = fieldEvent;
-
-      this.emitTablePullAction(tableId, {
-        fetchAggregation: true,
-      });
-    }
-
     if (Events.TABLE_VIEW_UPDATE === listenerEvent.name) {
-      const viewEvent = listenerEvent as ViewUpdateEvent;
-      if (viewEvent.context.opName !== 'setViewFilter') {
+      const viewUpdateEvent = listenerEvent as ViewUpdateEvent;
+      if (
+        viewUpdateEvent.context.opName &&
+        !['setViewFilter', 'setViewColumnMeta'].includes(viewUpdateEvent.context.opName)
+      ) {
         return;
       }
-      const { tableId } = viewEvent;
+      const { tableId, view } = viewUpdateEvent;
+
+      const normalizedViews = Array.isArray(view) ? view : [view];
+      const viewIds = normalizedViews.map((v) => v?.id).filter(Boolean) as string[];
 
       this.emitTablePullAction(tableId, {
-        fetchRowCount: true,
-        fetchAggregation: true,
+        fetchRowCount: viewIds,
+        fetchAggregation: viewIds,
       });
     }
 
@@ -57,22 +45,21 @@ export class ActionTriggerListener {
         | RecordCreateEvent
         | RecordDeleteEvent
         | RecordUpdateEvent;
-      let fieldIds: string[] | undefined;
       const { tableId } = recordEvent;
 
       if (recordEvent instanceof RecordCreateEvent) {
         this.emitTablePullAction(tableId, {
-          fetchRowCount: true,
-          fetchAggregation: true,
+          fetchRowCount: [tableId],
+          fetchAggregation: [tableId],
         });
       } else if (recordEvent instanceof RecordUpdateEvent) {
         this.emitTablePullAction(tableId, {
-          fetchAggregation: true,
+          fetchAggregation: [tableId],
         });
       } else {
         this.emitTablePullAction(tableId, {
-          fetchRowCount: true,
-          fetchAggregation: true,
+          fetchRowCount: [tableId],
+          fetchAggregation: [tableId],
         });
       }
     }

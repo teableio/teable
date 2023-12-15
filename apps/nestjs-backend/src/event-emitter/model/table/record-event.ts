@@ -1,8 +1,7 @@
 import type { IRecord } from '@teable-group/core';
 import { Expose } from 'class-transformer';
 import { RawOpType } from '../../../share-db/interface';
-import type { IBaseEvent } from '../../interfaces/base-event.interface';
-import { IEventContext } from '../../interfaces/base-event.interface';
+import type { IEventContext } from '../../interfaces/base-event.interface';
 import { Events } from '../event.enum';
 import type { IChangeValue } from './base-op-event';
 import { BaseOpEvent } from './base-op-event';
@@ -22,32 +21,25 @@ export type IChangeRecord = Record<
 export class RecordCreateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_RECORD_CREATE;
   @Expose() tableId: string;
-  @Expose() viewId: string | undefined;
   @Expose() record: IRecord | IRecord[] | undefined;
 
-  constructor(
-    tableId: string,
-    viewId: string | undefined,
-    record: IRecord | IRecord[] | undefined,
-    context: IEventContext
-  ) {
-    super(RawOpType.Create, record && Array.isArray(record), context);
+  constructor(tableId: string, record: IRecord | IRecord[] | undefined, context: IEventContext) {
+    super(RawOpType.Create, Array.isArray(record), context);
 
     this.tableId = tableId;
     this.record = record;
-    this.viewId = viewId;
     this.context = context;
   }
 }
 
-@Expose()
-export class RecordDeleteEvent implements IBaseEvent {
+export class RecordDeleteEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_RECORD_DELETE;
-  @Expose() context: IEventContext;
   @Expose() tableId: string;
-  @Expose() recordId: string;
+  @Expose() recordId: string | string[] | undefined;
 
-  constructor(tableId: string, recordId: string, context: IEventContext) {
+  constructor(tableId: string, recordId: string | string[] | undefined, context: IEventContext) {
+    super(RawOpType.Del, Array.isArray(recordId), context);
+
     this.tableId = tableId;
     this.recordId = recordId;
     this.context = context;
@@ -64,7 +56,8 @@ export class RecordUpdateEvent extends BaseOpEvent {
     record: IChangeRecord | IChangeRecord[] | undefined,
     context: IEventContext
   ) {
-    super(RawOpType.Edit, record && Array.isArray(record), context);
+    super(RawOpType.Edit, Array.isArray(record), context);
+
     this.tableId = tableId;
     this.record = record;
   }

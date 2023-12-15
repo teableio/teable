@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { userNotifyMetaSchema } from '../user';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
@@ -11,6 +12,7 @@ export const userMeVoSchema = z.object({
   avatar: z.string().nullable().optional(),
   email: z.string().email(),
   phone: z.string().nullable().optional(),
+  notifyMeta: userNotifyMetaSchema,
 });
 
 export type IUserMeVo = z.infer<typeof userMeVoSchema>;

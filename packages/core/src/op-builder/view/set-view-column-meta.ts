@@ -14,15 +14,15 @@ export class SetViewColumnMetaBuilder implements IOpBuilder {
 
   build(params: {
     fieldId: string;
-    newMetaValue: IColumn | null;
-    oldMetaValue?: IColumn;
+    newColumnMeta: IColumn | null;
+    oldColumnMeta?: IColumn;
   }): IOtOperation {
-    const { fieldId, newMetaValue, oldMetaValue } = params;
+    const { fieldId, newColumnMeta, oldColumnMeta } = params;
 
     return {
       p: ['columnMeta', fieldId],
-      ...(newMetaValue ? { oi: newMetaValue } : {}),
-      ...(oldMetaValue ? { od: oldMetaValue } : {}),
+      ...(newColumnMeta ? { oi: newColumnMeta } : {}),
+      ...(oldColumnMeta ? { od: oldColumnMeta } : {}),
     };
   }
 

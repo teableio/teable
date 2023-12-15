@@ -3,7 +3,7 @@ import { getAggregation } from '@teable-group/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config/react-query-keys';
-import { useIsHydrated, useActionTrigger } from '../../hooks';
+import { useActionTrigger, useIsHydrated } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { AggregationContext } from './AggregationContext';
 
@@ -12,11 +12,10 @@ interface IAggregationProviderProps {
 }
 
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
+  const actionTrigger = useActionTrigger();
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
-
-  const pullAction = useActionTrigger();
 
   const { data: resAggregations } = useQuery({
     queryKey: ReactQueryKeys.aggregation(tableId as string, { viewId }),
@@ -31,10 +30,14 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   );
 
   useEffect(() => {
-    if (pullAction?.fetchAggregation) {
+    if (tableId == null) return;
+
+    if (
+      [tableId, viewId].some((value) => value && actionTrigger?.fetchAggregation?.includes(value))
+    ) {
       updateAggregations();
     }
-  }, [pullAction, updateAggregations]);
+  }, [actionTrigger?.fetchAggregation, tableId, updateAggregations, viewId]);
 
   const aggregations = useMemo(() => {
     if (!resAggregations) return {};

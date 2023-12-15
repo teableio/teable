@@ -148,9 +148,9 @@ model Reference {
   fromFieldId String @map("from_field_id")
   toFieldId   String @map("to_field_id")
 
+  @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])
   @@index([toFieldId])
-  @@unique([toFieldId, fromFieldId])
   @@map("reference")
 }
 
@@ -162,7 +162,7 @@ model User {
   phone            String?   @unique
   email            String    @unique
   avatar           String?
-  preferenceMeta   String?   @map("preference_meta")
+  notifyMeta       String?   @map("notify_meta")
   provider         String?
   providerId       String?   @map("provider_id")
   lastSignTime     DateTime? @map("last_sign_time")

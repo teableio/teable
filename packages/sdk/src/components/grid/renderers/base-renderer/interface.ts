@@ -120,7 +120,7 @@ export interface ITextInfo {
 }
 
 export interface IAvatarProps extends IRectangle {
-  user: IUser;
+  user: Omit<IUser, 'notifyMeta'>;
   fill?: string;
   stroke?: string;
   fontSize?: number;

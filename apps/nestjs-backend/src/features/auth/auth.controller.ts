@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { ISignup, signupSchema } from '@teable-group/openapi';
 import { Response } from 'express';
@@ -6,6 +6,7 @@ import { AUTH_COOKIE } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { AuthGuard } from './guard/auth.guard';
 import { LocalAuthGuard } from './guard/local-auth.guard';
 
 @Controller('api/auth')
@@ -45,5 +46,11 @@ export class AuthController {
       httpOnly: true,
     });
     return { access_token };
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/user/me')
+  async me(@Request() request: Express.Request) {
+    return request.user;
   }
 }

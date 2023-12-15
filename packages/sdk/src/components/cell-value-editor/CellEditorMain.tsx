@@ -176,7 +176,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
             value={cellValue as IUserCellValue | IUserCellValue[]}
             options={options as IUserFieldOptions}
             onChange={onChange}
-            disabled={disabled}
+            readonly={readonly}
           />
         );
       }

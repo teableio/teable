@@ -5,6 +5,7 @@ import type {
   IRawAggregations,
   IRawAggregationValue,
   IRawRowCountValue,
+  IColumnMeta,
 } from '@teable-group/core';
 import {
   mergeWithDefaultFilter,
@@ -165,7 +166,7 @@ export class AggregationService {
 
     return nullsToUndefined(
       await this.prisma.view.findFirst({
-        select: { id: true, filter: true, group: true },
+        select: { id: true, columnMeta: true, filter: true, group: true },
         where: {
           tableId,
           ...(withView?.viewId ? { id: withView.viewId } : {}),
@@ -192,7 +193,12 @@ export class AggregationService {
   private buildStatisticsData(
     filteredFieldInstances: IFieldInstance[],
     viewRaw:
-      | { id: string | undefined; filter: string | undefined; group: string | undefined }
+      | {
+          id: string | undefined;
+          columnMeta: string | undefined;
+          filter: string | undefined;
+          group: string | undefined;
+        }
       | undefined,
     withView?: IWithView
   ) {
@@ -208,7 +214,7 @@ export class AggregationService {
     if (viewRaw?.id || withView?.customFieldStats) {
       const statisticFields = this.getStatisticFields(
         filteredFieldInstances,
-        viewRaw?.id,
+        viewRaw?.columnMeta && JSON.parse(viewRaw.columnMeta),
         withView?.customFieldStats
       );
       statisticsData = { ...statisticsData, statisticFields };
@@ -235,19 +241,19 @@ export class AggregationService {
 
   private getStatisticFields(
     fieldInstances: IFieldInstance[],
-    viewId?: string,
+    columnMeta?: IColumnMeta,
     customFieldStats?: ICustomFieldStats[]
   ) {
     let calculatedStatisticFields: IStatisticField[] | undefined;
     const customFieldStatsGrouped = groupBy(customFieldStats, 'fieldId');
 
     fieldInstances.forEach((fieldInstance) => {
-      const { id: fieldId, columnMeta } = fieldInstance;
-      const viewFieldMeta = viewId ? columnMeta[viewId] : undefined;
+      const { id: fieldId } = fieldInstance;
+      const viewColumnMeta = columnMeta ? columnMeta[fieldId] : undefined;
       const customFieldStats = customFieldStatsGrouped[fieldId];
 
-      if (viewFieldMeta || customFieldStats) {
-        const { hidden, statisticFunc } = viewFieldMeta || {};
+      if (viewColumnMeta || customFieldStats) {
+        const { hidden, statisticFunc } = viewColumnMeta || {};
         const statisticFuncList = customFieldStats
           ?.filter((item) => item.statisticFunc)
           ?.map((item) => item.statisticFunc) as StatisticsFunc[];

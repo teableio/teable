@@ -1,13 +1,10 @@
 import { z } from 'zod';
 
 export const actionTriggerBufferValue = z.object({
-  fetchRowCount: z.boolean().optional(),
-  fetchAggregation: z.boolean().optional(),
+  fetchRowCount: z.string().array().optional(),
+  fetchAggregation: z.string().array().optional(),
 });
 
-export const actionTriggerBufferSchema = z.union([
-  actionTriggerBufferValue,
-  z.record(z.string(), actionTriggerBufferValue),
-]);
+export const actionTriggerBufferSchema = actionTriggerBufferValue;
 
 export type IActionTriggerBuffer = z.infer<typeof actionTriggerBufferSchema>;

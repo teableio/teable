@@ -6,7 +6,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import type {
   IViewVo,
   IShareViewMeta,
@@ -15,7 +14,7 @@ import type {
   IAggregationRo,
   ILinkFieldOptions,
 } from '@teable-group/core';
-import { ANONYMOUS_USER_ID, FieldKeyType } from '@teable-group/core';
+import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   IShareViewCopyRo,

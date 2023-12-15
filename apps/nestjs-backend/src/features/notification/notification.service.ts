@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import type { INotificationBuffer } from '@teable-group/core';
 import {
@@ -7,6 +6,7 @@ import {
   getUserNotificationChannel,
   NotificationStatesEnum,
   NotificationTypeEnum,
+  notificationUrlSchema,
   userIconSchema,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -17,7 +17,6 @@ import type {
   INotificationVo,
   IUpdateNotifyStatusRo,
 } from '@teable-group/openapi';
-import { userPreferenceMetaSchema } from '@teable-group/openapi';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
@@ -30,8 +29,7 @@ export class NotificationService {
     private readonly prismaService: PrismaService,
     private readonly shareDbService: ShareDbService,
     private readonly mailSenderService: MailSenderService,
-    private readonly userService: UserService,
-    private readonly configService: ConfigService
+    private readonly userService: UserService
   ) {}
 
   async sendCollaboratorNotify(params: {
@@ -44,14 +42,13 @@ export class NotificationService {
       fieldName: string;
       recordIds: string[];
     };
-  }) {
+  }): Promise<void> {
     const { fromUserId, toUserId, refRecord } = params;
     const toUser = await this.userService.getUserById(toUserId);
+
     if (!toUser) {
       return;
     }
-    const userPreferenceMeta = userPreferenceMetaSchema.safeParse(toUser.preferenceMeta);
-    console.log('preferenceMeta', userPreferenceMeta);
 
     const notifyId = generateNotificationId();
     const emailOptions = this.mailSenderService.collaboratorCellTagEmailOptions({
@@ -65,6 +62,12 @@ export class NotificationService {
       userAvatarUrl: toUser.avatar,
     });
 
+    const urlMeta = notificationUrlSchema.parse({
+      baseId: refRecord.baseId,
+      tableId: refRecord.tableId,
+      ...(refRecord.recordIds.length === 1 ? { recordId: refRecord.recordIds[0] } : {}),
+    });
+
     const data: Prisma.NotificationCreateInput = {
       id: notifyId,
       fromUser: fromUserId,
@@ -75,8 +78,7 @@ export class NotificationService {
           : NotificationTypeEnum.CollaboratorCellTag,
       message: emailOptions.notifyMessage,
       iconMeta: JSON.stringify(userIcon),
-      urlMeta: '',
-
+      urlMeta: JSON.stringify(urlMeta),
       createdBy: fromUserId,
     };
     const notifyData = await this.createNotify(data);
@@ -87,7 +89,8 @@ export class NotificationService {
         message: notifyData.message,
         notifyIcon: JSON.parse(data.iconMeta),
         notifyType: notifyData.type as NotificationTypeEnum,
-        url: 'https://google.com',
+        url:
+          emailOptions.context.viewRecordUrlPrefix + `${urlMeta.recordId ? urlMeta.recordId : ''}`,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
       },
@@ -95,7 +98,10 @@ export class NotificationService {
     };
 
     this.sendNotifyBySocket(toUser.id, socketNotification);
-    // this.sendNotifyByMail(toUser.email, emailOptions);
+
+    if (toUser.notifyMeta && toUser.notifyMeta.email) {
+      // this.sendNotifyByMail(toUser.email, emailOptions);
+    }
   }
 
   async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {

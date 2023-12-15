@@ -1,8 +1,7 @@
 import type { IFieldPropertyKey, IFieldVo } from '@teable-group/core';
 import { Expose } from 'class-transformer';
 import { RawOpType } from '../../../share-db/interface';
-import type { IBaseEvent } from '../../interfaces/base-event.interface';
-import { IEventContext } from '../../interfaces/base-event.interface';
+import type { IEventContext } from '../../interfaces/base-event.interface';
 import { Events } from '../event.enum';
 import type { IChangeValue } from './base-op-event';
 import { BaseOpEvent } from './base-op-event';
@@ -14,35 +13,32 @@ type IEventName = Extract<
 
 export type IChangeField = Record<IFieldPropertyKey, IChangeValue> & { id: string };
 
-@Expose()
 export class FieldCreateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_FIELD_CREATE;
   @Expose() tableId: string;
   @Expose() field: IFieldVo | IFieldVo[];
 
   constructor(tableId: string, field: IFieldVo | IFieldVo[], context: IEventContext) {
-    super(RawOpType.Create, field && Array.isArray(field), context);
+    super(RawOpType.Create, Array.isArray(field), context);
 
     this.tableId = tableId;
     this.field = field;
   }
 }
 
-@Expose()
-export class FieldDeleteEvent implements IBaseEvent {
+export class FieldDeleteEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_FIELD_DELETE;
-  context: IEventContext;
-  tableId: string;
-  fieldId: string;
+  @Expose() tableId: string;
+  @Expose() fieldId: string | string[] | undefined;
 
-  constructor(tableId: string, fieldId: string, context: IEventContext) {
+  constructor(tableId: string, fieldId: string | string[] | undefined, context: IEventContext) {
+    super(RawOpType.Del, Array.isArray(fieldId), context);
+
     this.tableId = tableId;
     this.fieldId = fieldId;
-    this.context = context;
   }
 }
 
-@Expose()
 export class FieldUpdateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_FIELD_UPDATE;
   @Expose() tableId: string;
@@ -53,7 +49,8 @@ export class FieldUpdateEvent extends BaseOpEvent {
     field: IChangeField | IChangeField[] | undefined,
     context: IEventContext
   ) {
-    super(RawOpType.Edit, field && Array.isArray(field), context);
+    super(RawOpType.Edit, Array.isArray(field), context);
+
     this.tableId = tableId;
     this.field = field;
   }

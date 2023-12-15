@@ -73,8 +73,8 @@
   },
   "engines": {
     "node": ">=18.17.0",
-    "pnpm": ">=8.10.5",
+    "pnpm": ">=8.11.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.11.0"
+  "packageManager": "pnpm@8.12.1"
 }

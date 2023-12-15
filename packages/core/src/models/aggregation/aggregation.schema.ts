@@ -1,6 +1,6 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { getRecordsQuerySchema } from '../record';
+import { getRecordsQuerySchema } from '../record/record.schema';
 import { filterSchema } from '../view/filter/filter';
 import { StatisticsFunc } from './statistics-func.enum';
 

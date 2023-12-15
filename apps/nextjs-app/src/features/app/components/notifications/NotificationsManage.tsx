@@ -41,6 +41,7 @@ export const NotificationsManage: React.FC = () => {
         ({ data }) => data
       ),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    refetchOnWindowFocus: false,
   });
 
   const { mutateAsync: markAllAsReadMutator } = useMutation({

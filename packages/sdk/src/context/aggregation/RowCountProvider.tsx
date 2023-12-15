@@ -12,11 +12,10 @@ interface IRowCountProviderProps {
 }
 
 export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
+  const actionTrigger = useActionTrigger();
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
-
-  const actionTrigger = useActionTrigger();
 
   const { data: resRowCount } = useQuery({
     queryKey: ReactQueryKeys.rowCount(tableId as string, { viewId }),
@@ -31,11 +30,12 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   );
 
   useEffect(() => {
-    // actionTrigger?.[viewId!]?.fetchRowCount
-    if (actionTrigger?.fetchRowCount) {
+    if (tableId == null) return;
+
+    if ([tableId, viewId].some((value) => value && actionTrigger?.fetchRowCount?.includes(value))) {
       updateRowCount();
     }
-  }, [actionTrigger, updateRowCount, viewId]);
+  }, [actionTrigger?.fetchRowCount, tableId, updateRowCount, viewId]);
 
   const rowCount = useMemo(() => {
     if (!resRowCount) return 0;

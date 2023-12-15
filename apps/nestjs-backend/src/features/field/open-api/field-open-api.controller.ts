@@ -5,8 +5,8 @@ import {
   Delete,
   Get,
   Param,
-  Post,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -51,8 +51,8 @@ export class FieldOpenApiController {
     return await this.fieldService.getFields(tableId, query);
   }
 
-  @Post()
   @Permissions('field|create')
+  @Post()
   async createField(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
@@ -60,7 +60,6 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.createField(tableId, fieldRo);
   }
 
-  @Put(':fieldId')
   @Permissions('field|update')
   @Patch(':fieldId')
   async updateFieldById(
@@ -71,8 +70,8 @@ export class FieldOpenApiController {
     return await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
   }
 
-  @Delete(':fieldId')
   @Permissions('field|delete')
+  @Delete(':fieldId')
   async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
     await this.fieldOpenApiService.deleteField(tableId, fieldId);
   }

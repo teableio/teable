@@ -130,13 +130,12 @@ export class EventEmitterService {
   }
 
   private getMergePropertyName(event: BaseOpEvent): string {
-    if (event instanceof TableCreateEvent) return 'table';
-    if (event instanceof TableUpdateEvent) return 'table';
     if (event instanceof ViewCreateEvent) return 'view';
-    if (event instanceof ViewUpdateEvent) return 'view';
     if (event instanceof FieldCreateEvent) return 'field';
+    if (event instanceof FieldDeleteEvent) return 'fieldId';
     if (event instanceof FieldUpdateEvent) return 'field';
     if (event instanceof RecordCreateEvent) return 'record';
+    if (event instanceof RecordDeleteEvent) return 'recordId';
     if (event instanceof RecordUpdateEvent) return 'record';
     return '';
   }
@@ -197,7 +196,6 @@ export class EventEmitterService {
         if (opType === null) continue;
 
         const plainContext = this.convertOpsToClassPlain(docType, opType, {
-          resourceId: docId,
           nodeId: id,
           opCreateData: rawOp.create?.data,
           ops: rawOp?.op,
@@ -284,13 +282,12 @@ export class EventEmitterService {
     docType: IdPrefix,
     rawOpType: RawOpType,
     params: {
-      resourceId: string;
       nodeId: string;
       opCreateData?: unknown;
       ops?: IOtOperation[];
     }
   ) {
-    const { resourceId, nodeId, opCreateData, ops = [] } = params;
+    const { nodeId, opCreateData, ops = [] } = params;
     const opBuilder = this.getOpBuilder(docType);
 
     const createdData = this.applyCreates(docType, opBuilder?.creator, opCreateData);

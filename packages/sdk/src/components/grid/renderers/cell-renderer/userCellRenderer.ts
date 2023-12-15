@@ -103,8 +103,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         user: {
           ...user,
           email: '',
-          avatar:
-            'https://s1.vika.cn/space/2023/11/15/240eee94276a4afe87c7b7f56cdcbbce?imageView2/1/w/48/h/48/q/100!',
+          avatar: '',
         },
       });
 

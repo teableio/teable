@@ -45,6 +45,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         </Button>
       </SpaceCollaboratorModalTrigger>
       <SpaceActionTrigger
+        space={space}
         showRename={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
         onDelete={onDelete}

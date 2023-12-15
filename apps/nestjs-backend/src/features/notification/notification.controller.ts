@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
-import type { INotificationVo, INotificationUnreadCountVo } from '@teable-group/openapi';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import type { INotificationUnreadCountVo, INotificationVo } from '@teable-group/openapi';
 import {
   getNotifyListQuerySchema,
   IGetNotifyListQuery,
@@ -9,11 +9,9 @@ import {
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
-import { PermissionGuard } from '../auth/guard/permission.guard';
 import { NotificationService } from './notification.service';
 
 @Controller('api/notifications')
-@UseGuards(PermissionGuard)
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationService,
