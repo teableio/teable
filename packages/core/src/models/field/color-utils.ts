@@ -1,4 +1,5 @@
 /** @module @teable-group/sdk: colorUtils */ /** */
+import { Array } from '@svgdotjs/svg.js';
 import { getEnumValueIfExists, has } from '../../utils/enum';
 import { Colors, rgbTuplesByColor } from './colors';
 
@@ -167,3 +168,19 @@ function getSeed(str: string) {
   }
   return Math.abs(seed);
 }
+
+export const generateColorPalette = () => {
+  const colors = Object.values(Colors);
+  const colorCount = colors.length;
+  const groupCount = 5;
+  const result: Colors[][] = Array.from({ length: groupCount }, () => []);
+
+  for (let i = 0; i < colorCount; i++) {
+    const groupIndex = i % groupCount;
+    const indexInGroup = Math.floor(i / groupCount);
+    result[groupIndex][indexInGroup] = colors[i];
+  }
+  return result;
+};
+
+export const COLOR_PALETTE = generateColorPalette();

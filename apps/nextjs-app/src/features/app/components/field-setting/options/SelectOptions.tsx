@@ -1,29 +1,35 @@
-import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
-import { ColorUtils, Colors } from '@teable-group/core';
-import { PlusCircle } from '@teable-group/icons';
-import CloseIcon from '@teable-group/ui-lib/icons/app/close.svg';
+import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable-group/core';
+import { COLOR_PALETTE, ColorUtils } from '@teable-group/core';
+import { DraggableHandle, Plus, Trash } from '@teable-group/icons';
 import { Input } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
-const ChoiceInput: React.FC<{
-  reRef: React.Ref<HTMLInputElement>;
-  name: string;
-  onChange: (name: string) => void;
-}> = ({ name, onChange, reRef }) => {
-  const [value, setValue] = useState<string>(name);
-  return (
-    <Input
-      ref={reRef}
-      className="h-7"
-      type="text"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => onChange(value)}
-    />
-  );
+interface IOptionItemProps {
+  choice: ISelectFieldChoice;
+  index: number;
+  onChange: (index: number, key: keyof ISelectFieldChoice, value: string) => void;
+  onDelete: (index: number) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onInputRef: (el: HTMLInputElement | null, index: number) => void;
+}
+
+const getChoiceId = (choice: ISelectFieldChoice) => {
+  const { id, color, name } = choice;
+  return id ?? `${color}-${name}`;
 };
 
 export const SelectOptions = (props: {
@@ -32,8 +38,27 @@ export const SelectOptions = (props: {
   onChange?: (options: Partial<ISelectFieldOptions>) => void;
 }) => {
   const { options, isLookup, onChange } = props;
-  const choices = options?.choices || [];
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [draggingId, setDraggingId] = useState<UniqueIdentifier | null>('');
+
+  const choices = useMemo(() => options?.choices ?? [], [options?.choices]);
+  const choiceIds = useMemo(() => choices.map((choice) => getChoiceId(choice)), [choices]);
+
+  const sensors = useSensors(
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  if (isLookup) return null;
 
   const updateOptionChange = (index: number, key: keyof ISelectFieldChoice, value: string) => {
     const newChoice = choices.map((v, i) => {
@@ -68,60 +93,168 @@ export const SelectOptions = (props: {
     });
   };
 
-  if (isLookup) {
-    return <></>;
-  }
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      addOption();
+    }
+  };
+
+  const onDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setDraggingId(active.id);
+  };
+
+  const onDragEnd = async (event: DragEndEvent) => {
+    const { over, active } = event;
+
+    if (!over) return;
+
+    const from = active?.data?.current?.sortable?.index;
+    const to = over?.data?.current?.sortable?.index;
+    const list = [...choices];
+    const [choice] = list.splice(from, 1);
+
+    list.splice(to, 0, choice);
+
+    onChange?.({ choices: list });
+    setDraggingId(null);
+  };
+
+  const overLayRender = () => {
+    const choiceIndex = choices.findIndex((choice) => getChoiceId(choice) === draggingId);
+    if (choiceIndex === -1) return null;
+    const choice = choices[choiceIndex];
+    return (
+      <div className="flex cursor-grabbing items-center">
+        <DraggableHandle className="mr-1 h-4 w-4" />
+        <ChoiceItem
+          choice={choice}
+          index={choiceIndex}
+          onChange={updateOptionChange}
+          onDelete={deleteChoice}
+          onKeyDown={onKeyDown}
+          onInputRef={(el, index) => (inputRefs.current[index] = el)}
+        />
+      </div>
+    );
+  };
 
   return (
     <ul className="space-y-2">
-      {choices.map(({ color, name }, i) => {
-        return (
-          <li key={`${name}-${i}`} className="flex items-center">
-            <Popover>
-              <PopoverTrigger>
-                <div
-                  style={{
-                    backgroundColor: ColorUtils.getHexForColor(color),
-                  }}
-                  className="h-4 w-4 rounded-full"
+      <DndContext onDragStart={onDragStart} onDragEnd={onDragEnd} sensors={sensors}>
+        <SortableContext items={choiceIds}>
+          {choices.map((choice, i) => {
+            const { name } = choice;
+            return (
+              <DraggableContainer key={`${name}-${i}`} id={getChoiceId(choice)} index={i}>
+                <ChoiceItem
+                  choice={choice}
+                  index={i}
+                  onChange={updateOptionChange}
+                  onDelete={deleteChoice}
+                  onKeyDown={onKeyDown}
+                  onInputRef={(el, index) => (inputRefs.current[index] = el)}
                 />
-              </PopoverTrigger>
-              <PopoverContent className="w-auto">
-                <ColorPicker
-                  color={color}
-                  onSelect={(color) => updateOptionChange(i, 'color', color)}
-                />
-              </PopoverContent>
-            </Popover>
-            <div className="flex-1 px-2">
-              <ChoiceInput
-                reRef={(el) => (inputRefs.current[i] = el)}
-                name={name}
-                onChange={(value) => updateOptionChange(i, 'name', value)}
-              />
-            </div>
-            <Button
-              variant={'ghost'}
-              className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-              onClick={() => deleteChoice(i)}
-            >
-              <CloseIcon />
-            </Button>
-          </li>
-        );
-      })}
+              </DraggableContainer>
+            );
+          })}
+          {<DragOverlay>{overLayRender()}</DragOverlay>}
+        </SortableContext>
+      </DndContext>
       <li className="mt-1">
         <Button
-          className="w-full gap-2 font-normal"
-          size={'xs'}
-          variant={'ghost'}
+          className="w-full gap-2 text-sm font-normal"
+          size={'sm'}
+          variant={'outline'}
           onClick={addOption}
         >
-          <PlusCircle className="h-4 w-4" />
+          <Plus className="h-4 w-4" />
           Add option
         </Button>
       </li>
     </ul>
+  );
+};
+
+const DraggableContainer = (props: { children: React.ReactElement; id: string; index: number }) => {
+  const { id, index, children } = props;
+  const dragProps = useSortable({ id, data: { index } });
+  const { setNodeRef, transition, transform, attributes, listeners, isDragging } = dragProps;
+  const style = {
+    transition,
+    transform: CSS.Transform.toString(transform),
+  };
+
+  return (
+    <div
+      style={style}
+      ref={setNodeRef}
+      {...attributes}
+      className={classNames('flex items-center', isDragging ? 'opacity-60' : null)}
+    >
+      <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />
+      {children}
+    </div>
+  );
+};
+
+const ChoiceItem = (props: IOptionItemProps) => {
+  const { choice, index, onChange, onDelete, onKeyDown, onInputRef } = props;
+  const { color, name } = choice;
+  const bgColor = ColorUtils.getHexForColor(color);
+
+  return (
+    <li className="flex grow items-center">
+      <Popover>
+        <PopoverTrigger>
+          <Button
+            variant={'ghost'}
+            className="h-auto rounded-full border-2 p-[2px]"
+            style={{ borderColor: bgColor }}
+          >
+            <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2">
+          <ColorPicker color={color} onSelect={(color) => onChange(index, 'color', color)} />
+        </PopoverContent>
+      </Popover>
+      <div className="flex-1 px-2">
+        <ChoiceInput
+          reRef={(el) => onInputRef(el, index)}
+          name={name}
+          onKeyDown={onKeyDown}
+          onChange={(value) => onChange(index, 'name', value)}
+        />
+      </div>
+      <Button
+        variant={'ghost'}
+        className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+        onClick={() => onDelete(index)}
+      >
+        <Trash className="h-4 w-4" />
+      </Button>
+    </li>
+  );
+};
+
+const ChoiceInput: React.FC<{
+  reRef: React.Ref<HTMLInputElement>;
+  name: string;
+  onChange: (name: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}> = ({ name, onChange, onKeyDown, reRef }) => {
+  const [value, setValue] = useState<string>(name);
+  return (
+    <Input
+      ref={reRef}
+      className="h-7"
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => onChange(value)}
+      onKeyDown={onKeyDown}
+    />
   );
 };
 
@@ -132,25 +265,36 @@ export const ColorPicker = ({
   color: Colors;
   onSelect: (color: Colors) => void;
 }) => {
-  const colors = Object.values(Colors);
   return (
-    <div className="flex w-80 flex-wrap p-2">
-      {colors.map((col) => (
-        <button
-          key={col}
-          className={classNames('hover:bg-accent p-2 rounded-sm', {
-            'bg-ring': color === col,
-          })}
-          onClick={() => onSelect(col)}
-        >
-          <div
-            style={{
-              backgroundColor: ColorUtils.getHexForColor(col),
-            }}
-            className="h-4 w-4 rounded-full"
-          ></div>
-        </button>
-      ))}
+    <div className="flex w-64 flex-wrap p-2">
+      {COLOR_PALETTE.map((group, index) => {
+        return (
+          <div key={index}>
+            {group.map((c) => {
+              const bg = ColorUtils.getHexForColor(c);
+
+              return (
+                <Button
+                  key={c}
+                  variant={'ghost'}
+                  className={classNames('p-1 my-1 rounded-full h-auto', {
+                    'border-2 p-[2px]': color === c,
+                  })}
+                  style={{ borderColor: bg }}
+                  onClick={() => onSelect(c)}
+                >
+                  <div
+                    style={{
+                      backgroundColor: bg,
+                    }}
+                    className="h-4 w-4 rounded-full"
+                  />
+                </Button>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 };
