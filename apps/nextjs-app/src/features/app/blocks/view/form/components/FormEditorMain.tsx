@@ -5,7 +5,7 @@ import { Pencil } from '@teable-group/icons';
 import type { INotifyVo } from '@teable-group/openapi';
 import type { IFile } from '@teable-group/sdk/components/editor/attachment/upload-attachment/uploadManage';
 import { AttachmentManager } from '@teable-group/sdk/components/editor/attachment/upload-attachment/uploadManage';
-import { useIsHydrated, useTableId, useView } from '@teable-group/sdk/hooks';
+import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable-group/sdk/model';
 import { Button, Input, Textarea, cn } from '@teable-group/ui-lib/shadcn';
 import { useRef, useState } from 'react';
@@ -20,7 +20,6 @@ const attachmentManager = new AttachmentManager(2);
 export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const { fields } = props;
   const view = useView();
-  const tableId = useTableId();
   const isHydrated = useIsHydrated();
   const { openSetting } = useGridViewStore();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -67,7 +66,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
         const url = attachment.url;
         setCoverUrl(url);
-        tableId && (view as FormView).updateCover(tableId, url);
+        (view as FormView).updateCover(url);
       },
     });
     e.target.value = '';

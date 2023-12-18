@@ -107,7 +107,7 @@ export class ShareService {
     }
     const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
     const { tableId, id: viewId } = view;
-    const fields = await this.fieldService.getFields(tableId, {
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: view.id,
       filterHidden: !shareMeta?.includeHiddenField,
     });
@@ -189,7 +189,7 @@ export class ShareService {
   async getLinkRecords(shareInfo: IShareViewInfo, shareViewLinkRecordsRo: IShareViewLinkRecordsRo) {
     const linkTableId = shareViewLinkRecordsRo.tableId;
 
-    const fields = await this.fieldService.getFields(shareInfo.tableId, {});
+    const fields = await this.fieldService.getFieldsByQuery(shareInfo.tableId, {});
     const field = fields
       .filter((field) => field.type === FieldType.Link)
       .find((field) => (field.options as ILinkFieldOptions).foreignTableId === linkTableId);

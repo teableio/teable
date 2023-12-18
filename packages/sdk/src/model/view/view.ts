@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFilter, IOtOperation, IShareViewMeta, ISort, IViewVo } from '@teable-group/core';
+import type {
+  IFilter,
+  IOtOperation,
+  IShareViewMeta,
+  ISort,
+  IViewVo,
+  IColumnMetaRo,
+  IManualSortRo,
+} from '@teable-group/core';
 import {
   sortSchema,
   filterSchema,
@@ -22,19 +30,29 @@ import { requestWrap } from '../../utils/requestWrap';
 export abstract class View extends ViewCore {
   protected doc!: Doc<IViewVo>;
 
+  tableId!: string;
+
   static getViews = requestWrap(getViewList);
 
   static createView = requestWrap(createView);
 
   static deleteView = requestWrap(deleteView);
 
-  static manualSort = requestWrap(manualSortView);
+  async apiEnableShare() {
+    return await requestWrap(enableShareView)({ tableId: this.tableId, viewId: this.id });
+  }
 
-  static enableShare = requestWrap(enableShareView);
+  async disableShare() {
+    return await requestWrap(disableShareView)({ tableId: this.tableId, viewId: this.id });
+  }
 
-  static disableShare = requestWrap(disableShareView);
+  async manualSort(sortRo: IManualSortRo) {
+    return await requestWrap(manualSortView)(this.tableId, this.id, sortRo);
+  }
 
-  static setViewColumnMeta = requestWrap(setViewColumnMeta);
+  async setViewColumnMeta(columnMetaRo: IColumnMetaRo) {
+    return await requestWrap(setViewColumnMeta)(this.tableId, this.id, columnMetaRo);
+  }
 
   async submitOperation(operation: IOtOperation) {
     try {

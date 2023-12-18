@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable-group/core';
 import { Copy, Edit, Loader2 } from '@teable-group/icons';
-import { useTableId, useView } from '@teable-group/sdk/hooks';
-import { View } from '@teable-group/sdk/model';
+import { useView } from '@teable-group/sdk/hooks';
+import type { View } from '@teable-group/sdk/model';
 import {
   Button,
   Dialog,
@@ -41,14 +41,13 @@ export const SharePopover: React.FC<{
   const [copyTooltip, setCopyTooltip] = useState<boolean>(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
-  const tableId = useTableId();
 
   const { mutate: enableShareFn, isLoading: enableShareLoading } = useMutation({
-    mutationFn: View.enableShare,
+    mutationFn: async (view: View) => view.apiEnableShare(),
   });
 
   const { mutate: disableShareFn, isLoading: disableShareLoading } = useMutation({
-    mutationFn: View.disableShare,
+    mutationFn: async (view: View) => view.disableShare(),
   });
 
   const resetCopyTooltip = useMemo(() => {
@@ -77,13 +76,13 @@ export const SharePopover: React.FC<{
   };
 
   const setEnableShare = (enableShare: boolean) => {
-    if (!tableId) {
+    if (!view) {
       return;
     }
     if (enableShare) {
-      return enableShareFn({ tableId, viewId: view.id });
+      return enableShareFn(view);
     }
-    disableShareFn({ tableId, viewId: view.id });
+    disableShareFn(view);
   };
 
   const confirmSharePassword = async () => {

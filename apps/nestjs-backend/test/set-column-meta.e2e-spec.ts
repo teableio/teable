@@ -41,9 +41,9 @@ describe('OpenAPI ViewController (e2e) columnMeta (PUT) update order', () => {
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update order and field should return by order`, async () => {
     const { views } = tableMeta;
     const { columnMeta } = views[0];
-    const fieldColumnMetas = Object.entries(columnMeta!).map(([fieldId, meta]) => ({
-      fieldId: fieldId,
-      meta: meta,
+    const fieldColumnMetas = Object.entries(columnMeta!).map(([fieldId, columnMetameta]) => ({
+      fieldId,
+      columnMetameta,
     }));
     await updateViewColumnMeta(tableId, viewId, [
       {
@@ -90,16 +90,32 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
     }));
     await updateViewColumnMeta(tableId, viewId, [
       {
-        fieldId: fieldColumnMetas[0].fieldId,
+        fieldId: fieldColumnMetas[1].fieldId,
         columnMeta: {
           hidden: true,
         },
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const fieldVisible = updatedView.columnMeta[fieldColumnMetas[0].fieldId].hidden;
+    const fieldVisible = updatedView.columnMeta[fieldColumnMetas[1].fieldId].hidden;
 
     expect(fieldVisible).toBe(true);
+  });
+
+  test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) should not hidden primary field for grid view`, async () => {
+    const { fields } = tableMeta;
+    const primaryFieldId = fields.find((field) => field.isPrimary)?.id;
+    const fieldColumnMetas = [
+      {
+        fieldId: primaryFieldId as string,
+        columnMeta: {
+          hidden: true,
+        },
+      },
+    ];
+    await expect(updateViewColumnMeta(tableId, viewId, fieldColumnMetas)).rejects.toMatchObject({
+      status: 403,
+    });
   });
 });
 
@@ -299,14 +315,14 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) multiple update', () => {
     };
     await updateViewColumnMeta(tableId, viewId, [
       {
-        fieldId: fieldColumnMetas[0].fieldId,
+        fieldId: fieldColumnMetas[1].fieldId,
         columnMeta: {
           ...assertData,
         },
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const updatedColumnMeta = updatedView.columnMeta[fieldColumnMetas[0].fieldId];
+    const updatedColumnMeta = updatedView.columnMeta[fieldColumnMetas[1].fieldId];
     expect(updatedColumnMeta).toEqual(assertData);
   });
 });

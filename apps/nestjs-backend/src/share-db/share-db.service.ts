@@ -73,7 +73,7 @@ export class ShareDbService extends ShareDBClass {
         if (ops?.[0]) {
           const [, tableId] = collection.split('_');
 
-          const detectFns = [setViewFilter, setViewSort, setViewSort];
+          const detectFns = [setViewFilter, setViewSort];
           const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
 
           if (action) {
