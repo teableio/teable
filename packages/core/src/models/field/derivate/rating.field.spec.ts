@@ -14,7 +14,7 @@ describe('RatingFieldCore', () => {
     name: 'Test Rating Field',
     description: 'A test rating field',
     type: FieldType.Rating,
-    dbFieldType: DbFieldType.Integer,
+    dbFieldType: DbFieldType.Real,
     options: {
       icon: RatingIcon.Star,
       color: Colors.YellowBright,

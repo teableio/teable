@@ -530,7 +530,7 @@ export class FieldSupplementService {
     try {
       valueType = RollupFieldDto.getParsedValueType(
         options.expression,
-        lookupField,
+        lookupField.cellValueType,
         lookupField.isMultipleCellValue || linkFieldRaw.isMultipleCellValue || false
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -623,7 +623,7 @@ export class FieldSupplementService {
       name: name ?? 'Rating',
       options: options ?? RatingFieldCore.defaultOptions(),
       cellValueType: CellValueType.Number,
-      dbFieldType: DbFieldType.Integer,
+      dbFieldType: DbFieldType.Real,
     };
   }
 

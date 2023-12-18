@@ -1,8 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { DraggableHandle, EyeOff } from '@teable-group/icons';
-import { View } from '@teable-group/sdk';
 import { CellEditor } from '@teable-group/sdk/components';
-import { useFieldStaticGetter, useTableId, useViewId, useView } from '@teable-group/sdk/hooks';
+import { useFieldStaticGetter, useTableId, useView } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import {
   Label,
@@ -20,39 +19,36 @@ interface IFormFieldEditorProps {
 
 export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { field } = props;
-  const activeViewId = useViewId();
   const view = useView();
   const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
 
-  if (!activeViewId || !view || !tableId) return null;
+  if (!view || !tableId) return null;
 
   const { type, name, description, isComputed, isLookup, id: fieldId } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();
-    activeViewId &&
-      View.setViewColumnMeta(tableId, activeViewId, [
-        {
-          fieldId: fieldId,
-          columnMeta: {
-            hidden: true,
-          },
+    view.setViewColumnMeta([
+      {
+        fieldId: fieldId,
+        columnMeta: {
+          hidden: true,
         },
-      ]);
+      },
+    ]);
   };
 
   const onRequiredChange = (checked: boolean) => {
-    activeViewId &&
-      View.setViewColumnMeta(tableId, activeViewId, [
-        {
-          fieldId: fieldId,
-          columnMeta: {
-            required: checked,
-          },
+    view.setViewColumnMeta([
+      {
+        fieldId: fieldId,
+        columnMeta: {
+          required: checked,
         },
-      ]);
+      },
+    ]);
   };
 
   const required = view.columnMeta[fieldId]?.required;

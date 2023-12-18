@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { ViewService } from '../../view/view.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
@@ -16,8 +15,7 @@ export class FieldOpenApiService {
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
-    private readonly fieldSupplementService: FieldSupplementService,
-    private readonly viewService: ViewService
+    private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
   async createField(tableId: string, fieldRo: IFieldRo) {

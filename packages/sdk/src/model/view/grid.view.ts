@@ -6,7 +6,7 @@ import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';
 
 export class GridView extends Mixin(GridViewCore, View) {
-  async updateRowHeight(tableId: string, rowHeight: RowHeightLevel) {
-    return await requestWrap(setViewOption)(tableId, this.id, { rowHeight });
+  async updateRowHeight(rowHeight: RowHeightLevel) {
+    return await requestWrap(setViewOption)(this.tableId, this.id, { rowHeight });
   }
 }

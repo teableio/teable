@@ -21,6 +21,7 @@ import { useMemo, useRef, useState } from 'react';
 interface IOptionItemProps {
   choice: ISelectFieldChoice;
   index: number;
+  readonly?: boolean;
   onChange: (index: number, key: keyof ISelectFieldChoice, value: string) => void;
   onDelete: (index: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -58,8 +59,6 @@ export const SelectOptions = (props: {
     })
   );
 
-  if (isLookup) return null;
-
   const updateOptionChange = (index: number, key: keyof ISelectFieldChoice, value: string) => {
     const newChoice = choices.map((v, i) => {
       if (i === index) {
@@ -94,7 +93,7 @@ export const SelectOptions = (props: {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !isLookup) {
       addOption();
     }
   };
@@ -130,6 +129,7 @@ export const SelectOptions = (props: {
         <ChoiceItem
           choice={choice}
           index={choiceIndex}
+          readonly={isLookup}
           onChange={updateOptionChange}
           onDelete={deleteChoice}
           onKeyDown={onKeyDown}
@@ -146,10 +146,16 @@ export const SelectOptions = (props: {
           {choices.map((choice, i) => {
             const { name } = choice;
             return (
-              <DraggableContainer key={`${name}-${i}`} id={getChoiceId(choice)} index={i}>
+              <DraggableContainer
+                key={`${name}-${i}`}
+                id={getChoiceId(choice)}
+                index={i}
+                disabled={isLookup}
+              >
                 <ChoiceItem
                   choice={choice}
                   index={i}
+                  readonly={isLookup}
                   onChange={updateOptionChange}
                   onDelete={deleteChoice}
                   onKeyDown={onKeyDown}
@@ -161,24 +167,31 @@ export const SelectOptions = (props: {
           {<DragOverlay>{overLayRender()}</DragOverlay>}
         </SortableContext>
       </DndContext>
-      <li className="mt-1">
-        <Button
-          className="w-full gap-2 text-sm font-normal"
-          size={'sm'}
-          variant={'outline'}
-          onClick={addOption}
-        >
-          <Plus className="h-4 w-4" />
-          Add option
-        </Button>
-      </li>
+      {!isLookup && (
+        <li className="mt-1">
+          <Button
+            className="w-full gap-2 text-sm font-normal"
+            size={'sm'}
+            variant={'outline'}
+            onClick={addOption}
+          >
+            <Plus className="h-4 w-4" />
+            Add option
+          </Button>
+        </li>
+      )}
     </ul>
   );
 };
 
-const DraggableContainer = (props: { children: React.ReactElement; id: string; index: number }) => {
-  const { id, index, children } = props;
-  const dragProps = useSortable({ id, data: { index } });
+const DraggableContainer = (props: {
+  children: React.ReactElement;
+  id: string;
+  index: number;
+  disabled?: boolean;
+}) => {
+  const { id, index, disabled, children } = props;
+  const dragProps = useSortable({ id, data: { index }, disabled });
   const { setNodeRef, transition, transform, attributes, listeners, isDragging } = dragProps;
   const style = {
     transition,
@@ -190,60 +203,74 @@ const DraggableContainer = (props: { children: React.ReactElement; id: string; i
       style={style}
       ref={setNodeRef}
       {...attributes}
-      className={classNames('flex items-center', isDragging ? 'opacity-60' : null)}
+      className={classNames(
+        'flex items-center',
+        isDragging ? 'opacity-60' : null,
+        disabled && 'cursor-default'
+      )}
     >
-      <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />
+      {!disabled && <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />}
       {children}
     </div>
   );
 };
 
 const ChoiceItem = (props: IOptionItemProps) => {
-  const { choice, index, onChange, onDelete, onKeyDown, onInputRef } = props;
+  const { choice, index, readonly, onChange, onDelete, onKeyDown, onInputRef } = props;
   const { color, name } = choice;
   const bgColor = ColorUtils.getHexForColor(color);
 
   return (
     <li className="flex grow items-center">
-      <Popover>
-        <PopoverTrigger>
-          <Button
-            variant={'ghost'}
-            className="h-auto rounded-full border-2 p-[2px]"
-            style={{ borderColor: bgColor }}
-          >
-            <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-2">
-          <ColorPicker color={color} onSelect={(color) => onChange(index, 'color', color)} />
-        </PopoverContent>
-      </Popover>
+      {readonly ? (
+        <div className="h-auto rounded-full border-2 p-[2px]" style={{ borderColor: bgColor }}>
+          <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+        </div>
+      ) : (
+        <Popover>
+          <PopoverTrigger>
+            <Button
+              variant={'ghost'}
+              className="h-auto rounded-full border-2 p-[2px]"
+              style={{ borderColor: bgColor }}
+            >
+              <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2">
+            <ColorPicker color={color} onSelect={(color) => onChange(index, 'color', color)} />
+          </PopoverContent>
+        </Popover>
+      )}
       <div className="flex-1 px-2">
         <ChoiceInput
           reRef={(el) => onInputRef(el, index)}
           name={name}
+          readOnly={readonly}
           onKeyDown={onKeyDown}
           onChange={(value) => onChange(index, 'name', value)}
         />
       </div>
-      <Button
-        variant={'ghost'}
-        className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-        onClick={() => onDelete(index)}
-      >
-        <Trash className="h-4 w-4" />
-      </Button>
+      {!readonly && (
+        <Button
+          variant={'ghost'}
+          className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+          onClick={() => onDelete(index)}
+        >
+          <Trash className="h-4 w-4" />
+        </Button>
+      )}
     </li>
   );
 };
 
 const ChoiceInput: React.FC<{
   reRef: React.Ref<HTMLInputElement>;
+  readOnly?: boolean;
   name: string;
   onChange: (name: string) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-}> = ({ name, onChange, onKeyDown, reRef }) => {
+}> = ({ name, readOnly, onChange, onKeyDown, reRef }) => {
   const [value, setValue] = useState<string>(name);
   return (
     <Input
@@ -251,6 +278,7 @@ const ChoiceInput: React.FC<{
       className="h-7"
       type="text"
       value={value}
+      readOnly={readOnly}
       onChange={(e) => setValue(e.target.value)}
       onBlur={() => onChange(value)}
       onKeyDown={onKeyDown}

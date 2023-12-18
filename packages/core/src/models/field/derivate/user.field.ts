@@ -13,16 +13,14 @@ interface IContext {
   userSets?: IUser[];
 }
 
-export const userFieldOptionsSchema = z
-  .object({
-    isMultiple: z.boolean().openapi({
-      description: 'Allow adding multiple users',
-    }),
-    shouldNotify: z.boolean().openapi({
-      description: 'Notify users when their name is added to a cell',
-    }),
-  })
-  .strict();
+export const userFieldOptionsSchema = z.object({
+  isMultiple: z.boolean().openapi({
+    description: 'Allow adding multiple users',
+  }),
+  shouldNotify: z.boolean().openapi({
+    description: 'Notify users when their name is added to a cell',
+  }),
+});
 
 export type IUserFieldOptions = z.infer<typeof userFieldOptionsSchema>;
 

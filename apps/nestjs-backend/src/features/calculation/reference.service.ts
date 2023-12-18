@@ -207,7 +207,6 @@ export class ReferenceService {
     });
 
     const relatedRecordItemsIndexed = groupBy(relatedRecordItems, 'fieldId');
-    // console.log('relatedRecordItems', relatedRecordItems);
     // console.log('fieldMap', JSON.stringify(fieldMap, null, 2));
     const orderWithRecordsByFieldId = Object.entries(topoOrdersMap).reduce<{
       [fieldId: string]: ITopoItemWithRecords[];
@@ -223,7 +222,6 @@ export class ReferenceService {
       pre[fieldId] = orderWithRecords;
       return pre;
     }, {});
-    // nameConsole('orderWithRecordsByFieldId', orderWithRecordsByFieldId, fieldMap);
 
     return {
       fieldMap,
@@ -636,15 +634,13 @@ export class ReferenceService {
         // );
         const oldValue = record.fields[field.id];
         record.fields[field.id] = value;
-        if (oldValue != value) {
-          changes.push({
-            tableId: fieldId2TableId[field.id],
-            fieldId: field.id,
-            recordId: record.id,
-            oldValue,
-            newValue: value,
-          });
-        }
+        changes.push({
+          tableId: fieldId2TableId[field.id],
+          fieldId: field.id,
+          recordId: record.id,
+          oldValue,
+          newValue: value,
+        });
       });
     });
     return changes;

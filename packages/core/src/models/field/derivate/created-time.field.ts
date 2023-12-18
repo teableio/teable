@@ -7,12 +7,10 @@ import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 extend(timezone);
 
-export const createdTimeFieldOptionsSchema = z
-  .object({
-    expression: z.literal('CREATED_TIME()'),
-    formatting: datetimeFormattingSchema,
-  })
-  .strict();
+export const createdTimeFieldOptionsSchema = z.object({
+  expression: z.literal('CREATED_TIME()'),
+  formatting: datetimeFormattingSchema,
+});
 
 export type ICreatedTimeFieldOptions = z.infer<typeof createdTimeFieldOptionsSchema>;
 

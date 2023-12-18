@@ -33,17 +33,15 @@ export const linkFieldOptionsSchema = z
       description: 'the symmetric field in the foreign table, empty if the field is a one-way link',
     }),
   })
-  .strict();
+  .strip();
 
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
-export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
-  .pick({
-    relationship: true,
-    foreignTableId: true,
-    isOneWay: true,
-  })
-  .strict();
+export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
+  relationship: true,
+  foreignTableId: true,
+  isOneWay: true,
+});
 
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;
 

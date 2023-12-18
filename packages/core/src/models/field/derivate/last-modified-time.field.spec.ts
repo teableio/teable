@@ -60,16 +60,6 @@ describe('LastModifiedTimeFieldCore', () => {
           ...lastModifiedTimeJson,
           options: {
             ...lastModifiedTimeJson.options,
-            expression: '1 + 1',
-          },
-        }).validateOptions().success
-      ).toBeFalsy();
-
-      expect(
-        plainToInstance(LastModifiedTimeFieldCore, {
-          ...lastModifiedTimeJson,
-          options: {
-            ...lastModifiedTimeJson.options,
             formatting: {
               date: DateFormattingPreset.ISO,
               time: 'abc',

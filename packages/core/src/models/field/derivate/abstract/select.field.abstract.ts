@@ -13,17 +13,13 @@ export const selectFieldChoiceRoSchema = selectFieldChoiceSchema.partial({ id: t
 
 export type ISelectFieldChoice = z.infer<typeof selectFieldChoiceSchema>;
 
-export const selectFieldOptionsSchema = z
-  .object({
-    choices: z.array(selectFieldChoiceSchema),
-  })
-  .strict();
+export const selectFieldOptionsSchema = z.object({
+  choices: z.array(selectFieldChoiceSchema),
+});
 
-export const selectFieldOptionsRoSchema = z
-  .object({
-    choices: z.array(selectFieldChoiceRoSchema),
-  })
-  .strict();
+export const selectFieldOptionsRoSchema = z.object({
+  choices: z.array(selectFieldChoiceRoSchema),
+});
 
 export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsSchema>;
 

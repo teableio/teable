@@ -1,10 +1,10 @@
-import type { ILookupOptionsRo } from '@teable-group/core';
+import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
 import { Selector } from '@teable-group/ui-lib/base';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;
@@ -39,11 +39,25 @@ const SelectFieldByTableId: React.FC<{
 };
 
 export const LookupOptions = (props: {
-  options: Partial<ILookupOptionsRo> | undefined;
-  onChange?: (options: Partial<ILookupOptionsRo> & { lookupField?: IFieldInstance }) => void;
+  options: Partial<ILookupOptionsVo> | undefined;
+  onChange?: (options: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => void;
 }) => {
   const { options = {}, onChange } = props;
   const fields = useFields();
+  const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
+    foreignTableId: options.foreignTableId,
+    linkFieldId: options.linkFieldId,
+    lookupFieldId: options.lookupFieldId,
+  });
+
+  const setOptions = useCallback(
+    (options: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => {
+      onChange?.({ ...innerOptions, ...options }, lookupField);
+      setInnerOptions({ ...innerOptions, ...options });
+    },
+    [innerOptions, onChange]
+  );
+
   const linkFields = useMemo(
     () => fields.filter((f) => f.type === FieldType.Link && !f.isLookup) as LinkField[],
     [fields]
@@ -64,7 +78,7 @@ export const LookupOptions = (props: {
               selectedId={options.linkFieldId}
               onChange={(selected: string) => {
                 const selectedLinkField = linkFields.find((l) => l.id === selected);
-                onChange?.({
+                setOptions({
                   linkFieldId: selected,
                   foreignTableId: selectedLinkField?.options.foreignTableId,
                 });
@@ -72,12 +86,12 @@ export const LookupOptions = (props: {
               candidates={linkFields}
             />
           </div>
-          {options.foreignTableId && (
-            <AnchorProvider tableId={options.foreignTableId}>
+          {innerOptions.foreignTableId && (
+            <AnchorProvider tableId={innerOptions.foreignTableId}>
               <SelectFieldByTableId
-                selectedId={options.lookupFieldId}
+                selectedId={innerOptions.lookupFieldId}
                 onChange={(lookupField: IFieldInstance) =>
-                  onChange?.({ lookupFieldId: lookupField.id, lookupField })
+                  setOptions?.({ lookupFieldId: lookupField.id }, lookupField)
                 }
               />
             </AnchorProvider>

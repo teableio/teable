@@ -21,6 +21,7 @@ export interface ISelectorItem {
 
 export type ISelectorProps<T = ISelectorItem> = {
   className?: string;
+  readonly?: boolean;
   selectedId?: string;
   placeholder?: string;
   searchTip?: string;
@@ -32,6 +33,7 @@ export type ISelectorProps<T = ISelectorItem> = {
 
 export const Selector: React.FC<ISelectorProps> = ({
   onChange,
+  readonly,
   selectedId = '',
   placeholder,
   searchTip = 'Search...',
@@ -49,7 +51,7 @@ export const Selector: React.FC<ISelectorProps> = ({
       <PopoverTrigger asChild>
         <Button
           ref={ref}
-          disabled={!candidates.length}
+          disabled={readonly || !candidates.length}
           variant="outline"
           role="combobox"
           aria-expanded={open}

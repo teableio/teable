@@ -7,7 +7,6 @@ import type {
   DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
-  IColumnMeta,
 } from '@teable-group/core';
 import { FieldOpBuilder, IdPrefix, OpName } from '@teable-group/core';
 import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
@@ -203,20 +202,30 @@ export class FieldService implements IAdapterService {
     return rawField2FieldObj(field);
   }
 
-  async getFieldsById(tableId: string, fieldIds: string[]): Promise<IFieldVo[]> {
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldIds }, tableId, deletedTime: null },
+  async getFieldsByQuery(tableId: string, query?: IGetFieldsQuery) {
+    const fieldsPlain = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      orderBy: [
+        {
+          isPrimary: {
+            sort: 'asc',
+            nulls: 'last',
+          },
+        },
+        {
+          createdTime: 'asc',
+        },
+      ],
     });
-    if (!fields?.length) {
-      throw new NotFoundException(`field ${fieldIds} in table ${tableId} not found`);
-    }
-    return fields.map(rawField2FieldObj);
-  }
 
-  async getFields(tableId: string, query: IGetFieldsQuery): Promise<IFieldVo[]> {
-    const viewId = query.viewId;
-    let view: { id: string; columnMeta: IColumnMeta } | null = null;
-    if (viewId) {
+    let result = fieldsPlain.map(rawField2FieldObj);
+
+    /**
+     * filter by query
+     * filterHidden depends on viewId so only judge viewId
+     */
+    if (query?.viewId) {
+      const { viewId } = query;
       const curView = await this.prismaService.txClient().view.findFirst({
         where: { id: viewId, deletedTime: null },
         select: { id: true, columnMeta: true },
@@ -224,35 +233,23 @@ export class FieldService implements IAdapterService {
       if (!curView) {
         throw new NotFoundException('view is not found');
       }
-      view = {
+      const view = {
         id: viewId,
         columnMeta: JSON.parse(curView.columnMeta),
       };
-    }
-
-    const fieldsPlain = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      orderBy: { createdTime: 'asc' },
-    });
-
-    const fields = fieldsPlain.map(rawField2FieldObj);
-
-    let result = fields;
-    if (view) {
-      result = sortBy(fields, (field) => {
+      if (query?.filterHidden) {
+        result = result.filter((field) => !view?.columnMeta[field.id].hidden);
+      }
+      result = sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
       });
-    }
-
-    if (query.filterHidden && view) {
-      return result.filter((field) => !view?.columnMeta[field.id].hidden);
     }
 
     return result;
   }
 
   async getFieldInstances(tableId: string, query: IGetFieldsQuery): Promise<IFieldInstance[]> {
-    const fields = await this.getFields(tableId, query);
+    const fields = await this.getFieldsByQuery(tableId, query);
     return fields.map((field) => createFieldInstanceByVo(field));
   }
 
@@ -265,32 +262,9 @@ export class FieldService implements IAdapterService {
   }
 
   async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
-    let view: { id: string; columnMeta: IColumnMeta } | null = null;
+    const result = await this.getFieldsByQuery(tableId, { viewId });
 
-    const curView = await this.prismaService.txClient().view.findFirst({
-      where: { id: viewId },
-      select: { id: true, columnMeta: true },
-    });
-    if (!curView) {
-      throw new NotFoundException('view not found');
-    }
-    view = {
-      id: curView.id,
-      columnMeta: JSON.parse(curView.columnMeta),
-    };
-
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: {
-        id: true,
-      },
-    });
-
-    const sortedFields = sortBy(fields, (field) => {
-      return view?.columnMeta[field.id]?.order;
-    });
-
-    return sortedFields[index].id;
+    return result[index].id;
   }
 
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
@@ -513,39 +487,10 @@ export class FieldService implements IAdapterService {
 
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
     const { viewId, filterHidden } = await this.viewQueryWidthShare(tableId, query);
-
-    let fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, createdTime: true, isPrimary: true },
-    });
-
-    fields = sortBy(fields, 'isPrimary', 'createdTime');
-
-    let view: { id: string; columnMeta: IColumnMeta } | null = null;
-
-    if (viewId) {
-      const curView = await this.prismaService.txClient().view.findFirst({
-        where: { id: viewId, deletedTime: null },
-        select: { id: true, columnMeta: true },
-      });
-      if (!curView) {
-        throw new NotFoundException('view not found');
-      }
-      view = {
-        id: viewId,
-        columnMeta: JSON.parse(curView.columnMeta),
-      };
-    }
-
-    if (view && filterHidden) {
-      const unHiddenFields = fields.filter((field) => !view?.columnMeta[field.id].hidden);
-      fields = sortBy(unHiddenFields, (field) => {
-        return view?.columnMeta[field.id].order;
-      });
-    }
+    const result = await this.getFieldsByQuery(tableId, { viewId, filterHidden });
 
     return {
-      ids: fields.map((field) => field.id),
+      ids: result.map((field) => field.id),
     };
   }
 }

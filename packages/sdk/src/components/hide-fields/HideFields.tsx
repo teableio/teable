@@ -1,7 +1,6 @@
 import { difference, map } from 'lodash';
 import React from 'react';
-import { useViewId, useFields, useTableId, useView } from '../../hooks';
-import { View } from '../../model';
+import { useViewId, useFields, useView } from '../../hooks';
 import type { IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
 
@@ -10,8 +9,6 @@ export const HideFields: React.FC<{
 }> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true });
-  const tableId = useTableId();
-  const viewId = useViewId();
   const view = useView();
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
@@ -33,18 +30,14 @@ export const HideFields: React.FC<{
     const hiddenIds = difference(hidden, hiddenFieldIds);
     const showIds = difference(hiddenFieldIds, hidden);
 
-    if (tableId && viewId) {
+    if (view) {
       hiddenIds.length &&
-        View.setViewColumnMeta(
-          tableId,
-          viewId,
+        view.setViewColumnMeta(
           hiddenIds.map((id) => ({ fieldId: id, columnMeta: { hidden: true } }))
         );
 
       showIds.length &&
-        View.setViewColumnMeta(
-          tableId,
-          viewId,
+        view.setViewColumnMeta(
           showIds.map((id) => ({ fieldId: id, columnMeta: { hidden: false } }))
         );
     }

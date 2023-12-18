@@ -2,11 +2,9 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
-export const autoNumberFieldOptionsSchema = z
-  .object({
-    expression: z.literal('AUTO_NUMBER()'),
-  })
-  .strict();
+export const autoNumberFieldOptionsSchema = z.object({
+  expression: z.literal('AUTO_NUMBER()'),
+});
 
 export type IAutoNumberFieldOptions = z.infer<typeof autoNumberFieldOptionsSchema>;
 
@@ -49,6 +47,7 @@ export class AutoNumberFieldCore extends FormulaAbstractCore {
   }
 
   validateOptions() {
+    console.log('this.options', this.options);
     return autoNumberFieldOptionsRoSchema.safeParse(this.options);
   }
 

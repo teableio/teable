@@ -1,50 +1,47 @@
-import type {
-  ILookupOptionsRo,
-  IRollupFieldOptions,
-  IUnionFormatting,
-  IUnionShowAs,
-} from '@teable-group/core';
+import type { IRollupFieldOptions, IUnionFormatting, IUnionShowAs } from '@teable-group/core';
 import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import { RollupField } from '@teable-group/sdk/model';
 import { Selector } from '@teable-group/ui-lib/base';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
-import { useIsMultipleCellValue } from '../hooks';
 import { UnionShowAs } from '../show-as/UnionShowAs';
+
+const calculateRollupTypedValue = (
+  expression?: string,
+  cellValueType: CellValueType = CellValueType.String,
+  isMultipleCellValue: boolean = false
+) => {
+  const defaultResult = {
+    cellValueType: cellValueType,
+    isMultipleCellValue: isMultipleCellValue,
+  };
+
+  try {
+    return expression
+      ? RollupField.getParsedValueType(expression, cellValueType, isMultipleCellValue)
+      : defaultResult;
+  } catch (e) {
+    return defaultResult;
+  }
+};
 
 export const RollupOptions = (props: {
   options: Partial<IRollupFieldOptions> | undefined;
+  cellValueType?: CellValueType;
+  isMultipleCellValue?: boolean;
   isLookup?: boolean;
-  lookupField?: IFieldInstance;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IRollupFieldOptions>) => void;
 }) => {
-  const { options = {}, isLookup, lookupField, lookupOptions, onChange } = props;
+  const {
+    options = {},
+    isLookup,
+    cellValueType = CellValueType.String,
+    isMultipleCellValue,
+    onChange,
+  } = props;
   const { formatting, expression } = options;
 
-  const isLookupFieldMultiple = useIsMultipleCellValue(isLookup, lookupField, lookupOptions);
-
-  const { cellValueType, isMultipleCellValue } = useMemo(() => {
-    const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
-    if (!lookupField) {
-      return defaultResult;
-    }
-
-    if (isLookup) {
-      return {
-        cellValueType: lookupField.cellValueType,
-        isMultipleCellValue: lookupField.isMultipleCellValue,
-      };
-    }
-    try {
-      return expression
-        ? RollupField.getParsedValueType(expression, lookupField, isLookupFieldMultiple)
-        : defaultResult;
-    } catch (e) {
-      return defaultResult;
-    }
-  }, [expression, isLookup, isLookupFieldMultiple, lookupField]);
+  const typedValue = calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue);
 
   const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
     onChange?.({
@@ -57,7 +54,6 @@ export const RollupOptions = (props: {
     if (isLookup) {
       return onChange?.({
         formatting,
-        expression: (lookupField?.options as IRollupFieldOptions)?.expression ?? expression,
       });
     }
     onChange?.({ formatting });
@@ -67,7 +63,6 @@ export const RollupOptions = (props: {
     if (isLookup) {
       return onChange?.({
         showAs: value,
-        expression: (lookupField?.options as IRollupFieldOptions)?.expression ?? expression,
       });
     }
     onChange?.({ showAs: value });
@@ -132,6 +127,7 @@ export const RollupOptions = (props: {
         <div className="space-y-2">
           <span className="neutral-content label-text">Rollup</span>
           <Selector
+            className="w-full"
             placeholder="Select a rollup function"
             selectedId={expression}
             onChange={(id) => {
@@ -143,7 +139,7 @@ export const RollupOptions = (props: {
       )}
       <div className="space-y-2">
         <UnionFormatting
-          cellValueType={cellValueType}
+          cellValueType={typedValue.cellValueType}
           formatting={formatting}
           onChange={onFormattingChange}
         />
@@ -152,8 +148,8 @@ export const RollupOptions = (props: {
         <div className="space-y-2">
           <UnionShowAs
             showAs={options?.showAs}
-            cellValueType={cellValueType}
-            isMultipleCellValue={isMultipleCellValue || isLookupFieldMultiple}
+            cellValueType={typedValue.cellValueType}
+            isMultipleCellValue={typedValue.isMultipleCellValue}
             onChange={onShowAsChange}
           />
         </div>

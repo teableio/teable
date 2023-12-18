@@ -17,6 +17,7 @@ import {
   NumberFormattingType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { deleteField as apiDeleteField } from '@teable-group/openapi';
 import type { Knex } from 'knex';
 import type request from 'supertest';
 import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
@@ -301,6 +302,18 @@ describe('OpenAPI FieldController (e2e)', () => {
         where: { id: field.id },
       });
       expect(fieldRaw?.deletedTime).toBeTruthy();
+    });
+
+    it('should forbid to delete a primary field', async () => {
+      const fields = await prisma.field.findMany({
+        where: { tableId: table1.id },
+      });
+
+      const primaryFieldId = fields.find((f) => f.isPrimary)?.id as string;
+      const fn = async () => (await apiDeleteField(table1.id, primaryFieldId))?.data;
+      await expect(fn()).rejects.toMatchObject({
+        status: 403,
+      });
     });
 
     it('should delete a formula dependency field, a -> b delete a', async () => {

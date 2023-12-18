@@ -217,7 +217,7 @@ export class TableService implements IAdapterService {
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ITableFullVo> {
     const tableMeta = await this.getTableMeta(baseId, tableId);
-    const fields = await this.fieldService.getFields(tableId, { viewId });
+    const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
     const views = await this.viewService.getViews(tableId);
     const { records } = await this.recordService.getRecords(tableId, {
       viewId,

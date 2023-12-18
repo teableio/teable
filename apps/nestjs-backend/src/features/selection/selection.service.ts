@@ -149,7 +149,10 @@ export class SelectionService {
   }
 
   private async columnsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
-    const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId,
+      filterHidden: true,
+    });
     const records = await this.recordService.getRecordsFields(tableId, {
       viewId,
       skip: 0,
@@ -167,7 +170,10 @@ export class SelectionService {
   }
 
   private async rowsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
-    const fields = await this.fieldService.getFields(tableId, { viewId, filterHidden: true });
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId,
+      filterHidden: true,
+    });
     let records: Pick<IRecord, 'id' | 'fields'>[] = [];
     for (const [start, end] of ranges) {
       const recordsFields = await this.recordService.getRecordsFields(tableId, {

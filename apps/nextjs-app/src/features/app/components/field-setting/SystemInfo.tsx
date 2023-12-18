@@ -1,11 +1,12 @@
+import type { IFieldVo } from '@teable-group/core';
 import { LocalStorageKeys } from '@teable-group/sdk/config/local-storage-keys';
-import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useLocalStorage } from 'react-use';
 
-export const SystemInfo: React.FC<{ fieldInstance?: IFieldInstance }> = ({ fieldInstance }) => {
+// eslint-disable-next-line sonarjs/cognitive-complexity
+export const SystemInfo: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => {
   const [show, setShow] = useLocalStorage<boolean>(LocalStorageKeys.FieldSystem);
 
-  if (!fieldInstance) {
+  if (!field.id) {
     return null;
   }
 
@@ -13,27 +14,31 @@ export const SystemInfo: React.FC<{ fieldInstance?: IFieldInstance }> = ({ field
     <div className="flex flex-col space-y-1 border-b border-slate-200 pb-2">
       <p className="text-xs">
         <span className="select-none text-slate-400">id: </span>
-        {fieldInstance.id}
+        {field.id}
       </p>
       <p className="text-xs">
         <span className="select-none text-slate-400">dbName: </span>
-        {fieldInstance.dbFieldName}
+        {field.dbFieldName}
       </p>
       <p className="text-xs">
         <span className="select-none text-slate-400">dbType: </span>
-        {fieldInstance.dbFieldType}
+        {field.dbFieldType}
       </p>
       <p className="text-xs">
         <span className="select-none text-slate-400">cellValueType: </span>
-        {fieldInstance.cellValueType}
+        {field.cellValueType}
       </p>
       <p className="text-xs">
         <span className="select-none text-slate-400">isMultipleCellValue: </span>
-        {fieldInstance.isMultipleCellValue ? 'true' : 'false'}
+        {field.isMultipleCellValue ? 'true' : 'false'}
+      </p>
+      <p className="text-xs">
+        <span className="select-none text-slate-400">isPrimary: </span>
+        {field.isPrimary ? 'true' : 'false'}
       </p>
       <p className="text-xs">
         <span className="select-none text-slate-400">isComputed: </span>
-        {fieldInstance.isComputed ? 'true' : 'false'}
+        {field.isComputed ? 'true' : 'false'}
       </p>
       <p className="text-left text-xs font-medium">
         <span

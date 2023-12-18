@@ -11,7 +11,7 @@ import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
-import { composeMaps } from '../../calculation/utils/compose-maps';
+import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { RecordService } from '../record.service';
 
 @Injectable()
@@ -96,7 +96,7 @@ export class RecordCalculateService {
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
-    const composedOpsMap = composeMaps([opsMapOrigin, opsMapByLink]);
+    const composedOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
     const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(composedOpsMap);
 
     // calculate by origin ops and link derivation
@@ -106,8 +106,9 @@ export class RecordCalculateService {
       tableId2DbTableName,
     } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
 
+    // console.log('opsMapByCalculation', JSON.stringify(opsMapByCalculation, null, 2));
     return {
-      opsMap: composeMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation, systemFieldOpsMap]),
+      opsMap: composeOpMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation, systemFieldOpsMap]),
       fieldMap,
       tableId2DbTableName,
     };

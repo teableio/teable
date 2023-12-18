@@ -1,13 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight } from '@teable-group/icons';
-import {
-  View,
-  useTableId,
-  useFields,
-  useIsTouchDevice,
-  useTablePermission,
-  useView,
-} from '@teable-group/sdk';
+import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable-group/sdk';
 import { insertSingle } from '@teable-group/sdk/utils';
 import {
   Command,
@@ -37,8 +30,6 @@ const iconClassName = 'mr-2 h-4 w-4';
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView();
-  const tableId = useTableId();
-  const activeViewId = view?.id;
   const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true });
@@ -49,7 +40,7 @@ export const FieldMenu = () => {
     closeHeaderMenu();
   });
 
-  if (!activeViewId || !fields?.length || !allFields.length) return null;
+  if (!view || !fields?.length || !allFields.length) return null;
 
   const fieldIds = fields.map((f) => f.id);
 
@@ -115,13 +106,12 @@ export const FieldMenu = () => {
       name: 'Hide field',
       icon: <EyeOff className={iconClassName} />,
       hidden: !permission['view|update'],
+      disabled: fields.some((f) => f.isPrimary),
       onClick: async () => {
         const fieldIdsSet = new Set(fieldIds);
         const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
-        if (filteredFields.length === 0 || !tableId) return;
-        View.setViewColumnMeta(
-          tableId,
-          activeViewId,
+        if (filteredFields.length === 0) return;
+        view.setViewColumnMeta(
           filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
         );
       },
@@ -131,6 +121,7 @@ export const FieldMenu = () => {
       name: fieldIds.length > 1 ? 'Delete all selected fields' : 'Delete field',
       icon: <Trash className={iconClassName} />,
       hidden: !permission['field|delete'],
+      disabled: fields.some((f) => f.isPrimary),
       onClick: async () => {
         const fieldIdsSet = new Set(fieldIds);
         const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
@@ -148,12 +139,18 @@ export const FieldMenu = () => {
             <SheetHeader className="h-16 justify-center border-b text-2xl">
               {allFields.find((f) => f.id === fieldIds[0])?.name ?? 'Untitled'}
             </SheetHeader>
-            {menuItems.map(({ type, name, icon, onClick }) => {
+            {menuItems.map(({ type, name, icon, onClick, disabled }) => {
               return (
                 <div
-                  className="flex w-full items-center border-b py-3"
+                  className={classNames('flex w-full items-center border-b py-3', {
+                    'cursor-not-allowed': disabled,
+                    'opacity-50': disabled,
+                  })}
                   key={type}
                   onSelect={async () => {
+                    if (disabled) {
+                      return;
+                    }
                     await onClick();
                     closeHeaderMenu();
                   }}
@@ -175,12 +172,18 @@ export const FieldMenu = () => {
         >
           <CommandList>
             <CommandGroup className="p-0" aria-valuetext="name">
-              {menuItems.map(({ type, name, icon, onClick }) => (
+              {menuItems.map(({ type, name, icon, onClick, disabled }) => (
                 <CommandItem
-                  className="px-4 py-2"
+                  className={classNames('px-4 py-2', {
+                    'cursor-not-allowed': disabled,
+                    'opacity-50': disabled,
+                  })}
                   key={type}
                   value={name}
                   onSelect={async () => {
+                    if (disabled) {
+                      return;
+                    }
                     await onClick();
                     closeHeaderMenu();
                   }}

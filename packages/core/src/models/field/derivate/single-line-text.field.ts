@@ -3,11 +3,9 @@ import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import { singleLineTextShowAsSchema } from '../show-as';
 
-export const singlelineTextFieldOptionsSchema = z
-  .object({
-    showAs: singleLineTextShowAsSchema.optional(),
-  })
-  .strict();
+export const singlelineTextFieldOptionsSchema = z.object({
+  showAs: singleLineTextShowAsSchema.optional(),
+});
 
 export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;
 
