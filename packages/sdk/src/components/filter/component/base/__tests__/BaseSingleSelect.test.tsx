@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createAppContext } from '../../../../../context/__tests__/createAppContext';
+import { defaultLocale } from '../../../../../context/app/i18n';
 import { BaseSingleSelect } from '../BaseSingleSelect';
 
 window.ResizeObserver =
@@ -34,12 +35,12 @@ describe('BaseSingleSelect', () => {
     expect(button).toHaveTextContent('label-1');
   });
 
-  it('should render default palceholder: Search...', async () => {
+  it('should render default placeholder: Search...', async () => {
     render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
       wrapper: createAppContext(),
     });
     toggleOpen();
-    const searchPlaceHolder = screen.getByPlaceholderText('Search...');
+    const searchPlaceHolder = screen.getByPlaceholderText(defaultLocale.common.search.placeholder);
     expect(searchPlaceHolder).toBeDefined();
   });
 
@@ -64,13 +65,14 @@ describe('BaseSingleSelect', () => {
 
   it('should display the selected option value', async () => {
     const { rerender } = render(
-      <BaseSingleSelect options={options} onSelect={onSelect} value={null} />
+      <BaseSingleSelect options={options} onSelect={onSelect} value={null} />,
+      {
+        wrapper: createAppContext(),
+      }
     );
     toggleOpen();
     fireEvent.click(screen.getByText('label-1'));
-    rerender(<BaseSingleSelect options={options} onSelect={onSelect} value={'value-1'} />, {
-      wrapper: createAppContext(),
-    });
+    rerender(<BaseSingleSelect options={options} onSelect={onSelect} value={'value-1'} />);
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveTextContent('label-1');
   });
@@ -80,7 +82,8 @@ describe('BaseSingleSelect', () => {
       wrapper: createAppContext(),
     });
     toggleOpen();
-    const input = screen.getByPlaceholderText('Search...');
+
+    const input = screen.getByPlaceholderText(defaultLocale.common.search.placeholder);
     fireEvent.change(input, { target: { value: 'label-1' } });
     const option = screen.getAllByRole('option');
     expect(option).toHaveLength(1);
