@@ -59,7 +59,7 @@ export class FieldDeletingService {
   }
 
   async cleanField(tableId: string, fieldIds: string[]) {
-    await this.fieldBatchCalculationService.calculateFields(tableId, fieldIds, true);
+    await this.fieldBatchCalculationService.resetFields(tableId, fieldIds);
   }
 
   async deleteField(tableId: string, fieldId: string) {

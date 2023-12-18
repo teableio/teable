@@ -1,5 +1,5 @@
-import type { IFieldOptionsRo, IFieldRo } from '@teable-group/core';
-import { getOptionsSchema, updateFieldRoSchema, FieldType } from '@teable-group/core';
+import type { IFieldRo } from '@teable-group/core';
+import { updateFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
 import { useTable, useView } from '@teable-group/sdk/hooks';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
 import { useToast } from '@teable-group/ui-lib/shadcn';
@@ -8,7 +8,7 @@ import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { FieldEditor } from './FieldEditor';
-import type { IFieldSetting } from './type';
+import type { IFieldEditorRo, IFieldSetting } from './type';
 import { FieldOperator } from './type';
 
 export const FieldSetting = (props: IFieldSetting) => {
@@ -44,32 +44,16 @@ export const FieldSetting = (props: IFieldSetting) => {
   return <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />;
 };
 
-const getOriginOptions = (type?: FieldType, options?: IFieldOptionsRo) => {
-  if (!type) {
-    return {};
-  }
-
-  const schema = getOptionsSchema(type);
-  const result = schema && schema.strip().safeParse(options);
-
-  if (!result || !result.success) {
-    return {};
-  }
-
-  return result.data;
-};
-
 const FieldSettingBase = (props: IFieldSetting) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const { toast } = useToast();
-  const [field, setField] = useState<IFieldRo>({
-    name: originField?.name,
-    type: originField?.type || FieldType.SingleLineText,
-    description: originField?.description,
-    options: getOriginOptions(originField?.type, originField?.options),
-    isLookup: originField?.isLookup,
-    lookupOptions: originField?.lookupOptions,
-  });
+  const [field, setField] = useState<IFieldEditorRo>(
+    originField
+      ? { ...originField, options: getOptionsSchema(originField.type).parse(originField.options) }
+      : {
+          type: FieldType.SingleLineText,
+        }
+  );
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
 
@@ -80,7 +64,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
     onCancelInner();
   };
 
-  const onFieldEditorChange = useCallback((field: IFieldRo) => {
+  const onFieldEditorChange = useCallback((field: IFieldEditorRo) => {
     setField(field);
     setUpdateCount(1);
   }, []);
@@ -96,9 +80,11 @@ const FieldSettingBase = (props: IFieldSetting) => {
   const onConfirmInner = () => {
     const result = updateFieldRoSchema.safeParse(field);
     if (result.success) {
+      console.log('fieldConFirm', result.data);
       return onConfirm?.(result.data);
     }
-
+    console.error('fieldConFirm', field);
+    console.error('fieldConFirmResult', fromZodError(result.error).message);
     toast({
       title: 'Options Error',
       variant: 'destructive',
@@ -125,13 +111,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
             {/* Header */}
             <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
             {/* Content Form */}
-            {
-              <FieldEditor
-                field={field}
-                fieldInstance={props.field}
-                onChange={onFieldEditorChange}
-              />
-            }
+            {<FieldEditor field={field} onChange={onFieldEditorChange} />}
             {/* Footer */}
             <div className="flex w-full justify-end space-x-2 p-2">
               <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>

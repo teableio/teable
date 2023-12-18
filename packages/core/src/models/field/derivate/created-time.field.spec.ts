@@ -56,16 +56,6 @@ describe('CreatedTimeFieldCore', () => {
           ...createdTimeJson,
           options: {
             ...createdTimeJson.options,
-            expression: '1 + 1',
-          },
-        }).validateOptions().success
-      ).toBeFalsy();
-
-      expect(
-        plainToInstance(CreatedTimeFieldCore, {
-          ...createdTimeJson,
-          options: {
-            ...createdTimeJson.options,
             formatting: {
               date: DateFormattingPreset.ISO,
               time: 'abc',

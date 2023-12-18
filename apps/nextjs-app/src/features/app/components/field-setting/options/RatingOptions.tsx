@@ -1,12 +1,7 @@
-import type {
-  CellValueType,
-  ILookupOptionsRo,
-  IRatingColors,
-  IRatingFieldOptions,
-} from '@teable-group/core';
+import type { IRatingColors, IRatingFieldOptions } from '@teable-group/core';
 import { ColorUtils, RATING_ICON_COLORS, RatingIcon } from '@teable-group/core';
 import { RATING_ICON_MAP } from '@teable-group/sdk/components';
-import { RatingField, type IFieldInstance } from '@teable-group/sdk/model';
+import { RatingField } from '@teable-group/sdk/model';
 import {
   Label,
   Select,
@@ -73,9 +68,6 @@ export const RATING_FIELD_MAXIMUM = Array.from({ length: 10 }, (_, index) => {
 export const RatingOptions = (props: {
   options: Partial<IRatingFieldOptions> | undefined;
   isLookup?: boolean;
-  cellValueType?: CellValueType;
-  lookupField?: IFieldInstance;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<IRatingFieldOptions>) => void;
 }) => {
   const { options = RatingField.defaultOptions(), isLookup, onChange } = props;

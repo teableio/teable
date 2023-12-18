@@ -1,18 +1,8 @@
-import type {
-  CellValueType,
-  ILookupOptionsRo,
-  ISingleLineTextFieldOptions,
-  ISingleLineTextShowAs,
-} from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { ISingleLineTextFieldOptions, ISingleLineTextShowAs } from '@teable-group/core';
 import { SingleTextLineShowAs } from '../show-as/SingleLineTextShowAs';
 
 export const SingleLineTextOptions = (props: {
   options: Partial<ISingleLineTextFieldOptions> | undefined;
-  isLookup?: boolean;
-  cellValueType?: CellValueType;
-  lookupField?: IFieldInstance;
-  lookupOptions?: ILookupOptionsRo;
   onChange?: (options: Partial<ISingleLineTextFieldOptions>) => void;
 }) => {
   const { options, onChange } = props;

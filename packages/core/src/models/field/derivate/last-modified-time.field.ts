@@ -7,12 +7,10 @@ import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
 extend(timezone);
 
-export const lastModifiedTimeFieldOptionsSchema = z
-  .object({
-    expression: z.literal('LAST_MODIFIED_TIME()'),
-    formatting: datetimeFormattingSchema,
-  })
-  .strict();
+export const lastModifiedTimeFieldOptionsSchema = z.object({
+  expression: z.literal('LAST_MODIFIED_TIME()'),
+  formatting: datetimeFormattingSchema,
+});
 
 export type ILastModifiedTimeFieldOptions = z.infer<typeof lastModifiedTimeFieldOptionsSchema>;
 

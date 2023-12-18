@@ -183,25 +183,33 @@ describe('RollupFieldCore', () => {
     });
 
     it('should return current typed value with field context', () => {
-      expect(RollupFieldCore.getParsedValueType('countall({values})', numberField, false)).toEqual({
-        cellValueType: CellValueType.Number,
-      });
-
-      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
-        cellValueType: CellValueType.Number,
-      });
-
-      expect(RollupFieldCore.getParsedValueType('sum({values})', numberField, false)).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType('countall({values})', CellValueType.Number, false)
+      ).toEqual({
         cellValueType: CellValueType.Number,
       });
 
       expect(
-        RollupFieldCore.getParsedValueType('concatenate({values})', numberField, false)
+        RollupFieldCore.getParsedValueType('sum({values})', CellValueType.Number, false)
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
+        RollupFieldCore.getParsedValueType('sum({values})', CellValueType.Number, false)
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
+        RollupFieldCore.getParsedValueType('concatenate({values})', CellValueType.Number, false)
       ).toEqual({
         cellValueType: CellValueType.String,
       });
 
-      expect(RollupFieldCore.getParsedValueType('and({values})', numberField, false)).toEqual({
+      expect(
+        RollupFieldCore.getParsedValueType('and({values})', CellValueType.Number, false)
+      ).toEqual({
         cellValueType: CellValueType.Boolean,
       });
     });

@@ -1,5 +1,5 @@
 import { CellValueType, FieldType } from './constant';
-import { RollupFieldCore, SingleLineTextFieldCore, NumberFieldCore } from './derivate';
+import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 
@@ -26,16 +26,6 @@ describe('field Schema Test', () => {
 
     const result = fieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
-  });
-
-  it('should return false when options and type mismatch', () => {
-    const fieldRo = {
-      type: FieldType.SingleLineText,
-      options: NumberFieldCore.defaultOptions(),
-    };
-
-    const result = fieldRoSchema.safeParse(fieldRo);
-    expect(result.success).toBe(false);
   });
 
   it('should return true when isLookup with lookupOptions', () => {

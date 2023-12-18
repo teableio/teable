@@ -151,19 +151,18 @@ export class FieldConvertingLinkService {
     newField: IFieldInstance,
     oldField: IFieldInstance
   ): Promise<{ tableId: string; newField: IFieldInstance; oldField: IFieldInstance } | void> {
-    if (
-      newField.type === FieldType.Link &&
-      oldField.type === FieldType.Link &&
-      !isEqual(newField.options, oldField.options)
-    ) {
+    const isLink = (field: IFieldInstance): field is LinkFieldDto =>
+      !field.isLookup && field.type === FieldType.Link;
+
+    if (isLink(newField) && isLink(oldField) && !isEqual(newField.options, oldField.options)) {
       return this.linkOptionsChange(tableId, newField, oldField);
     }
 
-    if (newField.type !== FieldType.Link && oldField.type === FieldType.Link) {
+    if (!isLink(newField) && isLink(oldField)) {
       return this.linkToOther(tableId, oldField);
     }
 
-    if (newField.type === FieldType.Link && oldField.type !== FieldType.Link) {
+    if (isLink(newField) && !isLink(oldField)) {
       return this.otherToLink(tableId, newField);
     }
   }

@@ -1382,6 +1382,58 @@ describe('OpenAPI link (e2e)', () => {
       ]);
     });
 
+    it('should update formula field with function when change link cell', async () => {
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
+        { id: table1.records[0].id },
+      ]);
+
+      const table2FormulaFieldRo: IFieldRo = {
+        name: 'table2Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `AND({${table2.fields[2].id}})`,
+        },
+      };
+
+      await request
+        .post(`/api/table/${table2.id}/field`)
+        .send(table2FormulaFieldRo as IFieldRo)
+        .expect(201);
+
+      const t2r1 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+
+      expect(t2r1.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+
+      // replace
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
+        { id: table1.records[1].id },
+      ]);
+
+      const t2r2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+
+      expect(t2r2.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+
+      // add
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
+        { id: table1.records[1].id },
+        { id: table1.records[2].id },
+      ]);
+
+      const t2r3 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+
+      expect(t2r3.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+
+      // remove
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
+        { id: table1.records[1].id },
+      ]);
+
+      const t2r4 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+
+      expect(t2r4.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+    });
+
     it('should update formula field when change many many link cell', async () => {
       const table1FormulaFieldRo: IFieldRo = {
         name: 'table1 formula field',

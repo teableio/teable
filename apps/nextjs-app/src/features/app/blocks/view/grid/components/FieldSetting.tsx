@@ -1,3 +1,4 @@
+import { fieldVoSchema } from '@teable-group/core';
 import { useField } from '@teable-group/sdk';
 import {
   FieldSetting as FieldSettingInner,
@@ -26,7 +27,7 @@ export const FieldSetting = () => {
   return (
     <FieldSettingInner
       visible={visible}
-      field={field}
+      field={field && fieldVoSchema.parse(field)}
       order={order}
       operator={setting?.operator || FieldOperator.Add}
       onCancel={onCancel}
