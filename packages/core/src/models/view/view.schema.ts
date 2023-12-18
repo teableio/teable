@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { sharePasswordSchema } from '../../share';
 import { IdPrefix } from '../../utils';
+import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
 
 export const shareViewMetaSchema = z.object({
@@ -28,6 +29,9 @@ export const viewVoSchema = z.object({
   lastModifiedBy: z.string(),
   createdTime: z.string(),
   lastModifiedTime: z.string(),
+  columnMeta: columnMetaSchema.openapi({
+    description: 'A mapping of view IDs to their corresponding column metadata.',
+  }),
 });
 
 export type IViewVo = z.infer<typeof viewVoSchema>;
@@ -43,6 +47,7 @@ export const viewRoSchema = viewVoSchema
   .partial({
     name: true,
     order: true,
+    columnMeta: true,
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;

@@ -9,7 +9,6 @@ export enum OpName {
   AddField = 'addField',
   SetFieldOrder = 'setFieldOrder',
   AddColumnMeta = 'addColumnMeta',
-  SetColumnMeta = 'setColumnMeta',
   DeleteColumnMeta = 'deleteColumnMeta',
   SetFieldProperty = 'setFieldProperty',
 
@@ -18,6 +17,7 @@ export enum OpName {
   SetViewDescription = 'SetViewDescription',
   SetViewFilter = 'setViewFilter',
   SetViewSort = 'setViewSort',
+  SetViewColumnMeta = 'setViewColumnMeta',
   SetViewOptions = 'SetViewOptions',
   SetViewEnableShare = 'setViewEnableShare',
   SetViewShareId = 'setShareId',

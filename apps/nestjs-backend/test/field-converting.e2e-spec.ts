@@ -115,7 +115,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
       expect(newField.description).toEqual('hello');
-      expect(newField.columnMeta).toMatchObject({});
     });
 
     it('should modify db field name', async () => {
@@ -147,7 +146,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.dbFieldName).toEqual('NEW_field_name');
       expect(newField.name).toEqual('TextField 2');
       expect(newField.description).toEqual('hello');
-      expect(newField.columnMeta).toMatchObject({});
     });
 
     it('should modify formula field name', async () => {

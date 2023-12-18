@@ -13,14 +13,14 @@ export function LineChartCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Comparison</CardTitle>
+        <CardTitle>{data.title} (Line)</CardTitle>
         <CardDescription>Compare average and minimum values.</CardDescription>
       </CardHeader>
       <CardContent className="pb-4">
         <div className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={data}
+              data={data.list}
               margin={{
                 top: 5,
                 right: 10,

@@ -17,7 +17,7 @@ const Conjunction = (props: IConjunctionProps) => {
   const { index, onSelect, value } = props;
 
   return (
-    <div className="w-[66px] flex justify-start shrink-0">
+    <div className="flex w-[66px] shrink-0 justify-start">
       {index === ConjunctionPosition.WHERE ? <span className="px-1 text-sm">where</span> : null}
       {index === ConjunctionPosition.SELECTOR ? (
         <ConjunctionSelect value={value} onSelect={onSelect} />

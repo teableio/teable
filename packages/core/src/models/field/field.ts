@@ -1,6 +1,6 @@
 import type { SafeParseReturnType } from 'zod';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
-import type { IColumnMeta, IFieldVo, ILookupOptionsVo } from './field.schema';
+import type { IFieldVo, ILookupOptionsVo } from './field.schema';
 
 export abstract class FieldCore implements IFieldVo {
   id!: string;
@@ -14,8 +14,6 @@ export abstract class FieldCore implements IFieldVo {
   unique?: boolean;
 
   isPrimary?: boolean;
-
-  columnMeta!: IColumnMeta;
 
   dbFieldName!: string;
 

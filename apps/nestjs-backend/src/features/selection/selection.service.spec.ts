@@ -232,7 +232,6 @@ describe('selectionService', () => {
           dbFieldName: 'attachments',
           cellValueType: CellValueType.String,
           dbFieldType: DbFieldType.Json,
-          columnMeta: {},
         }),
       ];
       const tableData: string[][] = [

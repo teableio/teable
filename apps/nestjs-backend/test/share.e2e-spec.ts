@@ -10,7 +10,7 @@ import {
 import { map } from 'lodash';
 import type request from 'supertest';
 import innerRequest from 'supertest';
-import { initApp, updateField } from './utils/init-app';
+import { initApp, updateViewColumnMeta } from './utils/init-app';
 
 describe('OpenAPI ShareController (e2e)', () => {
   let app: INestApplication;
@@ -42,10 +42,9 @@ describe('OpenAPI ShareController (e2e)', () => {
     fieldIds = map(table.fields, 'id');
     // hidden last one field
     const field = table.fields[fieldIds.length - 1];
-    await updateField(tableId, field.id, {
-      columnMeta: { [viewId]: { ...field.columnMeta[viewId], hidden: true } },
-      type: field.type,
-    });
+    await updateViewColumnMeta(tableId, viewId, [
+      { fieldId: field.id, columnMeta: { hidden: true } },
+    ]);
     shareId = shareResult.body.shareId;
   });
 

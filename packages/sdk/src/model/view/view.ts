@@ -15,6 +15,7 @@ import {
   getViewAggregations,
   getViewList,
   getViewRowCount,
+  setViewColumnMeta,
   manualSortView,
 } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
@@ -38,6 +39,8 @@ export abstract class View extends ViewCore {
   static enableShare = requestWrap(enableShareView);
 
   static disableShare = requestWrap(disableShareView);
+
+  static setViewColumnMeta = requestWrap(setViewColumnMeta);
 
   async submitOperation(operation: IOtOperation) {
     try {

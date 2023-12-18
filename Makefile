@@ -168,7 +168,7 @@ docker.images:
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
 
 sqlite.integration.test:
-	@export PRISMA_DATABASE_URL='file:../../db/.test/main.db'; \
+	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
 	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
 	pnpm g:test-e2e

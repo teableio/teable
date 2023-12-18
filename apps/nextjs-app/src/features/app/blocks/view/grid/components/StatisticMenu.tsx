@@ -1,6 +1,7 @@
 import { getValidStatisticFunc, NoneFunc, statisticFunc2NameMap } from '@teable-group/core';
 import type { StatisticsFunc } from '@teable-group/core';
-import { useField, useViewId } from '@teable-group/sdk/hooks';
+import { View } from '@teable-group/sdk';
+import { useField, useTableId, useViewId } from '@teable-group/sdk/hooks';
 import {
   Command,
   CommandGroup,
@@ -16,6 +17,7 @@ import { useGridViewStore } from '../store/gridView';
 
 export const StatisticMenu = () => {
   const activeViewId = useViewId();
+  const tableId = useTableId();
   const { statisticMenu, closeStatisticMenu } = useGridViewStore();
   const { fieldId, position } = statisticMenu || {};
   const visible = Boolean(statisticMenu);
@@ -40,7 +42,15 @@ export const StatisticMenu = () => {
   const onSelect = (type: NoneFunc | StatisticsFunc) => {
     closeStatisticMenu();
     activeViewId &&
-      field?.updateColumnStatistic(activeViewId, type === NoneFunc.None ? undefined : type);
+      tableId &&
+      View.setViewColumnMeta(tableId, activeViewId, [
+        {
+          fieldId,
+          columnMeta: {
+            statisticFunc: type === NoneFunc.None ? null : type,
+          },
+        },
+      ]);
   };
 
   return (

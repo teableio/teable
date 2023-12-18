@@ -3,7 +3,6 @@ import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types/ensure-keys';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { StatisticsFunc } from '../aggregation/statistics-func.enum';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import {
   checkboxFieldOptionsSchema,
@@ -54,30 +53,6 @@ export const lookupOptionsRoSchema = lookupOptionsVoSchema.pick({
 });
 
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;
-
-export const columnSchema = z.object({
-  order: z.number().openapi({
-    description: 'Order is a floating number, column will sort by it in the view.',
-  }),
-  width: z.number().optional().openapi({
-    description: 'Column width in the view.',
-  }),
-  hidden: z.boolean().optional().openapi({
-    description: 'If column hidden in the view.',
-  }),
-  statisticFunc: z.nativeEnum(StatisticsFunc).optional().openapi({
-    description: 'Statistic function of the column in the view.',
-  }),
-  required: z.boolean().optional().openapi({
-    description: 'If column is required',
-  }),
-});
-
-export type IColumn = z.infer<typeof columnSchema>;
-
-export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.View), columnSchema);
-
-export type IColumnMeta = z.infer<typeof columnMetaSchema>;
 
 export const unionFieldOptions = z.union([
   rollupFieldOptionsSchema,
@@ -158,10 +133,6 @@ export const fieldVoSchema = z.object({
     description: 'Whether this field is primary field.',
   }),
 
-  columnMeta: columnMetaSchema.openapi({
-    description: 'A mapping of view IDs to their corresponding column metadata.',
-  }),
-
   isComputed: z.boolean().optional().openapi({
     description:
       'Whether this field is computed field, you can not modify cellValue in computed field.',
@@ -205,7 +176,6 @@ export const FIELD_RO_PROPERTIES = [
   'dbFieldName',
   'isLookup',
   'description',
-  'columnMeta',
   'lookupOptions',
   'options',
 ] as const;
@@ -227,7 +197,6 @@ export const FIELD_VO_PROPERTIES = [
   'notNull',
   'unique',
   'isPrimary',
-  'columnMeta',
   'isComputed',
   'hasError',
   'cellValueType',
@@ -343,7 +312,6 @@ const baseFieldRoSchema = fieldVoSchema
     dbFieldName: true,
     isLookup: true,
     description: true,
-    columnMeta: true,
   })
   .required({
     type: true,
@@ -382,7 +350,7 @@ export const getFieldsQuerySchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     description: 'The id of the view.',
   }),
-  filterHidden: z.boolean().optional(),
+  filterHidden: z.coerce.boolean().optional(),
 });
 
 export type IGetFieldsQuery = z.infer<typeof getFieldsQuerySchema>;

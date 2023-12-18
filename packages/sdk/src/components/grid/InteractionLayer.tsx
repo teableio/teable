@@ -307,6 +307,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       height,
       theme,
     });
+
     hoveredRegionRef.current = regionData;
     const { x: _x, y: _y, width: _w, height: _h, ...rest } = regionData;
 

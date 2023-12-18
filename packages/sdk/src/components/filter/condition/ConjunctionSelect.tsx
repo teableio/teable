@@ -30,7 +30,7 @@ function ConjunctionSelect(props: IConjunctionSelectProps) {
     <BaseSingleSelect<IFilter['conjunction'], IConjunctionItem>
       value={value}
       onSelect={onSelect}
-      className="h-8 p-1 text-[13px] shrink-0 m-0 min-w-full"
+      className="m-0 h-8 min-w-full shrink-0 p-1 text-[13px]"
       search={false}
       popoverClassName="w-15"
       options={ConjunctionOptions}

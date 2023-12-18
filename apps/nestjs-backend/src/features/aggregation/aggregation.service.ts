@@ -6,6 +6,7 @@ import type {
   IRawAggregationVo,
   IRawRowCountValue,
   IRawRowCountVo,
+  IColumnMeta,
 } from '@teable-group/core';
 import { mergeWithDefaultFilter, StatisticsFunc, ViewType } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -34,6 +35,7 @@ type ICustomFieldStats = {
 type IViewStatisticsData = {
   viewId: string;
   filter?: IFilter;
+  columnMeta: IColumnMeta;
   statisticFields?: IStatisticField[];
 }[];
 
@@ -171,7 +173,7 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
   }> {
     const viewRaw = await this.prisma.view.findMany({
-      select: { id: true, filter: true, group: true },
+      select: { id: true, filter: true, group: true, columnMeta: true },
       where: {
         tableId,
         ...(withView && withView.viewId ? { id: withView.viewId } : {}),
@@ -187,7 +189,7 @@ export class AggregationService {
         filter = await mergeWithDefaultFilter(view.filter, withView?.customFilter);
       }
 
-      viewStatisticsData.push({ viewId: view.id, filter });
+      viewStatisticsData.push({ viewId: view.id, filter, columnMeta: JSON.parse(view.columnMeta) });
     }
 
     const { fieldInstances, fieldInstanceMap } = await this.getFieldsData(tableId);
@@ -203,6 +205,7 @@ export class AggregationService {
     viewStatisticsData.forEach((vsd) => {
       vsd.statisticFields = this.getStatisticFields(
         vsd.viewId,
+        vsd.columnMeta,
         filteredFieldInstances,
         withView?.customFieldStats
       );
@@ -229,6 +232,7 @@ export class AggregationService {
 
   private getStatisticFields(
     viewId: string,
+    columnMetaMap: IColumnMeta,
     fieldInstances: IFieldInstance[],
     customFieldStats?: ICustomFieldStats[]
   ) {
@@ -236,8 +240,8 @@ export class AggregationService {
     const customFieldStatsGrouped = groupBy(customFieldStats, 'fieldId');
 
     fieldInstances.forEach((fieldInstance) => {
-      const { id: fieldId, columnMeta } = fieldInstance;
-      const viewFieldMeta = columnMeta[viewId];
+      const { id: fieldId } = fieldInstance;
+      const viewFieldMeta = columnMetaMap[fieldId];
       const customFieldStats = customFieldStatsGrouped[fieldId];
 
       if (viewFieldMeta || customFieldStats) {

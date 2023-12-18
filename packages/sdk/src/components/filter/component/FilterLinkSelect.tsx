@@ -23,7 +23,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
   }, [value]);
   const records = useRecords();
   const options = records.map(({ id, name }) => ({
-    label: name,
+    label: name || 'Untitled',
     value: id,
   }));
   const shouldInput = useMemo(() => {
@@ -33,10 +33,10 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
   const displayRender = useCallback((option: (typeof options)[number]) => {
     return (
       <div
-        className="px-2 rounded-lg bg-secondary text-secondary-foreground mx-1"
+        className="mx-1 rounded-lg bg-secondary px-2 text-secondary-foreground"
         key={option.value}
       >
-        {option?.label || 'Untitled'}
+        {option.label}
       </div>
     );
   }, []);
@@ -45,7 +45,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
     return (
       <div
         key={option.value}
-        className="px-2 rounded-lg bg-secondary text-secondary-foreground truncate"
+        className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
       >
         {option?.label || 'Untitled'}
       </div>

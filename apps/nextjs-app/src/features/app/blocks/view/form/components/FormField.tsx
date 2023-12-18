@@ -1,7 +1,7 @@
-import { CellEditor } from '@teable-group/sdk/components';
-import { useFieldStaticGetter, useViewId } from '@teable-group/sdk/hooks';
+import { useFieldStaticGetter, useView } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import type { FC } from 'react';
+import { FormCellEditor } from './FormCellEditor';
 
 interface IFormFieldEditorProps {
   field: IFieldInstance;
@@ -12,15 +12,16 @@ interface IFormFieldEditorProps {
 
 export const FormField: FC<IFormFieldEditorProps> = (props) => {
   const { field, value, errors, onChange } = props;
-  const activeViewId = useViewId();
+  const view = useView();
+  const activeViewId = view?.id;
   const getFieldStatic = useFieldStaticGetter();
 
-  if (!activeViewId) return null;
+  if (!activeViewId || !view) return null;
 
   const { id: fieldId, type, name, description, isLookup } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
 
-  const required = field.columnMeta[activeViewId]?.required;
+  const required = view?.columnMeta[activeViewId]?.required;
   const isError = errors.has(fieldId);
 
   return (
@@ -32,7 +33,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
 
       {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}
 
-      <CellEditor
+      <FormCellEditor
         cellValue={value}
         field={field}
         onChange={onChange}

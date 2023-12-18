@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
+import type { IColumn, IFieldVo, ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
 import { FieldType, ViewType } from '@teable-group/core';
 import type supertest from 'supertest';
-import { createField, getFields, initApp } from './utils/init-app';
+import { createField, getFields, initApp, creteView } from './utils/init-app';
 
 const defaultViews = [
   {
@@ -67,6 +67,32 @@ describe('OpenAPI ViewController (e2e)', () => {
       },
     ]);
     // console.log('result: ', result.body);
+  });
+
+  it('should create view with field order', async () => {
+    // get fields
+    const fields = await getFields(table.id);
+    const testFieldId = fields?.[0].id;
+    const assertOrder = 10;
+    const columnMeta = fields.reduce<Record<string, IColumn>>(
+      (pre, cur, index) => {
+        pre[cur.id] = {} as IColumn;
+        pre[cur.id].order = index === 0 ? assertOrder : index;
+        return pre;
+      },
+      {} as Record<string, IColumn>
+    );
+
+    const viewResponse = await creteView(table.id, {
+      name: 'view',
+      columnMeta,
+      type: ViewType.Grid,
+    });
+
+    const { columnMeta: columnMetaResponse } = viewResponse;
+    const order = columnMetaResponse?.[testFieldId]?.order;
+    expect(order).toEqual(assertOrder);
+    expect(fields.length).toEqual(Object.keys(columnMetaResponse).length);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {

@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { DraggableHandle, EyeOff } from '@teable-group/icons';
+import { View } from '@teable-group/sdk';
 import { CellEditor } from '@teable-group/sdk/components';
-import { useFieldStaticGetter, useViewId } from '@teable-group/sdk/hooks';
+import { useFieldStaticGetter, useTableId, useViewId, useView } from '@teable-group/sdk/hooks';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import {
   Label,
@@ -20,23 +21,41 @@ interface IFormFieldEditorProps {
 export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { field } = props;
   const activeViewId = useViewId();
+  const view = useView();
+  const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
 
-  if (!activeViewId) return null;
+  if (!activeViewId || !view || !tableId) return null;
 
-  const { type, name, description, isComputed, isLookup } = field;
+  const { type, name, description, isComputed, isLookup, id: fieldId } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();
-    activeViewId && field.updateColumnHidden(activeViewId, true);
+    activeViewId &&
+      View.setViewColumnMeta(tableId, activeViewId, [
+        {
+          fieldId: fieldId,
+          columnMeta: {
+            hidden: true,
+          },
+        },
+      ]);
   };
 
   const onRequiredChange = (checked: boolean) => {
-    activeViewId && field.updateColumnRequired(activeViewId, checked);
+    activeViewId &&
+      View.setViewColumnMeta(tableId, activeViewId, [
+        {
+          fieldId: fieldId,
+          columnMeta: {
+            required: checked,
+          },
+        },
+      ]);
   };
 
-  const required = field.columnMeta[activeViewId]?.required;
+  const required = view.columnMeta[fieldId]?.required;
 
   return (
     <div className="relative w-full px-8 py-5">

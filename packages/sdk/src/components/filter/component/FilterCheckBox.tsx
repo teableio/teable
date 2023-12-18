@@ -16,7 +16,7 @@ const FilterCheckbox = (props: IFilterCheckboxProps) => {
   }, [onChange, value]);
 
   return (
-    <div className="flex items-center space-x-2 w-20 justify-center shadow-sm h-8 rounded mr-2 ml-1 border">
+    <div className="ml-1 mr-2 flex h-8 w-20 items-center justify-center space-x-2 rounded border shadow-sm">
       <Checkbox
         checked={value}
         onCheckedChange={(checked: boolean) => {
