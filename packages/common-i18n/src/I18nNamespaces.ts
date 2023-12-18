@@ -1,21 +1,15 @@
-import type admin from './locales/en/admin.json';
-import type app from './locales/en/app.json';
 import type auth from './locales/en/auth.json';
-import type blog from './locales/en/blog.json';
 import type common from './locales/en/common.json';
-import type home from './locales/en/home.json';
-import type navigation from './locales/en/navigation.json';
+import type sdk from './locales/en/sdk.json';
+import type share from './locales/en/share.json';
 import type space from './locales/en/space.json';
 import type system from './locales/en/system.json';
 
 export interface I18nNamespaces {
-  admin: typeof admin;
   auth: typeof auth;
-  blog: typeof blog;
-  app: typeof app;
-  common: typeof common;
-  home: typeof home;
   space: typeof space;
-  navigation: typeof navigation;
+  common: typeof common;
   system: typeof system;
+  sdk: typeof sdk;
+  share: typeof share;
 }

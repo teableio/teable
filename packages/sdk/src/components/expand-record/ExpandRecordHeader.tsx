@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable-group/ic
 import { Button, Separator } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { useMeasure } from 'react-use';
+import { useTranslation } from '../../context/app/i18n';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -35,7 +36,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   } = props;
 
   const [ref, { width }] = useMeasure<HTMLDivElement>();
-
+  const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
 
@@ -76,7 +77,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           title={title}
           className="flex-1 scroll-m-20 truncate text-xl font-semibold tracking-tight"
         >
-          {title || 'Unnamed record'}
+          {title || t('common.unnamedRecord')}
         </h4>
       )}
       {showOperator && (

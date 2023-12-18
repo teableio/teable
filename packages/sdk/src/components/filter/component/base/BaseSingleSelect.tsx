@@ -12,11 +12,13 @@ import {
 import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { IOption, IBaseSelect } from './types';
 
 function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   props: IBaseSelect<V, O>
 ) {
+  const { t } = useTranslation();
   const {
     onSelect,
     value,
@@ -25,15 +27,15 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     popoverClassName,
     disabled = false,
     optionRender,
-    notFoundText = 'No field found.',
+    notFoundText = t('common.search.empty'),
     displayRender,
     search = true,
   } = props;
   const [open, setOpen] = useState(false);
 
   const label = useMemo(() => {
-    return options.find((option) => option.value === value)?.label || 'Untitled';
-  }, [options, value]);
+    return options.find((option) => option.value === value)?.label || t('common.untitled');
+  }, [options, t, value]);
 
   useEffect(() => {
     // other type value comes, adapter or reset
@@ -61,11 +63,11 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id] || 'Untitled';
+      const name = optionMap[id] || t('common.untitled');
       const containWord = name.indexOf(searchValue) > -1;
       return Number(containWord);
     },
-    [optionMap]
+    [optionMap, t]
   );
 
   return (
@@ -90,7 +92,10 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
           {search ? (
-            <CommandInput placeholder="Search..." className="placeholder:text-[13px]" />
+            <CommandInput
+              placeholder={t('common.search.placeholder')}
+              className="placeholder:text-[13px]"
+            />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandGroup>
@@ -110,7 +115,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                     value === option.value ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {optionRender?.(option) ?? option.label ?? 'Untitled'}
+                {optionRender?.(option) ?? option.label ?? t('common.untitled')}
               </CommandItem>
             ))}
           </CommandGroup>

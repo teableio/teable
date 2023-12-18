@@ -1,1 +1,0 @@
-export { AdminMainPage } from './AdminMainPage';

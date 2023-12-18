@@ -14,6 +14,7 @@ import {
 import classNames from 'classnames';
 import { useContext } from 'react';
 
+import { useTranslation } from '../../../context/app/i18n';
 import { FilterContext } from '../context';
 import { isFilterItem, ConditionAddType } from '../types';
 import type { IConditionGroupProps } from '../types';
@@ -24,6 +25,7 @@ function ConditionGroup(props: IConditionGroupProps) {
   const { index, filter, level, path, conjunction } = props;
   const { filterSet } = filter;
   const context = useContext(FilterContext);
+  const { t } = useTranslation();
   const { addCondition, deleteCondition, setFilters } = context;
 
   return (
@@ -46,7 +48,7 @@ function ConditionGroup(props: IConditionGroupProps) {
         >
           <div className="flex justify-between p-1">
             <span className="rounded pl-2 text-[13px] leading-10 text-muted-foreground">
-              Any of the following are true…
+              {t('filter.groupDescription')}
             </span>
 
             <div>
@@ -63,7 +65,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                     }}
                     className="text-[13px]"
                   >
-                    <span>Add condition</span>
+                    <span>{t('filter.addCondition')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => addCondition(path, ConditionAddType.GROUP)}
@@ -71,15 +73,15 @@ function ConditionGroup(props: IConditionGroupProps) {
                     className="text-[13px]"
                   >
                     {!(level > 0) ? (
-                      <span className="text-[13px]">Add condition group</span>
+                      <span className="text-[13px]">{t('filter.addConditionGroup')}</span>
                     ) : (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span>Add condition group</span>
+                            <span>{t('filter.addConditionGroup')}</span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Add condition group</p>
+                            <p>{t('filter.addConditionGroup')}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

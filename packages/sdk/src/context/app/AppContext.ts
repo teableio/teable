@@ -1,6 +1,7 @@
 import type { DriverClient } from '@teable-group/core';
 import React from 'react';
 import type { Connection } from 'sharedb/lib/client';
+import type { ILocale } from './i18n';
 
 export enum ThemeKey {
   Light = 'light',
@@ -13,6 +14,7 @@ export interface IAppContext {
   connected: boolean;
   theme: ThemeKey;
   isAutoTheme: boolean;
+  locale: ILocale;
   setTheme: (theme: ThemeKey | null) => void;
 }
 

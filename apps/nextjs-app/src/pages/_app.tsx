@@ -16,7 +16,7 @@ import RouterProgressBar from '@/components/RouterProgress';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
-import nextI18nextConfig from '../../next-i18next.config';
+import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
 
 dayjs.extend(utc);
@@ -106,7 +106,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   }
 
   const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
-  const isSharePage = appContext.ctx.pathname.startsWith('/share/');
+  const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
 
   const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
   const initialProps = {
@@ -114,7 +114,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     driver,
   };
 
-  if (isSharePage) {
+  if (!needLoginPage) {
     return initialProps;
   }
 
@@ -141,6 +141,11 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     }
     return { ...initialProps, err: error };
   }
+};
+
+const isAuthLoginPage = (pathname: string) => {
+  const needLoginPage = ['/space', '/base', '/invite'];
+  return needLoginPage.some((path) => pathname.startsWith(path));
 };
 
 export default appWithTranslation(MyApp, {

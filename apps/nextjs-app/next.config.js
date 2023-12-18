@@ -186,12 +186,22 @@ const nextConfig = {
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
   async rewrites() {
+    const proxy = [];
+
+    const NEXT_API_PROXY_ORIGIN = 'https://app.teable.cn';
+
     const socketProxy = {
       source: '/socket/:path*',
-      destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
+      destination: `${NEXT_API_PROXY_ORIGIN}/socket/:path*`,
     };
+    proxy.push(socketProxy);
+    const apiProxy = {
+      source: '/api/:path*',
+      destination: `${NEXT_API_PROXY_ORIGIN}/api/:path*`,
+    };
+    proxy.push(apiProxy);
 
-    return isProd ? [] : [socketProxy];
+    return isProd ? [] : proxy;
   },
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites

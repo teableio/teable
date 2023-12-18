@@ -1,6 +1,7 @@
 import type { ISort } from '@teable-group/core';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import { SortConfig } from './SortConfig';
 import { SortContent } from './SortContent';
 
@@ -19,7 +20,7 @@ export interface ISortBaseRef {
 
 export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBaseRef) => {
   const { children, manualSortLoading, sorts, hiddenManual, manualSortOnClick, onChange } = props;
-
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const { sortObjs, manualSort } = sorts || {};
 
@@ -54,7 +55,7 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
 
       <PopoverContent side="bottom" align="start" className="w-fit max-w-screen-md p-0">
         <header className="mx-3">
-          <div className="border-b py-3 text-xs">Sort by</div>
+          <div className="border-b py-3 text-xs">{t('sort.title')}</div>
         </header>
         <SortContent sortValues={sortObjs} onChange={onSortObjsChange} />
         {Boolean(sortObjs?.length) && !hiddenManual && (

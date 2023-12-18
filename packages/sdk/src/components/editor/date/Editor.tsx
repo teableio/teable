@@ -5,6 +5,7 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import type { IEditorRef } from '../type';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
@@ -16,6 +17,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const { value, onChange, className, readonly, options } = props;
   const { date, time } = options?.formatting || {};
   const editorRef = useRef<IEditorRef<string>>(null);
+  const { t } = useTranslation();
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {
@@ -24,14 +26,14 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   }));
 
   const valueComponent = useMemo(() => {
-    if (!value) return <span>Pick a date</span>;
+    if (!value) return <span>{t('editor.date.placeholder')}</span>;
 
     let format = 'YYYY-MM-DD HH:mm';
     if (date && time) {
       format = time === TimeFormatting.None ? date : `${date} ${time}`;
     }
     return dayjs(value).format(format);
-  }, [value, date, time]);
+  }, [value, t, date, time]);
 
   return (
     <Popover>

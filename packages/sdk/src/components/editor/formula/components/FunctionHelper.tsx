@@ -1,6 +1,7 @@
 import type { FunctionName } from '@teable-group/core/src/formula/functions/common';
 import { cn } from '@teable-group/ui-lib';
 import type { FC } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import { FORMULA_FUNCTIONS_MAP } from '../constants';
 import type { IFuncHelpData, IFunctionSchema } from '../interface';
 
@@ -10,6 +11,7 @@ interface ICodeHelperProps {
 
 export const FunctionHelper: FC<ICodeHelperProps> = (props) => {
   const { funcHelpData } = props;
+  const { t } = useTranslation();
 
   if (funcHelpData == null) return null;
 
@@ -37,7 +39,8 @@ export const FunctionHelper: FC<ICodeHelperProps> = (props) => {
         {')'}
       </code>
       <code className="mt-[2px] text-xs text-slate-400">
-        Example: {helpFunc.example.split('\n')[0]}
+        {t('editor.formula.helperExample')}
+        {helpFunc.example.split('\n')[0]}
       </code>
     </>
   );

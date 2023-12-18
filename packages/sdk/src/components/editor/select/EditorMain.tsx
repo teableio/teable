@@ -9,6 +9,7 @@ import {
 } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { useCallback } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import type { ICellEditor } from '../type';
 import { SelectTag } from './SelectTag';
 
@@ -28,6 +29,7 @@ export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelec
 
 export function SelectEditorMain<T extends boolean = false>(props: ISelectEditorMain<T>) {
   const { value: originValue, options = [], isMultiple, onChange, style, className } = props;
+  const { t } = useTranslation();
 
   const onSelect = (val: string) => {
     if (isMultiple === true) {
@@ -52,7 +54,7 @@ export function SelectEditorMain<T extends boolean = false>(props: ISelectEditor
     <Command className={className} style={style}>
       <CommandInput placeholder="Search option" />
       <CommandList>
-        <CommandEmpty>No found.</CommandEmpty>
+        <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {options.map(({ label, value, backgroundColor, color }) => (
             <CommandItem key={value} value={value} onSelect={() => onSelect(value)}>

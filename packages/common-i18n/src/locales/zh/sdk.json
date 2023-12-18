@@ -1,0 +1,56 @@
+{
+  "common": {
+    "comingSoon": "即将推出",
+    "empty": "空",
+    "noRecords": "没有可用记录",
+    "unnamedRecord": "未命名记录",
+    "untitled": "无标题",
+    "cancel": "取消",
+    "confirm": "确认",
+    "search": {
+      "placeholder": "搜索记录",
+      "empty": "未找到结果。"
+    },
+    "selectPlaceHolder": "请选择..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "粘贴或拖放文件到此处上传",
+      "uploadDragDefault": "释放以上传文件"
+    },
+    "date": {
+      "placeholder": "选择日期"
+    },
+    "formula": {
+      "title": "公式编辑器",
+      "guideSyntax": "语法",
+      "guideExample": "示例",
+      "helperExample": "示例："
+    },
+    "link": {
+      "placeholder": "选择要链接的记录",
+      "searchPlaceholder": "搜索记录",
+      "create": "添加记录",
+      "unselected": "未选择",
+      "selected": "已选择"
+    }
+  },
+  "filter": {
+    "description": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
+    "addCondition": "添加条件",
+    "addConditionGroup": "添加条件组",
+    "linkInputPlaceholder": "输入值",
+    "groupDescription": "以下任一条件为真…"
+  },
+  "hidden": {
+    "showAll": "显示全部",
+    "hideAll": "隐藏全部"
+  },
+  "expandRecord": {
+    "copy": "复制到剪贴板"
+  },
+  "sort": {
+    "title": "排序方式",
+    "addButton": "添加另一个排序"
+  }
+}
