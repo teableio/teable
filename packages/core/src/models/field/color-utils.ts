@@ -1,5 +1,4 @@
 /** @module @teable-group/sdk: colorUtils */ /** */
-import { Array } from '@svgdotjs/svg.js';
 import { getEnumValueIfExists, has } from '../../utils/enum';
 import { Colors, rgbTuplesByColor } from './colors';
 
