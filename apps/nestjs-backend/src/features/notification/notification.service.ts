@@ -100,7 +100,7 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (toUser.notifyMeta && toUser.notifyMeta.email) {
-      // this.sendNotifyByMail(toUser.email, emailOptions);
+      this.sendNotifyByMail(toUser.email, emailOptions);
     }
   }
 

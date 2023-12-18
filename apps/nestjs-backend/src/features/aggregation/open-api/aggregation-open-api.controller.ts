@@ -9,6 +9,7 @@ import {
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
+import { RecordPipe } from '../../record/open-api/record.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
@@ -29,7 +30,7 @@ export class AggregationOpenApiController {
   @Permissions('table|read')
   async getRowCount(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(rowCountRoSchema)) query?: IRowCountRo
+    @Query(new ZodValidationPipe(rowCountRoSchema), RecordPipe) query?: IRowCountRo
   ): Promise<IRowCountVo> {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
   }

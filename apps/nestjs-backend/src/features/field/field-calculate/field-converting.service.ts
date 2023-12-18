@@ -575,6 +575,57 @@ export class FieldConvertingService {
     return await this.updateOptionsFromRatingField(tableId, newField);
   }
 
+  private async updateOptionsFromUserField(
+    tableId: string,
+    field: UserFieldDto
+  ): Promise<IOpsMap | undefined> {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+    const nativeSql = this.knex(dbTableName)
+      .select('__id', field.dbFieldName)
+      .whereNotNull(field.dbFieldName);
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+
+    for (const row of result) {
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
+      let newCellValue;
+
+      if (field.isMultipleCellValue && !Array.isArray(oldCellValue)) {
+        newCellValue = [oldCellValue];
+      } else if (!field.isMultipleCellValue && Array.isArray(oldCellValue)) {
+        newCellValue = oldCellValue[0];
+      } else {
+        newCellValue = oldCellValue;
+      }
+
+      opsMap[row.__id] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: field.id,
+          oldCellValue,
+          newCellValue: newCellValue,
+        }),
+      ];
+    }
+
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
+  }
+
+  private async modifyUserOptions(tableId: string, newField: UserFieldDto, oldField: UserFieldDto) {
+    const newOption = newField.options.isMultiple;
+    const oldOption = oldField.options.isMultiple;
+
+    if (newOption === oldOption) return;
+
+    return await this.updateOptionsFromUserField(tableId, newField);
+  }
+
   private async modifyOptions(
     tableId: string,
     newField: IFieldInstance,
@@ -609,6 +660,14 @@ export class FieldConvertingService {
           tableId,
           newField as RatingFieldDto,
           oldField as RatingFieldDto
+        );
+        return { recordOpsMap: rawOpsMap };
+      }
+      case FieldType.User: {
+        const rawOpsMap = await this.modifyUserOptions(
+          tableId,
+          newField as UserFieldDto,
+          oldField as UserFieldDto
         );
         return { recordOpsMap: rawOpsMap };
       }

@@ -26,7 +26,8 @@ const NotificationIcon = (props: NotificationIconProps) => {
           </Avatar>
         );
       }
-      case NotificationTypeEnum.CollaboratorCellTag: {
+      case NotificationTypeEnum.CollaboratorCellTag:
+      case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
           <Avatar className="h-9 w-9">

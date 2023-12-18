@@ -46,7 +46,7 @@
     "@faker-js/faker": "8.3.1",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/jest": "29.5.8",
-    "@types/node": "18.17.1",
+    "@types/node": "18.18.2",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.0.0",

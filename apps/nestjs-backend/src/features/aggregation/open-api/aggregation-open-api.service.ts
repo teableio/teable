@@ -41,8 +41,7 @@ export class AggregationOpenApiService {
   }
 
   async getRowCount(tableId: string, query?: IRowCountRo): Promise<IRowCountVo> {
-    const { viewId, filter, filterByTql, filterLinkCellCandidate, filterLinkCellSelected } =
-      query || {};
+    const { viewId, filter, filterLinkCellCandidate, filterLinkCellSelected } = query || {};
 
     const result = await this.aggregationService.performRowCount({
       tableId,
