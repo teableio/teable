@@ -7,7 +7,6 @@ import {
   CommandItem,
   CommandList,
 } from '@teable-group/ui-lib';
-import classNames from 'classnames';
 import { noop } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
@@ -57,13 +56,12 @@ const SelectEditorBase: ForwardRefRenderFunction<
         <CommandGroup aria-valuetext="name">
           {isEditing &&
             choices.map(({ bgColor, textColor, name, id }) => (
-              <CommandItem key={name} value={name} onSelect={() => onSelect(name, id)}>
-                <Check
-                  className={classNames(
-                    'mr-2 h-4 w-4',
-                    values?.includes(name) ? 'opacity-100' : 'opacity-0'
-                  )}
-                />
+              <CommandItem
+                className="justify-between"
+                key={name}
+                value={name}
+                onSelect={() => onSelect(name, id)}
+              >
                 <div
                   className="text-ellipsis whitespace-nowrap rounded-[6px] px-2 text-[12px]"
                   style={{
@@ -73,6 +71,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
                 >
                   {name}
                 </div>
+                {values?.includes(name) && <Check className={'ml-2 h-4 w-4'} />}
               </CommandItem>
             ))}
         </CommandGroup>

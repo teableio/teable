@@ -1,17 +1,22 @@
 import { Input, Textarea } from '@teable-group/ui-lib';
 import type { ChangeEvent, ForwardRefRenderFunction, KeyboardEvent, RefObject } from 'react';
-import { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { Key } from 'ts-keycode-enum';
+import { GRID_DEFAULT } from '../../configs';
 import type { ILinkCell, INumberCell, ITextCell } from '../../renderers';
 import { CellType } from '../../renderers';
 import type { IEditorRef, IEditorProps } from './EditorContainer';
+
+const { rowHeight: defaultRowHeight } = GRID_DEFAULT;
 
 const TextEditorBase: ForwardRefRenderFunction<
   IEditorRef<ITextCell | INumberCell>,
   IEditorProps<ITextCell | INumberCell | ILinkCell>
 > = (props, ref) => {
-  const { cell, onChange, style, isEditing } = props;
+  const { cell, rect, style, isEditing, onChange } = props;
+  const { width, height } = rect;
   const { displayData, type } = cell;
+  const needWrap = (cell as ITextCell)?.isWrap;
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [value, setValueInner] = useState(displayData);
 
@@ -41,14 +46,31 @@ const TextEditorBase: ForwardRefRenderFunction<
     }
   };
 
+  const attachStyle = useMemo(() => {
+    const style: React.CSSProperties = {
+      width: width + 4,
+      height: needWrap ? Math.max(84, height + 4) : height + 4,
+      marginLeft: -2,
+      marginTop: -2.5,
+      textAlign: type === CellType.Number ? 'right' : 'left',
+    };
+    if (height > defaultRowHeight) {
+      style.paddingBottom = height - defaultRowHeight;
+    }
+    return style;
+  }, [type, height, width, needWrap]);
+
   return (
     <>
-      {(cell as ITextCell)?.isWrap ? (
-        <div style={{ ...style, paddingBottom: 16 }} className="relative flex flex-col rounded-md">
+      {needWrap ? (
+        <div
+          style={{ ...style, ...attachStyle, paddingBottom: 16 }}
+          className="relative flex flex-col rounded-md"
+        >
           <Textarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
             style={{ boxShadow: 'none' }}
-            className="min-h-[80px] w-full flex-1 resize-none border-none bg-background px-2 pt-[6px] leading-[22px]"
+            className="min-h-[80px] w-full flex-1 resize-none rounded border-none bg-background px-2 pt-[6px] leading-[22px]"
             value={value}
             onChange={onChangeInner}
             onKeyDown={onKeyDown}
@@ -61,11 +83,12 @@ const TextEditorBase: ForwardRefRenderFunction<
       ) : (
         <Input
           ref={inputRef as RefObject<HTMLInputElement>}
-          style={style}
+          style={{
+            ...style,
+            ...attachStyle,
+          }}
           value={value}
-          width={'100%'}
-          height={'100%'}
-          className="h-full w-full cursor-text border-2 px-2 shadow-none focus-visible:ring-transparent"
+          className="cursor-text border-2 px-2 shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
           onBlur={saveValue}
           onMouseDown={(e) => e.stopPropagation()}

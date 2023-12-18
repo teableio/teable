@@ -1,42 +1,98 @@
 import type {
-  IMultipleSelectCellValue,
   ISelectFieldOptions,
   ISingleSelectCellValue,
+  IMultipleSelectCellValue,
+  ISelectFieldChoice,
 } from '@teable-group/core';
 import { FieldType, ColorUtils } from '@teable-group/core';
-import { useMemo } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
+import { useTableId } from '../../../hooks';
+import { Field } from '../../../model';
 import { SelectEditorMain } from '../../editor';
+import type { IEditorRef } from '../../editor/type';
+import type { IEditorProps } from '../../grid/components';
+import { useGridPopupPosition } from '../hooks';
 import type { IWrapperEditorProps } from './type';
 
-export const GridSelectEditor = (props: IWrapperEditorProps) => {
-  const { field, record, style, onCancel } = props;
+const GridSelectEditorBase: ForwardRefRenderFunction<
+  IEditorRef<string | string[] | undefined>,
+  IWrapperEditorProps & IEditorProps
+> = (props, ref) => {
+  const { field, record, rect, style, isEditing, onCancel } = props;
+  const tableId = useTableId();
+  const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
+  const { id: fieldId, type: fieldType, options } = field;
+  const isMultiple = fieldType === FieldType.MultipleSelect;
   const cellValue = record.getCellValue(field.id) as
     | ISingleSelectCellValue
     | IMultipleSelectCellValue;
-  const selectComOptions = useMemo(() => {
-    const choices = (field?.options as ISelectFieldOptions)?.choices || [];
+
+  const attachStyle = useGridPopupPosition(rect, 340);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => editorRef.current?.focus?.(),
+    setValue: (value?: string | string[]) => {
+      editorRef.current?.setValue?.(value);
+    },
+  }));
+
+  const selectOptions = useMemo(() => {
+    const choices = (options as ISelectFieldOptions)?.choices || [];
     return choices.map(({ name, color }) => ({
       label: name,
       value: name,
       color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
       backgroundColor: ColorUtils.getHexForColor(color),
     }));
-  }, [field?.options]);
-
-  const isMultiple = field.type === FieldType.MultipleSelect;
+  }, [options]);
 
   const onChange = (value?: string[] | string) => {
-    record.updateCell(field.id, isMultiple && value?.length === 0 ? null : value);
+    record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);
     !isMultiple && onCancel?.();
   };
 
+  const onOptionAdd = useCallback(
+    async (name: string) => {
+      if (!tableId) return;
+      if (fieldType !== FieldType.SingleSelect && fieldType !== FieldType.MultipleSelect) return;
+
+      const { choices = [] } = options as ISelectFieldOptions;
+      const existColors = choices.map((v) => v.color);
+      const choice = {
+        name,
+        color: ColorUtils.randomColor(existColors)[0],
+      } as ISelectFieldChoice;
+
+      const newChoices = [...choices, choice];
+
+      await Field.updateField(tableId, fieldId, {
+        type: fieldType,
+        options: { ...options, choices: newChoices },
+      });
+    },
+    [tableId, fieldType, fieldId, options]
+  );
+
+  if (!isEditing) return null;
+
   return (
     <SelectEditorMain
-      style={style}
+      ref={editorRef}
+      style={{
+        ...style,
+        ...attachStyle,
+        height: 'auto',
+        minWidth: 180,
+      }}
+      className="absolute rounded-sm border p-2 shadow-sm"
       value={cellValue === null ? undefined : cellValue}
-      onChange={onChange}
       isMultiple={isMultiple}
-      options={selectComOptions}
+      options={selectOptions}
+      onChange={onChange}
+      onOptionAdd={onOptionAdd}
     />
   );
 };
+
+export const GridSelectEditor = forwardRef(GridSelectEditorBase);

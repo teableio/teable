@@ -5,17 +5,20 @@ import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { DateEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
+import { useGridPopupPosition } from '../hooks';
 import type { IWrapperEditorProps } from './type';
 
 const GridDateEditorBase: ForwardRefRenderFunction<
   IEditorRef<string>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { record, field, style, setEditing } = props;
+  const { record, field, rect, style, setEditing } = props;
   const dateTime = record.getCellValue(field.id) as string;
   const options = field.options as IDateFieldOptions;
   const timeFormatting = options?.formatting?.time;
   const editorRef = useRef<IEditorRef<string>>(null);
+
+  const attachStyle = useGridPopupPosition(rect);
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {
@@ -36,8 +39,12 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   return (
     <DateEditorMain
       ref={editorRef}
-      className="rounded-md border bg-background"
-      style={style}
+      className="absolute rounded-md border bg-background"
+      style={{
+        ...style,
+        ...attachStyle,
+        maxHeight: 'auto',
+      }}
       value={dateTime}
       options={options}
       onChange={setDateTime}

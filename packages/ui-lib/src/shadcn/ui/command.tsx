@@ -2,7 +2,7 @@
 
 import type { DialogProps } from '@radix-ui/react-dialog';
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons';
-import { Command as CommandPrimitive } from 'cmdk';
+import { Command as CommandPrimitive, useCommandState } from 'cmdk';
 import * as React from 'react';
 
 import { cn } from '../utils';
@@ -146,4 +146,5 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  useCommandState,
 };

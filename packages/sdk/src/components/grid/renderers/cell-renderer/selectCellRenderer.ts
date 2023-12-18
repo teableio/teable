@@ -57,7 +57,7 @@ const drawLabel = (
   drawSingleLineText(ctx, {
     text,
     x: x + OPTION_PADDING_HORIZONTAL,
-    y: y + 4,
+    y: y + (iconSizeSM - fontSizeXS) / 2 + 0.5,
     fill: textColor,
     maxWidth: maxTextWidth,
     fontSize: fontSizeXS,
@@ -79,7 +79,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   type: CellType.Select,
   needsHoverPositionWhenActive: true,
   measure: (cell: ISelectCell, props: ICellMeasureProps) => {
-    const { displayData } = cell;
+    const { displayData, readonly } = cell;
     const { ctx, theme, width, height } = props;
     const { cellTextColor, cellHorizontalPadding, fontSizeXS, iconSizeSM, iconSizeXS } = theme;
 
@@ -95,8 +95,9 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     let lineCount = 1;
     let x = drawArea.x;
     let y = drawArea.y;
-    const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2 - iconSizeXS;
-    const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + iconSizeXS;
+    const deleteBtnWidth = !readonly ? iconSizeXS : 0;
+    const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2 - deleteBtnWidth;
+    const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + deleteBtnWidth;
     const rightEdgeOfDrawArea = drawArea.x + drawArea.width;
     const lineHeight = iconSizeSM + OPTION_GAP_SIZE;
 
