@@ -1,22 +1,21 @@
-import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
 import type {
   IAttachmentCellValue,
   INumberFieldOptions,
   INumberShowAs,
   ISingleLineTextShowAs,
 } from '@teable-group/core';
+import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
-import type { IGridColumn, ICell, INumberShowAs as IGridNumberShowAs, ChartType } from '../..';
-import { NumberEditor, onMixedTextClick, CellType, EditorPosition, getFileCover } from '../..';
-import { useTablePermission, useView } from '../../../hooks';
-import { useFields } from '../../../hooks/use-fields';
-import { useViewId } from '../../../hooks/use-view-id';
+import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
+import { CellType, EditorPosition, getFileCover, NumberEditor, onMixedTextClick } from '../..';
+import { useTablePermission, useFields, useViewId, useView } from '../../../hooks';
 import type { IFieldInstance, Record } from '../../../model';
 import type { IViewInstance } from '../../../model/view';
 import { GRID_DEFAULT } from '../../grid/configs';
 import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
+import { GridUserEditor } from '../editor/GridUserEditor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
@@ -66,7 +65,11 @@ const createCellValue2GridDisplay =
     if (field == null) return { type: CellType.Loading };
 
     const { id, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
-    const cellValue = record.getCellValue(id);
+
+    let cellValue = record.getCellValue(id);
+    const validateCellValue = field.validateCellValue(cellValue);
+    cellValue = validateCellValue.success ? validateCellValue.data : undefined;
+
     const readonly = isComputed || !editable;
 
     switch (type) {
@@ -306,6 +309,18 @@ const createCellValue2GridDisplay =
           icon,
           color: ColorUtils.getHexForColor(color),
           max,
+        };
+      }
+      case FieldType.User: {
+        const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+        const data = cv.map(({ id, title }) => ({ id, name: title }));
+
+        return {
+          type: CellType.User,
+          data: data,
+          readonly,
+          editorPosition: EditorPosition.Below,
+          customEditor: (props) => <GridUserEditor field={field} record={record} {...props} />,
         };
       }
       default: {

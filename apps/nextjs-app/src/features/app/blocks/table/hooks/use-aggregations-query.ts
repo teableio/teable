@@ -1,13 +1,13 @@
-import type { IRawAggregationVo } from '@teable-group/core';
-import { View } from '@teable-group/sdk/model';
+import type { IAggregationVo } from '@teable-group/core';
+import { Table } from '@teable-group/sdk/model';
 import { useEffect, useState } from 'react';
 
 export const useAggregationsQuery = (tableId: string, viewId: string) => {
-  const [viewAggregation, setViewAggregation] = useState<IRawAggregationVo>();
+  const [viewAggregation, setViewAggregation] = useState<IAggregationVo>();
 
   useEffect(() => {
-    View.getViewAggregations(tableId, viewId).then((res) => {
-      const { viewId, aggregations } = res.data;
+    Table.getAggregations(tableId, { viewId }).then((res) => {
+      const { aggregations } = res.data;
       setViewAggregation({
         [viewId]: {
           viewId: viewId,

@@ -1,65 +1,50 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  Label,
-  Input,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@teable-group/ui-lib/shadcn';
-import { System } from './System';
+import { System } from '@/features/app/components/setting/System';
+import { Account } from './Account';
+import { Notifications } from './Notifications';
 
 export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Manage your account settings and set e-mail preferences.
+          </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="system" orientation="vertical" className="flex gap-4">
-          <div>
-            <TabsList className="grid-row-2 grid h-auto w-full gap-2">
-              <TabsTrigger value="system">System</TabsTrigger>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-            </TabsList>
-          </div>
-          <TabsContent className="mt-0" value="system">
+        <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
+          <TabsList className="grid-row-2 grid w-36 gap-2 bg-inherit">
+            <TabsTrigger value="profile" className="w-36 data-[state=active]:bg-muted">
+              My Account
+            </TabsTrigger>
+            <TabsTrigger value="system" className="data-[state=active]:bg-muted">
+              My Settings
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-muted">
+              My Notifications
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="profile" className="mt-0 w-full">
+            <Account />
+          </TabsContent>
+          <TabsContent value="system" className="mt-0 w-full">
             <System />
           </TabsContent>
-          <TabsContent className="mt-0" value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile</CardTitle>
-                <CardDescription>
-                  Change your password here. After saving, you'll be logged out.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="space-y-1">
-                  <Label htmlFor="current">Current password</Label>
-                  <Input id="current" type="password" />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="new">New password</Label>
-                  <Input id="new" type="password" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button>Save password</Button>
-              </CardFooter>
-            </Card>
+          <TabsContent value="notifications" className="mt-0 w-full">
+            <Notifications />
           </TabsContent>
         </Tabs>
       </DialogContent>

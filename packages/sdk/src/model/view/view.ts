@@ -12,9 +12,7 @@ import {
   deleteView,
   disableShareView,
   enableShareView,
-  getViewAggregations,
   getViewList,
-  getViewRowCount,
   setViewColumnMeta,
   manualSortView,
 } from '@teable-group/openapi';
@@ -29,10 +27,6 @@ export abstract class View extends ViewCore {
   static createView = requestWrap(createView);
 
   static deleteView = requestWrap(deleteView);
-
-  static getViewAggregations = requestWrap(getViewAggregations);
-
-  static getViewRowCount = requestWrap(getViewRowCount);
 
   static manualSort = requestWrap(manualSortView);
 

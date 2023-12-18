@@ -20,10 +20,10 @@
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.2.0",
+    "@asteasolutions/zod-to-openapi": "6.3.0",
     "@teable-group/core": "workspace:^",
     "@types/qs": "^6.9.10",
-    "axios": "1.6.1",
+    "axios": "1.6.2",
     "openapi3-ts": "^4.1.2",
     "qs": "^6.11.2",
     "zod": "3.22.4"

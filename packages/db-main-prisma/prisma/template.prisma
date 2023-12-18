@@ -8,13 +8,13 @@ datasource db {
 }
 
 model Space {
-  id                String              @id @default(cuid())
-  name              String
-  deletedTime       DateTime?           @map("deleted_time")
-  createdTime       DateTime            @default(now()) @map("created_time")
-  createdBy         String              @map("created_by")
-  lastModifiedBy    String              @map("last_modified_by")
-  baseGroup         Base[]
+  id             String    @id @default(cuid())
+  name           String
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String    @map("last_modified_by")
+  baseGroup      Base[]
 
   @@map("space")
 }
@@ -148,9 +148,9 @@ model Reference {
   fromFieldId String @map("from_field_id")
   toFieldId   String @map("to_field_id")
 
+  @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])
   @@index([toFieldId])
-  @@unique([toFieldId, fromFieldId])
   @@map("reference")
 }
 
@@ -162,6 +162,7 @@ model User {
   phone            String?   @unique
   email            String    @unique
   avatar           String?
+  notifyMeta       String?   @map("notify_meta")
   provider         String?
   providerId       String?   @map("provider_id")
   lastSignTime     DateTime? @map("last_sign_time")
@@ -311,4 +312,20 @@ model InvitationRecord {
   createdTime  DateTime @default(now()) @map("created_time")
 
   @@map("invitation_record")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  fromUser    String   @map("from_user")
+  toUser      String   @map("to_user")
+  iconMeta    String   @map("icon_meta")
+  type        String   @map("type")
+  message     String   @map("message")
+  urlMeta     String   @map("url_meta")
+  isRead      Boolean  @default(false) @map("is_read")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@index([toUser, isRead, createdTime])
+  @@map("notification")
 }

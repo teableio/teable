@@ -1,3 +1,4 @@
+const CopyPlugin = require('copy-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const nodeExternals = require('webpack-node-externals');
 
@@ -47,6 +48,9 @@ module.exports = function (options, webpack) {
         typescript: {
           configFile: 'tsconfig.json',
         },
+      }),
+      new CopyPlugin({
+        patterns: [{ from: 'src/features/mail-sender/templates', to: 'templates' }],
       }),
     ],
   };

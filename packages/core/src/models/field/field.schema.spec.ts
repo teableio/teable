@@ -1,6 +1,5 @@
 import { CellValueType, FieldType } from './constant';
-import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
-import { NumberFieldCore } from './derivate/number.field';
+import { RollupFieldCore, SingleLineTextFieldCore, NumberFieldCore } from './derivate';
 import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 

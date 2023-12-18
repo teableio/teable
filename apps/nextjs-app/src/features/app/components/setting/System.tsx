@@ -1,71 +1,101 @@
-import { axios } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
-import { Button, Input, Label, Separator, useToast } from '@teable-group/ui-lib/shadcn';
-import { useCallback, useState } from 'react';
-export const System: React.FC = () => {
-  const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const importFromUrl = useCallback(async () => {
-    if (!url) {
-      toast({
-        variant: 'destructive',
-        title: 'url is required',
-      });
-      return;
-    }
-    setLoading(true);
-    try {
-      await axios.post('/export-import/import', { url });
-    } catch (e) {
-      toast({
-        variant: 'destructive',
-        title: 'upload error',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        description: (e as any).message,
-      });
-    } finally {
-      setLoading(false);
-    }
-    toast({
-      variant: 'default',
-      title: 'Import successfully',
-    });
-    if (typeof window === 'object') {
-      window.location.pathname = '/space';
-    }
-  }, [toast, url]);
-  return (
-    <div className="flex flex-col gap-2 px-6">
-      <div className="space-y-2">
-        <h1 className="font-semibold leading-none tracking-tight">System</h1>
-        <p className="text-sm">
-          Upload your .db file here, it will auto import and replace your space
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="dbUrl">Input .teable file url</Label>
-          <Input
-            id="dbUrl"
-            placeholder="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <Button type="submit" onClick={importFromUrl}>
-            {loading ? <Spin /> : 'Import'}
-          </Button>
-        </div>
-        <Separator />
-        <div className="space-y-2">
-          <Label htmlFor="exportDb">Export current space to a .teable file</Label>
+import { ThemeKey, useTheme } from '@teable-group/sdk';
+import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable-group/ui-lib/shadcn';
 
-          <Button id="exportDb" asChild>
-            <a href="/api/export-import/download" target="__blank">
-              Export
-            </a>
-          </Button>
+export const System: React.FC = () => {
+  const { theme, isAutoTheme, setTheme } = useTheme();
+  const value = isAutoTheme ? 'system' : theme;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium">My settings</h3>
+      </div>
+      <Separator />
+      <div className="space-y-1">
+        <div>
+          <Label>Theme</Label>
+          <div className="text-sm text-muted-foreground">Select the theme for the dashboard.</div>
         </div>
+        <RadioGroup
+          className="grid max-w-screen-md grid-cols-3 gap-8 pt-2"
+          defaultValue={value}
+          onValueChange={(value) => {
+            setTheme(value === 'system' ? null : (value as ThemeKey));
+          }}
+        >
+          <div>
+            <RadioGroupItem value={ThemeKey.Light} id={ThemeKey.Light} className="peer sr-only" />
+            <Label
+              htmlFor={ThemeKey.Light}
+              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+            >
+              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
+                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
+                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                    <div className="h-4 w-4 rounded-full bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
+                    <div className="h-4 w-4 rounded-full bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                  </div>
+                </div>
+              </div>
+            </Label>
+            <span className="block w-full p-2 text-center font-normal">Light</span>
+          </div>
+          <div>
+            <RadioGroupItem value={ThemeKey.Dark} id={ThemeKey.Dark} className="peer sr-only" />
+            <Label
+              htmlFor={ThemeKey.Dark}
+              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+            >
+              <div className="items-center rounded-md border-2 border-muted bg-popover p-1 hover:bg-accent hover:text-accent-foreground">
+                <div className="space-y-2 rounded-sm bg-slate-950 p-2">
+                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-md bg-slate-800 p-2 shadow-sm">
+                    <div className="h-4 w-4 rounded-full bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                  </div>
+                  <div className="flex items-center space-x-2 rounded-md bg-slate-800 p-2 shadow-sm">
+                    <div className="h-4 w-4 rounded-full bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                  </div>
+                </div>
+              </div>
+            </Label>
+            <span className="block w-full p-2 text-center font-normal">Dark</span>
+          </div>
+          <div>
+            <RadioGroupItem value="system" id="system" className="peer sr-only" />
+            <Label
+              htmlFor="system"
+              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+            >
+              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
+                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
+                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                  </div>
+                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
+                    <div className="h-2 w-[80px] rounded-lg bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
+                  </div>
+                </div>
+              </div>
+            </Label>
+            <span className="block w-full p-2 text-center font-normal">System</span>
+          </div>
+        </RadioGroup>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Injectable } from '@nestjs/common';
 import { map, intersection, isEmpty } from 'lodash';
-import type { RecordUpdatedEvent } from '../../../../../event-emitter/model';
+// import type { RecordUpdatedEvent } from '../../../../../event-emitter/model';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema, IObjectArraySchema } from '../../action-core';
@@ -19,9 +21,9 @@ export interface ITriggerRecordUpdated {
 }
 
 @Injectable()
-export class TriggerRecordUpdated extends TriggerCore<RecordUpdatedEvent> {
+export class TriggerRecordUpdated extends TriggerCore<any> {
   // @OnEvent(EventEnums.RecordUpdated, { async: true })
-  async listenerTrigger(event: RecordUpdatedEvent) {
+  async listenerTrigger(event: any) {
     const { tableId, recordId, ops } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordUpdated]);
 

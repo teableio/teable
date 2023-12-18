@@ -347,6 +347,7 @@ describe('selectionService', () => {
 
       // Execute the method
       const updateRecordsRo = await selectionService['fillCells']({
+        tableId,
         tableData,
         fields,
         records,
@@ -645,6 +646,7 @@ describe('selectionService', () => {
         undefined
       );
       expect(selectionService['fillCells']).toHaveBeenCalledWith({
+        tableId,
         tableData: [],
         fields,
         records,

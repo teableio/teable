@@ -440,8 +440,8 @@ export class ViewService implements IAdapterService {
       fieldIds.forEach((fieldId) => {
         const op = ViewOpBuilder.editor.setViewColumnMeta.build({
           fieldId: fieldId,
-          newMetaValue: { order: maxOrder + 1 },
-          oldMetaValue: undefined,
+          newColumnMeta: { order: maxOrder + 1 },
+          oldColumnMeta: undefined,
         });
         ops.push(op);
       });
@@ -469,8 +469,8 @@ export class ViewService implements IAdapterService {
       fieldIds.forEach((fieldId) => {
         const op = ViewOpBuilder.editor.setViewColumnMeta.build({
           fieldId: fieldId,
-          newMetaValue: null,
-          oldMetaValue: { ...curColumnMeta[fieldId] },
+          newColumnMeta: null,
+          oldColumnMeta: { ...curColumnMeta[fieldId] },
         });
         ops.push(op);
       });

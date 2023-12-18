@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 import type { ITableFullVo } from '@teable-group/core';
 import { StatisticsFunc } from '@teable-group/core';
-import qs from 'qs';
+import { getAggregation, getRowCount } from '@teable-group/openapi';
 import type request from 'supertest';
 import { createRecords, initApp } from './utils/init-app';
 
@@ -28,20 +28,15 @@ describe('OpenAPI AggregationController (e2e)', () => {
     fieldId: string[]
   ) {
     return (
-      await request
-        .get(`/api/table/${tableId}/aggregation/${viewId}`)
-        .query(
-          qs.stringify({
-            field: { [funcs]: fieldId },
-          })
-        )
-        .expect(200)
-    ).body;
+      await getAggregation(tableId, {
+        viewId: viewId,
+        field: { [funcs]: fieldId },
+      })
+    ).data;
   }
 
   async function getViewRowCount(tableId: string, viewId: string) {
-    return (await request.get(`/api/table/${tableId}/aggregation/${viewId}/rowCount`).expect(200))
-      .body;
+    return (await getRowCount(tableId, { viewId })).data;
   }
 
   describe('simple aggregation', () => {
@@ -81,7 +76,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId: table.views[0].id,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -104,7 +98,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId: table.views[0].id,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -124,7 +117,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId: table.views[0].id,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -147,7 +139,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId: table.views[0].id,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -167,7 +158,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -196,7 +186,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -219,7 +208,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[0].id,
@@ -239,7 +227,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -267,7 +254,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -287,7 +273,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -315,7 +300,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -335,7 +319,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -363,7 +346,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -383,7 +365,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,
@@ -411,7 +392,6 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
       ).toMatchObject({
-        viewId,
         aggregations: expect.objectContaining([
           {
             fieldId: table.fields[1].id,

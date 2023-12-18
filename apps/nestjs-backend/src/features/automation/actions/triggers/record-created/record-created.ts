@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { Injectable } from '@nestjs/common';
-import type { RecordCreatedEvent } from '../../../../../event-emitter/model';
+// import type { RecordCreatedEvent } from '../../../../../event-emitter/model';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema } from '../../action-core';
 import { TriggerCore } from '../trigger-core';
@@ -13,9 +15,9 @@ export interface ITriggerRecordCreatedOptions {
 }
 
 @Injectable()
-export class TriggerRecordCreated extends TriggerCore<RecordCreatedEvent> {
+export class TriggerRecordCreated extends TriggerCore<any> {
   // @OnEvent(EventEnums.RecordCreated, { async: true })
-  async listenerTrigger(event: RecordCreatedEvent) {
+  async listenerTrigger(event: any) {
     const { tableId, recordId } = event;
     const workflows = await this.getWorkflowsByTrigger(tableId, [TriggerTypeEnums.RecordCreated]);
 

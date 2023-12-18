@@ -269,26 +269,26 @@ export class ReferenceService {
               'invalid op, it should detect by RecordOpBuilder.editor.setRecord.detect'
             );
           }
-          if (isLinkCellValue(ctx.oldValue) || isLinkCellValue(ctx.newValue)) {
-            ctx.oldValue &&
+          if (isLinkCellValue(ctx.oldCellValue) || isLinkCellValue(ctx.newCellValue)) {
+            ctx.oldCellValue &&
               recordDataDelete.push({
                 id: recordId,
                 fieldId: ctx.fieldId,
-                oldValue: ctx.oldValue,
+                oldValue: ctx.oldCellValue,
                 newValue: null,
               });
-            ctx.newValue &&
+            ctx.newCellValue &&
               recordDataRemains.push({
                 id: recordId,
                 fieldId: ctx.fieldId,
-                newValue: ctx.newValue,
+                newValue: ctx.newCellValue,
               });
           } else {
             recordDataRemains.push({
               id: recordId,
               fieldId: ctx.fieldId,
-              oldValue: ctx.oldValue,
-              newValue: ctx.newValue,
+              oldValue: ctx.oldCellValue,
+              newValue: ctx.newCellValue,
             });
           }
         });

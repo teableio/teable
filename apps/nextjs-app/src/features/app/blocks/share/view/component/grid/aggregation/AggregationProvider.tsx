@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IShareViewAggregationsRo } from '@teable-group/openapi';
 import { getShareViewAggregations } from '@teable-group/openapi';
 import { useView } from '@teable-group/sdk';
-import { AggregationContext, useConnectionAggregation } from '@teable-group/sdk/context';
+import { AggregationContext } from '@teable-group/sdk/context';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useMemo, useRef } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -33,19 +33,13 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
     [queryClient, shareId]
   );
 
-  useConnectionAggregation(updateViewAggregations);
-
   const viewAggregation = useMemo(() => {
     if (!shareViewAggregations) {
       return {};
     }
-    const { viewId, aggregations } = shareViewAggregations.data;
+    const { aggregations } = shareViewAggregations.data;
     return {
-      [viewId]: {
-        viewId: viewId,
-        aggregations: aggregations ?? [],
-        executionTime: new Date().getTime(),
-      },
+      aggregations: aggregations ?? [],
     };
   }, [shareViewAggregations]);
 

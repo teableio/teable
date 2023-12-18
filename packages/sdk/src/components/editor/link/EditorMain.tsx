@@ -119,7 +119,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   useEffect(() => {
     if (baseId == null || tableId == null) return;
 
-    Table.getRowCount(baseId, tableId, recordQuery).then((res) => {
+    Table.getRowCount(tableId, recordQuery).then((res) => {
       setRowCount(res.data.rowCount);
     });
   }, [tableId, baseId, recordQuery]);
@@ -199,7 +199,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     await table?.createRecord({});
 
     if (baseId == null || tableId == null) return;
-    Table.getRowCount(baseId, tableId, recordQuery).then((res) => {
+    Table.getRowCount(tableId, recordQuery).then((res) => {
       setRowCount(res.data.rowCount);
     });
   };

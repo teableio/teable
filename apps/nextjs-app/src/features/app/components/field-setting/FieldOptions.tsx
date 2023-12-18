@@ -11,6 +11,7 @@ import type {
   ISingleLineTextFieldOptions,
   ICreatedTimeFieldOptions,
   ILastModifiedTimeFieldOptions,
+  IUserFieldOptions,
 } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { IFieldInstance } from '@teable-group/sdk/model';
@@ -23,6 +24,7 @@ import { RatingOptions } from './options/RatingOptions';
 import { RollupOptions } from './options/RollupOptions';
 import { SelectOptions } from './options/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
+import { UserOptions } from './options/UserOptions';
 
 export interface IFieldOptionsProps {
   options: IFieldInstance['options'];
@@ -85,6 +87,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({
           isLookup={isLookup}
           lookupField={lookupField}
           lookupOptions={lookupOptions}
+          onChange={updateFieldOptions}
+        />
+      );
+    case FieldType.User:
+      return (
+        <UserOptions
+          options={options as IUserFieldOptions}
+          isLookup={isLookup}
           onChange={updateFieldOptions}
         />
       );

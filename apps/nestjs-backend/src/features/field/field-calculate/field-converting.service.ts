@@ -14,13 +14,13 @@ import type {
 } from '@teable-group/core';
 import {
   ColorUtils,
-  generateChoiceId,
   DbFieldType,
   FIELD_VO_PROPERTIES,
-  RecordOpBuilder,
-  FieldType,
   FieldOpBuilder,
+  FieldType,
+  generateChoiceId,
   isMultiValueLink,
+  RecordOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -35,6 +35,7 @@ import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeMaps } from '../../calculation/utils/compose-maps';
+import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByVo } from '../model/factory';
@@ -44,6 +45,7 @@ import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-
 import type { RatingFieldDto } from '../model/field-dto/rating-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 import type { SingleSelectFieldDto } from '../model/field-dto/single-select-field.dto';
+import type { UserFieldDto } from '../model/field-dto/user-field.dto';
 import { FieldConvertingLinkService } from './field-converting-link.service';
 import { FieldSupplementService } from './field-supplement.service';
 
@@ -65,6 +67,7 @@ export class FieldConvertingService {
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
+    private readonly collaboratorService: CollaboratorService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -572,6 +575,57 @@ export class FieldConvertingService {
     return await this.updateOptionsFromRatingField(tableId, newField);
   }
 
+  private async updateOptionsFromUserField(
+    tableId: string,
+    field: UserFieldDto
+  ): Promise<IOpsMap | undefined> {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+    const nativeSql = this.knex(dbTableName)
+      .select('__id', field.dbFieldName)
+      .whereNotNull(field.dbFieldName);
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+
+    for (const row of result) {
+      const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
+      let newCellValue;
+
+      if (field.isMultipleCellValue && !Array.isArray(oldCellValue)) {
+        newCellValue = [oldCellValue];
+      } else if (!field.isMultipleCellValue && Array.isArray(oldCellValue)) {
+        newCellValue = oldCellValue[0];
+      } else {
+        newCellValue = oldCellValue;
+      }
+
+      opsMap[row.__id] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: field.id,
+          oldCellValue,
+          newCellValue: newCellValue,
+        }),
+      ];
+    }
+
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
+  }
+
+  private async modifyUserOptions(tableId: string, newField: UserFieldDto, oldField: UserFieldDto) {
+    const newOption = newField.options.isMultiple;
+    const oldOption = oldField.options.isMultiple;
+
+    if (newOption === oldOption) return;
+
+    return await this.updateOptionsFromUserField(tableId, newField);
+  }
+
   private async modifyOptions(
     tableId: string,
     newField: IFieldInstance,
@@ -606,6 +660,14 @@ export class FieldConvertingService {
           tableId,
           newField as RatingFieldDto,
           oldField as RatingFieldDto
+        );
+        return { recordOpsMap: rawOpsMap };
+      }
+      case FieldType.User: {
+        const rawOpsMap = await this.modifyUserOptions(
+          tableId,
+          newField as UserFieldDto,
+          oldField as UserFieldDto
         );
         return { recordOpsMap: rawOpsMap };
       }
@@ -787,6 +849,39 @@ export class FieldConvertingService {
     };
   }
 
+  private async convert2User(tableId: string, newField: UserFieldDto, oldField: IFieldInstance) {
+    const fieldId = newField.id;
+    const recordMap = await this.getRecordMap(tableId, oldField);
+    const baseCollabs = await this.collaboratorService.getBaseCollabsWithPrimary(tableId);
+    const opsMap: { [recordId: string]: IOtOperation[] } = {};
+
+    Object.values(recordMap).forEach((record) => {
+      const oldCellValue = record.fields[fieldId];
+      if (oldCellValue == null) {
+        return;
+      }
+
+      if (!opsMap[record.id]) {
+        opsMap[record.id] = [];
+      }
+
+      const cellStr = oldField.cellValue2String(oldCellValue);
+      const newCellValue = newField.convertStringToCellValue(cellStr, { userSets: baseCollabs });
+
+      opsMap[record.id].push(
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId,
+          newCellValue,
+          oldCellValue,
+        })
+      );
+    });
+
+    return {
+      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
+    };
+  }
+
   private async basalConvert(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     // simple value type change is not need to convert
     if (
@@ -850,6 +945,10 @@ export class FieldConvertingService {
       return this.fieldConvertingLinkService.convertLink(tableId, newField, oldField);
     }
 
+    if (newField.type === FieldType.User) {
+      return this.convert2User(tableId, newField, oldField);
+    }
+
     return this.basalConvert(tableId, newField, oldField);
   }
 
@@ -863,7 +962,7 @@ export class FieldConvertingService {
    */
   private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const { ops, keys } = this.getOriginFieldOps(newField, oldField);
-    console.log('changed Keys:' + JSON.stringify(keys));
+    this.logger.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
     // 0.1. collect changes effect by the updated field

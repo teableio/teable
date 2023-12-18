@@ -1,5 +1,9 @@
-.yarn
-**/.next/**
-**/dist/**
-**/build/**
-**/tmp/**
+.idea/
+.vscode/
+pnpm-lock.yaml
+**/.next
+**/.out
+**/dist
+**/build
+**/.tmp
+**/.cache

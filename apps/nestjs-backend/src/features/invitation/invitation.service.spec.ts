@@ -2,7 +2,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { SpaceRole, getPermissions } from '@teable-group/core';
+import { getPermissions, SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
@@ -124,9 +124,6 @@ describe('InvitationService', () => {
       jest
         .spyOn(invitationService, 'generateInvitationBySpace')
         .mockResolvedValue({ id: mockInvitationId, invitationCode: mockInvitationCode } as any);
-      jest
-        .spyOn(invitationService as any, 'spaceEmailOptions')
-        .mockResolvedValue({ title: '', content: '' });
 
       const result = await clsService.runWith(
         {

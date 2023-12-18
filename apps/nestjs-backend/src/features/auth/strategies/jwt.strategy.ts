@@ -40,6 +40,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     this.cls.set('user.id', user.id);
     this.cls.set('user.name', user.name);
     this.cls.set('user.email', user.email);
-    return pick(user, 'id', 'name', 'avatar', 'phone', 'email');
+    return pick(user, 'id', 'name', 'avatar', 'phone', 'email', 'notifyMeta');
   }
 }

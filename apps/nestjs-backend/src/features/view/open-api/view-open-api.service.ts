@@ -156,8 +156,8 @@ export class ViewOpenApiService {
     columnMetaRo.forEach(({ fieldId, columnMeta }) => {
       const obj = {
         fieldId,
-        newMetaValue: { ...curColumnMeta[fieldId], ...columnMeta },
-        oldMetaValue: curColumnMeta[fieldId] ? curColumnMeta[fieldId] : undefined,
+        newColumnMeta: { ...curColumnMeta[fieldId], ...columnMeta },
+        oldColumnMeta: curColumnMeta[fieldId] ? curColumnMeta[fieldId] : undefined,
       };
       ops.push(ViewOpBuilder.editor.setViewColumnMeta.build(obj));
     });
@@ -226,7 +226,7 @@ export class ViewOpenApiService {
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewOption.build({
+    const ops = ViewOpBuilder.editor.setViewOptions.build({
       newOptions: {
         ...oldOptions,
         ...viewOption,

@@ -1,7 +1,7 @@
 import type { StatisticsFunc } from '@teable-group/core';
 import { CellValueType } from '@teable-group/core';
 import { useFields, useTable, useViewId } from '@teable-group/sdk/hooks';
-import { View } from '@teable-group/sdk/model';
+import { Table } from '@teable-group/sdk/model';
 import { statisticsValue2DisplayValue } from '@teable-group/sdk/utils';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -38,7 +38,8 @@ export function useAggregates(funcs: StatisticsFunc[]) {
       return;
     }
 
-    View.getViewAggregations(table.id, viewId, {
+    Table.getAggregations(table.id, {
+      viewId,
       field: statsList,
     }).then(({ data: { aggregations } }) => {
       if (!aggregations) {

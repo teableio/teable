@@ -7,7 +7,7 @@ import type {
   IRecordsVo,
   IGetRecordsQuery,
   IFieldVo,
-  IViewRowCountVo,
+  IRowCountVo,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
 import qs from 'qs';
@@ -224,10 +224,10 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table1CResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .get(`/api/table/${table1.id}/aggregation/rowCount`)
               .query(qs.stringify(table1Candidate))
               .expect(200)
-          ).body as IViewRowCountVo;
+          ).body as IRowCountVo;
           expect(table1CResultRow.rowCount).toBe(result[0].left.c);
 
           const table1SResult = (
@@ -240,10 +240,10 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table1SResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table1.id}/rowCount`)
+              .get(`/api/table/${table1.id}/aggregation/rowCount`)
               .query(qs.stringify(table1Selected))
               .expect(200)
-          ).body as IViewRowCountVo;
+          ).body as IRowCountVo;
           expect(table1SResultRow.rowCount).toBe(result[0].left.s);
 
           const table2CResult = (
@@ -256,10 +256,10 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table2CResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .get(`/api/table/${table2.id}/aggregation/rowCount`)
               .query(qs.stringify(table2Candidate))
               .expect(200)
-          ).body as IViewRowCountVo;
+          ).body as IRowCountVo;
           expect(table2CResultRow.rowCount).toBe(result[0].right.c);
 
           const table2SResult = (
@@ -272,10 +272,10 @@ describe('OpenAPI link Select (e2e)', () => {
 
           const table2SResultRow = (
             await request
-              .get(`/api/base/${baseId}/table/${table2.id}/rowCount`)
+              .get(`/api/table/${table2.id}/aggregation/rowCount`)
               .query(qs.stringify(table2Selected))
               .expect(200)
-          ).body as IViewRowCountVo;
+          ).body as IRowCountVo;
           expect(table2SResultRow.rowCount).toBe(result[0].right.s);
         });
 

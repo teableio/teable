@@ -1,8 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ListSpaceCollaboratorVo, UpdateSpaceCollaborateRo } from '@teable-group/openapi';
-import { keyBy, map } from 'lodash';
+import type {
+  ListBaseCollaboratorVo,
+  ListSpaceCollaboratorVo,
+  UpdateSpaceCollaborateRo,
+} from '@teable-group/openapi';
+import { Knex } from 'knex';
+import { isDate } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 
@@ -10,7 +16,8 @@ import type { IClsStore } from '../../types/cls';
 export class CollaboratorService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   async createSpaceCollaborator(userId: string, spaceId: string, role: SpaceRole) {
@@ -43,44 +50,70 @@ export class CollaboratorService {
     });
   }
 
+  async getListByBase(baseId: string): Promise<ListBaseCollaboratorVo> {
+    const base = await this.prismaService
+      .txClient()
+      .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
+
+    return await this.getCollaborators({ spaceId: base.spaceId, baseId });
+  }
+
+  async getBaseCollabsWithPrimary(tableId: string) {
+    const { baseId } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      select: { baseId: true },
+      where: { id: tableId },
+    });
+
+    const baseCollabs = await this.getListByBase(baseId);
+    return baseCollabs.map(({ userId, userName, email }) => ({
+      id: userId,
+      name: userName,
+      email,
+    }));
+  }
+
   async getListBySpace(spaceId: string): Promise<ListSpaceCollaboratorVo> {
-    const collaborators = await this.prismaService.txClient().collaborator.findMany({
-      where: {
-        spaceId,
-        deletedTime: null,
-      },
-      select: {
-        roleName: true,
-        createdBy: true,
-        createdTime: true,
-        userId: true,
-      },
-    });
-    const userIds = map(collaborators, 'userId');
-    const usersInfo = await this.prismaService.txClient().user.findMany({
-      where: {
-        id: { in: userIds },
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-        email: true,
-        avatar: true,
-        name: true,
-      },
-    });
-    const usersInfoMap = keyBy(usersInfo, 'id');
-    return collaborators.map(({ userId, roleName, createdBy, createdTime }) => {
-      const { name, email, avatar } = usersInfoMap[userId];
-      return {
-        userId,
-        username: name,
-        email,
-        avatar,
-        role: roleName as SpaceRole,
-        createdBy,
-        createdTime: createdTime.toISOString(),
-      };
+    return await this.getCollaborators({ spaceId });
+  }
+
+  private async getCollaborators(params: {
+    spaceId: string;
+    baseId?: string;
+  }): Promise<ListSpaceCollaboratorVo | ListBaseCollaboratorVo> {
+    const { spaceId, baseId } = params;
+    const getCollaboratorsSql = this.knex
+      .select({
+        userId: 'u.id',
+        userName: 'u.name',
+        email: 'u.email',
+        avatar: 'u.avatar',
+        role: 'c.role_name',
+        createdTime: 'c.created_time',
+      })
+      .from(this.knex.ref('collaborator').as('c'))
+      .join(this.knex.ref('users').as('u'), (clause) => {
+        clause.on('c.user_id', 'u.id').andOnNull('c.deleted_time').andOnNull('u.deleted_time');
+      })
+      .where((builder) => {
+        builder.where('c.space_id', spaceId);
+        if (baseId) {
+          builder.orWhere('c.base_id', baseId);
+        } else {
+          builder.whereNull('c.base_id');
+        }
+      });
+
+    const collaborators = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<ListSpaceCollaboratorVo | ListBaseCollaboratorVo>(
+        getCollaboratorsSql.toQuery()
+      );
+
+    return collaborators.map((collaborator) => {
+      if (isDate(collaborator.createdTime)) {
+        collaborator.createdTime = collaborator.createdTime.toISOString();
+      }
+      return collaborator;
     });
   }
 

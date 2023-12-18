@@ -1,15 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import type { ITableFullVo, ITableListVo, ITableVo, IViewRowCountVo } from '@teable-group/core';
+import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getGraphRoSchema,
-  IGetGraphRo,
   getTableQuerySchema,
+  ICreateTableRo,
+  IGetGraphRo,
   IGetTableQuery,
   tableRoSchema,
-  getRowCountSchema,
-  IGetRowCountRo,
-  ICreateTableRo,
 } from '@teable-group/core';
 import { ISqlQuerySchema, sqlQuerySchema } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -28,15 +26,6 @@ export class TableController {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly graphService: GraphService
   ) {}
-
-  @Permissions('table|read')
-  @Get(':tableId/rowCount')
-  async getRowCount(
-    @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRowCountSchema)) query: IGetRowCountRo
-  ): Promise<IViewRowCountVo> {
-    return await this.tableOpenApiService.getRowCount(tableId, query);
-  }
 
   @Permissions('table|read')
   @Get(':tableId/defaultViewId')
@@ -60,8 +49,8 @@ export class TableController {
     return await this.tableOpenApiService.getTables(baseId);
   }
 
-  @Permissions('table|create')
   @Post()
+  @Permissions('table|create')
   async createTable(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
@@ -69,14 +58,14 @@ export class TableController {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
 
-  @Permissions('table|delete')
   @Delete(':tableId')
+  @Permissions('table|delete')
   async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
-  @Permissions('table|delete')
   @Delete('arbitrary/:tableId')
+  @Permissions('table|delete')
   deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return this.tableOpenApiService.deleteTable(baseId, tableId);
   }

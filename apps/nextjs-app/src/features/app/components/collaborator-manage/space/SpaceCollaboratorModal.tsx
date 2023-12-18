@@ -14,10 +14,10 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   const { space } = props;
   const { id: spaceId, role } = space;
 
-  const collaborators = useQuery({
+  const { data: collaborators } = useQuery({
     queryKey: ['space-collaborator-list', spaceId],
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]),
-  }).data?.data;
+    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
+  });
 
   if (!collaborators?.length) {
     return <div>Loading...</div>;

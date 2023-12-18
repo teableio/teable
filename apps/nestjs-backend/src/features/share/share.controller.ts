@@ -12,10 +12,10 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  type IViewAggregationVo,
-  type IViewRowCountVo,
-  viewRowCountRoSchema,
-  IViewRowCountRo,
+  type IAggregationVo,
+  type IRowCountVo,
+  rowCountRoSchema,
+  IRowCountRo,
 } from '@teable-group/core';
 import {
   ShareViewFormSubmitRo,
@@ -72,7 +72,7 @@ export class ShareController {
   async getViewAggregations(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewAggregationsRoSchema)) query?: IShareViewAggregationsRo
-  ): Promise<IViewAggregationVo> {
+  ): Promise<IAggregationVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return await this.shareService.getViewAggregations(shareInfo, query);
   }
@@ -81,8 +81,8 @@ export class ShareController {
   @Get('/:shareId/view/rowCount')
   async getViewRowCount(
     @Request() req: any,
-    @Query(new ZodValidationPipe(viewRowCountRoSchema)) query?: IViewRowCountRo
-  ): Promise<IViewRowCountVo> {
+    @Query(new ZodValidationPipe(rowCountRoSchema)) query?: IRowCountRo
+  ): Promise<IRowCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return await this.shareService.getViewRowCount(shareInfo, query);
   }

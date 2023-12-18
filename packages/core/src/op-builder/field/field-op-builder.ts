@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { OpName } from '../common';
 import { OpBuilderAbstract } from '../op-builder.abstract';
 import { AddColumnMetaBuilder } from './add-column-meta';
 import { AddFieldBuilder } from './add-field';
@@ -7,10 +8,10 @@ import { SetFieldPropertyBuilder } from './set-field-property';
 
 export class FieldOpBuilder {
   static editor = {
-    addColumnMeta: new AddColumnMetaBuilder(),
-    deleteColumnMeta: new DeleteColumnMetaBuilder(),
+    [OpName.AddColumnMeta]: new AddColumnMetaBuilder(),
+    [OpName.DeleteColumnMeta]: new DeleteColumnMetaBuilder(),
 
-    setFieldProperty: new SetFieldPropertyBuilder(),
+    [OpName.SetFieldProperty]: new SetFieldPropertyBuilder(),
   };
 
   static creator = new AddFieldBuilder();
