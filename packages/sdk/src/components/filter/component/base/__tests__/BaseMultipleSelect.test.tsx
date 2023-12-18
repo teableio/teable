@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createAppContext } from '../../../../../context/__tests__/createAppContext';
 import { BaseMultipleSelect } from '../BaseMultipleSelect';
 
 window.ResizeObserver =
@@ -35,13 +36,17 @@ describe('BaseMultipleSelect', () => {
   const onSelect = () => {};
 
   it('should render init selected value label', async () => {
-    render(<BaseMultipleSelect options={options} onSelect={onSelect} value={initvalue} />);
+    render(<BaseMultipleSelect options={options} onSelect={onSelect} value={initvalue} />, {
+      wrapper: createAppContext(),
+    });
     const triggerButton = screen.getByRole('combobox');
     expect(triggerButton).toHaveTextContent('label-1');
   });
 
   it('should render dialog even click option', async () => {
-    render(<BaseMultipleSelect options={options} onSelect={onSelect} value={initvalue} />);
+    render(<BaseMultipleSelect options={options} onSelect={onSelect} value={initvalue} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     const dialog = screen.getByRole('dialog');
     fireEvent.click(screen.getAllByRole('option')[0]);
@@ -50,7 +55,9 @@ describe('BaseMultipleSelect', () => {
 
   it('should call onSelect twice', async () => {
     const selectHandler = jest.fn();
-    render(<BaseMultipleSelect options={options} onSelect={selectHandler} value={null} />);
+    render(<BaseMultipleSelect options={options} onSelect={selectHandler} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     fireEvent.click(screen.getAllByRole('option')[0]);
     fireEvent.click(screen.getAllByRole('option')[1]);

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createAppContext } from '../../../../../context/__tests__/createAppContext';
 import { BaseSingleSelect } from '../BaseSingleSelect';
 
 window.ResizeObserver =
@@ -26,20 +27,26 @@ describe('BaseSingleSelect', () => {
   const onSelect = () => {};
 
   it('should render combobox', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value="value-1" />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value="value-1" />, {
+      wrapper: createAppContext(),
+    });
     const button = screen.getByRole('combobox');
     expect(button).toHaveTextContent('label-1');
   });
 
   it('should render default palceholder: Search...', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     const searchPlaceHolder = screen.getByPlaceholderText('Search...');
     expect(searchPlaceHolder).toBeDefined();
   });
 
   it('should render right length options', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     const option = screen.getAllByRole('option');
     expect(option).toHaveLength(2);
@@ -47,7 +54,9 @@ describe('BaseSingleSelect', () => {
 
   it('should return the selected option value', async () => {
     const selecthandle = jest.fn();
-    render(<BaseSingleSelect options={options} onSelect={selecthandle} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={selecthandle} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     fireEvent.click(screen.getAllByRole('option')[0]);
     expect(selecthandle).toHaveBeenCalledWith('value-1');
@@ -59,13 +68,17 @@ describe('BaseSingleSelect', () => {
     );
     toggleOpen();
     fireEvent.click(screen.getByText('label-1'));
-    rerender(<BaseSingleSelect options={options} onSelect={onSelect} value={'value-1'} />);
+    rerender(<BaseSingleSelect options={options} onSelect={onSelect} value={'value-1'} />, {
+      wrapper: createAppContext(),
+    });
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveTextContent('label-1');
   });
 
   it('should render search option', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     const input = screen.getByPlaceholderText('Search...');
     fireEvent.change(input, { target: { value: 'label-1' } });
