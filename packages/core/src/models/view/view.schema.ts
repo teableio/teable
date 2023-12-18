@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { sharePasswordSchema } from '../../share';
 import { IdPrefix } from '../../utils';
+import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
 

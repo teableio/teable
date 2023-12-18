@@ -8,6 +8,7 @@ import { numberCellRenderer } from './numberCellRenderer';
 import { ratingCellRenderer } from './ratingCellRenderer';
 import { selectCellRenderer } from './selectCellRenderer';
 import { textCellRenderer } from './textCellRenderer';
+import { userCellRenderer } from './userCellRenderer';
 
 export * from './interface';
 export * from './utils';
@@ -30,6 +31,8 @@ export const getCellRenderer = (cellType: CellType) => {
       return ratingCellRenderer;
     case CellType.Chart:
       return chartCellRenderer;
+    case CellType.User:
+      return userCellRenderer;
     case CellType.Loading:
     default:
       return loadingCellRenderer;

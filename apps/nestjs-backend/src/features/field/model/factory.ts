@@ -17,6 +17,7 @@ import { RatingFieldDto } from './field-dto/rating-field.dto';
 import { RollupFieldDto } from './field-dto/rollup-field.dto';
 import { SingleLineTextFieldDto } from './field-dto/single-line-text-field.dto';
 import { SingleSelectFieldDto } from './field-dto/single-select-field.dto';
+import { UserFieldDto } from './field-dto/user-field.dto';
 
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
   return {
@@ -76,10 +77,11 @@ export function createFieldInstanceByVo(field: IFieldVo) {
       return plainToInstance(CreatedTimeFieldDto, field);
     case FieldType.LastModifiedTime:
       return plainToInstance(LastModifiedTimeFieldDto, field);
+    case FieldType.User:
+      return plainToInstance(UserFieldDto, field);
     case FieldType.Button:
     case FieldType.CreatedBy:
     case FieldType.LastModifiedBy:
-    case FieldType.User:
     case FieldType.Count:
     case FieldType.Duration:
       throw new Error('did not implement yet');

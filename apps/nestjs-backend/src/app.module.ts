@@ -11,6 +11,7 @@ import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { HealthModule } from './features/health/health.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
+import { NotificationModule } from './features/notification/notification.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
@@ -43,8 +44,8 @@ import { WsModule } from './ws/ws.module';
     CollaboratorModule,
     InvitationModule,
     ShareModule,
+    NotificationModule,
   ],
-  controllers: [],
   providers: [InitBootstrapProvider],
 })
 export class AppModule {}

@@ -1,17 +1,18 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { getDriver } from '../../utils/driver';
-import { AppContext } from '../app/AppContext';
+import { AppContext } from './AppContext';
 import { createQueryClient } from './queryClient';
 import { useConnection } from './useConnection';
 import { useTheme } from './useTheme';
 
 const queryClient = createQueryClient();
 
-export const AppProvider: React.FC<{ children: React.ReactNode; wsPath?: string }> = ({
-  wsPath,
-  children,
-}) => {
+export const AppProvider: React.FC<{
+  children: React.ReactNode;
+  wsPath?: string;
+  dehydratedState?: unknown;
+}> = ({ wsPath, children, dehydratedState }) => {
   const { connected, connection } = useConnection(wsPath);
   const themeProps = useTheme();
 
@@ -27,7 +28,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; wsPath?: string 
 
   return (
     <AppContext.Provider value={value}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <Hydrate state={dehydratedState}>{children}</Hydrate>
+      </QueryClientProvider>
     </AppContext.Provider>
   );
 };

@@ -1,3 +1,4 @@
+import Papa from 'papaparse';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './abstract/select.field.abstract';
@@ -14,20 +15,19 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
   isMultipleCellValue = true;
 
   convertStringToCellValue(value: string, shouldExtend?: boolean): string[] | null {
-    if (value === '' || value == null) {
+    if (value == null) {
       return null;
     }
 
-    let cellValue = value.split(/[,\n\r]\s*/);
+    let cellValue = value.split(/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
+      return item.includes(',') ? item.slice(1, -1) : item;
+    });
+
     cellValue = shouldExtend
       ? cellValue
       : cellValue.filter((value) => this.options.choices.find((c) => c.name === value));
 
-    if (cellValue.length === 0) {
-      return null;
-    }
-
-    return cellValue;
+    return cellValue.length === 0 ? null : cellValue;
   }
 
   repair(value: unknown) {

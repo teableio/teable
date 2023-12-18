@@ -5,7 +5,6 @@ import { registerAs } from '@nestjs/config';
 
 export const mailConfig = registerAs('mail', () => ({
   origin: process.env.PUBLIC_ORIGIN ?? 'https://teable.io',
-  service: process.env.BACKEND_MAIL_SERVICE ?? 'smtp.teable.io',
   host: process.env.BACKEND_MAIL_HOST ?? 'smtp.teable.io',
   port: parseInt(process.env.BACKEND_MAIL_PORT ?? '465', 10),
   secure: Object.is(process.env.BACKEND_MAIL_SECURE ?? 'true', 'true'),

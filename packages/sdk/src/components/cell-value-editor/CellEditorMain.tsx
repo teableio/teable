@@ -14,6 +14,8 @@ import type {
   ISingleLineTextCellValue,
   ISingleLineTextFieldOptions,
   ISingleSelectCellValue,
+  IUserCellValue,
+  IUserFieldOptions,
 } from '@teable-group/core';
 import { ColorUtils, FieldType } from '@teable-group/core';
 import { useCallback, useEffect, useRef } from 'react';
@@ -28,8 +30,9 @@ import {
   TextEditor,
   RatingEditor,
   LongTextEditor,
+  LinkEditor,
+  UserEditor,
 } from '../editor';
-import { LinkEditor } from '../editor/link';
 import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
@@ -192,6 +195,17 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           readonly={readonly}
           fieldId={field.id}
           recordId={recordId}
+        />
+      );
+    }
+    case FieldType.User: {
+      return (
+        <UserEditor
+          className={className}
+          value={cellValue as IUserCellValue | IUserCellValue[]}
+          options={options as IUserFieldOptions}
+          onChange={onChange}
+          readonly={readonly}
         />
       );
     }

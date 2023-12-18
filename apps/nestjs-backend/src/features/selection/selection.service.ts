@@ -9,17 +9,18 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
-  ICopyRo,
-  PasteRo,
-  PasteVo,
   ClearRo,
+  ICopyRo,
   IRangesToIdRo,
   IRangesToIdVo,
+  PasteRo,
+  PasteVo,
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, map, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -38,6 +39,7 @@ export class SelectionService {
     private recordOpenApiService: RecordOpenApiService,
     private fieldCreatingService: FieldCreatingService,
     private fieldSupplementService: FieldSupplementService,
+    private readonly collaboratorService: CollaboratorService,
     private cls: ClsService<IClsStore>
   ) {}
 
@@ -335,18 +337,18 @@ export class SelectionService {
   }
 
   private async fillCells({
+    tableId,
     tableData,
     fields,
     records,
   }: {
+    tableId: string;
     tableData: string[][];
     fields: IFieldInstance[];
     records: Pick<IRecord, 'id' | 'fields'>[];
   }) {
-    const attachments = await this.collectionAttachment({
-      fields,
-      tableData,
-    });
+    const fieldConvertContext = await this.fieldConvertContext(tableId, tableData, fields);
+
     const updateRecordsRo: IUpdateRecordsRo = {
       fieldKeyType: FieldKeyType.Id,
       typecast: true,
@@ -366,12 +368,20 @@ export class SelectionService {
           switch (field.type) {
             case FieldType.Attachment:
               {
-                recordField[field.id] = field.convertStringToCellValue(stringValue, attachments);
+                recordField[field.id] = field.convertStringToCellValue(
+                  stringValue,
+                  fieldConvertContext?.attachments
+                );
               }
               break;
             case FieldType.SingleSelect:
             case FieldType.MultipleSelect:
               recordField[field.id] = field.convertStringToCellValue(stringValue, true);
+              break;
+            case FieldType.User:
+              recordField[field.id] = field.convertStringToCellValue(stringValue, {
+                userSets: fieldConvertContext?.userSets,
+              });
               break;
             default:
               recordField[field.id] = field.convertStringToCellValue(stringValue);
@@ -385,6 +395,29 @@ export class SelectionService {
       });
     });
     return updateRecordsRo;
+  }
+
+  private async fieldConvertContext(
+    tableId: string,
+    tableData: string[][],
+    fields: IFieldInstance[]
+  ) {
+    const hasFieldType = (type: FieldType) => fields.some((field) => field.type === type);
+
+    const loadAttachments = hasFieldType(FieldType.Attachment)
+      ? this.collectionAttachment({ fields, tableData })
+      : Promise.resolve(undefined);
+
+    const loadUserSets = hasFieldType(FieldType.User)
+      ? this.collaboratorService.getBaseCollabsWithPrimary(tableId)
+      : Promise.resolve(undefined);
+
+    const [attachments, userSets] = await Promise.all([loadAttachments, loadUserSets]);
+
+    return {
+      attachments: attachments,
+      userSets: userSets,
+    };
   }
 
   async copy(tableId: string, viewId: string, query: ICopyRo) {
@@ -514,6 +547,7 @@ export class SelectionService {
 
       // Fill cells
       const updateRecordsRo = await this.fillCells({
+        tableId,
         tableData,
         fields: updateFields,
         records: updateRecords,
@@ -531,6 +565,7 @@ export class SelectionService {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, viewId, ranges, type);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecordsRo = await this.fillCells({
+      tableId,
       tableData: [],
       fields: fieldInstances,
       records,

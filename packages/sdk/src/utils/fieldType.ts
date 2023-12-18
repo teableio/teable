@@ -6,6 +6,7 @@ export const FIELD_TYPE_ORDER = [
   FieldType.Number,
   FieldType.SingleSelect,
   FieldType.MultipleSelect,
+  FieldType.User,
   FieldType.Date,
   FieldType.Rating,
   FieldType.Checkbox,

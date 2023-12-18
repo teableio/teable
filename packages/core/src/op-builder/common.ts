@@ -1,26 +1,25 @@
 export enum OpName {
   AddTable = 'addTable',
-  SetTableProperty = 'SetTableProperty',
+  SetTableProperty = 'setTableProperty',
 
   SetRecord = 'setRecord',
   SetRecordOrder = 'setRecordOrder',
   AddRecord = 'addRecord',
 
   AddField = 'addField',
-  SetFieldOrder = 'setFieldOrder',
   AddColumnMeta = 'addColumnMeta',
   DeleteColumnMeta = 'deleteColumnMeta',
   SetFieldProperty = 'setFieldProperty',
 
   AddView = 'addView',
   SetViewName = 'setViewName',
-  SetViewDescription = 'SetViewDescription',
+  SetViewDescription = 'setViewDescription',
   SetViewFilter = 'setViewFilter',
   SetViewSort = 'setViewSort',
   SetViewColumnMeta = 'setViewColumnMeta',
-  SetViewOptions = 'SetViewOptions',
+  SetViewOptions = 'setViewOptions',
   SetViewEnableShare = 'setViewEnableShare',
-  SetViewShareId = 'setShareId',
+  SetViewShareId = 'setViewShareId',
   SetViewShareMeta = 'setViewShareMeta',
 }
 

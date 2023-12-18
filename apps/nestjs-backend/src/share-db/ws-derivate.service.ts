@@ -2,17 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEmpty } from 'lodash';
+import { isEmpty, pick } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import type ShareDb from 'sharedb';
 import { BatchService } from '../features/calculation/batch.service';
 import { LinkService } from '../features/calculation/link.service';
-import { ReferenceService } from '../features/calculation/reference.service';
 import type { IOpsMap } from '../features/calculation/reference.service';
+import { ReferenceService } from '../features/calculation/reference.service';
 import { SystemFieldService } from '../features/calculation/system-field.service';
 import type { ICellChange } from '../features/calculation/utils/changes';
 import { formatChangesToOps } from '../features/calculation/utils/changes';
 import { composeMaps } from '../features/calculation/utils/compose-maps';
 import type { IFieldInstance } from '../features/field/model/factory';
+import type { IClsStore } from '../types/cls';
+import type { IRawOp, IRawOpMap } from './interface';
 
 @Injectable()
 export class WsDerivateService {
@@ -23,7 +26,8 @@ export class WsDerivateService {
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly systemFieldService: SystemFieldService
+    private readonly systemFieldService: SystemFieldService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async calculate(changes: ICellChange[]) {
@@ -79,7 +83,9 @@ export class WsDerivateService {
         pre.push({
           tableId: tableId,
           recordId: recordId,
-          ...ctx,
+          fieldId: ctx.fieldId,
+          oldValue: ctx.oldCellValue,
+          newValue: ctx.newCellValue,
         });
       }
       return pre;
@@ -90,12 +96,16 @@ export class WsDerivateService {
     const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
     const recordId = context.id;
     if (docType !== IdPrefix.Record || !context.op.op) {
+      // TODO: Capture some missed situations, which may be deleted later.
+      this.stashOpMap(context, true);
       return next();
     }
 
     this.logger.log('onRecordApply: ' + JSON.stringify(context.op.op, null, 2));
     const changes = this.op2Changes(tableId, recordId, context.op.op);
     if (!changes.length) {
+      // TODO: Capture some missed situations, which may be deleted later.
+      this.stashOpMap(context, true);
       return next();
     }
 
@@ -105,11 +115,36 @@ export class WsDerivateService {
       });
       if (saveContext) {
         context.agent.custom.saveContext = saveContext;
+        context.agent.custom.stashOpMap = this.stashOpMap(context);
+      } else {
+        this.stashOpMap(context, true);
       }
     } catch (e) {
       return next(e);
     }
 
     next();
+  }
+
+  private stashOpMap(context: ShareDb.middleware.SubmitContext, preSave: boolean = false) {
+    const { collection, id, op } = context;
+    const stashOpMap: IRawOpMap = { [collection]: {} };
+
+    stashOpMap[collection][id] = pick(op, [
+      'src',
+      'seq',
+      'm',
+      'create',
+      'op',
+      'del',
+      'v',
+      'c',
+      'd',
+    ]) as IRawOp;
+
+    if (preSave) {
+      this.cls.set('tx.stashOpMap', stashOpMap);
+    }
+    return stashOpMap;
   }
 }

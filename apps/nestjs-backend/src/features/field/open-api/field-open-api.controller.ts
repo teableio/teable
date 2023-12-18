@@ -1,23 +1,22 @@
-/* eslint-disable sonarjs/no-duplicate-string */
 import {
   Body,
   Controller,
   Delete,
   Get,
   Param,
-  Post,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
+  fieldRoSchema,
   getFieldsQuerySchema,
+  IFieldRo,
   IGetFieldsQuery,
   IUpdateFieldRo,
   updateFieldRoSchema,
-  fieldRoSchema,
-  IFieldRo,
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';

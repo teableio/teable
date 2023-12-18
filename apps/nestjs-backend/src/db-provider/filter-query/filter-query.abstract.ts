@@ -79,7 +79,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       convertOperator = invert(filterOperatorMapping)[operator] as IFilterOperator;
     }
 
-    if (!includes(validFilterOperators, operator)) {
+    if (!includes(validFilterOperators, convertOperator)) {
       throw new BadRequestException(
         `The '${convertOperator}' operation provided for the '${field.name}' filter is invalid. Only the following types are allowed: [${validFilterOperators}]`
       );
@@ -87,7 +87,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
 
     const validFilterSubOperators = getValidFilterSubOperators(
       field.type,
-      operator as IDateTimeFieldOperator
+      convertOperator as IDateTimeFieldOperator
     );
 
     if (

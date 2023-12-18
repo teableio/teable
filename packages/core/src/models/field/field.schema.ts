@@ -1,6 +1,6 @@
 import type { RefinementCtx } from 'zod';
 import { assertNever } from '../../asserts';
-import type { IEnsureKeysMatchInterface } from '../../types/ensure-keys';
+import type { IEnsureKeysMatchInterface } from '../../types';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { CellValueType, DbFieldType, FieldType } from './constant';
@@ -25,6 +25,7 @@ import {
   createdTimeFieldOptionsRoSchema,
   lastModifiedTimeFieldOptionsRoSchema,
   autoNumberFieldOptionsRoSchema,
+  userFieldOptionsSchema,
 } from './derivate';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
@@ -63,6 +64,7 @@ export const unionFieldOptions = z.union([
   attachmentFieldOptionsSchema,
   singlelineTextFieldOptionsSchema,
   ratingFieldOptionsSchema,
+  userFieldOptionsSchema,
 ]);
 
 export const unionFieldOptionsVoSchema = z.union([
@@ -222,7 +224,7 @@ export const getOptionsSchema = (type: FieldType) => {
     case FieldType.LongText:
       return longTextFieldOptionsSchema;
     case FieldType.User:
-      return false;
+      return userFieldOptionsSchema;
     case FieldType.Attachment:
       return attachmentFieldOptionsSchema;
     case FieldType.Checkbox:

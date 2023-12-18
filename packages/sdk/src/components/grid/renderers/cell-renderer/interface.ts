@@ -12,6 +12,7 @@ export enum CellType {
   Image = 'Image',
   Chart = 'Chart',
   Rating = 'Rating',
+  User = 'User',
   Boolean = 'Boolean',
   Loading = 'Loading',
 }
@@ -135,6 +136,17 @@ export interface IImageCell extends IEditableCell {
   displayData: string[];
 }
 
+export interface IUserData {
+  id: string;
+  name: string;
+}
+
+export interface IUserCell extends IEditableCell {
+  type: CellType.User;
+  data: IUserData[];
+  displayData?: string;
+}
+
 export type IInnerCell =
   | ITextCell
   | ILinkCell
@@ -143,7 +155,8 @@ export type IInnerCell =
   | IImageCell
   | IRatingCell
   | IBooleanCell
-  | IChartCell;
+  | IChartCell
+  | IUserCell;
 
 export type ICell = IInnerCell | ILoadingCell;
 

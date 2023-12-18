@@ -21,7 +21,7 @@ const Edit = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"
+      d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"
     />
   </svg>
 );

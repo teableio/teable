@@ -1,21 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { SpaceRole, generateSpaceId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { generateSpaceId, SpaceRole } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
-import type { ICreateSpaceRo } from '@teable-group/openapi';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import type { ICreateSpaceRo, IUserNotifyMeta } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
-import { SpaceService } from '../space/space.service';
+import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly spaceService: SpaceService,
-    private readonly cls: ClsService
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async getUserById(id: string) {
-    return await this.prismaService.user.findUnique({ where: { id, deletedTime: null } });
+    const userRaw = await this.prismaService.user.findUnique({ where: { id, deletedTime: null } });
+
+    return (
+      userRaw && {
+        ...userRaw,
+        notifyMeta: userRaw.notifyMeta && JSON.parse(userRaw.notifyMeta),
+      }
+    );
   }
 
   async getUserByEmail(email: string) {
@@ -51,6 +57,15 @@ export class UserService {
   }
 
   async createUser(user: Prisma.UserCreateInput) {
+    // defaults
+    const defaultNotifyMeta: IUserNotifyMeta = {
+      email: true,
+    };
+
+    user = {
+      ...user,
+      notifyMeta: JSON.stringify(defaultNotifyMeta),
+    };
     // default space created
     return await this.prismaService.$tx(async (prisma) => {
       const newUser = await prisma.user.create({ data: user });
@@ -60,6 +75,33 @@ export class UserService {
         await this.createSpaceBySignup({ name: `${name}'s space` });
       });
       return newUser;
+    });
+  }
+
+  async updateUserName(id: string, name: string) {
+    await this.prismaService.txClient().user.update({
+      data: {
+        name,
+      },
+      where: { id, deletedTime: null },
+    });
+  }
+
+  async updateAvatar(id: string, avatar: string) {
+    await this.prismaService.txClient().user.update({
+      data: {
+        avatar,
+      },
+      where: { id, deletedTime: null },
+    });
+  }
+
+  async updateNotifyMeta(id: string, notifyMetaRo: IUserNotifyMeta) {
+    await this.prismaService.txClient().user.update({
+      data: {
+        notifyMeta: JSON.stringify(notifyMetaRo),
+      },
+      where: { id, deletedTime: null },
     });
   }
 }

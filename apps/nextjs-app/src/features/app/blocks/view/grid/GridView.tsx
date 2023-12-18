@@ -1,5 +1,9 @@
-import { AggregationProvider, RecordProvider } from '@teable-group/sdk/context';
-import { RowCountProvider } from '@teable-group/sdk/context/aggregation/RowCountProvider';
+import {
+  AggregationProvider,
+  RecordProvider,
+  RowCountProvider,
+  ActionTriggerProvider,
+} from '@teable-group/sdk/context';
 import { useIsHydrated } from '@teable-group/sdk/hooks';
 import { Skeleton } from '@teable-group/ui-lib/shadcn';
 import dynamic from 'next/dynamic';
@@ -31,16 +35,18 @@ export const GridView = (props: IViewBaseProps) => {
   }
 
   return (
-    <AggregationProvider>
+    <ActionTriggerProvider>
       <GridToolBar />
       <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
-        <RowCountProvider>
-          <div className="w-full grow overflow-hidden sm:pl-2">
-            <GridViewBase />
-            {graphOpen && <Graph />}
-          </div>
-        </RowCountProvider>
+        <AggregationProvider>
+          <RowCountProvider>
+            <div className="w-full grow overflow-hidden sm:pl-2">
+              <GridViewBase />
+              {graphOpen && <Graph />}
+            </div>
+          </RowCountProvider>
+        </AggregationProvider>
       </RecordProvider>
-    </AggregationProvider>
+    </ActionTriggerProvider>
   );
 };

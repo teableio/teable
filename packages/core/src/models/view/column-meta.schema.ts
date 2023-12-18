@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { IdPrefix } from '../../utils';
-import { StatisticsFunc } from '../aggregation';
+import { z } from '../../zod';
+import { StatisticsFunc } from '../aggregation/statistics-func.enum';
 
 export const fieldsViewVisibleRoSchema = z.object({
   viewFields: z

@@ -21,6 +21,8 @@ export enum IdPrefix {
   Invitation = 'inv',
 
   Share = 'shr',
+
+  Notification = 'not',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -99,4 +101,8 @@ export function generateInvitationId() {
 
 export function generateShareId() {
   return IdPrefix.Share + getRandomString(16);
+}
+
+export function generateNotificationId() {
+  return IdPrefix.Notification + getRandomString(16);
 }

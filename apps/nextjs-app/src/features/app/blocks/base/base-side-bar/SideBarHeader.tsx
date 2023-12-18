@@ -3,13 +3,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { ChevronsLeft, TeableNew } from '@teable-group/icons';
 import { getBaseById } from '@teable-group/openapi';
-import { useIsHydrated } from '@teable-group/sdk';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
-import { ThemePicker } from '../../../components/ThemePicker';
 
 export const SideBarHeader: React.FC = () => {
-  const isHydrated = useIsHydrated();
   const router = useRouter();
   const baseId = router.query.baseId as string;
   const { data } = useQuery({
@@ -37,7 +34,6 @@ export const SideBarHeader: React.FC = () => {
       </div>
       <p className="truncate text-sm">{data?.data.name}</p>
       <div className="grow basis-0"></div>
-      {isHydrated && <ThemePicker className="px-1" />}
     </div>
   );
 };

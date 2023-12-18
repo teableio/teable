@@ -1,12 +1,7 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { fieldRoSchema, fieldVoSchema } from '../field';
-import {
-  createRecordsRoSchema,
-  fieldKeyTypeRoSchema,
-  getRecordsQuerySchema,
-  recordSchema,
-} from '../record';
+import { createRecordsRoSchema, fieldKeyTypeRoSchema, recordSchema } from '../record';
 import { viewRoSchema, viewVoSchema } from '../view';
 
 export const tableFullVoSchema = z
@@ -153,18 +148,9 @@ export const getGraphRoSchema = z.object({
 
 export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
 
-export const getRowCountSchema = getRecordsQuerySchema.pick({
-  viewId: true,
-  filter: true,
-  filterByTql: true,
-  filterLinkCellCandidate: true,
-  filterLinkCellSelected: true,
-});
-
-export type IGetRowCountRo = z.infer<typeof getRowCountSchema>;
-
 export interface IGraphNode {
   [key: string]: unknown;
+
   id: string;
   label?: string;
   comboId?: string;
@@ -172,6 +158,7 @@ export interface IGraphNode {
 
 export interface IGraphEdge {
   [key: string]: unknown;
+
   source: string;
   target: string;
   label?: string;
@@ -179,6 +166,7 @@ export interface IGraphEdge {
 
 export interface IGraphCombo {
   [key: string]: unknown;
+
   id: string;
   label: string;
 }

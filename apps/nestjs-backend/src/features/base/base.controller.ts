@@ -1,21 +1,25 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, UseGuards } from '@nestjs/common';
-import type {
-  ICreateBaseVo,
-  IUpdateBaseVo,
-  IGetBaseVo,
-  IDbConnectionVo,
-} from '@teable-group/openapi';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   createBaseRoSchema,
   ICreateBaseRo,
-  updateBaseRoSchema,
   IUpdateBaseRo,
+  updateBaseRoSchema,
 } from '@teable-group/openapi';
+import type {
+  ICreateBaseVo,
+  IDbConnectionVo,
+  IGetBaseVo,
+  IUpdateBaseVo,
+  ListBaseCollaboratorVo,
+} from '@teable-group/openapi';
+import { EmitEvent } from '../../event-emitter/decorators/emit-event.decorator';
+import { Events } from '../../event-emitter/model';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -24,12 +28,14 @@ import { DbConnectionService } from './db-connection.service';
 export class BaseController {
   constructor(
     private readonly baseService: BaseService,
-    private readonly dbConnectionService: DbConnectionService
+    private readonly dbConnectionService: DbConnectionService,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
+  @Post()
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @Post()
+  @EmitEvent(Events.BASE_CREATE)
   async createBase(
     @Body(new ZodValidationPipe(createBaseRoSchema))
     createBaseRo: ICreateBaseRo
@@ -37,8 +43,9 @@ export class BaseController {
     return await this.baseService.createBase(createBaseRo);
   }
 
-  @Permissions('base|update')
   @Patch(':baseId')
+  @Permissions('base|update')
+  @EmitEvent(Events.BASE_UPDATE)
   async updateBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(updateBaseRoSchema))
@@ -58,8 +65,9 @@ export class BaseController {
     return await this.baseService.getBaseList();
   }
 
-  @Permissions('base|delete')
   @Delete(':baseId')
+  @Permissions('base|delete')
+  @EmitEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     await this.baseService.deleteBase(baseId);
     return null;
@@ -82,5 +90,11 @@ export class BaseController {
   async deleteDbConnection(@Param('baseId') baseId: string) {
     await this.dbConnectionService.remove(baseId);
     return null;
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/collaborators')
+  async listCollaborator(@Param('baseId') baseId: string): Promise<ListBaseCollaboratorVo> {
+    return await this.collaboratorService.getListByBase(baseId);
   }
 }

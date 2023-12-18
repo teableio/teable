@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { RowCountContext } from '../context/aggregation/RowCountContext';
+import { RowCountContext } from '../context';
 
 export function useRowCount() {
   return useContext(RowCountContext);

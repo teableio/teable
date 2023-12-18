@@ -25,6 +25,7 @@ import { getRecords } from '@teable-group/openapi';
 import type request from 'supertest';
 import {
   createField,
+  createRecords,
   getField,
   getRecord,
   initApp,
@@ -76,9 +77,20 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     table: ITableFullVo,
     sourceFieldRo: IFieldRo,
     newFieldRo: IFieldRo,
-    values: unknown[] = []
+    values: unknown[] = [],
+    appendBlankRow?: number
   ) {
     const sourceField = await createField(table.id, sourceFieldRo);
+
+    if (appendBlankRow) {
+      const records = [];
+      for (let i = 0; i < appendBlankRow; i++) {
+        records.push({ fields: {} });
+      }
+      const createData = await createRecords(table.id, records);
+      table.records.push(...createData.records);
+    }
+
     for (const i in values) {
       const value = values[i];
       value != null &&
@@ -689,14 +701,18 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           choices: [
             { name: 'x', color: Colors.Blue },
             { name: 'y', color: Colors.Red },
+            { name: "','", color: Colors.Gray },
+            { name: ', ', color: Colors.Red },
           ],
         },
       };
-      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
-        'x',
-        'x, y',
-        'x\nz',
-      ]);
+      const { newField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        ['x', 'x, y', 'x\nz', `x, "','"`, `x, y, ", "`, `"','", ", "`],
+        3
+      );
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
         isMultipleCellValue: true,
@@ -705,6 +721,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           choices: [
             { name: 'x', color: Colors.Blue },
             { name: 'y', color: Colors.Red },
+            { name: "','" },
+            { name: ', ' },
             { name: 'z' },
           ],
         },
@@ -713,6 +731,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual(['x']);
       expect(values[1]).toEqual(['x', 'y']);
       expect(values[2]).toEqual(['x', 'z']);
+      expect(values[3]).toEqual(['x', "','"]);
+      expect(values[4]).toEqual(['x', 'y', ', ']);
+      expect(values[5]).toEqual(["','", ', ']);
     });
 
     it('should convert long text to attachment', async () => {

@@ -35,6 +35,8 @@ import {
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
 } from '@teable-group/openapi';
+import { EmitEvent } from '../../event-emitter/decorators/emit-event.decorator';
+import { Events } from '../../event-emitter/model';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -52,6 +54,7 @@ export class SpaceController {
   ) {}
 
   @Post()
+  @EmitEvent(Events.SPACE_CREATE)
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
     createSpaceRo: ICreateSpaceRo
@@ -61,6 +64,7 @@ export class SpaceController {
 
   @Permissions('space|update')
   @Patch(':spaceId')
+  @EmitEvent(Events.SPACE_UPDATE)
   async updateSpace(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(updateSpaceRoSchema))
@@ -82,6 +86,7 @@ export class SpaceController {
 
   @Permissions('space|delete')
   @Delete(':spaceId')
+  @EmitEvent(Events.SPACE_UPDATE)
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;
