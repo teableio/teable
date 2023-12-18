@@ -18,10 +18,7 @@ i18n.use(initReactI18next).init({
   },
   // Let empty so you can test on translation keys rather than translated strings
   resources: {
-    en: { common: {}, app: {}, home: {}, system: {} } as Record<
-      I18nNamespace,
-      Record<string, never>
-    >,
+    en: { common: {}, system: {} } as Record<I18nNamespace, Record<string, never>>,
   },
 });
 
