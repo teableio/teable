@@ -684,17 +684,21 @@ export class FieldSupplementService {
     };
   }
 
+  private async prepareUpdateUserField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    return merge({}, oldFieldVo, fieldRo);
+  }
+
   private prepareUserField(field: IFieldRo) {
-    const { name, options } = field;
+    const { name, options = UserFieldCore.defaultOptions() } = field;
     const { isMultiple } = options as IUserFieldOptions;
 
     return {
       ...field,
       name: name ?? `Collaborator${isMultiple ? 's' : ''}`,
-      options: options ?? UserFieldCore.defaultOptions(),
+      options: options,
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
-      isMultipleCellValue: isMultiple,
+      isMultipleCellValue: isMultiple || undefined,
     };
   }
 
@@ -843,7 +847,7 @@ export class FieldSupplementService {
       case FieldType.Attachment:
         return this.prepareAttachmentField(fieldRo);
       case FieldType.User:
-        return this.prepareUserField(fieldRo);
+        return this.prepareUpdateUserField(fieldRo, oldFieldVo);
       case FieldType.Date:
         return this.prepareDateField(fieldRo);
       case FieldType.AutoNumber:
