@@ -1,4 +1,5 @@
 {
+  "brand": "Teable",
   "actions": {
     "save": "保存",
     "update": "更新",

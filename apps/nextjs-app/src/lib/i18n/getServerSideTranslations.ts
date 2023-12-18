@@ -4,15 +4,16 @@
  */
 import type { SSRConfig, UserConfig } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import nextI18nextConfig from '../../../next-i18next.config';
+import type { I18nNamespace } from '@/lib/i18n/I18nNamespace.types';
+import nextI18nextConfig from '../../../next-i18next.config.js';
 
 export const getServerSideTranslations = async (
   locale: string,
-  namespacesRequired?: string[] | Readonly<string[]> | undefined,
-  configOverride?: UserConfig | null
+  namespacesRequired?: I18nNamespace[] | I18nNamespace | undefined,
+  configOverride?: UserConfig | null,
+  extraLocales?: string[] | false
 ): Promise<SSRConfig> => {
-  const override = configOverride ?? nextI18nextConfig;
+  const config = configOverride ?? nextI18nextConfig;
 
-  // Slice needed here cause serverSlideTranslations does not accept Readonly type
-  return serverSideTranslations(locale, namespacesRequired?.slice(), override);
+  return serverSideTranslations(locale, namespacesRequired, config, extraLocales);
 };

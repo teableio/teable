@@ -13,6 +13,7 @@ import {
 } from '@teable-group/ui-lib';
 import { map } from 'lodash';
 import React, { useMemo } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import { useFieldStaticGetter } from '../../hooks';
 import type { IFieldInstance } from '../../model';
 
@@ -26,6 +27,7 @@ interface IHideFieldsBaseProps {
 export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   const { fields, hidden, children, onChange } = props;
   const fieldStaticGetter = useFieldStaticGetter();
+  const { t } = useTranslation();
 
   const statusMap = useMemo(() => {
     return fields.reduce(
@@ -58,7 +60,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
       <Command>
         <CommandInput placeholder="Search a field" className="h-8 text-xs" />
         <CommandList className="my-2">
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
           {fields.map((field) => {
             const { id, name, type, isLookup } = field;
             const { Icon } = fieldStaticGetter(type, isLookup);
@@ -91,7 +93,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
           className="w-32 text-muted-foreground hover:text-secondary-foreground"
           onClick={showAll}
         >
-          Show All
+          {t('hidden.showAll')}
         </Button>
         <Button
           variant="secondary"
@@ -99,7 +101,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
           className="w-32 text-muted-foreground hover:text-secondary-foreground"
           onClick={hideAll}
         >
-          Hide All
+          {t('hidden.hideAll')}
         </Button>
       </div>
     </div>

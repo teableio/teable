@@ -4,6 +4,7 @@ import { type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { AnchorProvider, ViewProvider } from '../../context';
+import { useTranslation } from '../../context/app/i18n';
 import { useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
 import type { IExpandRecordModel } from './type';
@@ -37,6 +38,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
     props;
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [showActivity, setShowActivity] = useLocalStorage<boolean>(
     LocalStorageKeys.ShowActivity,
     true
@@ -53,7 +55,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const onCopyUrl = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
-    toast({ description: 'Copy to clipboard' });
+    toast({ description: t('expandRecord.copy') });
   };
 
   const onShowActivity = () => {

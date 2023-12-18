@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 
-import { systemConfig } from '@/features/system/system.config';
+import { systemConfig } from '@/features/i18n/system.config';
 
 type Props = {
   title?: string;
@@ -12,6 +12,7 @@ type Props = {
 export const NotFoundPage: FC<Props> = (props) => {
   const { t } = useTranslation(systemConfig.i18nNamespaces);
   const title = props.title ?? t('system:notFound.title');
+
   return (
     <>
       <Head>

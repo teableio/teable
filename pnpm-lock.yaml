@@ -1198,6 +1198,9 @@ importers:
       '@tanstack/react-query':
         specifier: 4.36.1
         version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
+      '@teable-group/common-i18n':
+        specifier: workspace:*
+        version: link:../common-i18n
       '@teable-group/core':
         specifier: workspace:*
         version: link:../core

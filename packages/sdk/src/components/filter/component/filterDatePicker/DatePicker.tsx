@@ -4,6 +4,7 @@ import classNames from 'classnames';
 
 import * as React from 'react';
 import type { SelectSingleEventHandler } from 'react-day-picker';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField } from '../../../../model';
 
 interface IFilerDatePickerProps {
@@ -14,6 +15,7 @@ interface IFilerDatePickerProps {
 
 function DatePicker(props: IFilerDatePickerProps) {
   const { value, onSelect, field } = props;
+  const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
 
   const date = React.useMemo(() => {
@@ -39,7 +41,7 @@ function DatePicker(props: IFilerDatePickerProps) {
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? field?.cellValue2String(date) : <span>Pick a date</span>}
+          {date ? field?.cellValue2String(date) : <span>{t('editor.date.placeholder')}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

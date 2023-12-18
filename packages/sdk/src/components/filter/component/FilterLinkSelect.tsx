@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { AnchorProvider } from '../../../context';
+import { useTranslation } from '../../../context/app/i18n';
 import { useRecords } from '../../../hooks';
 import type { LinkField } from '../../../model';
 
@@ -18,6 +19,7 @@ const SINGLESELECTOPERATORS = ['is', 'isNot'];
 
 const FilterLinkSelectBase = (props: IFilterLinkProps) => {
   const { value, onSelect, operator } = props;
+  const { t } = useTranslation();
   const values = useMemo<string | string[] | null>(() => {
     return value;
   }, [value]);
@@ -41,16 +43,19 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
     );
   }, []);
 
-  const optionRender = useCallback((option: (typeof options)[number]) => {
-    return (
-      <div
-        key={option.value}
-        className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
-      >
-        {option?.label || 'Untitled'}
-      </div>
-    );
-  }, []);
+  const optionRender = useCallback(
+    (option: (typeof options)[number]) => {
+      return (
+        <div
+          key={option.value}
+          className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
+        >
+          {option?.label || t('common.unnamedRecord')}
+        </div>
+      );
+    },
+    [t]
+  );
 
   return (
     <>
@@ -77,7 +82,11 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
           />
         )
       ) : (
-        <FilterInput placeholder="Enter a value" value={values as string} onChange={onSelect} />
+        <FilterInput
+          placeholder={t('filter.linkInputPlaceholder')}
+          value={values as string}
+          onChange={onSelect}
+        />
       )}
     </>
   );
@@ -85,8 +94,9 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
 
 const FilterLinkSelect = (props: IFilterLinkProps) => {
   const tableId = props?.field?.options?.foreignTableId;
+  const { t } = useTranslation();
   return (
-    <AnchorProvider tableId={tableId} fallback={<h1>Empty</h1>}>
+    <AnchorProvider tableId={tableId} fallback={<h1>{t('common.empty')}</h1>}>
       <FilterLinkSelectBase {...props} />
     </AnchorProvider>
   );

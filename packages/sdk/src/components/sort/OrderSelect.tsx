@@ -9,6 +9,7 @@ import {
   SelectItem,
 } from '@teable-group/ui-lib';
 import { useMemo } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
 
 interface IOrderProps {
@@ -19,6 +20,7 @@ interface IOrderProps {
 
 function OrderSelect(props: IOrderProps) {
   const { value, onSelect, fieldId } = props;
+  const { t } = useTranslation();
 
   const fields = useFields({ withHidden: true });
 
@@ -121,7 +123,7 @@ function OrderSelect(props: IOrderProps) {
   return (
     <Select value={value} onValueChange={onSelect}>
       <SelectTrigger className="mx-2 h-8 w-32">
-        <SelectValue placeholder="Select..." />
+        <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>

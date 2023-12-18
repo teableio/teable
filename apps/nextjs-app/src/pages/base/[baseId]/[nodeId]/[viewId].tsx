@@ -4,6 +4,8 @@ import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import { viewConfig } from '@/features/i18n/view.config';
+import { getTranslationsProps } from '@/lib/i18n';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
@@ -33,8 +35,12 @@ export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSS
         viewId as string
       );
       if (serverData) {
+        const { i18nNamespaces } = viewConfig;
         return {
-          props: serverData,
+          props: {
+            ...serverData,
+            ...(await getTranslationsProps(context, i18nNamespaces)),
+          },
         };
       }
       return {

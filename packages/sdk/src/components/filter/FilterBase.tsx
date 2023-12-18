@@ -10,6 +10,7 @@ import { cloneDeep, isEqual, set, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
+import { useTranslation } from '../../context/app/i18n';
 import { Condition, ConditionGroup } from './condition';
 import { FilterContext } from './context';
 import type { IFilterBaseProps, IFiltersPath } from './types';
@@ -28,6 +29,7 @@ const defaultGroupFilter: IFilter = {
 
 function FilterBase(props: IFilterBaseProps) {
   const { onChange, filters: initFilter, fields, children } = props;
+  const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
 
   const setFilterHandler = (
@@ -176,10 +178,7 @@ function FilterBase(props: IFilterBaseProps) {
         >
           <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
             <Share2 className="mr-4 h-4 w-4 shrink-0" />
-            <span className="text-muted-foreground">
-              This view is being used in a view share link. Modifications to the view configuration
-              will also change the view share link.
-            </span>
+            <span className="text-muted-foreground">{t('filter.description')}</span>
           </div>
           <div className="text-[13px]">
             {filters?.filterSet?.length ? (
@@ -197,7 +196,7 @@ function FilterBase(props: IFilterBaseProps) {
               onClick={() => addCondition([], ConditionAddType.ITEM)}
             >
               <Plus className="h-4 w-4" />
-              Add condition
+              {t('filter.addCondition')}
             </Button>
 
             <Button
@@ -207,7 +206,7 @@ function FilterBase(props: IFilterBaseProps) {
               className="text-[13px]"
             >
               <Plus className="h-4 w-4" />
-              Add condition group
+              {t('filter.addConditionGroup')}
             </Button>
           </div>
         </PopoverContent>

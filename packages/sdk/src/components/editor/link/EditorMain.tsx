@@ -14,6 +14,7 @@ import {
 } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
 import { AnchorProvider } from '../../../context';
+import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useTable } from '../../../hooks';
 import { Table } from '../../../model';
 import type { IGridRef } from '../../grid/Grid';
@@ -84,6 +85,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const baseId = base.id;
   const tableId = table?.id;
   const theme = useGridTheme();
+  const { t } = useTranslation();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { columns, cellValue2GridDisplay } = useGridColumns(false);
@@ -219,9 +221,9 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   return (
     <>
-      <div className="text-lg">Select records to link</div>
+      <div className="text-lg">{t('editor.link.placeholder')}</div>
       <div className="flex justify-between">
-        <Input className="flex-1" placeholder="Coming soon ..." disabled />
+        <Input className="flex-1" placeholder={t('editor.link.searchPlaceholder')} disabled />
         <div className="ml-4">
           <Tabs defaultValue="unselected" orientation="horizontal" className="flex gap-4">
             <TabsList className="">
@@ -230,14 +232,14 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
                 value="unselected"
                 onClick={() => onViewShown(ViewType.Unselected)}
               >
-                Unselected
+                {t('editor.link.unselected')}
               </TabsTrigger>
               <TabsTrigger
                 className="px-4"
                 value="selected"
                 onClick={() => onViewShown(ViewType.Selected)}
               >
-                Selected
+                {t('editor.link.selected')}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -273,14 +275,14 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
       <div className="flex justify-between">
         <Button variant="ghost" onClick={onAppendRecord}>
           <Plus className="h-4 w-4" />
-          Add Record
+          {t('editor.link.create')}
         </Button>
         <div>
           <Button variant="outline" onClick={onReset}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button className="ml-4" onClick={onConfirm}>
-            Confirm
+            {t('common.confirm')}
           </Button>
         </div>
       </div>

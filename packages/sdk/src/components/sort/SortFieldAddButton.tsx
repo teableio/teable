@@ -2,6 +2,7 @@ import { Plus } from '@teable-group/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { useState } from 'react';
+import { useTranslation } from '../../context/app/i18n';
 import { SortFieldCommand } from './SortFieldCommand';
 
 interface ISortFieldSelectProps {
@@ -11,7 +12,7 @@ interface ISortFieldSelectProps {
 
 function SortFieldAddButton(props: ISortFieldSelectProps) {
   const { selectedFields = [], onSelect } = props;
-
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const selectHandler = (value: string) => {
@@ -24,7 +25,7 @@ function SortFieldAddButton(props: ISortFieldSelectProps) {
       <PopoverTrigger asChild>
         <Button variant="ghost">
           <Plus></Plus>
-          <span>Add another sort</span>
+          <span>{t('sort.addButton')}</span>
         </Button>
       </PopoverTrigger>
 
