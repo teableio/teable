@@ -1,16 +1,18 @@
-import { Check } from '@teable-group/icons';
+import { Check, Plus } from '@teable-group/icons';
 import {
+  Button,
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  cn,
+  useCommandState,
 } from '@teable-group/ui-lib';
-import classNames from 'classnames';
-import { useCallback } from 'react';
-import { useTranslation } from '../../../context/app/i18n';
-import type { ICellEditor } from '../type';
+import type { ForwardRefRenderFunction } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import type { ICellEditor, IEditorRef } from '../type';
 import { SelectTag } from './SelectTag';
 
 export type ISelectValue<T extends boolean> = T extends true ? string[] : string;
@@ -25,54 +27,146 @@ export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelec
   isMultiple?: T;
   style?: React.CSSProperties;
   className?: string;
+  onOptionAdd?: (name: string) => Promise<void>;
 }
 
-export function SelectEditorMain<T extends boolean = false>(props: ISelectEditorMain<T>) {
-  const { value: originValue, options = [], isMultiple, onChange, style, className } = props;
-  const { t } = useTranslation();
+const getValue = (value?: string | string[]) => {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+};
+
+const SelectEditorMainBase: ForwardRefRenderFunction<
+  IEditorRef<string | string[] | undefined>,
+  ISelectEditorMain<boolean>
+> = (props, ref) => {
+  const {
+    value: originValue,
+    options = [],
+    isMultiple,
+    style,
+    className,
+    onChange,
+    onOptionAdd,
+  } = props;
+
+  const [value, setValue] = useState<string[]>(getValue(originValue));
+  const [searchValue, setSearchValue] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      setSearchValue('');
+      inputRef.current?.focus();
+    },
+    setValue: (value?: string | string[]) => {
+      setValue(getValue(value));
+    },
+  }));
 
   const onSelect = (val: string) => {
-    if (isMultiple === true) {
-      const innerValue = (originValue || []) as string[];
-      const newValue = innerValue?.includes(val)
-        ? innerValue.filter((v) => v !== val)
-        : innerValue.concat(val);
-      onChange?.(newValue as ISelectValue<T>);
-      return;
+    setSearchValue('');
+    if (isMultiple) {
+      const newValue = value.includes(val) ? value.filter((v) => v !== val) : value.concat(val);
+      return onChange?.(newValue);
     }
-    onChange?.(val === originValue ? undefined : (val as ISelectValue<T>));
+    onChange?.(val === value[0] ? undefined : val);
   };
 
-  const activeStatus = useCallback(
-    (value: string) => {
-      return isMultiple ? originValue?.includes(value) : originValue === value;
+  const checkIsActive = useCallback(
+    (v: string) => {
+      return isMultiple ? value.includes(v) : value[0] === v;
     },
-    [isMultiple, originValue]
+    [isMultiple, value]
   );
+
+  const onOptionAddInner = async () => {
+    if (!searchValue) return;
+    setSearchValue('');
+    await onOptionAdd?.(searchValue);
+    if (isMultiple) {
+      const newValue = value.concat(searchValue);
+      setValue(newValue);
+      return onChange?.(newValue);
+    }
+    setValue([searchValue]);
+    onChange?.(searchValue);
+  };
+
+  const addOptionText = `Add an option "${searchValue}"`;
+  const optionAddable = searchValue && options.findIndex((v) => v.value === searchValue) === -1;
 
   return (
     <Command className={className} style={style}>
-      <CommandInput placeholder="Search option" />
+      <SearchInput
+        reRef={inputRef}
+        searchValue={searchValue}
+        setSearchValue={setSearchValue}
+        onOptionAdd={onOptionAddInner}
+      />
       <CommandList>
-        <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
+        <CommandEmpty className="p-2">
+          <Button variant={'ghost'} size={'sm'} className="w-full text-sm">
+            <Plus className="h-4 w-4" />
+            <span className="ml-2">{addOptionText}</span>
+          </Button>
+        </CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {options.map(({ label, value, backgroundColor, color }) => (
-            <CommandItem key={value} value={value} onSelect={() => onSelect(value)}>
-              <Check
-                className={classNames(
-                  'mr-2 h-4 w-4',
-                  activeStatus(value) ? 'opacity-100' : 'opacity-0'
-                )}
-              />
+            <CommandItem
+              className="justify-between"
+              key={value}
+              value={value}
+              onSelect={() => onSelect(value)}
+            >
               <SelectTag
                 label={label || 'Untitled'}
                 backgroundColor={backgroundColor}
                 color={color}
               />
+              {checkIsActive(value) && <Check className={'ml-2 h-4 w-4'} />}
             </CommandItem>
           ))}
+          <CommandItem
+            className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
+            onSelect={onOptionAddInner}
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="ml-2 truncate">{addOptionText}</span>
+          </CommandItem>
         </CommandGroup>
       </CommandList>
     </Command>
   );
-}
+};
+
+export const SelectEditorMain = forwardRef(SelectEditorMainBase);
+
+const SearchInput = ({
+  reRef,
+  searchValue,
+  setSearchValue,
+  onOptionAdd,
+}: {
+  reRef: React.Ref<HTMLInputElement>;
+  searchValue: string;
+  setSearchValue: (value: string) => void;
+  onOptionAdd: () => Promise<void>;
+}) => {
+  const isEmpty = useCommandState((state) => state.filtered.count === 1);
+
+  return (
+    <CommandInput
+      ref={reRef}
+      placeholder="Search option"
+      value={searchValue}
+      onValueChange={(value) => setSearchValue(value)}
+      onKeyDown={async (e) => {
+        if (e.key === 'Enter' && isEmpty) {
+          e.stopPropagation();
+          await onOptionAdd();
+        }
+      }}
+    />
+  );
+};

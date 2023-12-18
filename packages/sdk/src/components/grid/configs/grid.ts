@@ -18,6 +18,7 @@ export const GRID_DEFAULT = {
   columnHeadPadding: 8,
   columnAppendBtnWidth: 100,
   columnResizeHandlerWidth: 5,
+  columnResizeHandlerPaddingTop: 4,
 
   // Cell
   cellHorizontalPadding: 8,

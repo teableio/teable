@@ -46,6 +46,7 @@ const {
   columnHeadMenuSize,
   columnAppendBtnWidth,
   columnResizeHandlerWidth,
+  columnResizeHandlerPaddingTop,
   cellScrollBarWidth,
   cellScrollBarPaddingX,
   cellScrollBarPaddingY,
@@ -948,13 +949,12 @@ export const drawColumnResizeHandler = (
     x =
       coordInstance.getColumnRelativeOffset(hoveredColumnResizeIndex, scrollLeft) + realColumnWidth;
   }
-  const paddingTop = 4;
 
   drawRect(ctx, {
     x: x - columnResizeHandlerWidth / 2 + 0.5,
-    y: paddingTop + 0.5,
+    y: columnResizeHandlerPaddingTop + 0.5,
     width: columnResizeHandlerWidth,
-    height: rowInitSize - paddingTop * 2,
+    height: rowInitSize - columnResizeHandlerPaddingTop * 2,
     fill: columnResizeHandlerBg,
     radius: 3,
   });

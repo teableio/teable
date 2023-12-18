@@ -27,7 +27,7 @@ import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
-import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
+import { StatisticMenu } from '@/features/app/blocks/view/grid/components';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
@@ -192,7 +192,7 @@ export const GridViewBase = () => {
           </div>
         </div>
       )}
-      <DomBox />
+      <StatisticMenu />
       <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
     </div>
   );

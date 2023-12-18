@@ -1,6 +1,8 @@
+import { FieldKeyType } from '@teable-group/core';
 import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
 import { deleteRecords } from '@teable-group/openapi';
-import { useTable, useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
+import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
+import { Record } from '@teable-group/sdk/model';
 import { Command, CommandGroup, CommandItem, CommandList } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
@@ -19,7 +21,6 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
-  const table = useTable();
   const tableId = useTableId();
   const viewId = useViewId();
   const permission = useTablePermission();
@@ -52,7 +53,7 @@ export const RecordMenu = () => {
       icon: <ArrowUp className={iconClassName} />,
       hidden: records.length !== 1 || !permission['record|create'],
       onClick: async () => {
-        if (!viewId) return;
+        if (!tableId || !viewId) return;
         let finalSort;
         const [aboveRecord] = neighborRecords;
         const sort = records[0].recordOrder[viewId];
@@ -64,7 +65,15 @@ export const RecordMenu = () => {
           finalSort = (sort + aboveSort) / 2;
         }
 
-        table && (await table.createRecord({}, { [viewId]: finalSort }));
+        await Record.createRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {},
+              recordOrder: { [viewId]: finalSort },
+            },
+          ],
+        });
       },
     },
     {
@@ -73,7 +82,7 @@ export const RecordMenu = () => {
       icon: <ArrowDown className={iconClassName} />,
       hidden: records.length !== 1 || !permission['record|create'],
       onClick: async () => {
-        if (!viewId) return;
+        if (!tableId || !viewId) return;
         let finalSort;
         const [, blewRecord] = neighborRecords;
         const sort = records[0].recordOrder[viewId];
@@ -85,7 +94,15 @@ export const RecordMenu = () => {
           finalSort = (sort + aboveSort) / 2;
         }
 
-        table && (await table.createRecord({}, { [viewId]: finalSort }));
+        await Record.createRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {},
+              recordOrder: { [viewId]: finalSort },
+            },
+          ],
+        });
       },
     },
     {

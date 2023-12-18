@@ -14,7 +14,7 @@ import { useTablePermission, useFields, useViewId, useView } from '../../../hook
 import type { IFieldInstance, Record } from '../../../model';
 import type { IViewInstance } from '../../../model/view';
 import { GRID_DEFAULT } from '../../grid/configs';
-import { GridAttachmentEditor, GridDateEditor, GridLinkEditor } from '../editor';
+import { GridAttachmentEditor, GridDateEditor, GridLinkEditor, GridSelectEditor } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
@@ -251,6 +251,9 @@ const createCellValue2GridDisplay =
           isMultiple,
           editWhenClicked: true,
           editorPosition: EditorPosition.Below,
+          customEditor: (props, editorRef) => (
+            <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
+          ),
         };
       }
       case FieldType.Link: {

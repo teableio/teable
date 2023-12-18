@@ -30,7 +30,7 @@ export const GridView = () => {
         <AggregationProvider>
           <RecordProvider serverRecords={records}>
             <RowCountProvider>
-              <div className="w-full grow overflow-hidden sm:pl-2">
+              <div className="w-full grow overflow-hidden">
                 <GridViewBase />
               </div>
             </RowCountProvider>

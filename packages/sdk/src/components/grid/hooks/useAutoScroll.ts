@@ -1,3 +1,4 @@
+import { inRange } from 'lodash';
 import { useState, useRef, useEffect } from 'react';
 import type { IMouseState, IScrollDirection } from '../interface';
 import { DragRegionType } from '../interface';
@@ -33,7 +34,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
     if (isSelecting || (isDragging && dragType === DragRegionType.Columns)) {
       if (containerWidth - x < threshold) {
         xDir = 1;
-      } else if (x - freezeRegionWidth < threshold) {
+      } else if (inRange(x, freezeRegionWidth, freezeRegionWidth + threshold)) {
         xDir = -1;
       }
     }
@@ -41,7 +42,7 @@ export const useAutoScroll = (props: IUseAutoScroll) => {
     if (isSelecting || (isDragging && dragType === DragRegionType.Rows)) {
       if (containerHeight - y < threshold) {
         yDir = 1;
-      } else if (y - rowInitSize < threshold) {
+      } else if (inRange(y, rowInitSize, rowInitSize + threshold)) {
         yDir = -1;
       }
     }

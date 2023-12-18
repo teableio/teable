@@ -54,7 +54,7 @@ export const gridTheme: IGridTheme = {
   staticWhite: '#FFFFFF',
   staticBlack: '#000000',
   iconFgCommon: colors.gray[500],
-  iconBgCommon: 'transparent',
+  iconBgCommon: colors.transparent,
   iconFgHighlight: colors.yellow[400],
   iconBgHighlight: colors.yellow[400],
   iconFgSelected: colors.blue[50],

@@ -40,7 +40,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
 
   const timeValue = useMemo(() => {
     const datetime = dayjs(date);
-    if (!datetime.isValid()) return;
+    if (!datetime.isValid()) return '';
     return datetime.format('HH:mm');
   }, [date]);
 
@@ -68,7 +68,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
       disabled={readonly}
       footer={
         hasTimePicker && dayjs(value).isValid() ? (
-          <div className="flex items-center px-1 py-2">
+          <div className="flex items-center p-1">
             <Input
               ref={inputRef}
               type="time"
