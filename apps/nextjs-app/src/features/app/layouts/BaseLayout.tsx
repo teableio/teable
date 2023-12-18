@@ -8,6 +8,7 @@ import React from 'react';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
 import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
+import { useSdkLocale } from '../hooks/useSdkLocale';
 
 export const BaseLayout: React.FC<{
   children: React.ReactNode;
@@ -17,10 +18,11 @@ export const BaseLayout: React.FC<{
 }> = ({ children, tableServerData, baseServerData, user }) => {
   const router = useRouter();
   const { baseId, nodeId, viewId } = router.query;
+  const sdkLocale = useSdkLocale();
 
   return (
     <AppLayout>
-      <AppProvider>
+      <AppProvider locale={sdkLocale}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <AnchorContext.Provider

@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createAppContext } from '../../../../../context/__tests__/createAppContext';
+import { defaultLocale } from '../../../../../context/app/i18n';
 import { BaseSingleSelect } from '../BaseSingleSelect';
 
 window.ResizeObserver =
@@ -26,20 +28,26 @@ describe('BaseSingleSelect', () => {
   const onSelect = () => {};
 
   it('should render combobox', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value="value-1" />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value="value-1" />, {
+      wrapper: createAppContext(),
+    });
     const button = screen.getByRole('combobox');
     expect(button).toHaveTextContent('label-1');
   });
 
-  it('should render default palceholder: Search...', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+  it('should render default placeholder: Search...', async () => {
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
-    const searchPlaceHolder = screen.getByPlaceholderText('Search...');
+    const searchPlaceHolder = screen.getByPlaceholderText(defaultLocale.common.search.placeholder);
     expect(searchPlaceHolder).toBeDefined();
   });
 
   it('should render right length options', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     const option = screen.getAllByRole('option');
     expect(option).toHaveLength(2);
@@ -47,7 +55,9 @@ describe('BaseSingleSelect', () => {
 
   it('should return the selected option value', async () => {
     const selecthandle = jest.fn();
-    render(<BaseSingleSelect options={options} onSelect={selecthandle} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={selecthandle} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
     fireEvent.click(screen.getAllByRole('option')[0]);
     expect(selecthandle).toHaveBeenCalledWith('value-1');
@@ -55,7 +65,10 @@ describe('BaseSingleSelect', () => {
 
   it('should display the selected option value', async () => {
     const { rerender } = render(
-      <BaseSingleSelect options={options} onSelect={onSelect} value={null} />
+      <BaseSingleSelect options={options} onSelect={onSelect} value={null} />,
+      {
+        wrapper: createAppContext(),
+      }
     );
     toggleOpen();
     fireEvent.click(screen.getByText('label-1'));
@@ -65,9 +78,12 @@ describe('BaseSingleSelect', () => {
   });
 
   it('should render search option', async () => {
-    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />);
+    render(<BaseSingleSelect options={options} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
     toggleOpen();
-    const input = screen.getByPlaceholderText('Search...');
+
+    const input = screen.getByPlaceholderText(defaultLocale.common.search.placeholder);
     fireEvent.change(input, { target: { value: 'label-1' } });
     const option = screen.getAllByRole('option');
     expect(option).toHaveLength(1);

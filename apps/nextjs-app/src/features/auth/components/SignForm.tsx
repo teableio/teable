@@ -5,9 +5,11 @@ import { signup, signin, signinSchema, signupSchema } from '@teable-group/openap
 import { Spin } from '@teable-group/ui-lib/base';
 import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import { authConfig } from '../../i18n/auth.config';
 
 export interface ISignForm {
   className?: string;
@@ -16,6 +18,8 @@ export interface ISignForm {
 }
 export const SignForm: FC<ISignForm> = (props) => {
   const { className, type = 'signin', onSuccess } = props;
+  const { t } = useTranslation(authConfig.i18nNamespaces);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>();
   const submitMutation = useMutation({
@@ -69,14 +73,17 @@ export const SignForm: FC<ISignForm> = (props) => {
     }
   }
 
-  const buttonText = useMemo(() => (type === 'signin' ? 'Sign In' : 'Sign Up'), [type]);
+  const buttonText = useMemo(
+    () => (type === 'signin' ? t('auth:button.signin') : t('auth:button.signup')),
+    [t, type]
+  );
 
   return (
     <div className={classNames('grid gap-3', className)}>
       <form className="relative" onSubmit={onSubmit} onChange={() => setError(undefined)}>
         <div className="grid gap-3">
           <div className="grid gap-3">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('auth:label.email')}</Label>
             <Input
               id="email"
               placeholder="Enter your email address..."
@@ -86,7 +93,7 @@ export const SignForm: FC<ISignForm> = (props) => {
             />
           </div>
           <div className="grid gap-3">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t('auth:label.password')}</Label>
             <Input
               id="password"
               placeholder="Enter your password..."

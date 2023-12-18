@@ -1,0 +1,56 @@
+{
+  "common": {
+    "comingSoon": "Coming Soon",
+    "empty": "Empty",
+    "noRecords": "No records available",
+    "unnamedRecord": "Unnamed record",
+    "untitled": "Untitled",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "search": {
+      "placeholder": "Search records",
+      "empty": "No results found."
+    },
+    "selectPlaceHolder": "Select..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "Paste or drag and drop to upload here",
+      "uploadDragDefault": "Release to upload file"
+    },
+    "date": {
+      "placeholder": "Pick a date"
+    },
+    "formula": {
+      "title": "Formula Editor",
+      "guideSyntax": "Syntax",
+      "guideExample": "Example",
+      "helperExample": "Example: "
+    },
+    "link": {
+      "placeholder": "Select records to link",
+      "searchPlaceholder": "Search records",
+      "create": "Add Record",
+      "unselected": "Unselected",
+      "selected": "Selected"
+    }
+  },
+  "filter": {
+    "description": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
+    "addCondition": "Add condition",
+    "addConditionGroup": "Add condition group",
+    "linkInputPlaceholder": "Enter a value",
+    "groupDescription": "Any of the following are true…"
+  },
+  "hidden": {
+    "showAll": "Show All",
+    "hideAll": "Hide ALl"
+  },
+  "expandRecord": {
+    "copy": "Copy to clipboard"
+  },
+  "sort": {
+    "title": "Sort by",
+    "addButton": "Add another sort"
+  }
+}

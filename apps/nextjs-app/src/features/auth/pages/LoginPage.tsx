@@ -6,7 +6,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useState, type FC, useCallback } from 'react';
-import { authConfig } from '@/features/auth/auth.config';
+import { authConfig } from '@/features/i18n/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
 
@@ -27,12 +27,12 @@ export const LoginPage: FC = () => {
         <div className="absolute left-0 flex h-[4em] w-full items-center justify-between bg-background px-5 lg:h-20">
           <div className="flex h-full items-center gap-2">
             <TeableNew className="h-8 w-8 text-black" />
-            Teable
+            {t('common:brand')}
           </div>
           <Tabs value={signType} onValueChange={(val) => setSignType(val as ISignForm['type'])}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign in</TabsTrigger>
-              <TabsTrigger value="signup">Sign up</TabsTrigger>
+              <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
+              <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

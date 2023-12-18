@@ -1,5 +1,6 @@
 import classNames from 'classnames';
 import { useDrop, useDropArea } from 'react-use';
+import { useTranslation } from '../../../../context/app/i18n';
 
 interface IDragAndCopyProps {
   onChange?: (files: File[]) => void;
@@ -10,6 +11,7 @@ interface IDragAndCopyProps {
 
 export const DragAndCopy = (props: IDragAndCopyProps) => {
   const { onChange, disabled, children } = props;
+  const { t } = useTranslation();
 
   const { over: hasOver } = useDrop();
   const [bound, { over }] = useDropArea({
@@ -36,7 +38,7 @@ export const DragAndCopy = (props: IDragAndCopyProps) => {
         )}
         {...bound}
       >
-        {over ? 'Release to upload file.' : 'Paste or drag and drop to upload here.'}
+        {over ? t('editor.attachment.uploadDragOver') : t('editor.attachment.uploadDragDefault')}
       </div>
     </div>
   );

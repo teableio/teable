@@ -14,11 +14,13 @@ import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { IOption, IBaseMultipleSelect } from './types';
 
 function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   props: IBaseMultipleSelect<V, O>
 ) {
+  const { t } = useTranslation();
   const {
     onSelect,
     value,
@@ -27,7 +29,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     popoverClassName,
     disabled = false,
     optionRender,
-    notFoundText = 'No field found.',
+    notFoundText = t('common.search.empty'),
     displayRender,
   } = props;
   const [open, setOpen] = useState(false);
@@ -66,11 +68,11 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id] || 'Untitled';
+      const name = optionMap[id] || t('common.untitled');
       const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
       return Number(containWord);
     },
-    [optionMap]
+    [optionMap, t]
   );
 
   return (
@@ -102,7 +104,10 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
-            <CommandInput placeholder="Search..." className="placeholder:text-[13px]" />
+            <CommandInput
+              placeholder={t('common.search.placeholder')}
+              className="placeholder:text-[13px]"
+            />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {options.length ? (
@@ -123,7 +128,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                   </CommandItem>
                 ))
               ) : (
-                <span className="text-[13px] text-gray-600">no result</span>
+                <span className="text-[13px] text-gray-600">{t('common.noRecords')}</span>
               )}
             </CommandGroup>
           </CommandList>

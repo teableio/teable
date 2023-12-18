@@ -12,6 +12,7 @@ import { keyBy } from 'lodash';
 import type { FC } from 'react';
 import { useRef, useState, useMemo, useCallback } from 'react';
 import { ThemeKey } from '../../../context';
+import { useTranslation } from '../../../context/app/i18n';
 import { useFieldStaticGetter, useFields, useTheme } from '../../../hooks';
 import { FormulaField } from '../../../model';
 import type { ICodeEditorRef } from './components';
@@ -44,6 +45,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const { expression, onConfirm } = props;
   const fields = useFields();
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const isLightTheme = theme === ThemeKey.Light;
   const getFieldStatic = useFieldStaticGetter();
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -324,7 +326,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   return (
     <div className="w-[620px]">
       <div className="flex h-12 w-full items-center justify-between border-b-[1px] pl-4 pr-2">
-        <h1 className="text-base">Formula Editor</h1>
+        <h1 className="text-base">{t('editor.formula.title')}</h1>
       </div>
       <div className={cn('flex flex-col w-full border-b-[1px] caret-foreground', codeBg)}>
         <CodeEditor
@@ -415,7 +417,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
               })}
             </>
           ) : (
-            <div className="pt-2 text-center text-sm">No search results</div>
+            <div className="pt-2 text-center text-sm">{t('common.search.empty')}</div>
           )}
         </div>
         <FunctionGuide data={functionGuideData} />

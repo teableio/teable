@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import homeJsonEn from '@teable-group/common-i18n/locales/en/app.json';
+import page404JsonEn from '@teable-group/common-i18n/locales/en/system.json';
 
-test.describe('Demo page', () => {
+test.describe('404 page', () => {
   test('should have the title in english by default', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/404');
     const title = await page.title();
-    expect(title).toBe(homeJsonEn.page.title);
+    expect(title).toBe(page404JsonEn.notFound.title);
   });
 });

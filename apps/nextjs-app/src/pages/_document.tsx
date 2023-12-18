@@ -7,8 +7,10 @@ type Props = DocumentProps & {
 
 class MyDocument extends Document<Props> {
   render() {
+    const locale = this.props.locale;
+
     return (
-      <Html>
+      <Html lang={locale}>
         <Head>
           <meta charSet="utf-8" />
           <link
