@@ -1,7 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/naming-convention */
-import { FormulaFuncType, FunctionName } from '@teable-group/core/src/formula/functions/common';
-import { FUNCTIONS } from '@teable-group/core/src/formula/functions/factory';
-import { FormulaLexer } from '@teable-group/core/src/formula/parser/FormulaLexer';
+import { FormulaFuncType, FunctionName, FUNCTIONS, FormulaLexer } from '@teable-group/core';
 import { Hash, A, CheckSquare, Calendar } from '@teable-group/icons';
 import type { IFunctionMap, IFunctionSchema } from './interface';
 

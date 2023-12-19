@@ -1,4 +1,4 @@
-import type { FunctionName } from '@teable-group/core/src/formula/functions/common';
+import type { FunctionName } from '@teable-group/core';
 import { cn } from '@teable-group/ui-lib';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';

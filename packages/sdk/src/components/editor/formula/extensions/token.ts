@@ -2,7 +2,7 @@
 import type { StringStream, TagStyle } from '@codemirror/language';
 import { HighlightStyle, syntaxHighlighting, StreamLanguage } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
-import { FormulaLexer } from '@teable-group/core/src/formula/parser/FormulaLexer';
+import { FormulaLexer } from '@teable-group/core';
 import colors from 'tailwindcss/colors';
 
 enum TokenGroup {
