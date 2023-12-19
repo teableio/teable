@@ -25,5 +25,5 @@
     "types": ["@testing-library/jest-dom/types"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src", "../common-i18n/src/locales/en/sdk.json"]
+  "include": ["src"]
 }
