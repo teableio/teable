@@ -116,6 +116,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       const newRange = <IRange>[newColumnIndex, rowIndex];
       const ranges = [newRange, newRange];
 
+      editorRef.current?.saveValue?.();
       scrollToItem([newColumnIndex, rowIndex]);
       setEditing(false);
       setActiveCell(newRange);
