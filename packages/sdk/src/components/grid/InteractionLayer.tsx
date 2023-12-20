@@ -16,13 +16,7 @@ import {
   DEFAULT_COLUMN_RESIZE_STATE,
 } from './configs';
 import type { IGridProps } from './Grid';
-import {
-  useAutoScroll,
-  useEventListener,
-  useSmartClick,
-  useSelection,
-  useColumnResize,
-} from './hooks';
+import { useAutoScroll, useEventListener, useSelection, useColumnResize } from './hooks';
 import { useDrag } from './hooks/useDrag';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
 import type {
@@ -464,11 +458,17 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const { onSmartClick, onSmartMouseDown, onSmartMouseUp } = useSmartClick(
-    stageRef,
-    onClick,
-    onDblClick
-  );
+  const onSmartClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const eventDetail = event.detail;
+
+    if (eventDetail === 1) {
+      onClick(event);
+    }
+
+    if (eventDetail === 2) {
+      onDblClick();
+    }
+  };
 
   const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.preventDefault();
@@ -480,7 +480,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       setEditing(false);
       editorContainerRef.current?.saveValue?.();
     }
-    onSmartMouseDown(mouseState);
     onDragStart(mouseState);
     prevActiveCellRef.current = activeCell;
     onSelectionStart(event, mouseState);
@@ -536,7 +535,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     setMouseState(mouseState);
     onAutoScrollStop();
-    onSmartMouseUp(mouseState);
     onDragEnd(mouseState, (ranges, dropIndex) => {
       if (dragType === DragRegionType.Columns) {
         onColumnOrdered?.(flatRanges(ranges), dropIndex);

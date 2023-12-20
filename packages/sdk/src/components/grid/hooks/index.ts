@@ -1,7 +1,6 @@
 export * from './useDrag';
 export * from './useSelection';
 export * from './useAutoScroll';
-export * from './useSmartClick';
 export * from './useColumnResize';
 export * from './useEventListener';
 export * from './useVisibleRegion';

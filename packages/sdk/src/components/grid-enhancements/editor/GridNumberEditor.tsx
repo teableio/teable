@@ -13,7 +13,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
   IEditorRef<number>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { field, record, rect, style, theme } = props;
+  const { field, record, rect, style, theme, cell, isEditing } = props;
   const { cellLineColorActived } = theme;
   const editorRef = useRef<IEditorRef<number>>(null);
   const options = field.options as INumberFieldOptions;
@@ -26,6 +26,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
   }));
 
   const saveValue = (value: unknown) => {
+    if (value === cell.data || !isEditing) return;
     record.updateCell(field.id, value ?? null);
   };
 

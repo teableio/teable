@@ -186,7 +186,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       cellPropList.push({
         x: x + 0.5,
         y: y + 0.5,
-        width: isFirstColumn ? columnWidth + 0.5 : columnWidth,
+        width: columnWidth,
         height: rowHeight,
         rowIndex,
         columnIndex,
