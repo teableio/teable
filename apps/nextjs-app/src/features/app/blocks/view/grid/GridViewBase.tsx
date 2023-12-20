@@ -110,7 +110,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       .map((key) => recordMap[key]?.id)
       .filter(Boolean);
     expandRecordRef.current?.updateRecordIds?.(recordIds);
-  }, [expandRecordRef, recordMap]);
+  }, [recordMap]);
 
   // The recordId on the route changes, and the activeCell needs to change with it
   useEffect(() => {

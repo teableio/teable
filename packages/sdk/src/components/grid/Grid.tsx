@@ -375,6 +375,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             forceRenderFlag={forceRenderFlag}
+            rowIndexVisible={rowIndexVisible}
             getCellContent={getCellContent}
             setMouseState={setMouseState}
             setActiveCell={setActiveCell}

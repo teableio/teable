@@ -65,6 +65,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     imageManager,
     spriteManager,
     forceRenderFlag,
+    rowIndexVisible,
     getCellContent,
     setActiveCell,
     setMouseState,
@@ -167,6 +168,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
+          rowIndexVisible={rowIndexVisible}
           activeCell={null}
           activeCellBound={null}
           mouseState={mouseState}
