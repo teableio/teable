@@ -345,8 +345,18 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
   const { width, height, columnIndex, rowIndex } = activeCellBound;
   const { rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex } = mouseState;
   const { cellBg, cellLineColorActived, fontSizeSM, fontFamily, scrollBarBg } = theme;
-  const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
-    coordInstance;
+  const {
+    freezeColumnCount,
+    freezeRegionWidth,
+    containerWidth,
+    containerHeight,
+    pureRowCount,
+    columnCount,
+    rowInitSize,
+  } = coordInstance;
+
+  if (columnIndex >= columnCount || rowIndex >= pureRowCount) return;
+
   const isFreezeRegion = columnIndex < freezeColumnCount;
   const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
@@ -373,32 +383,30 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     radius: 2,
   });
 
-  if (activeCellBound) {
-    const cellScrollState = getCellScrollState(activeCellBound);
-    const { scrollBarHeight, scrollBarScrollTop, contentScrollTop } = cellScrollState;
+  const cellScrollState = getCellScrollState(activeCellBound);
+  const { scrollBarHeight, scrollBarScrollTop, contentScrollTop } = cellScrollState;
 
+  ctx.save();
+  ctx.beginPath();
+
+  if (activeCellBound.scrollEnable) {
+    ctx.translate(0, scrollBarScrollTop);
+
+    drawRect(ctx, {
+      x: x + width - cellScrollBarWidth - cellScrollBarPaddingX,
+      y: y + cellScrollBarPaddingY,
+      width: cellScrollBarWidth,
+      height: scrollBarHeight,
+      fill: scrollBarBg,
+      radius: cellScrollBarWidth / 2,
+    });
+
+    ctx.restore();
     ctx.save();
     ctx.beginPath();
-
-    if (activeCellBound.scrollEnable) {
-      ctx.translate(0, scrollBarScrollTop);
-
-      drawRect(ctx, {
-        x: x + width - cellScrollBarWidth - cellScrollBarPaddingX,
-        y: y + cellScrollBarPaddingY,
-        width: cellScrollBarWidth,
-        height: scrollBarHeight,
-        fill: scrollBarBg,
-        radius: cellScrollBarWidth / 2,
-      });
-
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, y + 1, width, height - 1);
-      ctx.clip();
-      ctx.translate(0, -contentScrollTop);
-    }
+    ctx.rect(x, y + 1, width, height - 1);
+    ctx.clip();
+    ctx.translate(0, -contentScrollTop);
   }
 
   drawCellContent(ctx, {
@@ -417,10 +425,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     theme,
   });
 
-  if (activeCellBound) {
-    ctx.restore();
-  }
-
+  ctx.restore();
   ctx.restore();
 };
 

@@ -24,12 +24,6 @@ export enum EditorType {
   Custom = 'Custom',
 }
 
-export enum EditorPosition {
-  Above = 'Above',
-  Below = 'Below',
-  Overlap = 'Overlap',
-}
-
 export type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;
 
 export interface IBaseCell {
@@ -42,7 +36,6 @@ export interface IBaseCell {
 
 export interface IEditableCell extends IBaseCell {
   customEditor?: ICustomEditor;
-  editorPosition?: EditorPosition;
   editWhenClicked?: boolean; // When activated, clicking can edit the cell
 }
 
