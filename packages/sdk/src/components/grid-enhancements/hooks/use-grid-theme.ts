@@ -17,6 +17,8 @@ const darkTheme = {
   cellLineColor: colors.gray[700],
   cellLineColorActived: colors.slate[400],
   cellTextColor: colors.slate[50],
+  cellOptionBg: colors.gray[600],
+  cellOptionTextColor: colors.white,
 
   // Column Header
   columnHeaderBg: colors.zinc[900],

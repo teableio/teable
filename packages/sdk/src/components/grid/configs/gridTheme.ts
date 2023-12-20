@@ -82,8 +82,8 @@ export const gridTheme: IGridTheme = {
   cellTextColorHighlight: colors.violet[500],
   cellHorizontalPadding: 8,
   cellVerticalPadding: 3,
-  cellOptionBg: colors.gray[500],
-  cellOptionTextColor: colors.white,
+  cellOptionBg: colors.gray[300],
+  cellOptionTextColor: colors.black,
 
   // Column Header
   columnHeaderBg: colors.slate[50],
