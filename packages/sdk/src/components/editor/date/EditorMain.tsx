@@ -5,7 +5,7 @@ import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
 
-export interface IDateEditorMain extends ICellEditor<string> {
+export interface IDateEditorMain extends ICellEditor<string | null> {
   style?: React.CSSProperties;
   options?: IDateFieldOptions;
 }
@@ -17,31 +17,40 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   const { value, style, className, onChange, readonly, options } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { time } = options?.formatting || {};
-  const [date, setDate] = useState<string | undefined>(value);
+  const [date, setDate] = useState<string | null>(value || null);
   const hasTimePicker = time !== TimeFormatting.None;
-  const selectedValue = dayjs(date);
 
   useImperativeHandle(ref, () => ({
-    setValue: (value?: string) => setDate(value),
+    setValue: (value?: string) => setDate(value || null),
+    saveValue,
   }));
 
   const onSelect = (value?: Date) => {
     let curDatetime = dayjs(value);
     const prevDatetime = dayjs(date);
-    if (!curDatetime.isValid()) onChange?.(undefined);
+    if (!curDatetime.isValid()) onChange?.(null);
 
     if (prevDatetime.isValid()) {
       const hours = prevDatetime.get('hour');
       const minutes = prevDatetime.get('minute');
       curDatetime = curDatetime.set('hour', hours).set('minute', minutes);
     }
-    onChange?.(curDatetime.toISOString());
+
+    const dateStr = curDatetime.toISOString();
+
+    setDate(dateStr);
+    onChange?.(dateStr);
   };
 
   const timeValue = useMemo(() => {
     const datetime = dayjs(date);
     if (!datetime.isValid()) return '';
     return datetime.format('HH:mm');
+  }, [date]);
+
+  const selectedDate = useMemo(() => {
+    const dateTime = dayjs(date);
+    return dateTime.isValid() ? dateTime.toDate() : undefined;
   }, [date]);
 
   const onTimeChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -54,27 +63,29 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
     setDate(modifiedDatetime.toISOString());
   };
 
-  const onBlur = () => {
-    onChange?.(date);
+  const saveValue = () => {
+    if (value == date) return;
+    onChange?.(date || null);
   };
 
   return (
     <Calendar
       style={style}
       mode="single"
-      selected={selectedValue.isValid() ? selectedValue.toDate() : undefined}
+      selected={selectedDate}
+      defaultMonth={selectedDate}
       onSelect={onSelect}
       className={className}
       disabled={readonly}
       footer={
-        hasTimePicker && dayjs(value).isValid() ? (
+        hasTimePicker && date ? (
           <div className="flex items-center p-1">
             <Input
               ref={inputRef}
               type="time"
               value={timeValue}
               onChange={onTimeChange}
-              onBlur={onBlur}
+              onBlur={saveValue}
             />
           </div>
         ) : null
