@@ -1,7 +1,7 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/view/{viewId}/selection/rangeToId';
 
@@ -20,13 +20,13 @@ export const rangesSchema = z.object({
     .refine((value) => z.array(cellSchema).min(1).safeParse(JSON.parse(value)).success, {
       message: 'The range parameter must be a valid 2D array with even length.',
     })
+    .describe(
+      'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. '
+    )
     .openapi({
-      description:
-        'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. ',
       example: '[[0, 0],[1, 1]]',
     }),
-  type: z.nativeEnum(RangeType).optional().openapi({
-    description: 'Types of non-contiguous selections',
+  type: z.nativeEnum(RangeType).optional().describe('Types of non-contiguous selections').openapi({
     example: RangeType.Columns,
   }),
 });
@@ -39,7 +39,7 @@ export enum IdReturnType {
 
 export const rangesToIdRoSchema = rangesSchema.merge(
   z.object({
-    returnType: z.nativeEnum(IdReturnType).openapi({ description: 'Define which Id to return.' }),
+    returnType: z.nativeEnum(IdReturnType).describe('Define which Id to return.'),
   })
 );
 

@@ -1,7 +1,7 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const CREATE_DB_CONNECTION = '/base/{baseId}/connection';
 
@@ -19,7 +19,7 @@ export const dbConnectionVoSchema = z.object({
     pass: z.string().optional(),
     params: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   }),
-  url: z.string().openapi({ description: 'The URL that can be used to connect to the database' }),
+  url: z.string().describe('The URL that can be used to connect to the database'),
 });
 
 export type IDbConnectionVo = z.infer<typeof dbConnectionVoSchema>;

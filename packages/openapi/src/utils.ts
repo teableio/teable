@@ -1,5 +1,5 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { stringify } from 'qs';
+import { openApiGenerator } from './generate.schema';
 
 export const urlBuilder = (url: string, pathParams?: Record<string, unknown>) => {
   if (!pathParams) {
@@ -12,16 +12,7 @@ export const urlBuilder = (url: string, pathParams?: Record<string, unknown>) =>
   return url;
 };
 
-const routes: RouteConfig[] = [];
-
-export const registerRoute = (route: RouteConfig) => {
-  routes.push(route);
-  return route;
-};
-
-export const getRoutes = () => {
-  return routes;
-};
+export const registerRoute = openApiGenerator.registerRoute;
 
 export const paramsSerializer = (params: Record<string, unknown>) => {
   const paramsInner = Object.keys(params).reduce(

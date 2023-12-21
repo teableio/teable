@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import type { IGetBaseVo } from '../base';
 import { getBaseVoSchema } from '../base';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const GET_BASE_LIST = '/space/{spaceId}/base';
 

@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
-import { getOpenApiDocumentation } from '@teable-group/openapi';
+import { openApiGenerator } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
@@ -37,10 +37,10 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 
   const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
-  const openApiDocumentation = getOpenApiDocumentation();
+  const openApiDocumentation = openApiGenerator.genOpenApiContent();
 
   if (!swaggerConfig?.disabled) {
-    const jsonString = JSON.stringify(openApiDocumentation);
+    const jsonString = JSON.stringify(openApiGenerator.genOpenApiContent(), null, 2);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     SwaggerModule.setup('/docs', app, openApiDocumentation as any);

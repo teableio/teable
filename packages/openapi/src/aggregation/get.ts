@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IViewAggregationRo, IViewAggregationVo } from '@teable-group/core';
 import { viewVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const GET_VIEW_AGGREGATIONS_LIST = '/table/{tableId}/aggregation/{viewId}';
 

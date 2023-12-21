@@ -1,14 +1,13 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const signatureVoSchema = z.object({
-  url: z.string().openapi({
+  url: z.string().describe('Upload url').openapi({
     example: 'https://example.com/attachment/upload',
-    description: 'Upload url',
   }),
-  secret: z.string().openapi({ example: 'xxxxxxxx', description: 'Secret key' }),
+  secret: z.string().describe('Secret key').openapi({ example: 'xxxxxxxx' }),
 });
 
 export type SignatureVo = z.infer<typeof signatureVoSchema>;

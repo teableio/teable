@@ -1,8 +1,8 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { IdPrefix } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const ACCEPT_INVITATION_LINK = '/invitation/link/accept';
 

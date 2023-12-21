@@ -1,15 +1,13 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const SING_IN = '/auth/signin';
 
 export const signinSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8, 'Minimum 8 chars').openapi({
-    description: 'Minimum 8 chars',
-  }),
+  password: z.string().describe('Minimum 8 chars').min(8, 'Minimum 8 chars'),
 });
 
 export type ISignin = z.infer<typeof signinSchema>;

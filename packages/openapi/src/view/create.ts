@@ -1,14 +1,14 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IViewRo, IViewVo } from '@teable-group/core';
 import { viewRoSchema, viewVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const CREATE_VIEW = '/table/{tableId}/view';
 
 export const CreateViewRoute: RouteConfig = registerRoute({
-  method: 'post',
+  method: 'POST',
   path: CREATE_VIEW,
   description: 'Create a view',
   request: {

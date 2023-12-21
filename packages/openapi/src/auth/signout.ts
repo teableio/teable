@@ -1,6 +1,6 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const SING_OUT = '/auth/signout';
 

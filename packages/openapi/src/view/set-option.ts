@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IViewOptionRo } from '@teable-group/core';
 import { viewOptionRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const VIEW_OPTION = '/table/{tableId}/view/{viewId}/option';
 

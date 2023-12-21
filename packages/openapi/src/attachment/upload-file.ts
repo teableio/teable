@@ -1,6 +1,6 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const UPLOAD_FILE_URL = '/attachments/upload/{token}';
 
@@ -28,6 +28,12 @@ export const UploadFileRoute: RouteConfig = registerRoute({
   responses: {
     201: {
       description: 'Upload successful',
+    },
+  },
+  schemaProps: {
+    file: {
+      example: 'file',
+      format: 'binary',
     },
   },
   tags: ['attachments'],

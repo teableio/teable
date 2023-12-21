@@ -1,20 +1,18 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const NOTIFY_URL = '/attachments/notify/{secret}';
 
 export const notifyVoSchema = z.object({
-  token: z.string().openapi({ example: 'xxxxxxxxxxx', description: 'Token for the uploaded file' }),
-  size: z.number().openapi({ example: 1024, description: 'File size in bytes' }),
-  mimetype: z
-    .string()
-    .openapi({ example: 'video/mp4', description: 'MIME type of the uploaded file' }),
-  path: z.string().openapi({ example: '/attachments', description: 'URL of the uploaded file' }),
-  url: z.string().openapi({ description: 'Attachment url' }),
-  width: z.number().openapi({ example: 100, description: 'Image width of the uploaded file' }),
-  height: z.number().openapi({ example: 100, description: 'Image height of the uploaded file' }),
+  token: z.string().describe('Token for the uploaded file').openapi({ example: 'xxxxxxxxxxx' }),
+  size: z.number().describe('File size in bytes').openapi({ example: 1024 }),
+  mimetype: z.string().describe('MIME type of the uploaded file').openapi({ example: 'video/mp4' }),
+  path: z.string().describe('URL of the uploaded file').openapi({ example: '/attachments' }),
+  url: z.string().describe('Attachment url'),
+  width: z.number().describe('Image width of the uploaded file').openapi({ example: 100 }),
+  height: z.number().describe('Image height of the uploaded file').openapi({ example: 100 }),
 });
 
 export type INotifyVo = z.infer<typeof notifyVoSchema>;

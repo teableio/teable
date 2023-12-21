@@ -1,8 +1,8 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { copyVoSchema, rangesSchema, type ICopyRo } from '../selection';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const SHARE_VIEW_COPY = '/share/{shareId}/view/copy';
 

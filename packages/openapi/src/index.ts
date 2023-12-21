@@ -13,4 +13,5 @@ export * from './aggregation';
 export * from './db-connection';
 export * from './invitation';
 export * from './share';
+export * from './zod-to-openapi';
 export { urlBuilder } from './utils';

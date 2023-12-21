@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IColumnMetaRo } from '@teable-group/core';
 import { columnMetaRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const VIEW_FIELD_COLUMNMETA = '/table/{tableId}/view/{viewId}/columnMeta';
 

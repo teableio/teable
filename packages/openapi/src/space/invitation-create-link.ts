@@ -1,8 +1,8 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { spaceRolesSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 import { itemSpaceInvitationLinkVoSchema } from './invitation-get-link-list';
 
 export const CREATE_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link';

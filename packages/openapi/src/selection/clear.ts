@@ -1,20 +1,17 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 import { cellSchema, rangesSchema } from './range';
 
 export const CLEAR_URL = '/table/{tableId}/view/{viewId}/selection/clear';
 
 export const clearRoSchema = z.object({
-  ranges: z.array(cellSchema).openapi({
-    description:
-      'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
-    example: [
-      [0, 0],
-      [1, 1],
-    ],
-  }),
+  ranges: z
+    .array(cellSchema)
+    .describe(
+      'The parameter "ranges" is used to represent the coordinates of a selected range in a table. '
+    ),
   type: rangesSchema.shape.type,
 });
 
@@ -35,6 +32,14 @@ export const ClearRoute: RouteConfig = registerRoute({
           schema: clearRoSchema,
         },
       },
+    },
+  },
+  schemaProps: {
+    ranges: {
+      example: [
+        [0, 0],
+        [1, 1],
+      ],
     },
   },
   responses: {

@@ -1,8 +1,8 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { getRecordsQuerySchema, recordsVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/linkRecords';
 

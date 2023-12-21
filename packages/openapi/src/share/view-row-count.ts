@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IViewRowCountRo, IViewRowCountVo } from '@teable-group/core';
 import { viewRowCountSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/rowCount';
 

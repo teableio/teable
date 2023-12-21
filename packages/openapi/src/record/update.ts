@@ -1,9 +1,9 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRecord, IUpdateRecordRo } from '@teable-group/core';
 import { recordSchema, updateRecordRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { RouteConfig } from '../zod-to-openapi';
 
 export const UPDATE_RECORD = '/table/{tableId}/record/{recordId}';
 
