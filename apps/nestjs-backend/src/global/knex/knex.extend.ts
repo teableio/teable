@@ -27,28 +27,10 @@ knex.QueryBuilder.extend('columnList', function (tableName: string) {
   return this;
 });
 
-knex.QueryBuilder.extend('dropIndex', function (tableName: string, indexName: string) {
-  const driverClient = getDriverName(this);
-
-  switch (driverClient) {
-    case DriverClient.Sqlite:
-      return knex(this.client.config).raw(`DROP INDEX ??`, [indexName]);
-    case DriverClient.Pg: {
-      const [schema] = tableName.split('.');
-      return knex(this.client.config).raw(`DROP INDEX ??.??`, [schema, indexName]);
-      break;
-    }
-  }
-  return this;
-});
-
 declare module 'knex' {
   namespace Knex {
     interface QueryBuilder {
       columnList(tableName: string): Knex.QueryBuilder;
-    }
-    interface QueryBuilder {
-      dropIndex(tableName: string, indexName: string): Knex.QueryBuilder;
     }
   }
 }

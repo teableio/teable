@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
 import type { IFilter } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
@@ -48,6 +49,13 @@ export class SqliteProvider implements IDbProvider {
 
   dropColumn(tableName: string, columnName: string): string[] {
     return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
+  }
+
+  dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[] {
+    return [
+      this.knex.raw(`DROP INDEX IF EXISTS ??`, [indexName]).toQuery(),
+      this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery(),
+    ];
   }
 
   columnInfo(tableName: string, _columnName: string): string {

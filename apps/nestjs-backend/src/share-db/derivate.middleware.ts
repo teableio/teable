@@ -2,7 +2,7 @@ import type { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import type { IClsStore } from '../types/cls';
 import type { ShareDbService } from './share-db.service';
-import type { WsDerivateService } from './ws-derivate.service';
+import type { ICustomSubmitContext, WsDerivateService } from './ws-derivate.service';
 
 export const derivateMiddleware = (
   shareDB: ShareDbService,
@@ -18,9 +18,10 @@ export const derivateMiddleware = (
 
   shareDB.use(
     'afterWrite',
-    async (context: ShareDBClass.middleware.SubmitContext, next: (err?: unknown) => void) => {
-      const saveContext = context.agent.custom?.saveContext;
-      const stashOpMap = context.agent.custom?.stashOpMap;
+    async (context: ICustomSubmitContext, next: (err?: unknown) => void) => {
+      // console.log('afterWrite:context', JSON.stringify(context.extra, null, 2));
+      const saveContext = context.extra.saveContext;
+      const stashOpMap = context.extra.stashOpMap;
 
       if (saveContext) {
         stashOpMap && cls.set('tx.stashOpMap', stashOpMap);
