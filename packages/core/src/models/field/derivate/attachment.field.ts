@@ -13,7 +13,6 @@ export const attachmentItemSchema = z.object({
   token: z.string(),
   size: z.number(),
   mimetype: z.string(),
-  path: z.string(),
   url: z.string(),
   width: z.number().optional(),
   height: z.number().optional(),

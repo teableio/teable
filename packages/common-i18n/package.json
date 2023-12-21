@@ -20,6 +20,10 @@
       "require": "./src/locales/*.json",
       "import": "./src/locales/*.json"
     },
+    "./src/locales/en/sdk.json": {
+      "require": "./src/locales/en/sdk.json",
+      "import": "./src/locales/en/sdk.json"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

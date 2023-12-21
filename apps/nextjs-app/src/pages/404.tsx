@@ -1,18 +1,26 @@
-import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import type { GetStaticPropsContext, InferGetStaticPropsType } from 'next';
 import { systemConfig } from '@/features/i18n/system.config';
 import { NotFoundPage } from '@/features/system/pages';
-import { getTranslationsProps } from '@/lib/i18n';
+import { getServerSideTranslations } from '@/lib/i18n';
+import i18nConfig from '../../next-i18next.config';
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { i18nNamespaces } = systemConfig;
+export const getStaticProps = async (context: GetStaticPropsContext) => {
+  const { locale = 'en' } = context;
+
+  const inlinedTranslation = await getServerSideTranslations(
+    locale,
+    systemConfig.i18nNamespaces,
+    i18nConfig
+  );
 
   return {
     props: {
-      ...(await getTranslationsProps(context, i18nNamespaces)),
+      locale: locale,
+      ...inlinedTranslation,
     },
   };
 };
 
-export default function Custom404(_props: InferGetServerSidePropsType<typeof getServerSideProps>) {
+export default function Custom404(_props: InferGetStaticPropsType<typeof getStaticProps>) {
   return <NotFoundPage />;
 }

@@ -1,5 +1,5 @@
 import type { IUser } from '../../context';
-import type { IGridTheme } from './configs';
+import type { IGridTheme } from './configs/gridTheme';
 export * from './renderers/cell-renderer/interface';
 
 export interface IScrollState {
