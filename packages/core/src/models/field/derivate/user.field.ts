@@ -26,7 +26,7 @@ export type IUserFieldOptions = z.infer<typeof userFieldOptionsSchema>;
 
 export const userCellValueSchema = z.object({
   id: z.string().startsWith(IdPrefix.User),
-  title: z.string(),
+  title: z.string().optional(),
 });
 
 export type IUserCellValue = z.infer<typeof userCellValueSchema>;
@@ -50,7 +50,7 @@ export class UserFieldCore extends FieldCore {
 
     const { title } = value as IUserCellValue;
 
-    if (this.isMultipleCellValue && title.includes(',')) {
+    if (this.isMultipleCellValue && title?.includes(',')) {
       return `"${title}"`;
     }
     return title || '';

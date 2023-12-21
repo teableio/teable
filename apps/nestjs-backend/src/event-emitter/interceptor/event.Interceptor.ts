@@ -2,14 +2,12 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { plainToInstance } from 'class-transformer';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs';
-import { EMIT_EVENT_NAME } from '../decorators/emit-event.decorator';
+import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
 import type { IEventContext } from '../interfaces/base-event.interface';
-import { BaseCreateEvent, BaseDeleteEvent, BaseUpdateEvent, Events } from '../model';
-import { SpaceCreateEvent, SpaceDeleteEvent, SpaceUpdateEvent } from '../model/space/space-event';
+import { baseEventSchema, Events, spaceEventSchema } from '../model';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -42,51 +40,41 @@ export class EventMiddleware implements NestInterceptor {
           event && this.eventEmitterService.emitAsync(event.name, event);
         });
       })
-      // map((data) => {
-      //   return data;
-      // })
     );
   }
 
   private createInstance(emitEventName: Events, plain: any) {
     switch (emitEventName) {
       /* base event plain to instance */
-      case Events.BASE_CREATE: {
-        const { data: base, eventContext: context } = plain;
-        return plainToInstance(BaseCreateEvent, { base, context });
-      }
-      case Events.BASE_DELETE: {
-        const { data: baseId, eventContext: context } = plain;
-        return plainToInstance(BaseDeleteEvent, { baseId, context });
-      }
+      case Events.BASE_CREATE:
+      case Events.BASE_DELETE:
       case Events.BASE_UPDATE: {
         const { reqParams, data: base, eventContext: context } = plain;
-        const { baseId } = reqParams;
-        return plainToInstance(BaseUpdateEvent, { baseId, base, context });
+        const { baseId } = reqParams || {};
+
+        const baseEvent = baseEventSchema.safeParse({
+          name: emitEventName,
+          base,
+          baseId,
+          context,
+        });
+        return baseEvent.success ? baseEvent.data : undefined;
       }
       /* space event plain to instance */
-      case Events.SPACE_CREATE: {
-        const { data: space, eventContext: context } = plain;
-        return plainToInstance(SpaceCreateEvent, { space, context });
-      }
-      case Events.SPACE_DELETE: {
-        const { reqParams, eventContext: context } = plain;
-        const { spaceId } = reqParams;
-
-        return plainToInstance(SpaceDeleteEvent, { spaceId, context });
-      }
+      case Events.SPACE_CREATE:
+      case Events.SPACE_DELETE:
       case Events.SPACE_UPDATE: {
         const { reqParams, data: space, eventContext: context } = plain;
-        const { spaceId } = reqParams;
-        return plainToInstance(SpaceUpdateEvent, { spaceId, space, context });
-      }
+        const { spaceId } = reqParams || {};
 
-      // case Events.SHARED_VIEW_CREATE:
-      //   break;
-      // case Events.SHARED_VIEW_DELETE:
-      //   break;
-      // case Events.SHARED_VIEW_UPDATE:
-      //   break;
+        const spaceEvent = spaceEventSchema.safeParse({
+          name: emitEventName,
+          space,
+          spaceId,
+          context,
+        });
+        return spaceEvent.success ? spaceEvent.data : undefined;
+      }
 
       /* user event plain to instance */
       case Events.USER_SIGNIN:

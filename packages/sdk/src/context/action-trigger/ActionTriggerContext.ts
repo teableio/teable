@@ -2,4 +2,14 @@
 import type { IActionTriggerBuffer } from '@teable-group/core';
 import React from 'react';
 
-export const ActionTriggerContext = React.createContext<IActionTriggerBuffer | null>(null);
+export type PropKeys = keyof IActionTriggerBuffer;
+
+export type IActionTrigger = {
+  data?: IActionTriggerBuffer;
+};
+
+export type IActionTriggerContext = IActionTrigger & {
+  listener?: (propKeys: PropKeys[], callback: () => void, deps?: unknown[]) => void;
+};
+
+export const ActionTriggerContext = React.createContext<IActionTriggerContext>({});

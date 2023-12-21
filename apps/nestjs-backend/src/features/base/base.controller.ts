@@ -13,7 +13,7 @@ import type {
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
 } from '@teable-group/openapi';
-import { EmitEvent } from '../../event-emitter/decorators/emit-event.decorator';
+import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/model';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -35,7 +35,7 @@ export class BaseController {
   @Post()
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @EmitEvent(Events.BASE_CREATE)
+  @EmitControllerEvent(Events.BASE_CREATE)
   async createBase(
     @Body(new ZodValidationPipe(createBaseRoSchema))
     createBaseRo: ICreateBaseRo
@@ -45,7 +45,7 @@ export class BaseController {
 
   @Patch(':baseId')
   @Permissions('base|update')
-  @EmitEvent(Events.BASE_UPDATE)
+  @EmitControllerEvent(Events.BASE_UPDATE)
   async updateBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(updateBaseRoSchema))
@@ -67,7 +67,7 @@ export class BaseController {
 
   @Delete(':baseId')
   @Permissions('base|delete')
-  @EmitEvent(Events.BASE_DELETE)
+  @EmitControllerEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     await this.baseService.deleteBase(baseId);
     return null;

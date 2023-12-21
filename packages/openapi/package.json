@@ -30,8 +30,8 @@
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
-    "eslint": "8.52.0",
+    "eslint": "8.56.0",
     "rimraf": "5.0.5",
-    "typescript": "5.2.2"
+    "typescript": "5.3.3"
   }
 }

@@ -1,10 +1,11 @@
 import type { IActionTriggerBuffer } from '@teable-group/core';
 import { getActionTriggerChannel } from '@teable-group/core';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 import { AnchorContext } from '../anchor';
 import { AppContext } from '../app';
+import type { PropKeys } from './ActionTriggerContext';
 import { ActionTriggerContext } from './ActionTriggerContext';
 
 interface INotificationProviderProps {
@@ -16,7 +17,7 @@ export const ActionTriggerProvider: FC<INotificationProviderProps> = ({ children
   const { connection } = useContext(AppContext);
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
-  const [actionTrigger, setActionTrigger] = useState<IActionTriggerBuffer | null>(null);
+  const [actionTrigger, setActionTrigger] = useState<IActionTriggerBuffer>();
 
   useEffect(() => {
     if (tableId == null || connection == null) return;
@@ -39,7 +40,32 @@ export const ActionTriggerProvider: FC<INotificationProviderProps> = ({ children
     };
   }, [connection, remotePresence, tableId]);
 
-  return (
-    <ActionTriggerContext.Provider value={actionTrigger}>{children}</ActionTriggerContext.Provider>
+  const listener = useCallback(
+    (propKeys: PropKeys[], callback: () => void, deps?: unknown[]) => {
+      if (actionTrigger == null) return;
+
+      const actionSets = propKeys
+        .map((prop) => actionTrigger[prop])
+        .filter(Boolean)
+        .flat();
+
+      const isRelevantAction = actionSets.length > 0;
+
+      const hasSpecificKeys = ['tableAdd', 'tableUpdate', 'tableDelete'].some(
+        (key) => key in actionTrigger
+      );
+
+      const isDependencyTriggered = hasSpecificKeys
+        ? deps?.some((dep) => actionSets.includes(dep as string))
+        : deps?.every((dep) => actionSets.includes(dep as string));
+
+      if (deps ? isDependencyTriggered : isRelevantAction) {
+        callback?.();
+      }
+    },
+    [actionTrigger]
   );
+
+  const value = useMemo(() => ({ data: actionTrigger, listener }), [actionTrigger, listener]);
+  return <ActionTriggerContext.Provider value={value}>{children}</ActionTriggerContext.Provider>;
 };

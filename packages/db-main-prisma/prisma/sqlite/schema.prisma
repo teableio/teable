@@ -316,16 +316,17 @@ model InvitationRecord {
 
 model Notification {
   id          String   @id @default(cuid())
-  fromUser    String   @map("from_user")
-  toUser      String   @map("to_user")
-  iconMeta    String   @map("icon_meta")
+  fromUser    String?  @map("from_user") @ignore
+  toUser      String?  @map("to_user") @ignore
+  fromUserId  String   @map("from_user_id")
+  toUserId    String   @map("to_user_id")
   type        String   @map("type")
   message     String   @map("message")
-  urlMeta     String   @map("url_meta")
+  urlMeta     String?  @map("url_meta")
   isRead      Boolean  @default(false) @map("is_read")
   createdTime DateTime @default(now()) @map("created_time")
   createdBy   String   @map("created_by")
 
-  @@index([toUser, isRead, createdTime])
+  @@index([toUserId, isRead, createdTime])
   @@map("notification")
 }

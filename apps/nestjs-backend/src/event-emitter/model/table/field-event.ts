@@ -29,9 +29,9 @@ export class FieldCreateEvent extends BaseOpEvent {
 export class FieldDeleteEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_FIELD_DELETE;
   @Expose() tableId: string;
-  @Expose() fieldId: string | string[] | undefined;
+  @Expose() fieldId: string | string[];
 
-  constructor(tableId: string, fieldId: string | string[] | undefined, context: IEventContext) {
+  constructor(tableId: string, fieldId: string | string[], context: IEventContext) {
     super(RawOpType.Del, Array.isArray(fieldId), context);
 
     this.tableId = tableId;
@@ -42,13 +42,9 @@ export class FieldDeleteEvent extends BaseOpEvent {
 export class FieldUpdateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_FIELD_UPDATE;
   @Expose() tableId: string;
-  @Expose() field: IChangeField | IChangeField[] | undefined;
+  @Expose() field: IChangeField | IChangeField[];
 
-  constructor(
-    tableId: string,
-    field: IChangeField | IChangeField[] | undefined,
-    context: IEventContext
-  ) {
+  constructor(tableId: string, field: IChangeField | IChangeField[], context: IEventContext) {
     super(RawOpType.Edit, Array.isArray(field), context);
 
     this.tableId = tableId;
