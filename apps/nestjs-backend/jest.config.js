@@ -26,7 +26,7 @@ const getTsConfigBasePaths = (tsConfigFile) => {
 const config = {
   displayName: `${packageJson.name}:unit`,
   cacheDirectory: getJestCachePath(packageJson.name),
-  maxWorkers: 2,
+  maxWorkers: 1,
   testEnvironment: 'node',
   verbose: true,
   rootDir: './',

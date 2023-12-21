@@ -38,7 +38,7 @@ export class UserFieldCore extends FieldCore {
 
   static defaultOptions(): IUserFieldOptions {
     return {
-      isMultiple: true,
+      isMultiple: false,
       shouldNotify: true,
     };
   }
